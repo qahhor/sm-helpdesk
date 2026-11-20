@@ -8,6 +8,7 @@ import { buildCsp, createNonce, CSP_HEADER } from '@/security/csp';
 // Выполняется перед каждым запросом страницы (в Next.js 16 файл называется proxy, раньше middleware).
 // 1. Адрес без языка или с неподдерживаемым языком перенаправляется на язык посетителя (FR-I18N-06).
 // 2. Для страницы создаётся одноразовый код и политика CSP (ТЗ 14.4).
+// 3. Приложению передаётся путь запроса: по нему страница входа знает, куда вернуть человека.
 
 const withLocale = createMiddleware(routing);
 
@@ -30,6 +31,8 @@ export function proxy(request: NextRequest): NextResponse {
   // Приложение получает код только от прокси: значения, присланные клиентом, затираются.
   // Next.js берёт код для своих скриптов из заголовка политики в запросе.
   request.headers.set('x-nonce', nonce);
+  // Путь запроса для возврата после входа. Страницы сервера адреса запроса не видят, поэтому его передаёт прокси.
+  request.headers.set('x-hub-path', `${request.nextUrl.pathname}${request.nextUrl.search}`);
   request.headers.delete('content-security-policy');
   request.headers.set(CSP_HEADER.toLowerCase(), csp);
 

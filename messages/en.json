@@ -17,7 +17,12 @@
       "system": "System"
     },
     "close": "Close",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "userMenu": {
+      "label": "User menu",
+      "signOut": "Sign out",
+      "sessions": "Sessions"
+    }
   },
   "client": {
     "home": {
@@ -78,6 +83,53 @@
       "title": "Workspace",
       "emptyTitle": "No queues yet",
       "emptyText": "Workspace sections open as they become ready. Request queues come first."
+    }
+  },
+  "auth": {
+    "staff": {
+      "login": {
+        "title": "Staff sign-in",
+        "email": "Email",
+        "password": "Password",
+        "submit": "Sign in",
+        "codeLabel": "Code from the app",
+        "codeHint": "Six digits from your authenticator app",
+        "codeSubmit": "Confirm",
+        "enrollTitle": "Set up the second factor",
+        "enrollText": "Scan the picture with an authenticator app such as Google Authenticator or 1Password, or type the key by hand. Then enter the code from the app.",
+        "qrLabel": "QR code for the authenticator app",
+        "secretLabel": "Key for manual entry",
+        "startOver": "Start over",
+        "setupDone": "Password saved. Sign in with the new password.",
+        "reauth": "Sign in again to continue with this action.",
+        "errors": {
+          "invalid_credentials": "Wrong email or password.",
+          "rate_limited": "Too many attempts. Try again in {minutes, plural, one {# minute} other {# minutes}}.",
+          "code_invalid": "The code did not match. Check the time on your phone and enter a new code.",
+          "code_locked": "Too many wrong codes. Try again in 15 minutes.",
+          "sign_in_expired": "The time to enter the code has run out. Sign in again.",
+          "invalid_input": "The code has six digits.",
+          "generic": "That did not work. Try again."
+        }
+      },
+      "setup": {
+        "title": "Set your password",
+        "text": "You have been invited to the Smartup Hub workspace. Sign-in address: {email}.",
+        "name": "Name",
+        "password": "Password",
+        "passwordHint": "At least 12 characters",
+        "passwordRepeat": "Password again",
+        "submit": "Save password",
+        "invalidTitle": "This link does not work",
+        "invalidText": "It has been used or has expired. Ask an administrator to send a new one.",
+        "errors": {
+          "password_short": "The password must be at least 12 characters long.",
+          "password_mismatch": "The passwords do not match.",
+          "link_invalid": "The link has been used or has expired. Ask an administrator to send a new one.",
+          "email_taken": "This address belongs to another account. Contact an administrator.",
+          "invalid_input": "Check the name and the password."
+        }
+      }
     }
   }
 }

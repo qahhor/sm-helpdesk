@@ -11,7 +11,7 @@ for (const theme of ['light', 'dark'] as const)
   for (const locale of ['ru', 'uz', 'en'] as const)
     test(`витрина ${theme} ${locale}`, async ({ page, context, baseURL }) => {
       await context.addCookies([{ name: 'hub_theme', value: theme, url: baseURL }]);
-      await page.goto(`/${locale}/agent/dev/ui`);
+      await page.goto(`/${locale}/dev/ui`);
       await page.evaluate(() => document.fonts.ready);
       await expect(page).toHaveScreenshot(`showcase-${theme}-${locale}.png`, {
         fullPage: true,
@@ -21,14 +21,14 @@ for (const theme of ['light', 'dark'] as const)
     });
 
 test('на странице не больше одного крупного Теза (UX-B-04)', async ({ page }) => {
-  await page.goto('/ru/agent/dev/ui?section=empty-state');
+  await page.goto('/ru/dev/ui?section=empty-state');
   expect(await page.locator('[data-tez="main"]').count()).toBe(1);
-  await page.goto('/ru/agent/dev/ui');
+  await page.goto('/ru/dev/ui');
   expect(await page.locator('[data-tez="main"]').count()).toBeLessThanOrEqual(1);
 });
 
 test('значок Теза в тёмной шапке берётся из файла для тёмного фона', async ({ page }) => {
-  await page.goto('/ru/agent/dev/ui?section=brand');
+  await page.goto('/ru/dev/ui?section=brand');
   const sources = await page.locator('.bg-header [data-tez="icon"] img').evaluateAll((images) =>
     images.map((image) => new URL((image as HTMLImageElement).src).pathname),
   );
@@ -38,7 +38,7 @@ test('значок Теза в тёмной шапке берётся из фа�
 });
 
 test('нижний лист открывается, получает фокус и закрывается клавишей Escape', async ({ page }) => {
-  await page.goto('/ru/agent/dev/ui?section=sheet');
+  await page.goto('/ru/dev/ui?section=sheet');
   await page.getByRole('button', { name: 'Профиль' }).first().click();
   const sheet = page.getByRole('dialog', { name: 'Профиль' });
   await expect(sheet).toBeVisible();

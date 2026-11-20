@@ -44,3 +44,6 @@ next-env.d.ts
 test-results/
 playwright-report/
 .lighthouseci/
+
+# Учётные данные и сессии сотрудников браузерных тестов
+tests/e2e/.auth/

@@ -79,6 +79,7 @@ export const invitations = pgTable('hdu_invitations', {
   email: text('email').notNull(),
   role: text('role').$type<ClientRole | StaffRole>().notNull(),
   name: text('name'),
+  isLead: boolean('is_lead').notNull().default(false),
   tokenHash: text('token_hash').notNull(),
   invitedBy: uuid('invited_by'),
   expiresOn: moment('expires_on').notNull(),

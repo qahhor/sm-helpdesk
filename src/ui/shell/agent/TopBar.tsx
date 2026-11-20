@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from 'next-intl/server';
+import type { ReactNode } from 'react';
 import type { Locale } from '@/i18n/locales';
 import { localeNames } from '@/i18n/messages';
 import { Link } from '@/i18n/navigation';
@@ -10,9 +11,9 @@ import { type NavGroupView, SectionsMenu } from './SectionsMenu';
 
 /**
  * Верхняя панель рабочего места по образцу Smartup Web: тёмная в обеих темах, высота 52 px,
- * логотип для тёмного фона, пять групп разделов, справа язык и тема.
+ * логотип для тёмного фона, пять групп разделов, справа язык, тема и меню пользователя.
  */
-export async function TopBar() {
+export async function TopBar({ userMenu }: { userMenu?: ReactNode }) {
   const t = await getTranslations();
   const groups: NavGroupView[] = AGENT_NAV_GROUPS.map((group) => ({
     key: group.key,
@@ -46,6 +47,7 @@ export async function TopBar() {
             system: t('common.theme.system'),
           }}
         />
+        {userMenu}
       </div>
     </header>
   );

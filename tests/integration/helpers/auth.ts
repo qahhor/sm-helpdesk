@@ -210,3 +210,29 @@ export async function verifiedClientFixture(
   if (opts.memberships !== 0) await addMembership(userId, opts.orgId ?? (await ensureOrg()));
   return { userId, email: email.trim().toLowerCase() };
 }
+
+// --- Запросы для функций модуля (задача 6) ---
+
+export type TestRequest = { headers: Headers; setCookies(responseHeaders: Headers): void };
+
+/** Запрос, который хранит куки между вызовами, как браузер. */
+export function newJar(startHeaders: Record<string, string> = {}): { request: TestRequest; cookie(): string } {
+  let cookie = '';
+  const request: TestRequest = {
+    get headers() {
+      return new Headers(cookie ? { ...startHeaders, cookie } : startHeaders);
+    },
+    setCookies(responseHeaders) {
+      cookie = cookieOf(responseHeaders, cookie);
+    },
+  };
+  return { request, cookie: () => cookie };
+}
+
+/** Запрос без кук: полученные куки отбрасывает. */
+export const noRequest: TestRequest = {
+  get headers() {
+    return new Headers();
+  },
+  setCookies() {},
+};

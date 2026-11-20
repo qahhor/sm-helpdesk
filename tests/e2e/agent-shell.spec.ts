@@ -1,5 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { storageStateOf } from './helpers/staff';
+
+// Рабочее место открыто только сотрудникам: тесты оболочки идут от имени вошедшего сотрудника.
+test.use({ storageState: storageStateOf('care') });
 
 const HEADER_COLOR = 'rgb(7, 32, 48)';
 const GROUPS = /^(Работа|Знания|Клиенты|Аналитика|Настройки)$/;

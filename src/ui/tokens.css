@@ -86,6 +86,9 @@
   --hub-on-header: #FFFFFF;
   --hub-muted-fg: #667072;
   --hub-red-on-bg: #B92925;
+  /* QR-код одинаков в обеих темах: тёмный рисунок на светлом поле, иначе сканер его не читает */
+  --hub-qr-fg: #090C0D;
+  --hub-qr-bg: #FFFFFF;
 
   --hub-label-gray-fg: var(--sm-pill-gy-fg);
   --hub-label-gray-bg: var(--sm-pill-gy-bg);
@@ -172,6 +175,9 @@
   --color-success-bg: var(--sm-grnbg);
   --color-warning: var(--sm-amb);
   --color-warning-bg: var(--sm-ambbg);
+
+  --color-qr-foreground: var(--hub-qr-fg);
+  --color-qr-background: var(--hub-qr-bg);
 
   --color-label-gray-fg: var(--hub-label-gray-fg);
   --color-label-gray-bg: var(--hub-label-gray-bg);

@@ -17,7 +17,12 @@
       "system": "Tizimdagidek"
     },
     "close": "Yopish",
-    "skipToContent": "Asosiy mazmunga o'tish"
+    "skipToContent": "Asosiy mazmunga o'tish",
+    "userMenu": {
+      "label": "Foydalanuvchi menyusi",
+      "signOut": "Chiqish",
+      "sessions": "Seanslar"
+    }
   },
   "client": {
     "home": {
@@ -78,6 +83,53 @@
       "title": "Ish joyi",
       "emptyTitle": "Hozircha navbatlar yo'q",
       "emptyText": "Ish joyi bo'limlari tayyor bo'lishi bilan ochiladi. Birinchi bo'lib murojaatlar navbatlari paydo bo'ladi."
+    }
+  },
+  "auth": {
+    "staff": {
+      "login": {
+        "title": "Xodimlar uchun kirish",
+        "email": "Email",
+        "password": "Parol",
+        "submit": "Kirish",
+        "codeLabel": "Ilovadagi kod",
+        "codeHint": "Kodlar ilovasidagi olti raqam",
+        "codeSubmit": "Tasdiqlash",
+        "enrollTitle": "Ikkinchi omilni ulang",
+        "enrollText": "Rasmni kodlar ilovasi bilan skanerlang, masalan Google Authenticator yoki 1Password, yoki kalitni qo'lda kiriting. So'ng ilovadagi kodni kiriting.",
+        "qrLabel": "Kodlar ilovasi uchun QR-kod",
+        "secretLabel": "Qo'lda kiritish uchun kalit",
+        "startOver": "Qaytadan boshlash",
+        "setupDone": "Parol saqlandi. Yangi parol bilan kiring.",
+        "reauth": "Bu amal uchun qaytadan kiring.",
+        "errors": {
+          "invalid_credentials": "Email yoki parol noto'g'ri.",
+          "rate_limited": "Urinishlar juda ko'p. {minutes, plural, one {# daqiqadan} other {# daqiqadan}} keyin qayta urinib ko'ring.",
+          "code_invalid": "Kod mos kelmadi. Telefondagi vaqtni tekshiring va yangi kodni kiriting.",
+          "code_locked": "Noto'g'ri kodlar juda ko'p. 15 daqiqadan keyin qayta urinib ko'ring.",
+          "sign_in_expired": "Kodni kiritish vaqti tugadi. Qaytadan kiring.",
+          "invalid_input": "Kod olti raqamdan iborat.",
+          "generic": "Amalga oshmadi. Qayta urinib ko'ring."
+        }
+      },
+      "setup": {
+        "title": "Parol o'rnating",
+        "text": "Sizni Smartup Hub ish joyiga taklif qilishdi. Kirish manzili: {email}.",
+        "name": "Ism",
+        "password": "Parol",
+        "passwordHint": "Kamida 12 belgi",
+        "passwordRepeat": "Parolni takrorlang",
+        "submit": "Parolni saqlash",
+        "invalidTitle": "Havola yaroqsiz",
+        "invalidText": "U ishlatilgan yoki muddati tugagan. Administratordan yangisini yuborishni so'rang.",
+        "errors": {
+          "password_short": "Parol kamida 12 belgidan iborat bo'lishi kerak.",
+          "password_mismatch": "Parollar mos kelmadi.",
+          "link_invalid": "Havola ishlatilgan yoki muddati tugagan. Administratordan yangisini yuborishni so'rang.",
+          "email_taken": "Bu manzil boshqa hisobga biriktirilgan. Administratorga murojaat qiling.",
+          "invalid_input": "Ism va parolni tekshiring."
+        }
+      }
     }
   }
 }

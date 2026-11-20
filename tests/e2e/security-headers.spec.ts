@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { storageStateOf } from './helpers/staff';
 
 const nonceOf = (headers: Record<string, string>) =>
   /'nonce-([^']+)'/.exec(headers['content-security-policy-report-only'] ?? '')?.[1];
@@ -44,20 +45,27 @@ test('скрипты страницы подписаны тем же кодом,
   expect(html).not.toContain('attacker');
 });
 
-test('страница не нарушает собственную политику', async ({ page }) => {
+test('страница не нарушает собственную политику', async ({ browser }) => {
+  // Рабочее место открыто только сотрудникам: проверка идёт от имени вошедшего сотрудника.
+  const context = await browser.newContext({ storageState: storageStateOf('care') });
+  const page = await context.newPage();
   const violations: string[] = [];
   page.on('console', (m) => {
     if (m.text().includes('Content Security Policy')) violations.push(m.text());
   });
-  for (const path of ['/ru', '/ru/agent', '/uz/tickets', '/en/agent/dev/ui']) await page.goto(path);
+  for (const path of ['/ru', '/ru/agent', '/uz/tickets', '/en/dev/ui']) await page.goto(path);
   // Меню и нижний лист: содержимое появляется только после нажатия.
   await page.goto('/ru');
   await page.getByRole('button', { name: 'Тема' }).click();
   await page.keyboard.press('Escape');
-  await page.goto('/ru/agent/dev/ui?section=sheet');
+  await page.goto('/ru/dev/ui?section=sheet');
   await page.getByRole('button', { name: 'Профиль' }).first().click();
   await page.keyboard.press('Escape');
+  await page.goto('/ru/agent');
+  await page.getByRole('button', { name: /Камила/ }).click();
+  await page.keyboard.press('Escape');
   expect(violations).toEqual([]);
+  await context.close();
 });
 
 test('запрет встраивания действует на страницах и обработчиках (ревью M9)', async ({ request }) => {

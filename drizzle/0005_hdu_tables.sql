@@ -335,6 +335,7 @@ CREATE TABLE hdu_invitations (
   email         text        NOT NULL,
   role          text        NOT NULL,
   name          text,
+  is_lead       boolean     NOT NULL DEFAULT false,
   token_hash    text        NOT NULL,
   invited_by    uuid,
   expires_on    timestamptz NOT NULL,
@@ -356,7 +357,9 @@ CREATE TABLE hdu_invitations (
   CONSTRAINT hdu_invitations_c2 CHECK (email <> '' AND email = lower(btrim(email))),
   -- Токен хранится только хешем SHA-256 (ТЗ 14.3).
   CONSTRAINT hdu_invitations_c3 CHECK (token_hash ~ '^[0-9a-f]{64}$'),
-  CONSTRAINT hdu_invitations_c4 CHECK (accepted_on IS NULL OR revoked_on IS NULL)
+  CONSTRAINT hdu_invitations_c4 CHECK (accepted_on IS NULL OR revoked_on IS NULL),
+  -- Руководителем линии может быть только сотрудник.
+  CONSTRAINT hdu_invitations_c5 CHECK (NOT is_lead OR org_id IS NULL)
 );
 
 CREATE INDEX hdu_invitations_i1 ON hdu_invitations (org_id);
@@ -369,6 +372,7 @@ COMMENT ON COLUMN hdu_invitations.invitation_id IS 'Идентификатор �
 COMMENT ON COLUMN hdu_invitations.email IS 'Адрес приглашённого';
 COMMENT ON COLUMN hdu_invitations.role IS 'Роль, которую получит приглашённый';
 COMMENT ON COLUMN hdu_invitations.name IS 'Имя приглашённого, если его указал приглашающий';
+COMMENT ON COLUMN hdu_invitations.is_lead IS 'Приглашённый сотрудник станет руководителем своей линии';
 COMMENT ON COLUMN hdu_invitations.token_hash IS 'Хеш одноразового токена ссылки. Сам токен не хранится. Приложению под ролью hub_app недоступен';
 COMMENT ON COLUMN hdu_invitations.invited_by IS 'Кто пригласил. Пусто у приглашения из команды консоли';
 COMMENT ON COLUMN hdu_invitations.expires_on IS 'До какого момента ссылка действует';
@@ -388,9 +392,9 @@ CREATE FUNCTION app.hdu_invitations_guard() RETURNS trigger LANGUAGE plpgsql AS
 $$
 BEGIN
   IF app.actor_type() IN ('client', 'staff')
-     AND (NEW.org_id, NEW.email, NEW.role, NEW.name, NEW.token_hash, NEW.invited_by, NEW.expires_on, NEW.accepted_on)
+     AND (NEW.org_id, NEW.email, NEW.role, NEW.name, NEW.is_lead, NEW.token_hash, NEW.invited_by, NEW.expires_on, NEW.accepted_on)
          IS DISTINCT FROM
-         (OLD.org_id, OLD.email, OLD.role, OLD.name, OLD.token_hash, OLD.invited_by, OLD.expires_on, OLD.accepted_on) THEN
+         (OLD.org_id, OLD.email, OLD.role, OLD.name, OLD.is_lead, OLD.token_hash, OLD.invited_by, OLD.expires_on, OLD.accepted_on) THEN
     RAISE EXCEPTION 'Приглашение: менять можно только отметку об отзыве, остальное нельзя' USING ERRCODE = '42501';
   END IF;
   RETURN NEW;
@@ -445,8 +449,22 @@ CREATE POLICY hdu_invitations_care_update ON hdu_invitations FOR UPDATE TO hub_a
   USING (app.actor_type() = 'staff' AND app.staff_role() IN ('care', 'admin') AND org_id IS NOT NULL)
   WITH CHECK (app.actor_type() = 'staff' AND app.staff_role() IN ('care', 'admin') AND org_id IS NOT NULL);
 
+-- Сотрудников приглашает администратор портала (FR-ADM-03): строки без организации.
+CREATE POLICY hdu_invitations_admin_staff_select ON hdu_invitations FOR SELECT TO hub_auth
+  USING (app.actor_type() = 'staff' AND app.staff_role() = 'admin' AND org_id IS NULL);
+
+CREATE POLICY hdu_invitations_admin_staff_insert ON hdu_invitations FOR INSERT TO hub_auth
+  WITH CHECK (
+    app.actor_type() = 'staff' AND app.staff_role() = 'admin'
+    AND org_id IS NULL AND invited_by = app.user_uuid()
+  );
+
+CREATE POLICY hdu_invitations_admin_staff_update ON hdu_invitations FOR UPDATE TO hub_auth
+  USING (app.actor_type() = 'staff' AND app.staff_role() = 'admin' AND org_id IS NULL)
+  WITH CHECK (app.actor_type() = 'staff' AND app.staff_role() = 'admin' AND org_id IS NULL);
+
 -- hub_app читает приглашения без хеша токена.
-GRANT SELECT (org_id, invitation_id, email, role, name, invited_by, expires_on, accepted_on, revoked_on,
+GRANT SELECT (org_id, invitation_id, email, role, name, is_lead, invited_by, expires_on, accepted_on, revoked_on,
               created_by, created_on, modified_by, modified_on)
   ON hdu_invitations TO hub_app;
 GRANT SELECT, INSERT, UPDATE ON hdu_invitations TO hub_auth;

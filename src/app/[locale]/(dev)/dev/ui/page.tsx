@@ -40,7 +40,7 @@ const TEXT_SAMPLES = [
   ['tr', 'Türkçe: ğ, İ, ı, ş, ç, ö, ü.'],
 ] as const;
 
-export default async function ShowcasePage({ searchParams }: PageProps<'/[locale]/agent/dev/ui'>) {
+export default async function ShowcasePage({ searchParams }: PageProps<'/[locale]/dev/ui'>) {
   if (!showcaseEnabled(getEnv())) notFound();
   const only = (await searchParams).section;
   const t = await getTranslations();

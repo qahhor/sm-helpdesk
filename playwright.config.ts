@@ -39,9 +39,15 @@ export default defineConfig({
     timezoneId: 'Asia/Tashkent',
   },
   projects: [
-    { name: 'phone', use: { browserName: 'chromium', viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true } },
-    { name: 'desktop', use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
-    { name: 'narrow', use: { browserName: 'chromium', viewport: { width: 1100, height: 800 } } },
+    // Сотрудники для тестов: приглашение, пароль и второй фактор через интерфейс (tests/e2e/staff.setup.ts).
+    { name: 'setup', testMatch: /.*\.setup\.ts$/, use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
+    {
+      name: 'phone',
+      dependencies: ['setup'],
+      use: { browserName: 'chromium', viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true },
+    },
+    { name: 'desktop', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
+    { name: 'narrow', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1100, height: 800 } } },
   ],
   webServer: {
     command: 'pnpm start',

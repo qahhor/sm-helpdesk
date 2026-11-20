@@ -1,10 +1,12 @@
 import { getTranslations } from 'next-intl/server';
+import { requireStaffActor } from '@/modules/hdu/api';
 import { Card } from '@/ui/components/card';
 import { EmptyState } from '@/ui/components/EmptyState';
 import { PageHeader } from '@/ui/components/PageHeader';
 
 // Главная рабочего места. Очереди обращений появляются в вехе M3.
 export default async function AgentHomePage() {
+  await requireStaffActor();
   const t = await getTranslations('agent');
   return (
     <>

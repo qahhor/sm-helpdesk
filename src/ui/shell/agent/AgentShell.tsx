@@ -5,9 +5,10 @@ import { TopBar } from './TopBar';
 
 /**
  * Оболочка рабочего места сотрудника. Плотная раскладка для ноутбука: текст 14 px, строка 48 px.
- * Доступ только сотрудникам: проверка входа и роли добавляется в вехе M1.
+ * Доступ проверяет раскладка (agent) и каждая страница (requireStaffActor). Меню пользователя
+ * приходит готовым от раскладки: у витрины компонентов его нет.
  */
-export async function AgentShell({ children }: { children: ReactNode }) {
+export async function AgentShell({ children, userMenu }: { children: ReactNode; userMenu?: ReactNode }) {
   const t = await getTranslations('common');
   return (
     <AgentRoot>
@@ -17,7 +18,7 @@ export async function AgentShell({ children }: { children: ReactNode }) {
       >
         {t('skipToContent')}
       </a>
-      <TopBar />
+      <TopBar userMenu={userMenu} />
       <main id="main" className="mx-auto flex w-full max-w-dashboard flex-1 flex-col gap-4 px-4 py-4 laptop:px-6">
         {children}
       </main>

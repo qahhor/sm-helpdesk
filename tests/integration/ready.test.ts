@@ -1,0 +1,62 @@
+import { createServer, type Socket } from 'node:net';
+import { Pool } from 'pg';
+import { expect, test } from 'vitest';
+import { pingDb, pingPool } from '@/db/client';
+import { isDatabaseReady } from '@/modules/hdc/api';
+import { healthResponse, readyResponse } from '@/modules/hdc/util';
+
+test('база доступна: 200', async () => {
+  const res = await readyResponse(() => pingDb(2000));
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ status: 'ready', checks: { db: 'ok' } });
+  expect(res.headers.get('cache-control')).toBe('no-store');
+});
+
+test('сервис модуля проверяет базу приложения', async () => {
+  expect(await isDatabaseReady()).toBe(true);
+});
+
+test('база недоступна: 503 не дольше чем за 3 секунды, без подробностей', async () => {
+  const dead = new Pool({ connectionString: 'postgres://hub_app:x@127.0.0.1:1/hub' });
+  const started = Date.now();
+  const res = await readyResponse(() => pingPool(dead, 2000));
+  expect(res.status).toBe(503);
+  expect(Date.now() - started).toBeLessThan(3000);
+  const body = await res.text();
+  expect(JSON.parse(body)).toEqual({ status: 'not_ready', checks: { db: 'fail' } });
+  expect(body).not.toMatch(/ECONNREFUSED|127\.0\.0\.1|hub_app/);
+  expect(res.headers.get('cache-control')).toBe('no-store');
+  await dead.end();
+});
+
+test('база принимает соединение и молчит: ответ приходит по истечении предела', async () => {
+  const sockets: Socket[] = [];
+  const silent = createServer((socket) => sockets.push(socket));
+  await new Promise<void>((resolve) => silent.listen(0, '127.0.0.1', resolve));
+  const { port } = silent.address() as { port: number };
+  const hung = new Pool({ connectionString: `postgres://hub_app:x@127.0.0.1:${port}/hub` });
+  try {
+    const started = Date.now();
+    expect(await pingPool(hung, 300)).toBe(false);
+    expect(Date.now() - started).toBeLessThan(1500);
+  } finally {
+    for (const socket of sockets) socket.destroy();
+    await new Promise((resolve) => silent.close(resolve));
+    await hung.end().catch(() => {});
+  }
+});
+
+test('проверка с ошибкой внутри считается отказом, а не падением', async () => {
+  const res = await readyResponse(async () => {
+    throw new Error('секретная подробность');
+  });
+  expect(res.status).toBe(503);
+  expect(await res.text()).not.toMatch(/секретная/);
+});
+
+test('health не зависит от базы', async () => {
+  const res = healthResponse();
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ status: 'ok' });
+  expect(res.headers.get('cache-control')).toBe('no-store');
+});

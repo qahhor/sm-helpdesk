@@ -47,7 +47,8 @@ test('цепочки запасных языков заданы для кажд�
 });
 
 test('название каждого языка на нём самом берётся из его файла', async () => {
-  expect(await localeNames()).toEqual({ ru: 'Русский', uz: "O'zbekcha", en: 'English' });
+  expect(await localeNames()).toMatchObject({ ru: 'Русский', uz: "O'zbekcha", en: 'English' });
+  expect(Object.keys(await localeNames()).sort()).toEqual([...LOCALES].sort());
 });
 
 test('настоящие файлы: главная переведена на три языка', async () => {

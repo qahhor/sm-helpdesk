@@ -7,6 +7,7 @@
   },
   "packageManager": "pnpm@12.21.0",
   "scripts": {
+    "dev:up": "node scripts/dev-up.mjs",
     "dev": "node scripts/next.mjs dev",
     "build": "node scripts/next.mjs build",
     "start": "node scripts/start-standalone.mjs",

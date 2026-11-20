@@ -1,9 +1,26 @@
+import { execFileSync } from 'node:child_process';
 import { defineConfig } from '@playwright/test';
 
 // Браузерные тесты идут против собранного приложения (pnpm build, затем pnpm start).
 // Три ширины экрана: телефон клиента, ноутбук агента и узкое окно, где меню агента сворачивается.
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
+
+// База нужна проверке /api/ready. В CI её поднимает сама задача и задаёт адреса.
+// На машине разработчика сценарий создаёт .env при первом запуске, поднимает базу из compose.yaml,
+// создаёт роли и применяет миграции. Процессы тестов наследуют признак и повторно его не запускают.
+if (!process.env.CI) {
+  if (!process.env.HUB_E2E_PREPARED) {
+    execFileSync(process.execPath, ['scripts/dev-up.mjs', '--prepare'], { stdio: 'inherit' });
+    process.env.HUB_E2E_PREPARED = '1';
+  }
+  process.loadEnvFile('.env');
+}
+const need = (name: string): string => {
+  const value = process.env[name];
+  if (!value) throw new Error(`Браузерные тесты: не задана переменная ${name}`);
+  return value;
+};
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -33,9 +50,8 @@ export default defineConfig({
       HUB_URL: baseURL,
       HUB_DOMAIN: 'localhost',
       HUB_SHOWCASE: '1',
-      // Страницы этих тестов к базе не обращаются: адреса нужны только для проверки окружения.
-      DATABASE_URL_APP: process.env.DATABASE_URL_APP ?? 'postgres://hub_app:e2e@127.0.0.1:5432/hub',
-      DATABASE_URL_AUTH: process.env.DATABASE_URL_AUTH ?? 'postgres://hub_auth:e2e@127.0.0.1:5432/hub',
+      DATABASE_URL_APP: need('DATABASE_URL_APP'),
+      DATABASE_URL_AUTH: need('DATABASE_URL_AUTH'),
     },
   },
 });

@@ -2,7 +2,15 @@ import 'server-only';
 import type { ClientActor } from '@/db/with-actor';
 import type { Locale } from '@/i18n/locales';
 import { z } from 'zod';
-import { getOrgRow, loadClientAccess, type MyOrganization, type OrgRow, searchOrgs, setActiveOrganization } from '../core/orgs';
+import {
+  getOrgRow,
+  loadClientAccess,
+  type MyOrganization,
+  type OrgRow,
+  searchOrgs,
+  setActiveOrganization,
+  updateOrgSettings,
+} from '../core/orgs';
 import { HduError } from '../error';
 import { parseInput, uuidInput } from '../input';
 import { requireHumanStaff } from './scope';
@@ -115,4 +123,20 @@ export async function getOrganization(ctx: StaffContext, orgId: unknown): Promis
   requireHumanStaff(ctx);
   const parsed = uuidInput.safeParse(orgId);
   return parsed.success ? getOrgRow(ctx.actor, parsed.data) : null;
+}
+
+const settingsInput = z
+  .object({
+    orgId: uuidInput,
+    category: z.enum(['A', 'B', 'C', 'D']).nullable().optional(),
+    isAiEnabled: z.boolean().optional(),
+  })
+  .strict();
+
+/** Категория клиента и отключение AI-обработки (FR-ADM-02): care и admin. Запись org.updated в той же транзакции. */
+export async function updateOrganization(ctx: StaffContext, input: unknown): Promise<void> {
+  const actor = ctx?.actor;
+  if (actor?.type !== 'staff' || (actor.staffRole !== 'care' && actor.staffRole !== 'admin')) throw new HduError('forbidden');
+  const { orgId, ...settings } = parseInput(settingsInput, input);
+  if (!(await updateOrgSettings(actor, orgId, settings))) throw new HduError('not_found');
 }

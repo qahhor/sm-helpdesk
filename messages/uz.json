@@ -275,8 +275,19 @@
         "disabled": "A'zo o'chirildi.",
         "enabled": "A'zo yana faol.",
         "invited": "Taklif yuborildi.",
-        "revoked": "Taklif bekor qilindi."
-      }
+        "revoked": "Taklif bekor qilindi.",
+        "settingsSaved": "Saqlandi."
+      },
+      "settingsTitle": "Tashkilot sozlamalari",
+      "categoryLabel": "Mijoz toifasi",
+      "categoryNone": "Belgilanmagan",
+      "aiLabel": "Murojaatlarni AI-yordamchi ko'rib chiqadi",
+      "aiHint": "Agar tashkilot murojaatlarni AI orqali ko'rib chiqishdan voz kechgan bo'lsa, o'chiring.",
+      "saveSettings": "Sozlamalarni saqlash",
+      "ai": "AI orqali ko'rib chiqish",
+      "aiOn": "yoqilgan",
+      "aiOff": "o'chirilgan",
+      "auditLink": "Tashkilot audit jurnali"
     },
     "settings": {
       "title": "Sozlamalar",
@@ -291,6 +302,10 @@
         "staff": {
           "title": "Xodimlar",
           "text": "Taklif, rol va liniya rahbari, bloklash, parol va ikkinchi omilni tiklash."
+        },
+        "audit": {
+          "title": "Audit jurnali",
+          "text": "Huquqlar va sozlamalar bilan kim, nima va qachon qilgani. Yozuvlarni o'zgartirib yoki o'chirib bo'lmaydi."
         }
       },
       "servers": {
@@ -456,6 +471,90 @@
         "reauth": "Qayta kirish",
         "manage": "Boshqarish",
         "close": "Yopish"
+      },
+      "audit": {
+        "title": "Audit jurnali",
+        "intro": "Huquqlar va sozlamalar bilan kim, nima va qachon qilgani. Yozuvlarni o'zgartirib yoki o'chirib bo'lmaydi.",
+        "from": "Dan",
+        "to": "Gacha",
+        "action": "Amal",
+        "allActions": "Barcha amallar",
+        "objectType": "Obyekt turi",
+        "allTypes": "Barcha turlar",
+        "show": "Ko'rsatish",
+        "reset": "Filtrlarni tozalash",
+        "filteredBy": "Tanlov: {name}",
+        "clear": "Tanlovni olib tashlash",
+        "columns": {
+          "time": "Vaqt",
+          "actor": "Muallif",
+          "action": "Amal",
+          "object": "Obyekt",
+          "org": "Tashkilot",
+          "changes": "O'zgarishlar",
+          "ip": "Manzil"
+        },
+        "actorTypes": {
+          "system": "Tizim",
+          "agent": "AI-xodim",
+          "client": "Mijoz",
+          "staff": "Xodim"
+        },
+        "objectTypes": {
+          "staff": "Xodim",
+          "server": "Server",
+          "membership": "Ishtirokchi",
+          "invitation": "Taklif",
+          "user": "Foydalanuvchi",
+          "session": "Sessiya",
+          "organization": "Tashkilot"
+        },
+        "none": "yo'q",
+        "empty": "Tanlangan davr uchun yozuvlar yo'q.",
+        "invalid": "Filtrlarni tekshiring: sanalar va qiymatlar.",
+        "next": "Keyingi 50 ta yozuv",
+        "first": "Yangi yozuvlarga",
+        "actions": {
+          "staff": {
+            "invited": "Xodim taklif qilindi",
+            "created": "Xodim qo'shildi",
+            "reset": "Xodimning kirishi tiklandi",
+            "signed_in": "Xodim kirdi",
+            "role_changed": "Xodim roli o'zgartirildi",
+            "state_changed": "Xodim bloklandi yoki blokdan chiqarildi"
+          },
+          "server": {
+            "added": "Server qo'shildi",
+            "disabled": "Server o'chirildi",
+            "enabled": "Server yoqildi",
+            "updated": "Server o'zgartirildi"
+          },
+          "org": {
+            "provisioned": "Tashkilot yaratildi",
+            "updated": "Tashkilot sozlamalari o'zgartirildi"
+          },
+          "member": {
+            "joined": "Ishtirokchi qo'shildi",
+            "role_changed": "Ishtirokchi roli o'zgartirildi",
+            "state_changed": "Ishtirokchi o'chirildi yoki yoqildi"
+          },
+          "invitation": {
+            "created": "Taklif yaratildi",
+            "revoked": "Taklif bekor qilindi",
+            "accepted": "Taklif qabul qilindi"
+          },
+          "user": {
+            "email_confirmed": "Manzil tasdiqlandi",
+            "signed_in_telegram": "Telegram boti orqali kirish"
+          },
+          "session": {
+            "revoked": "Sessiya yakunlandi"
+          },
+          "telegram": {
+            "linked": "Telegram bog'landi",
+            "unlinked": "Telegram uzildi"
+          }
+        }
       }
     }
   },

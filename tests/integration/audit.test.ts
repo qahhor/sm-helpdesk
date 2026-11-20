@@ -2,7 +2,10 @@ import { expect, test } from 'vitest';
 import { withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/audit';
+import { listAudit } from '@/modules/hdc/api';
+import { staffCtx } from './helpers/auth';
 import { admin, agentL1, asActor, clientA, pools, system } from './helpers/db';
+import { seedTwoOrgs } from './isolation/fixture';
 
 test('запись журнала получает актора от базы, а не от сервиса', async () => {
   await withActor(admin, (tx) =>
@@ -94,4 +97,61 @@ test('секреты, большие объёмы и неизвестные де
     withActor(admin, (tx) => writeAudit(tx, { action: 'staff.reset', objectType: 'staff', ip: 'not an ip' })),
   ).rejects.toThrow();
   expect((await pools.root.query('select 1 from hdc_audit_log')).rowCount).toBe(0);
+});
+
+// --- Просмотр журнала (задача 20, FR-ADM-07) ---
+
+test('список журнала фильтруется и листается без пропусков и повторов', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = staffCtx(f.adminStaff);
+  for (let i = 0; i < 120; i++)
+    await withActor(f.adminStaff.actor, (tx) =>
+      writeAudit(tx, { action: i % 2 ? 'server.added' : 'server.disabled', objectType: 'server', objectId: `p-${i}` }),
+    );
+  const seen: string[] = [];
+  let cursor: string | null = null;
+  let pages = 0;
+  do {
+    const page: Awaited<ReturnType<typeof listAudit>> = await listAudit(ctx, { objectType: 'server', action: 'server.added', cursor: cursor ?? undefined });
+    expect(page.items.length).toBeLessThanOrEqual(50);
+    seen.push(...page.items.map((row) => row.objectId ?? ''));
+    cursor = page.nextCursor;
+    pages++;
+  } while (cursor);
+  expect(pages).toBe(2);
+  expect(seen).toHaveLength(60);
+  expect(new Set(seen).size).toBe(60);
+  // От новых к старым.
+  expect(seen[0]).toBe('p-119');
+  await expect(listAudit(staffCtx(f.care), {})).rejects.toMatchObject({ code: 'forbidden' });
+  await expect(listAudit(ctx, { action: 'drop table' })).rejects.toMatchObject({ code: 'invalid_input' });
+  await expect(listAudit(ctx, { cursor: 'не курсор' })).rejects.toMatchObject({ code: 'invalid_input' });
+});
+
+test('строка журнала называет автора и организацию, период по умолчанию последние 7 дней', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = staffCtx(f.adminStaff);
+  await withActor(f.adminStaff.actor, (tx) =>
+    writeAudit(tx, { action: 'member.role_changed', objectType: 'membership', objectId: 'm-1', orgId: f.orgA.orgId, diff: { from: 'client_user', to: 'client_admin' }, ip: '203.0.113.5' }),
+  );
+  await pools.root.query(
+    `insert into hdc_audit_log (actor_type, action, object_type, object_id, created_on) values ('system', 'server.added', 'server', 'old-1', now() - interval '8 days')`,
+  );
+  const { items } = await listAudit(ctx, {});
+  expect(items.map((row) => row.objectId)).toEqual(['m-1']);
+  expect(items[0]).toMatchObject({
+    actorType: 'staff',
+    actorId: f.adminStaff.userId,
+    actorName: f.adminStaff.name,
+    action: 'member.role_changed',
+    orgId: f.orgA.orgId,
+    orgName: f.orgA.name,
+    diff: { from: 'client_user', to: 'client_admin' },
+    ip: '203.0.113.5',
+  });
+  const old = await listAudit(ctx, { from: new Date(Date.now() - 10 * 86400e3).toISOString() });
+  expect(old.items.map((row) => row.objectId)).toEqual(['m-1', 'old-1']);
+  expect((await listAudit(ctx, { orgId: f.orgB.orgId })).items).toEqual([]);
+  expect((await listAudit(ctx, { actorId: f.adminStaff.userId })).items).toHaveLength(1);
+  expect((await listAudit(ctx, { to: new Date(Date.now() - 86400e3).toISOString() })).items).toEqual([]);
 });

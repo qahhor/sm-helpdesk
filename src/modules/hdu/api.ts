@@ -25,6 +25,7 @@ export {
   type MyOrganization,
   type OrgRow,
   searchOrganizations,
+  updateOrganization,
 } from './api/orgs';
 export type { OrgScope } from './api/scope';
 export type { SessionView } from './api/sessions';

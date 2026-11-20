@@ -78,7 +78,8 @@ test.describe('первая линия', () => {
   test.use({ storageState: storageStateOf('l1') });
 
   test('видит организации и участников, но не кнопки управления', async ({ page }) => {
-    await page.goto('/ru/agent/organizations?q=ACME');
+    // Точное название: тест portal-access каждый прогон заводит организацию "ACME <число>".
+    await page.goto('/ru/agent/organizations?q=ACME%20Trade');
     await page.getByRole('link', { name: 'ACME Trade' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('ACME Trade');
     await expect(page.getByRole('row', { name: /Алишер/ })).toBeVisible();

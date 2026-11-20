@@ -275,8 +275,19 @@
         "disabled": "Member disabled.",
         "enabled": "Member is active again.",
         "invited": "Invitation sent.",
-        "revoked": "Invitation revoked."
-      }
+        "revoked": "Invitation revoked.",
+        "settingsSaved": "Saved."
+      },
+      "settingsTitle": "Organization settings",
+      "categoryLabel": "Client category",
+      "categoryNone": "Not set",
+      "aiLabel": "Requests are handled by the AI assistant",
+      "aiHint": "Turn off if the organization has declined AI handling of requests.",
+      "saveSettings": "Save settings",
+      "ai": "AI handling",
+      "aiOn": "on",
+      "aiOff": "off",
+      "auditLink": "Organization audit log"
     },
     "settings": {
       "title": "Settings",
@@ -291,6 +302,10 @@
         "staff": {
           "title": "Staff",
           "text": "Invitation, role and line lead, blocking, password and second factor reset."
+        },
+        "audit": {
+          "title": "Audit log",
+          "text": "Who did what and when with rights and settings. Entries cannot be changed or deleted."
         }
       },
       "servers": {
@@ -456,6 +471,90 @@
         "reauth": "Sign in again",
         "manage": "Manage",
         "close": "Close"
+      },
+      "audit": {
+        "title": "Audit log",
+        "intro": "Who did what and when with rights and settings. Entries cannot be changed or deleted.",
+        "from": "From",
+        "to": "To",
+        "action": "Action",
+        "allActions": "All actions",
+        "objectType": "Object type",
+        "allTypes": "All types",
+        "show": "Show",
+        "reset": "Reset filters",
+        "filteredBy": "Filter: {name}",
+        "clear": "Remove filter",
+        "columns": {
+          "time": "Time",
+          "actor": "Author",
+          "action": "Action",
+          "object": "Object",
+          "org": "Organization",
+          "changes": "Changes",
+          "ip": "Address"
+        },
+        "actorTypes": {
+          "system": "System",
+          "agent": "AI agent",
+          "client": "Client",
+          "staff": "Staff"
+        },
+        "objectTypes": {
+          "staff": "Staff member",
+          "server": "Server",
+          "membership": "Member",
+          "invitation": "Invitation",
+          "user": "User",
+          "session": "Session",
+          "organization": "Organization"
+        },
+        "none": "none",
+        "empty": "No entries for the selected period.",
+        "invalid": "Check the filters: dates and values.",
+        "next": "Next 50 entries",
+        "first": "Back to newest",
+        "actions": {
+          "staff": {
+            "invited": "Staff member invited",
+            "created": "Staff member created",
+            "reset": "Staff access reset",
+            "signed_in": "Staff sign-in",
+            "role_changed": "Staff role changed",
+            "state_changed": "Staff member blocked or unblocked"
+          },
+          "server": {
+            "added": "Server added",
+            "disabled": "Server disabled",
+            "enabled": "Server enabled",
+            "updated": "Server changed"
+          },
+          "org": {
+            "provisioned": "Organization created",
+            "updated": "Organization settings changed"
+          },
+          "member": {
+            "joined": "Member added",
+            "role_changed": "Member role changed",
+            "state_changed": "Member disabled or enabled"
+          },
+          "invitation": {
+            "created": "Invitation created",
+            "revoked": "Invitation revoked",
+            "accepted": "Invitation accepted"
+          },
+          "user": {
+            "email_confirmed": "Address confirmed",
+            "signed_in_telegram": "Sign-in through the Telegram bot"
+          },
+          "session": {
+            "revoked": "Session ended"
+          },
+          "telegram": {
+            "linked": "Telegram linked",
+            "unlinked": "Telegram unlinked"
+          }
+        }
       }
     }
   },

@@ -1,8 +1,8 @@
 import { expect, test } from 'vitest';
 import { changeMemberRole, listMembersForStaff, setMemberState } from '@/modules/hdu/api/members';
-import { getOrganization, resolveClient, searchOrganizations } from '@/modules/hdu/api/orgs';
+import { getOrganization, resolveClient, searchOrganizations, updateOrganization } from '@/modules/hdu/api/orgs';
 import { clientCtx, clientSession, reload, staffCtx, staffWithRole } from './helpers/auth';
-import { pools } from './helpers/db';
+import { asActor, pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
 
 // Отключение участника (пункт 12 таблицы решений плана M1, решение 0014, раздел 8).
@@ -146,4 +146,35 @@ test('AI-сотрудник организации и участников не 
   await expect(searchOrganizations(bot, {})).rejects.toMatchObject({ code: 'forbidden' });
   await expect(getOrganization(bot, f.orgA.orgId)).rejects.toMatchObject({ code: 'forbidden' });
   await expect(listMembersForStaff(bot, f.orgA.orgId)).rejects.toMatchObject({ code: 'forbidden' });
+});
+
+// --- Карточка организации: категория и AI-обработка (задача 20, FR-ADM-02) ---
+
+test('care меняет категорию клиента и отключает AI-обработку, остальное в организации изменить нельзя', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = staffCtx(f.care);
+  await updateOrganization(ctx, { orgId: f.orgA.orgId, category: 'A', isAiEnabled: false });
+  expect((await pools.root.query(`select category, is_ai_enabled from hdu_organizations where org_id = $1`, [f.orgA.orgId])).rows).toEqual([
+    { category: 'A', is_ai_enabled: false },
+  ]);
+  const audit = (await pools.root.query(`select actor_id, org_id, object_id, diff from hdc_audit_log where action = 'org.updated'`)).rows;
+  expect(audit).toEqual([
+    { actor_id: f.care.userId, org_id: f.orgA.orgId, object_id: f.orgA.orgId, diff: { category: { from: null, to: 'A' }, isAiEnabled: { from: true, to: false } } },
+  ]);
+  expect(await getOrganization(ctx, f.orgA.orgId)).toMatchObject({ category: 'A', isAiEnabled: false });
+  // Повтор тех же значений журнал не пишет; категорию можно снять.
+  await updateOrganization(ctx, { orgId: f.orgA.orgId, category: 'A', isAiEnabled: false });
+  await updateOrganization(staffCtx(f.adminStaff), { orgId: f.orgA.orgId, category: null });
+  expect((await pools.root.query(`select diff from hdc_audit_log where action = 'org.updated' order by created_on`)).rows.map((r) => r.diff)).toEqual([
+    { category: { from: null, to: 'A' }, isAiEnabled: { from: true, to: false } },
+    { category: { from: 'A', to: null } },
+  ]);
+  await expect(updateOrganization(staffCtx(f.l1), { orgId: f.orgA.orgId, category: 'B' })).rejects.toMatchObject({ code: 'forbidden' });
+  await expect(updateOrganization(f.aAdmin as never, { orgId: f.orgA.orgId, category: 'B' })).rejects.toMatchObject({ code: 'forbidden' });
+  await expect(updateOrganization(ctx, { orgId: f.orgA.orgId, category: 'Z' })).rejects.toMatchObject({ code: 'invalid_input' });
+  await expect(updateOrganization(ctx, { orgId: f.orgA.orgId, name: 'Взлом' })).rejects.toMatchObject({ code: 'invalid_input' });
+  await expect(updateOrganization(ctx, { orgId: '00000000-0000-7000-8000-000000000000', category: 'B' })).rejects.toMatchObject({ code: 'not_found' });
+  await expect(
+    asActor(pools.auth, f.care.actor, (c) => c.query(`update hdu_organizations set name = 'Взлом' where org_id = $1`, [f.orgA.orgId])),
+  ).rejects.toThrow(/нельзя/);
 });

@@ -2,11 +2,11 @@ import 'server-only';
 import { getTranslations } from 'next-intl/server';
 import type { SettingsSection } from '@/ui/components/SettingsLayout';
 
-// Разделы "Настроек" вехи M1. Журнал аудита (задача 20) добавляет свою строку,
-// SLA, AI-помощник и почта появляются со своими вехами.
+// Разделы "Настроек" вехи M1. SLA, AI-помощник и почта появляются со своими вехами.
 const SECTIONS = [
   { key: 'servers', href: '/agent/settings/servers' },
   { key: 'staff', href: '/agent/settings/staff' },
+  { key: 'audit', href: '/agent/settings/audit' },
 ] as const;
 
 export type SettingsSectionKey = (typeof SECTIONS)[number]['key'];

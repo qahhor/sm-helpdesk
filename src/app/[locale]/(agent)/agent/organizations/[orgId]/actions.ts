@@ -11,6 +11,7 @@ import {
   revokeInvitation,
   setMemberState,
   type StaffContext,
+  updateOrganization,
 } from '@/modules/hdu/api';
 
 // Действия карточки организации в рабочем месте. Организацию сотрудник называет сам (из адреса страницы),
@@ -57,4 +58,14 @@ export async function inviteStaffAction(formData: FormData): Promise<void> {
 /** Отзыв ждущего приглашения. */
 export async function revokeStaffAction(formData: FormData): Promise<void> {
   await run(formData, (staff, orgId) => revokeInvitation({ ctx: staff, orgId }, formData.get('invitationId')), 'revoked');
+}
+
+/** Категория клиента и AI-обработка (FR-ADM-02): care и admin. */
+export async function updateOrgSettingsAction(formData: FormData): Promise<void> {
+  const category = formData.get('category');
+  await run(
+    formData,
+    (staff, orgId) => updateOrganization(staff, { orgId, category: category === '' ? null : category, isAiEnabled: formData.get('isAiEnabled') === 'on' }),
+    'settingsSaved',
+  );
 }

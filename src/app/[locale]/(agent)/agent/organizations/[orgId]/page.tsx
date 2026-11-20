@@ -7,13 +7,14 @@ import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { FormField } from '@/ui/components/form-field';
 import { PageHeader } from '@/ui/components/PageHeader';
-import { changeRoleAction, inviteStaffAction, revokeStaffAction, setMemberStateStaffAction } from './actions';
+import { Label } from '@/ui/components/label';
+import { changeRoleAction, inviteStaffAction, revokeStaffAction, setMemberStateStaffAction, updateOrgSettingsAction } from './actions';
 
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3';
 const ERRORS = new Set(['stale_session', 'forbidden', 'not_found', 'invalid_input', 'already_member', 'rate_limited']);
-const DONE = new Set(['roleChanged', 'disabled', 'enabled', 'invited', 'revoked']);
+const DONE = new Set(['roleChanged', 'disabled', 'enabled', 'invited', 'revoked', 'settingsSaved']);
 
 // Карточка организации в рабочем месте (FR-ID-13, FR-ADM-02). Участники видны всем сотрудникам-людям,
 // управляют ролями, участниками и приглашениями care и admin. Неверный или неизвестный адрес: 404.
@@ -52,7 +53,14 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         <dd>{org.category ?? t('orgs.none')}</dd>
         <dt className="text-secondary-foreground">{t('orgs.state')}</dt>
         <dd>{t(`orgs.states.${org.state}`)}</dd>
+        <dt className="text-secondary-foreground">{t('orgs.ai')}</dt>
+        <dd>{t(org.isAiEnabled ? 'orgs.aiOn' : 'orgs.aiOff')}</dd>
       </dl>
+      {staff.actor.staffRole === 'admin' && (
+        <Link href={`/agent/settings/audit?org=${org.orgId}`} className="self-start text-sm font-medium text-link underline-offset-2 hover:underline">
+          {t('orgs.auditLink')}
+        </Link>
+      )}
 
       {error && ERRORS.has(error) && (
         <Alert tone="danger">
@@ -87,6 +95,53 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 {t('orgs.cancel')}
               </Link>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {canManage && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-base font-semibold">{t('orgs.settingsTitle')}</h2>
+          </CardHeader>
+          <CardContent>
+            <form action={updateOrgSettingsAction} className="flex flex-col gap-4">
+              <input type="hidden" name="orgId" value={org.orgId} />
+              <div className="flex max-w-md flex-col gap-1">
+                <Label htmlFor="field-category">{t('orgs.categoryLabel')}</Label>
+                <select
+                  id="field-category"
+                  name="category"
+                  defaultValue={org.category ?? ''}
+                  className="h-field w-full rounded-control border border-input bg-card px-3 text-base text-foreground"
+                >
+                  <option value="">{t('orgs.categoryNone')}</option>
+                  {(['A', 'B', 'C', 'D'] as const).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="inline-flex min-h-control items-center gap-3">
+                  <input
+                    type="checkbox"
+                    name="isAiEnabled"
+                    defaultChecked={org.isAiEnabled}
+                    aria-describedby="org-ai-hint"
+                    className="size-5 shrink-0 accent-primary"
+                  />
+                  {t('orgs.aiLabel')}
+                </label>
+                <p id="org-ai-hint" className="text-sm text-muted-foreground">
+                  {t('orgs.aiHint')}
+                </p>
+              </div>
+              <Button type="submit" className="self-start">
+                {t('orgs.saveSettings')}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       )}

@@ -2,6 +2,7 @@ import 'server-only';
 import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
+import { writeAudit } from '@/modules/hdc/audit';
 import { authSession, authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
 import { memberships, organizations, servers, staff } from '../schema';
@@ -58,6 +59,8 @@ export type OrgRow = {
   inn: string | null;
   serverName: string;
   category: 'A' | 'B' | 'C' | 'D' | null;
+  /** Обращения организации обрабатывает AI-помощник (FR-ADM-02). */
+  isAiEnabled: boolean;
   state: 'active' | 'passive';
   /** Действующих участников. */
   memberCount: number;
@@ -69,6 +72,7 @@ const orgColumns = {
   inn: organizations.inn,
   serverName: servers.name,
   category: organizations.category,
+  isAiEnabled: organizations.isAiEnabled,
   state: organizations.state,
   memberCount: sql<number>`(select count(*)::int from hdu_memberships m where m.org_id = ${organizations.orgId} and m.state = 'active')`,
 };
@@ -100,4 +104,39 @@ export async function getOrgRow(actor: StaffActor, orgId: string): Promise<OrgRo
     tx.select(orgColumns).from(organizations).innerJoin(servers, eq(servers.serverId, organizations.serverId)).where(eq(organizations.orgId, orgId)).limit(1),
   );
   return rows[0] ?? null;
+}
+
+export type OrgSettings = { category?: 'A' | 'B' | 'C' | 'D' | null; isAiEnabled?: boolean };
+
+/**
+ * Категория клиента и признак AI-обработки (FR-ADM-02) от имени care или admin под ролью hub_auth.
+ * Другие колонки сотруднику не даёт изменить триггер t_hdu_organizations_guard (миграция 0007).
+ * В журнал org.updated идут прежние и новые значения изменённых полей. Ничего не изменилось: ни записи, ни журнала.
+ */
+export async function updateOrgSettings(actor: StaffActor, orgId: string, settings: OrgSettings): Promise<boolean> {
+  return withIdentity(actor, async (tx) => {
+    const current = (
+      await tx
+        .select({ category: organizations.category, isAiEnabled: organizations.isAiEnabled })
+        .from(organizations)
+        .where(eq(organizations.orgId, orgId))
+        .limit(1)
+        .for('update')
+    )[0];
+    if (!current) return false;
+    const diff: Record<string, { from: unknown; to: unknown }> = {};
+    if (settings.category !== undefined && settings.category !== current.category) diff.category = { from: current.category, to: settings.category };
+    if (settings.isAiEnabled !== undefined && settings.isAiEnabled !== current.isAiEnabled)
+      diff.isAiEnabled = { from: current.isAiEnabled, to: settings.isAiEnabled };
+    if (Object.keys(diff).length === 0) return true;
+    await tx
+      .update(organizations)
+      .set({
+        ...(diff.category && { category: settings.category }),
+        ...(diff.isAiEnabled && { isAiEnabled: settings.isAiEnabled }),
+      })
+      .where(eq(organizations.orgId, orgId));
+    await writeAudit(tx, { action: 'org.updated', objectType: 'organization', objectId: orgId, orgId, diff });
+    return true;
+  });
 }

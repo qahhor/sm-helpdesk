@@ -49,3 +49,14 @@ test('у каждой группы и каждого пункта есть по�
     }
   }
 });
+
+test('у каждого действия журнала аудита есть подпись на трёх языках', async () => {
+  const { AUDIT_ACTIONS } = await import('@/modules/hdc/pref');
+  for (const locale of ['ru', 'uz', 'en']) {
+    const actions = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8')).agent.settings.audit.actions;
+    for (const action of AUDIT_ACTIONS) {
+      const [group, name] = action.split('.') as [string, string];
+      expect(actions[group]?.[name], `${locale} ${action}`).toBeTruthy();
+    }
+  }
+});

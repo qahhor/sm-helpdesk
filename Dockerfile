@@ -26,6 +26,8 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 COPY --from=build --chown=1001:1001 /app/.next/standalone ./
 COPY --from=build --chown=1001:1001 /app/.next/static ./.next/static
 COPY --from=build --chown=1001:1001 /app/public ./public
+# Тексты политики обработки данных: читаются с диска при запросе (content/legal/README.md).
+COPY --chown=1001:1001 content ./content
 # Миграции и проверка контейнера запускаются из этого же образа.
 COPY --chown=1001:1001 drizzle ./drizzle
 COPY --chown=1001:1001 scripts/db ./scripts/db

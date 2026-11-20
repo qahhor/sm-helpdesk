@@ -55,6 +55,11 @@
       "revokeOthers": "End all other sessions",
       "othersDone": "All other sessions have ended.",
       "hiddenNote": "Recent sessions are shown. {count, plural, one {# more session ends} other {# more sessions end}} together with the others with the button below."
+    },
+    "legal": {
+      "privacy": "Data processing policy",
+      "version": "Version of {date}",
+      "translationMissing": "There is no translation into your language yet, the Russian text is shown."
     }
   },
   "client": {
@@ -682,7 +687,11 @@
         "invalid": "Check the email address.",
         "rateLimited": "Too many requests. Try again in an hour."
       },
-      "telegram": "Link Telegram"
+      "telegram": "Link Telegram",
+      "policyLine": "How the portal handles your data is described in the <link>Data processing policy</link>.",
+      "policyTitle": "The data processing policy was updated",
+      "policyText": "Read the new version: <link>Data processing policy</link>.",
+      "policyAcknowledge": "Got it"
     },
     "invite": {
       "title": "Invitation to {orgName}",

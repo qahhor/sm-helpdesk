@@ -1,6 +1,8 @@
-import { getTranslations } from 'next-intl/server';
+import { redirect } from 'next/navigation';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { signOutAction } from '@/app/[locale]/session-actions';
-import { listMyOrganizations, requireClientActor } from '@/modules/hdu/api';
+import { getPolicyVersion } from '@/modules/hdc/api';
+import { listMyOrganizations, needsPolicyNotice, requireClientActor } from '@/modules/hdu/api';
 import { ClientShell } from '@/ui/shell/client/ClientShell';
 import { OrgSwitcher } from '@/ui/shell/client/OrgSwitcher';
 import { UserMenu } from '@/ui/shell/UserMenu';
@@ -11,6 +13,8 @@ import { switchOrganizationAction } from './actions';
 // тоже вызывает requireClientActor: проверка на каждом запросе (ТЗ 9.4, правило 7).
 export default async function PortalLayout({ children }: LayoutProps<'/[locale]'>) {
   const client = await requireClientActor();
+  // Вышла новая редакция политики обработки данных: сначала короткий шаг о ней (решение 0017).
+  if (needsPolicyNotice(client.user, await getPolicyVersion())) redirect(`/${await getLocale()}/welcome`);
   const t = await getTranslations();
   const orgs = client.orgCount > 1 ? await listMyOrganizations(client.user.id) : [];
   return (

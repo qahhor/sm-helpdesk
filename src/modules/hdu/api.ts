@@ -30,7 +30,7 @@ export {
 export type { OrgScope } from './api/scope';
 export type { SessionView } from './api/sessions';
 export { handleAuthRequest } from './api/auth-route';
-export { completeWelcome, confirmEmail, requestEmailConfirmation } from './api/email';
+export { acknowledgePolicy, completeWelcome, confirmEmail, requestEmailConfirmation } from './api/email';
 export {
   acceptInvitation,
   describeInvitation,
@@ -92,4 +92,4 @@ export {
 } from './api/staff';
 export { inviteStaff, resetStaff } from './api/staff-admin';
 export { HduError, type HduErrorCode, isHduError } from './error';
-export { safeReturnPath } from './util';
+export { needsPolicyNotice, safeReturnPath } from './util';

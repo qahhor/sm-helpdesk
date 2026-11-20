@@ -104,3 +104,11 @@ export function describeUserAgent(ua: string | null): DeviceInfo {
           : 'other';
   return { browser, os };
 }
+
+/**
+ * Показать ли строку о политике обработки данных: политика включена (есть действующая версия),
+ * а пользователь видел другую версию или не видел никакой.
+ */
+export function needsPolicyNotice(user: { policyVersion: string | null }, current: string | null): boolean {
+  return current !== null && user.policyVersion !== current;
+}

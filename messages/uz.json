@@ -55,6 +55,11 @@
       "revokeOthers": "Boshqa barcha seanslarni yakunlash",
       "othersDone": "Boshqa barcha seanslar yakunlandi.",
       "hiddenNote": "So'nggi seanslar ko'rsatilgan. Yana {count} ta seans quyidagi tugma bilan boshqalari bilan birga yakunlanadi."
+    },
+    "legal": {
+      "privacy": "Ma'lumotlarni qayta ishlash siyosati",
+      "version": "{date} tahriri",
+      "translationMissing": "Sizning tilingizga tarjima hozircha yo'q, rus tilidagi matn ko'rsatildi."
     }
   },
   "client": {
@@ -682,7 +687,11 @@
         "invalid": "Email manzilini tekshiring.",
         "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
       },
-      "telegram": "Telegramni bog'lash"
+      "telegram": "Telegramni bog'lash",
+      "policyLine": "Portal ma'lumotlaringiz bilan qanday ishlashi <link>Ma'lumotlarni qayta ishlash siyosati</link> hujjatida yozilgan.",
+      "policyTitle": "Ma'lumotlarni qayta ishlash siyosati yangilandi",
+      "policyText": "Yangi tahrirni o'qing: <link>Ma'lumotlarni qayta ishlash siyosati</link>.",
+      "policyAcknowledge": "Tushunarli"
     },
     "invite": {
       "title": "{orgName} tashkilotiga taklif",

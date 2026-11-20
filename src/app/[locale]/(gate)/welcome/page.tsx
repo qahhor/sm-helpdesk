@@ -1,32 +1,63 @@
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { requireClientActor, safeReturnPath, telegramEnabled } from '@/modules/hdu/api';
+import { Link } from '@/i18n/navigation';
+import { getPolicyVersion } from '@/modules/hdc/api';
+import { needsPolicyNotice, requireClientActor, safeReturnPath, telegramEnabled } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { FormField } from '@/ui/components/form-field';
-import { sendWelcomeLinkAction, skipWelcomeAction } from './actions';
+import { acknowledgePolicyAction, sendWelcomeLinkAction, skipWelcomeAction } from './actions';
 
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
 // Шаг первого входа (FR-ID-07): после входа через Smartup портал один раз предлагает указать email.
 // У большинства пользователей Smartup адреса нет (решение 89 ТЗ), поэтому шаг можно пропустить.
-// Привязка Telegram появится здесь в вехе M4b.
+// Строка о политике обработки данных: при первом входе вместе с шагом, после выхода новой версии
+// отдельным коротким шагом (раздел 14.6 ТЗ, решение 0017). Пока политика выключена, строки нет.
 export default async function WelcomePage({ searchParams }: PageProps<'/[locale]/welcome'>) {
   const client = await requireClientActor();
   const params = await searchParams;
   const locale = await getLocale();
   const next = safeReturnPath(first(params.next), `/${locale}`);
   const sent = first(params.sent) === '1';
-  if (!sent && (client.user.onboarded || client.user.hasVerifiedEmail)) redirect(next);
+  const policyVersion = await getPolicyVersion();
+  const policyDue = needsPolicyNotice(client.user, policyVersion);
+  const firstStep = !client.user.onboarded && !client.user.hasVerifiedEmail;
+  if (!sent && !firstStep && !policyDue) redirect(next);
 
   const t = await getTranslations('auth.welcome');
+  const policyLink = (chunks: React.ReactNode) => (
+    <Link href="/legal/privacy" target="_blank" rel="noopener" className="font-medium text-link underline-offset-4 hover:underline">
+      {chunks}
+    </Link>
+  );
+
+  if (!sent && !firstStep)
+    return (
+      <Card>
+        <CardHeader>
+          <h1 className="text-xl font-semibold">{t('policyTitle')}</h1>
+          <p className="text-secondary-foreground">{t.rich('policyText', { link: policyLink })}</p>
+        </CardHeader>
+        <CardContent>
+          <form action={acknowledgePolicyAction}>
+            <input type="hidden" name="next" value={next} />
+            <Button type="submit" className="w-full">
+              {t('policyAcknowledge')}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
+
   const error = first(params.error);
   return (
     <Card>
       <CardHeader>
         <h1 className="text-xl font-semibold">{t('title', { name: client.user.name })}</h1>
         {!sent && <p className="text-secondary-foreground">{t('text')}</p>}
+        {!sent && policyVersion && <p className="text-sm text-secondary-foreground">{t.rich('policyLine', { link: policyLink })}</p>}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {sent ? (

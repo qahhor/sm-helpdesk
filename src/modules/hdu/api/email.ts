@@ -2,10 +2,12 @@ import 'server-only';
 import { z } from 'zod';
 import { getEnv } from '@/env';
 import { LOCALES } from '@/i18n/locales';
+import { POLICY_VERSION_PATTERN } from '@/modules/hdc/legal';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
 import { confirmEmailMail, queueMail } from '@/modules/hdn/api';
-import { confirmEmailToken, createEmailToken, markOnboarded } from '../core/email';
+import { confirmEmailToken, createEmailToken, markOnboarded, setPolicyVersion } from '../core/email';
+import { HduError } from '../error';
 import { emailInput, tokenInput } from '../input';
 import { hashToken } from '../tokens';
 import type { ClientContext } from './orgs';
@@ -45,4 +47,13 @@ export async function confirmEmail(input: unknown): Promise<{ ok: true } | { ok:
 /** Шаг первого входа пройден: отправлена ссылка или человек нажал "Пропустить". */
 export async function completeWelcome(userId: string): Promise<void> {
   await markOnboarded(userId);
+}
+
+/**
+ * Пользователь увидел политику обработки данных этой версии (раздел 14.6 ТЗ). Шаг первого входа
+ * покажет строку о политике снова, только когда выйдет новая версия.
+ */
+export async function acknowledgePolicy(userId: string, version: string): Promise<void> {
+  if (!POLICY_VERSION_PATTERN.test(version)) throw new HduError('invalid_input');
+  await setPolicyVersion(userId, version);
 }

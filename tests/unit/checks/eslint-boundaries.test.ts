@@ -49,3 +49,15 @@ test('типы актора видны и вне слоя базы, сам кл�
   expect(await lint('src/cli/commands.ts', "import { withActor } from '@/db/with-actor';")).toContain('no-restricted-imports');
   expect(await lint('src/cli/main.ts', "import { closeAuthPool } from '@/db/auth-client';")).toContain('no-restricted-imports');
 }, 30_000);
+
+test('открытые страницы не читают сессию (CLAUDE.md, группа (public))', async () => {
+  const page = 'src/app/[locale]/(public)/legal/privacy/page.tsx';
+  expect(await lint(page, "import { requireClientActor } from '@/modules/hdu/api';")).toContain('no-restricted-imports');
+  expect(await lint(page, "import { telegramEnabled } from '@/modules/hdu/api/telegram';")).toContain('no-restricted-imports');
+  expect(await lint(page, "import { cookies } from 'next/headers';")).toContain('no-restricted-imports');
+  expect(await lint(page, "import { getPolicy } from '@/modules/hdc/api';")).not.toContain('no-restricted-imports');
+  // Общие запреты на открытых страницах тоже действуют.
+  expect(await lint(page, "import { appDb } from '@/db/client';")).toContain('no-restricted-imports');
+  // За пределами группы (public) сессию читать можно.
+  expect(await lint('src/app/[locale]/(portal)/x/page.tsx', "import { cookies } from 'next/headers';")).not.toContain('no-restricted-imports');
+}, 30_000);

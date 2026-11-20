@@ -1,7 +1,7 @@
 // Запуск собранного приложения (output: 'standalone').
-// Next.js не кладёт public и .next/static в .next/standalone: их копирует этот сценарий.
+// Next.js не кладёт public, .next/static и content в .next/standalone: их копирует этот сценарий.
 import { spawn } from 'node:child_process';
-import { cpSync, existsSync } from 'node:fs';
+import { cpSync, existsSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -15,6 +15,10 @@ if (!existsSync(join(standalone, 'server.js'))) {
 cpSync(join(root, '.next', 'static'), join(standalone, '.next', 'static'), { recursive: true });
 if (existsSync(join(root, 'public')))
   cpSync(join(root, 'public'), join(standalone, 'public'), { recursive: true });
+// Тексты политики обработки данных читаются с диска относительно каталога запуска (решение 0017).
+// Прежняя копия удаляется: убранный файл manifest.json должен выключить политику и здесь.
+rmSync(join(standalone, 'content'), { recursive: true, force: true });
+if (existsSync(join(root, 'content'))) cpSync(join(root, 'content'), join(standalone, 'content'), { recursive: true });
 
 const child = spawn(process.execPath, ['server.js'], {
   cwd: standalone,

@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, ne, or, sql } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/audit';
@@ -18,7 +18,10 @@ export type MyOrganization = { orgId: string; name: string; role: ClientRole };
 /** Что нужно для построения актора: сотрудник ли это и где он действующий участник. */
 export type ClientAccess = { isStaff: boolean; orgs: MyOrganization[] };
 
-/** Действующие членства в действующих организациях, по названию. Одна транзакция вместе с проверкой сотрудника. */
+/**
+ * Действующие членства в действующих организациях, по названию. Одна транзакция вместе с проверкой сотрудника.
+ * Гостевое членство (source = 'guest', появится в M4 с приёмом почты) входа не даёт и здесь не учитывается.
+ */
 export async function loadClientAccess(userId: string): Promise<ClientAccess> {
   return withIdentity(SYSTEM, async (tx) => {
     const staffRow = await tx.select({ userId: staff.userId }).from(staff).where(eq(staff.userId, userId)).limit(1);
@@ -27,7 +30,9 @@ export async function loadClientAccess(userId: string): Promise<ClientAccess> {
       .select({ orgId: organizations.orgId, name: organizations.name, role: memberships.role })
       .from(memberships)
       .innerJoin(organizations, eq(organizations.orgId, memberships.orgId))
-      .where(and(eq(memberships.userId, userId), eq(memberships.state, 'active'), eq(organizations.state, 'active')))
+      .where(
+        and(eq(memberships.userId, userId), eq(memberships.state, 'active'), ne(memberships.source, 'guest'), eq(organizations.state, 'active')),
+      )
       .orderBy(asc(organizations.name), asc(organizations.orgId));
     return { isStaff: false, orgs };
   });

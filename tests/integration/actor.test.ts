@@ -1,7 +1,9 @@
 import { expect, test } from 'vitest';
-import { resolveClient, switchOrganization, type ClientContext } from '@/modules/hdu/api/orgs';
+import { acknowledgePolicy } from '@/modules/hdu/api/email';
+import { listMyOrganizations, resolveClient, switchOrganization, type ClientContext } from '@/modules/hdu/api/orgs';
 import { resolveStaff } from '@/modules/hdu/api/session';
-import { addMembership, buildTestAuth, clientSession, enrolledStaffFixture, reload } from './helpers/auth';
+import { needsPolicyNotice } from '@/modules/hdu/util';
+import { addMembership, buildTestAuth, clientSession, enrolledStaffFixture, reload, verifiedClientFixture } from './helpers/auth';
 import { pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
 
@@ -86,4 +88,33 @@ test('подтверждённый адрес и пройденный первы
     f.aUser.userId,
   ]);
   expect(((await resolveClient(await clientSession(f.aUser))) as ClientContext).user).toMatchObject({ hasVerifiedEmail: true, onboarded: true });
+});
+
+// --- Гости и политика обработки данных (задача 21) ---
+
+test('гостевое членство не даёт войти и не показывается в списке организаций', async () => {
+  const f = await seedTwoOrgs();
+  const guest = await verifiedClientFixture('guest@example.test', { memberships: 0 });
+  await addMembership(guest.userId, f.orgA.orgId, 'client_user', 'guest');
+  expect(await resolveClient(await clientSession(guest))).toEqual({ denied: 'no_organization' });
+  expect(await listMyOrganizations(guest.userId)).toEqual([]);
+  // Гость и участник одновременно: видна только организация с обычным членством.
+  await addMembership(guest.userId, f.orgB.orgId, 'client_user', 'invite');
+  expect((await listMyOrganizations(guest.userId)).map((org) => org.orgId)).toEqual([f.orgB.orgId]);
+  await expect(switchOrganization(await clientSession(guest), f.orgA.orgId)).rejects.toMatchObject({ code: 'not_member' });
+});
+
+test('версия политики записывается и запрашивается снова после новой версии', async () => {
+  const f = await seedTwoOrgs();
+  await acknowledgePolicy(f.aUser.userId, '2026-12-01');
+  const version = async () => (await pools.root.query(`select "policyVersion" from auth."user" where id = $1`, [f.aUser.userId])).rows[0].policyVersion;
+  expect(await version()).toBe('2026-12-01');
+  await acknowledgePolicy(f.aUser.userId, '2027-03-01');
+  expect(await version()).toBe('2027-03-01');
+  await expect(acknowledgePolicy(f.aUser.userId, '../../x')).rejects.toMatchObject({ code: 'invalid_input' });
+  expect(needsPolicyNotice({ policyVersion: '2026-12-01' }, '2026-12-01')).toBe(false);
+  expect(needsPolicyNotice({ policyVersion: '2026-12-01' }, '2027-03-01')).toBe(true);
+  expect(needsPolicyNotice({ policyVersion: null }, '2026-12-01')).toBe(true);
+  // Политика выключена: показывать нечего.
+  expect(needsPolicyNotice({ policyVersion: null }, null)).toBe(false);
 });

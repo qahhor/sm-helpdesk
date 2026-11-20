@@ -10,7 +10,17 @@ import { ThemeSwitch } from '@/ui/theme/ThemeSwitch';
  * Оболочка страниц без входа: вход клиента и сотрудника, принятие приглашения, одноразовые ссылки.
  * Сначала телефон: одна колонка, крупные поля, одно главное действие на экране (ТЗ 8.1, UX-C-01).
  */
-export async function AuthShell({ children }: { children: ReactNode }) {
+export async function AuthShell({
+  children,
+  footer,
+  wide = false,
+}: {
+  children: ReactNode;
+  /** Строка внизу страницы, например ссылка на политику обработки данных. */
+  footer?: ReactNode;
+  /** Широкая колонка для текста, который читают, а не заполняют. */
+  wide?: boolean;
+}) {
   const t = await getTranslations('common');
   return (
     <div data-zone="client" className="flex min-h-dvh flex-col bg-background text-base text-foreground">
@@ -34,9 +44,10 @@ export async function AuthShell({ children }: { children: ReactNode }) {
           />
         </div>
       </header>
-      <main id="main" className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8">
+      <main id="main" className={`mx-auto flex w-full flex-1 flex-col gap-4 px-4 py-8 ${wide ? 'max-w-3xl' : 'max-w-md'}`}>
         {children}
       </main>
+      {footer && <footer className="mx-auto w-full max-w-md px-4 pb-6 text-center text-sm text-secondary-foreground">{footer}</footer>}
     </div>
   );
 }

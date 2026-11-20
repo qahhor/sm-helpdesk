@@ -14,6 +14,30 @@ const AUTH_DB_PATTERN = {
   message: AUTH_DB_BOUNDARY,
 };
 
+const PUBLIC_BOUNDARY = 'Открытые страницы (public) не читают сессию и не берут актора, кроме public (CLAUDE.md)';
+
+// Общие запреты для страниц, обработчиков, интерфейса и команды консоли.
+const APP_PATHS = [
+  { name: 'pg', message: DB_BOUNDARY },
+  { name: 'drizzle-orm/node-postgres', message: DB_BOUNDARY },
+];
+const APP_PATTERNS = [
+  {
+    group: ['@/db/client', '@/db/with-actor', '**/db/client', '**/db/with-actor'],
+    message: DB_BOUNDARY,
+    // Типы актора нужны и страницам: импорт типа к базе не обращается.
+    allowTypeImports: true,
+  },
+  AUTH_DB_PATTERN,
+  {
+    // Разрешён только слой api модуля: файл api.ts и файлы каталога api/.
+    // Импорт типов не ограничен: он не создаёт связи во время работы.
+    group: ['@/modules/*/*', '!@/modules/*/api', '**/modules/*/*', '!**/modules/*/api'],
+    message: MODULE_BOUNDARY,
+    allowTypeImports: true,
+  },
+];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -22,29 +46,19 @@ const eslintConfig = defineConfig([
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['src/db/**', 'src/modules/**'],
     rules: {
+      'no-restricted-imports': ['error', { paths: APP_PATHS, patterns: APP_PATTERNS }],
+    },
+  },
+  {
+    // Группа маршрутов (public): ни сессии, ни куки, ни модуля идентичности. Правило заменяет общее,
+    // поэтому общие запреты повторены.
+    files: ['src/app/**/\\(public\\)/**/*.{ts,tsx}'],
+    rules: {
       'no-restricted-imports': [
         'error',
         {
-          paths: [
-            { name: 'pg', message: DB_BOUNDARY },
-            { name: 'drizzle-orm/node-postgres', message: DB_BOUNDARY },
-          ],
-          patterns: [
-            {
-              group: ['@/db/client', '@/db/with-actor', '**/db/client', '**/db/with-actor'],
-              message: DB_BOUNDARY,
-              // Типы актора нужны и страницам: импорт типа к базе не обращается.
-              allowTypeImports: true,
-            },
-            AUTH_DB_PATTERN,
-            {
-              // Разрешён только слой api модуля: файл api.ts и файлы каталога api/.
-              // Импорт типов не ограничен: он не создаёт связи во время работы.
-              group: ['@/modules/*/*', '!@/modules/*/api', '**/modules/*/*', '!**/modules/*/api'],
-              message: MODULE_BOUNDARY,
-              allowTypeImports: true,
-            },
-          ],
+          paths: [...APP_PATHS, { name: 'next/headers', message: PUBLIC_BOUNDARY }, { name: '@/modules/hdu/api', message: PUBLIC_BOUNDARY }],
+          patterns: [...APP_PATTERNS, { group: ['@/modules/hdu/**', '**/modules/hdu/**'], message: PUBLIC_BOUNDARY }],
         },
       ],
     },

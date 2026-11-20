@@ -3,7 +3,7 @@ import { setMailerForTests } from '@/modules/hdn/api';
 import { completeLoginLink, requestLoginLink } from '@/modules/hdu/api/login-link';
 import { rememberServer } from '@/modules/hdu/api/sso';
 import { type BotCheck, type BotVerdict, setBotCheckForTests } from '@/security/bot-check';
-import { buildTestAuth, enrolledStaffFixture, noRequest, verifiedClientFixture } from './helpers/auth';
+import { addMembership, buildTestAuth, enrolledStaffFixture, ensureOrg, noRequest, verifiedClientFixture } from './helpers/auth';
 import { pools } from './helpers/db';
 import { linkFrom, sleep, tokenFrom, memoryMailerPerTest } from './helpers/mail';
 import { type MockServer, registerMock, ssoSignIn, startMockOidc } from './helpers/sso';
@@ -151,4 +151,12 @@ test('поиск сервера по адресу с непройденной п
   expect(await rememberServer('localhost:3290', noRequest, 'x')).toEqual({ found: false });
   setBotCheckForTests(verdict('passed'));
   expect(await rememberServer('localhost:3290', noRequest, 'x')).toEqual({ found: true });
+});
+
+test('гостю ссылка для входа не уходит, ответ тот же', async () => {
+  const guest = await verifiedClientFixture('guest@example.test', { memberships: 0 });
+  await addMembership(guest.userId, await ensureOrg('Гостевая'), 'client_user', 'guest');
+  expect(await requestLoginLink({ email: 'guest@example.test', locale: 'ru' }, noRequest)).toEqual({ ok: true });
+  await sleep(50);
+  expect(box.mailer.sent).toEqual([]);
 });

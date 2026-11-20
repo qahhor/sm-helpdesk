@@ -22,7 +22,8 @@ export async function isLoginLinkRecipient(email: string): Promise<boolean> {
     const rows = await tx
       .select({ id: authUser.id })
       .from(authUser)
-      .innerJoin(memberships, and(eq(memberships.userId, authUser.id), eq(memberships.state, 'active')))
+      // Гостевое членство входа не даёт: гостю ссылка не уходит (решение 0017).
+      .innerJoin(memberships, and(eq(memberships.userId, authUser.id), eq(memberships.state, 'active'), ne(memberships.source, 'guest')))
       .innerJoin(organizations, and(eq(organizations.orgId, memberships.orgId), eq(organizations.state, 'active')))
       .where(
         and(
@@ -107,5 +108,12 @@ export async function confirmEmailToken(tokenHash: string): Promise<ConfirmResul
 export async function markOnboarded(userId: string): Promise<void> {
   await withIdentity({ type: 'system', job: 'identity.onboarding' }, (tx) =>
     tx.update(authUser).set({ onboardedAt: sql`now()` }).where(and(eq(authUser.id, userId), isNull(authUser.onboardedAt))),
+  );
+}
+
+/** Записывает версию политики обработки данных, которую увидел пользователь (раздел 14.6 ТЗ). */
+export async function setPolicyVersion(userId: string, version: string): Promise<void> {
+  await withIdentity({ type: 'system', job: 'identity.policy' }, (tx) =>
+    tx.update(authUser).set({ policyVersion: version, updatedAt: sql`now()` }).where(eq(authUser.id, userId)),
   );
 }

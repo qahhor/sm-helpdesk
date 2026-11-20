@@ -37,6 +37,8 @@ export type ClientContext = {
     onboarded: boolean;
     /** Язык писем и сообщений бота из учётной записи. */
     locale: Locale | null;
+    /** Версия политики обработки данных, которую пользователь видел. */
+    policyVersion: string | null;
   };
   org: { id: string; name: string };
   /** Сколько у пользователя действующих организаций: больше одной, и в шапке появляется переключатель. */
@@ -75,6 +77,7 @@ export async function resolveClient(session: SessionData | null): Promise<Client
       claimedEmail: session.user.claimedEmail,
       hasVerifiedEmail,
       locale: session.user.locale,
+      policyVersion: session.user.policyVersion,
       onboarded: session.user.onboardedAt !== null,
     },
     org: { id: org.orgId, name: org.name },

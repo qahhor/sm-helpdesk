@@ -3,12 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Env, getEnv } from '@/env';
+import { createResendMailer } from './resend';
 
 // Модуль hdn, слой mailer: отправка писем (ТЗ 11.11, решение 0016).
 //
-// Внешний сервис почты подключается в вехе M4 четвёртой реализацией того же интерфейса.
-// До этого письма никуда не уходят: none молчит, console и file нужны разработке и тестам
-// и работают только на localhost (проверка в src/env.ts).
+// Четыре реализации одного интерфейса: none молчит, console и file нужны разработке и тестам
+// и работают только на localhost (проверка в src/env.ts), resend отправляет по-настоящему (решение 0018).
 
 export type MailKind = 'login-link' | 'confirm-email' | 'invitation';
 
@@ -52,8 +52,11 @@ export class MemoryMailer implements Mailer {
   }
 }
 
-export function createMailer(env: Pick<Env, 'MAIL_TRANSPORT'> & Partial<Pick<Env, 'MAIL_FILE_DIR'>>): Mailer {
+export function createMailer(env: Pick<Env, 'MAIL_TRANSPORT'> & Partial<Pick<Env, 'MAIL_FILE_DIR' | 'RESEND_API_KEY' | 'MAIL_FROM'>>): Mailer {
   switch (env.MAIL_TRANSPORT) {
+    case 'resend':
+      if (!env.RESEND_API_KEY || !env.MAIL_FROM) throw new Error('RESEND_API_KEY и MAIL_FROM обязательны, а MAIL_TRANSPORT равен resend');
+      return createResendMailer({ apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM });
     case 'console':
       return new ConsoleMailer();
     case 'file':

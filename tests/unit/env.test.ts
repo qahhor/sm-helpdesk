@@ -172,3 +172,16 @@ test('ключи проверки "не робот" задаются парой'
   // Пустой ключ после обрезки пробелов: ошибка называет именно его.
   expect(new Set(problems({ ...ok, TURNSTILE_SITE_KEY: ' ', TURNSTILE_SECRET: 's' }).map((x) => x.name))).toEqual(new Set(['TURNSTILE_SITE_KEY']));
 });
+
+test('отправка через Resend требует ключ и адрес отправителя и разрешена на боевом узле', () => {
+  expect(
+    problems({ ...prod, MAIL_TRANSPORT: 'resend' })
+      .map((x) => x.name)
+      .sort(),
+  ).toEqual(['MAIL_FROM', 'RESEND_API_KEY']);
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'не адрес' }).map((x) => x.name)).toEqual(['MAIL_FROM']);
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'Smartup Hub <hub@mail.smartup24.com>' })).toEqual([]);
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'hub@mail.smartup24.com' })).toEqual([]);
+  // Письма в журнал и в файлы по-прежнему только на машине разработчика.
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'console' }).map((x) => x.name)).toEqual(['MAIL_TRANSPORT']);
+});

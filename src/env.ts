@@ -60,6 +60,9 @@ const databaseUrl = (role: 'hub_app' | 'hub_auth') =>
     return value;
   });
 
+/** Адрес отправителя писем: адрес или вид "Имя <адрес>". */
+const MAIL_FROM_PATTERN = /^(?:[^<>\r\n]{1,100} <[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+)$/;
+
 /** Секрет подписи сессий. Короткий секрет подбирается перебором. */
 const sessionSecret = required().refine((value) => value.length >= 32, { error: 'ожидается не меньше 32 знаков' });
 
@@ -80,9 +83,15 @@ const schema = z
     DATABASE_URL_AUTH: databaseUrl('hub_auth'),
     BETTER_AUTH_SECRET: sessionSecret,
     ENCRYPTION_KEY: encryptionKey,
-    // Письма со ссылками входа. Настоящая отправка появляется позже отдельным значением.
-    MAIL_TRANSPORT: z.enum(['none', 'console', 'file'], { error: 'ожидается none, console или file' }).default('none'),
+    // Письма со ссылками входа: none, console и file для разработки, resend для настоящей отправки (решение 0018).
+    MAIL_TRANSPORT: z.enum(['none', 'console', 'file', 'resend'], { error: 'ожидается none, console, file или resend' }).default('none'),
     MAIL_FILE_DIR: z.string().trim().min(1, { error: 'не задана' }).optional(),
+    RESEND_API_KEY: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
+    MAIL_FROM: z
+      .string()
+      .trim()
+      .regex(MAIL_FROM_PATTERN, { error: 'ожидается адрес или вид "Имя <адрес>"' })
+      .optional(),
     // Проверка "не робот" (Cloudflare Turnstile): ключ сайта и секрет задаются парой, без них проверка выключена.
     TURNSTILE_SITE_KEY: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
     TURNSTILE_SECRET: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
@@ -100,7 +109,7 @@ const schema = z
         message: 'не должен совпадать с BETTER_AUTH_SECRET',
       });
     // Ссылка для входа это секрет: в журнале и в файле на диске ей место только на машине разработчика.
-    if (value.MAIL_TRANSPORT !== 'none' && !LOCAL_HOSTS.has(host))
+    if ((value.MAIL_TRANSPORT === 'console' || value.MAIL_TRANSPORT === 'file') && !LOCAL_HOSTS.has(host))
       ctx.addIssue({
         code: 'custom',
         path: ['MAIL_TRANSPORT'],
@@ -108,6 +117,10 @@ const schema = z
       });
     else if (value.MAIL_TRANSPORT === 'file' && !value.MAIL_FILE_DIR)
       ctx.addIssue({ code: 'custom', path: ['MAIL_FILE_DIR'], message: 'не задана, а MAIL_TRANSPORT равен file' });
+    if (value.MAIL_TRANSPORT === 'resend') {
+      if (!value.RESEND_API_KEY) ctx.addIssue({ code: 'custom', path: ['RESEND_API_KEY'], message: 'не задан, а MAIL_TRANSPORT равен resend' });
+      if (!value.MAIL_FROM) ctx.addIssue({ code: 'custom', path: ['MAIL_FROM'], message: 'не задан, а MAIL_TRANSPORT равен resend' });
+    }
     if (value.TURNSTILE_SITE_KEY && !value.TURNSTILE_SECRET)
       ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SECRET'], message: 'не задан, а TURNSTILE_SITE_KEY задан: ключи задаются парой' });
     if (value.TURNSTILE_SECRET && !value.TURNSTILE_SITE_KEY)

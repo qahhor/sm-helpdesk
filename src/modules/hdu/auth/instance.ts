@@ -4,6 +4,7 @@ import { getAuthPool } from '@/db/auth-client';
 import { env } from '@/env';
 import { listSsoServers, registryStamp } from '../core/servers';
 import { findStaff } from '../core/staff';
+import { sendLoginLinkMail } from './mail';
 import { type AuthDeps, buildAuthOptions } from './options';
 import { provisionForLibrary, resolveUserForLibrary } from './smartup';
 
@@ -16,10 +17,9 @@ export type Auth = ReturnType<typeof createAuth>;
 /** Части настроек, которые подключают другие файлы модуля: письма и вход через Smartup. */
 export type AuthHandlers = Pick<AuthDeps, 'sendMagicLink' | 'resolveUser' | 'provisionUser'>;
 
-// Вход через Smartup подключён здесь. Отправка ссылки для входа подключается вместе с почтой:
-// до этого письмо не уходит.
+// Письмо со ссылкой для входа и вход через Smartup.
 const DEFAULT_HANDLERS: AuthHandlers = {
-  sendMagicLink: async () => {},
+  sendMagicLink: sendLoginLinkMail,
   resolveUser: resolveUserForLibrary,
   provisionUser: provisionForLibrary,
 };

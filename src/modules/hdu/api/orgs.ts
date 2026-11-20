@@ -14,7 +14,16 @@ import type { SessionData } from './request';
 
 export type ClientContext = {
   actor: ClientActor;
-  user: { id: string; name: string; hasVerifiedEmail: boolean; onboarded: boolean };
+  user: {
+    id: string;
+    name: string;
+    /** Подтверждённый адрес для входа по ссылке. Пусто, пока адрес не подтверждён. */
+    email: string | null;
+    /** Адрес из Smartup или указанный пользователем, ещё не подтверждённый. */
+    claimedEmail: string | null;
+    hasVerifiedEmail: boolean;
+    onboarded: boolean;
+  };
   org: { id: string; name: string };
   /** Сколько у пользователя действующих организаций: больше одной, и в шапке появляется переключатель. */
   orgCount: number;
@@ -42,12 +51,15 @@ export async function resolveClient(session: SessionData | null): Promise<Client
     await setActiveOrganization({ sessionId: session.session.id, userId: session.user.id }, org.orgId, { remember: false });
   }
 
+  const hasVerifiedEmail = session.user.emailVerified && !isSyntheticEmail(session.user.email);
   return {
     actor: { type: 'client', userId: session.user.id, orgId: org.orgId, orgRole: org.role },
     user: {
       id: session.user.id,
       name: session.user.name,
-      hasVerifiedEmail: session.user.emailVerified && !isSyntheticEmail(session.user.email),
+      email: hasVerifiedEmail ? session.user.email : null,
+      claimedEmail: session.user.claimedEmail,
+      hasVerifiedEmail,
       onboarded: session.user.onboardedAt !== null,
     },
     org: { id: org.orgId, name: org.name },

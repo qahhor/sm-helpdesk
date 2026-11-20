@@ -16,6 +16,8 @@ export {
 } from './api/actor';
 export { type ClientContext, listMyOrganizations, type MyOrganization } from './api/orgs';
 export { handleAuthRequest } from './api/auth-route';
+export { completeWelcome, confirmEmail, requestEmailConfirmation } from './api/email';
+export { completeLoginLink, requestLoginLink } from './api/login-link';
 export { nextRequest } from './api/next-request';
 export type { RequestInfo, SessionData } from './api/request';
 export type { StaffContext } from './api/session';

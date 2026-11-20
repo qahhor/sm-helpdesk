@@ -1,0 +1,111 @@
+import 'server-only';
+import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
+import type { ClientActor } from '@/db/with-actor';
+import { withIdentity } from '@/db/with-identity';
+import { writeAudit } from '@/modules/hdc/audit';
+import { authUser } from '../auth-schema';
+import { emailTokens, memberships, organizations, staff } from '../schema';
+import { newToken } from '../tokens';
+
+// Модуль hdu, слой core: адрес email клиента (FR-ID-06, FR-ID-07, решение 0016).
+// Адрес становится адресом для входа только после подтверждения ссылкой из письма.
+
+/** Ссылка подтверждения адреса живёт 60 минут. */
+export const EMAIL_TOKEN_TTL_SEC = 60 * 60;
+
+/**
+ * Кому можно отправить ссылку для входа: учётная запись с этим подтверждённым адресом, не сотрудник,
+ * действующий участник хотя бы одной действующей организации.
+ */
+export async function isLoginLinkRecipient(email: string): Promise<boolean> {
+  return withIdentity({ type: 'system', job: 'identity.login-link' }, async (tx) => {
+    const rows = await tx
+      .select({ id: authUser.id })
+      .from(authUser)
+      .innerJoin(memberships, and(eq(memberships.userId, authUser.id), eq(memberships.state, 'active')))
+      .innerJoin(organizations, and(eq(organizations.orgId, memberships.orgId), eq(organizations.state, 'active')))
+      .where(
+        and(
+          eq(authUser.email, email),
+          eq(authUser.emailVerified, true),
+          sql`not exists (select 1 from ${staff} where ${staff.userId} = ${authUser.id})`,
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  });
+}
+
+/**
+ * Новая ссылка подтверждения адреса. Прежние неиспользованные ссылки пользователя отменяются,
+ * адрес запоминается как указанный, но не подтверждённый. Работает от имени самого клиента:
+ * политики базы не дают создать ссылку для чужой учётной записи.
+ */
+export async function createEmailToken(actor: ClientActor, email: string): Promise<string> {
+  const { token, hash } = newToken();
+  await withIdentity(actor, async (tx) => {
+    await tx
+      .update(emailTokens)
+      .set({ usedOn: sql`now()` })
+      .where(and(eq(emailTokens.userId, actor.userId), isNull(emailTokens.usedOn)));
+    await tx.insert(emailTokens).values({
+      userId: actor.userId,
+      email,
+      tokenHash: hash,
+      expiresOn: sql`now() + make_interval(secs => ${EMAIL_TOKEN_TTL_SEC})`,
+    });
+    await tx.update(authUser).set({ claimedEmail: email, updatedAt: sql`now()` }).where(eq(authUser.id, actor.userId));
+  });
+  return token;
+}
+
+export type ConfirmResult = 'ok' | 'link_invalid' | 'email_taken';
+
+const UNIQUE_VIOLATION = '23505';
+
+/**
+ * Подтверждение адреса по ссылке. Одна транзакция: адрес становится адресом для входа,
+ * указанный адрес очищается, ссылка помечается использованной, запись в журнале аудита (без адреса).
+ * Человек в этот момент может быть не вошедшим, поэтому действует система.
+ */
+export async function confirmEmailToken(tokenHash: string): Promise<ConfirmResult> {
+  try {
+    return await withIdentity({ type: 'system', job: 'identity.email' }, async (tx) => {
+      const row = (
+        await tx
+          .select({ tokenId: emailTokens.tokenId, userId: emailTokens.userId, email: emailTokens.email })
+          .from(emailTokens)
+          .where(and(eq(emailTokens.tokenHash, tokenHash), isNull(emailTokens.usedOn), gt(emailTokens.expiresOn, sql`now()`)))
+          .limit(1)
+          .for('update')
+      )[0];
+      if (!row) return 'link_invalid';
+      await tx.update(emailTokens).set({ usedOn: sql`now()` }).where(eq(emailTokens.tokenId, row.tokenId));
+      // Один подтверждённый адрес принадлежит одной учётной записи. Ссылка при этом тратится:
+      // ответ "адрес занят" человек видит только после доказательства, что ящик его.
+      const taken = await tx
+        .select({ id: authUser.id })
+        .from(authUser)
+        .where(and(eq(authUser.email, row.email), ne(authUser.id, row.userId)))
+        .limit(1);
+      if (taken.length > 0) return 'email_taken';
+      await tx
+        .update(authUser)
+        .set({ email: row.email, emailVerified: true, claimedEmail: null, updatedAt: sql`now()` })
+        .where(eq(authUser.id, row.userId));
+      await writeAudit(tx, { action: 'user.email_confirmed', objectType: 'user', objectId: row.userId });
+      return 'ok';
+    });
+  } catch (error) {
+    // Тот же адрес подтвердили одновременно: уникальность в базе решает, кто первый.
+    if ((error as { code?: string }).code === UNIQUE_VIOLATION) return 'email_taken';
+    throw error;
+  }
+}
+
+/** Отмечает шаг первого входа пройденным (FR-ID-07). Повторный вызов время не меняет. */
+export async function markOnboarded(userId: string): Promise<void> {
+  await withIdentity({ type: 'system', job: 'identity.onboarding' }, (tx) =>
+    tx.update(authUser).set({ onboardedAt: sql`now()` }).where(and(eq(authUser.id, userId), isNull(authUser.onboardedAt))),
+  );
+}

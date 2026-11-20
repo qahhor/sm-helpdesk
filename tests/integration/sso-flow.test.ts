@@ -104,7 +104,7 @@ test('начало входа ставит куку состояния и про
   expect(jar.cookie()).toMatch(/hub\.state=/);
 });
 
-test('после входа человек попадает на запрошенную страницу портала, подменённый адрес не уводит с портала', async () => {
+test('после входа человек проходит шаг первого входа и попадает на запрошенную страницу, подменённый адрес не уводит с портала', async () => {
   for (const [next, expected] of [
     ['/ru/tickets', '/ru/tickets'],
     ['https://evil.example', '/ru'],
@@ -116,7 +116,11 @@ test('после входа человек попадает на запроше�
     const callback = (await fetch(started.url, { redirect: 'manual' })).headers.get('location') ?? '';
     const { handleAuthRequest } = await import('@/modules/hdu/api/auth-route');
     const response = await handleAuthRequest(new Request(callback, { headers: jar.request.headers }));
-    expect(new URL(response.headers.get('location') ?? '', 'http://localhost:3000').pathname, next).toBe(expected);
+    // Сначала шаг первого входа (FR-ID-07), он сам пропускает дальше на безопасный адрес.
+    const location = new URL(response.headers.get('location') ?? '', 'http://localhost:3000');
+    expect(location.pathname, next).toBe('/ru/welcome');
+    expect(location.searchParams.get('next'), next).toBe(expected);
+    expect(location.origin, next).toBe('http://localhost:3000');
   }
 });
 

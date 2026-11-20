@@ -8,6 +8,7 @@ import { buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { cn } from '@/ui/cn';
 import { forgetServerAction } from './actions';
+import { LoginLinkForm } from './LoginLinkForm';
 import { ServerAddressForm } from './ServerAddressForm';
 
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
@@ -24,8 +25,10 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
   if (kind === 'client') redirect(next);
 
   const t = await getTranslations('auth.login');
+  const tl = await getTranslations('auth.link');
   const server = await describeLoginServer({ headers: new Headers(await headers()) });
   const showAddress = first(params.mode) === 'server' || server.state === 'none';
+  const showLink = first(params.mode) === 'link';
   const lookup = first(params.server);
   const error = first(params.error);
   const startHref = `/${locale}/login/smartup?next=${encodeURIComponent(next)}`;
@@ -76,6 +79,29 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
             {lookup === 'rate_limited' && <Alert tone="danger">{t('errors.lookupRateLimited')}</Alert>}
             <ServerAddressForm next={next} labels={{ address: t('address'), hint: t('addressHint'), submit: t('continue') }} />
           </section>
+        )}
+
+        {/* Вход по ссылке на подтверждённый email (FR-ID-06): для тех, кто уже подтвердил адрес в портале. */}
+        {showLink ? (
+          <section aria-labelledby="login-link" className="flex flex-col gap-3 border-t border-border pt-4">
+            <h2 id="login-link" className="text-base font-semibold">
+              {tl('request.title')}
+            </h2>
+            {first(params.sent) === '1' ? (
+              <Alert tone="success">{tl('request.sent')}</Alert>
+            ) : (
+              <p className="text-sm text-secondary-foreground">{tl('request.intro')}</p>
+            )}
+            <LoginLinkForm next={next} labels={{ email: tl('request.email'), submit: tl('request.submit') }} />
+          </section>
+        ) : (
+          <form method="get" className="border-t border-border pt-4">
+            <input type="hidden" name="mode" value="link" />
+            <input type="hidden" name="next" value={next} />
+            <button type="submit" className={cn(buttonVariants({ variant: 'ghost' }), 'w-full')}>
+              {tl('request.open')}
+            </button>
+          </form>
         )}
 
         <p className="border-t border-border pt-4 text-center text-sm text-secondary-foreground">

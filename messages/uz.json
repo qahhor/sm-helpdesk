@@ -48,12 +48,22 @@
       "emptyTitle": "Hozircha g'oyalar yo'q",
       "emptyText": "Mahsulot bo'yicha g'oya taklif qiling, Smartup jamoasi uni ko'rib chiqadi."
     },
-    "profile": {
-      "emptyTitle": "Profil kirgandan keyin paydo bo'ladi",
-      "emptyText": "Bu yerda ma'lumotlaringiz va bildirishnoma sozlamalari bo'ladi."
-    },
     "org": {
       "switch": "Tashkilotni almashtirish"
+    },
+    "settings": {
+      "email": {
+        "title": "Kirish uchun email",
+        "verified": "Kirish havolasi {email} manziliga keladi.",
+        "none": "Portalga pochtaga kelgan havola orqali kirish uchun emailni ko'rsating. Tasdiqlash uchun xat yuboramiz.",
+        "label": "Email",
+        "submit": "Havolani yuborish",
+        "sent": "Xat yubordik. Uni oching va «Manzilni tasdiqlash» tugmasini bosing.",
+        "errors": {
+          "invalid": "Email manzilini tekshiring.",
+          "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+        }
+      }
     }
   },
   "agent": {
@@ -170,6 +180,60 @@
       },
       "signedInAs": "Siz {name} sifatida kirdingiz",
       "signOut": "Chiqish"
+    },
+    "link": {
+      "request": {
+        "open": "Email havolasi orqali kirish",
+        "title": "Email havolasi orqali kirish",
+        "intro": "Agar manzilingiz Smartup Hub tizimida tasdiqlangan bo'lsa, unga kirish havolasini yuboramiz.",
+        "email": "Email",
+        "submit": "Havolani olish",
+        "sent": "Agar manzil Smartup Hub tizimida tasdiqlangan bo'lsa, unga kirish havolasini yubordik. U 15 daqiqa amal qiladi."
+      },
+      "page": {
+        "title": "Smartup Hub tizimiga kirish",
+        "text": "Kirish uchun tugmani bosing.",
+        "submit": "Kirish",
+        "invalid": "Havola endi amal qilmaydi. Kirish havolasi bir marta ishlaydi va 15 daqiqa amal qiladi.",
+        "again": "Yangi havola olish"
+      }
+    },
+    "confirmEmail": {
+      "title": "Manzilni tasdiqlash",
+      "text": "Havola orqali kirish uchun manzilni tasdiqlash tugmasini bosing.",
+      "submit": "Manzilni tasdiqlash",
+      "done": "Manzil tasdiqlandi. Endi Smartup Hub tizimiga shu emailga yuborilgan havola orqali kirish mumkin.",
+      "toPortal": "Kabinetga o'tish",
+      "invalid": "Havola endi amal qilmaydi. Profilda yangisini so'rang.",
+      "taken": "Bu manzil boshqa hisobga bog'langan. Profilda boshqa manzilni ko'rsating.",
+      "toSettings": "Profilni ochish"
+    },
+    "welcome": {
+      "title": "Assalomu alaykum, {name}",
+      "text": "Emailni ko'rsating. Tasdiqlash havolasini yuboramiz, shundan so'ng portalga pochtaga kelgan havola orqali kirish mumkin.",
+      "email": "Email",
+      "send": "Havolani yuborish",
+      "skip": "O'tkazib yuborish",
+      "sent": "Xat yubordik. Uni oching va «Manzilni tasdiqlash» tugmasini bosing.",
+      "continue": "Davom etish",
+      "errors": {
+        "invalid": "Email manzilini tekshiring.",
+        "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+      }
+    }
+  },
+  "mail": {
+    "loginLink": {
+      "subject": "Smartup Hub tizimiga kirish",
+      "text": "Assalomu alaykum!\n\nSmartup Hub tizimiga kirish uchun havolani oching va «Kirish» tugmasini bosing:\n{url}\n\nHavola {minutes} daqiqa amal qiladi va bir marta ishlaydi. Agar siz kirishni so'ramagan bo'lsangiz, bu xatni o'chirib tashlang."
+    },
+    "confirmEmail": {
+      "subject": "Smartup Hub uchun manzilni tasdiqlang",
+      "text": "Assalomu alaykum!\n\nSmartup Hub tizimiga shu manzilga yuboriladigan havola orqali kirish uchun havolani oching va «Manzilni tasdiqlash» tugmasini bosing:\n{url}\n\nHavola {minutes} daqiqa amal qiladi. Agar siz bu manzilni ko'rsatmagan bo'lsangiz, xatni o'chirib tashlang: tasdiqlanmagan manzil hech narsaga bog'lanmaydi."
+    },
+    "invitation": {
+      "subject": "{inviterName} sizni Smartup Hub tizimiga taklif qilmoqda",
+      "text": "Assalomu alaykum!\n\n{inviterName} sizni Smartup qo'llab-quvvatlash portali Smartup Hub tizimidagi {orgName} tashkilotiga taklif qilmoqda.\n\nTaklifni qabul qilish uchun havolani oching va «Qabul qilish» tugmasini bosing:\n{url}\n\nTaklif {days} kun amal qiladi."
     }
   }
 }

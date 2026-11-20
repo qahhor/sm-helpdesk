@@ -48,12 +48,22 @@
       "emptyTitle": "No ideas yet",
       "emptyText": "Suggest a product idea and the Smartup team will review it."
     },
-    "profile": {
-      "emptyTitle": "Your profile will appear after you sign in",
-      "emptyText": "Your details and notification settings will be here."
-    },
     "org": {
       "switch": "Switch organization"
+    },
+    "settings": {
+      "email": {
+        "title": "Sign-in email",
+        "verified": "Sign-in links are sent to {email}.",
+        "none": "Enter your email to sign in to the portal with a link sent to your inbox. We will send a confirmation email.",
+        "label": "Email",
+        "submit": "Send link",
+        "sent": "We have sent an email. Open it and press \"Confirm address\".",
+        "errors": {
+          "invalid": "Check the email address.",
+          "rateLimited": "Too many requests. Try again in an hour."
+        }
+      }
     }
   },
   "agent": {
@@ -170,6 +180,60 @@
       },
       "signedInAs": "Signed in as {name}",
       "signOut": "Sign out"
+    },
+    "link": {
+      "request": {
+        "open": "Sign in with an email link",
+        "title": "Sign in with an email link",
+        "intro": "If your address is confirmed in Smartup Hub, we will send a sign-in link to it.",
+        "email": "Email",
+        "submit": "Get link",
+        "sent": "If the address is confirmed in Smartup Hub, we have sent a sign-in link to it. The link works for 15 minutes."
+      },
+      "page": {
+        "title": "Sign in to Smartup Hub",
+        "text": "Press the button to sign in.",
+        "submit": "Sign in",
+        "invalid": "This link no longer works. A sign-in link works once and for 15 minutes.",
+        "again": "Get a new link"
+      }
+    },
+    "confirmEmail": {
+      "title": "Confirm your address",
+      "text": "Press the button to confirm the address for sign-in links.",
+      "submit": "Confirm address",
+      "done": "Address confirmed. You can now sign in to Smartup Hub with a link sent to this email.",
+      "toPortal": "Go to portal",
+      "invalid": "This link no longer works. Request a new one in your profile.",
+      "taken": "This address is already linked to another account. Enter a different address in your profile.",
+      "toSettings": "Open profile"
+    },
+    "welcome": {
+      "title": "Hello, {name}",
+      "text": "Enter your email. We will send a confirmation link, and then you can sign in to the portal with a link sent to your inbox.",
+      "email": "Email",
+      "send": "Send link",
+      "skip": "Skip",
+      "sent": "We have sent an email. Open it and press \"Confirm address\".",
+      "continue": "Continue",
+      "errors": {
+        "invalid": "Check the email address.",
+        "rateLimited": "Too many requests. Try again in an hour."
+      }
+    }
+  },
+  "mail": {
+    "loginLink": {
+      "subject": "Sign in to Smartup Hub",
+      "text": "Hello,\n\nTo sign in to Smartup Hub, open the link and press \"Sign in\":\n{url}\n\nThe link works for {minutes} minutes and only once. If you did not ask to sign in, just delete this email."
+    },
+    "confirmEmail": {
+      "subject": "Confirm your address for Smartup Hub",
+      "text": "Hello,\n\nTo sign in to Smartup Hub with a link sent to this address, open the link and press \"Confirm address\":\n{url}\n\nThe link works for {minutes} minutes. If you did not enter this address, just delete this email: an unconfirmed address is not linked to anything."
+    },
+    "invitation": {
+      "subject": "{inviterName} invites you to Smartup Hub",
+      "text": "Hello,\n\n{inviterName} invites you to the organization {orgName} in Smartup Hub, the Smartup support portal.\n\nTo accept the invitation, open the link and press \"Accept\":\n{url}\n\nThe invitation is valid for {days} days."
     }
   }
 }

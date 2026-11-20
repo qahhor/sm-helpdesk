@@ -74,7 +74,8 @@ export async function startSmartupSignIn(
   const result = await auth.api.signInSSO({
     body: {
       providerId: server.code,
-      callbackURL: safeReturnPath(input.next, `/${input.locale}`),
+      // После входа сначала шаг первого входа: он сам пропускает дальше, если не нужен (FR-ID-07).
+      callbackURL: `/${input.locale}/welcome?next=${encodeURIComponent(safeReturnPath(input.next, `/${input.locale}`))}`,
       errorCallbackURL: `/${input.locale}/login?error=sso`,
     },
     headers: request.headers,

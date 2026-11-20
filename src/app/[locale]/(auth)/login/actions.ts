@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { forgetServer, nextRequest, rememberServer, safeReturnPath } from '@/modules/hdu/api';
+import { forgetServer, nextRequest, rememberServer, requestLoginLink, safeReturnPath } from '@/modules/hdu/api';
 
 const loginPath = (locale: string, next: string, extra = '') =>
   `/${locale}/login?next=${encodeURIComponent(next)}${extra}`;
@@ -22,4 +22,15 @@ export async function forgetServerAction(formData: FormData): Promise<void> {
   const next = safeReturnPath(formData.get('next'), `/${locale}`);
   forgetServer(await nextRequest());
   redirect(loginPath(locale, next, '&mode=server'));
+}
+
+/**
+ * Запрос ссылки для входа (FR-ID-06). Ответ один и тот же для любого адреса:
+ * страница показывает одно сообщение, письмо уходит только на подтверждённый адрес клиента.
+ */
+export async function requestLoginLinkAction(formData: FormData): Promise<void> {
+  const locale = await getLocale();
+  const next = safeReturnPath(formData.get('next'), `/${locale}`);
+  await requestLoginLink({ email: formData.get('email'), locale, next }, await nextRequest());
+  redirect(loginPath(locale, next, '&mode=link&sent=1'));
 }

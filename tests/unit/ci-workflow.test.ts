@@ -1,8 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { parse } from 'yaml';
 
-const wf = parse(readFileSync('.github/workflows/ci.yml', 'utf8'));
+// Настройка CI готова, но выключена по решению владельца продукта (docs/decisions/0011).
+// GitHub запускает только файлы из .github/workflows, поэтому файл лежит рядом, в другой папке.
+const wf = parse(readFileSync('.github/workflows-disabled/ci.yml', 'utf8'));
 const dockerfile = readFileSync('Dockerfile', 'utf8');
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 
@@ -15,6 +17,11 @@ test('сторонние действия закреплены по хешу', (
   const uses = [...JSON.stringify(wf).matchAll(/"uses":"([^"]+)"/g)].map((m) => m[1]);
   expect(uses.length).toBeGreaterThan(0);
   expect(uses.filter((u) => !/@[0-9a-f]{40}$/.test(u))).toEqual([]);
+});
+
+test('GitHub Actions выключен: в папке .github/workflows нет ни одного файла', () => {
+  const active = existsSync('.github/workflows') ? readdirSync('.github/workflows') : [];
+  expect(active).toEqual([]);
 });
 
 test('у задач только право чтения репозитория', () => {

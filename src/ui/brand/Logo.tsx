@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import { cn } from '@/ui/cn';
 import { LOGO_ASSETS } from './tez-assets';
 
@@ -12,7 +11,10 @@ export function Logo({ onDark, withProductName = false, className }: { onDark?: 
   const image = (dark: boolean, visibility?: string) => {
     const asset = dark ? LOGO_ASSETS.onDark : LOGO_ASSETS.onLight;
     return (
-      <Image
+      // Обычный img: next/image добавляет встроенный стиль, который запрещает политика CSP,
+      // а оптимизатор изображений в портале выключен (docs/decisions/0002).
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
         src={`/brand/logo/${asset.file}`}
         width={asset.width}
         height={asset.height}

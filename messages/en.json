@@ -24,6 +24,37 @@
       "sessions": "Sessions",
       "settings": "Settings",
       "organization": "Organization"
+    },
+    "sessions": {
+      "title": "Sessions",
+      "intro": "Devices where you are signed in. If you do not recognize a device, end its session.",
+      "device": "{browser}, {os}",
+      "current": "This device",
+      "ip": "IP address",
+      "unknownIp": "unknown",
+      "signedIn": "Signed in",
+      "lastSeen": "Last activity",
+      "revoke": "End",
+      "done": "Session ended.",
+      "notFound": "The session has already ended.",
+      "browsers": {
+        "chrome": "Chrome",
+        "firefox": "Firefox",
+        "safari": "Safari",
+        "edge": "Edge",
+        "other": "Browser"
+      },
+      "os": {
+        "windows": "Windows",
+        "macos": "macOS",
+        "linux": "Linux",
+        "android": "Android",
+        "ios": "iOS",
+        "other": "other system"
+      },
+      "revokeOthers": "End all other sessions",
+      "othersDone": "All other sessions have ended.",
+      "hiddenNote": "Recent sessions are shown. {count, plural, one {# more session ends} other {# more sessions end}} together with the others with the button below."
     }
   },
   "client": {

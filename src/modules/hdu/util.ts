@@ -67,3 +67,40 @@ export function syntheticEmail(): string {
 export function isSyntheticEmail(email: string): boolean {
   return /^u-[0-9a-f-]{36}@users\.invalid$/.test(email);
 }
+
+export type DeviceInfo = {
+  browser: 'chrome' | 'firefox' | 'safari' | 'edge' | 'other';
+  os: 'windows' | 'macos' | 'linux' | 'android' | 'ios' | 'other';
+};
+
+/** Строку браузера длиннее этого не разбираем: настоящие строки короче, длинная это мусор или атака. */
+const USER_AGENT_LIMIT = 512;
+
+/**
+ * Браузер и система по строке браузера для списка сессий. Строка присылается браузером и может быть любой:
+ * в интерфейс уходят только значения из закрытого списка, сама строка не показывается.
+ */
+export function describeUserAgent(ua: string | null): DeviceInfo {
+  if (!ua || ua.length > USER_AGENT_LIMIT) return { browser: 'other', os: 'other' };
+  const os: DeviceInfo['os'] = /iPhone|iPad|iPod/.test(ua)
+    ? 'ios'
+    : /Android/.test(ua)
+      ? 'android'
+      : /Windows NT/.test(ua)
+        ? 'windows'
+        : /Macintosh|Mac OS X/.test(ua)
+          ? 'macos'
+          : /Linux|X11/.test(ua)
+            ? 'linux'
+            : 'other';
+  const browser: DeviceInfo['browser'] = /Edg(e|A|iOS)?\//.test(ua)
+    ? 'edge'
+    : /Firefox\/|FxiOS\//.test(ua)
+      ? 'firefox'
+      : /Chrome\/|CriOS\//.test(ua)
+        ? 'chrome'
+        : /Version\/[\d.]+.*Safari\//.test(ua)
+          ? 'safari'
+          : 'other';
+  return { browser, os };
+}

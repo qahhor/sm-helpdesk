@@ -8,6 +8,7 @@ import { findStaff } from '../core/staff';
 import type { StaffRole } from '../pref';
 import { safeReturnPath } from '../util';
 import { type ClientContext, type ClientDenial, resolveClient, switchOrganization } from './orgs';
+import { listMySessions, revokeMySession, revokeOtherSessions, type SessionView } from './sessions';
 import { readSession, type RequestInfo, type SessionData } from './request';
 import { FRESH_SIGN_IN_SEC, isFresh, resolveStaff, type StaffContext, type StaffDenial } from './session';
 
@@ -131,4 +132,26 @@ export async function switchOrganizationOfRequest(orgId: unknown): Promise<void>
   const session = await readSession({ headers: new Headers(await headers()) });
   if (!session) redirect(`/${await getLocale()}/login`);
   await switchOrganization(session, orgId);
+}
+
+/** Сессии вошедшего пользователя для страниц "Профиль" и "Сессии". Без входа: пустой список. */
+export async function mySessions(): Promise<{ items: SessionView[]; hidden: number }> {
+  const session = await sessionOfRequest();
+  return session ? listMySessions(session) : { items: [], hidden: 0 };
+}
+
+/** Завершение всех своих сессий, кроме текущей, из серверного действия. */
+export async function revokeOtherSessionsOfRequest(): Promise<{ revoked: number }> {
+  const session = await readSession({ headers: new Headers(await headers()) });
+  return session ? revokeOtherSessions(session) : { revoked: 0 };
+}
+
+/**
+ * Завершение своей сессии из серверного действия. Сессия читается мимо памяти запроса:
+ * страница после действия должна увидеть список уже без завершённой сессии.
+ */
+export async function revokeMySessionOfRequest(sessionId: unknown): Promise<{ signedOut: boolean }> {
+  const session = await readSession({ headers: new Headers(await headers()) });
+  if (!session) return { signedOut: true };
+  return revokeMySession(session, sessionId);
 }

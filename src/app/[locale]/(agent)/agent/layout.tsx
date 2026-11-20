@@ -13,7 +13,13 @@ export default async function AgentLayout({ children }: LayoutProps<'/[locale]/a
   return (
     <AgentShell
       userMenu={
-        <UserMenu name={staff.user.name} label={t('label')} links={[]} signOutLabel={t('signOut')} signOut={signOutStaffAction} />
+        <UserMenu
+          name={staff.user.name}
+          label={t('label')}
+          links={[{ href: '/agent/account', label: t('sessions') }]}
+          signOutLabel={t('signOut')}
+          signOut={signOutStaffAction}
+        />
       }
     >
       {children}

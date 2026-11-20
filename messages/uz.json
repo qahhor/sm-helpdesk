@@ -24,6 +24,37 @@
       "sessions": "Seanslar",
       "settings": "Sozlamalar",
       "organization": "Tashkilot"
+    },
+    "sessions": {
+      "title": "Seanslar",
+      "intro": "Kirish amalga oshirilgan qurilmalar. Agar qurilma sizga notanish bo'lsa, uning seansini yakunlang.",
+      "device": "{browser}, {os}",
+      "current": "Shu qurilma",
+      "ip": "IP manzil",
+      "unknownIp": "noma'lum",
+      "signedIn": "Kirish",
+      "lastSeen": "So'nggi amal",
+      "revoke": "Yakunlash",
+      "done": "Seans yakunlandi.",
+      "notFound": "Seans allaqachon yakunlangan.",
+      "browsers": {
+        "chrome": "Chrome",
+        "firefox": "Firefox",
+        "safari": "Safari",
+        "edge": "Edge",
+        "other": "Brauzer"
+      },
+      "os": {
+        "windows": "Windows",
+        "macos": "macOS",
+        "linux": "Linux",
+        "android": "Android",
+        "ios": "iOS",
+        "other": "boshqa tizim"
+      },
+      "revokeOthers": "Boshqa barcha seanslarni yakunlash",
+      "othersDone": "Boshqa barcha seanslar yakunlandi.",
+      "hiddenNote": "So'nggi seanslar ko'rsatilgan. Yana {count} ta seans quyidagi tugma bilan boshqalari bilan birga yakunlanadi."
     }
   },
   "client": {

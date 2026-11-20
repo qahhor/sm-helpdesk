@@ -6,10 +6,13 @@ import 'server-only';
 
 export {
   currentStaff,
+  mySessions,
   requireClientActor,
   requireFreshStaffActor,
   requireSignedInClient,
   requireStaffActor,
+  revokeMySessionOfRequest,
+  revokeOtherSessionsOfRequest,
   signedInKind,
   signOut,
   switchOrganizationOfRequest,
@@ -23,6 +26,7 @@ export {
   searchOrganizations,
 } from './api/orgs';
 export type { OrgScope } from './api/scope';
+export type { SessionView } from './api/sessions';
 export { handleAuthRequest } from './api/auth-route';
 export { completeWelcome, confirmEmail, requestEmailConfirmation } from './api/email';
 export {

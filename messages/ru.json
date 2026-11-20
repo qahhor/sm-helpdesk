@@ -24,6 +24,37 @@
       "sessions": "Сессии",
       "settings": "Настройки",
       "organization": "Организация"
+    },
+    "sessions": {
+      "title": "Сессии",
+      "intro": "Устройства, на которых выполнен вход. Если устройство вам незнакомо, завершите его сессию.",
+      "device": "{browser}, {os}",
+      "current": "Это устройство",
+      "ip": "IP-адрес",
+      "unknownIp": "неизвестен",
+      "signedIn": "Вход",
+      "lastSeen": "Последнее действие",
+      "revoke": "Завершить",
+      "done": "Сессия завершена.",
+      "notFound": "Сессия уже завершена.",
+      "browsers": {
+        "chrome": "Chrome",
+        "firefox": "Firefox",
+        "safari": "Safari",
+        "edge": "Edge",
+        "other": "Браузер"
+      },
+      "os": {
+        "windows": "Windows",
+        "macos": "macOS",
+        "linux": "Linux",
+        "android": "Android",
+        "ios": "iOS",
+        "other": "другая система"
+      },
+      "revokeOthers": "Завершить все другие сессии",
+      "othersDone": "Все другие сессии завершены.",
+      "hiddenNote": "Показаны последние сессии. Ещё {count, plural, one {# сессия} few {# сессии} many {# сессий} other {# сессии}} завершатся вместе с остальными по кнопке ниже."
     }
   },
   "client": {

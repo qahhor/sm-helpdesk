@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 
-test('материалы пакета на месте и ТЗ нужной версии', () => {
+test('материалы пакета на месте, ТЗ версии 1.1 и запись о ней в истории версий', () => {
   for (const f of [
     'CLAUDE.md',
     'docs/TZ.md',
@@ -19,7 +19,8 @@ test('материалы пакета на месте и ТЗ нужной ве�
     'docs/brand/fonts/Montserrat/OFL.txt',
   ])
     expect(existsSync(f), f).toBe(true);
-  expect(readFileSync('docs/TZ.md', 'utf8')).toMatch(/^\*\*Версия:\*\* 1\.0$/m);
+  expect(readFileSync('docs/TZ.md', 'utf8')).toMatch(/^\*\*Версия:\*\* 1\.1$/m);
+  expect(readFileSync('docs/CHANGELOG.md', 'utf8')).toMatch(/^## 1\.1 \(/m);
 });
 
 test('правила для Claude Code совпадают с разделом 16.1 ТЗ', () => {

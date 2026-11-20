@@ -12,10 +12,8 @@ export const HOTKEYS: readonly Hotkey[] = [
   { keys: 'F3', action: 'table.search' },
   { keys: 'F4', action: 'table.filter' },
   { keys: 'F7', action: 'table.refresh' },
-  // На снимке поставки строки F8 и F9 не видны. Клавиши заняты за Smartup Web,
-  // их действие уточняется у разработчиков Smartup (docs/plans/README.md, раздел 7.1).
-  { keys: 'F8', action: 'smartup.f8' },
-  { keys: 'F9', action: 'smartup.f9' },
+  // F8 и F9 в портале не используются: своих действий на них нет, действия Smartup Web не повторяются
+  // (решение владельца от 20.11.2026, ТЗ 1.1, UX-S-14).
   // Форма и страница
   { keys: 'Alt+A', action: 'record.add' },
   { keys: 'Alt+E', action: 'record.edit' },

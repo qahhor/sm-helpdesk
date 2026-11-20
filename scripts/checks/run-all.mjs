@@ -3,12 +3,14 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { checkContrast } from './contrast.mjs';
 import { findDashes, isDashCheckedFile } from './dashes.mjs';
 import { missingInEnvExample } from './env-example.mjs';
 import { checkCompleteness, checkIcu, checkWords } from './messages.mjs';
 import { findForbiddenApis } from './forbidden-apis.mjs';
 import { findMissingServerOnly } from './server-only.mjs';
 import { findUiRuleViolations } from './ui-rules.mjs';
+import { fontsOutOfDate } from '../fonts/build.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -53,6 +55,21 @@ for (const path of listFiles()) {
 // Отдельные проверки: каждая возвращает строки с описанием нарушений.
 /** @type {{ name: string; run: () => string[] | Promise<string[]> }[]} */
 const extraChecks = [
+  {
+    // контраст пар "текст, фон" в обеих темах
+    name: 'contrast',
+    run: () => {
+      const pairs = JSON.parse(readFileSync(resolve(root, 'scripts/checks/contrast-pairs.json'), 'utf8'));
+      const failed = checkContrast(readFileSync(resolve(root, 'src/ui/tokens.css'), 'utf8'), pairs);
+      if (failed.length === 0) console.log('Контраст: все пары не ниже 4,5:1 в обеих темах');
+      return failed.map((f) => `${f.pair}, тема ${f.theme}: ${f.ratio}:1, нужно не ниже 4,5:1`);
+    },
+  },
+  {
+    // файлы шрифта для веба собраны из шрифта пакета бренда
+    name: 'fonts',
+    run: async () => (await fontsOutOfDate()).map((name) => `${name}: выполните pnpm fonts:build`),
+  },
   {
     // файлы сообщений: полнота, ICU, запрещённые слова
     name: 'messages',

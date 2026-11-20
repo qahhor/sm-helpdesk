@@ -43,6 +43,8 @@
 | `@types/react-dom` | 19.3.0 | MIT |
 | `eslint` | 9.39.5 | MIT |
 | `eslint-config-next` | 16.4.6 | MIT |
+| `fontkit` | 3.0.0 | MIT |
+| `subset-font` | 2.9.0 | BSD-3-Clause |
 | `tailwindcss` | 4.3.5 | MIT |
 | `testcontainers` | 12.2.1 | MIT |
 | `typescript` | 5.9.3 | Apache-2.0 |

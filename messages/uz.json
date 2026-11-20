@@ -9,6 +9,12 @@
       "title": "Sahifa topilmadi",
       "text": "Manzilni tekshiring yoki bosh sahifaga qayting.",
       "home": "Bosh sahifaga"
+    },
+    "theme": {
+      "label": "Mavzu",
+      "light": "Yorug'",
+      "dark": "Qorong'i",
+      "system": "Tizimdagidek"
     }
   },
   "client": {

@@ -9,6 +9,12 @@
       "title": "Page not found",
       "text": "Check the address or go back to the home page.",
       "home": "Go to home"
+    },
+    "theme": {
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
     }
   },
   "client": {

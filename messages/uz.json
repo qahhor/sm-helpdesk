@@ -1,0 +1,759 @@
+{
+  "common": {
+    "appName": "Smartup Hub",
+    "language": {
+      "self": "O'zbekcha",
+      "label": "Til"
+    },
+    "notFound": {
+      "title": "Sahifa topilmadi",
+      "text": "Manzilni tekshiring yoki bosh sahifaga qayting.",
+      "home": "Bosh sahifaga"
+    },
+    "theme": {
+      "label": "Mavzu",
+      "light": "Yorug'",
+      "dark": "Qorong'i",
+      "system": "Tizimdagidek"
+    },
+    "close": "Yopish",
+    "skipToContent": "Asosiy mazmunga o'tish",
+    "userMenu": {
+      "label": "Foydalanuvchi menyusi",
+      "signOut": "Chiqish",
+      "sessions": "Seanslar",
+      "settings": "Sozlamalar",
+      "organization": "Tashkilot"
+    },
+    "sessions": {
+      "title": "Seanslar",
+      "intro": "Kirish amalga oshirilgan qurilmalar. Agar qurilma sizga notanish bo'lsa, uning seansini yakunlang.",
+      "device": "{browser}, {os}",
+      "current": "Shu qurilma",
+      "ip": "IP manzil",
+      "unknownIp": "noma'lum",
+      "signedIn": "Kirish",
+      "lastSeen": "So'nggi amal",
+      "revoke": "Yakunlash",
+      "done": "Seans yakunlandi.",
+      "notFound": "Seans allaqachon yakunlangan.",
+      "browsers": {
+        "chrome": "Chrome",
+        "firefox": "Firefox",
+        "safari": "Safari",
+        "edge": "Edge",
+        "other": "Brauzer"
+      },
+      "os": {
+        "windows": "Windows",
+        "macos": "macOS",
+        "linux": "Linux",
+        "android": "Android",
+        "ios": "iOS",
+        "other": "boshqa tizim"
+      },
+      "revokeOthers": "Boshqa barcha seanslarni yakunlash",
+      "othersDone": "Boshqa barcha seanslar yakunlandi.",
+      "hiddenNote": "So'nggi seanslar ko'rsatilgan. Yana {count} ta seans quyidagi tugma bilan boshqalari bilan birga yakunlanadi."
+    },
+    "legal": {
+      "privacy": "Ma'lumotlarni qayta ishlash siyosati",
+      "version": "{date} tahriri",
+      "translationMissing": "Sizning tilingizga tarjima hozircha yo'q, rus tilidagi matn ko'rsatildi."
+    }
+  },
+  "client": {
+    "home": {
+      "title": "Sizga qanday yordam kerak?",
+      "report": "Muammo haqida xabar berish",
+      "idea": "G'oya taklif qilish",
+      "myTickets": "Mening murojaatlarim"
+    },
+    "nav": {
+      "home": "Bosh sahifa",
+      "tickets": "Murojaatlar",
+      "ideas": "G'oyalar",
+      "profile": "Profil",
+      "label": "Asosiy menyu"
+    },
+    "tickets": {
+      "empty": "Hozircha murojaatlar yo'q. Savolingizni yozing, men yechim qidiraman.",
+      "emptyTitle": "Hozircha murojaatlar yo'q",
+      "emptyText": "Savolingizni yozing, men yechim qidiraman."
+    },
+    "ideas": {
+      "emptyTitle": "Hozircha g'oyalar yo'q",
+      "emptyText": "Mahsulot bo'yicha g'oya taklif qiling, Smartup jamoasi uni ko'rib chiqadi."
+    },
+    "org": {
+      "switch": "Tashkilotni almashtirish",
+      "title": "Tashkilot",
+      "roles": {
+        "client_user": "Foydalanuvchi",
+        "client_admin": "Administrator"
+      },
+      "invite": {
+        "title": "Hamkasbni taklif qilish",
+        "email": "Hamkasb emaili",
+        "role": "Rol",
+        "submit": "Taklif qilish"
+      },
+      "members": {
+        "title": "A'zolar",
+        "name": "Ism",
+        "role": "Rol",
+        "state": "Holat",
+        "actions": "Amallar",
+        "active": "Faol",
+        "passive": "O'chirilgan",
+        "self": "Bu siz",
+        "disable": "O'chirish",
+        "enable": "Yoqish",
+        "confirmTitle": "{name} a'zoni o'chirasizmi?",
+        "confirmText": "A'zo keyingi amalda tashkilot kabinetiga kira olmaydi. Uni qayta yoqish mumkin.",
+        "confirm": "A'zoni o'chirish",
+        "cancel": "Bekor qilish"
+      },
+      "invitations": {
+        "title": "Takliflar",
+        "email": "Email",
+        "role": "Rol",
+        "expires": "Amal qiladi",
+        "status": "Holat",
+        "empty": "Hozircha takliflar yo'q.",
+        "pending": "Javob kutilmoqda",
+        "accepted": "Qabul qilindi",
+        "revoked": "Bekor qilindi",
+        "expired": "Muddati o'tdi",
+        "revoke": "Bekor qilish"
+      },
+      "done": {
+        "invited": "Taklif yuborildi. Havola 7 kun amal qiladi.",
+        "revoked": "Taklif bekor qilindi.",
+        "disabled": "A'zo o'chirildi.",
+        "enabled": "A'zo yana faol."
+      },
+      "errors": {
+        "already_member": "Bu odam allaqachon tashkilot a'zosi.",
+        "invalid_input": "Email manzili va rolni tekshiring.",
+        "rate_limited": "Takliflar juda ko'p. Bir soatdan keyin urinib ko'ring.",
+        "forbidden": "Bu amal sizga mavjud emas.",
+        "not_found": "Yozuv topilmadi. Sahifani yangilang."
+      }
+    },
+    "settings": {
+      "email": {
+        "title": "Kirish uchun email",
+        "verified": "Kirish havolasi {email} manziliga keladi.",
+        "none": "Portalga pochtaga kelgan havola orqali kirish uchun emailni ko'rsating. Tasdiqlash uchun xat yuboramiz.",
+        "label": "Email",
+        "submit": "Havolani yuborish",
+        "sent": "Xat yubordik. Uni oching va «Manzilni tasdiqlash» tugmasini bosing.",
+        "errors": {
+          "invalid": "Email manzilini tekshiring.",
+          "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+        }
+      },
+      "channels": {
+        "title": "Telegram",
+        "intro": "Smartupga kirish imkoni bo'lmaganda portalga bot orqali kirish uchun Telegramni bog'lang.",
+        "link": "Telegramni bog'lash",
+        "linked": "{account} akkaunti {date} dan bog'langan.",
+        "unlink": "Uzish",
+        "unlinked": "Telegram uzildi.",
+        "hint": "Smartup Hub boti ochiladi. Unda «Boshlash» tugmasini bosing va bu yerga qayting.",
+        "errors": {
+          "rate_limited": "Urinishlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
+          "disabled": "Telegramni bog'lash hozir mavjud emas.",
+          "unavailable": "Telegram hozir javob bermayapti. Botni bir necha daqiqadan keyin bog'lab ko'ring."
+        }
+      }
+    }
+  },
+  "agent": {
+    "nav": {
+      "sections": "Bo'limlar",
+      "soon": "Bo'limlar keyinroq paydo bo'ladi",
+      "groups": {
+        "work": "Ish",
+        "knowledge": "Bilimlar",
+        "clients": "Mijozlar",
+        "analytics": "Tahlil",
+        "settings": "Sozlamalar"
+      },
+      "items": {
+        "queues": "Navbatlar",
+        "solutions": "Yechimlar",
+        "candidates": "Nomzodlar",
+        "problems": "Ma'lum muammolar",
+        "codeKnowledge": "Koddan bilimlar",
+        "organizations": "Tashkilotlar",
+        "ideas": "G'oyalar",
+        "announcements": "E'lonlar",
+        "metrics": "Ko'rsatkichlar",
+        "digests": "Xulosalar",
+        "aiReview": "AI javoblari tahlili",
+        "all": "Barcha sozlamalar"
+      }
+    },
+    "breadcrumbs": "Yo'l",
+    "home": {
+      "title": "Ish joyi",
+      "emptyTitle": "Hozircha navbatlar yo'q",
+      "emptyText": "Ish joyi bo'limlari tayyor bo'lishi bilan ochiladi. Birinchi bo'lib murojaatlar navbatlari paydo bo'ladi."
+    },
+    "orgs": {
+      "title": "Tashkilotlar",
+      "search": "Qidiruv",
+      "searchHint": "Nomi, STIR yoki kompaniya identifikatori",
+      "find": "Topish",
+      "name": "Nomi",
+      "inn": "STIR",
+      "server": "Server",
+      "category": "Toifa",
+      "members": "A'zolar",
+      "state": "Holat",
+      "states": {
+        "active": "Faol",
+        "passive": "O'chirilgan"
+      },
+      "none": "Yo'q",
+      "emptyTitle": "Tashkilotlar topilmadi",
+      "emptyText": "So'rovni o'zgartiring: qidiruv nomi, STIR va kompaniya identifikatori bo'yicha ishlaydi.",
+      "invalid": "So'rov juda uzun: 100 belgidan oshmasin.",
+      "pages": "Sahifalar",
+      "prev": "Orqaga",
+      "next": "Keyingi",
+      "membersTitle": "A'zolar",
+      "memberName": "Ism",
+      "email": "Email",
+      "emailNone": "Tasdiqlanmagan",
+      "role": "Rol",
+      "source": "Manba",
+      "memberState": "Holat",
+      "actions": "Amallar",
+      "roles": {
+        "client_user": "Foydalanuvchi",
+        "client_admin": "Administrator"
+      },
+      "sources": {
+        "smartup": "Smartup",
+        "invite": "Mijoz taklifi",
+        "staff": "Smartup taklifi",
+        "guest": "Mehmon"
+      },
+      "memberStates": {
+        "active": "Faol",
+        "passive": "O'chirilgan"
+      },
+      "makeAdmin": "Administrator qilish",
+      "makeUser": "Foydalanuvchi qilish",
+      "disable": "O'chirish",
+      "enable": "Yoqish",
+      "confirmTitle": "{name} a'zoni o'chirasizmi?",
+      "confirmText": "A'zo keyingi amalda tashkilot kabinetiga kira olmaydi. Uni qayta yoqish mumkin.",
+      "confirm": "A'zoni o'chirish",
+      "cancel": "Bekor qilish",
+      "inviteTitle": "Tashkilotga taklif qilish",
+      "inviteEmail": "Email",
+      "invite": "Taklif qilish",
+      "invitationsTitle": "Takliflar",
+      "invitationsEmpty": "Takliflar yo'q.",
+      "expires": "Amal qiladi",
+      "revoke": "Bekor qilish",
+      "invitationStates": {
+        "pending": "Javob kutilmoqda",
+        "accepted": "Qabul qilindi",
+        "revoked": "Bekor qilindi",
+        "expired": "Muddati o'tdi"
+      },
+      "reauth": "Qayta kirish",
+      "errors": {
+        "stale_session": "Bu amal uchun yangi kirish kerak: 15 daqiqadan oshmagan.",
+        "forbidden": "Bu amal sizga mavjud emas.",
+        "not_found": "Yozuv topilmadi. Sahifani yangilang.",
+        "invalid_input": "Kiritilgan ma'lumotlarni tekshiring.",
+        "already_member": "Bu odam allaqachon tashkilot a'zosi.",
+        "rate_limited": "Bu tashkilotga takliflar juda ko'p. Bir soatdan keyin urinib ko'ring."
+      },
+      "done": {
+        "roleChanged": "Rol o'zgartirildi.",
+        "disabled": "A'zo o'chirildi.",
+        "enabled": "A'zo yana faol.",
+        "invited": "Taklif yuborildi.",
+        "revoked": "Taklif bekor qilindi.",
+        "settingsSaved": "Saqlandi."
+      },
+      "settingsTitle": "Tashkilot sozlamalari",
+      "categoryLabel": "Mijoz toifasi",
+      "categoryNone": "Belgilanmagan",
+      "aiLabel": "Murojaatlarni AI-yordamchi ko'rib chiqadi",
+      "aiHint": "Agar tashkilot murojaatlarni AI orqali ko'rib chiqishdan voz kechgan bo'lsa, o'chiring.",
+      "saveSettings": "Sozlamalarni saqlash",
+      "ai": "AI orqali ko'rib chiqish",
+      "aiOn": "yoqilgan",
+      "aiOff": "o'chirilgan",
+      "auditLink": "Tashkilot audit jurnali"
+    },
+    "settings": {
+      "title": "Sozlamalar",
+      "sectionsLabel": "Sozlamalar bo'limlari",
+      "sectionsMenu": "Bo'lim: {name}",
+      "overviewIntro": "Bo'limni tanlang. Sozlamalardagi o'zgarishlar audit jurnaliga yoziladi.",
+      "sections": {
+        "servers": {
+          "title": "Smartup serverlari",
+          "text": "Mijozlar ular orqali kiradi: manzillar, kalitlar, rollar mosligi, aloqani tekshirish."
+        },
+        "staff": {
+          "title": "Xodimlar",
+          "text": "Taklif, rol va liniya rahbari, bloklash, parol va ikkinchi omilni tiklash."
+        },
+        "audit": {
+          "title": "Audit jurnali",
+          "text": "Huquqlar va sozlamalar bilan kim, nima va qachon qilgani. Yozuvlarni o'zgartirib yoki o'chirib bo'lmaydi."
+        }
+      },
+      "servers": {
+        "title": "Smartup serverlari",
+        "add": "Server qo'shish",
+        "addTitle": "Yangi server",
+        "emptyTitle": "Hozircha serverlar yo'q",
+        "emptyText": "Mijozlar kiradigan Smartup serverini qo'shing.",
+        "code": "Kod",
+        "name": "Nomi",
+        "address": "Smartup manzili",
+        "isDefault": "Asosiy",
+        "state": "Holati",
+        "lastCheck": "Oxirgi tekshiruv",
+        "yes": "ha",
+        "no": "yo'q",
+        "states": {
+          "active": "Ishlayapti",
+          "passive": "O'chirilgan"
+        },
+        "check": {
+          "ok": "Server javob beryapti",
+          "fail": "Muammolar bor",
+          "never": "Tekshirilmagan"
+        },
+        "fields": {
+          "code": "Kod",
+          "codeHint": "Lotin kichik harflari, raqamlar va chiziqcha, 2 dan 31 belgigacha. Smartupdagi kod bilan bir xil va keyin o'zgarmaydi.",
+          "name": "Nomi",
+          "baseUrl": "Smartup manzili",
+          "baseUrlHint": "Smartup Web manzili, yo'lsiz, masalan https://smartup.example.uz",
+          "issuer": "Kirish serveri manzili",
+          "issuerHint": "OpenID Connect manzili (issuer). Portal discovery hujjatini shu manzildan yuklaydi.",
+          "clientId": "Mijoz identifikatori",
+          "clientSecret": "Mijoz siri",
+          "clientSecretHint": "Portal Smartupda ro'yxatdan o'tkazilganda beriladi.",
+          "clientSecretSetHint": "Sir berilgan. O'zgartirmaslik uchun maydonni bo'sh qoldiring.",
+          "isDefault": "Asosiy server: uning tugmasini umumiy bulut mijozlari ko'radi",
+          "roleMap": "Rollar mosligi",
+          "roleMapHint": "Har bir rol alohida qatorda: Smartupdagi rol = client_user yoki client_admin. Masalan: director = client_admin",
+          "endpoints": "Discovery hujjatisiz manzillar",
+          "endpointsHint": "To'rttala manzilni faqat serverda discovery hujjati bo'lmasa to'ldiring.",
+          "authorization": "Avtorizatsiya manzili",
+          "token": "Token manzili",
+          "userinfo": "Foydalanuvchi ma'lumotlari manzili",
+          "jwks": "Kalitlar manzili"
+        },
+        "save": "Saqlash",
+        "details": "Ma'lumotlar",
+        "secretSet": "Sir berilgan",
+        "callback": "Qaytish manzili",
+        "callbackHint": "Portalni ushbu serverda ro'yxatdan o'tkazishda uni Smartup dasturchilariga bering.",
+        "checkTitle": "Aloqani tekshirish",
+        "checkButton": "Aloqani tekshirish",
+        "checkNever": "Server hali tekshirilmagan.",
+        "checkedOn": "Oxirgi tekshiruv: {time}.",
+        "checkOk": "Server javob beryapti: u orqali kirish to'g'ri sozlangan.",
+        "checkFailed": "Muammolar topildi:",
+        "issues": {
+          "unreachable": "Server javob bermayapti yoki xato bilan javob berdi.",
+          "timeout": "Server 5 soniya ichida javob bermadi.",
+          "not_json": "Server JSON hujjat bilan javob bermadi.",
+          "issuer_mismatch": "Hujjatdagi kirish serveri manzili reestrdagi manzilga mos kelmaydi.",
+          "no_authorization_endpoint": "Hujjatda avtorizatsiya manzili yo'q.",
+          "no_token_endpoint": "Hujjatda token manzili yo'q.",
+          "no_userinfo_endpoint": "Hujjatda foydalanuvchi ma'lumotlari manzili yo'q.",
+          "no_jwks": "Kalitlar manzili yo'q yoki kalitlar berilmayapti.",
+          "no_pkce_s256": "Server PKCE S256 ni qo'llab-quvvatlamaydi."
+        },
+        "stateTitle": "Server orqali kirish",
+        "disable": "O'chirish",
+        "enable": "Yoqish",
+        "confirmTitle": "{name} serverini o'chirasizmi?",
+        "confirmText": "Server qayta yoqilmaguncha bu server mijozlari portalga kira olmaydi. Ochiq sessiyalar ishlashda davom etadi.",
+        "confirm": "Ha, o'chirish",
+        "cancel": "Bekor qilish",
+        "done": {
+          "added": "Server qo'shildi",
+          "saved": "Server saqlandi",
+          "disabled": "Server o'chirildi",
+          "enabled": "Server yoqildi"
+        },
+        "errors": {
+          "invalid_input": "Maydonlarni tekshiring: kod, manzillar (faqat https va faqat tashqi tugunlar), rollar mosligi va discovery hujjatisiz manzillar (to'rttasi yoki birortasi ham emas).",
+          "server_taken": "Kod, Smartup manzili yoki kirish serveri manzili boshqa serverda allaqachon yozilgan. Serverni o'zgartirish uchun uning kartasini oching.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak.",
+          "forbidden": "Bu amal uchun huquq yo'q.",
+          "not_found": "Server topilmadi."
+        },
+        "reauth": "Qayta kirish",
+        "formTitle": "Kirish sozlamalari"
+      },
+      "staff": {
+        "title": "Xodimlar",
+        "invite": "Xodimni taklif qilish",
+        "inviteTitle": "Xodimni taklif qilish",
+        "inviteIntro": "Havola taklif qilinganga xat bilan yuboriladi va 24 soat amal qiladi. U orqali u parol o'rnatadi va ikkinchi omilni ulaydi.",
+        "email": "Email",
+        "name": "Ism",
+        "role": "Rol",
+        "isLead": "O'z liniyasining rahbari",
+        "send": "Taklifni yuborish",
+        "cancel": "Bekor qilish",
+        "columns": {
+          "name": "Ism",
+          "email": "Email",
+          "role": "Rol",
+          "secondFactor": "Ikkinchi omil",
+          "state": "Holati",
+          "actions": "Amallar"
+        },
+        "roles": {
+          "agent_l1": "Birinchi liniya",
+          "agent_l2": "Ikkinchi liniya",
+          "care": "Customer Care",
+          "product": "Mahsulot",
+          "admin": "Portal administratori"
+        },
+        "lead": "liniya rahbari",
+        "self": "bu siz",
+        "secondFactor": {
+          "on": "Ulangan",
+          "off": "Ulanmagan"
+        },
+        "states": {
+          "active": "Ishlayapti",
+          "passive": "Bloklangan"
+        },
+        "block": "Bloklash",
+        "unblock": "Blokdan chiqarish",
+        "reset": "Kirishni tiklash",
+        "editTitle": "{name} xodimi",
+        "save": "Saqlash",
+        "confirmBlockTitle": "{name} xodimini bloklaysizmi?",
+        "confirmBlockText": "Uning barcha sessiyalari darhol yakunlanadi, blokdan chiqarilmaguncha u qayta kira olmaydi.",
+        "confirmBlock": "Xodimni bloklash",
+        "confirmResetTitle": "{name} xodimining paroli va ikkinchi omilini tiklaysizmi?",
+        "confirmResetText": "Uning barcha sessiyalari yakunlanadi. Yangi parol uchun havola unga xat bilan yuboriladi va 24 soat amal qiladi.",
+        "confirmReset": "Kirishni tiklash",
+        "invitationsTitle": "Takliflar",
+        "invitationColumns": {
+          "email": "Email",
+          "role": "Rol",
+          "expiresOn": "Amal qilish muddati",
+          "state": "Holati"
+        },
+        "waiting": "Javob kutilmoqda",
+        "noInvitations": "Javob kutayotgan takliflar yo'q.",
+        "done": {
+          "invited": "Taklif yuborildi",
+          "roleChanged": "Rol o'zgartirildi",
+          "blocked": "Xodim bloklandi, uning sessiyalari yakunlandi",
+          "unblocked": "Xodim blokdan chiqarildi",
+          "reset": "Kirish tiklandi, havola xodimga yuborildi"
+        },
+        "noMail": "Portal pochtasi ulanmagan, xat yuborilmadi. Havolani konsol buyrug'i bilan bering: {command}",
+        "errors": {
+          "invalid_input": "Maydonlarni tekshiring: manzil, ism va rol.",
+          "stale_session": "Bu amal uchun 15 daqiqadan eski bo'lmagan kirish kerak.",
+          "forbidden": "Bunday qilib bo'lmaydi: bu sizning hisobingiz yoki portalda birorta ham faol administrator qolmaydi.",
+          "not_found": "Xodim topilmadi.",
+          "already_member": "Bu manzil allaqachon xodimga tegishli. Quyidagi ro'yxatda uning rolini o'zgartiring yoki kirishini tiklang."
+        },
+        "reauth": "Qayta kirish",
+        "manage": "Boshqarish",
+        "close": "Yopish"
+      },
+      "audit": {
+        "title": "Audit jurnali",
+        "intro": "Huquqlar va sozlamalar bilan kim, nima va qachon qilgani. Yozuvlarni o'zgartirib yoki o'chirib bo'lmaydi.",
+        "from": "Dan",
+        "to": "Gacha",
+        "action": "Amal",
+        "allActions": "Barcha amallar",
+        "objectType": "Obyekt turi",
+        "allTypes": "Barcha turlar",
+        "show": "Ko'rsatish",
+        "reset": "Filtrlarni tozalash",
+        "filteredBy": "Tanlov: {name}",
+        "clear": "Tanlovni olib tashlash",
+        "columns": {
+          "time": "Vaqt",
+          "actor": "Muallif",
+          "action": "Amal",
+          "object": "Obyekt",
+          "org": "Tashkilot",
+          "changes": "O'zgarishlar",
+          "ip": "Manzil"
+        },
+        "actorTypes": {
+          "system": "Tizim",
+          "agent": "AI-xodim",
+          "client": "Mijoz",
+          "staff": "Xodim"
+        },
+        "objectTypes": {
+          "staff": "Xodim",
+          "server": "Server",
+          "membership": "Ishtirokchi",
+          "invitation": "Taklif",
+          "user": "Foydalanuvchi",
+          "session": "Sessiya",
+          "organization": "Tashkilot"
+        },
+        "none": "yo'q",
+        "empty": "Tanlangan davr uchun yozuvlar yo'q.",
+        "invalid": "Filtrlarni tekshiring: sanalar va qiymatlar.",
+        "next": "Keyingi 50 ta yozuv",
+        "first": "Yangi yozuvlarga",
+        "actions": {
+          "staff": {
+            "invited": "Xodim taklif qilindi",
+            "created": "Xodim qo'shildi",
+            "reset": "Xodimning kirishi tiklandi",
+            "signed_in": "Xodim kirdi",
+            "role_changed": "Xodim roli o'zgartirildi",
+            "state_changed": "Xodim bloklandi yoki blokdan chiqarildi"
+          },
+          "server": {
+            "added": "Server qo'shildi",
+            "disabled": "Server o'chirildi",
+            "enabled": "Server yoqildi",
+            "updated": "Server o'zgartirildi"
+          },
+          "org": {
+            "provisioned": "Tashkilot yaratildi",
+            "updated": "Tashkilot sozlamalari o'zgartirildi"
+          },
+          "member": {
+            "joined": "Ishtirokchi qo'shildi",
+            "role_changed": "Ishtirokchi roli o'zgartirildi",
+            "state_changed": "Ishtirokchi o'chirildi yoki yoqildi"
+          },
+          "invitation": {
+            "created": "Taklif yaratildi",
+            "revoked": "Taklif bekor qilindi",
+            "accepted": "Taklif qabul qilindi"
+          },
+          "user": {
+            "email_confirmed": "Manzil tasdiqlandi",
+            "signed_in_telegram": "Telegram boti orqali kirish"
+          },
+          "session": {
+            "revoked": "Sessiya yakunlandi"
+          },
+          "telegram": {
+            "linked": "Telegram bog'landi",
+            "unlinked": "Telegram uzildi"
+          }
+        }
+      }
+    }
+  },
+  "auth": {
+    "staff": {
+      "login": {
+        "title": "Xodimlar uchun kirish",
+        "email": "Email",
+        "password": "Parol",
+        "submit": "Kirish",
+        "codeLabel": "Ilovadagi kod",
+        "codeHint": "Kodlar ilovasidagi olti raqam",
+        "codeSubmit": "Tasdiqlash",
+        "enrollTitle": "Ikkinchi omilni ulang",
+        "enrollText": "Rasmni kodlar ilovasi bilan skanerlang, masalan Google Authenticator yoki 1Password, yoki kalitni qo'lda kiriting. So'ng ilovadagi kodni kiriting.",
+        "qrLabel": "Kodlar ilovasi uchun QR-kod",
+        "secretLabel": "Qo'lda kiritish uchun kalit",
+        "startOver": "Qaytadan boshlash",
+        "setupDone": "Parol saqlandi. Yangi parol bilan kiring.",
+        "reauth": "Bu amal uchun qaytadan kiring.",
+        "errors": {
+          "invalid_credentials": "Email yoki parol noto'g'ri.",
+          "rate_limited": "Urinishlar juda ko'p. {minutes, plural, one {# daqiqadan} other {# daqiqadan}} keyin qayta urinib ko'ring.",
+          "code_invalid": "Kod mos kelmadi. Telefondagi vaqtni tekshiring va yangi kodni kiriting.",
+          "code_locked": "Noto'g'ri kodlar juda ko'p. 15 daqiqadan keyin qayta urinib ko'ring.",
+          "sign_in_expired": "Kodni kiritish vaqti tugadi. Qaytadan kiring.",
+          "invalid_input": "Kod olti raqamdan iborat.",
+          "generic": "Amalga oshmadi. Qayta urinib ko'ring.",
+          "bot_check": "Robot emasligingizni tasdiqlab bo'lmadi. Sahifani yangilang va qayta urinib ko'ring."
+        }
+      },
+      "setup": {
+        "title": "Parol o'rnating",
+        "text": "Sizni Smartup Hub ish joyiga taklif qilishdi. Kirish manzili: {email}.",
+        "name": "Ism",
+        "password": "Parol",
+        "passwordHint": "Kamida 12 belgi",
+        "passwordRepeat": "Parolni takrorlang",
+        "submit": "Parolni saqlash",
+        "invalidTitle": "Havola yaroqsiz",
+        "invalidText": "U ishlatilgan yoki muddati tugagan. Administratordan yangisini yuborishni so'rang.",
+        "errors": {
+          "password_short": "Parol kamida 12 belgidan iborat bo'lishi kerak.",
+          "password_mismatch": "Parollar mos kelmadi.",
+          "link_invalid": "Havola ishlatilgan yoki muddati tugagan. Administratordan yangisini yuborishni so'rang.",
+          "email_taken": "Bu manzil boshqa hisobga biriktirilgan. Administratorga murojaat qiling.",
+          "invalid_input": "Ism va parolni tekshiring."
+        }
+      }
+    },
+    "login": {
+      "title": "Smartup Hub ga kirish",
+      "intro": "Smartup hisobingiz bilan kiring: Smartup Web va mobil ilovadagi hisob bilan bir xil.",
+      "signInWithSmartup": "Smartup orqali kirish",
+      "ownServer": "Bizda o'z Smartup serverimiz bor",
+      "address": "Smartup manzilingiz",
+      "addressHint": "Brauzerda ochadiganingiz, masalan smartup.company.uz",
+      "continue": "Davom etish",
+      "changeServer": "Serverni o'zgartirish",
+      "serverUnavailable": "Tanlangan Smartup serveri hozir kirish uchun mavjud emas. Boshqa manzilni kiriting yoki Smartup qo'llab-quvvatlash xizmatiga murojaat qiling.",
+      "staffLink": "Smartup xodimlari uchun kirish",
+      "errors": {
+        "sso": "Smartup orqali kirib bo'lmadi. Qayta urinib ko'ring. Yana bo'lmasa, kompaniyangizdagi Smartup administratoriga murojaat qiling.",
+        "noServer": "Kirish uchun Smartup serveri topilmadi. Smartup manzilingizni kiriting.",
+        "rateLimited": "Kirishga urinishlar juda ko'p. 10 daqiqadan keyin qayta urinib ko'ring.",
+        "serverNotFound": "Bunday server topilmadi. Manzilni tekshiring yoki Smartup qo'llab-quvvatlash xizmatiga murojaat qiling.",
+        "lookupRateLimited": "Urinishlar juda ko'p. Bir soatdan keyin qayta urinib ko'ring.",
+        "serverDown": "Smartup serveri hozir javob bermayapti. Bir necha daqiqadan keyin kiring yoki email orqali havola bilan kiring."
+      },
+      "botIntro": "Smartupga kirish imkoni yo'qmi? Agar Telegram hisobingizga bog'langan bo'lsa, bot orqali kiring: unda «Kirish» tugmasini bosing.",
+      "botLink": "Smartup Hub botini ochish"
+    },
+    "gate": {
+      "selectOrganization": {
+        "title": "Tashkilotni tanlang",
+        "intro": "Siz bir nechta tashkilot a'zosisiz. Hozir qaysi biri bilan ishlashni tanlang. Uni kabinet sarlavhasida almashtirish mumkin.",
+        "notMember": "Bu tashkilot sizga mavjud emas. Boshqasini tanlang."
+      },
+      "noOrganization": {
+        "title": "Tashkilot topilmadi",
+        "text": "Siz tizimga kirdingiz, lekin hisobingiz hali hech bir tashkilotga bog'lanmagan. Kompaniyangiz administratoridan sizni taklif qilishini so'rang yoki Smartup qo'llab-quvvatlash xizmatiga yozing."
+      },
+      "roles": {
+        "client_user": "Foydalanuvchi",
+        "client_admin": "Administrator"
+      },
+      "signedInAs": "Siz {name} sifatida kirdingiz",
+      "signOut": "Chiqish"
+    },
+    "link": {
+      "request": {
+        "open": "Email havolasi orqali kirish",
+        "title": "Email havolasi orqali kirish",
+        "intro": "Agar manzilingiz Smartup Hub tizimida tasdiqlangan bo'lsa, unga kirish havolasini yuboramiz.",
+        "email": "Email",
+        "submit": "Havolani olish",
+        "sent": "Agar manzil Smartup Hub tizimida tasdiqlangan bo'lsa, unga kirish havolasini yubordik. U 15 daqiqa amal qiladi."
+      },
+      "page": {
+        "title": "Smartup Hub tizimiga kirish",
+        "text": "Kirish uchun tugmani bosing.",
+        "submit": "Kirish",
+        "invalid": "Havola endi amal qilmaydi. Kirish havolasi bir marta ishlaydi va 15 daqiqa amal qiladi.",
+        "again": "Yangi havola olish"
+      }
+    },
+    "confirmEmail": {
+      "title": "Manzilni tasdiqlash",
+      "text": "Havola orqali kirish uchun manzilni tasdiqlash tugmasini bosing.",
+      "submit": "Manzilni tasdiqlash",
+      "done": "Manzil tasdiqlandi. Endi Smartup Hub tizimiga shu emailga yuborilgan havola orqali kirish mumkin.",
+      "toPortal": "Kabinetga o'tish",
+      "invalid": "Havola endi amal qilmaydi. Profilda yangisini so'rang.",
+      "taken": "Bu manzil boshqa hisobga bog'langan. Profilda boshqa manzilni ko'rsating.",
+      "toSettings": "Profilni ochish"
+    },
+    "welcome": {
+      "title": "Assalomu alaykum, {name}",
+      "text": "Emailni ko'rsating. Tasdiqlash havolasini yuboramiz, shundan so'ng portalga pochtaga kelgan havola orqali kirish mumkin.",
+      "email": "Email",
+      "send": "Havolani yuborish",
+      "skip": "O'tkazib yuborish",
+      "sent": "Xat yubordik. Uni oching va «Manzilni tasdiqlash» tugmasini bosing.",
+      "continue": "Davom etish",
+      "errors": {
+        "invalid": "Email manzilini tekshiring.",
+        "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+      },
+      "telegram": "Telegramni bog'lash",
+      "policyLine": "Portal ma'lumotlaringiz bilan qanday ishlashi <link>Ma'lumotlarni qayta ishlash siyosati</link> hujjatida yozilgan.",
+      "policyTitle": "Ma'lumotlarni qayta ishlash siyosati yangilandi",
+      "policyText": "Yangi tahrirni o'qing: <link>Ma'lumotlarni qayta ishlash siyosati</link>.",
+      "policyAcknowledge": "Tushunarli"
+    },
+    "invite": {
+      "title": "{orgName} tashkilotiga taklif",
+      "text": "{email} uchun taklif. Smartup Hub tizimida tashkilot bilan ishlash uchun uni qabul qiling.",
+      "name": "Ismingiz",
+      "submit": "Taklifni qabul qilish",
+      "invalidTitle": "Taklif",
+      "invalid": "Taklif endi amal qilmaydi. Kompaniyangiz administratoridan yangisini yuborishni so'rang.",
+      "taken": "Bu manzilni taklif uchun ishlatib bo'lmaydi. Taklifni boshqa manzilga yuborishni so'rang."
+    },
+    "telegram": {
+      "title": "Smartup Hub tizimiga kirish",
+      "text": "Kirish uchun tugmani bosing.",
+      "submit": "Kirish",
+      "invalid": "Havola endi amal qilmaydi. Botdagi havola bir marta ishlaydi va 10 daqiqa amal qiladi. Botdan yangisini so'rang."
+    }
+  },
+  "mail": {
+    "loginLink": {
+      "subject": "Smartup Hub tizimiga kirish",
+      "text": "Assalomu alaykum!\n\nSmartup Hub tizimiga kirish uchun havolani oching va «Kirish» tugmasini bosing:\n{url}\n\nHavola {minutes} daqiqa amal qiladi va bir marta ishlaydi. Agar siz kirishni so'ramagan bo'lsangiz, bu xatni o'chirib tashlang."
+    },
+    "confirmEmail": {
+      "subject": "Smartup Hub uchun manzilni tasdiqlang",
+      "text": "Assalomu alaykum!\n\nSmartup Hub tizimiga shu manzilga yuboriladigan havola orqali kirish uchun havolani oching va «Manzilni tasdiqlash» tugmasini bosing:\n{url}\n\nHavola {minutes} daqiqa amal qiladi. Agar siz bu manzilni ko'rsatmagan bo'lsangiz, xatni o'chirib tashlang: tasdiqlanmagan manzil hech narsaga bog'lanmaydi."
+    },
+    "invitation": {
+      "subject": "{inviterName} sizni Smartup Hub tizimiga taklif qilmoqda",
+      "text": "Assalomu alaykum!\n\n{inviterName} sizni Smartup qo'llab-quvvatlash portali Smartup Hub tizimidagi {orgName} tashkilotiga taklif qilmoqda.\n\nTaklifni qabul qilish uchun havolani oching va «Qabul qilish» tugmasini bosing:\n{url}\n\nTaklif {days} kun amal qiladi."
+    },
+    "telegramLinked": {
+      "subject": "Telegram Smartup Hub tizimiga bog'landi",
+      "text": "Assalomu alaykum!\n\nSmartup Hub hisobingizga {account} Telegram akkaunti bog'landi. U orqali portalga kirish mumkin.\n\nAgar bu siz bo'lmasangiz, uni profilda uzing:\n{url}"
+    },
+    "staffInvitation": {
+      "subject": "{inviterName} sizni Smartup Hub ish joyiga taklif qilmoqda",
+      "text": "Assalomu alaykum!\n\n{inviterName} sizni Smartup qo'llab-quvvatlash portali Smartup Hub ish joyiga taklif qilmoqda.\n\nHavolani oching, parol o'rnating va kirishning ikkinchi omilini ulang:\n{url}\n\nHavola {hours} soat amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang."
+    },
+    "staffReset": {
+      "subject": "Smartup Hub ga kirish tiklandi",
+      "text": "Assalomu alaykum!\n\nPortal administratori Smartup Hub dagi parolingiz va kirishning ikkinchi omilini tikladi. Barcha sessiyalaringiz yakunlandi.\n\nHavolani oching, yangi parol o'rnating va ikkinchi omilni qayta ulang:\n{url}\n\nHavola {hours} soat amal qiladi va bir marta ishlaydi. Agar siz tiklashni so'ramagan bo'lsangiz, administratorga xabar bering."
+    }
+  },
+  "bot": {
+    "linked": "Tayyor: Telegram {org} tashkilotidagi {name} hisobiga bog'landi. Smartupga kirish imkoni bo'lmasa, Smartup Hub tizimiga shu yerdan kirish mumkin. Agar bog'lagan siz bo'lmasangiz, «Uzish» tugmasini bosing.",
+    "alreadyLinked": "Bu Telegram akkaunti Smartup Hub tizimidagi boshqa hisobga bog'langan. Avval uni o'sha yerda uzing.",
+    "codeInvalid": "Bog'lash havolasi amal qilmaydi. Smartup Hub tizimida profilni oching va «Telegramni bog'lash» tugmasini yana bosing.",
+    "unlinked": "Telegram hisobdan uzildi. Uni Smartup Hub profilida qayta bog'lash mumkin.",
+    "notLinked": "Bu Telegram akkaunti Smartup Hub hisobiga bog'lanmagan. Uni portaldagi profilda bog'lash mumkin.",
+    "chooseLanguage": "Xabarlar tilini tanlang.",
+    "languageSet": "Xabarlar o'zbek tilida keladi.",
+    "languageName": "O'zbekcha",
+    "fallback": "Men Smartup Hub tizimiga kirishga va Telegramni bog'lashga yordam beraman. Savol va murojaatlarni portalda yozing.",
+    "buttonPortal": "Portalni ochish",
+    "buttonSignIn": "Kirish",
+    "buttonLanguage": "Tilni tanlash",
+    "buttonUnlink": "Uzish",
+    "loginLink": "Smartup Hub tizimiga kirish havolasi. U {minutes} daqiqa amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang.",
+    "loginTooOften": "Kirish havolalari juda ko'p. {minutes} daqiqadan keyin qayta urinib ko'ring.",
+    "loginNoAccess": "Bu hisobning hozir portalga kirish huquqi yo'q. Kompaniyangiz administratoriga murojaat qiling."
+  }
+}

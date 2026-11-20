@@ -1,0 +1,30 @@
+# Защита цепочки поставок (ТЗ 14.1, предложение 9 к версии 1.1).
+# Пакет ставится не раньше чем через 7 дней после публикации (значение в минутах).
+# Срочное исправление безопасности моложе 7 дней: minimumReleaseAgeExclude и запись в docs/decisions/.
+minimumReleaseAge: 10080
+# Отказ, если у новой версии пакета подтверждений происхождения меньше, чем у прежней.
+trustPolicy: no-downgrade
+# Проверенные исключения. Причина каждого записана в docs/decisions/0001-stack-pins.md.
+trustPolicyExclude:
+  - eslint-import-resolver-typescript@3.10.1
+  - chromium-bidi@157.0.8090-0
+# Установка падает, если пакет хочет выполнить сценарий сборки и его нет в allowBuilds.
+strictDepBuilds: true
+# Зависимости зависимостей только из реестра: без git и прямых ссылок на архивы.
+blockExoticSubdeps: true
+# Замена версий транзитивных зависимостей с известными уязвимостями. Причины: docs/decisions/0001-stack-pins.md.
+overrides:
+  basic-ftp: 6.2.6
+
+# Никому не разрешено выполнять сценарии сборки. Причины по пакетам:
+# sharp - оптимизатор изображений выключен; unrs-resolver - нужен только линтеру, работает без сборки;
+# cpu-features, ssh2, protobufjs - зависимости Testcontainers, без сборки работают на чистом JavaScript;
+# @parcel/watcher, @swc/core - зависимости next-intl, готовые двоичные файлы приходят отдельными пакетами.
+allowBuilds:
+  '@parcel/watcher': false
+  '@swc/core': false
+  cpu-features: false
+  protobufjs: false
+  sharp: false
+  ssh2: false
+  unrs-resolver: false

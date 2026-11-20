@@ -1,0 +1,13 @@
+.env*
+.git
+.github
+.next
+.superpowers
+node_modules
+tests
+docs
+test-results
+playwright-report
+.lighthouseci
+*.md
+dist

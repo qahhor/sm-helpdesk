@@ -1,0 +1,759 @@
+{
+  "common": {
+    "appName": "Smartup Hub",
+    "language": {
+      "self": "English",
+      "label": "Language"
+    },
+    "notFound": {
+      "title": "Page not found",
+      "text": "Check the address or go back to the home page.",
+      "home": "Go to home"
+    },
+    "theme": {
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "close": "Close",
+    "skipToContent": "Skip to content",
+    "userMenu": {
+      "label": "User menu",
+      "signOut": "Sign out",
+      "sessions": "Sessions",
+      "settings": "Settings",
+      "organization": "Organization"
+    },
+    "sessions": {
+      "title": "Sessions",
+      "intro": "Devices where you are signed in. If you do not recognize a device, end its session.",
+      "device": "{browser}, {os}",
+      "current": "This device",
+      "ip": "IP address",
+      "unknownIp": "unknown",
+      "signedIn": "Signed in",
+      "lastSeen": "Last activity",
+      "revoke": "End",
+      "done": "Session ended.",
+      "notFound": "The session has already ended.",
+      "browsers": {
+        "chrome": "Chrome",
+        "firefox": "Firefox",
+        "safari": "Safari",
+        "edge": "Edge",
+        "other": "Browser"
+      },
+      "os": {
+        "windows": "Windows",
+        "macos": "macOS",
+        "linux": "Linux",
+        "android": "Android",
+        "ios": "iOS",
+        "other": "other system"
+      },
+      "revokeOthers": "End all other sessions",
+      "othersDone": "All other sessions have ended.",
+      "hiddenNote": "Recent sessions are shown. {count, plural, one {# more session ends} other {# more sessions end}} together with the others with the button below."
+    },
+    "legal": {
+      "privacy": "Data processing policy",
+      "version": "Version of {date}",
+      "translationMissing": "There is no translation into your language yet, the Russian text is shown."
+    }
+  },
+  "client": {
+    "home": {
+      "title": "How can we help?",
+      "report": "Report a problem",
+      "idea": "Suggest an idea",
+      "myTickets": "My requests"
+    },
+    "nav": {
+      "home": "Home",
+      "tickets": "Requests",
+      "ideas": "Ideas",
+      "profile": "Profile",
+      "label": "Main menu"
+    },
+    "tickets": {
+      "empty": "No requests yet. Describe your question and I will look for a solution.",
+      "emptyTitle": "No requests yet",
+      "emptyText": "Describe your question and I will look for a solution."
+    },
+    "ideas": {
+      "emptyTitle": "No ideas yet",
+      "emptyText": "Suggest a product idea and the Smartup team will review it."
+    },
+    "org": {
+      "switch": "Switch organization",
+      "title": "Organization",
+      "roles": {
+        "client_user": "User",
+        "client_admin": "Administrator"
+      },
+      "invite": {
+        "title": "Invite a colleague",
+        "email": "Colleague's email",
+        "role": "Role",
+        "submit": "Invite"
+      },
+      "members": {
+        "title": "Members",
+        "name": "Name",
+        "role": "Role",
+        "state": "Status",
+        "actions": "Actions",
+        "active": "Active",
+        "passive": "Disabled",
+        "self": "This is you",
+        "disable": "Disable",
+        "enable": "Enable",
+        "confirmTitle": "Disable member {name}?",
+        "confirmText": "The member loses access to the organization portal on their next action. You can enable them again.",
+        "confirm": "Disable member",
+        "cancel": "Cancel"
+      },
+      "invitations": {
+        "title": "Invitations",
+        "email": "Email",
+        "role": "Role",
+        "expires": "Valid until",
+        "status": "Status",
+        "empty": "No invitations yet.",
+        "pending": "Awaiting reply",
+        "accepted": "Accepted",
+        "revoked": "Revoked",
+        "expired": "Expired",
+        "revoke": "Revoke"
+      },
+      "done": {
+        "invited": "Invitation sent. The link is valid for 7 days.",
+        "revoked": "Invitation revoked.",
+        "disabled": "Member disabled.",
+        "enabled": "Member is active again."
+      },
+      "errors": {
+        "already_member": "This person is already a member of the organization.",
+        "invalid_input": "Check the email address and role.",
+        "rate_limited": "Too many invitations. Try again in an hour.",
+        "forbidden": "This action is not available to you.",
+        "not_found": "Record not found. Refresh the page."
+      }
+    },
+    "settings": {
+      "email": {
+        "title": "Sign-in email",
+        "verified": "Sign-in links are sent to {email}.",
+        "none": "Enter your email to sign in to the portal with a link sent to your inbox. We will send a confirmation email.",
+        "label": "Email",
+        "submit": "Send link",
+        "sent": "We have sent an email. Open it and press \"Confirm address\".",
+        "errors": {
+          "invalid": "Check the email address.",
+          "rateLimited": "Too many requests. Try again in an hour."
+        }
+      },
+      "channels": {
+        "title": "Telegram",
+        "intro": "Link Telegram to sign in to the portal through the bot when Smartup is not available.",
+        "link": "Link Telegram",
+        "linked": "The account {account} is linked since {date}.",
+        "unlink": "Unlink",
+        "unlinked": "Telegram is unlinked.",
+        "hint": "The Smartup Hub bot opens. Press \"Start\" there, then come back here.",
+        "errors": {
+          "rate_limited": "Too many attempts. Try again in an hour.",
+          "disabled": "Linking Telegram is not available right now.",
+          "unavailable": "Telegram is not responding right now. Try linking the bot again in a few minutes."
+        }
+      }
+    }
+  },
+  "agent": {
+    "nav": {
+      "sections": "Sections",
+      "soon": "Sections will appear later",
+      "groups": {
+        "work": "Work",
+        "knowledge": "Knowledge",
+        "clients": "Clients",
+        "analytics": "Analytics",
+        "settings": "Settings"
+      },
+      "items": {
+        "queues": "Queues",
+        "solutions": "Solutions",
+        "candidates": "Candidates",
+        "problems": "Known problems",
+        "codeKnowledge": "Code knowledge",
+        "organizations": "Organizations",
+        "ideas": "Ideas",
+        "announcements": "Announcements",
+        "metrics": "Metrics",
+        "digests": "Digests",
+        "aiReview": "AI answer review",
+        "all": "All settings"
+      }
+    },
+    "breadcrumbs": "Path",
+    "home": {
+      "title": "Workspace",
+      "emptyTitle": "No queues yet",
+      "emptyText": "Workspace sections open as they become ready. Request queues come first."
+    },
+    "orgs": {
+      "title": "Organizations",
+      "search": "Search",
+      "searchHint": "Name, tax ID or company ID",
+      "find": "Find",
+      "name": "Name",
+      "inn": "Tax ID",
+      "server": "Server",
+      "category": "Category",
+      "members": "Members",
+      "state": "Status",
+      "states": {
+        "active": "Active",
+        "passive": "Disabled"
+      },
+      "none": "None",
+      "emptyTitle": "No organizations found",
+      "emptyText": "Change the query: search works by name, tax ID and company ID.",
+      "invalid": "The query is too long: 100 characters at most.",
+      "pages": "Pages",
+      "prev": "Back",
+      "next": "Next",
+      "membersTitle": "Members",
+      "memberName": "Name",
+      "email": "Email",
+      "emailNone": "Not confirmed",
+      "role": "Role",
+      "source": "Source",
+      "memberState": "Status",
+      "actions": "Actions",
+      "roles": {
+        "client_user": "User",
+        "client_admin": "Administrator"
+      },
+      "sources": {
+        "smartup": "Smartup",
+        "invite": "Client invitation",
+        "staff": "Smartup invitation",
+        "guest": "Guest"
+      },
+      "memberStates": {
+        "active": "Active",
+        "passive": "Disabled"
+      },
+      "makeAdmin": "Make administrator",
+      "makeUser": "Make user",
+      "disable": "Disable",
+      "enable": "Enable",
+      "confirmTitle": "Disable member {name}?",
+      "confirmText": "The member loses access to the organization portal on their next action. You can enable them again.",
+      "confirm": "Disable member",
+      "cancel": "Cancel",
+      "inviteTitle": "Invite to the organization",
+      "inviteEmail": "Email",
+      "invite": "Invite",
+      "invitationsTitle": "Invitations",
+      "invitationsEmpty": "No invitations.",
+      "expires": "Valid until",
+      "revoke": "Revoke",
+      "invitationStates": {
+        "pending": "Awaiting reply",
+        "accepted": "Accepted",
+        "revoked": "Revoked",
+        "expired": "Expired"
+      },
+      "reauth": "Sign in again",
+      "errors": {
+        "stale_session": "This action needs a recent sign-in: no older than 15 minutes.",
+        "forbidden": "This action is not available to you.",
+        "not_found": "Record not found. Refresh the page.",
+        "invalid_input": "Check the entered data.",
+        "already_member": "This person is already a member of the organization.",
+        "rate_limited": "Too many invitations to this organization. Try again in an hour."
+      },
+      "done": {
+        "roleChanged": "Role changed.",
+        "disabled": "Member disabled.",
+        "enabled": "Member is active again.",
+        "invited": "Invitation sent.",
+        "revoked": "Invitation revoked.",
+        "settingsSaved": "Saved."
+      },
+      "settingsTitle": "Organization settings",
+      "categoryLabel": "Client category",
+      "categoryNone": "Not set",
+      "aiLabel": "Requests are handled by the AI assistant",
+      "aiHint": "Turn off if the organization has declined AI handling of requests.",
+      "saveSettings": "Save settings",
+      "ai": "AI handling",
+      "aiOn": "on",
+      "aiOff": "off",
+      "auditLink": "Organization audit log"
+    },
+    "settings": {
+      "title": "Settings",
+      "sectionsLabel": "Settings sections",
+      "sectionsMenu": "Section: {name}",
+      "overviewIntro": "Choose a section. Changes to settings are written to the audit log.",
+      "sections": {
+        "servers": {
+          "title": "Smartup servers",
+          "text": "Clients sign in through them: addresses, keys, role mapping, connection check."
+        },
+        "staff": {
+          "title": "Staff",
+          "text": "Invitation, role and line lead, blocking, password and second factor reset."
+        },
+        "audit": {
+          "title": "Audit log",
+          "text": "Who did what and when with rights and settings. Entries cannot be changed or deleted."
+        }
+      },
+      "servers": {
+        "title": "Smartup servers",
+        "add": "Add server",
+        "addTitle": "New server",
+        "emptyTitle": "No servers yet",
+        "emptyText": "Add the Smartup server your clients sign in through.",
+        "code": "Code",
+        "name": "Name",
+        "address": "Smartup address",
+        "isDefault": "Default",
+        "state": "State",
+        "lastCheck": "Last check",
+        "yes": "yes",
+        "no": "no",
+        "states": {
+          "active": "Working",
+          "passive": "Disabled"
+        },
+        "check": {
+          "ok": "Server responds",
+          "fail": "Has problems",
+          "never": "Not checked"
+        },
+        "fields": {
+          "code": "Code",
+          "codeHint": "Lowercase Latin letters, digits and hyphen, 2 to 31 characters. Matches the code in Smartup and never changes.",
+          "name": "Name",
+          "baseUrl": "Smartup address",
+          "baseUrlHint": "Smartup Web address without a path, for example https://smartup.example.uz",
+          "issuer": "Sign-in server address",
+          "issuerHint": "OpenID Connect issuer. The portal loads the discovery document from it.",
+          "clientId": "Client ID",
+          "clientSecret": "Client secret",
+          "clientSecretHint": "Issued when the portal is registered in Smartup.",
+          "clientSecretSetHint": "The secret is set. Leave the field empty to keep it.",
+          "isDefault": "Default server: clients of the shared cloud see its button",
+          "roleMap": "Role mapping",
+          "roleMapHint": "One role per line: Smartup role = client_user or client_admin. For example: director = client_admin",
+          "endpoints": "Endpoints without a discovery document",
+          "endpointsHint": "Fill in all four endpoints only if the server has no discovery document.",
+          "authorization": "Authorization endpoint",
+          "token": "Token endpoint",
+          "userinfo": "User info endpoint",
+          "jwks": "Keys endpoint"
+        },
+        "save": "Save",
+        "details": "Details",
+        "secretSet": "Secret is set",
+        "callback": "Callback address",
+        "callbackHint": "Give it to the Smartup developers when registering the portal on this server.",
+        "checkTitle": "Connection check",
+        "checkButton": "Check connection",
+        "checkNever": "The server has not been checked yet.",
+        "checkedOn": "Last check: {time}.",
+        "checkOk": "Server responds: sign-in through it is set up correctly.",
+        "checkFailed": "Problems found:",
+        "issues": {
+          "unreachable": "The server does not respond or responded with an error.",
+          "timeout": "The server did not respond within 5 seconds.",
+          "not_json": "The server did not respond with a JSON document.",
+          "issuer_mismatch": "The sign-in server address in the document does not match the address in the registry.",
+          "no_authorization_endpoint": "The document has no authorization endpoint.",
+          "no_token_endpoint": "The document has no token endpoint.",
+          "no_userinfo_endpoint": "The document has no user info endpoint.",
+          "no_jwks": "There is no keys endpoint, or it does not return keys.",
+          "no_pkce_s256": "The server does not support PKCE S256."
+        },
+        "stateTitle": "Sign-in through the server",
+        "disable": "Disable",
+        "enable": "Enable",
+        "confirmTitle": "Disable server {name}?",
+        "confirmText": "Clients of this server cannot sign in to the portal until the server is enabled again. Open sessions keep working.",
+        "confirm": "Yes, disable",
+        "cancel": "Cancel",
+        "done": {
+          "added": "Server added",
+          "saved": "Server saved",
+          "disabled": "Server disabled",
+          "enabled": "Server enabled"
+        },
+        "errors": {
+          "invalid_input": "Check the fields: code, addresses (https and public hosts only), role mapping and endpoints without discovery (all four or none).",
+          "server_taken": "The code, Smartup address or sign-in server address is already used by another server. To change a server, open its card.",
+          "stale_session": "Changing settings needs a sign-in no older than 15 minutes.",
+          "forbidden": "You have no rights for this action.",
+          "not_found": "Server not found."
+        },
+        "reauth": "Sign in again",
+        "formTitle": "Sign-in settings"
+      },
+      "staff": {
+        "title": "Staff",
+        "invite": "Invite a staff member",
+        "inviteTitle": "Staff invitation",
+        "inviteIntro": "The link goes to the invitee by email and works for 24 hours. With it they set a password and connect the second factor.",
+        "email": "Email",
+        "name": "Name",
+        "role": "Role",
+        "isLead": "Lead of their line",
+        "send": "Send invitation",
+        "cancel": "Cancel",
+        "columns": {
+          "name": "Name",
+          "email": "Email",
+          "role": "Role",
+          "secondFactor": "Second factor",
+          "state": "State",
+          "actions": "Actions"
+        },
+        "roles": {
+          "agent_l1": "First line",
+          "agent_l2": "Second line",
+          "care": "Customer Care",
+          "product": "Product",
+          "admin": "Portal administrator"
+        },
+        "lead": "line lead",
+        "self": "you",
+        "secondFactor": {
+          "on": "Connected",
+          "off": "Not connected"
+        },
+        "states": {
+          "active": "Working",
+          "passive": "Blocked"
+        },
+        "block": "Block",
+        "unblock": "Unblock",
+        "reset": "Reset access",
+        "editTitle": "Staff member {name}",
+        "save": "Save",
+        "confirmBlockTitle": "Block staff member {name}?",
+        "confirmBlockText": "All their sessions end at once, and they cannot sign in again until unblocked.",
+        "confirmBlock": "Block staff member",
+        "confirmResetTitle": "Reset the password and second factor of {name}?",
+        "confirmResetText": "All their sessions end. A link for a new password goes to them by email and works for 24 hours.",
+        "confirmReset": "Reset access",
+        "invitationsTitle": "Invitations",
+        "invitationColumns": {
+          "email": "Email",
+          "role": "Role",
+          "expiresOn": "Valid until",
+          "state": "State"
+        },
+        "waiting": "Waiting for reply",
+        "noInvitations": "No pending invitations.",
+        "done": {
+          "invited": "Invitation sent",
+          "roleChanged": "Role changed",
+          "blocked": "Staff member blocked, their sessions ended",
+          "unblocked": "Staff member unblocked",
+          "reset": "Access reset, the link was sent to the staff member"
+        },
+        "noMail": "Portal mail is not connected, the email was not sent. Issue the link with the console command: {command}",
+        "errors": {
+          "invalid_input": "Check the fields: address, name and role.",
+          "stale_session": "This action needs a sign-in no older than 15 minutes.",
+          "forbidden": "Not allowed: this is your own account, or the portal would be left without an active administrator.",
+          "not_found": "Staff member not found.",
+          "already_member": "This address already belongs to a staff member. Change their role or reset their access in the list below."
+        },
+        "reauth": "Sign in again",
+        "manage": "Manage",
+        "close": "Close"
+      },
+      "audit": {
+        "title": "Audit log",
+        "intro": "Who did what and when with rights and settings. Entries cannot be changed or deleted.",
+        "from": "From",
+        "to": "To",
+        "action": "Action",
+        "allActions": "All actions",
+        "objectType": "Object type",
+        "allTypes": "All types",
+        "show": "Show",
+        "reset": "Reset filters",
+        "filteredBy": "Filter: {name}",
+        "clear": "Remove filter",
+        "columns": {
+          "time": "Time",
+          "actor": "Author",
+          "action": "Action",
+          "object": "Object",
+          "org": "Organization",
+          "changes": "Changes",
+          "ip": "Address"
+        },
+        "actorTypes": {
+          "system": "System",
+          "agent": "AI agent",
+          "client": "Client",
+          "staff": "Staff"
+        },
+        "objectTypes": {
+          "staff": "Staff member",
+          "server": "Server",
+          "membership": "Member",
+          "invitation": "Invitation",
+          "user": "User",
+          "session": "Session",
+          "organization": "Organization"
+        },
+        "none": "none",
+        "empty": "No entries for the selected period.",
+        "invalid": "Check the filters: dates and values.",
+        "next": "Next 50 entries",
+        "first": "Back to newest",
+        "actions": {
+          "staff": {
+            "invited": "Staff member invited",
+            "created": "Staff member created",
+            "reset": "Staff access reset",
+            "signed_in": "Staff sign-in",
+            "role_changed": "Staff role changed",
+            "state_changed": "Staff member blocked or unblocked"
+          },
+          "server": {
+            "added": "Server added",
+            "disabled": "Server disabled",
+            "enabled": "Server enabled",
+            "updated": "Server changed"
+          },
+          "org": {
+            "provisioned": "Organization created",
+            "updated": "Organization settings changed"
+          },
+          "member": {
+            "joined": "Member added",
+            "role_changed": "Member role changed",
+            "state_changed": "Member disabled or enabled"
+          },
+          "invitation": {
+            "created": "Invitation created",
+            "revoked": "Invitation revoked",
+            "accepted": "Invitation accepted"
+          },
+          "user": {
+            "email_confirmed": "Address confirmed",
+            "signed_in_telegram": "Sign-in through the Telegram bot"
+          },
+          "session": {
+            "revoked": "Session ended"
+          },
+          "telegram": {
+            "linked": "Telegram linked",
+            "unlinked": "Telegram unlinked"
+          }
+        }
+      }
+    }
+  },
+  "auth": {
+    "staff": {
+      "login": {
+        "title": "Staff sign-in",
+        "email": "Email",
+        "password": "Password",
+        "submit": "Sign in",
+        "codeLabel": "Code from the app",
+        "codeHint": "Six digits from your authenticator app",
+        "codeSubmit": "Confirm",
+        "enrollTitle": "Set up the second factor",
+        "enrollText": "Scan the picture with an authenticator app such as Google Authenticator or 1Password, or type the key by hand. Then enter the code from the app.",
+        "qrLabel": "QR code for the authenticator app",
+        "secretLabel": "Key for manual entry",
+        "startOver": "Start over",
+        "setupDone": "Password saved. Sign in with the new password.",
+        "reauth": "Sign in again to continue with this action.",
+        "errors": {
+          "invalid_credentials": "Wrong email or password.",
+          "rate_limited": "Too many attempts. Try again in {minutes, plural, one {# minute} other {# minutes}}.",
+          "code_invalid": "The code did not match. Check the time on your phone and enter a new code.",
+          "code_locked": "Too many wrong codes. Try again in 15 minutes.",
+          "sign_in_expired": "The time to enter the code has run out. Sign in again.",
+          "invalid_input": "The code has six digits.",
+          "generic": "That did not work. Try again.",
+          "bot_check": "We could not confirm that you are not a robot. Refresh the page and try again."
+        }
+      },
+      "setup": {
+        "title": "Set your password",
+        "text": "You have been invited to the Smartup Hub workspace. Sign-in address: {email}.",
+        "name": "Name",
+        "password": "Password",
+        "passwordHint": "At least 12 characters",
+        "passwordRepeat": "Password again",
+        "submit": "Save password",
+        "invalidTitle": "This link does not work",
+        "invalidText": "It has been used or has expired. Ask an administrator to send a new one.",
+        "errors": {
+          "password_short": "The password must be at least 12 characters long.",
+          "password_mismatch": "The passwords do not match.",
+          "link_invalid": "The link has been used or has expired. Ask an administrator to send a new one.",
+          "email_taken": "This address belongs to another account. Contact an administrator.",
+          "invalid_input": "Check the name and the password."
+        }
+      }
+    },
+    "login": {
+      "title": "Sign in to Smartup Hub",
+      "intro": "Sign in with your Smartup account: the same one you use in Smartup Web and the mobile app.",
+      "signInWithSmartup": "Sign in with Smartup",
+      "ownServer": "We have our own Smartup server",
+      "address": "Your Smartup address",
+      "addressHint": "The one you open in the browser, for example smartup.company.uz",
+      "continue": "Continue",
+      "changeServer": "Change server",
+      "serverUnavailable": "The selected Smartup server is not available for sign-in right now. Enter another address or contact Smartup support.",
+      "staffLink": "Sign-in for Smartup staff",
+      "errors": {
+        "sso": "Signing in with Smartup did not work. Try again. If it still fails, contact the Smartup administrator in your company.",
+        "noServer": "No Smartup server was found for sign-in. Enter your Smartup address.",
+        "rateLimited": "Too many sign-in attempts. Try again in 10 minutes.",
+        "serverNotFound": "We could not find this server. Check the address or contact Smartup support.",
+        "lookupRateLimited": "Too many attempts. Try again in an hour.",
+        "serverDown": "The Smartup server is not responding right now. Try again in a few minutes or sign in with an email link."
+      },
+      "botIntro": "No access to Smartup? If Telegram is linked to your account, sign in through the bot: press \"Sign in\" there.",
+      "botLink": "Open the Smartup Hub bot"
+    },
+    "gate": {
+      "selectOrganization": {
+        "title": "Choose an organization",
+        "intro": "You are a member of several organizations. Choose the one to work with now. You can switch it later in the header.",
+        "notMember": "This organization is not available to you. Choose another one."
+      },
+      "noOrganization": {
+        "title": "No organization found",
+        "text": "You are signed in, but your account is not linked to any organization yet. Ask your company administrator to invite you, or write to Smartup support."
+      },
+      "roles": {
+        "client_user": "User",
+        "client_admin": "Administrator"
+      },
+      "signedInAs": "Signed in as {name}",
+      "signOut": "Sign out"
+    },
+    "link": {
+      "request": {
+        "open": "Sign in with an email link",
+        "title": "Sign in with an email link",
+        "intro": "If your address is confirmed in Smartup Hub, we will send a sign-in link to it.",
+        "email": "Email",
+        "submit": "Get link",
+        "sent": "If the address is confirmed in Smartup Hub, we have sent a sign-in link to it. The link works for 15 minutes."
+      },
+      "page": {
+        "title": "Sign in to Smartup Hub",
+        "text": "Press the button to sign in.",
+        "submit": "Sign in",
+        "invalid": "This link no longer works. A sign-in link works once and for 15 minutes.",
+        "again": "Get a new link"
+      }
+    },
+    "confirmEmail": {
+      "title": "Confirm your address",
+      "text": "Press the button to confirm the address for sign-in links.",
+      "submit": "Confirm address",
+      "done": "Address confirmed. You can now sign in to Smartup Hub with a link sent to this email.",
+      "toPortal": "Go to portal",
+      "invalid": "This link no longer works. Request a new one in your profile.",
+      "taken": "This address is already linked to another account. Enter a different address in your profile.",
+      "toSettings": "Open profile"
+    },
+    "welcome": {
+      "title": "Hello, {name}",
+      "text": "Enter your email. We will send a confirmation link, and then you can sign in to the portal with a link sent to your inbox.",
+      "email": "Email",
+      "send": "Send link",
+      "skip": "Skip",
+      "sent": "We have sent an email. Open it and press \"Confirm address\".",
+      "continue": "Continue",
+      "errors": {
+        "invalid": "Check the email address.",
+        "rateLimited": "Too many requests. Try again in an hour."
+      },
+      "telegram": "Link Telegram",
+      "policyLine": "How the portal handles your data is described in the <link>Data processing policy</link>.",
+      "policyTitle": "The data processing policy was updated",
+      "policyText": "Read the new version: <link>Data processing policy</link>.",
+      "policyAcknowledge": "Got it"
+    },
+    "invite": {
+      "title": "Invitation to {orgName}",
+      "text": "Invitation for {email}. Accept it to work with the organization in Smartup Hub.",
+      "name": "Your name",
+      "submit": "Accept invitation",
+      "invalidTitle": "Invitation",
+      "invalid": "This invitation no longer works. Ask your company administrator to send a new one.",
+      "taken": "This address cannot be used for an invitation. Ask for an invitation to a different address."
+    },
+    "telegram": {
+      "title": "Sign in to Smartup Hub",
+      "text": "Press the button to sign in.",
+      "submit": "Sign in",
+      "invalid": "This link no longer works. A link from the bot works once and for 10 minutes. Request a new one in the bot."
+    }
+  },
+  "mail": {
+    "loginLink": {
+      "subject": "Sign in to Smartup Hub",
+      "text": "Hello,\n\nTo sign in to Smartup Hub, open the link and press \"Sign in\":\n{url}\n\nThe link works for {minutes} minutes and only once. If you did not ask to sign in, just delete this email."
+    },
+    "confirmEmail": {
+      "subject": "Confirm your address for Smartup Hub",
+      "text": "Hello,\n\nTo sign in to Smartup Hub with a link sent to this address, open the link and press \"Confirm address\":\n{url}\n\nThe link works for {minutes} minutes. If you did not enter this address, just delete this email: an unconfirmed address is not linked to anything."
+    },
+    "invitation": {
+      "subject": "{inviterName} invites you to Smartup Hub",
+      "text": "Hello,\n\n{inviterName} invites you to the organization {orgName} in Smartup Hub, the Smartup support portal.\n\nTo accept the invitation, open the link and press \"Accept\":\n{url}\n\nThe invitation is valid for {days} days."
+    },
+    "telegramLinked": {
+      "subject": "Telegram is linked to Smartup Hub",
+      "text": "Hello,\n\nThe Telegram account {account} is now linked to your Smartup Hub account. It can be used to sign in to the portal.\n\nIf this was not you, unlink it in your profile:\n{url}"
+    },
+    "staffInvitation": {
+      "subject": "{inviterName} invites you to the Smartup Hub workspace",
+      "text": "Hello!\n\n{inviterName} invites you to the workspace of Smartup Hub, the Smartup support portal.\n\nOpen the link, set a password and connect the second sign-in factor:\n{url}\n\nThe link works for {hours} hours and only once. Do not forward it to anyone."
+    },
+    "staffReset": {
+      "subject": "Your Smartup Hub access was reset",
+      "text": "Hello!\n\nThe portal administrator reset your password and second sign-in factor in Smartup Hub. All your sessions have been ended.\n\nOpen the link, set a new password and connect the second factor again:\n{url}\n\nThe link works for {hours} hours and only once. If you did not ask for a reset, tell the administrator."
+    }
+  },
+  "bot": {
+    "linked": "Done: Telegram is linked to the account {name} in the organization {org}. You can sign in to Smartup Hub here when Smartup is not available. If you did not link it, press \"Unlink\".",
+    "alreadyLinked": "This Telegram account is already linked to another Smartup Hub account. Unlink it there first.",
+    "codeInvalid": "The link no longer works. Open your profile in Smartup Hub and press \"Link Telegram\" again.",
+    "unlinked": "Telegram is unlinked from the account. You can link it again in your Smartup Hub profile.",
+    "notLinked": "This Telegram account is not linked to a Smartup Hub account. You can link it in your profile on the portal.",
+    "chooseLanguage": "Choose the language of messages.",
+    "languageSet": "Messages will come in English.",
+    "languageName": "English",
+    "fallback": "I help you sign in to Smartup Hub and link Telegram. Please ask questions and report problems on the portal.",
+    "buttonPortal": "Open portal",
+    "buttonSignIn": "Sign in",
+    "buttonLanguage": "Language",
+    "buttonUnlink": "Unlink",
+    "loginLink": "Your sign-in link for Smartup Hub. It works for {minutes} min and only once. Do not forward it to anyone.",
+    "loginTooOften": "Too many sign-in links. Try again in {minutes} min.",
+    "loginNoAccess": "This account has no access to the portal right now. Contact your company administrator."
+  }
+}

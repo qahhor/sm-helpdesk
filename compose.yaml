@@ -1,0 +1,26 @@
+# Окружение разработки: только база данных. Приложение запускается командой pnpm dev.
+# Боевой состав (Caddy, web, worker, TEI, ClamAV) описан в разделе 13.3 ТЗ и появляется в своих вехах.
+name: smartup-hub
+
+services:
+  postgres:
+    # PostgreSQL 18 с расширениями pgvector и pg_trgm. PG_IMAGE позволяет взять образ из зеркала.
+    image: ${PG_IMAGE:-pgvector/pgvector:pg18}
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в файле .env}
+    ports:
+      # Порт открыт только на этой машине.
+      - "127.0.0.1:${PG_PORT:-5432}:5432"
+    volumes:
+      # Образ версии 18 хранит данные в /var/lib/postgresql/18/docker.
+      # Том монтируется на каталог выше, иначе данные окажутся вне тома.
+      - pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pg_data: {}

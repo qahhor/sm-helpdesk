@@ -1,0 +1,246 @@
+/*
+ * Токены оформления портала в три слоя (ТЗ, раздел 8.11; UX-S-12).
+ *
+ * Слой 1: значения Smartup Web под именами --sm-*. Источник: docs/design/smartup-tokens.scss.
+ *         При новой поставке Smartup Web меняется только этот слой.
+ * Слой 2: смысловые имена цветов (background, primary, destructive ...). Ссылаются на слой 1.
+ * Слой 3: размеры, скругления, шрифт, точки перелома.
+ *
+ * Файлы экранов используют только классы слоёв 2 и 3. Имена --sm-* и значения цветов
+ * вне этого файла запрещены: проверяет pnpm check.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Слой 1. Smartup Web, светлая тема
+ * ------------------------------------------------------------------------- */
+:root {
+  --sm-bg: #F3F6F7;
+  --sm-card: #FFFFFF;
+  --sm-ink: #090C0D;
+  --sm-ink2: #474747;
+  --sm-ink3: #6A7375;
+  --sm-line: #E3E6E7;
+  --sm-line2: #D1D5D8;
+  --sm-soft: #F8FAFC;
+  --sm-pri: #027CAA;
+  --sm-link: #036486;
+  --sm-tint: #E2F4FB;
+  --sm-tintink: #044F69;
+  --sm-bar: #08202C;
+  --sm-header: #072030;
+  --sm-red: #C9302C;
+  --sm-redbg: #FBE3E4;
+  --sm-grn: #137344;
+  --sm-grnbg: #E0F5EA;
+  --sm-amb: #8A5A00;
+  --sm-ambbg: #FFF1D6;
+  --sm-shadow: rgba(11, 17, 20, .16);
+
+  /* Метки статуса: цвет текста и фон */
+  --sm-pill-gy-fg: #5B6366;
+  --sm-pill-gy-bg: #F1F3F4;
+  --sm-pill-gn-fg: #1A8F57;
+  --sm-pill-gn-bg: #E8F7EF;
+  --sm-pill-or-fg: #B26A00;
+  --sm-pill-or-bg: #FFF3DF;
+  --sm-pill-pu-fg: #8E4EC6;
+  --sm-pill-pu-bg: #F6EEFC;
+  --sm-pill-bl-fg: #036486;
+  --sm-pill-bl-bg: #E2F4FB;
+  --sm-pill-tl-fg: #0E8577;
+  --sm-pill-tl-bg: #E2F7F4;
+}
+
+/* Слой 1. Smartup Web, тёмная тема */
+.dark {
+  --sm-bg: #0A0B0B;
+  --sm-card: #14191A;
+  --sm-ink: #FBFEFF;
+  --sm-ink2: #C3CACC;
+  --sm-ink3: #9AA4A6;
+  --sm-line: #2A3336;
+  --sm-line2: #3A4447;
+  --sm-soft: #1B2224;
+  --sm-link: #79CBE9;
+  --sm-tint: rgba(1, 146, 201, .22);
+  --sm-tintink: #79CBE9;
+  --sm-bar: #050D12;
+  --sm-red: #FF8A8A;
+  --sm-redbg: rgba(229, 72, 77, .18);
+  --sm-grn: #5DD49D;
+  --sm-grnbg: rgba(31, 175, 106, .18);
+  --sm-amb: #F5C16C;
+  --sm-ambbg: rgba(245, 193, 108, .16);
+  --sm-shadow: rgba(0, 0, 0, .5);
+}
+
+/* ---------------------------------------------------------------------------
+ * Поправки портала к слою 1.
+ * Значения, где поставка не проходит контраст 4,5:1 (WCAG AA), и цвета, которых в поставке нет.
+ * Обоснование и замеры: docs/decisions/0006-token-names-and-contrast.md.
+ * ------------------------------------------------------------------------- */
+:root {
+  --hub-on-primary: #FFFFFF;
+  /* Кнопка под указателем темнеет: с осветлением белый текст не проходит контраст */
+  --hub-primary-hover: #036486;
+  --hub-on-header: #FFFFFF;
+  --hub-muted-fg: #667072;
+  --hub-red-on-bg: #B92925;
+  /* QR-код одинаков в обеих темах: тёмный рисунок на светлом поле, иначе сканер его не читает */
+  --hub-qr-fg: #090C0D;
+  --hub-qr-bg: #FFFFFF;
+
+  --hub-label-gray-fg: var(--sm-pill-gy-fg);
+  --hub-label-gray-bg: var(--sm-pill-gy-bg);
+  --hub-label-green-fg: #157A4A;
+  --hub-label-green-bg: var(--sm-pill-gn-bg);
+  --hub-label-orange-fg: #9A5B00;
+  --hub-label-orange-bg: var(--sm-pill-or-bg);
+  --hub-label-purple-fg: var(--sm-pill-pu-fg);
+  --hub-label-purple-bg: var(--sm-pill-pu-bg);
+  --hub-label-blue-fg: var(--sm-pill-bl-fg);
+  --hub-label-blue-bg: var(--sm-pill-bl-bg);
+  --hub-label-teal-fg: #0B7468;
+  --hub-label-teal-bg: var(--sm-pill-tl-bg);
+}
+
+.dark {
+  --hub-muted-fg: var(--sm-ink3);
+  --hub-red-on-bg: var(--sm-red);
+
+  /* В тёмной теме метка без заливки: светлый текст и рамка того же цвета */
+  --hub-label-gray-fg: #B4BCBF;
+  --hub-label-gray-bg: transparent;
+  --hub-label-green-fg: #5DD49D;
+  --hub-label-green-bg: transparent;
+  --hub-label-orange-fg: #F5C16C;
+  --hub-label-orange-bg: transparent;
+  --hub-label-purple-fg: #C7A0EA;
+  --hub-label-purple-bg: transparent;
+  --hub-label-blue-fg: #79CBE9;
+  --hub-label-blue-bg: transparent;
+  --hub-label-teal-fg: #6FD6C9;
+  --hub-label-teal-bg: transparent;
+}
+
+/* Тёмная тема включается классом dark на корневом элементе */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Smartup Web сворачивает группы верхней панели при ширине 1200 px и меньше (правило max-width: 1200px) */
+@custom-variant nav-full (@media (width > 1200px));
+
+/* Стандартные цвета, тени и скругления Tailwind отключены: класс вне токенов (bg-red-500, shadow-md) не даёт стиля */
+@theme {
+  --color-*: initial;
+  --shadow-*: initial;
+  --radius-*: initial;
+}
+
+/* ---------------------------------------------------------------------------
+ * Слой 2. Смысловые цвета. Имена совпадают с теми, которых ждут компоненты shadcn/ui.
+ * ------------------------------------------------------------------------- */
+@theme inline {
+  --color-background: var(--sm-bg);
+  --color-foreground: var(--sm-ink);
+  --color-secondary-foreground: var(--sm-ink2);
+  --color-muted-foreground: var(--hub-muted-fg);
+
+  --color-card: var(--sm-card);
+  --color-card-foreground: var(--sm-ink);
+  --color-card-soft: var(--sm-soft);
+  --color-popover: var(--sm-card);
+  --color-popover-foreground: var(--sm-ink);
+  --color-accent: var(--sm-soft);
+  --color-accent-foreground: var(--sm-ink);
+
+  --color-primary: var(--sm-pri);
+  --color-primary-foreground: var(--hub-on-primary);
+  --color-primary-hover: var(--hub-primary-hover);
+  --color-link: var(--sm-link);
+  --color-ring: var(--sm-pri);
+
+  --color-border: var(--sm-line);
+  --color-input: var(--sm-line2);
+
+  --color-header: var(--sm-header);
+  --color-header-foreground: var(--hub-on-header);
+
+  --color-selected: var(--sm-tint);
+  --color-selected-foreground: var(--sm-tintink);
+
+  --color-destructive: var(--sm-red);
+  --color-destructive-bg: var(--sm-redbg);
+  --color-destructive-on-bg: var(--hub-red-on-bg);
+  --color-success: var(--sm-grn);
+  --color-success-bg: var(--sm-grnbg);
+  --color-warning: var(--sm-amb);
+  --color-warning-bg: var(--sm-ambbg);
+
+  --color-qr-foreground: var(--hub-qr-fg);
+  --color-qr-background: var(--hub-qr-bg);
+
+  --color-label-gray-fg: var(--hub-label-gray-fg);
+  --color-label-gray-bg: var(--hub-label-gray-bg);
+  --color-label-green-fg: var(--hub-label-green-fg);
+  --color-label-green-bg: var(--hub-label-green-bg);
+  --color-label-orange-fg: var(--hub-label-orange-fg);
+  --color-label-orange-bg: var(--hub-label-orange-bg);
+  --color-label-purple-fg: var(--hub-label-purple-fg);
+  --color-label-purple-bg: var(--hub-label-purple-bg);
+  --color-label-blue-fg: var(--hub-label-blue-fg);
+  --color-label-blue-bg: var(--hub-label-blue-bg);
+  --color-label-teal-fg: var(--hub-label-teal-fg);
+  --color-label-teal-bg: var(--hub-label-teal-bg);
+
+  --shadow-card: 0 8px 24px var(--sm-shadow);
+}
+
+/* ---------------------------------------------------------------------------
+ * Слой 3. Размеры, скругления, шрифт, точки перелома
+ * ------------------------------------------------------------------------- */
+@theme {
+  --font-sans: "Montserrat", system-ui, sans-serif;
+
+  --text-base: 14px;
+  --text-base--line-height: 1.35;
+
+  --spacing-header: 52px;
+  --spacing-row: 48px;
+  --spacing-control: 40px;
+  --spacing-control-small: 36px;
+  --spacing-field: 46px;
+  --spacing-action-bar: 64px;
+  /* Наибольшая высота нижнего листа */
+  --spacing-sheet: 85dvh;
+
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --radius-chip: 999px;
+
+  /* Наибольшая ширина содержимого рабочего места, как у панели показателей Smartup Web */
+  --container-dashboard: 1680px;
+  /* Колонка разделов в образце "Настройки" (раздел 8.11 ТЗ) */
+  --container-settings-nav: 240px;
+
+  /* Точки перелома Smartup Web (docs/design/smartup-breakpoints.scss). Других в портале нет. */
+  --breakpoint-*: initial;
+  --breakpoint-tablet: 600px;
+  --breakpoint-laptop: 1024px;
+  --breakpoint-burger: 1200px;
+  --breakpoint-desktop: 1280px;
+  --breakpoint-wide: 1440px;
+}
+
+/* Кабинет клиента: сначала телефон. Крупнее текст и цель нажатия не меньше 44 px. */
+[data-zone="client"] {
+  --spacing-control: 44px;
+  --text-base: 16px;
+}
+
+/* Меню и нижний лист открываются не внутри оболочки, а прямо в body (так работает Radix).
+   Когда страница целиком в зоне клиента, они получают те же размеры. */
+body:has(> [data-zone="client"]) > [data-radix-popper-content-wrapper],
+body:has(> [data-zone="client"]) > [role="dialog"] {
+  --spacing-control: 44px;
+  --text-base: 16px;
+}

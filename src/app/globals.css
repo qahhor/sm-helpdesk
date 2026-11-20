@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "../ui/tokens.css";
+@import "../ui/font.css";
+
+@layer base {
+  body {
+    @apply bg-background font-sans text-base text-foreground antialiased;
+  }
+}

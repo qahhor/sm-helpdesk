@@ -1,0 +1,62 @@
+// Smartup Web - «Заказы»: design tokens, one to one from the prototype (prototype/assets/shell.css, root `.ws`).
+// Light theme is the default; `.dk` on the root switches to dark.
+
+:root, .ws {
+  --bg: #F3F6F7;
+  --card: #FFFFFF;
+  --ink: #090C0D;      // main text
+  --ink2: #474747;     // secondary text
+  --ink3: #6A7375;     // hints, captions
+  --line: #E3E6E7;     // dividers
+  --line2: #D1D5D8;    // field borders
+  --soft: #F8FAFC;     // table header, inactive chips
+  --pri: #027CAA;      // primary button
+  --link: #036486;
+  --tint: #E2F4FB;     // selected row, active chip
+  --tintink: #044F69;
+  --bar: #08202C;
+  --header: #072030;   // top header of Smartup Web
+  --red: #C9302C;      // errors only - never brand elements
+  --redbg: #FBE3E4;
+  --grn: #137344;
+  --grnbg: #E0F5EA;
+  --amb: #8A5A00;      // warnings, «просрочено»
+  --ambbg: #FFF1D6;
+  --shadow: rgba(11, 17, 20, .16);
+}
+
+.ws.dk {
+  --bg: #0A0B0B; --card: #14191A; --ink: #FBFEFF; --ink2: #C3CACC; --ink3: #9AA4A6;
+  --line: #2A3336; --line2: #3A4447; --soft: #1B2224; --link: #79CBE9;
+  --tint: rgba(1, 146, 201, .22); --tintink: #79CBE9; --bar: #050D12;
+  --red: #FF8A8A; --redbg: rgba(229, 72, 77, .18); --grn: #5DD49D; --grnbg: rgba(31, 175, 106, .18);
+  --amb: #F5C16C; --ambbg: rgba(245, 193, 108, .16); --shadow: rgba(0, 0, 0, .5);
+}
+
+// Order status pills (`.ol-pill.<code>`): text/border colour and background.
+$status-pill: (
+  gy: (#5B6366, #F1F3F4),   // Черновик, Архив
+  gn: (#1A8F57, #E8F7EF),   // Новый
+  or: (#B26A00, #FFF3DF),   // В обработке
+  pu: (#8E4EC6, #F6EEFC),   // В ожидании
+  bl: (#036486, #E2F4FB),   // Отгружен
+  tl: (#0E8577, #E2F7F4),   // Доставлен
+);
+
+// Board tags - for the canvas only, not for the product UI.
+$tag-new: (#7A3FB0, #F6EEFC);   // «новое · принято», «предложение»
+
+$font-family: 'Montserrat', system-ui, sans-serif; // 400 / 500 / 600 / 700, Google Fonts
+$font-size-base: 14px;
+$line-height-base: 1.35;
+
+$radius-card: 14px;
+$radius-field: 10px;
+$radius-button: 10px;
+$radius-chip: 999px;
+
+$button-height: 40px;      // 36px small; 44px minimum touch target on phones
+$field-min-height: 46px;   // field with a label inside («Дата заказа», «Склад» ...)
+$row-height: 48px;         // list row on desktop
+$header-height: 52px;
+$action-bar-height: 64px;  // sticky bottom bar of the order form

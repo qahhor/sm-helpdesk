@@ -7,6 +7,7 @@ import { writeAudit } from '@/modules/hdc/audit';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { consumeRateLimit, rateKey, resetRateLimit } from '@/modules/hdc/rate-limit';
 import { clientIp } from '@/modules/hdc/util';
+import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
 import { revokeSessionById } from '../core/sessions';
 import { acceptStaffInvitationTx, findStaff, findStaffInvitation } from '../core/staff';
@@ -73,6 +74,11 @@ export async function signInStaff(input: unknown, request: RequestInfo): Promise
   const parsed = signInInput.safeParse(input);
   if (!parsed.success) return { step: 'error', code: 'invalid_credentials' };
   const { email, password } = parsed.data;
+
+  // Проверка "не робот" до счётчика попыток и до пароля: поток роботов не блокирует учётную запись сотрудника.
+  const check = getBotCheck();
+  const botToken = (input as { botToken?: unknown }).botToken;
+  if (check.enabled && (await check.verify(botToken, clientIp(request.headers))) === 'failed') return { step: 'error', code: 'bot_check' };
 
   const limit = await consumeRateLimit(accountKey(email), RATE_RULES.staffLoginPerAccount);
   if (!limit.allowed) return { step: 'error', code: 'rate_limited', retryAfterSec: limit.retryAfterSec };

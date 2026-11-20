@@ -4,6 +4,7 @@ import type { Locale } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
 import { clientIp } from '@/modules/hdc/util';
+import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
 import { SERVER_CODE_PATTERN } from '../pref';
 import { safeReturnPath } from '../util';
@@ -89,8 +90,16 @@ export async function startSmartupSignIn(
  * Клиент выделенного сервера ввёл адрес своего Smartup. Найденный сервер запоминается кукой на год.
  * Ответ не раскрывает, какие серверы есть в реестре. Поиск ограничен по частоте (решение 0014).
  */
-export async function rememberServer(address: unknown, request: RequestInfo): Promise<{ found: boolean; rateLimited?: boolean }> {
-  const limit = await consumeRateLimit(rateKey('server-lookup:ip', clientIp(request.headers) ?? 'unknown'), RATE_RULES.serverLookupPerIp);
+export async function rememberServer(
+  address: unknown,
+  request: Pick<RequestInfo, 'headers' | 'setCookies'>,
+  botToken?: unknown,
+): Promise<{ found: boolean; rateLimited?: boolean }> {
+  const ip = clientIp(request.headers);
+  // Проверка "не робот": робот, перебирающий адреса, получает тот же ответ "не найден" (решение 0018).
+  const check = getBotCheck();
+  if (check.enabled && (await check.verify(botToken, ip)) === 'failed') return { found: false };
+  const limit = await consumeRateLimit(rateKey('server-lookup:ip', ip ?? 'unknown'), RATE_RULES.serverLookupPerIp);
   if (!limit.allowed) return { found: false, rateLimited: true };
   const server = await findServerByAddress(address);
   if (!server) return { found: false };

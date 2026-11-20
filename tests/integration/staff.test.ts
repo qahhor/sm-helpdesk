@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
 import type { SystemActor } from '@/db/with-actor';
 import { getAuth } from '@/modules/hdu/auth/instance';
 import { readSession } from '@/modules/hdu/api/request';
@@ -6,6 +6,7 @@ import { isFresh, resolveStaff, type StaffContext } from '@/modules/hdu/api/sess
 import { acceptStaffInvitation, describeStaffInvitation, signInStaff, verifyStaffCode } from '@/modules/hdu/api/staff';
 import { inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { hashToken } from '@/modules/hdu/tokens';
+import { type BotCheck, type BotVerdict, setBotCheckForTests } from '@/security/bot-check';
 import { totp } from '../helpers/totp';
 import { createStaffFixture, enrolledStaffFixture, newJar, noRequest, type StaffFixture } from './helpers/auth';
 import { pools } from './helpers/db';
@@ -276,4 +277,25 @@ test('свежий вход: действие администратора до�
   expect(isFresh(ctx, new Date(), 900)).toBe(true);
   expect(isFresh(ctx, new Date(ctx.sessionCreatedAt.getTime() + 899_000), 900)).toBe(true);
   expect(isFresh(ctx, new Date(ctx.sessionCreatedAt.getTime() + 901_000), 900)).toBe(false);
+});
+
+// --- Проверка "не робот" на шаге пароля (задача 14, решение 0018) ---
+
+const verdict = (v: BotVerdict): BotCheck => ({ enabled: true, verify: async () => v });
+afterEach(() => setBotCheckForTests(null));
+
+test('поток роботов не блокирует учётную запись сотрудника', async () => {
+  const staff = await enrolledStaffFixture(await getAuth(), { role: 'care' });
+  setBotCheckForTests(verdict('failed'));
+  for (let i = 0; i < 20; i++)
+    expect(await signInStaff({ email: staff.email, password: 'wrong-password-1', botToken: 'x' }, noRequest)).toEqual({ step: 'error', code: 'bot_check' });
+  setBotCheckForTests(verdict('passed'));
+  expect(await signInStaff({ email: staff.email, password: staff.password, botToken: 'ok' }, noRequest)).toEqual({ step: 'code' });
+});
+
+test('при недоступной проверке вход сотрудника идёт, счётчик попыток действует', async () => {
+  const staff = await enrolledStaffFixture(await getAuth(), { role: 'care' });
+  setBotCheckForTests(verdict('unavailable'));
+  for (let i = 0; i < 10; i++) await signInStaff({ email: staff.email, password: 'wrong-password-1' }, noRequest);
+  expect(await signInStaff({ email: staff.email, password: staff.password }, noRequest)).toMatchObject({ step: 'error', code: 'rate_limited' });
 });

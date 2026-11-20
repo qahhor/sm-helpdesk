@@ -1,6 +1,8 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { getEnv } from '@/env';
+import type { Locale } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
 import { describeLoginServer, safeReturnPath, signedInKind } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -26,6 +28,8 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
 
   const t = await getTranslations('auth.login');
   const tl = await getTranslations('auth.link');
+  // Проверка "не робот" на формах без входа (решение 0018). Без ключа сайта виджета нет.
+  const botCheck = { siteKey: getEnv().TURNSTILE_SITE_KEY, nonce: (await headers()).get('x-nonce') ?? '', locale: locale as Locale };
   const server = await describeLoginServer({ headers: new Headers(await headers()) });
   const showAddress = first(params.mode) === 'server' || server.state === 'none';
   const showLink = first(params.mode) === 'link';
@@ -77,7 +81,11 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
             </h2>
             {lookup === 'not_found' && <Alert tone="danger">{t('errors.serverNotFound')}</Alert>}
             {lookup === 'rate_limited' && <Alert tone="danger">{t('errors.lookupRateLimited')}</Alert>}
-            <ServerAddressForm next={next} labels={{ address: t('address'), hint: t('addressHint'), submit: t('continue') }} />
+            <ServerAddressForm
+              next={next}
+              labels={{ address: t('address'), hint: t('addressHint'), submit: t('continue') }}
+              botCheck={botCheck}
+            />
           </section>
         )}
 
@@ -92,7 +100,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
             ) : (
               <p className="text-sm text-secondary-foreground">{tl('request.intro')}</p>
             )}
-            <LoginLinkForm next={next} labels={{ email: tl('request.email'), submit: tl('request.submit') }} />
+            <LoginLinkForm next={next} labels={{ email: tl('request.email'), submit: tl('request.submit') }} botCheck={botCheck} />
           </section>
         ) : (
           <form method="get" className="border-t border-border pt-4">

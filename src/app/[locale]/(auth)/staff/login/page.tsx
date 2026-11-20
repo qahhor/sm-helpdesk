@@ -1,5 +1,8 @@
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { getEnv } from '@/env';
+import type { Locale } from '@/i18n/locales';
 import { currentStaff, safeReturnPath } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
@@ -27,6 +30,7 @@ export default async function StaffLoginPage({ searchParams }: PageProps<'/[loca
         {reauth && <Alert tone="info">{t('reauth')}</Alert>}
         <StaffLoginForm
           next={next}
+          botCheck={{ siteKey: getEnv().TURNSTILE_SITE_KEY, nonce: (await headers()).get('x-nonce') ?? '', locale: locale as Locale }}
           labels={{
             email: t('email'),
             password: t('password'),

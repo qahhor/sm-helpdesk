@@ -1,6 +1,8 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'vitest';
 import { setMailerForTests } from '@/modules/hdn/api';
 import { completeLoginLink, requestLoginLink } from '@/modules/hdu/api/login-link';
+import { rememberServer } from '@/modules/hdu/api/sso';
+import { type BotCheck, type BotVerdict, setBotCheckForTests } from '@/security/bot-check';
 import { buildTestAuth, enrolledStaffFixture, noRequest, verifiedClientFixture } from './helpers/auth';
 import { pools } from './helpers/db';
 import { linkFrom, sleep, tokenFrom, memoryMailerPerTest } from './helpers/mail';
@@ -15,6 +17,9 @@ beforeAll(async () => {
 });
 afterAll(() => mock.stop());
 beforeEach(() => registerMock(mock, { isDefault: true }));
+afterEach(() => setBotCheckForTests(null));
+
+const verdict = (v: BotVerdict): BotCheck => ({ enabled: true, verify: async () => v });
 
 test('подтверждённый клиент получает одно письмо со ссылкой на страницу портала', async () => {
   await verifiedClientFixture('anvar@acme.test');
@@ -114,4 +119,36 @@ test('подменённый адрес возврата в ссылке не у
     ok: true,
     next: '/ru',
   });
+});
+
+// --- Проверка "не робот" (задача 14, решение 0018) ---
+
+test('запрос ссылки с непройденной проверкой письма не даёт, ответ тот же', async () => {
+  await verifiedClientFixture('anvar@acme.test');
+  setBotCheckForTests(verdict('failed'));
+  expect(await requestLoginLink({ email: 'anvar@acme.test', locale: 'ru', botToken: 'x' }, noRequest)).toEqual({ ok: true });
+  expect(box.mailer.sent).toEqual([]);
+});
+
+test('роботы не расходуют счётчик адреса: человек после них ссылку получает', async () => {
+  await verifiedClientFixture('anvar@acme.test');
+  setBotCheckForTests(verdict('failed'));
+  for (let i = 0; i < 10; i++) await requestLoginLink({ email: 'anvar@acme.test', locale: 'ru', botToken: 'x' }, noRequest);
+  setBotCheckForTests(verdict('passed'));
+  await requestLoginLink({ email: 'anvar@acme.test', locale: 'ru', botToken: 'ok' }, noRequest);
+  expect(box.mailer.sent).toHaveLength(1);
+});
+
+test('при недоступной проверке ссылка уходит, счётчик продолжает действовать', async () => {
+  await verifiedClientFixture('anvar@acme.test');
+  setBotCheckForTests(verdict('unavailable'));
+  for (let i = 0; i < 6; i++) await requestLoginLink({ email: 'anvar@acme.test', locale: 'ru' }, noRequest);
+  expect(box.mailer.sent).toHaveLength(5);
+});
+
+test('поиск сервера по адресу с непройденной проверкой ничего не находит', async () => {
+  setBotCheckForTests(verdict('failed'));
+  expect(await rememberServer('localhost:3290', noRequest, 'x')).toEqual({ found: false });
+  setBotCheckForTests(verdict('passed'));
+  expect(await rememberServer('localhost:3290', noRequest, 'x')).toEqual({ found: true });
 });

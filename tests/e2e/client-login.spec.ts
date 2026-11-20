@@ -80,3 +80,11 @@ test('ошибка начала входа возвращает на стран�
   await page.goto('/ru/login/smartup?next=%2Fru');
   await expect(page).toHaveURL(`${baseURL}/ru/login?error=no_server`);
 });
+
+test('без ключа проверки "не робот" формы входа работают и виджет не подключается', async ({ page }) => {
+  for (const path of ['/ru/login', '/ru/login?mode=link', '/ru/login?mode=server', '/ru/staff/login']) {
+    await page.goto(path);
+    await expect(page.locator('script[src*="challenges.cloudflare.com"]'), path).toHaveCount(0);
+    await expect(page.locator('.cf-turnstile'), path).toHaveCount(0);
+  }
+});

@@ -5,6 +5,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
 import { clientIp } from '@/modules/hdc/util';
+import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
 import { isLoginLinkRecipient } from '../core/email';
 import { emailInput } from '../input';
@@ -29,7 +30,13 @@ export async function requestLoginLink(input: unknown, request: Pick<RequestInfo
   const next = safeReturnPath(raw.next, `/${locale}`);
   const email = emailInput.safeParse(raw.email);
 
-  const byIp = await consumeRateLimit(rateKey('login-link:ip', clientIp(request.headers) ?? 'unknown'), RATE_RULES.loginLinkPerIp);
+  const ip = clientIp(request.headers);
+  // Проверка "не робот" первой: робот не расходует счётчики адреса и не мешает человеку получить ссылку.
+  // Не прошла: ответ тот же, письмо не уходит. Сервис недоступен: дальше решают счётчики.
+  const check = getBotCheck();
+  if (check.enabled && (await check.verify(raw.botToken, ip)) === 'failed') return { ok: true };
+
+  const byIp = await consumeRateLimit(rateKey('login-link:ip', ip ?? 'unknown'), RATE_RULES.loginLinkPerIp);
   if (!email.success) return { ok: true };
   const byAddress = await consumeRateLimit(rateKey('login-link:email', email.data), RATE_RULES.loginLinkPerAddress);
   if (!byIp.allowed || !byAddress.allowed) return { ok: true };

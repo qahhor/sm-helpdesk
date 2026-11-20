@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { type HduErrorCode, nextRequest, safeReturnPath, signInStaff, verifyStaffCode } from '@/modules/hdu/api';
+import { BOT_TOKEN_FIELD } from '@/ui/components/BotCheckField';
 
 /** Состояние формы входа сотрудника. Текст ошибки приходит с сервера уже на языке страницы. */
 export type StaffLoginState = {
@@ -21,6 +22,7 @@ const KNOWN_ERRORS = new Set<HduErrorCode>([
   'code_locked',
   'sign_in_expired',
   'invalid_input',
+  'bot_check',
 ]);
 
 async function errorText(code: HduErrorCode, retryAfterSec?: number): Promise<string> {
@@ -37,7 +39,10 @@ export async function staffLoginAction(_previous: StaffLoginState, formData: For
   const request = await nextRequest();
 
   if (formData.get('step') === 'credentials') {
-    const result = await signInStaff({ email: formData.get('email'), password: formData.get('password') }, request);
+    const result = await signInStaff(
+      { email: formData.get('email'), password: formData.get('password'), botToken: formData.get(BOT_TOKEN_FIELD) },
+      request,
+    );
     if (result.step === 'error')
       return { step: 'credentials', error: await errorText(result.code, result.retryAfterSec) };
     if (result.step === 'enroll') return { step: 'enroll', secret: result.secret, qr: result.qr };

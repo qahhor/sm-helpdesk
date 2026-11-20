@@ -16,6 +16,8 @@ export const HDU_ERROR_CODES = [
   'stale_session',
   // Шаг входа устарел: между паролем и кодом прошло больше 10 минут. Нужно начать вход заново.
   'sign_in_expired',
+  // Проверка "не робот" не пройдена (решение 0018).
+  'bot_check',
 ] as const;
 
 export type HduErrorCode = (typeof HDU_ERROR_CODES)[number];

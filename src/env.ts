@@ -83,6 +83,9 @@ const schema = z
     // Письма со ссылками входа. Настоящая отправка появляется позже отдельным значением.
     MAIL_TRANSPORT: z.enum(['none', 'console', 'file'], { error: 'ожидается none, console или file' }).default('none'),
     MAIL_FILE_DIR: z.string().trim().min(1, { error: 'не задана' }).optional(),
+    // Проверка "не робот" (Cloudflare Turnstile): ключ сайта и секрет задаются парой, без них проверка выключена.
+    TURNSTILE_SITE_KEY: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
+    TURNSTILE_SECRET: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
     HUB_SHOWCASE: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error'], { error: 'ожидается debug, info, warn или error' }).default('info'),
   })
@@ -105,6 +108,10 @@ const schema = z
       });
     else if (value.MAIL_TRANSPORT === 'file' && !value.MAIL_FILE_DIR)
       ctx.addIssue({ code: 'custom', path: ['MAIL_FILE_DIR'], message: 'не задана, а MAIL_TRANSPORT равен file' });
+    if (value.TURNSTILE_SITE_KEY && !value.TURNSTILE_SECRET)
+      ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SECRET'], message: 'не задан, а TURNSTILE_SITE_KEY задан: ключи задаются парой' });
+    if (value.TURNSTILE_SECRET && !value.TURNSTILE_SITE_KEY)
+      ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SITE_KEY'], message: 'не задан, а TURNSTILE_SECRET задан: ключи задаются парой' });
     if (value.HUB_SHOWCASE === '1' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({
         code: 'custom',

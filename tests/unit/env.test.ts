@@ -164,3 +164,11 @@ test('письма в журнал и в файл разрешены тольк�
   expect(problems({ ...prod, MAIL_TRANSPORT: 'pigeon' }).map((x) => x.name)).toEqual(['MAIL_TRANSPORT']);
   expect(parseEnv(prod).MAIL_TRANSPORT).toBe('none');
 });
+
+test('ключи проверки "не робот" задаются парой', () => {
+  expect(problems({ ...ok, TURNSTILE_SITE_KEY: 'k' }).map((x) => x.name)).toEqual(['TURNSTILE_SECRET']);
+  expect(problems({ ...ok, TURNSTILE_SECRET: 's' }).map((x) => x.name)).toEqual(['TURNSTILE_SITE_KEY']);
+  expect(problems({ ...ok, TURNSTILE_SITE_KEY: 'k', TURNSTILE_SECRET: 's' })).toEqual([]);
+  // Пустой ключ после обрезки пробелов: ошибка называет именно его.
+  expect(new Set(problems({ ...ok, TURNSTILE_SITE_KEY: ' ', TURNSTILE_SECRET: 's' }).map((x) => x.name))).toEqual(new Set(['TURNSTILE_SITE_KEY']));
+});

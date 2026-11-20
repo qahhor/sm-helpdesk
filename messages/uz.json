@@ -290,7 +290,8 @@
           "code_locked": "Noto'g'ri kodlar juda ko'p. 15 daqiqadan keyin qayta urinib ko'ring.",
           "sign_in_expired": "Kodni kiritish vaqti tugadi. Qaytadan kiring.",
           "invalid_input": "Kod olti raqamdan iborat.",
-          "generic": "Amalga oshmadi. Qayta urinib ko'ring."
+          "generic": "Amalga oshmadi. Qayta urinib ko'ring.",
+          "bot_check": "Robot emasligingizni tasdiqlab bo'lmadi. Sahifani yangilang va qayta urinib ko'ring."
         }
       },
       "setup": {

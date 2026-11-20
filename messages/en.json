@@ -287,6 +287,10 @@
         "servers": {
           "title": "Smartup servers",
           "text": "Clients sign in through them: addresses, keys, role mapping, connection check."
+        },
+        "staff": {
+          "title": "Staff",
+          "text": "Invitation, role and line lead, blocking, password and second factor reset."
         }
       },
       "servers": {
@@ -378,6 +382,80 @@
         },
         "reauth": "Sign in again",
         "formTitle": "Sign-in settings"
+      },
+      "staff": {
+        "title": "Staff",
+        "invite": "Invite a staff member",
+        "inviteTitle": "Staff invitation",
+        "inviteIntro": "The link goes to the invitee by email and works for 24 hours. With it they set a password and connect the second factor.",
+        "email": "Email",
+        "name": "Name",
+        "role": "Role",
+        "isLead": "Lead of their line",
+        "send": "Send invitation",
+        "cancel": "Cancel",
+        "columns": {
+          "name": "Name",
+          "email": "Email",
+          "role": "Role",
+          "secondFactor": "Second factor",
+          "state": "State",
+          "actions": "Actions"
+        },
+        "roles": {
+          "agent_l1": "First line",
+          "agent_l2": "Second line",
+          "care": "Customer Care",
+          "product": "Product",
+          "admin": "Portal administrator"
+        },
+        "lead": "line lead",
+        "self": "you",
+        "secondFactor": {
+          "on": "Connected",
+          "off": "Not connected"
+        },
+        "states": {
+          "active": "Working",
+          "passive": "Blocked"
+        },
+        "block": "Block",
+        "unblock": "Unblock",
+        "reset": "Reset access",
+        "editTitle": "Staff member {name}",
+        "save": "Save",
+        "confirmBlockTitle": "Block staff member {name}?",
+        "confirmBlockText": "All their sessions end at once, and they cannot sign in again until unblocked.",
+        "confirmBlock": "Block staff member",
+        "confirmResetTitle": "Reset the password and second factor of {name}?",
+        "confirmResetText": "All their sessions end. A link for a new password goes to them by email and works for 24 hours.",
+        "confirmReset": "Reset access",
+        "invitationsTitle": "Invitations",
+        "invitationColumns": {
+          "email": "Email",
+          "role": "Role",
+          "expiresOn": "Valid until",
+          "state": "State"
+        },
+        "waiting": "Waiting for reply",
+        "noInvitations": "No pending invitations.",
+        "done": {
+          "invited": "Invitation sent",
+          "roleChanged": "Role changed",
+          "blocked": "Staff member blocked, their sessions ended",
+          "unblocked": "Staff member unblocked",
+          "reset": "Access reset, the link was sent to the staff member"
+        },
+        "noMail": "Portal mail is not connected, the email was not sent. Issue the link with the console command: {command}",
+        "errors": {
+          "invalid_input": "Check the fields: address, name and role.",
+          "stale_session": "This action needs a sign-in no older than 15 minutes.",
+          "forbidden": "Not allowed: this is your own account, or the portal would be left without an active administrator.",
+          "not_found": "Staff member not found."
+        },
+        "reauth": "Sign in again",
+        "manage": "Manage",
+        "close": "Close"
       }
     }
   },
@@ -539,6 +617,14 @@
     "telegramLinked": {
       "subject": "Telegram is linked to Smartup Hub",
       "text": "Hello,\n\nThe Telegram account {account} is now linked to your Smartup Hub account. It can be used to sign in to the portal.\n\nIf this was not you, unlink it in your profile:\n{url}"
+    },
+    "staffInvitation": {
+      "subject": "{inviterName} invites you to the Smartup Hub workspace",
+      "text": "Hello!\n\n{inviterName} invites you to the workspace of Smartup Hub, the Smartup support portal.\n\nOpen the link, set a password and connect the second sign-in factor:\n{url}\n\nThe link works for {hours} hours and only once. Do not forward it to anyone."
+    },
+    "staffReset": {
+      "subject": "Your Smartup Hub access was reset",
+      "text": "Hello!\n\nThe portal administrator reset your password and second sign-in factor in Smartup Hub. All your sessions have been ended.\n\nOpen the link, set a new password and connect the second factor again:\n{url}\n\nThe link works for {hours} hours and only once. If you did not ask for a reset, tell the administrator."
     }
   },
   "bot": {

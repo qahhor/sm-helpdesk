@@ -30,6 +30,8 @@ export const AUTH_COOKIE_PREFIX = 'hub';
 export const SESSION_UPDATE_AGE_SEC = 24 * 3600;
 /** Сессия сотрудника: 12 часов без продления (FR-ID-10). */
 export const STAFF_SESSION_TTL_SEC = 12 * 3600;
+/** Приглашение сотрудника и ссылка после сброса живут 24 часа (решение 0015): ссылка даёт права в рабочем месте. */
+export const STAFF_INVITATION_TTL_SEC = 24 * 3600;
 /** Ссылка запасного входа из бота Telegram: 10 минут (FR-ID-14, решение 94 ТЗ). */
 export const LOGIN_BOT_LINK_TTL_SEC = 10 * 60;
 /** Ссылка для входа на email: 15 минут (FR-ID-05). */

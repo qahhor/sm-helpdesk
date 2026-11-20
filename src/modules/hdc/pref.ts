@@ -10,6 +10,8 @@ export const AUDIT_ACTIONS = [
   'staff.created',
   'staff.reset',
   'staff.signed_in',
+  'staff.role_changed',
+  'staff.state_changed',
   // Реестр серверов Smartup
   'server.added',
   'server.disabled',

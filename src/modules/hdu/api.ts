@@ -54,6 +54,18 @@ export { changeMemberRole, listMembers, listMembersForStaff, type MemberView, se
 export { nextRequest } from './api/next-request';
 export type { RequestInfo, SessionData } from './api/request';
 export type { StaffContext } from './api/session';
+// Сотрудники в разделе "Настройки" (FR-ADM-03).
+export { HUMAN_STAFF_ROLES, type HumanStaffRole } from './pref';
+export {
+  changeStaffRole,
+  inviteStaffByMail,
+  listStaff,
+  listStaffInvitations,
+  resetStaffByMail,
+  setStaffState,
+  type StaffInvitationRow,
+  type StaffRow,
+} from './api/staff-manage';
 // Реестр серверов Smartup в разделе "Настройки" (FR-ADM-01).
 export {
   addServer,

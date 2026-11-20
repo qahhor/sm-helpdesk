@@ -23,7 +23,11 @@ function latest(to: string, kind: string): string | undefined {
 }
 
 /** Ссылка из последнего письма данного вида на адрес. Ждёт письмо до 10 секунд: отправка не задерживает ответ формы. */
-export async function mailLink(to: string, kind: 'login-link' | 'confirm-email' | 'invitation', notThis?: string): Promise<string> {
+export async function mailLink(
+  to: string,
+  kind: 'login-link' | 'confirm-email' | 'invitation' | 'staff-invitation' | 'staff-reset',
+  notThis?: string,
+): Promise<string> {
   let link: string | undefined;
   await expect
     .poll(() => {

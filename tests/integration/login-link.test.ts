@@ -99,7 +99,7 @@ test('двадцать первый запрос с одного IP за час 
 
 test('ответ не ждёт отправки письма', async () => {
   await verifiedClientFixture('anvar@acme.test');
-  setMailerForTests({ send: () => new Promise(() => {}) });
+  setMailerForTests({ delivers: true, send: () => new Promise(() => {}) });
   await expect(
     Promise.race([requestLoginLink({ email: 'anvar@acme.test', locale: 'ru' }, noRequest), sleep(2000).then(() => 'timeout')]),
   ).resolves.toEqual({ ok: true });
@@ -107,7 +107,7 @@ test('ответ не ждёт отправки письма', async () => {
 
 test('сбой почты не ломает ответ формы', async () => {
   await verifiedClientFixture('anvar@acme.test');
-  setMailerForTests({ send: () => Promise.reject(new Error('smtp down')) });
+  setMailerForTests({ delivers: true, send: () => Promise.reject(new Error('smtp down')) });
   expect(await requestLoginLink({ email: 'anvar@acme.test', locale: 'ru' }, noRequest)).toEqual({ ok: true });
 });
 

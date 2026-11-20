@@ -4,8 +4,17 @@ import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
 import { LOCALES } from '@/i18n/locales';
 import { createMailer, MemoryMailer } from '@/modules/hdn/mailer';
-import { CONFIRM_EMAIL_MINUTES, confirmEmailMail, invitationMail, LOGIN_LINK_MINUTES, loginLinkMail } from '@/modules/hdn/mail-text';
-import { LOGIN_LINK_TTL_SEC } from '@/modules/hdu/pref';
+import {
+  CONFIRM_EMAIL_MINUTES,
+  confirmEmailMail,
+  invitationMail,
+  LOGIN_LINK_MINUTES,
+  loginLinkMail,
+  STAFF_LINK_HOURS,
+  staffInvitationMail,
+  staffResetMail,
+} from '@/modules/hdn/mail-text';
+import { LOGIN_LINK_TTL_SEC, STAFF_INVITATION_TTL_SEC } from '@/modules/hdu/pref';
 
 test('режим none ничего не отправляет и не пишет адрес и ссылку в журнал', async () => {
   const lines: string[] = [];
@@ -65,4 +74,23 @@ test('тексты писем есть на трёх языках и содер�
 test('срок в тексте письма совпадает со сроком ссылки', () => {
   expect(LOGIN_LINK_MINUTES * 60).toBe(LOGIN_LINK_TTL_SEC);
   expect(CONFIRM_EMAIL_MINUTES).toBe(60);
+});
+
+test('письма сотрудникам: ссылка и срок на трёх языках, срок совпадает со сроком приглашения', () => {
+  for (const locale of ['ru', 'uz', 'en'] as const) {
+    const invite = staffInvitationMail(locale, { url: 'https://hub.example/s', inviterName: 'Рустам' });
+    expect(invite.subject).toContain('Рустам');
+    expect(invite.text).toContain('https://hub.example/s');
+    expect(invite.text).toContain('24');
+    const reset = staffResetMail(locale, { url: 'https://hub.example/r' });
+    expect(reset.text).toContain('https://hub.example/r');
+    for (const mail of [invite, reset]) expect(`${mail.subject}${mail.text}`).not.toMatch(/[{}]/);
+  }
+  expect(STAFF_LINK_HOURS * 3600).toBe(STAFF_INVITATION_TTL_SEC);
+});
+
+test('почта none сообщает, что письма не доходят, остальные виды доходят', () => {
+  expect(createMailer({ MAIL_TRANSPORT: 'none' }).delivers).toBe(false);
+  expect(createMailer({ MAIL_TRANSPORT: 'console' }).delivers).toBe(true);
+  expect(new MemoryMailer().delivers).toBe(true);
 });

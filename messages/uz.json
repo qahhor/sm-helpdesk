@@ -287,6 +287,10 @@
         "servers": {
           "title": "Smartup serverlari",
           "text": "Mijozlar ular orqali kiradi: manzillar, kalitlar, rollar mosligi, aloqani tekshirish."
+        },
+        "staff": {
+          "title": "Xodimlar",
+          "text": "Taklif, rol va liniya rahbari, bloklash, parol va ikkinchi omilni tiklash."
         }
       },
       "servers": {
@@ -378,6 +382,80 @@
         },
         "reauth": "Qayta kirish",
         "formTitle": "Kirish sozlamalari"
+      },
+      "staff": {
+        "title": "Xodimlar",
+        "invite": "Xodimni taklif qilish",
+        "inviteTitle": "Xodimni taklif qilish",
+        "inviteIntro": "Havola taklif qilinganga xat bilan yuboriladi va 24 soat amal qiladi. U orqali u parol o'rnatadi va ikkinchi omilni ulaydi.",
+        "email": "Email",
+        "name": "Ism",
+        "role": "Rol",
+        "isLead": "O'z liniyasining rahbari",
+        "send": "Taklifni yuborish",
+        "cancel": "Bekor qilish",
+        "columns": {
+          "name": "Ism",
+          "email": "Email",
+          "role": "Rol",
+          "secondFactor": "Ikkinchi omil",
+          "state": "Holati",
+          "actions": "Amallar"
+        },
+        "roles": {
+          "agent_l1": "Birinchi liniya",
+          "agent_l2": "Ikkinchi liniya",
+          "care": "Customer Care",
+          "product": "Mahsulot",
+          "admin": "Portal administratori"
+        },
+        "lead": "liniya rahbari",
+        "self": "bu siz",
+        "secondFactor": {
+          "on": "Ulangan",
+          "off": "Ulanmagan"
+        },
+        "states": {
+          "active": "Ishlayapti",
+          "passive": "Bloklangan"
+        },
+        "block": "Bloklash",
+        "unblock": "Blokdan chiqarish",
+        "reset": "Kirishni tiklash",
+        "editTitle": "{name} xodimi",
+        "save": "Saqlash",
+        "confirmBlockTitle": "{name} xodimini bloklaysizmi?",
+        "confirmBlockText": "Uning barcha sessiyalari darhol yakunlanadi, blokdan chiqarilmaguncha u qayta kira olmaydi.",
+        "confirmBlock": "Xodimni bloklash",
+        "confirmResetTitle": "{name} xodimining paroli va ikkinchi omilini tiklaysizmi?",
+        "confirmResetText": "Uning barcha sessiyalari yakunlanadi. Yangi parol uchun havola unga xat bilan yuboriladi va 24 soat amal qiladi.",
+        "confirmReset": "Kirishni tiklash",
+        "invitationsTitle": "Takliflar",
+        "invitationColumns": {
+          "email": "Email",
+          "role": "Rol",
+          "expiresOn": "Amal qilish muddati",
+          "state": "Holati"
+        },
+        "waiting": "Javob kutilmoqda",
+        "noInvitations": "Javob kutayotgan takliflar yo'q.",
+        "done": {
+          "invited": "Taklif yuborildi",
+          "roleChanged": "Rol o'zgartirildi",
+          "blocked": "Xodim bloklandi, uning sessiyalari yakunlandi",
+          "unblocked": "Xodim blokdan chiqarildi",
+          "reset": "Kirish tiklandi, havola xodimga yuborildi"
+        },
+        "noMail": "Portal pochtasi ulanmagan, xat yuborilmadi. Havolani konsol buyrug'i bilan bering: {command}",
+        "errors": {
+          "invalid_input": "Maydonlarni tekshiring: manzil, ism va rol.",
+          "stale_session": "Bu amal uchun 15 daqiqadan eski bo'lmagan kirish kerak.",
+          "forbidden": "Bunday qilib bo'lmaydi: bu sizning hisobingiz yoki portalda birorta ham faol administrator qolmaydi.",
+          "not_found": "Xodim topilmadi."
+        },
+        "reauth": "Qayta kirish",
+        "manage": "Boshqarish",
+        "close": "Yopish"
       }
     }
   },
@@ -539,6 +617,14 @@
     "telegramLinked": {
       "subject": "Telegram Smartup Hub tizimiga bog'landi",
       "text": "Assalomu alaykum!\n\nSmartup Hub hisobingizga {account} Telegram akkaunti bog'landi. U orqali portalga kirish mumkin.\n\nAgar bu siz bo'lmasangiz, uni profilda uzing:\n{url}"
+    },
+    "staffInvitation": {
+      "subject": "{inviterName} sizni Smartup Hub ish joyiga taklif qilmoqda",
+      "text": "Assalomu alaykum!\n\n{inviterName} sizni Smartup qo'llab-quvvatlash portali Smartup Hub ish joyiga taklif qilmoqda.\n\nHavolani oching, parol o'rnating va kirishning ikkinchi omilini ulang:\n{url}\n\nHavola {hours} soat amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang."
+    },
+    "staffReset": {
+      "subject": "Smartup Hub ga kirish tiklandi",
+      "text": "Assalomu alaykum!\n\nPortal administratori Smartup Hub dagi parolingiz va kirishning ikkinchi omilini tikladi. Barcha sessiyalaringiz yakunlandi.\n\nHavolani oching, yangi parol o'rnating va ikkinchi omilni qayta ulang:\n{url}\n\nHavola {hours} soat amal qiladi va bir marta ishlaydi. Agar siz tiklashni so'ramagan bo'lsangiz, administratorga xabar bering."
     }
   },
   "bot": {

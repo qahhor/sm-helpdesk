@@ -15,6 +15,8 @@ export const LOGIN_LINK_MINUTES = 15;
 export const CONFIRM_EMAIL_MINUTES = 60;
 /** Сколько живёт приглашение, дней (FR-ID-08). */
 export const INVITATION_DAYS = 7;
+/** Сколько живёт приглашение сотрудника и ссылка после сброса, часов (решение 0015). */
+export const STAFF_LINK_HOURS = 24;
 
 export type MailText = { subject: string; text: string };
 
@@ -45,4 +47,19 @@ export function invitationMail(locale: Locale, input: { url: string; orgName: st
 export function telegramLinkedMail(locale: Locale, input: { account: string; url: string }): MailText {
   const t = mailOf(locale);
   return { subject: t('telegramLinked.subject'), text: t('telegramLinked.text', input) };
+}
+
+/** Приглашение сотрудника в рабочее место (FR-ADM-03): пароль и второй фактор человек задаёт сам по ссылке. */
+export function staffInvitationMail(locale: Locale, input: { url: string; inviterName: string }): MailText {
+  const t = mailOf(locale);
+  return {
+    subject: t('staffInvitation.subject', { inviterName: input.inviterName }),
+    text: t('staffInvitation.text', { ...input, hours: STAFF_LINK_HOURS }),
+  };
+}
+
+/** Ссылка после сброса пароля и второго фактора: все сессии сотрудника уже завершены. */
+export function staffResetMail(locale: Locale, input: { url: string }): MailText {
+  const t = mailOf(locale);
+  return { subject: t('staffReset.subject'), text: t('staffReset.text', { ...input, hours: STAFF_LINK_HOURS }) };
 }

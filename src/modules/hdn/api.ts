@@ -11,9 +11,12 @@ export {
   invitationMail,
   LOGIN_LINK_MINUTES,
   loginLinkMail,
+  STAFF_LINK_HOURS,
+  staffInvitationMail,
+  staffResetMail,
   telegramLinkedMail,
 } from './mail-text';
-export { type Mailer, type MailKind, type MailMessage, MemoryMailer, queueMail, setMailerForTests } from './mailer';
+export { type Mailer, mailDelivers, type MailKind, type MailMessage, MemoryMailer, queueMail, setMailerForTests } from './mailer';
 export {
   createTelegramBot,
   getTelegramBot,

@@ -63,6 +63,7 @@ export function createResendMailer(cfg: Config): Mailer {
   }
 
   return {
+    delivers: true,
     async send(message) {
       const idempotencyKey = randomUUID();
       let status: number | null = null;

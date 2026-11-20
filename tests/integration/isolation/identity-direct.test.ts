@@ -347,3 +347,12 @@ test('клиент видит только свою привязку Telegram, �
     ),
   ).rejects.toThrow(/row-level security|permission denied/);
 });
+
+test('список сотрудников под ролью hub_auth меняет только admin', async () => {
+  const f = await seedTwoOrgs();
+  const block = (actor: Actor) =>
+    asActor(pools.auth, actor, (c) => c.query(`update hdu_staff set state = 'passive' where user_id = $1`, [f.l1.userId])).then((x) => x.rowCount);
+  expect(await block(f.care.actor)).toBe(0);
+  expect(await block(f.aAdmin.actor)).toBe(0);
+  expect(await block(f.adminStaff.actor)).toBe(1);
+});

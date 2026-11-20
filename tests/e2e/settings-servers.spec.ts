@@ -69,6 +69,8 @@ test('care и первая линия раздел настроек не вид�
 });
 
 test('ниже 1024 px разделы настроек в выпадающем списке, страницы без прокрутки вбок и без нарушений доступности', async ({ page }) => {
+  // Шесть страниц на трёх языках и двух ширинах: проверка доступности каждой занимает время.
+  test.setTimeout(120_000);
   await signInStaff(page, staffAccount('admin'));
   await page.setViewportSize({ width: 800, height: 800 });
   await page.goto('/ru/agent/settings/servers');
@@ -76,7 +78,7 @@ test('ниже 1024 px разделы настроек в выпадающем �
   await expect(sections(page).getByRole('link', { name: 'Серверы Smartup' })).toBeVisible();
   for (const width of [1280, 800])
     for (const locale of ['ru', 'uz', 'en'])
-      for (const path of ['/agent/settings', '/agent/settings/servers', '/agent/settings/servers/new', '/agent/settings/servers/mock']) {
+      for (const path of ['/agent/settings', '/agent/settings/servers', '/agent/settings/servers/new', '/agent/settings/servers/mock', '/agent/settings/staff', '/agent/settings/staff?invite=1']) {
         await page.setViewportSize({ width, height: 800 });
         await page.goto(`/${locale}${path}`);
         const label = `${width} ${locale}${path}`;

@@ -10,16 +10,20 @@ import { createResendMailer } from './resend';
 // Четыре реализации одного интерфейса: none молчит, console и file нужны разработке и тестам
 // и работают только на localhost (проверка в src/env.ts), resend отправляет по-настоящему (решение 0018).
 
-export type MailKind = 'login-link' | 'confirm-email' | 'invitation' | 'telegram-linked';
+export type MailKind = 'login-link' | 'confirm-email' | 'invitation' | 'telegram-linked' | 'staff-invitation' | 'staff-reset';
 
 export type MailMessage = { to: string; subject: string; text: string; kind: MailKind };
 
 export interface Mailer {
+  /** Доходят ли письма до адресата. Ложь только у none: тогда ссылку сотруднику выдаёт команда консоли. */
+  readonly delivers: boolean;
   send(message: MailMessage): Promise<void>;
 }
 
 /** none: письмо не уходит. В журнал идёт только вид письма: адрес и ссылка в журнале сервера не нужны. */
 class SilentMailer implements Mailer {
+  readonly delivers = false;
+
   async send(message: MailMessage): Promise<void> {
     console.info(`Письмо ${message.kind} не отправлено: почта выключена (MAIL_TRANSPORT=none)`);
   }
@@ -27,6 +31,8 @@ class SilentMailer implements Mailer {
 
 /** console: письмо целиком в журнал. Только для разработки на localhost. */
 class ConsoleMailer implements Mailer {
+  readonly delivers = true;
+
   async send(message: MailMessage): Promise<void> {
     console.info(`Письмо ${message.kind}\nКому: ${message.to}\nТема: ${message.subject}\n\n${message.text}\n`);
   }
@@ -34,6 +40,8 @@ class ConsoleMailer implements Mailer {
 
 /** file: каждое письмо отдельным файлом JSON. Его читают браузерные тесты. */
 class FileMailer implements Mailer {
+  readonly delivers = true;
+
   constructor(private readonly dir: string) {}
 
   async send(message: MailMessage): Promise<void> {
@@ -45,6 +53,7 @@ class FileMailer implements Mailer {
 
 /** Письма в памяти: для тестов. Письмо видно в sent сразу после вызова send. */
 export class MemoryMailer implements Mailer {
+  readonly delivers = true;
   readonly sent: MailMessage[] = [];
 
   async send(message: MailMessage): Promise<void> {
@@ -74,6 +83,11 @@ export function getMailer(): Mailer {
   if (shared.__hubTestMailer) return shared.__hubTestMailer;
   shared.__hubMailer ??= createMailer(getEnv());
   return shared.__hubMailer;
+}
+
+/** Доходят ли письма до адресата при текущих настройках почты. */
+export function mailDelivers(): boolean {
+  return getMailer().delivers;
 }
 
 /** Подменяет почту в тестах. null возвращает почту по настройкам. */

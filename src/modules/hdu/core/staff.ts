@@ -1,11 +1,11 @@
 import 'server-only';
-import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import type { Actor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/audit';
 import { authAccount, authTwoFactor, authUser } from '../auth-schema';
 import { HduError } from '../error';
-import type { HumanStaffRole, RecordState, StaffRole } from '../pref';
+import { type HumanStaffRole, type RecordState, STAFF_INVITATION_TTL_SEC, type StaffRole } from '../pref';
 import { invitations, memberships, staff } from '../schema';
 import { newToken } from '../tokens';
 import { revokeUserSessions } from './sessions';
@@ -15,8 +15,6 @@ import { revokeUserSessions } from './sessions';
 
 const SYSTEM = { type: 'system', job: 'identity.staff' } as const;
 
-/** Приглашение сотрудника живёт 24 часа (решение 0015): ссылка даёт права в рабочем месте. */
-export const STAFF_INVITATION_TTL_SEC = 24 * 3600;
 const CREDENTIAL = 'credential';
 
 export type StaffInfo = { role: StaffRole; state: RecordState; isLead: boolean };
@@ -205,4 +203,114 @@ export async function findStaffByEmail(email: string): Promise<({ userId: string
       .limit(1),
   );
   return rows[0] ?? null;
+}
+
+// --- Сотрудники в разделе "Настройки" (задача 19, FR-ADM-03). От имени администратора под ролью hub_auth ---
+
+export type StaffListRow = {
+  userId: string;
+  name: string;
+  email: string;
+  role: StaffRole;
+  isLead: boolean;
+  state: RecordState;
+  /** Подключён ли второй фактор. Ни секрета, ни времени кодов здесь нет. */
+  hasSecondFactor: boolean;
+};
+
+/** Сотрудники-люди по имени. AI-сотрудники здесь не показываются: их токены появятся в M8b. */
+export async function readStaffList(actor: Actor): Promise<StaffListRow[]> {
+  const rows = await withIdentity(actor, (tx) =>
+    tx
+      .select({
+        userId: staff.userId,
+        name: authUser.name,
+        email: authUser.email,
+        role: staff.role,
+        isLead: staff.isLead,
+        state: staff.state,
+        hasSecondFactor: authUser.twoFactorEnabled,
+      })
+      .from(staff)
+      .innerJoin(authUser, eq(authUser.id, staff.userId))
+      .where(ne(staff.role, 'agent_bot'))
+      .orderBy(asc(authUser.name), asc(staff.userId)),
+  );
+  return rows.map((row) => ({ ...row, hasSecondFactor: row.hasSecondFactor === true }));
+}
+
+/** Приглашения сотрудников, которые ещё ждут ответа: не приняты, не отозваны, срок не вышел. */
+export async function readPendingStaffInvitations(
+  actor: Actor,
+): Promise<{ invitationId: string; email: string; role: HumanStaffRole; expiresOn: Date }[]> {
+  const rows = await withIdentity(actor, (tx) =>
+    tx
+      .select({ invitationId: invitations.invitationId, email: invitations.email, role: invitations.role, expiresOn: invitations.expiresOn })
+      .from(invitations)
+      .where(
+        and(isNull(invitations.orgId), isNull(invitations.acceptedOn), isNull(invitations.revokedOn), gt(invitations.expiresOn, sql`now()`)),
+      )
+      .orderBy(desc(invitations.createdOn)),
+  );
+  return rows.map((row) => ({ ...row, role: row.role as HumanStaffRole }));
+}
+
+/** Сотрудник-человек для сброса доступа: адрес, имя, роль. */
+export async function readStaffForReset(
+  actor: Actor,
+  userId: string,
+): Promise<{ email: string; name: string; role: HumanStaffRole; isLead: boolean } | null> {
+  const rows = await withIdentity(actor, (tx) =>
+    tx
+      .select({ email: authUser.email, name: authUser.name, role: staff.role, isLead: staff.isLead })
+      .from(staff)
+      .innerJoin(authUser, eq(authUser.id, staff.userId))
+      .where(and(eq(staff.userId, userId), ne(staff.role, 'agent_bot')))
+      .limit(1),
+  );
+  const row = rows[0];
+  return row ? { ...row, role: row.role as HumanStaffRole } : null;
+}
+
+export type StaffChange = { role?: HumanStaffRole; isLead?: boolean; state?: RecordState };
+
+/**
+ * Меняет роль, признак руководителя или состояние сотрудника одной транзакцией с записью аудита.
+ * Блокировка завершает все сессии сотрудника в той же транзакции. Изменение, после которого
+ * не останется ни одного действующего администратора, не делается: last_admin.
+ * Строки действующих администраторов блокируются первыми: два одновременных понижения не оставят портал без admin.
+ */
+export async function changeStaffRow(actor: Actor, userId: string, change: StaffChange): Promise<'ok' | 'not_found' | 'last_admin'> {
+  return withIdentity(actor, async (tx) => {
+    const admins = await tx
+      .select({ userId: staff.userId })
+      .from(staff)
+      .where(and(eq(staff.role, 'admin'), eq(staff.state, 'active')))
+      .orderBy(asc(staff.userId))
+      .for('update');
+    const target = (
+      await tx.select({ role: staff.role, isLead: staff.isLead, state: staff.state }).from(staff).where(eq(staff.userId, userId)).limit(1).for('update')
+    )[0];
+    if (!target || target.role === 'agent_bot') return 'not_found';
+    const next = { role: change.role ?? target.role, isLead: change.isLead ?? target.isLead, state: change.state ?? target.state };
+    const wasActiveAdmin = target.role === 'admin' && target.state === 'active';
+    const staysActiveAdmin = next.role === 'admin' && next.state === 'active';
+    if (wasActiveAdmin && !staysActiveAdmin && !admins.some((admin) => admin.userId !== userId)) return 'last_admin';
+
+    const roleChanged = next.role !== target.role || next.isLead !== target.isLead;
+    const stateChanged = next.state !== target.state;
+    if (!roleChanged && !stateChanged) return 'ok';
+    await tx.update(staff).set(next).where(eq(staff.userId, userId));
+    if (stateChanged && next.state === 'passive') await revokeUserSessions(tx, userId);
+    if (roleChanged)
+      await writeAudit(tx, {
+        action: 'staff.role_changed',
+        objectType: 'staff',
+        objectId: userId,
+        diff: { from: target.role, to: next.role, isLead: next.isLead },
+      });
+    if (stateChanged)
+      await writeAudit(tx, { action: 'staff.state_changed', objectType: 'staff', objectId: userId, diff: { from: target.state, to: next.state } });
+    return 'ok';
+  });
 }

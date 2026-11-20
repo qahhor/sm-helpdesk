@@ -4,7 +4,7 @@
 // - physical-direction: только логические свойства (FR-I18N-09), без left и right;
 // - layer1-token: токены слоя 1 (--sm-*) видны только в src/ui/tokens.css.
 
-/** @typedef {'raw-color' | 'arbitrary-size' | 'physical-direction' | 'layer1-token'} UiRule */
+/** @typedef {'raw-color' | 'arbitrary-size' | 'physical-direction' | 'layer1-token' | 'default-scale'} UiRule */
 
 const TOKENS_FILE = 'src/ui/tokens.css';
 
@@ -12,7 +12,16 @@ const TOKENS_FILE = 'src/ui/tokens.css';
 // так не задеваются якоря ссылок (/docs#add) и коды символов (&#8212;).
 const HEX_COLOR = /(?<![\w&/])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])/;
 const COLOR_FUNCTION = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/;
-const ARBITRARY_SIZE = /-\[-?\d*\.?\d+(?:px|rem|em)\]/;
+// Значение в квадратных скобках с единицей размера (h-[52px], w-[50%], max-h-[85dvh], p-[2px_4px])
+// и произвольное свойство ([height:52px]). Сетки вида grid-cols-[auto_1fr] и состояния data-[...] не задеваются.
+const ARBITRARY_SIZE = /-\[[^\]]*\d(?:px|rem|em|vh|vw|dvh|svh|lvh|ch|%)[^\]]*\]|(?<![\w-])\[[a-z-]+:[^\s\]]+\]/;
+// Цвета стандартной палитры Tailwind (bg-red-500, text-white) и именованный цвет в скобках (text-[red]).
+const COLOR_UTILITY = '(?:bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|divide|accent|caret|shadow|placeholder)';
+const PALETTE =
+  '(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black)';
+const PALETTE_COLOR = new RegExp(`(?<![\\w-])${COLOR_UTILITY}-(?:${PALETTE}(?:-\\d{2,3})?(?![\\w-])|\\[[a-zA-Z]+\\])`);
+// Тени и скругления стандартной шкалы Tailwind: в портале они задаются токенами (shadow-card, rounded-control).
+const DEFAULT_SCALE = /(?<![\w-])(?:shadow|rounded(?:-[a-z]{1,2})?)-(?:xs|sm|md|lg|xl|2xl|3xl|full|inner)(?![\w-])/;
 const LAYER1_TOKEN = /--sm-[a-z0-9]/;
 
 // Классы Tailwind с физическим направлением. Перед классом стоит начало слова
@@ -43,6 +52,8 @@ export function findUiRuleViolations(path, text) {
     const line = lines[i];
     const add = (/** @type {UiRule} */ rule) => found.push({ line: i + 1, rule });
     if ((isCode || isStyle) && (HEX_COLOR.test(line) || COLOR_FUNCTION.test(line))) add('raw-color');
+    else if (isCode && PALETTE_COLOR.test(line)) add('raw-color');
+    if (isCode && DEFAULT_SCALE.test(line)) add('default-scale');
     if (isCode && ARBITRARY_SIZE.test(line)) add('arbitrary-size');
     if (isCode && PHYSICAL_DIRECTION.test(line)) add('physical-direction');
     if (LAYER1_TOKEN.test(line)) add('layer1-token');

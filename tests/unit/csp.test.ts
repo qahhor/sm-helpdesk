@@ -53,3 +53,9 @@ test('одноразовый код: 16 случайных байт, кажды�
   expect(a).not.toBe(b);
   expect(() => buildCsp({ nonce: a, dev: false })).not.toThrow();
 });
+
+test('запрет встраивания действует уже сейчас, а не только в отчётах (ревью M9)', async () => {
+  const { STATIC_SECURITY_HEADERS } = await import('@/security/csp');
+  const enforced = STATIC_SECURITY_HEADERS.find((h) => h.key === 'Content-Security-Policy')?.value ?? '';
+  for (const part of ["frame-ancestors 'none'", "base-uri 'none'", "object-src 'none'"]) expect(enforced).toContain(part);
+});

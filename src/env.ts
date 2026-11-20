@@ -17,6 +17,8 @@ function toUrl(value: string): URL | null {
   }
 }
 
+const DATABASE_URL_PARAMS = new Set(['sslmode', 'sslrootcert', 'sslcert', 'sslkey', 'application_name', 'connect_timeout']);
+
 const required = () => z.string({ error: 'не задана' }).trim().min(1, { error: 'не задана' });
 
 const hubUrl = required().transform((value, ctx) => {
@@ -43,7 +45,18 @@ const databaseUrl = (role: 'hub_app' | 'hub_auth') =>
     };
     if (!url || (url.protocol !== 'postgres:' && url.protocol !== 'postgresql:'))
       return fail('ожидается адрес PostgreSQL вида postgres://пользователь:пароль@узел:порт/база');
-    if (decodeURIComponent(url.username) !== role) return fail(`пользователь должен быть ${role}`);
+    let user: string;
+    try {
+      user = decodeURIComponent(url.username);
+    } catch {
+      return fail('имя пользователя записано с ошибкой');
+    }
+    if (user !== role) return fail(`пользователь должен быть ${role}`);
+    if (url.pathname.length <= 1) return fail('не указано имя базы');
+    // Драйвер базы читает параметры адреса и ставит их выше основной части:
+    // "?user=postgres" подменил бы проверенного пользователя. Разрешены только параметры из списка.
+    for (const name of url.searchParams.keys())
+      if (!DATABASE_URL_PARAMS.has(name)) return fail(`параметр ${name.slice(0, 32)} в адресе не допускается`);
     return value;
   });
 

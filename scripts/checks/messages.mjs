@@ -85,9 +85,14 @@ export function checkIcu(sources) {
         continue;
       }
       if (locale === REFERENCE) referenceArguments.set(key, names);
-      else
-        for (const name of referenceArguments.get(key) ?? [])
+      else {
+        const expected = referenceArguments.get(key);
+        if (!expected) continue;
+        for (const name of expected)
           if (!names.has(name)) problems.push({ locale, key, problem: `missing-argument:${name}` });
+        for (const name of names)
+          if (!expected.has(name)) problems.push({ locale, key, problem: `extra-argument:${name}` });
+      }
     }
   }
   return problems;

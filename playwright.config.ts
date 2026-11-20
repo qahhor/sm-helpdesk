@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { defineConfig } from '@playwright/test';
 
 // Браузерные тесты идут против собранного приложения (pnpm build, затем pnpm start).
@@ -7,13 +8,11 @@ const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
 
 // База нужна проверке /api/ready. В CI её поднимает сама задача и задаёт адреса.
-// На машине разработчика сценарий создаёт .env при первом запуске, поднимает базу из compose.yaml,
-// создаёт роли и применяет миграции. Процессы тестов наследуют признак и повторно его не запускают.
+// На машине разработчика адреса лежат в .env, базу из compose.yaml готовит tests/e2e/global-setup.ts.
 if (!process.env.CI) {
-  if (!process.env.HUB_E2E_PREPARED) {
-    execFileSync(process.execPath, ['scripts/dev-up.mjs', '--prepare'], { stdio: 'inherit' });
-    process.env.HUB_E2E_PREPARED = '1';
-  }
+  // Здесь создаётся только файл .env, если его нет. Базу поднимает tests/e2e/global-setup.ts:
+  // чтение настроек (список тестов, среда разработки) не запускает Docker.
+  if (!existsSync('.env')) execFileSync(process.execPath, ['scripts/dev-up.mjs', '--env-only'], { stdio: 'inherit' });
   process.loadEnvFile('.env');
 }
 const need = (name: string): string => {
@@ -26,6 +25,7 @@ export default defineConfig({
   testDir: 'tests/e2e',
   // Эталонные снимки лежат в одной папке, без деления по проектам и системам.
   snapshotPathTemplate: 'tests/e2e/__screenshots__/{arg}{ext}',
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

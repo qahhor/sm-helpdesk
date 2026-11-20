@@ -64,6 +64,9 @@ export const CSP_HEADER = 'Content-Security-Policy-Report-Only';
 
 /** Заголовки, одинаковые для всех ответов. Их ставит next.config.ts. */
 export const STATIC_SECURITY_HEADERS = [
+  // Действует уже сейчас, пока полная политика работает в режиме отчётов: портал нельзя встроить
+  // в чужую страницу. Для страниц виджета /embed запрет заменит список серверов Smartup (веха M4).
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'none'; object-src 'none'" },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },

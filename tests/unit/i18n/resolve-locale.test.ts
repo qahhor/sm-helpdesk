@@ -52,3 +52,21 @@ test('короткое имя раздела не принимается за я
   expect(localizedPath('/kb', pick)).toBe('/ru/kb');
   expect(localizedPath('/kb/article-1', pick)).toBe('/ru/kb/article-1');
 });
+
+test('обычные имена разделов не принимаются за язык (ревью I4)', () => {
+  for (const path of ['/my-tickets/42', '/new-request', '/it-support', '/no-access', '/id-card/7', '/sms', '/run', '/bin'])
+    expect(localizedPath(path, pick), path).toBe(`/ru${path}`);
+  expect(localizedPath('/uz-Cyrl/ideas', pick)).toBe('/uz/ideas');
+  expect(localizedPath('/zh-Hant-TW/ideas', pick)).toBe('/ru/ideas');
+});
+
+test('разделы портала не теряются при перенаправлении', async () => {
+  const { readdirSync } = await import('node:fs');
+  const routes = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('['))
+      .flatMap((entry) => (entry.name.startsWith('(') ? routes(`${dir}/${entry.name}`) : [entry.name]));
+  const names = routes('src/app/[locale]');
+  expect(names.length).toBeGreaterThan(0);
+  for (const name of names) expect(localizedPath(`/${name}/x`, pick), name).toBe(`/ru/${name}/x`);
+});

@@ -58,3 +58,16 @@ test('настоящие файлы: главная переведена на т
   );
   expect(((await loadMessages('en')).client as { home: { title: string } }).home.title).toBe('How can we help?');
 });
+
+test('сломанная строка заменяется текстом запасного языка, а не именем ключа (ревью I3)', async () => {
+  const broken = {
+    ru: { client: { greet: 'Привет, {name}', days: '{n, plural, one {# день} other {# дней}}', ok: 'Готово' } },
+    uz: { client: { greet: 'Salom, {name}, {count} ta', days: '{n, plural, one {# kun', ok: 'Tayyor' } },
+    en: { client: { greet: 'Hello, {name}', days: '{n, plural, one {# day} other {# days}}', ok: 'Done' } },
+  };
+  expect((await loadMessages('uz', broken)).client).toEqual({
+    greet: 'Привет, {name}',
+    days: '{n, plural, one {# день} other {# дней}}',
+    ok: 'Tayyor',
+  });
+});

@@ -100,3 +100,14 @@ test('неизвестные значения перечислений откл�
 test('.env.example содержит каждое имя из схемы', async () => {
   expect(await missingInEnvExample()).toEqual([]);
 });
+
+test('параметры в адресе базы не могут подменить пользователя или узел (ревью I1)', () => {
+  for (const tail of ['?user=postgres', '?host=evil.example.test', '?password=x', '?options=-c%20role%3Dpostgres'])
+    expect(() => parseEnv({ ...ok, DATABASE_URL_APP: ok.DATABASE_URL_APP + tail }), tail).toThrowError(/DATABASE_URL_APP/);
+  expect(parseEnv({ ...ok, DATABASE_URL_APP: `${ok.DATABASE_URL_APP}?sslmode=require` }).DATABASE_URL_APP).toContain('sslmode');
+});
+
+test('искажённое имя пользователя и адрес без имени базы дают ошибку окружения, а не сбой', () => {
+  expect(() => parseEnv({ ...ok, DATABASE_URL_APP: 'postgres://hub%zzapp:pw@db/hub' })).toThrowError(EnvError);
+  expect(() => parseEnv({ ...ok, DATABASE_URL_APP: 'postgres://hub_app:pw@db:5432' })).toThrowError(/DATABASE_URL_APP/);
+});

@@ -117,3 +117,14 @@ test('доступность в тёмной теме', async ({ page, context, 
 test('страница идёт с запретом кеширования (угроза T4)', async ({ request }) => {
   expect((await request.get('/ru')).headers()['cache-control']).toContain('no-store');
 });
+
+test.describe('меню в кабинете клиента на телефоне', () => {
+  test.use({ viewport: { width: 360, height: 740 } });
+  test('пункты меню не ниже 44 px и набраны текстом 16 px (ревью I2)', async ({ page }) => {
+    await page.goto('/ru');
+    await page.getByRole('button', { name: 'Тема' }).click();
+    const item = page.getByRole('menuitemradio', { name: 'Тёмная' });
+    expect((await item.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    expect(await item.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
+  });
+});

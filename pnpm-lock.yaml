@@ -178,6 +178,9 @@ importers:
 
   .:
     dependencies:
+      '@formatjs/icu-messageformat-parser':
+        specifier: 3.5.23
+        version: 3.5.23
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -224,9 +227,6 @@ importers:
       '@axe-core/playwright':
         specifier: 4.14.0
         version: 4.14.0(playwright-core@1.63.0)
-      '@formatjs/icu-messageformat-parser':
-        specifier: 3.5.23
-        version: 3.5.23
       '@lhci/cli':
         specifier: 0.16.1
         version: 0.16.1(@types/node@26.6.6)(supports-color@7.2.0)

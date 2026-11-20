@@ -18,7 +18,7 @@ export function SheetContent({ className, children, closeLabel, ...props }: Comp
       <Primitive.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
       <Primitive.Content
         className={cn(
-          'fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col gap-4 overflow-y-auto rounded-t-card border-t border-border bg-card p-4 text-card-foreground outline-none',
+          'fixed inset-x-0 bottom-0 z-50 flex max-h-sheet flex-col gap-4 overflow-y-auto rounded-t-card border-t border-border bg-card p-4 text-card-foreground outline-none',
           className,
         )}
         {...props}

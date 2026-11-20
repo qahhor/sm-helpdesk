@@ -20,7 +20,7 @@ test.each([
 
 test('логические классы и токены проходят', () => {
   expect(
-    findUiRuleViolations('src/ui/x.tsx', '<p className="ms-4 text-start bg-primary h-control border-s rounded-s-lg" />'),
+    findUiRuleViolations('src/ui/x.tsx', '<p className="ms-4 text-start bg-primary h-control border-s rounded-s-control" />'),
   ).toEqual([]);
 });
 
@@ -40,4 +40,22 @@ test('цвет в таблице стилей вне файла токенов �
   expect(findUiRuleViolations('src/app/globals.css', 'a { color: #027CAA; }').map((v) => v.rule)).toEqual([
     'raw-color',
   ]);
+});
+
+test.each([
+  ['<p className="bg-red-500 text-white" />', 'raw-color'],
+  ['<p className="text-[red]" />', 'raw-color'],
+  ['<p className="max-h-[85dvh]" />', 'arbitrary-size'],
+  ['<p className="w-[50%]" />', 'arbitrary-size'],
+  ['<p className="p-[2px_4px]" />', 'arbitrary-size'],
+  ['<p className="[height:52px]" />', 'arbitrary-size'],
+  ['<p className="shadow-md rounded-sm" />', 'default-scale'],
+])('обход токенов находится: %s (ревью I5)', (text, rule) => {
+  expect(findUiRuleViolations('src/ui/x.tsx', text).map((v) => v.rule)).toContain(rule);
+});
+
+test('классы токенов и состояния Radix не считаются обходом', () => {
+  const text =
+    '<p className="bg-label-green-bg text-success shadow-card rounded-control max-h-sheet grid-cols-[auto_1fr] data-[state=open]:bg-accent" />';
+  expect(findUiRuleViolations('src/ui/x.tsx', text)).toEqual([]);
 });

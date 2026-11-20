@@ -23,7 +23,12 @@ export async function migrate(opts = {}) {
   const ownerUrl = opts.ownerUrl ?? process.env.DATABASE_URL_OWNER;
   if (!ownerUrl) throw new Error('Миграции: не задана переменная DATABASE_URL_OWNER');
   const dir = opts.dir ?? resolve(import.meta.dirname, '../../drizzle');
-  const files = (await readdir(dir)).filter((name) => FILE_NAME.test(name)).sort();
+  const found = (await readdir(dir)).filter((name) => name.endsWith('.sql')).sort();
+  // Файл с неверным именем не должен молча остаться неприменённым.
+  const misnamed = found.filter((name) => !FILE_NAME.test(name));
+  if (misnamed.length > 0)
+    throw new Error(`Имя файла миграции не по правилу NNNN_имя.sql (строчные буквы, цифры, подчёркивание): ${misnamed.join(', ')}`);
+  const files = found;
 
   const client = new pg.Client({ connectionString: ownerUrl });
   await client.connect();

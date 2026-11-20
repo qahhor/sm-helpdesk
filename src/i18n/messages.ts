@@ -1,4 +1,5 @@
-import { FALLBACKS, LOCALES, type Locale } from './locales';
+import { dropBrokenMessages } from './icu';
+import { DEFAULT_LOCALE, FALLBACKS, LOCALES, type Locale } from './locales';
 
 export type Messages = { [key: string]: string | Messages };
 
@@ -18,19 +19,33 @@ function fillMissing(target: Messages, source: Messages): Messages {
   return result;
 }
 
+async function build(locale: Locale, read: (locale: Locale) => Promise<Messages>): Promise<Messages> {
+  const reference = await read(DEFAULT_LOCALE);
+  let messages = dropBrokenMessages(await read(locale), reference);
+  for (const fallback of FALLBACKS[locale])
+    messages = fillMissing(messages, dropBrokenMessages(await read(fallback), reference));
+  return messages;
+}
+
+// Файлы сообщений не меняются во время работы: результат считается один раз на язык.
+const cache = new Map<Locale, Promise<Messages>>();
+
 /**
  * Сообщения языка, дополненные запасными языками по цепочке FALLBACKS (FR-I18N-05).
- * Посетитель видит текст на запасном языке, а не имя ключа.
+ * Недостающая или сломанная строка заменяется текстом запасного языка: посетитель не видит имя ключа.
  */
 export async function loadMessages(
   locale: Locale,
   sources?: Partial<Record<Locale, Messages>>,
 ): Promise<Messages> {
   // Набор sources задаётся в тестах: языка, которого в нём нет, как будто нет вовсе.
-  const read = async (l: Locale) => (sources ? (sources[l] ?? {}) : readSource(l));
-  let messages = await read(locale);
-  for (const fallback of FALLBACKS[locale]) messages = fillMissing(messages, await read(fallback));
-  return messages;
+  if (sources) return build(locale, async (l) => sources[l] ?? {});
+  let cached = cache.get(locale);
+  if (!cached) {
+    cached = build(locale, readSource);
+    cache.set(locale, cached);
+  }
+  return cached;
 }
 
 /** Название каждого языка на нём самом: ключ common.language.self его файла. */

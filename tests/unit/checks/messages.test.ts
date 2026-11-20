@@ -85,3 +85,9 @@ test('настоящие файлы сообщений проходят все �
   expect(checkIcu(sources)).toEqual([]);
   expect(checkWords(sources)).toEqual([]);
 });
+
+test('ICU: лишняя подстановка, которой нет в русской строке (ревью I3)', () => {
+  expect(checkIcu({ ru: { a: 'Привет, {name}' }, uz: { a: 'Salom, {name}, {count} ta' }, en: { a: 'Hello, {name}' } })).toEqual([
+    { locale: 'uz', key: 'a', problem: 'extra-argument:count' },
+  ]);
+});

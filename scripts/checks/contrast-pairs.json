@@ -11,6 +11,7 @@
   { "name": "ссылка на фоне страницы", "fg": "link", "bg": "background" },
   { "name": "ссылка на карточке", "fg": "link", "bg": "card" },
   { "name": "текст кнопки на основном цвете", "fg": "primary-foreground", "bg": "primary" },
+  { "name": "текст кнопки под указателем", "fg": "primary-foreground", "bg": "primary-hover" },
   { "name": "текст шапки на шапке", "fg": "header-foreground", "bg": "header" },
   { "name": "текст меню на всплывающем окне", "fg": "popover-foreground", "bg": "popover" },
   { "name": "текст пункта меню под указателем", "fg": "accent-foreground", "bg": "accent" },

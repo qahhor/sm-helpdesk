@@ -59,3 +59,18 @@ test('страница не нарушает собственную полити
   await page.keyboard.press('Escape');
   expect(violations).toEqual([]);
 });
+
+test('запрет встраивания действует на страницах и обработчиках (ревью M9)', async ({ request }) => {
+  for (const path of ['/ru', '/api/health'])
+    expect((await request.get(path)).headers()['content-security-policy']).toContain("frame-ancestors 'none'");
+});
+
+test('адрес с точкой и адрес, похожий на /api, проходят через прокси (ревью M5)', async ({ request }) => {
+  const dotted = await request.get('/ru/users/john.doe', { headers: { 'x-nonce': 'attacker' } });
+  expect(dotted.status()).toBe(404);
+  expect(dotted.headers()['content-security-policy-report-only']).toContain("'nonce-");
+  expect(await dotted.text()).not.toContain('attacker');
+  const apiLike = await request.get('/api-keys', { maxRedirects: 0 });
+  expect(apiLike.status()).toBe(307);
+  expect(apiLike.headers().location).toMatch(/\/ru\/api-keys$/);
+});

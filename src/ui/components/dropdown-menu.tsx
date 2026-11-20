@@ -19,7 +19,7 @@ export function DropdownMenuContent({ className, sideOffset = 6, ...props }: Com
       <Primitive.Content
         sideOffset={sideOffset}
         className={cn(
-          'z-50 min-w-48 overflow-hidden rounded-control border border-border bg-popover p-1 text-popover-foreground shadow-md',
+          'z-50 min-w-48 overflow-hidden rounded-control border border-border bg-popover p-1 text-popover-foreground shadow-card',
           className,
         )}
         {...props}
@@ -29,7 +29,7 @@ export function DropdownMenuContent({ className, sideOffset = 6, ...props }: Com
 }
 
 const itemClass =
-  'relative flex min-h-control cursor-default select-none items-center gap-2 rounded-sm px-3 text-sm outline-none ' +
+  'relative flex min-h-control cursor-default select-none items-center gap-2 rounded-control px-3 text-base outline-none ' +
   'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
 
 export function DropdownMenuItem({ className, ...props }: ComponentProps<typeof Primitive.Item>) {

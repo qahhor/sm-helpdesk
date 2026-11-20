@@ -73,6 +73,8 @@ export function checkContrast(tokensCss, pairs) {
   const root = blockVars(css, /^:root\s*\{([^}]*)\}/gm);
   const dark = blockVars(css, /^\.dark\s*\{([^}]*)\}/gm);
   const theme = blockVars(css, /^@theme inline\s*\{([^}]*)\}/gm);
+  // Без блока тёмной темы проверка молча посчитала бы светлые значения дважды.
+  if (dark.size === 0) throw new Error('В файле токенов не найден блок тёмной темы (.dark)');
 
   const resolve = (/** @type {string} */ value, /** @type {'light' | 'dark'} */ mode, depth = 0) => {
     const ref = /^var\(--([a-z0-9-]+)\)$/.exec(value.trim());

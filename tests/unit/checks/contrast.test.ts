@@ -53,3 +53,17 @@ test('проверка находит плохую пару и называет 
 test('неизвестное имя токена в списке пар считается ошибкой', () => {
   expect(() => checkContrast(tokens, [{ name: 'x', fg: 'no-such-token', bg: 'background' }])).toThrow(/no-such-token/);
 });
+
+test('кнопка под указателем остаётся в списке пар (ревью I6)', () => {
+  expect(pairs.some((p: { fg: string; bg: string }) => p.fg === 'primary-foreground' && p.bg === 'primary-hover')).toBe(true);
+  expect(contrastRatio('#FFFFFF', '#036486')).toBeGreaterThanOrEqual(4.5);
+});
+
+test('плохая пара в тёмной теме находится', () => {
+  const broken = tokens.replace('--hub-label-gray-fg: #B4BCBF', '--hub-label-gray-fg: #2A3336');
+  expect(checkContrast(broken, pairs).map((f: { theme: string }) => f.theme)).toContain('dark');
+});
+
+test('файл токенов без блока тёмной темы считается ошибкой, а не светлой темой', () => {
+  expect(() => checkContrast(tokens.replaceAll(/^\.dark \{/gm, 'html.dark {'), pairs)).toThrow(/тёмн/);
+});

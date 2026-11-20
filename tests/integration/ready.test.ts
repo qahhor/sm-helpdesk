@@ -60,3 +60,30 @@ test('health не зависит от базы', async () => {
   expect(await res.json()).toEqual({ status: 'ok' });
   expect(res.headers.get('cache-control')).toBe('no-store');
 });
+
+test('зависшая база не отнимает соединения у приложения (ревью I7)', async () => {
+  // Сервер завершает вход и дальше молчит: так выглядит зависшая база или оборванная сеть.
+  const sockets: Socket[] = [];
+  const stalled = createServer((socket) => {
+    sockets.push(socket);
+    socket.once('data', () => socket.write(Buffer.from([0x52, 0, 0, 0, 8, 0, 0, 0, 0, 0x5a, 0, 0, 0, 5, 0x49])));
+  });
+  await new Promise<void>((resolve) => stalled.listen(0, '127.0.0.1', resolve));
+  const { port } = stalled.address() as { port: number };
+  const pool = new Pool({ connectionString: `postgres://hub_app:x@127.0.0.1:${port}/hub`, max: 3 });
+  try {
+    for (let i = 0; i < 5; i++) expect(await pingPool(pool, 150)).toBe(false);
+    expect(pool.totalCount - pool.idleCount).toBe(0);
+  } finally {
+    for (const socket of sockets) socket.destroy();
+    await new Promise((resolve) => stalled.close(resolve));
+    await pool.end().catch(() => {});
+  }
+});
+
+test('готовность отказывает, если приложение подключено не под ролью hub_app (ревью I1)', async () => {
+  const { isRestrictedAppRole } = await import('@/db/client');
+  const { pools } = await import('./helpers/db');
+  expect(await pingPool(pools.app, 2000, isRestrictedAppRole)).toBe(true);
+  expect(await pingPool(pools.owner, 2000, isRestrictedAppRole)).toBe(false);
+});

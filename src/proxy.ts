@@ -39,6 +39,7 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  // Страницы портала. Обработчики /api, служебные адреса Next.js и файлы с расширением не затрагиваются.
-  matcher: ['/((?!api|_next|.*\\..*).*)'],
+  // Страницы портала. Не затрагиваются обработчики /api/, служебные адреса /_next/ и файлы интерфейса
+  // (по списку расширений). Адрес с точкой в имени (/ru/users/john.doe) это страница, он идёт через прокси.
+  matcher: ['/((?!api/|_next/|.*\\.(?:ico|png|jpg|jpeg|gif|webp|svg|woff2|css|js|map|txt|xml|json|webmanifest)$).*)'],
 };

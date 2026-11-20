@@ -5,6 +5,7 @@
 // 4. Запускает приложение для разработки.
 //
 // С ключом --prepare выполняются только шаги 1-3: так базу готовят браузерные тесты.
+// С ключом --env-only выполняется только шаг 1.
 import { execFileSync, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -49,6 +50,7 @@ export async function prepareDatabase() {
 if (import.meta.main) {
   try {
     if (ensureEnvFile()) console.log('Создан файл .env со случайными паролями для разработки');
+    if (process.argv.includes('--env-only')) process.exit(0);
     const { applied } = await prepareDatabase();
     console.log(applied > 0 ? `База готова, применено миграций: ${applied}` : 'База готова, новых миграций нет');
   } catch (error) {

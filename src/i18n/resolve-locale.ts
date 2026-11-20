@@ -40,16 +40,33 @@ export function resolveLocale(input: {
   );
 }
 
-const languageNames = new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' });
+const NAMES = {
+  language: new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' }),
+  script: new Intl.DisplayNames(['en'], { type: 'script', fallback: 'none' }),
+  region: new Intl.DisplayNames(['en'], { type: 'region', fallback: 'none' }),
+};
 
-/** Похож ли первый отрезок адреса на код языка (de, fr-FR), а не на имя раздела (kb). */
-function isLanguageTag(segment: string): boolean {
-  if (!/^[a-z]{2,3}([-_][a-z0-9]{2,8})*$/i.test(segment)) return false;
+function isKnown(kind: keyof typeof NAMES, code: string): boolean {
   try {
-    return languageNames.of(segment.split(/[-_]/)[0].toLowerCase()) !== undefined;
+    return NAMES[kind].of(code) !== undefined;
   } catch {
     return false;
   }
+}
+
+/**
+ * Код языка из первого отрезка адреса, если отрезок записан как язык: de, fr-FR, uz-Cyrl, zh-Hant-TW.
+ * Правило строгое, чтобы имя раздела не приняли за язык: двухбуквенный известный код языка,
+ * затем необязательные известные письменность и регион. Отрезки my-tickets, it-support, sms, kb языком не считаются.
+ */
+function languageOf(segment: string): string | null {
+  const match = /^([a-z]{2})(?:[-_]([a-z]{4}))?(?:[-_]([a-z]{2}|\d{3}))?$/i.exec(segment);
+  if (!match) return null;
+  const [, language, script, region] = match;
+  if (!isKnown('language', language.toLowerCase())) return null;
+  if (script && !isKnown('script', script[0].toUpperCase() + script.slice(1).toLowerCase())) return null;
+  if (region && !isKnown('region', region.toUpperCase())) return null;
+  return language.toLowerCase();
 }
 
 /**
@@ -61,10 +78,10 @@ export function localizedPath(pathname: string, pickLocale: () => Locale): strin
   const first = segments[1] ?? '';
   if (isLocale(first)) return null;
 
-  const known = toLocale(first);
-  const rest = segments.slice(2).join('/');
-  if (known || isLanguageTag(first)) {
-    const locale = known ?? pickLocale();
+  const language = languageOf(first);
+  if (language) {
+    const locale = isLocale(language) ? language : pickLocale();
+    const rest = segments.slice(2).join('/');
     return rest ? `/${locale}/${rest}` : `/${locale}`;
   }
   const tail = segments.slice(1).join('/');

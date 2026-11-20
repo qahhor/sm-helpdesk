@@ -14,6 +14,7 @@
 
 | Пакет | Версия | Лицензия |
 |---|---|---|
+| `@formatjs/icu-messageformat-parser` | 3.5.23 | MIT |
 | `class-variance-authority` | 0.7.1 | Apache-2.0 |
 | `clsx` | 2.1.1 | MIT |
 | `drizzle-orm` | 0.45.4 | Apache-2.0 |
@@ -34,7 +35,6 @@
 | Пакет | Версия | Лицензия |
 |---|---|---|
 | `@axe-core/playwright` | 4.14.0 | MPL-2.0 |
-| `@formatjs/icu-messageformat-parser` | 3.5.23 | MIT |
 | `@lhci/cli` | 0.16.1 | Apache-2.0 |
 | `@playwright/test` | 1.63.0 | Apache-2.0 |
 | `@tailwindcss/turbopack` | 4.3.5 | MIT |

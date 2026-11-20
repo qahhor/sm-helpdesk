@@ -16,22 +16,35 @@
       "dark": "Dark",
       "system": "System"
     },
-    "close": "Close"
+    "close": "Close",
+    "skipToContent": "Skip to content"
   },
   "client": {
     "home": {
       "title": "How can we help?",
       "report": "Report a problem",
-      "idea": "Suggest an idea"
+      "idea": "Suggest an idea",
+      "myTickets": "My requests"
     },
     "nav": {
       "home": "Home",
       "tickets": "Requests",
       "ideas": "Ideas",
-      "profile": "Profile"
+      "profile": "Profile",
+      "label": "Main menu"
     },
     "tickets": {
-      "empty": "No requests yet. Describe your question and I will look for a solution."
+      "empty": "No requests yet. Describe your question and I will look for a solution.",
+      "emptyTitle": "No requests yet",
+      "emptyText": "Describe your question and I will look for a solution."
+    },
+    "ideas": {
+      "emptyTitle": "No ideas yet",
+      "emptyText": "Suggest a product idea and the Smartup team will review it."
+    },
+    "profile": {
+      "emptyTitle": "Your profile will appear after you sign in",
+      "emptyText": "Your details and notification settings will be here."
     }
   },
   "agent": {

@@ -1,26 +1,27 @@
 import { getTranslations } from 'next-intl/server';
-import { localeNames } from '@/i18n/messages';
-import { LanguageSwitcher } from '@/ui/LanguageSwitcher';
-import { ThemeSwitch } from '@/ui/theme/ThemeSwitch';
+import { Link } from '@/i18n/navigation';
+import { Button } from '@/ui/components/button';
+import { Card } from '@/ui/components/card';
+import { EmptyState } from '@/ui/components/EmptyState';
 
-// Главная кабинета клиента. Оболочка с шапкой и навигацией появляется в задаче 9 вехи M0.
+// Главная кабинета клиента: один вопрос и одно главное действие (UX-C-01).
+// Поле описания проблемы появится в вехе M2.
 export default async function ClientHomePage() {
-  const t = await getTranslations();
+  const t = await getTranslations('client');
   return (
-    <main data-zone="client" className="mx-auto flex max-w-2xl flex-col gap-6 p-6 text-base">
-      <div className="flex items-center justify-end gap-2">
-        <LanguageSwitcher names={await localeNames()} label={t('common.language.label')} />
-        <ThemeSwitch
-          labels={{
-            label: t('common.theme.label'),
-            light: t('common.theme.light'),
-            dark: t('common.theme.dark'),
-            system: t('common.theme.system'),
-          }}
-        />
+    <>
+      <h1 className="text-2xl font-bold">{t('home.title')}</h1>
+      <div className="flex flex-col gap-3 tablet:flex-row">
+        <Button asChild>
+          <Link href="/tickets">{t('home.report')}</Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/ideas">{t('home.idea')}</Link>
+        </Button>
       </div>
-      <h1 className="text-2xl font-bold">{t('client.home.title')}</h1>
-      <p className="text-secondary-foreground">{t('client.tickets.empty')}</p>
-    </main>
+      <Card>
+        <EmptyState withTez title={t('home.myTickets')} text={t('tickets.empty')} />
+      </Card>
+    </>
   );
 }

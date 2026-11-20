@@ -22,10 +22,11 @@ export function LanguageSwitcher({ names, label }: { names: Record<Locale, strin
       <DropdownMenuTrigger
         aria-busy={pending}
         title={label}
-        className="inline-flex min-h-control items-center gap-2 rounded-control px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex min-h-control min-w-control items-center justify-center gap-2 rounded-control px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Globe className="size-5" aria-hidden />
-        {names[locale]}
+        {/* На телефоне в шапке остаётся значок, название языка читает программа экранного доступа. */}
+        <span className="max-tablet:sr-only">{names[locale]}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" aria-label={label}>
         {(Object.keys(names) as Locale[]).map((code) => (

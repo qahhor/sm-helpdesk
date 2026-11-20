@@ -16,22 +16,35 @@
       "dark": "Qorong'i",
       "system": "Tizimdagidek"
     },
-    "close": "Yopish"
+    "close": "Yopish",
+    "skipToContent": "Asosiy mazmunga o'tish"
   },
   "client": {
     "home": {
       "title": "Sizga qanday yordam kerak?",
       "report": "Muammo haqida xabar berish",
-      "idea": "G'oya taklif qilish"
+      "idea": "G'oya taklif qilish",
+      "myTickets": "Mening murojaatlarim"
     },
     "nav": {
       "home": "Bosh sahifa",
       "tickets": "Murojaatlar",
       "ideas": "G'oyalar",
-      "profile": "Profil"
+      "profile": "Profil",
+      "label": "Asosiy menyu"
     },
     "tickets": {
-      "empty": "Hozircha murojaatlar yo'q. Savolingizni yozing, men yechim qidiraman."
+      "empty": "Hozircha murojaatlar yo'q. Savolingizni yozing, men yechim qidiraman.",
+      "emptyTitle": "Hozircha murojaatlar yo'q",
+      "emptyText": "Savolingizni yozing, men yechim qidiraman."
+    },
+    "ideas": {
+      "emptyTitle": "Hozircha g'oyalar yo'q",
+      "emptyText": "Mahsulot bo'yicha g'oya taklif qiling, Smartup jamoasi uni ko'rib chiqadi."
+    },
+    "profile": {
+      "emptyTitle": "Profil kirgandan keyin paydo bo'ladi",
+      "emptyText": "Bu yerda ma'lumotlaringiz va bildirishnoma sozlamalari bo'ladi."
     }
   },
   "agent": {

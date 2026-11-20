@@ -1,4 +1,5 @@
 import { getTranslations } from 'next-intl/server';
+import { requireClientActor } from '@/modules/hdu/api';
 import { Link } from '@/i18n/navigation';
 import { Button } from '@/ui/components/button';
 import { Card } from '@/ui/components/card';
@@ -7,6 +8,7 @@ import { EmptyState } from '@/ui/components/EmptyState';
 // Главная кабинета клиента: один вопрос и одно главное действие (UX-C-01).
 // Поле описания проблемы появится в вехе M2.
 export default async function ClientHomePage() {
+  await requireClientActor();
   const t = await getTranslations('client');
   return (
     <>

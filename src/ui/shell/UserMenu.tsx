@@ -1,18 +1,15 @@
 'use client';
 
-import { CircleUserRound, LogOut } from 'lucide-react';
-import { useTransition } from 'react';
-import { Link } from '@/i18n/navigation';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/ui/components/dropdown-menu';
+import { CircleUserRound } from 'lucide-react';
+import { lazy, Suspense, useState } from 'react';
 import { LABELLED_TRIGGER } from '@/ui/menu-trigger';
 
 export type UserMenuLink = { href: string; label: string };
+
+// Само меню (Radix) в первый экран не входит, как и меню языка: код подгружается,
+// когда человек навёл указатель, перешёл на кнопку с клавиатуры или нажал её.
+const loadMenu = () => import('./UserMenuContent');
+const UserMenuContent = lazy(loadMenu);
 
 /**
  * Меню пользователя в шапке: имя, ссылки на свои разделы и выход.
@@ -31,26 +28,36 @@ export function UserMenu({
   signOutLabel: string;
   signOut: () => Promise<void>;
 }) {
-  const [pending, startTransition] = useTransition();
+  const [opened, setOpened] = useState(false);
+  const content = (
+    <>
+      <CircleUserRound className="size-5" aria-hidden />
+      {/* На телефоне в шапке остаётся значок, имя читает программа экранного доступа. */}
+      <span className="max-w-40 truncate max-tablet:sr-only">{name}</span>
+    </>
+  );
+  const button = (
+    <button
+      type="button"
+      title={label}
+      aria-haspopup="menu"
+      aria-expanded={false}
+      aria-busy={opened}
+      className={LABELLED_TRIGGER}
+      onPointerEnter={loadMenu}
+      onFocus={loadMenu}
+      onClick={() => setOpened(true)}
+    >
+      {content}
+    </button>
+  );
+
+  if (!opened) return button;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger title={label} aria-busy={pending} className={LABELLED_TRIGGER}>
-        <CircleUserRound className="size-5" aria-hidden />
-        {/* На телефоне в шапке остаётся значок, имя читает программа экранного доступа. */}
-        <span className="max-w-40 truncate max-tablet:sr-only">{name}</span>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" aria-label={label}>
-        {links.map((link) => (
-          <DropdownMenuItem key={link.href} asChild>
-            <Link href={link.href}>{link.label}</Link>
-          </DropdownMenuItem>
-        ))}
-        {links.length > 0 && <DropdownMenuSeparator />}
-        <DropdownMenuItem onSelect={() => startTransition(() => signOut())}>
-          <LogOut className="size-4" aria-hidden />
-          {signOutLabel}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Suspense fallback={button}>
+      <UserMenuContent label={label} links={links} signOutLabel={signOutLabel} signOut={signOut}>
+        {content}
+      </UserMenuContent>
+    </Suspense>
   );
 }

@@ -1,5 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { CLIENT_STATE } from './helpers/client';
+
+// Кабинет открыт только вошедшему клиенту (FR-ID-05): тесты идут от его сохранённой сессии.
+test.use({ storageState: CLIENT_STATE });
 
 const PAGES = ['', '/tickets', '/ideas', '/settings'];
 

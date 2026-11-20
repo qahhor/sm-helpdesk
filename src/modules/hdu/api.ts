@@ -4,7 +4,17 @@ import 'server-only';
 // (docs/naming.md, раздел 5). Каждая функция проверяет актора, права и данные и вызывает слой core.
 // Страницы и интерфейс импортируют модуль только отсюда: это проверяет линтер.
 
-export { currentStaff, requireFreshStaffActor, requireStaffActor, signedInKind, signOut } from './api/actor';
+export {
+  currentStaff,
+  requireClientActor,
+  requireFreshStaffActor,
+  requireSignedInClient,
+  requireStaffActor,
+  signedInKind,
+  signOut,
+  switchOrganizationOfRequest,
+} from './api/actor';
+export { type ClientContext, listMyOrganizations, type MyOrganization } from './api/orgs';
 export { handleAuthRequest } from './api/auth-route';
 export { nextRequest } from './api/next-request';
 export type { RequestInfo, SessionData } from './api/request';

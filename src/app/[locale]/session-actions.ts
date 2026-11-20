@@ -9,3 +9,9 @@ export async function signOutStaffAction(): Promise<void> {
   await signOut(await nextRequest());
   redirect(`/${await getLocale()}/staff/login`);
 }
+
+/** Выход клиента: сессия завершается, браузер возвращается на страницу входа. */
+export async function signOutAction(): Promise<void> {
+  await signOut(await nextRequest());
+  redirect(`/${await getLocale()}/login`);
+}

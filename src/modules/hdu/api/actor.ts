@@ -7,7 +7,8 @@ import { getAuth } from '../auth/instance';
 import { findStaff } from '../core/staff';
 import type { StaffRole } from '../pref';
 import { safeReturnPath } from '../util';
-import { readSession, type RequestInfo } from './request';
+import { type ClientContext, type ClientDenial, resolveClient, switchOrganization } from './orgs';
+import { readSession, type RequestInfo, type SessionData } from './request';
 import { FRESH_SIGN_IN_SEC, isFresh, resolveStaff, type StaffContext, type StaffDenial } from './session';
 
 // Вход в защищённые разделы: проверка сессии и роли на каждом запросе (ТЗ 9.4, правило 7).
@@ -19,10 +20,12 @@ async function currentPath(): Promise<string> {
   return (await headers()).get('x-hub-path') ?? '';
 }
 
-const staffOfRequest = cache(async (): Promise<StaffContext | StaffDenial> => {
-  const session = await readSession({ headers: new Headers(await headers()) });
-  return resolveStaff(session, new Date());
-});
+/** Сессия текущего запроса. Проверяет её библиотека входа по базе, один раз на запрос. */
+const sessionOfRequest = cache(async (): Promise<SessionData | null> => readSession({ headers: new Headers(await headers()) }));
+
+const staffOfRequest = cache(async (): Promise<StaffContext | StaffDenial> => resolveStaff(await sessionOfRequest(), new Date()));
+
+const clientOfRequest = cache(async (): Promise<ClientContext | ClientDenial> => resolveClient(await sessionOfRequest()));
 
 /**
  * Сотрудник текущего запроса. Без входа, без второго фактора и после 12 часов перенаправляет
@@ -79,7 +82,53 @@ export async function signOut(request: RequestInfo): Promise<void> {
  * Сотрудник с незавершённым вторым фактором тоже считается сотрудником.
  */
 export const signedInKind = cache(async (): Promise<'staff' | 'client' | null> => {
-  const session = await readSession({ headers: new Headers(await headers()) });
+  const session = await sessionOfRequest();
   if (!session) return null;
   return (await findStaff(session.user.id)) ? 'staff' : 'client';
 });
+
+/**
+ * Клиент текущего запроса с активной организацией. Каждая страница кабинета вызывает эту функцию сама:
+ * отключённый участник теряет доступ на следующем запросе. Без входа ведёт на страницу входа с возвратом,
+ * сотрудника в рабочее место, без организации на экран "нет организации", при нескольких на выбор.
+ */
+export async function requireClientActor(): Promise<ClientContext> {
+  const result = await clientOfRequest();
+  if (!('denied' in result)) return result;
+  const locale = await getLocale();
+  const next = encodeURIComponent(safeReturnPath(await currentPath(), `/${locale}`));
+  switch (result.denied) {
+    case 'no_session':
+      redirect(`/${locale}/login?next=${next}`);
+    case 'staff':
+      redirect(`/${locale}/agent`);
+    case 'no_organization':
+      redirect(`/${locale}/no-organization`);
+    case 'choose_organization':
+      redirect(`/${locale}/select-organization?next=${next}`);
+  }
+}
+
+/**
+ * Вошедший клиент без требования организации: для экранов выбора организации и "нет организации".
+ * Без входа ведёт на страницу входа, сотрудника в рабочее место.
+ */
+export async function requireSignedInClient(): Promise<{ userId: string; name: string }> {
+  const session = await sessionOfRequest();
+  const locale = await getLocale();
+  if (!session) redirect(`/${locale}/login`);
+  if (await findStaff(session.user.id)) redirect(`/${locale}/agent`);
+  return { userId: session.user.id, name: session.user.name };
+}
+
+/**
+ * Переключение организации из серверного действия. Сессия берётся из кук запроса,
+ * идентификатор организации из формы проверяет switchOrganization: чужая организация даёт not_member.
+ */
+export async function switchOrganizationOfRequest(orgId: unknown): Promise<void> {
+  // Сессия читается мимо памяти запроса: страница, на которую ведёт действие, отрисовывается в том же запросе
+  // и должна увидеть сессию уже после переключения, а не снимок, сделанный до него.
+  const session = await readSession({ headers: new Headers(await headers()) });
+  if (!session) redirect(`/${await getLocale()}/login`);
+  await switchOrganization(session, orgId);
+}

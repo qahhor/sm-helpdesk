@@ -6,6 +6,7 @@ import { PostgresDialect } from 'kysely';
 import type { Pool } from 'pg';
 import {
   LOGIN_LINK_TTL_SEC,
+  AUTH_COOKIE_PREFIX,
   SESSION_TTL_SEC,
   SESSION_UPDATE_AGE_SEC,
   TOTP_LOCK_SEC,
@@ -73,7 +74,7 @@ export function buildAuthOptions(deps: AuthDeps) {
     // Учётные записи по совпадению email не объединяются (решение 93 ТЗ).
     account: { accountLinking: { enabled: false } },
     advanced: {
-      cookiePrefix: 'hub',
+      cookiePrefix: AUTH_COOKIE_PREFIX,
       useSecureCookies: deps.baseUrl.startsWith('https://'),
       // Идентификаторы задаёт база: uuidv7().
       database: { generateId: 'uuid' },

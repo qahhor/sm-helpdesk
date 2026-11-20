@@ -21,7 +21,8 @@
     "userMenu": {
       "label": "User menu",
       "signOut": "Sign out",
-      "sessions": "Sessions"
+      "sessions": "Sessions",
+      "settings": "Settings"
     }
   },
   "client": {
@@ -50,6 +51,9 @@
     "profile": {
       "emptyTitle": "Your profile will appear after you sign in",
       "emptyText": "Your details and notification settings will be here."
+    },
+    "org": {
+      "switch": "Switch organization"
     }
   },
   "agent": {
@@ -149,6 +153,23 @@
         "serverNotFound": "We could not find this server. Check the address or contact Smartup support.",
         "lookupRateLimited": "Too many attempts. Try again in an hour."
       }
+    },
+    "gate": {
+      "selectOrganization": {
+        "title": "Choose an organization",
+        "intro": "You are a member of several organizations. Choose the one to work with now. You can switch it later in the header.",
+        "notMember": "This organization is not available to you. Choose another one."
+      },
+      "noOrganization": {
+        "title": "No organization found",
+        "text": "You are signed in, but your account is not linked to any organization yet. Ask your company administrator to invite you, or write to Smartup support."
+      },
+      "roles": {
+        "client_user": "User",
+        "client_admin": "Administrator"
+      },
+      "signedInAs": "Signed in as {name}",
+      "signOut": "Sign out"
     }
   }
 }

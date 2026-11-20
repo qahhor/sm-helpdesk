@@ -5,6 +5,7 @@ import { type AuthDeps, buildAuthOptions } from '@/modules/hdu/auth/options';
 import { findStaff } from '@/modules/hdu/core/staff';
 import { listSsoServers } from '@/modules/hdu/core/servers';
 import type { StaffRole } from '@/modules/hdu/pref';
+import type { SessionData } from '@/modules/hdu/api/request';
 import { getSecretBox } from '@/security/secret-box';
 import { totp } from '../../helpers/totp';
 import { pools } from './db';
@@ -255,4 +256,61 @@ export async function newSmartupUser(opts: { roleMap?: Record<string, string> } 
     [`sub-${serial}`, code, id],
   );
   return { server, user: { id } };
+}
+
+// --- Сессии клиента строками в базе (задача 9): актор строится из них без библиотеки входа ---
+
+async function sessionDataById(sessionId: string): Promise<SessionData | null> {
+  const r = await pools.root.query(
+    `select s.id, s.token, s."userId", s."createdAt", s."expiresAt", s."activeOrgId", s."ipAddress", s."userAgent",
+            u.name, u.email, u."emailVerified", u."twoFactorEnabled", u."claimedEmail", u."onboardedAt", u."lastOrgId"
+     from auth.session s join auth."user" u on u.id = s."userId" where s.id = $1 and s."expiresAt" > now()`,
+    [sessionId],
+  );
+  const row = r.rows[0];
+  if (!row) return null;
+  return {
+    session: {
+      id: row.id,
+      token: row.token,
+      userId: row.userId,
+      createdAt: row.createdAt,
+      expiresAt: row.expiresAt,
+      activeOrgId: row.activeOrgId,
+      ipAddress: row.ipAddress,
+      userAgent: row.userAgent,
+    },
+    user: {
+      id: row.userId,
+      name: row.name,
+      email: row.email,
+      emailVerified: row.emailVerified,
+      twoFactorEnabled: row.twoFactorEnabled === true,
+      claimedEmail: row.claimedEmail,
+      onboardedAt: row.onboardedAt,
+      lastOrgId: row.lastOrgId,
+    },
+  };
+}
+
+/** Сессия пользователя строкой в базе. patch задаёт активную и последнюю организацию. */
+export async function clientSession(
+  member: { userId: string },
+  patch: { activeOrgId?: string | null; lastOrgId?: string | null } = {},
+): Promise<SessionData> {
+  if ('lastOrgId' in patch)
+    await pools.root.query(`update auth."user" set "lastOrgId" = $1 where id = $2`, [patch.lastOrgId ?? null, member.userId]);
+  const id = (
+    await pools.root.query(
+      `insert into auth.session ("expiresAt", token, "updatedAt", "userId", "activeOrgId", "userAgent")
+       values (now() + interval '30 days', $1, now(), $2, $3, 'Test') returning id`,
+      [`t-${next()}`, member.userId, patch.activeOrgId ?? null],
+    )
+  ).rows[0].id as string;
+  return (await sessionDataById(id)) as SessionData;
+}
+
+/** Та же сессия, прочитанная заново. Пусто, если её завершили или срок вышел. */
+export function reload(session: SessionData): Promise<SessionData | null> {
+  return sessionDataById(session.session.id);
 }

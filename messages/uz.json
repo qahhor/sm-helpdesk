@@ -21,7 +21,8 @@
     "userMenu": {
       "label": "Foydalanuvchi menyusi",
       "signOut": "Chiqish",
-      "sessions": "Seanslar"
+      "sessions": "Seanslar",
+      "settings": "Sozlamalar"
     }
   },
   "client": {
@@ -50,6 +51,9 @@
     "profile": {
       "emptyTitle": "Profil kirgandan keyin paydo bo'ladi",
       "emptyText": "Bu yerda ma'lumotlaringiz va bildirishnoma sozlamalari bo'ladi."
+    },
+    "org": {
+      "switch": "Tashkilotni almashtirish"
     }
   },
   "agent": {
@@ -149,6 +153,23 @@
         "serverNotFound": "Bunday server topilmadi. Manzilni tekshiring yoki Smartup qo'llab-quvvatlash xizmatiga murojaat qiling.",
         "lookupRateLimited": "Urinishlar juda ko'p. Bir soatdan keyin qayta urinib ko'ring."
       }
+    },
+    "gate": {
+      "selectOrganization": {
+        "title": "Tashkilotni tanlang",
+        "intro": "Siz bir nechta tashkilot a'zosisiz. Hozir qaysi biri bilan ishlashni tanlang. Uni kabinet sarlavhasida almashtirish mumkin.",
+        "notMember": "Bu tashkilot sizga mavjud emas. Boshqasini tanlang."
+      },
+      "noOrganization": {
+        "title": "Tashkilot topilmadi",
+        "text": "Siz tizimga kirdingiz, lekin hisobingiz hali hech bir tashkilotga bog'lanmagan. Kompaniyangiz administratoridan sizni taklif qilishini so'rang yoki Smartup qo'llab-quvvatlash xizmatiga yozing."
+      },
+      "roles": {
+        "client_user": "Foydalanuvchi",
+        "client_admin": "Administrator"
+      },
+      "signedInAs": "Siz {name} sifatida kirdingiz",
+      "signOut": "Chiqish"
     }
   }
 }

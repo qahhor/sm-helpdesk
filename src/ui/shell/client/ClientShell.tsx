@@ -14,8 +14,9 @@ import { TopNav } from './TopNav';
  * Оболочка кабинета клиента: сначала телефон (ТЗ 8.1).
  * Шапка 52 px как в Smartup Web. До 600 px навигация в нижней панели, от 600 px в строке под шапкой.
  * data-zone="client" включает размеры зоны клиента: текст 16 px, цель нажатия не меньше 44 px.
+ * Активную организацию (org) и меню пользователя (userMenu) строит раскладка кабинета из проверенной сессии.
  */
-export async function ClientShell({ children }: { children: ReactNode }) {
+export async function ClientShell({ children, org, userMenu }: { children: ReactNode; org?: ReactNode; userMenu?: ReactNode }) {
   const t = await getTranslations();
   const items: ClientNavItem[] = CLIENT_NAV.map(({ key, href }) => ({ key, href, label: t(`client.nav.${key}`) }));
   const navLabel = t('client.nav.label');
@@ -30,9 +31,11 @@ export async function ClientShell({ children }: { children: ReactNode }) {
       </a>
       <header className="sticky top-0 z-40 flex h-header shrink-0 items-center gap-2 bg-header px-4 text-header-foreground">
         <Link href="/" className="inline-flex items-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Logo onDark withProductName />
+          {/* С организацией в шапке на телефоне не хватает места: название продукта читает программа экранного доступа. */}
+          <Logo onDark withProductName className={org ? 'max-tablet:[&>span]:sr-only' : undefined} />
         </Link>
-        <div className="ms-auto flex items-center">
+        {org && <div className="flex min-w-0 items-center">{org}</div>}
+        <div className="ms-auto flex shrink-0 items-center">
           <LanguageSwitcher
             locale={(await getLocale()) as Locale}
             names={await localeNames()}
@@ -46,6 +49,7 @@ export async function ClientShell({ children }: { children: ReactNode }) {
               system: t('common.theme.system'),
             }}
           />
+          {userMenu}
         </div>
       </header>
       <TopNav items={items} label={navLabel} />

@@ -1,13 +1,15 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { signInAs, signInAsCustom } from './helpers/client';
+import { signInAs, signInAsCustom, withOwnAddress } from './helpers/client';
 import { dbRows } from './helpers/db';
 
 // Вход клиента через Smartup (FR-ID-01..04, сценарий 1 раздела 15.3 ТЗ в части входа).
 const formAlert = (page: Page) => page.getByRole('main').getByRole('alert');
 
-test.beforeEach(({}, testInfo) => {
+test.beforeEach(async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === 'narrow', 'вход клиента проверяется на телефоне и ноутбуке');
+  // Пределы частоты входа и поиска сервера считаются по адресу посетителя: у каждого теста свой.
+  await withOwnAddress(page);
 });
 
 test('клиент входит через Smartup, организация создаётся сама', async ({ page }) => {
@@ -70,4 +72,11 @@ test('страница входа на трёх языках без горизо
     expect(serious.map((v) => v.id), path).toEqual([]);
   }
   expect(violations).toEqual([]);
+});
+
+test('ошибка начала входа возвращает на страницу входа портала, а не на внутренний адрес сервера', async ({ page, context, baseURL }) => {
+  // Кука с неверным кодом сервера: вход не начинается, на сервер по умолчанию не переключается.
+  await context.addCookies([{ name: 'hub_server', value: 'BAD!', url: baseURL }]);
+  await page.goto('/ru/login/smartup?next=%2Fru');
+  await expect(page).toHaveURL(`${baseURL}/ru/login?error=no_server`);
 });

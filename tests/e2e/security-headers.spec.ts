@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { CLIENT_STATE } from './helpers/client';
 import { storageStateOf } from './helpers/staff';
 
 const nonceOf = (headers: Record<string, string>) =>
@@ -46,18 +47,31 @@ test('скрипты страницы подписаны тем же кодом,
 });
 
 test('страница не нарушает собственную политику', async ({ browser }) => {
+  const violations: string[] = [];
+  const watch = (page: import('@playwright/test').Page) =>
+    page.on('console', (m) => {
+      if (m.text().includes('Content Security Policy')) violations.push(m.text());
+    });
+
+  // Кабинет клиента от имени вошедшего клиента.
+  const client = await browser.newContext({ storageState: CLIENT_STATE });
+  const portal = await client.newPage();
+  watch(portal);
+  for (const path of ['/ru', '/uz/tickets', '/ru/login']) await portal.goto(path);
+  // Меню: содержимое появляется только после нажатия.
+  await portal.goto('/ru');
+  await portal.getByRole('button', { name: 'Тема' }).click();
+  await portal.keyboard.press('Escape');
+  await portal.getByRole('banner').getByRole('button', { name: 'Алишер' }).click();
+  await portal.keyboard.press('Escape');
+  await client.close();
+
   // Рабочее место открыто только сотрудникам: проверка идёт от имени вошедшего сотрудника.
   const context = await browser.newContext({ storageState: storageStateOf('care') });
   const page = await context.newPage();
-  const violations: string[] = [];
-  page.on('console', (m) => {
-    if (m.text().includes('Content Security Policy')) violations.push(m.text());
-  });
-  for (const path of ['/ru', '/ru/agent', '/uz/tickets', '/en/dev/ui']) await page.goto(path);
-  // Меню и нижний лист: содержимое появляется только после нажатия.
-  await page.goto('/ru');
-  await page.getByRole('button', { name: 'Тема' }).click();
-  await page.keyboard.press('Escape');
+  watch(page);
+  for (const path of ['/ru/agent', '/en/dev/ui']) await page.goto(path);
+  // Нижний лист: содержимое появляется только после нажатия.
   await page.goto('/ru/dev/ui?section=sheet');
   await page.getByRole('button', { name: 'Профиль' }).first().click();
   await page.keyboard.press('Escape');

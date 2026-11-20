@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getEnv } from '@/env';
 import { isLocale } from '@/i18n/locales';
 import { startSmartupSignIn } from '@/modules/hdu/api';
 
@@ -15,7 +16,8 @@ export async function GET(request: NextRequest, { params }: RouteContext<'/[loca
     { locale, next: request.nextUrl.searchParams.get('next') },
     { headers: request.headers, setCookies: (headers) => headers.getSetCookie().forEach((line) => cookies.append('set-cookie', line)) },
   );
-  const target = 'url' in result ? result.url : new URL(`/${locale}/login?error=${result.error}`, request.nextUrl).toString();
+  // Адрес портала берётся из настроек: за прокси и в автономной сборке адрес запроса внутренний (0.0.0.0).
+  const target = 'url' in result ? result.url : new URL(`/${locale}/login?error=${result.error}`, getEnv().HUB_URL).toString();
   const response = NextResponse.redirect(target, 303);
   for (const line of cookies.getSetCookie()) response.headers.append('set-cookie', line);
   response.headers.set('Cache-Control', 'no-store');

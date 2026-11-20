@@ -1,7 +1,7 @@
 // Запуск проекта одной командой: pnpm dev:up.
 // 1. Создаёт .env из .env.example со случайными паролями. В существующий файл дописывает недостающие переменные.
 // 2. Поднимает PostgreSQL (docker compose) и ждёт его готовности.
-// 3. Создаёт роли и базу, применяет миграции.
+// 3. Создаёт роли и базу, применяет миграции, записывает ложные серверы Smartup для входа (только на localhost).
 // 4. Запускает приложение для разработки.
 //
 // С ключом --prepare выполняются только шаги 1-3: так базу готовят браузерные тесты.
@@ -93,12 +93,34 @@ export function ensureEnvFile(opts = {}) {
   return true;
 }
 
-/** Поднимает базу, создаёт роли и применяет миграции. Повторный вызов безопасен. */
+/**
+ * Записывает ложные серверы Smartup (scripts/mock-oidc.mjs) в реестр портала командой hub,
+ * как это делает администратор с настоящим сервером. Только когда портал работает на localhost.
+ */
+export function registerMockServers() {
+  const host = new URL(process.env.HUB_URL ?? 'http://localhost').hostname;
+  if (host !== 'localhost' && host !== '127.0.0.1') return false;
+  execFileSync(process.execPath, [resolve(root, 'scripts/build-cli.mjs')], { cwd: root, stdio: 'ignore' });
+  const servers = [
+    ['mock', 'Ложный сервер (облако)', 'http://localhost:3190', ['--default', '--role-map', '{"director":"client_admin"}']],
+    ['mock-dedicated', 'Ложный сервер (выделенный)', 'http://localhost:3191', []],
+  ];
+  for (const [code, name, url, extra] of servers)
+    execFileSync(
+      process.execPath,
+      [resolve(root, 'dist/hub.mjs'), 'server:add', '--code', code, '--name', name, '--base-url', url, '--issuer', url, '--client-id', 'hub', ...extra],
+      { cwd: root, stdio: 'ignore', env: { ...process.env, HUB_OAUTH_CLIENT_SECRET: 'mock-client-secret' } },
+    );
+  return true;
+}
+
+/** Поднимает базу, создаёт роли, применяет миграции и записывает ложные серверы Smartup. Повторный вызов безопасен. */
 export async function prepareDatabase() {
   process.loadEnvFile(ENV_FILE);
   execFileSync('docker', ['compose', 'up', '--detach', '--wait'], { cwd: root, stdio: 'inherit' });
   await bootstrap();
   const { applied } = await migrate();
+  registerMockServers();
   return { applied };
 }
 

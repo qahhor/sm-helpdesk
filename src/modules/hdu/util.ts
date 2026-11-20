@@ -1,4 +1,5 @@
 // Модуль hdu, слой util: чистые функции без обращения к базе (docs/naming.md, раздел 5).
+import { randomUUID } from 'node:crypto';
 import { SERVER_CODE_PATTERN } from './pref';
 
 const SSO_CALLBACK = /^\/api\/auth\/sso\/callback\/([^/]+)$/;
@@ -50,4 +51,19 @@ export function safeReturnPath(raw: unknown, fallback: string): string {
   }
   if (url.origin !== PLACEHOLDER_ORIGIN || url.pathname.startsWith('//')) return fallback;
   return `${url.pathname}${url.search}`;
+}
+
+const SYNTHETIC_DOMAIN = '@users.invalid';
+
+/**
+ * Служебный адрес учётной записи, у которой ещё нет подтверждённого email (решение 0013).
+ * Библиотека входа требует уникальный адрес, а Smartup чаще его не передаёт. Домен .invalid
+ * зарезервирован и никогда не принимает почту: на служебный адрес письмо уйти не может.
+ */
+export function syntheticEmail(): string {
+  return `u-${randomUUID()}${SYNTHETIC_DOMAIN}`;
+}
+
+export function isSyntheticEmail(email: string): boolean {
+  return /^u-[0-9a-f-]{36}@users\.invalid$/.test(email);
 }

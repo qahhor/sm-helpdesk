@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { cache } from 'react';
 import { getAuth } from '../auth/instance';
+import { findStaff } from '../core/staff';
 import type { StaffRole } from '../pref';
 import { safeReturnPath } from '../util';
 import { readSession, type RequestInfo } from './request';
@@ -72,3 +73,13 @@ export async function signOut(request: RequestInfo): Promise<void> {
     // Сессии уже нет: выходить не из чего.
   }
 }
+
+/**
+ * Кто вошёл в этом браузере, без проверки прав: для страниц входа, чтобы вошедшего отправить дальше.
+ * Сотрудник с незавершённым вторым фактором тоже считается сотрудником.
+ */
+export const signedInKind = cache(async (): Promise<'staff' | 'client' | null> => {
+  const session = await readSession({ headers: new Headers(await headers()) });
+  if (!session) return null;
+  return (await findStaff(session.user.id)) ? 'staff' : 'client';
+});

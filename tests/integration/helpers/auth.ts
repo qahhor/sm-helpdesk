@@ -236,3 +236,23 @@ export const noRequest: TestRequest = {
   },
   setCookies() {},
 };
+
+/** Сервер Smartup в реестре и пользователь с учётной записью этого сервера: для проверки создания организации. */
+export async function newSmartupUser(opts: { roleMap?: Record<string, string> } = {}): Promise<{
+  server: { serverId: string; code: string };
+  user: { id: string };
+}> {
+  serial += 1;
+  const code = `srv-${Date.now().toString(36)}-${serial}`.slice(0, 30);
+  const server = await addServerFixture({ code, roleMap: opts.roleMap });
+  const id = (
+    await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ('Smartup', $1, false) returning id`, [
+      `u-${next()}@users.invalid`,
+    ])
+  ).rows[0].id as string;
+  await pools.root.query(
+    `insert into auth.account ("accountId", "providerId", "userId", "updatedAt") values ($1, $2, $3::uuid, now())`,
+    [`sub-${serial}`, code, id],
+  );
+  return { server, user: { id } };
+}

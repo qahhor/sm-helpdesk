@@ -45,7 +45,8 @@ export const SMARTUP_CLAIMS = {
   inn: 'inn',
   role: 'role',
   locale: 'locale',
-  email: 'email',
+  // Своё имя поля: поле email в сведениях библиотека заполняет идентификатором пользователя (решение 0013).
+  contactEmail: 'email',
 } as const;
 
 /** Образец кода сервера Smartup. Тот же, что в ограничении таблицы hdu_servers. */

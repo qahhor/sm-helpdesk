@@ -130,6 +130,25 @@
           "invalid_input": "Check the name and the password."
         }
       }
+    },
+    "login": {
+      "title": "Sign in to Smartup Hub",
+      "intro": "Sign in with your Smartup account: the same one you use in Smartup Web and the mobile app.",
+      "signInWithSmartup": "Sign in with Smartup",
+      "ownServer": "We have our own Smartup server",
+      "address": "Your Smartup address",
+      "addressHint": "The one you open in the browser, for example smartup.company.uz",
+      "continue": "Continue",
+      "changeServer": "Change server",
+      "serverUnavailable": "The selected Smartup server is not available for sign-in right now. Enter another address or contact Smartup support.",
+      "staffLink": "Sign-in for Smartup staff",
+      "errors": {
+        "sso": "Signing in with Smartup did not work. Try again. If it still fails, contact the Smartup administrator in your company.",
+        "noServer": "No Smartup server was found for sign-in. Enter your Smartup address.",
+        "rateLimited": "Too many sign-in attempts. Try again in 10 minutes.",
+        "serverNotFound": "We could not find this server. Check the address or contact Smartup support.",
+        "lookupRateLimited": "Too many attempts. Try again in an hour."
+      }
     }
   }
 }

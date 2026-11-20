@@ -49,23 +49,32 @@ export default defineConfig({
     { name: 'desktop', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
     { name: 'narrow', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1100, height: 800 } } },
   ],
-  webServer: {
-    command: 'pnpm start',
-    url: `${baseURL}/api/health`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-    env: {
-      PORT: String(PORT),
-      HUB_URL: baseURL,
-      HUB_DOMAIN: 'localhost',
-      HUB_SHOWCASE: '1',
-      DATABASE_URL_APP: need('DATABASE_URL_APP'),
-      DATABASE_URL_AUTH: need('DATABASE_URL_AUTH'),
-      BETTER_AUTH_SECRET: need('BETTER_AUTH_SECRET'),
-      ENCRYPTION_KEY: need('ENCRYPTION_KEY'),
-      // Письма со ссылками входа тесты читают из каталога.
-      MAIL_TRANSPORT: 'file',
-      MAIL_FILE_DIR: MAIL_DIR,
+  webServer: [
+    // Ложные серверы Smartup для входа клиента (scripts/mock-oidc.mjs).
+    {
+      command: 'node scripts/mock-oidc.mjs',
+      url: 'http://localhost:3190/.well-known/openid-configuration',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
     },
-  },
+    {
+      command: 'pnpm start',
+      url: `${baseURL}/api/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+      env: {
+        PORT: String(PORT),
+        HUB_URL: baseURL,
+        HUB_DOMAIN: 'localhost',
+        HUB_SHOWCASE: '1',
+        DATABASE_URL_APP: need('DATABASE_URL_APP'),
+        DATABASE_URL_AUTH: need('DATABASE_URL_AUTH'),
+        BETTER_AUTH_SECRET: need('BETTER_AUTH_SECRET'),
+        ENCRYPTION_KEY: need('ENCRYPTION_KEY'),
+        // Письма со ссылками входа тесты читают из каталога.
+        MAIL_TRANSPORT: 'file',
+        MAIL_FILE_DIR: MAIL_DIR,
+      },
+    },
+  ],
 });

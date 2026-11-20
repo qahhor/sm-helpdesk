@@ -19,7 +19,7 @@ test('сервер реестра превращается в настройку
   expect(provider?.oidcConfig.mapping).toEqual({
     email: 'sub',
     name: 'name',
-    extraFields: { companyId: 'company_id', companyName: 'company_name', inn: 'inn', role: 'role', locale: 'locale', email: 'email' },
+    extraFields: { companyId: 'company_id', companyName: 'company_name', inn: 'inn', role: 'role', locale: 'locale', contactEmail: 'email' },
   });
 });
 

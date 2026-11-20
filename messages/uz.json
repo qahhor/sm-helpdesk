@@ -130,6 +130,25 @@
           "invalid_input": "Ism va parolni tekshiring."
         }
       }
+    },
+    "login": {
+      "title": "Smartup Hub ga kirish",
+      "intro": "Smartup hisobingiz bilan kiring: Smartup Web va mobil ilovadagi hisob bilan bir xil.",
+      "signInWithSmartup": "Smartup orqali kirish",
+      "ownServer": "Bizda o'z Smartup serverimiz bor",
+      "address": "Smartup manzilingiz",
+      "addressHint": "Brauzerda ochadiganingiz, masalan smartup.company.uz",
+      "continue": "Davom etish",
+      "changeServer": "Serverni o'zgartirish",
+      "serverUnavailable": "Tanlangan Smartup serveri hozir kirish uchun mavjud emas. Boshqa manzilni kiriting yoki Smartup qo'llab-quvvatlash xizmatiga murojaat qiling.",
+      "staffLink": "Smartup xodimlari uchun kirish",
+      "errors": {
+        "sso": "Smartup orqali kirib bo'lmadi. Qayta urinib ko'ring. Yana bo'lmasa, kompaniyangizdagi Smartup administratoriga murojaat qiling.",
+        "noServer": "Kirish uchun Smartup serveri topilmadi. Smartup manzilingizni kiriting.",
+        "rateLimited": "Kirishga urinishlar juda ko'p. 10 daqiqadan keyin qayta urinib ko'ring.",
+        "serverNotFound": "Bunday server topilmadi. Manzilni tekshiring yoki Smartup qo'llab-quvvatlash xizmatiga murojaat qiling.",
+        "lookupRateLimited": "Urinishlar juda ko'p. Bir soatdan keyin qayta urinib ko'ring."
+      }
     }
   }
 }

@@ -5,6 +5,7 @@ import { env } from '@/env';
 import { listSsoServers, registryStamp } from '../core/servers';
 import { findStaff } from '../core/staff';
 import { type AuthDeps, buildAuthOptions } from './options';
+import { provisionForLibrary, resolveUserForLibrary } from './smartup';
 
 // Экземпляр библиотеки входа: один на процесс, создаётся при первом обращении.
 // Серверы Smartup библиотека получает настройкой, поэтому при изменении реестра экземпляр создаётся заново.
@@ -15,12 +16,12 @@ export type Auth = ReturnType<typeof createAuth>;
 /** Части настроек, которые подключают другие файлы модуля: письма и вход через Smartup. */
 export type AuthHandlers = Pick<AuthDeps, 'sendMagicLink' | 'resolveUser' | 'provisionUser'>;
 
-// Пока вход по ссылке и вход через Smartup не подключены, письмо не отправляется,
-// а вход через сервер отклоняется: молча пустить пользователя без проверки нельзя.
-const NOT_CONNECTED: AuthHandlers = {
+// Вход через Smartup подключён здесь. Отправка ссылки для входа подключается вместе с почтой:
+// до этого письмо не уходит.
+const DEFAULT_HANDLERS: AuthHandlers = {
   sendMagicLink: async () => {},
-  resolveUser: async () => ({ action: 'reject', code: 'sso_not_connected' }),
-  provisionUser: async () => {},
+  resolveUser: resolveUserForLibrary,
+  provisionUser: provisionForLibrary,
 };
 
 const REGISTRY_CHECK_MS = 15_000;
@@ -34,7 +35,7 @@ const shared = globalThis as typeof globalThis & {
 
 /** Подключает обработчики писем и входа через Smartup. Экземпляр будет создан заново. */
 export function setAuthHandlers(handlers: Partial<AuthHandlers>): void {
-  shared.__hubAuthHandlers = { ...(shared.__hubAuthHandlers ?? NOT_CONNECTED), ...handlers };
+  shared.__hubAuthHandlers = { ...(shared.__hubAuthHandlers ?? DEFAULT_HANDLERS), ...handlers };
   shared.__hubAuth = undefined;
 }
 
@@ -45,7 +46,7 @@ async function build(stamp: string): Promise<State> {
     baseUrl: env.HUB_URL,
     servers: await listSsoServers(),
     staff: findStaff,
-    ...(shared.__hubAuthHandlers ?? NOT_CONNECTED),
+    ...(shared.__hubAuthHandlers ?? DEFAULT_HANDLERS),
   });
   return { auth, stamp, checkedAt: Date.now() };
 }

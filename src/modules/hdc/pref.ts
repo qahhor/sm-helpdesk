@@ -49,6 +49,8 @@ export const RATE_RULES = {
   emailConfirmPerUser: { limit: 5, windowSec: 3600 },
   /** Приглашения в одну организацию. */
   invitationsPerOrg: { limit: 20, windowSec: 3600 },
+  /** Начало входа через Smartup: каждое начало оставляет в базе одноразовое значение состояния. */
+  ssoStartPerIp: { limit: 30, windowSec: 600 },
   /** Возврат с сервера Smartup на единственный открытый адрес библиотеки входа. */
   ssoCallbackPerIp: { limit: 60, windowSec: 60 },
 } as const satisfies Record<string, RateRule>;

@@ -148,6 +148,19 @@
           "invalid": "Проверьте адрес email.",
           "rateLimited": "Слишком много запросов. Попробуйте через час."
         }
+      },
+      "channels": {
+        "title": "Telegram",
+        "intro": "Привяжите Telegram, чтобы входить в портал через бота, если нет доступа к Smartup.",
+        "link": "Привязать Telegram",
+        "linked": "Привязан аккаунт {account} с {date}.",
+        "unlink": "Отвязать",
+        "unlinked": "Telegram отвязан.",
+        "hint": "Откроется бот Smartup Hub. Нажмите в нём «Запустить», затем вернитесь сюда.",
+        "errors": {
+          "rate_limited": "Слишком много попыток. Попробуйте через час.",
+          "disabled": "Привязка Telegram сейчас недоступна."
+        }
       }
     }
   },
@@ -387,7 +400,8 @@
       "errors": {
         "invalid": "Проверьте адрес email.",
         "rateLimited": "Слишком много запросов. Попробуйте через час."
-      }
+      },
+      "telegram": "Привязать Telegram"
     },
     "invite": {
       "title": "Приглашение в {orgName}",
@@ -411,6 +425,25 @@
     "invitation": {
       "subject": "{inviterName} приглашает вас в Smartup Hub",
       "text": "Здравствуйте!\n\n{inviterName} приглашает вас в организацию {orgName} в Smartup Hub, портале поддержки Smartup.\n\nЧтобы принять приглашение, откройте ссылку и нажмите «Принять»:\n{url}\n\nПриглашение действует {days} дней."
+    },
+    "telegramLinked": {
+      "subject": "Telegram привязан к Smartup Hub",
+      "text": "Здравствуйте!\n\nК вашей учётной записи Smartup Hub привязан аккаунт Telegram {account}. Через него можно войти в портал.\n\nЕсли это были не вы, отвяжите его в профиле:\n{url}"
     }
+  },
+  "bot": {
+    "linked": "Готово: Telegram привязан к учётной записи {name} в организации {org}. Здесь можно войти в Smartup Hub, если нет доступа к Smartup. Если привязывали не вы, нажмите «Отвязать».",
+    "alreadyLinked": "Этот аккаунт Telegram уже привязан к другой учётной записи Smartup Hub. Сначала отвяжите его там.",
+    "codeInvalid": "Ссылка для привязки не действует. Откройте профиль в Smartup Hub и нажмите «Привязать Telegram» ещё раз.",
+    "unlinked": "Telegram отвязан от учётной записи. Привязать его снова можно в профиле Smartup Hub.",
+    "notLinked": "Этот аккаунт Telegram не привязан к учётной записи Smartup Hub. Привязать его можно в профиле на портале.",
+    "chooseLanguage": "Выберите язык сообщений.",
+    "languageSet": "Сообщения будут приходить на русском.",
+    "languageName": "Русский",
+    "fallback": "Я помогаю войти в Smartup Hub и привязать Telegram. Вопросы и обращения пишите на портале.",
+    "buttonPortal": "Открыть портал",
+    "buttonSignIn": "Войти",
+    "buttonLanguage": "Язык",
+    "buttonUnlink": "Отвязать"
   }
 }

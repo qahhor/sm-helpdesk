@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { requireClientActor, safeReturnPath } from '@/modules/hdu/api';
+import { requireClientActor, safeReturnPath, telegramEnabled } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
@@ -53,6 +53,12 @@ export default async function WelcomePage({ searchParams }: PageProps<'/[locale]
             <Button type="submit" formAction={sendWelcomeLinkAction}>
               {t('send')}
             </Button>
+            {telegramEnabled() && (
+              // Бот открывается в новой вкладке: шаг остаётся открытым, его можно завершить после привязки.
+              <a href={`/${locale}/settings/telegram`} target="_blank" rel="noopener" className={buttonVariants({ variant: 'secondary' })}>
+                {t('telegram')}
+              </a>
+            )}
             {/* Пропуск не требует адреса: проверка поля браузером здесь не нужна. */}
             <Button type="submit" variant="secondary" formAction={skipWelcomeAction} formNoValidate>
               {t('skip')}

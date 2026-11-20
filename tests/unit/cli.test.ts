@@ -1,5 +1,6 @@
-import { expect, test } from 'vitest';
+import { afterEach, expect, test } from 'vitest';
 import { runCli } from '@/cli/commands';
+import { MemoryTelegramBot, setTelegramBotForTests } from '@/modules/hdn/telegram';
 
 function fakeIo() {
   const lines: string[] = [];
@@ -49,4 +50,30 @@ test('справка перечисляет все команды', async () => 
   const { io, lines } = fakeIo();
   expect(await runCli(['--help'], io)).toBe(0);
   for (const name of ['staff:create', 'staff:reset', 'server:add', 'server:list', 'server:disable']) expect(lines.join('\n')).toContain(name);
+});
+
+// --- Бот Telegram (задача 16) ---
+
+afterEach(() => setTelegramBotForTests(null));
+
+test('вебхук бота ставится на адрес портала с секретом из окружения', async () => {
+  const bot = new MemoryTelegramBot();
+  setTelegramBotForTests(bot);
+  const { io, lines } = fakeIo();
+  io.env = { HUB_URL: 'https://hub.smartup24.com', TELEGRAM_BOT_TOKEN: '1:t', TELEGRAM_WEBHOOK_SECRET: MemoryTelegramBot.SECRET };
+  expect(await runCli(['telegram:set-webhook'], io)).toBe(0);
+  expect(bot.webhooks).toEqual([{ url: 'https://hub.smartup24.com/api/webhooks/telegram', secret: MemoryTelegramBot.SECRET }]);
+  expect(lines.join('\n')).toContain('https://hub.smartup24.com/api/webhooks/telegram');
+  expect(lines.join('\n')).not.toContain(MemoryTelegramBot.SECRET);
+  expect(await runCli(['telegram:info'], io)).toBe(0);
+  expect(lines.at(-1)).toBe('Бот включён: @hub_test_bot');
+});
+
+test('без токена бота команда вебхука отказывает и не обращается к Telegram', async () => {
+  const bot = new MemoryTelegramBot();
+  setTelegramBotForTests(bot);
+  const { io, errors } = fakeIo();
+  expect(await runCli(['telegram:set-webhook'], io)).toBe(1);
+  expect(errors.join('\n')).toContain('TELEGRAM_BOT_TOKEN');
+  expect(bot.webhooks).toEqual([]);
 });

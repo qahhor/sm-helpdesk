@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import type { Actor, AgentActor } from '@/db/with-actor';
 import { asActor, pools } from '../helpers/db';
 import { SEALED, seedTwoOrgs } from './fixture';
+import { linkTelegramFixture } from '../helpers/telegram';
 
 // Проверки политик запросами напрямую в базу, с переменными актора (ТЗ 15.2):
 // так ошибка в политике видна, даже если сервис её маскирует.
@@ -265,4 +266,45 @@ test('удаление организации обнуляет ссылки на
   await pools.root.query(`delete from hdu_organizations where org_id = $1`, [org]);
   expect((await pools.root.query(`select "lastOrgId" from auth."user" where id = $1`, [f.aUser.userId])).rows[0].lastOrgId).toBeNull();
   expect((await pools.root.query(`select "activeOrgId" from auth.session where token = 'tok-org'`)).rows[0].activeOrgId).toBeNull();
+});
+
+// --- Контакты и коды (задача 16) ---
+
+test('клиент видит только свою привязку Telegram, коды не видит никто из клиентов', async () => {
+  const f = await seedTwoOrgs();
+  await linkTelegramFixture(f.aUser, 777001);
+  await linkTelegramFixture(f.bUser, 777002);
+  await pools.root.query(
+    `insert into hdu_link_codes (user_id, kind, code_hash, expires_on) values ($1, 'telegram', encode(sha256('a'::bytea), 'hex'), now() + interval '10 minutes')`,
+    [f.aUser.userId],
+  );
+  await pools.root.query(
+    `insert into hdu_login_codes (user_id, channel, code_hash, expires_on) values ($1, 'telegram', encode(sha256('b'::bytea), 'hex'), now() + interval '10 minutes')`,
+    [f.aUser.userId],
+  );
+  await pools.root.query(`insert into hdn_telegram_updates (update_id) values (1)`);
+  expect(await rows(pools.app, f.aUser.actor, 'select external_id from hdu_contact_identities')).toEqual([{ external_id: '777001' }]);
+  // Администратор клиента чужих привязок, в том числе своих участников, не видит.
+  expect(await rows(pools.app, f.aAdmin.actor, 'select external_id from hdu_contact_identities')).toEqual([]);
+  for (const table of ['hdu_link_codes', 'hdu_login_codes', 'hdn_telegram_updates']) {
+    const found = await asActor(pools.app, f.aUser.actor, (c) => c.query(`select * from ${table}`)).then(
+      (x) => x.rows,
+      (e: unknown) => {
+        expect(String(e)).toMatch(/permission denied/);
+        return [];
+      },
+    );
+    expect(found, table).toEqual([]);
+  }
+  // Клиент удаляет только свою привязку.
+  expect((await asActor(pools.auth, f.aUser.actor, (c) => c.query(`delete from hdu_contact_identities where external_id = '777002'`))).rowCount).toBe(0);
+  expect((await asActor(pools.auth, f.aUser.actor, (c) => c.query(`delete from hdu_contact_identities where external_id = '777001'`))).rowCount).toBe(1);
+  // Сотрудники видят привязки, но не коды.
+  expect((await rows(pools.app, f.care.actor, 'select external_id from hdu_contact_identities')).map((r) => r.external_id)).toEqual(['777002']);
+  // Клиент не создаёт привязку сам: это делает система по коду из бота.
+  await expect(
+    asActor(pools.auth, f.aUser.actor, (c) =>
+      c.query(`insert into hdu_contact_identities (user_id, kind, external_id, verified, verified_on) values ($1, 'telegram', '1', 'linked', now())`, [f.aUser.userId]),
+    ),
+  ).rejects.toThrow(/row-level security|permission denied/);
 });

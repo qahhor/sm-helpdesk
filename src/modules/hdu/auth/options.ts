@@ -63,6 +63,8 @@ export function buildAuthOptions(deps: AuthDeps) {
         claimedEmail: { type: 'string', required: false, input: false },
         onboardedAt: { type: 'date', required: false, input: false },
         lastOrgId: { type: 'string', required: false, input: false },
+        locale: { type: 'string', required: false, input: false },
+        policyVersion: { type: 'string', required: false, input: false },
       },
     },
     session: {

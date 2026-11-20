@@ -1,5 +1,6 @@
 import 'server-only';
 import type { ClientActor } from '@/db/with-actor';
+import type { Locale } from '@/i18n/locales';
 import { z } from 'zod';
 import { getOrgRow, loadClientAccess, type MyOrganization, type OrgRow, searchOrgs, setActiveOrganization } from '../core/orgs';
 import { HduError } from '../error';
@@ -26,6 +27,8 @@ export type ClientContext = {
     claimedEmail: string | null;
     hasVerifiedEmail: boolean;
     onboarded: boolean;
+    /** Язык писем и сообщений бота из учётной записи. */
+    locale: Locale | null;
   };
   org: { id: string; name: string };
   /** Сколько у пользователя действующих организаций: больше одной, и в шапке появляется переключатель. */
@@ -63,6 +66,7 @@ export async function resolveClient(session: SessionData | null): Promise<Client
       email: hasVerifiedEmail ? session.user.email : null,
       claimedEmail: session.user.claimedEmail,
       hasVerifiedEmail,
+      locale: session.user.locale,
       onboarded: session.user.onboardedAt !== null,
     },
     org: { id: org.orgId, name: org.name },

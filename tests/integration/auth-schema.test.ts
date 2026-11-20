@@ -116,7 +116,7 @@ test('свои колонки в таблицах библиотеки опис�
   const r = await pools.owner.query(`select a.attname from pg_attribute a join pg_class c on c.oid = a.attrelid
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'auth' and c.relkind = 'r'
-      and a.attname in ('claimedEmail', 'onboardedAt', 'lastOrgId', 'activeOrgId')
+      and a.attname in ('claimedEmail', 'onboardedAt', 'lastOrgId', 'activeOrgId', 'locale', 'policyVersion')
       and col_description(c.oid, a.attnum) is null`);
   expect(r.rows).toEqual([]);
 });

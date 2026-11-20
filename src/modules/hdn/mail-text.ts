@@ -40,3 +40,9 @@ export function invitationMail(locale: Locale, input: { url: string; orgName: st
     text: t('invitation.text', { ...input, days: INVITATION_DAYS }),
   };
 }
+
+/** Письмо о новой привязке Telegram (угроза T30): если привязал не человек, он отвяжет аккаунт в профиле. */
+export function telegramLinkedMail(locale: Locale, input: { account: string; url: string }): MailText {
+  const t = mailOf(locale);
+  return { subject: t('telegramLinked.subject'), text: t('telegramLinked.text', input) };
+}

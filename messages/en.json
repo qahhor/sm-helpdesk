@@ -148,6 +148,19 @@
           "invalid": "Check the email address.",
           "rateLimited": "Too many requests. Try again in an hour."
         }
+      },
+      "channels": {
+        "title": "Telegram",
+        "intro": "Link Telegram to sign in to the portal through the bot when Smartup is not available.",
+        "link": "Link Telegram",
+        "linked": "The account {account} is linked since {date}.",
+        "unlink": "Unlink",
+        "unlinked": "Telegram is unlinked.",
+        "hint": "The Smartup Hub bot opens. Press \"Start\" there, then come back here.",
+        "errors": {
+          "rate_limited": "Too many attempts. Try again in an hour.",
+          "disabled": "Linking Telegram is not available right now."
+        }
       }
     }
   },
@@ -387,7 +400,8 @@
       "errors": {
         "invalid": "Check the email address.",
         "rateLimited": "Too many requests. Try again in an hour."
-      }
+      },
+      "telegram": "Link Telegram"
     },
     "invite": {
       "title": "Invitation to {orgName}",
@@ -411,6 +425,25 @@
     "invitation": {
       "subject": "{inviterName} invites you to Smartup Hub",
       "text": "Hello,\n\n{inviterName} invites you to the organization {orgName} in Smartup Hub, the Smartup support portal.\n\nTo accept the invitation, open the link and press \"Accept\":\n{url}\n\nThe invitation is valid for {days} days."
+    },
+    "telegramLinked": {
+      "subject": "Telegram is linked to Smartup Hub",
+      "text": "Hello,\n\nThe Telegram account {account} is now linked to your Smartup Hub account. It can be used to sign in to the portal.\n\nIf this was not you, unlink it in your profile:\n{url}"
     }
+  },
+  "bot": {
+    "linked": "Done: Telegram is linked to the account {name} in the organization {org}. You can sign in to Smartup Hub here when Smartup is not available. If you did not link it, press \"Unlink\".",
+    "alreadyLinked": "This Telegram account is already linked to another Smartup Hub account. Unlink it there first.",
+    "codeInvalid": "The link no longer works. Open your profile in Smartup Hub and press \"Link Telegram\" again.",
+    "unlinked": "Telegram is unlinked from the account. You can link it again in your Smartup Hub profile.",
+    "notLinked": "This Telegram account is not linked to a Smartup Hub account. You can link it in your profile on the portal.",
+    "chooseLanguage": "Choose the language of messages.",
+    "languageSet": "Messages will come in English.",
+    "languageName": "English",
+    "fallback": "I help you sign in to Smartup Hub and link Telegram. Please ask questions and report problems on the portal.",
+    "buttonPortal": "Open portal",
+    "buttonSignIn": "Sign in",
+    "buttonLanguage": "Language",
+    "buttonUnlink": "Unlink"
   }
 }

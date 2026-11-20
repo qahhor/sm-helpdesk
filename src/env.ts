@@ -95,6 +95,14 @@ const schema = z
     // Проверка "не робот" (Cloudflare Turnstile): ключ сайта и секрет задаются парой, без них проверка выключена.
     TURNSTILE_SITE_KEY: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
     TURNSTILE_SECRET: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
+    // Бот Telegram (решение 0018): токен и секрет вебхука задаются парой, без них бот выключен.
+    TELEGRAM_BOT_TOKEN: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
+    TELEGRAM_WEBHOOK_SECRET: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_-]{32,256}$/, { error: 'ожидается от 32 до 256 знаков: латинские буквы, цифры, _ и -' })
+      .optional(),
+    TELEGRAM_API_URL: z.url({ error: 'ожидается адрес' }).default('https://api.telegram.org'),
     HUB_SHOWCASE: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error'], { error: 'ожидается debug, info, warn или error' }).default('info'),
   })
@@ -121,6 +129,13 @@ const schema = z
       if (!value.RESEND_API_KEY) ctx.addIssue({ code: 'custom', path: ['RESEND_API_KEY'], message: 'не задан, а MAIL_TRANSPORT равен resend' });
       if (!value.MAIL_FROM) ctx.addIssue({ code: 'custom', path: ['MAIL_FROM'], message: 'не задан, а MAIL_TRANSPORT равен resend' });
     }
+    if (value.TELEGRAM_BOT_TOKEN && !value.TELEGRAM_WEBHOOK_SECRET)
+      ctx.addIssue({ code: 'custom', path: ['TELEGRAM_WEBHOOK_SECRET'], message: 'не задан, а TELEGRAM_BOT_TOKEN задан: задаются парой' });
+    if (value.TELEGRAM_WEBHOOK_SECRET && !value.TELEGRAM_BOT_TOKEN)
+      ctx.addIssue({ code: 'custom', path: ['TELEGRAM_BOT_TOKEN'], message: 'не задан, а TELEGRAM_WEBHOOK_SECRET задан: задаются парой' });
+    // Другой адрес Bot API нужен только ложному Telegram на машине разработчика: токен бота уходит туда.
+    if (value.TELEGRAM_API_URL !== 'https://api.telegram.org' && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({ code: 'custom', path: ['TELEGRAM_API_URL'], message: 'другой адрес допускается только для localhost и 127.0.0.1' });
     if (value.TURNSTILE_SITE_KEY && !value.TURNSTILE_SECRET)
       ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SECRET'], message: 'не задан, а TURNSTILE_SITE_KEY задан: ключи задаются парой' });
     if (value.TURNSTILE_SECRET && !value.TURNSTILE_SITE_KEY)

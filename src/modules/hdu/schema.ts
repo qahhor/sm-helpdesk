@@ -101,6 +101,47 @@ export const emailTokens = pgTable('hdu_email_tokens', {
   ...stampColumns,
 });
 
+/** Аккаунты пользователя в каналах связи: сейчас только Telegram (миграция 0006). */
+export const contactIdentities = pgTable('hdu_contact_identities', {
+  identityId: uuid('identity_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  userId: uuid('user_id').notNull(),
+  kind: text('kind').$type<'telegram'>().notNull(),
+  externalId: text('external_id').notNull(),
+  displayName: text('display_name'),
+  verified: text('verified').$type<'linked'>().notNull(),
+  verifiedOn: moment('verified_on').notNull(),
+  isBlocked: boolean('is_blocked').notNull().default(false),
+  ...stampColumns,
+});
+
+/** Одноразовые коды привязки канала. Код хранится хешем. */
+export const linkCodes = pgTable('hdu_link_codes', {
+  linkCodeId: uuid('link_code_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  userId: uuid('user_id').notNull(),
+  kind: text('kind').$type<'telegram'>().notNull(),
+  codeHash: text('code_hash').notNull(),
+  expiresOn: moment('expires_on').notNull(),
+  usedOn: moment('used_on'),
+  ...stampColumns,
+});
+
+/** Одноразовые ссылки запасного входа из канала связи. Токен хранится хешем. */
+export const loginCodes = pgTable('hdu_login_codes', {
+  loginCodeId: uuid('login_code_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  userId: uuid('user_id').notNull(),
+  channel: text('channel').$type<'telegram'>().notNull(),
+  codeHash: text('code_hash').notNull(),
+  expiresOn: moment('expires_on').notNull(),
+  usedOn: moment('used_on'),
+  ...stampColumns,
+});
+
 /**
  * Профили для показа рядом с записями: идентификатор, имя, признак сотрудника.
  * Представление само ограничивает строки по актору (миграция 0005).

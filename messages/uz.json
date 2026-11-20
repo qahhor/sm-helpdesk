@@ -148,6 +148,19 @@
           "invalid": "Email manzilini tekshiring.",
           "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
         }
+      },
+      "channels": {
+        "title": "Telegram",
+        "intro": "Smartupga kirish imkoni bo'lmaganda portalga bot orqali kirish uchun Telegramni bog'lang.",
+        "link": "Telegramni bog'lash",
+        "linked": "{account} akkaunti {date} dan bog'langan.",
+        "unlink": "Uzish",
+        "unlinked": "Telegram uzildi.",
+        "hint": "Smartup Hub boti ochiladi. Unda «Boshlash» tugmasini bosing va bu yerga qayting.",
+        "errors": {
+          "rate_limited": "Urinishlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
+          "disabled": "Telegramni bog'lash hozir mavjud emas."
+        }
       }
     }
   },
@@ -387,7 +400,8 @@
       "errors": {
         "invalid": "Email manzilini tekshiring.",
         "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
-      }
+      },
+      "telegram": "Telegramni bog'lash"
     },
     "invite": {
       "title": "{orgName} tashkilotiga taklif",
@@ -411,6 +425,25 @@
     "invitation": {
       "subject": "{inviterName} sizni Smartup Hub tizimiga taklif qilmoqda",
       "text": "Assalomu alaykum!\n\n{inviterName} sizni Smartup qo'llab-quvvatlash portali Smartup Hub tizimidagi {orgName} tashkilotiga taklif qilmoqda.\n\nTaklifni qabul qilish uchun havolani oching va «Qabul qilish» tugmasini bosing:\n{url}\n\nTaklif {days} kun amal qiladi."
+    },
+    "telegramLinked": {
+      "subject": "Telegram Smartup Hub tizimiga bog'landi",
+      "text": "Assalomu alaykum!\n\nSmartup Hub hisobingizga {account} Telegram akkaunti bog'landi. U orqali portalga kirish mumkin.\n\nAgar bu siz bo'lmasangiz, uni profilda uzing:\n{url}"
     }
+  },
+  "bot": {
+    "linked": "Tayyor: Telegram {org} tashkilotidagi {name} hisobiga bog'landi. Smartupga kirish imkoni bo'lmasa, Smartup Hub tizimiga shu yerdan kirish mumkin. Agar bog'lagan siz bo'lmasangiz, «Uzish» tugmasini bosing.",
+    "alreadyLinked": "Bu Telegram akkaunti Smartup Hub tizimidagi boshqa hisobga bog'langan. Avval uni o'sha yerda uzing.",
+    "codeInvalid": "Bog'lash havolasi amal qilmaydi. Smartup Hub tizimida profilni oching va «Telegramni bog'lash» tugmasini yana bosing.",
+    "unlinked": "Telegram hisobdan uzildi. Uni Smartup Hub profilida qayta bog'lash mumkin.",
+    "notLinked": "Bu Telegram akkaunti Smartup Hub hisobiga bog'lanmagan. Uni portaldagi profilda bog'lash mumkin.",
+    "chooseLanguage": "Xabarlar tilini tanlang.",
+    "languageSet": "Xabarlar o'zbek tilida keladi.",
+    "languageName": "O'zbekcha",
+    "fallback": "Men Smartup Hub tizimiga kirishga va Telegramni bog'lashga yordam beraman. Savol va murojaatlarni portalda yozing.",
+    "buttonPortal": "Portalni ochish",
+    "buttonSignIn": "Kirish",
+    "buttonLanguage": "Tilni tanlash",
+    "buttonUnlink": "Uzish"
   }
 }

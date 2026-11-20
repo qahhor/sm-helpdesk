@@ -10,7 +10,7 @@ import { createResendMailer } from './resend';
 // Четыре реализации одного интерфейса: none молчит, console и file нужны разработке и тестам
 // и работают только на localhost (проверка в src/env.ts), resend отправляет по-настоящему (решение 0018).
 
-export type MailKind = 'login-link' | 'confirm-email' | 'invitation';
+export type MailKind = 'login-link' | 'confirm-email' | 'invitation' | 'telegram-linked';
 
 export type MailMessage = { to: string; subject: string; text: string; kind: MailKind };
 

@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { isHduError, nextRequest, requestEmailConfirmation, requireClientActor, revokeMySessionOfRequest, revokeOtherSessionsOfRequest, signOut } from '@/modules/hdu/api';
+import { isHduError, nextRequest, requestEmailConfirmation, requireClientActor, revokeMySessionOfRequest, revokeOtherSessionsOfRequest, signOut, unlinkTelegram } from '@/modules/hdu/api';
 
 /** Раздел "Email для входа": письмо со ссылкой подтверждения адреса (FR-ID-07). */
 export async function requestEmailConfirmationAction(formData: FormData): Promise<void> {
@@ -34,4 +34,11 @@ export async function revokeOtherSessionsAction(): Promise<void> {
   await requireClientActor();
   await revokeOtherSessionsOfRequest();
   redirect(`/${await getLocale()}/settings?session=others`);
+}
+
+/** Отвязка Telegram кнопкой в профиле. Бот подтверждает отвязку в диалоге. */
+export async function unlinkTelegramAction(): Promise<void> {
+  const client = await requireClientActor();
+  await unlinkTelegram(client);
+  redirect(`/${await getLocale()}/settings?telegram=unlinked`);
 }

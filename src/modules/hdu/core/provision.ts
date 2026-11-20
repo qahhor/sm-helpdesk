@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
 import { withIdentity } from '@/db/with-identity';
+import { isLocale, type Locale } from '@/i18n/locales';
 import { writeAudit } from '@/modules/hdc/audit';
 import { authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
@@ -53,6 +54,12 @@ export async function resolveSmartupUser(
 }
 
 const SYSTEM = { type: 'system', job: 'identity.provision' } as const;
+
+/** Язык из сведений Smartup: ru, uz или en по первым двум буквам. Другой язык не запоминается. */
+function localeOf(value: string | undefined): Locale | null {
+  const code = value?.slice(0, 2).toLowerCase();
+  return code && isLocale(code) ? code : null;
+}
 
 /** Что известно о входе, без личных данных: для журнала приложения. */
 function logFailure(reason: string, serverCode: string): void {
@@ -141,6 +148,8 @@ export async function provisionFromSmartup(
         .set({
           name: profile.name,
           lastOrgId: org.orgId,
+          // Язык из Smartup только при первом входе: выбор, сделанный человеком в портале или боте, важнее.
+          locale: sql`coalesce(${authUser.locale}, ${localeOf(profile.locale)}::text)`,
           claimedEmail: sql`case when ${authUser.emailVerified} then null else coalesce(${profile.contactEmail ?? null}::text, ${authUser.claimedEmail}) end`,
           updatedAt: new Date(),
         })

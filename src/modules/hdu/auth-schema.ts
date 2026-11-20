@@ -21,6 +21,8 @@ export const authUser = auth.table('user', {
   claimedEmail: text('claimedEmail'),
   onboardedAt: moment('onboardedAt'),
   lastOrgId: uuid('lastOrgId'),
+  locale: text('locale').$type<'ru' | 'uz' | 'en'>(),
+  policyVersion: text('policyVersion'),
 });
 
 export const authSession = auth.table('session', {

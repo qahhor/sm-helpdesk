@@ -3,6 +3,7 @@ import type { SystemActor } from '@/db/with-actor';
 import { addServer, disableServer, listServers } from '@/modules/hdu/api/servers';
 import { inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { isHduError } from '@/modules/hdu/api/errors';
+import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 
 // Команда hub для консоли сервера (FR-ID-12, решение 0015): первый администратор, сброс доступа
 // сотрудника, реестр серверов Smartup. Работает от актора system, каждое изменение пишется в журнал аудита.
@@ -41,6 +42,13 @@ const HELP = `Использование: hub <команда> [ключи]
   server:disable --code <код>
       Отключить сервер: вход через него закрывается.
 
+  telegram:set-webhook
+      Поставить вебхук бота Telegram на адрес портала (HUB_URL/api/webhooks/telegram) с секретом
+      из TELEGRAM_WEBHOOK_SECRET. Нужны TELEGRAM_BOT_TOKEN и TELEGRAM_WEBHOOK_SECRET.
+
+  telegram:info
+      Включён ли бот и его имя в Telegram.
+
   --help
       Эта справка.`;
 
@@ -67,6 +75,8 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   },
   'server:list': { options: {}, required: [] },
   'server:disable': { options: { code: { type: 'string' } }, required: ['code'] },
+  'telegram:set-webhook': { options: {}, required: [] },
+  'telegram:info': { options: {}, required: [] },
 };
 
 class UsageError extends Error {}
@@ -174,6 +184,21 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
       case 'server:disable': {
         await disableServer(ACTOR, text('code'));
         io.out(`Сервер ${text('code')} отключён.`);
+        return 0;
+      }
+      case 'telegram:set-webhook': {
+        const secret = io.env.TELEGRAM_WEBHOOK_SECRET;
+        if (!io.env.TELEGRAM_BOT_TOKEN || !secret) {
+          io.err('Бот выключен: задайте TELEGRAM_BOT_TOKEN и TELEGRAM_WEBHOOK_SECRET.');
+          return 1;
+        }
+        const { url } = await setTelegramWebhook({ hubUrl: io.env.HUB_URL ?? '', secret });
+        io.out(`Вебхук бота поставлен: ${url}`);
+        return 0;
+      }
+      case 'telegram:info': {
+        const info = await telegramInfo();
+        io.out(info.enabled ? `Бот включён: @${info.username}` : 'Бот выключен: TELEGRAM_BOT_TOKEN не задан.');
         return 0;
       }
     }

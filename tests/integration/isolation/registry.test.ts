@@ -18,6 +18,20 @@ async function seedEverything() {
      values ($1, 'a@acme.test', encode(sha256('t'::bytea), 'hex'), now() + interval '1 hour')`,
     [f.aUser.userId],
   );
+  await pools.root.query(
+    `insert into hdu_contact_identities (user_id, kind, external_id, display_name, verified, verified_on)
+     values ($1, 'telegram', '777001', '@a', 'linked', now()), ($2, 'telegram', '777002', '@b', 'linked', now())`,
+    [f.aUser.userId, f.bUser.userId],
+  );
+  await pools.root.query(
+    `insert into hdu_link_codes (user_id, kind, code_hash, expires_on) values ($1, 'telegram', encode(sha256('l'::bytea), 'hex'), now() + interval '10 minutes')`,
+    [f.aUser.userId],
+  );
+  await pools.root.query(
+    `insert into hdu_login_codes (user_id, channel, code_hash, expires_on) values ($1, 'telegram', encode(sha256('g'::bytea), 'hex'), now() + interval '10 minutes')`,
+    [f.aUser.userId],
+  );
+  await pools.root.query(`insert into hdn_telegram_updates (update_id) values (1)`);
   return f;
 }
 
@@ -68,6 +82,7 @@ test('клиент видит в каждой таблице ровно то, ч
       if (rule.client === 'all') expect(rows.length, label).toBeGreaterThan(0);
       if (rule.client === 'own-org')
         expect(rows.filter((row) => 'org_id' in row && row.org_id !== f.orgA.orgId), label).toEqual([]);
+      if (rule.client === 'own-user') expect(rows.filter((row) => row.user_id !== actor.userId), label).toEqual([]);
     }
 });
 

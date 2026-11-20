@@ -1,15 +1,16 @@
 import { getTranslations } from 'next-intl/server';
-import { mySessions, requireClientActor } from '@/modules/hdu/api';
+import { getTelegramLink, mySessions, requireClientActor, telegramEnabled } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { SessionsList } from '@/ui/components/SessionsList';
 import { sessionItems } from '../../sessions-view';
 import { revokeOtherSessionsAction, revokeSessionAction } from './actions';
+import { ChannelsSection } from './ChannelsSection';
 import { EmailSection } from './EmailSection';
 
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
-// Профиль клиента: адрес для входа по ссылке и сессии на устройствах. Telegram появится в M4b.
+// Профиль клиента: адрес для входа по ссылке, привязка Telegram (если бот включён) и сессии на устройствах.
 export default async function ClientSettingsPage({ searchParams }: PageProps<'/[locale]/settings'>) {
   const client = await requireClientActor();
   const params = await searchParams;
@@ -20,6 +21,7 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
     <>
       <h1 className="text-2xl font-bold">{t('client.nav.profile')}</h1>
       <EmailSection user={client.user} status={first(params.email)} />
+      {telegramEnabled() && <ChannelsSection link={await getTelegramLink(client)} status={first(params.telegram)} />}
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold">{t('common.sessions.title')}</h2>

@@ -1,4 +1,5 @@
 import 'server-only';
+import { isLocale, type Locale } from '@/i18n/locales';
 import { getAuth } from '../auth/instance';
 
 // Запрос глазами модуля идентичности: заголовки и место, куда положить куки ответа.
@@ -35,6 +36,10 @@ export type SessionData = {
     claimedEmail: string | null;
     onboardedAt: Date | null;
     lastOrgId: string | null;
+    /** Язык писем и сообщений бота (решение 0018). */
+    locale: Locale | null;
+    /** Версия политики обработки данных, с которой человек ознакомлен (задача 21). */
+    policyVersion: string | null;
   };
 };
 
@@ -69,6 +74,8 @@ export async function readSession(request: Pick<RequestInfo, 'headers'>): Promis
       claimedEmail: user.claimedEmail ?? null,
       onboardedAt: user.onboardedAt ? toDate(user.onboardedAt) : null,
       lastOrgId: user.lastOrgId ?? null,
+      locale: typeof user.locale === 'string' && isLocale(user.locale) ? user.locale : null,
+      policyVersion: user.policyVersion ?? null,
     },
   };
 }

@@ -12,6 +12,7 @@ export {
   requireSignedInClient,
   requireStaffActor,
   revokeMySessionOfRequest,
+  rememberMyLocale,
   revokeOtherSessionsOfRequest,
   signedInKind,
   signOut,
@@ -38,6 +39,15 @@ export {
   revokeInvitation,
 } from './api/invitations';
 export { completeLoginLink, requestLoginLink } from './api/login-link';
+export {
+  getTelegramLink,
+  handleTelegramUpdate,
+  rememberLocale,
+  startTelegramLink,
+  startTelegramLinkOfRequest,
+  telegramEnabled,
+  unlinkTelegram,
+} from './api/telegram';
 export { changeMemberRole, listMembers, listMembersForStaff, type MemberView, setMemberState } from './api/members';
 export { nextRequest } from './api/next-request';
 export type { RequestInfo, SessionData } from './api/request';

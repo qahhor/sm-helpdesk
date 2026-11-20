@@ -17,6 +17,8 @@
 | `next` | 16.4.6 | MIT |
 | `react` | 19.3.1 | MIT |
 | `react-dom` | 19.3.1 | MIT |
+| `server-only` | 0.0.1 | MIT |
+| `zod` | 4.6.7 | MIT |
 
 ## Зависимости разработки
 

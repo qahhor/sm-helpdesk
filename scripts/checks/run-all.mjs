@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { findDashes, isDashCheckedFile } from './dashes.mjs';
+import { missingInEnvExample } from './env-example.mjs';
 import { findForbiddenApis } from './forbidden-apis.mjs';
 import { findMissingServerOnly } from './server-only.mjs';
 import { findUiRuleViolations } from './ui-rules.mjs';
@@ -51,6 +52,11 @@ for (const path of listFiles()) {
 // Отдельные проверки: каждая возвращает строки с описанием нарушений.
 /** @type {{ name: string; run: () => string[] | Promise<string[]> }[]} */
 const extraChecks = [
+  {
+    // каждая переменная схемы src/env.ts описана в .env.example
+    name: 'env-example',
+    run: async () => (await missingInEnvExample()).map((name) => `в .env.example нет переменной ${name}`),
+  },
   {
     // docs/versions.md совпадает с package.json и установленными пакетами
     name: 'versions',

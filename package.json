@@ -12,7 +12,7 @@
     "start": "node scripts/start-standalone.mjs",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint",
-    "check": "pnpm typecheck && pnpm lint",
+    "check": "pnpm typecheck && pnpm lint && node scripts/checks/run-all.mjs",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration"
   },

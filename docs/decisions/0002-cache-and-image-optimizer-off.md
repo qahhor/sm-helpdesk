@@ -9,7 +9,7 @@
 ## Решения
 
 1. `cacheComponents` и `partialPrefetching` в `next.config.ts` не задаются. Директива `use cache` без этой настройки не работает.
-2. `use cache`, `unstable_cache` и `revalidate` в коде запрещены. Это правило 6 раздела 9.4 ТЗ, его проверяет `pnpm check`.
+2. В коде запрещены: `use cache`, `unstable_cache`, функции `cacheLife` и `cacheTag`, настройки сегмента `revalidate` (кроме 0) и `force-static`, кеш у `fetch`. Это правило 6 раздела 9.4 ТЗ, его проверяет `pnpm check` (файл `scripts/checks/forbidden-apis.mjs`).
 3. Все страницы портала динамические и отдаются с заголовком `Cache-Control: private, no-store`.
 4. `images: { unoptimized: true }`. Обработчик `/_next/image` не используется: картинки интерфейса лежат в `public` готовыми, вложения клиентов отдаются через собственный обработчик с проверкой прав.
 5. `poweredByHeader: false`. Сервер не сообщает, на чём он работает.

@@ -26,6 +26,11 @@ function rows(deps) {
     });
 }
 
+process.on('uncaughtException', (error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+
 const table = (deps) => ['| Пакет | Версия | Лицензия |', '|---|---|---|', ...rows(deps)].join('\n');
 
 const text = `# Версии

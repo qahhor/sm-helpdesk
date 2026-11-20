@@ -1,0 +1,17 @@
+// Smartup Web - shell and «Главная и навигация»: breakpoints. MEDIA queries on the viewport (the shell always takes the whole window).
+// Full rules: prototype/assets/shell.css (older viewport rules of the shell + block «.ws.fluid»); summary: SPEC.md, section 4.
+
+$bp-narrow: 360px;     // below: the app switcher moves into the profile menu
+$bp-phone: 560px;      // 560 and below, shell: burger shows only the icon, two header icons hide, KPI cards one per row
+$bp-tablet: 600px;     // below: phone layer (menus and popups - full screen or bottom sheet)
+$bp-cards: 900px;      // 900 and below, shell: KPI cards two per row, chart and side cards stack
+$bp-laptop: 1024px;    // below: tablet layer
+$bp-burger: 1200px;    // 1200 and below: the 7 groups collapse into the «Разделы» button (shell rule: max-width 1200px)
+$bp-desktop: 1280px;   // below: the page scrolls; search and lock screen are centred
+$bp-full-nav: 1440px;  // below: compact nav items; mega menu fits the window; list table scrolls inside
+$dashboard-max: 1680px; // from 1600 the dashboard keeps this width, lists use the whole width
+$short-height: 860px;  // desktop windows this high or lower scroll as a page
+
+@mixin below($bp) { @media (max-width: #{$bp - 1px}) { @content; } }
+@mixin page-scroll { @media (max-width: #{$bp-desktop - 1px}), (max-height: $short-height) { @content; } }
+@mixin wide { @media (min-width: 1600px) { @content; } }

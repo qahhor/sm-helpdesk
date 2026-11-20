@@ -343,7 +343,9 @@
         "rateLimited": "Kirishga urinishlar juda ko'p. 10 daqiqadan keyin qayta urinib ko'ring.",
         "serverNotFound": "Bunday server topilmadi. Manzilni tekshiring yoki Smartup qo'llab-quvvatlash xizmatiga murojaat qiling.",
         "lookupRateLimited": "Urinishlar juda ko'p. Bir soatdan keyin qayta urinib ko'ring."
-      }
+      },
+      "botIntro": "Smartupga kirish imkoni yo'qmi? Agar Telegram hisobingizga bog'langan bo'lsa, bot orqali kiring: unda «Kirish» tugmasini bosing.",
+      "botLink": "Smartup Hub botini ochish"
     },
     "gate": {
       "selectOrganization": {
@@ -411,6 +413,12 @@
       "invalidTitle": "Taklif",
       "invalid": "Taklif endi amal qilmaydi. Kompaniyangiz administratoridan yangisini yuborishni so'rang.",
       "taken": "Bu manzilni taklif uchun ishlatib bo'lmaydi. Taklifni boshqa manzilga yuborishni so'rang."
+    },
+    "telegram": {
+      "title": "Smartup Hub tizimiga kirish",
+      "text": "Kirish uchun tugmani bosing.",
+      "submit": "Kirish",
+      "invalid": "Havola endi amal qilmaydi. Botdagi havola bir marta ishlaydi va 10 daqiqa amal qiladi. Botdan yangisini so'rang."
     }
   },
   "mail": {
@@ -444,6 +452,9 @@
     "buttonPortal": "Portalni ochish",
     "buttonSignIn": "Kirish",
     "buttonLanguage": "Tilni tanlash",
-    "buttonUnlink": "Uzish"
+    "buttonUnlink": "Uzish",
+    "loginLink": "Smartup Hub tizimiga kirish havolasi. U {minutes} daqiqa amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang.",
+    "loginTooOften": "Kirish havolalari juda ko'p. {minutes} daqiqadan keyin qayta urinib ko'ring.",
+    "loginNoAccess": "Bu hisobning hozir portalga kirish huquqi yo'q. Kompaniyangiz administratoriga murojaat qiling."
   }
 }

@@ -40,6 +40,8 @@ export {
 } from './api/invitations';
 export { completeLoginLink, requestLoginLink } from './api/login-link';
 export {
+  completeTelegramLogin,
+  getBotLink,
   getTelegramLink,
   handleTelegramUpdate,
   rememberLocale,

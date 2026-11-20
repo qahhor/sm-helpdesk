@@ -23,6 +23,9 @@ export const BOT_TEXT_KEYS = [
   'buttonSignIn',
   'buttonLanguage',
   'buttonUnlink',
+  'loginLink',
+  'loginTooOften',
+  'loginNoAccess',
 ] as const;
 
 export type BotTextKey = (typeof BOT_TEXT_KEYS)[number];

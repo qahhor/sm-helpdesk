@@ -29,6 +29,7 @@ export const AUDIT_ACTIONS = [
   // Каналы связи
   'telegram.linked',
   'telegram.unlinked',
+  'user.signed_in_telegram',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -54,6 +55,8 @@ export const RATE_RULES = {
   invitationsPerOrg: { limit: 20, windowSec: 3600 },
   /** Ссылки привязки Telegram на пользователя (решение 0018). */
   telegramLinkPerUser: { limit: 5, windowSec: 3600 },
+  /** Ссылки входа из бота на аккаунт Telegram (раздел 14.5 ТЗ). */
+  loginLinkPerTelegram: { limit: 5, windowSec: 3600 },
   /** Начало входа через Smartup: каждое начало оставляет в базе одноразовое значение состояния. */
   ssoStartPerIp: { limit: 30, windowSec: 600 },
   /** Возврат с сервера Smartup на единственный открытый адрес библиотеки входа. */

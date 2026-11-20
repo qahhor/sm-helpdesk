@@ -57,6 +57,13 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
     },
+    // Ложный Telegram Bot API для привязки и входа из бота (scripts/mock-telegram.mjs).
+    {
+      command: 'node scripts/mock-telegram.mjs',
+      url: 'http://localhost:3192/__sent',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
     {
       command: 'pnpm start',
       url: `${baseURL}/api/health`,
@@ -74,6 +81,10 @@ export default defineConfig({
         // Письма со ссылками входа тесты читают из каталога.
         MAIL_TRANSPORT: 'file',
         MAIL_FILE_DIR: MAIL_DIR,
+        // Бот идёт в ложный Telegram. Секрет вебхука тот же, что в tests/e2e/helpers/telegram.ts.
+        TELEGRAM_API_URL: 'http://localhost:3192',
+        TELEGRAM_BOT_TOKEN: '123456:e2e-telegram-bot-token',
+        TELEGRAM_WEBHOOK_SECRET: 'e2e-telegram-webhook-secret-0123456789abcdef',
       },
     },
   ],

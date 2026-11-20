@@ -343,7 +343,9 @@
         "rateLimited": "Too many sign-in attempts. Try again in 10 minutes.",
         "serverNotFound": "We could not find this server. Check the address or contact Smartup support.",
         "lookupRateLimited": "Too many attempts. Try again in an hour."
-      }
+      },
+      "botIntro": "No access to Smartup? If Telegram is linked to your account, sign in through the bot: press \"Sign in\" there.",
+      "botLink": "Open the Smartup Hub bot"
     },
     "gate": {
       "selectOrganization": {
@@ -411,6 +413,12 @@
       "invalidTitle": "Invitation",
       "invalid": "This invitation no longer works. Ask your company administrator to send a new one.",
       "taken": "This address cannot be used for an invitation. Ask for an invitation to a different address."
+    },
+    "telegram": {
+      "title": "Sign in to Smartup Hub",
+      "text": "Press the button to sign in.",
+      "submit": "Sign in",
+      "invalid": "This link no longer works. A link from the bot works once and for 10 minutes. Request a new one in the bot."
     }
   },
   "mail": {
@@ -444,6 +452,9 @@
     "buttonPortal": "Open portal",
     "buttonSignIn": "Sign in",
     "buttonLanguage": "Language",
-    "buttonUnlink": "Unlink"
+    "buttonUnlink": "Unlink",
+    "loginLink": "Your sign-in link for Smartup Hub. It works for {minutes} min and only once. Do not forward it to anyone.",
+    "loginTooOften": "Too many sign-in links. Try again in {minutes} min.",
+    "loginNoAccess": "This account has no access to the portal right now. Contact your company administrator."
   }
 }

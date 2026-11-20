@@ -1,11 +1,12 @@
 import 'server-only';
-import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import { type ClientActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import type { Locale } from '@/i18n/locales';
 import { writeAudit } from '@/modules/hdc/audit';
 import { authUser } from '../auth-schema';
-import { contactIdentities, linkCodes, memberships, organizations } from '../schema';
+import { LOGIN_BOT_LINK_TTL_SEC } from '../pref';
+import { contactIdentities, linkCodes, loginCodes, memberships, organizations, staff } from '../schema';
 import { newToken } from '../tokens';
 import { isSyntheticEmail } from '../util';
 
@@ -158,3 +159,87 @@ export async function setUserLocale(userId: string, locale: Locale): Promise<voi
   await withIdentity(SYSTEM, (tx) => tx.update(authUser).set({ locale }).where(eq(authUser.id, userId)));
 }
 
+
+// --- Запасной вход из бота (задача 17) ---
+
+type Tx = Parameters<Parameters<typeof withIdentity>[1]>[0];
+
+/**
+ * Может ли пользователь войти по ссылке из бота: аккаунт Telegram привязан к нему и не заблокирован,
+ * он не сотрудник, у него есть действующее негостевое членство в действующей организации.
+ */
+async function canSignInFromBot(tx: Tx, userId: string, externalId: string | null): Promise<boolean> {
+  const identity = await tx
+    .select({ userId: contactIdentities.userId })
+    .from(contactIdentities)
+    .where(
+      and(
+        eq(contactIdentities.userId, userId),
+        eq(contactIdentities.kind, 'telegram'),
+        eq(contactIdentities.isBlocked, false),
+        ...(externalId ? [eq(contactIdentities.externalId, externalId)] : []),
+      ),
+    )
+    .limit(1);
+  if (identity.length === 0) return false;
+  if ((await tx.select({ userId: staff.userId }).from(staff).where(eq(staff.userId, userId)).limit(1)).length > 0) return false;
+  const membership = await tx
+    .select({ orgId: memberships.orgId })
+    .from(memberships)
+    .innerJoin(organizations, and(eq(organizations.orgId, memberships.orgId), eq(organizations.state, 'active')))
+    .where(and(eq(memberships.userId, userId), eq(memberships.state, 'active'), ne(memberships.source, 'guest')))
+    .limit(1);
+  return membership.length > 0;
+}
+
+/**
+ * Новая ссылка входа для привязанного аккаунта Telegram. Пусто, если входить нельзя.
+ * Прежние неиспользованные ссылки пользователя отменяются. Токен хранится хешем.
+ */
+export async function createLoginCode(externalId: string): Promise<{ token: string; userId: string } | null> {
+  const { token, hash } = newToken();
+  return withIdentity(SYSTEM, async (tx) => {
+    const identity = (
+      await tx
+        .select({ userId: contactIdentities.userId })
+        .from(contactIdentities)
+        .where(and(eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.externalId, externalId)))
+        .limit(1)
+    )[0];
+    if (!identity || !(await canSignInFromBot(tx, identity.userId, externalId))) return null;
+    await tx
+      .update(loginCodes)
+      .set({ usedOn: sql`now()` })
+      .where(and(eq(loginCodes.userId, identity.userId), eq(loginCodes.channel, 'telegram'), isNull(loginCodes.usedOn)));
+    await tx.insert(loginCodes).values({
+      userId: identity.userId,
+      channel: 'telegram',
+      codeHash: hash,
+      expiresOn: sql`now() + make_interval(secs => ${LOGIN_BOT_LINK_TTL_SEC})`,
+    });
+    return { token, userId: identity.userId };
+  });
+}
+
+/**
+ * Нажатие "Войти" на странице ссылки из бота. Ссылка действует и тратится, пользователь по-прежнему
+ * может входить из бота (привязка не снята, членство не отключено). Запись user.signed_in_telegram
+ * с адресом запроса (угроза T30). Возвращает пользователя или пусто.
+ */
+export async function consumeLoginCode(codeHash: string, ip: string | null): Promise<string | null> {
+  return withIdentity(SYSTEM, async (tx) => {
+    const code = (
+      await tx
+        .select({ loginCodeId: loginCodes.loginCodeId, userId: loginCodes.userId })
+        .from(loginCodes)
+        .where(and(eq(loginCodes.codeHash, codeHash), eq(loginCodes.channel, 'telegram'), isNull(loginCodes.usedOn), gt(loginCodes.expiresOn, sql`now()`)))
+        .limit(1)
+        .for('update')
+    )[0];
+    if (!code) return null;
+    await tx.update(loginCodes).set({ usedOn: sql`now()` }).where(eq(loginCodes.loginCodeId, code.loginCodeId));
+    if (!(await canSignInFromBot(tx, code.userId, null))) return null;
+    await writeAudit(tx, { action: 'user.signed_in_telegram', objectType: 'user', objectId: code.userId, ip });
+    return code.userId;
+  });
+}

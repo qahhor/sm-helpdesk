@@ -5,9 +5,13 @@ import { resolveLocale } from '@/i18n/resolve-locale';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
 import { botText, getTelegramBot, queueMail, type SendOptions, type TelegramUpdate, type TelegramUser, telegramLinkedMail } from '@/modules/hdn/api';
+import { clientIp } from '@/modules/hdc/util';
+import { createTrustedSession } from '../core/trusted';
 import {
   consumeLinkCode,
+  consumeLoginCode,
   createLinkCode,
+  createLoginCode,
   findOwnIdentity,
   findTelegramIdentity,
   setUserLocale,
@@ -15,6 +19,7 @@ import {
   unlinkOwn,
 } from '../core/telegram';
 import { tokenInput } from '../input';
+import { LOGIN_BOT_LINK_TTL_SEC } from '../pref';
 import { hashToken } from '../tokens';
 import { type ClientContext, resolveClient } from './orgs';
 import { readSession, type RequestInfo } from './request';
@@ -138,10 +143,24 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
       });
   }
 
+  async function signInLink() {
+    if (!identity) return reply(botText(locale, 'notLinked'), portalButton(locale));
+    const limit = await consumeRateLimit(rateKey('telegram-login:account', externalId), RATE_RULES.loginLinkPerTelegram);
+    if (!limit.allowed) return reply(botText(locale, 'loginTooOften', { minutes: String(Math.max(1, Math.ceil(limit.retryAfterSec / 60))) }));
+    const created = await createLoginCode(externalId);
+    if (!created) return reply(botText(locale, 'loginNoAccess'), portalButton(locale));
+    const url = new URL(`/${locale}/login/tg`, getEnv().HUB_URL);
+    url.searchParams.set('token', created.token);
+    return reply(botText(locale, 'loginLink', { minutes: String(LOGIN_BOT_LINK_TTL_SEC / 60) }), {
+      linkButton: { text: botText(locale, 'buttonSignIn'), url: url.toString() },
+    });
+  }
+
   if (callback) {
     // Снять ожидание на кнопке. Если не получилось, ответ ниже всё равно уйдёт.
     await bot.answerCallback(callback.id).catch(() => {});
     const data = callback.data ?? '';
+    if (data === 'login') return signInLink();
     if (data === 'unlink') return unlink();
     if (data === 'lang') return chooseLanguage();
     if (data.startsWith('lang:')) return setLanguage(data.slice('lang:'.length));
@@ -152,7 +171,48 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
   // Команда в группе приходит как /start@имя_бота: имя бота отбрасывается.
   const command = rawCommand.split('@')[0];
   if (command === '/start' && argument) return link(argument);
+  if (command === '/login') return signInLink();
   if (command === '/unlink') return unlink();
   if (command === '/lang') return chooseLanguage();
   return fallback();
+}
+
+// --- Запасной вход из бота (задача 17, FR-ID-14, угроза T30) ---
+
+/**
+ * Нажатие "Войти" на странице ссылки из бота. Сама ссылка ничего не меняет: Telegram открывает ссылки
+ * для предпросмотра. Недействительная, просроченная, использованная ссылка и снятый доступ дают один ответ.
+ */
+export async function completeTelegramLogin(
+  input: unknown,
+  request: RequestInfo,
+): Promise<{ ok: true; next: string } | { ok: false; code: 'link_invalid' }> {
+  const raw = (typeof input === 'object' && input !== null ? input : {}) as Record<string, unknown>;
+  const locale: Locale = typeof raw.locale === 'string' && isLocale(raw.locale) ? raw.locale : 'ru';
+  const token = tokenInput.safeParse(raw.token);
+  if (!token.success) return { ok: false, code: 'link_invalid' };
+  const userId = await consumeLoginCode(hashToken(token.data), clientIp(request.headers));
+  if (!userId) return { ok: false, code: 'link_invalid' };
+  await createTrustedSession(userId, 'telegram', request);
+  return { ok: true, next: `/${locale}` };
+}
+
+/** Сколько страница входа ждёт имя бота. Имя запоминается после первого ответа Telegram. */
+const BOT_LINK_WAIT_MS = 1500;
+
+/** Адрес бота для страницы входа. Пусто, если бот выключен или Telegram не ответил вовремя. */
+export async function getBotLink(): Promise<string | null> {
+  const bot = getTelegramBot();
+  if (!bot.enabled) return null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), BOT_LINK_WAIT_MS);
+  });
+  try {
+    return await Promise.race([bot.getMe().then((me) => `https://t.me/${me.username}`), late]);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }

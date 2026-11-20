@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { getEnv } from '@/env';
 import type { Locale } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
-import { describeLoginServer, safeReturnPath, signedInKind } from '@/modules/hdu/api';
+import { describeLoginServer, getBotLink, safeReturnPath, signedInKind } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
@@ -36,6 +36,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
   const lookup = first(params.server);
   const error = first(params.error);
   const startHref = `/${locale}/login/smartup?next=${encodeURIComponent(next)}`;
+  const botLink = await getBotLink();
 
   return (
     <Card>
@@ -110,6 +111,16 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
               {tl('request.open')}
             </button>
           </form>
+        )}
+
+        {/* Запасной вход из бота (FR-ID-14): Smartup недоступен, а Telegram уже привязан. */}
+        {botLink && (
+          <p className="border-t border-border pt-4 text-sm text-secondary-foreground">
+            {t('botIntro')}{' '}
+            <a href={botLink} rel="noopener noreferrer" className="font-medium text-link underline-offset-4 hover:underline">
+              {t('botLink')}
+            </a>
+          </p>
         )}
 
         <p className="border-t border-border pt-4 text-center text-sm text-secondary-foreground">

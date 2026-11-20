@@ -12,6 +12,10 @@ trustPolicyExclude:
 strictDepBuilds: true
 # Зависимости зависимостей только из реестра: без git и прямых ссылок на архивы.
 blockExoticSubdeps: true
+# Замена версий транзитивных зависимостей с известными уязвимостями. Причины: docs/decisions/0001-stack-pins.md.
+overrides:
+  basic-ftp: 6.2.6
+
 # Никому не разрешено выполнять сценарии сборки. Причины по пакетам:
 # sharp - оптимизатор изображений выключен; unrs-resolver - нужен только линтеру, работает без сборки;
 # cpu-features, ssh2, protobufjs - зависимости Testcontainers, без сборки работают на чистом JavaScript;

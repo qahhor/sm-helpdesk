@@ -1,0 +1,5 @@
+# Миграции и сценарии всегда с переводом строки LF: от него зависит контрольная сумма миграции.
+*.sql text eol=lf
+*.mjs text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf

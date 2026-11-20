@@ -11,6 +11,12 @@ trustPolicyExclude:
 strictDepBuilds: true
 # Зависимости зависимостей только из реестра: без git и прямых ссылок на архивы.
 blockExoticSubdeps: true
+# Никому не разрешено выполнять сценарии сборки. Причины по пакетам:
+# sharp - оптимизатор изображений выключен; unrs-resolver - нужен только линтеру, работает без сборки;
+# cpu-features, ssh2, protobufjs - зависимости Testcontainers, без сборки работают на чистом JavaScript.
 allowBuilds:
+  cpu-features: false
+  protobufjs: false
   sharp: false
+  ssh2: false
   unrs-resolver: false

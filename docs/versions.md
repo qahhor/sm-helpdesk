@@ -14,7 +14,9 @@
 
 | Пакет | Версия | Лицензия |
 |---|---|---|
+| `drizzle-orm` | 0.45.4 | Apache-2.0 |
 | `next` | 16.4.6 | MIT |
+| `pg` | 8.23.1 | MIT |
 | `react` | 19.3.1 | MIT |
 | `react-dom` | 19.3.1 | MIT |
 | `server-only` | 0.0.1 | MIT |
@@ -25,14 +27,18 @@
 | Пакет | Версия | Лицензия |
 |---|---|---|
 | `@tailwindcss/turbopack` | 4.3.5 | MIT |
+| `@testcontainers/postgresql` | 12.2.1 | MIT |
 | `@types/node` | 26.6.6 | MIT |
+| `@types/pg` | 8.23.1 | MIT |
 | `@types/react` | 19.3.0 | MIT |
 | `@types/react-dom` | 19.3.0 | MIT |
 | `eslint` | 9.39.5 | MIT |
 | `eslint-config-next` | 16.4.6 | MIT |
 | `tailwindcss` | 4.3.5 | MIT |
+| `testcontainers` | 12.2.1 | MIT |
 | `typescript` | 5.9.3 | Apache-2.0 |
 | `vitest` | 5.1.0 | MIT |
+| `yaml` | 2.9.1 | ISC |
 
 Лицензии всех пакетов, включая транзитивные: `pnpm licenses list`.
 Почему выбраны именно эти версии: `docs/decisions/0001-stack-pins.md`.

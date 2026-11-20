@@ -25,6 +25,9 @@ export default defineConfig({
           name: 'integration',
           environment: 'node',
           include: ['tests/integration/**/*.test.ts'],
+          // Одна база на весь прогон: контейнер поднимает globalSetup, файлы идут по очереди.
+          globalSetup: ['tests/integration/setup/global-setup.ts'],
+          setupFiles: ['tests/integration/setup/each.ts'],
           fileParallelism: false,
           testTimeout: 30_000,
           hookTimeout: 120_000,

@@ -74,6 +74,11 @@ jobs:
       DATABASE_URL_OWNER: postgres://hub_owner:ci-owner@127.0.0.1:5432/hub
       DATABASE_URL_APP: postgres://hub_app:ci-app@127.0.0.1:5432/hub
       DATABASE_URL_AUTH: postgres://hub_auth:ci-auth@127.0.0.1:5432/hub
+      # Ключи портала для браузерных тестов (веха M1). Значения одноразовые, вне CI не используются.
+      HUB_URL: http://localhost:3100
+      HUB_DOMAIN: localhost
+      BETTER_AUTH_SECRET: ci-only-session-secret-0123456789abcdef
+      ENCRYPTION_KEY: Y2ktb25seS1lbmNyeXB0aW9uLWtleS0zMmJ5dGVzISE=
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -84,6 +89,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:bootstrap
       - run: pnpm db:migrate
+      # Ложные серверы Smartup в реестр (на машине разработчика это делает tests/e2e/global-setup.ts).
+      # Сами ложные серверы входа и Telegram запускает Playwright (playwright.config.ts).
+      - run: node scripts/dev-up.mjs --mocks-only
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm build
       - run: pnpm test:e2e

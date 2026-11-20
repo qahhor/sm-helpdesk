@@ -6,6 +6,8 @@
 //
 // С ключом --prepare выполняются только шаги 1-3: так базу готовят браузерные тесты.
 // С ключом --env-only выполняется только шаг 1.
+// С ключом --mocks-only только записываются ложные серверы Smartup, без файла .env и без Docker:
+// так делает CI, где база и переменные окружения уже готовы.
 import { execFileSync, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -122,6 +124,15 @@ export async function prepareDatabase() {
   const { applied } = await migrate();
   registerMockServers();
   return { applied };
+}
+
+if (import.meta.main && process.argv.includes('--mocks-only')) {
+  if (!registerMockServers()) {
+    console.error('Ложные серверы Smartup записываются, только когда HUB_URL на localhost');
+    process.exit(1);
+  }
+  console.log('Ложные серверы Smartup записаны в реестр');
+  process.exit(0);
 }
 
 if (import.meta.main) {

@@ -59,3 +59,16 @@ test('команда hub попадает в образ', () => {
   expect(dockerfile).toMatch(/^COPY --from=build --chown=1001:1001 \/app\/dist\/hub\.mjs \.\/hub\.mjs$/m);
   expect(pkg.scripts.build).toContain('scripts/build-cli.mjs');
 });
+
+test('браузерным тестам в CI заданы ключи портала и записаны ложные серверы Smartup (M1)', () => {
+  const env = wf.jobs.e2e.env as Record<string, string>;
+  expect(env.HUB_URL).toBe('http://localhost:3100');
+  expect(env.BETTER_AUTH_SECRET.length).toBeGreaterThanOrEqual(32);
+  expect(Buffer.from(env.ENCRYPTION_KEY, 'base64')).toHaveLength(32);
+  expect(env.ENCRYPTION_KEY).not.toBe(env.BETTER_AUTH_SECRET);
+  const steps = (wf.jobs.e2e.steps as { run?: string }[]).map((step) => step.run ?? '');
+  const migrate = steps.indexOf('pnpm db:migrate');
+  const mocks = steps.indexOf('node scripts/dev-up.mjs --mocks-only');
+  expect(mocks).toBeGreaterThan(migrate);
+  expect(mocks).toBeLessThan(steps.indexOf('pnpm test:e2e'));
+});

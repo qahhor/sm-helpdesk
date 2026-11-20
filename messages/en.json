@@ -22,7 +22,8 @@
       "label": "User menu",
       "signOut": "Sign out",
       "sessions": "Sessions",
-      "settings": "Settings"
+      "settings": "Settings",
+      "organization": "Organization"
     }
   },
   "client": {
@@ -49,7 +50,60 @@
       "emptyText": "Suggest a product idea and the Smartup team will review it."
     },
     "org": {
-      "switch": "Switch organization"
+      "switch": "Switch organization",
+      "title": "Organization",
+      "roles": {
+        "client_user": "User",
+        "client_admin": "Administrator"
+      },
+      "invite": {
+        "title": "Invite a colleague",
+        "email": "Colleague's email",
+        "role": "Role",
+        "submit": "Invite"
+      },
+      "members": {
+        "title": "Members",
+        "name": "Name",
+        "role": "Role",
+        "state": "Status",
+        "actions": "Actions",
+        "active": "Active",
+        "passive": "Disabled",
+        "self": "This is you",
+        "disable": "Disable",
+        "enable": "Enable",
+        "confirmTitle": "Disable member {name}?",
+        "confirmText": "The member loses access to the organization portal on their next action. You can enable them again.",
+        "confirm": "Disable member",
+        "cancel": "Cancel"
+      },
+      "invitations": {
+        "title": "Invitations",
+        "email": "Email",
+        "role": "Role",
+        "expires": "Valid until",
+        "status": "Status",
+        "empty": "No invitations yet.",
+        "pending": "Awaiting reply",
+        "accepted": "Accepted",
+        "revoked": "Revoked",
+        "expired": "Expired",
+        "revoke": "Revoke"
+      },
+      "done": {
+        "invited": "Invitation sent. The link is valid for 7 days.",
+        "revoked": "Invitation revoked.",
+        "disabled": "Member disabled.",
+        "enabled": "Member is active again."
+      },
+      "errors": {
+        "already_member": "This person is already a member of the organization.",
+        "invalid_input": "Check the email address and role.",
+        "rate_limited": "Too many invitations. Try again in an hour.",
+        "forbidden": "This action is not available to you.",
+        "not_found": "Record not found. Refresh the page."
+      }
     },
     "settings": {
       "email": {
@@ -220,6 +274,15 @@
         "invalid": "Check the email address.",
         "rateLimited": "Too many requests. Try again in an hour."
       }
+    },
+    "invite": {
+      "title": "Invitation to {orgName}",
+      "text": "Invitation for {email}. Accept it to work with the organization in Smartup Hub.",
+      "name": "Your name",
+      "submit": "Accept invitation",
+      "invalidTitle": "Invitation",
+      "invalid": "This invitation no longer works. Ask your company administrator to send a new one.",
+      "taken": "This address cannot be used for an invitation. Ask for an invitation to a different address."
     }
   },
   "mail": {

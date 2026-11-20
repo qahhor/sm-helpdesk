@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test, vi } from 'vitest';
 import type { SystemActor } from '@/db/with-actor';
 import { addServer, disableServer, findLoginServer, findServerByAddress, listServers } from '@/modules/hdu/api/servers';
 import { listSsoServers } from '@/modules/hdu/core/servers';
@@ -101,4 +101,17 @@ test('локальные серверы входа разрешены, когд�
     addServer(system, { ...input, code: 'mock', baseUrl: 'http://localhost:3190', issuer: 'http://localhost:3190' }),
   ).resolves.toEqual({ code: 'mock' });
   expect(await findServerByAddress('localhost:3190')).toEqual({ code: 'mock' });
+});
+
+test('сервер с нерасшифровываемым секретом пропускается, остальные серверы и вход работают', async () => {
+  await addServer(system, input);
+  // Набор seedTwoOrgs кладёт в реестр сервер с поддельной зашифрованной строкой: так выглядит смена ключа.
+  const f = await seedTwoOrgs();
+  const lines: string[] = [];
+  const spy = vi.spyOn(console, 'error').mockImplementation((line) => void lines.push(String(line)));
+  const sso = await listSsoServers();
+  spy.mockRestore();
+  expect(sso.map((s) => s.code)).toEqual(['srv-acme']);
+  expect(lines.join('\n')).toContain(f.server.code);
+  expect(lines.join('\n')).not.toContain('v1.');
 });

@@ -15,9 +15,19 @@ export {
   switchOrganizationOfRequest,
 } from './api/actor';
 export { type ClientContext, listMyOrganizations, type MyOrganization } from './api/orgs';
+export type { OrgScope } from './api/scope';
 export { handleAuthRequest } from './api/auth-route';
 export { completeWelcome, confirmEmail, requestEmailConfirmation } from './api/email';
+export {
+  acceptInvitation,
+  describeInvitation,
+  type InvitationView,
+  inviteMember,
+  listInvitations,
+  revokeInvitation,
+} from './api/invitations';
 export { completeLoginLink, requestLoginLink } from './api/login-link';
+export { listMembers, type MemberView, setMemberState } from './api/members';
 export { nextRequest } from './api/next-request';
 export type { RequestInfo, SessionData } from './api/request';
 export type { StaffContext } from './api/session';

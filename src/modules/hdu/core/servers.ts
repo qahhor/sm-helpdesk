@@ -15,7 +15,11 @@ const SYSTEM = { type: 'system', job: 'identity.servers' } as const;
 /** Место хранения секрета: входит в проверку подлинности зашифрованной строки. */
 export const secretContext = (code: string) => `hdu_servers:${code}`;
 
-/** Действующие серверы с расшифрованным секретом. Только для библиотеки входа: наружу не отдаётся. */
+/**
+ * Действующие серверы с расшифрованным секретом. Только для библиотеки входа: наружу не отдаётся.
+ * Сервер, секрет которого не расшифровывается (сменили ключ, строку повредили), пропускается с записью
+ * в журнал: иначе один испорченный секрет остановил бы любой вход в портал, в том числе сотрудников.
+ */
 export async function listSsoServers(): Promise<SsoServer[]> {
   const rows = await withIdentity(SYSTEM, (tx) =>
     tx
@@ -31,7 +35,15 @@ export async function listSsoServers(): Promise<SsoServer[]> {
       .orderBy(asc(servers.code)),
   );
   const box = getSecretBox();
-  return rows.map(({ sealed, ...server }) => ({ ...server, clientSecret: box.open(sealed, secretContext(server.code)) }));
+  const ready: SsoServer[] = [];
+  for (const { sealed, ...server } of rows) {
+    try {
+      ready.push({ ...server, clientSecret: box.open(sealed, secretContext(server.code)) });
+    } catch {
+      console.error(`Сервер Smartup ${server.code} пропущен: секрет не расшифровывается. Задайте секрет заново командой hub server:add`);
+    }
+  }
+  return ready;
 }
 
 /** Отметка состояния реестра: меняется при добавлении, изменении и отключении сервера. */

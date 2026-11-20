@@ -5,7 +5,10 @@ import { type AuthDeps, buildAuthOptions } from '@/modules/hdu/auth/options';
 import { findStaff } from '@/modules/hdu/core/staff';
 import { listSsoServers } from '@/modules/hdu/core/servers';
 import type { StaffRole } from '@/modules/hdu/pref';
+import type { StaffActor } from '@/db/with-actor';
+import { type ClientContext, resolveClient } from '@/modules/hdu/api/orgs';
 import type { SessionData } from '@/modules/hdu/api/request';
+import type { StaffContext } from '@/modules/hdu/api/session';
 import { getSecretBox } from '@/security/secret-box';
 import { totp } from '../../helpers/totp';
 import { pools } from './db';
@@ -313,4 +316,18 @@ export async function clientSession(
 /** Та же сессия, прочитанная заново. Пусто, если её завершили или срок вышел. */
 export function reload(session: SessionData): Promise<SessionData | null> {
   return sessionDataById(session.session.id);
+}
+
+// --- Контексты актора для сервисов модуля (задача 11) ---
+
+/** Контекст клиента из сессии участника: как его строит каждая страница кабинета. */
+export async function clientCtx(member: { userId: string }): Promise<ClientContext> {
+  const result = await resolveClient(await clientSession(member));
+  if ('denied' in result) throw new Error(`Клиент без актора: ${result.denied}`);
+  return result;
+}
+
+/** Контекст сотрудника из участника набора seedTwoOrgs: вход и второй фактор для сервисов не важны. */
+export function staffCtx(member: { userId: string; name: string; actor: StaffActor }): StaffContext {
+  return { actor: member.actor, user: { id: member.userId, name: member.name, email: '' }, isLead: false, sessionCreatedAt: new Date() };
 }

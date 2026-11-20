@@ -27,7 +27,11 @@ export default async function PortalLayout({ children }: LayoutProps<'/[locale]'
         <UserMenu
           name={client.user.name}
           label={t('common.userMenu.label')}
-          links={[{ href: '/settings', label: t('common.userMenu.settings') }]}
+          links={[
+            { href: '/settings', label: t('common.userMenu.settings') },
+            // Страница организации только администратору клиента (FR-ID-08).
+            ...(client.actor.orgRole === 'client_admin' ? [{ href: '/org', label: t('common.userMenu.organization') }] : []),
+          ]}
           signOutLabel={t('common.userMenu.signOut')}
           signOut={signOutAction}
         />

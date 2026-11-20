@@ -16,18 +16,28 @@
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "db:bootstrap": "node --env-file-if-exists=.env scripts/db/bootstrap.mjs",
-    "db:migrate": "node --env-file-if-exists=.env scripts/db/migrate.mjs"
+    "db:migrate": "node --env-file-if-exists=.env scripts/db/migrate.mjs",
+    "test:e2e": "playwright test --trace off"
   },
   "dependencies": {
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
     "drizzle-orm": "0.45.4",
+    "lucide-react": "1.72.0",
     "next": "16.4.6",
+    "next-intl": "4.15.1",
     "pg": "8.23.1",
+    "radix-ui": "1.8.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "server-only": "0.0.1",
+    "tailwind-merge": "3.7.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@formatjs/icu-messageformat-parser": "3.5.23",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/turbopack": "4.3.5",
     "@testcontainers/postgresql": "12.2.1",
     "@types/node": "26.6.6",

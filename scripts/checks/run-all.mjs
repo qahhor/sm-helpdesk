@@ -1,10 +1,11 @@
 // Машинные проверки правил ТЗ. Запуск: node scripts/checks/run-all.mjs (входит в pnpm check).
 // Печатает строки вида `путь:строка правило` и завершается с кодом 1 при любом нарушении.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { findDashes, isDashCheckedFile } from './dashes.mjs';
 import { missingInEnvExample } from './env-example.mjs';
+import { checkCompleteness, checkIcu, checkWords } from './messages.mjs';
 import { findForbiddenApis } from './forbidden-apis.mjs';
 import { findMissingServerOnly } from './server-only.mjs';
 import { findUiRuleViolations } from './ui-rules.mjs';
@@ -52,6 +53,25 @@ for (const path of listFiles()) {
 // Отдельные проверки: каждая возвращает строки с описанием нарушений.
 /** @type {{ name: string; run: () => string[] | Promise<string[]> }[]} */
 const extraChecks = [
+  {
+    // файлы сообщений: полнота, ICU, запрещённые слова
+    name: 'messages',
+    run: () => {
+      const dir = resolve(root, 'messages');
+      const sources = Object.fromEntries(
+        readdirSync(dir)
+          .filter((name) => name.endsWith('.json'))
+          .map((name) => [name.replace('.json', ''), JSON.parse(readFileSync(resolve(dir, name), 'utf8'))]),
+      );
+      const problems = [...checkCompleteness(sources), ...checkIcu(sources), ...checkWords(sources)];
+      if (problems.length === 0) {
+        const count = Object.keys(sources).length;
+        const word = { one: 'язык', few: 'языка', many: 'языков', other: 'языка' }[new Intl.PluralRules('ru').select(count)];
+        console.log(`Переводы: ${count} ${word}, недостающих ключей нет`);
+      }
+      return problems.map((p) => `messages/${p.locale}.json ${p.key} ${p.problem}`);
+    },
+  },
   {
     // каждая переменная схемы src/env.ts описана в .env.example
     name: 'env-example',

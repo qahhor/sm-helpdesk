@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import createNextIntlPlugin from 'next-intl/plugin';
 
 // Кеш компонентов (cacheComponents, partialPrefetching) намеренно не включён:
 // ТЗ 9.4, правило 6. Причины записаны в docs/decisions/0002-cache-and-image-optimizer-off.md.
@@ -16,4 +17,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+
+export default withNextIntl(nextConfig);

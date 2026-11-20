@@ -14,18 +14,27 @@
 
 | Пакет | Версия | Лицензия |
 |---|---|---|
+| `class-variance-authority` | 0.7.1 | Apache-2.0 |
+| `clsx` | 2.1.1 | MIT |
 | `drizzle-orm` | 0.45.4 | Apache-2.0 |
+| `lucide-react` | 1.72.0 | ISC |
 | `next` | 16.4.6 | MIT |
+| `next-intl` | 4.15.1 | MIT |
 | `pg` | 8.23.1 | MIT |
+| `radix-ui` | 1.8.1 | MIT |
 | `react` | 19.3.1 | MIT |
 | `react-dom` | 19.3.1 | MIT |
 | `server-only` | 0.0.1 | MIT |
+| `tailwind-merge` | 3.7.0 | MIT |
 | `zod` | 4.6.7 | MIT |
 
 ## Зависимости разработки
 
 | Пакет | Версия | Лицензия |
 |---|---|---|
+| `@axe-core/playwright` | 4.14.0 | MPL-2.0 |
+| `@formatjs/icu-messageformat-parser` | 3.5.23 | MIT |
+| `@playwright/test` | 1.63.0 | Apache-2.0 |
 | `@tailwindcss/turbopack` | 4.3.5 | MIT |
 | `@testcontainers/postgresql` | 12.2.1 | MIT |
 | `@types/node` | 26.6.6 | MIT |

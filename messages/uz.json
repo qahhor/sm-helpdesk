@@ -1,0 +1,35 @@
+{
+  "common": {
+    "appName": "Smartup Hub",
+    "language": {
+      "self": "O'zbekcha",
+      "label": "Til"
+    },
+    "notFound": {
+      "title": "Sahifa topilmadi",
+      "text": "Manzilni tekshiring yoki bosh sahifaga qayting.",
+      "home": "Bosh sahifaga"
+    }
+  },
+  "client": {
+    "home": {
+      "title": "Sizga qanday yordam kerak?",
+      "report": "Muammo haqida xabar berish",
+      "idea": "G'oya taklif qilish"
+    },
+    "nav": {
+      "home": "Bosh sahifa",
+      "tickets": "Murojaatlar",
+      "ideas": "G'oyalar",
+      "profile": "Profil"
+    },
+    "tickets": {
+      "empty": "Hozircha murojaatlar yo'q. Savolingizni yozing, men yechim qidiraman."
+    }
+  },
+  "agent": {
+    "nav": {
+      "sections": "Bo'limlar"
+    }
+  }
+}

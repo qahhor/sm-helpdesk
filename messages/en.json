@@ -1,0 +1,35 @@
+{
+  "common": {
+    "appName": "Smartup Hub",
+    "language": {
+      "self": "English",
+      "label": "Language"
+    },
+    "notFound": {
+      "title": "Page not found",
+      "text": "Check the address or go back to the home page.",
+      "home": "Go to home"
+    }
+  },
+  "client": {
+    "home": {
+      "title": "How can we help?",
+      "report": "Report a problem",
+      "idea": "Suggest an idea"
+    },
+    "nav": {
+      "home": "Home",
+      "tickets": "Requests",
+      "ideas": "Ideas",
+      "profile": "Profile"
+    },
+    "tickets": {
+      "empty": "No requests yet. Describe your question and I will look for a solution."
+    }
+  },
+  "agent": {
+    "nav": {
+      "sections": "Sections"
+    }
+  }
+}

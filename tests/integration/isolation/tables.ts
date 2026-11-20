@@ -28,6 +28,7 @@ export const DOMAIN_OBJECTS: Record<string, { client: ClientAccess }> = {
   hdu_login_codes: { client: 'none' },
   hdu_memberships: { client: 'own-org' },
   hdu_organizations: { client: 'own-org' },
+  hdu_server_checks: { client: 'none' },
   hdu_servers: { client: 'none' },
   hdu_staff: { client: 'none' },
   hdu_user_profiles: { client: 'own-org' },

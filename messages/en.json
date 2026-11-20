@@ -277,6 +277,108 @@
         "invited": "Invitation sent.",
         "revoked": "Invitation revoked."
       }
+    },
+    "settings": {
+      "title": "Settings",
+      "sectionsLabel": "Settings sections",
+      "sectionsMenu": "Section: {name}",
+      "overviewIntro": "Choose a section. Changes to settings are written to the audit log.",
+      "sections": {
+        "servers": {
+          "title": "Smartup servers",
+          "text": "Clients sign in through them: addresses, keys, role mapping, connection check."
+        }
+      },
+      "servers": {
+        "title": "Smartup servers",
+        "add": "Add server",
+        "addTitle": "New server",
+        "emptyTitle": "No servers yet",
+        "emptyText": "Add the Smartup server your clients sign in through.",
+        "code": "Code",
+        "name": "Name",
+        "address": "Smartup address",
+        "isDefault": "Default",
+        "state": "State",
+        "lastCheck": "Last check",
+        "yes": "yes",
+        "no": "no",
+        "states": {
+          "active": "Working",
+          "passive": "Disabled"
+        },
+        "check": {
+          "ok": "Server responds",
+          "fail": "Has problems",
+          "never": "Not checked"
+        },
+        "fields": {
+          "code": "Code",
+          "codeHint": "Lowercase Latin letters, digits and hyphen, 2 to 31 characters. Matches the code in Smartup and never changes.",
+          "name": "Name",
+          "baseUrl": "Smartup address",
+          "baseUrlHint": "Smartup Web address without a path, for example https://smartup.example.uz",
+          "issuer": "Sign-in server address",
+          "issuerHint": "OpenID Connect issuer. The portal loads the discovery document from it.",
+          "clientId": "Client ID",
+          "clientSecret": "Client secret",
+          "clientSecretHint": "Issued when the portal is registered in Smartup.",
+          "clientSecretSetHint": "The secret is set. Leave the field empty to keep it.",
+          "isDefault": "Default server: clients of the shared cloud see its button",
+          "roleMap": "Role mapping",
+          "roleMapHint": "One role per line: Smartup role = client_user or client_admin. For example: director = client_admin",
+          "endpoints": "Endpoints without a discovery document",
+          "endpointsHint": "Fill in all four endpoints only if the server has no discovery document.",
+          "authorization": "Authorization endpoint",
+          "token": "Token endpoint",
+          "userinfo": "User info endpoint",
+          "jwks": "Keys endpoint"
+        },
+        "save": "Save",
+        "details": "Details",
+        "secretSet": "Secret is set",
+        "callback": "Callback address",
+        "callbackHint": "Give it to the Smartup developers when registering the portal on this server.",
+        "checkTitle": "Connection check",
+        "checkButton": "Check connection",
+        "checkNever": "The server has not been checked yet.",
+        "checkedOn": "Last check: {time}.",
+        "checkOk": "Server responds: sign-in through it is set up correctly.",
+        "checkFailed": "Problems found:",
+        "issues": {
+          "unreachable": "The server does not respond or responded with an error.",
+          "timeout": "The server did not respond within 5 seconds.",
+          "not_json": "The server did not respond with a JSON document.",
+          "issuer_mismatch": "The sign-in server address in the document does not match the address in the registry.",
+          "no_authorization_endpoint": "The document has no authorization endpoint.",
+          "no_token_endpoint": "The document has no token endpoint.",
+          "no_userinfo_endpoint": "The document has no user info endpoint.",
+          "no_jwks": "There is no keys endpoint, or it does not return keys.",
+          "no_pkce_s256": "The server does not support PKCE S256."
+        },
+        "stateTitle": "Sign-in through the server",
+        "disable": "Disable",
+        "enable": "Enable",
+        "confirmTitle": "Disable server {name}?",
+        "confirmText": "Clients of this server cannot sign in to the portal until the server is enabled again. Open sessions keep working.",
+        "confirm": "Yes, disable",
+        "cancel": "Cancel",
+        "done": {
+          "added": "Server added",
+          "saved": "Server saved",
+          "disabled": "Server disabled",
+          "enabled": "Server enabled"
+        },
+        "errors": {
+          "invalid_input": "Check the fields: code, addresses (https and public hosts only), role mapping and endpoints without discovery (all four or none).",
+          "server_taken": "This Smartup address or sign-in server address is already used by another server.",
+          "stale_session": "Changing settings needs a sign-in no older than 15 minutes.",
+          "forbidden": "You have no rights for this action.",
+          "not_found": "Server not found."
+        },
+        "reauth": "Sign in again",
+        "formTitle": "Sign-in settings"
+      }
     }
   },
   "auth": {

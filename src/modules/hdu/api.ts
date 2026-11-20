@@ -54,6 +54,21 @@ export { changeMemberRole, listMembers, listMembersForStaff, type MemberView, se
 export { nextRequest } from './api/next-request';
 export type { RequestInfo, SessionData } from './api/request';
 export type { StaffContext } from './api/session';
+// Реестр серверов Smartup в разделе "Настройки" (FR-ADM-01).
+export {
+  addServer,
+  checkServer,
+  disableServer,
+  enableServer,
+  getServer,
+  listServers,
+  serverCallbackUrl,
+  updateServer,
+  type ServerCheck,
+  type ServerDetails,
+  type ServerIssue,
+  type ServerView,
+} from './api/servers';
 export { describeLoginServer, forgetServer, type LoginServerState, rememberServer, startSmartupSignIn } from './api/sso';
 export {
   acceptStaffInvitation,

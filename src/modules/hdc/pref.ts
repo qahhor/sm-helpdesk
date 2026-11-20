@@ -14,6 +14,7 @@ export const AUDIT_ACTIONS = [
   'server.added',
   'server.disabled',
   'server.enabled',
+  'server.updated',
   // Организации и участники
   'org.provisioned',
   'member.joined',

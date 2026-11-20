@@ -171,14 +171,53 @@ test('клиент и линии поддержки не пишут в реес�
   const f = await seedTwoOrgs();
   for (const actor of [f.aAdmin.actor, f.l1.actor, f.care.actor]) {
     expect(await count(pools.auth, actor, `update hdu_servers set name = 'x'`)).toBe(0);
+    expect(await count(pools.auth, actor, `update hdu_server_checks set is_ok = true`)).toBe(0);
     expect(await count(pools.auth, actor, `update hdu_staff set role = 'admin'`)).toBe(0);
-    expect(await count(pools.auth, actor, `update hdu_organizations set name = 'x'`)).toBe(0);
     await expect(
       count(pools.auth, actor, `insert into hdu_staff (user_id, role) values ($1, 'admin')`, [f.aUser.userId]),
     ).rejects.toThrow(/row-level security/);
   }
+  for (const actor of [f.aAdmin.actor, f.l1.actor]) expect(await count(pools.auth, actor, `update hdu_organizations set name = 'x'`)).toBe(0);
+  // Customer Care меняет у организации только категорию и признак AI (политика care_update и триггер guard, 0007).
+  await expect(count(pools.auth, f.care.actor, `update hdu_organizations set name = 'x'`)).rejects.toThrow(/нельзя/);
   // Администратор портала ведёт реестр серверов.
   expect(await count(pools.auth, f.adminStaff.actor, `update hdu_servers set name = 'Новое имя'`)).toBe(1);
+});
+
+test('сотрудники меняют у организации только категорию и признак AI, остальное ведёт система', async () => {
+  const f = await seedTwoOrgs();
+  for (const actor of [f.care.actor, f.adminStaff.actor]) {
+    expect(await count(pools.auth, actor, `update hdu_organizations set category = 'A', is_ai_enabled = false where org_id = $1`, [f.orgA.orgId])).toBe(1);
+    for (const change of [`name = 'x'`, `inn = '1'`, `state = 'passive'`, `server_id = server_id, external_company_id = 'z'`])
+      await expect(count(pools.auth, actor, `update hdu_organizations set ${change} where org_id = $1`, [f.orgA.orgId]), change).rejects.toThrow(/нельзя/);
+  }
+  for (const actor of [f.l1.actor, f.aAdmin.actor])
+    expect(await count(pools.auth, actor, `update hdu_organizations set category = 'B' where org_id = $1`, [f.orgA.orgId])).toBe(0);
+  expect(await count(pools.auth, system, `update hdu_organizations set name = 'Из Smartup' where org_id = $1`, [f.orgA.orgId])).toBe(1);
+  await expect(count(pools.auth, f.care.actor, `insert into hdu_organizations (server_id, external_company_id, name) values ($1, '9', 'x')`, [f.server.serverId])).rejects.toThrow(/row-level security/);
+});
+
+test('список сотрудников ведёт только администратор портала', async () => {
+  const f = await seedTwoOrgs();
+  expect((await rows(pools.auth, f.adminStaff.actor, 'select user_id from hdu_staff')).length).toBeGreaterThanOrEqual(3);
+  expect(await count(pools.auth, f.adminStaff.actor, `update hdu_staff set is_lead = true where user_id = $1`, [f.l1.userId])).toBe(1);
+  for (const actor of [f.care.actor, f.l1.actor, f.aAdmin.actor]) expect(await rows(pools.auth, actor, 'select user_id from hdu_staff')).toEqual([]);
+});
+
+test('результаты проверки серверов видят и пишут только администратор и система', async () => {
+  const f = await seedTwoOrgs();
+  const insert = `insert into hdu_server_checks (server_id, is_ok, issues) values ($1, true, '{}')
+    on conflict (server_id) do update set is_ok = excluded.is_ok`;
+  expect(await count(pools.auth, f.adminStaff.actor, insert, [f.server.serverId])).toBe(1);
+  expect(await count(pools.auth, system, insert, [f.server.serverId])).toBe(1);
+  for (const actor of [f.care.actor, f.l1.actor, f.aAdmin.actor])
+    await expect(count(pools.auth, actor, insert, [f.server.serverId])).rejects.toThrow(/row-level security/);
+  expect(await rows(pools.app, f.adminStaff.actor, 'select is_ok from hdu_server_checks')).toEqual([{ is_ok: true }]);
+  expect(await rows(pools.app, f.l1.actor, 'select is_ok from hdu_server_checks')).toEqual([{ is_ok: true }]);
+  expect(await rows(pools.app, f.aAdmin.actor, 'select is_ok from hdu_server_checks')).toEqual([]);
+  await expect(
+    pools.root.query(`insert into hdu_server_checks (server_id, is_ok, issues) values ($1, false, '{made_up}') on conflict (server_id) do update set issues = excluded.issues`, [f.server.serverId]),
+  ).rejects.toThrow(/hdu_server_checks_c/);
 });
 
 test('код сервера нельзя изменить, второй сервер по умолчанию нельзя завести', async () => {

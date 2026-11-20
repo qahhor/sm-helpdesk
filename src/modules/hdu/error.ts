@@ -18,6 +18,8 @@ export const HDU_ERROR_CODES = [
   'sign_in_expired',
   // Проверка "не робот" не пройдена (решение 0018).
   'bot_check',
+  // Адрес Smartup или сервера входа уже записан у другого сервера реестра.
+  'server_taken',
 ] as const;
 
 export type HduErrorCode = (typeof HDU_ERROR_CODES)[number];

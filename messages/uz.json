@@ -277,6 +277,108 @@
         "invited": "Taklif yuborildi.",
         "revoked": "Taklif bekor qilindi."
       }
+    },
+    "settings": {
+      "title": "Sozlamalar",
+      "sectionsLabel": "Sozlamalar bo'limlari",
+      "sectionsMenu": "Bo'lim: {name}",
+      "overviewIntro": "Bo'limni tanlang. Sozlamalardagi o'zgarishlar audit jurnaliga yoziladi.",
+      "sections": {
+        "servers": {
+          "title": "Smartup serverlari",
+          "text": "Mijozlar ular orqali kiradi: manzillar, kalitlar, rollar mosligi, aloqani tekshirish."
+        }
+      },
+      "servers": {
+        "title": "Smartup serverlari",
+        "add": "Server qo'shish",
+        "addTitle": "Yangi server",
+        "emptyTitle": "Hozircha serverlar yo'q",
+        "emptyText": "Mijozlar kiradigan Smartup serverini qo'shing.",
+        "code": "Kod",
+        "name": "Nomi",
+        "address": "Smartup manzili",
+        "isDefault": "Asosiy",
+        "state": "Holati",
+        "lastCheck": "Oxirgi tekshiruv",
+        "yes": "ha",
+        "no": "yo'q",
+        "states": {
+          "active": "Ishlayapti",
+          "passive": "O'chirilgan"
+        },
+        "check": {
+          "ok": "Server javob beryapti",
+          "fail": "Muammolar bor",
+          "never": "Tekshirilmagan"
+        },
+        "fields": {
+          "code": "Kod",
+          "codeHint": "Lotin kichik harflari, raqamlar va chiziqcha, 2 dan 31 belgigacha. Smartupdagi kod bilan bir xil va keyin o'zgarmaydi.",
+          "name": "Nomi",
+          "baseUrl": "Smartup manzili",
+          "baseUrlHint": "Smartup Web manzili, yo'lsiz, masalan https://smartup.example.uz",
+          "issuer": "Kirish serveri manzili",
+          "issuerHint": "OpenID Connect manzili (issuer). Portal discovery hujjatini shu manzildan yuklaydi.",
+          "clientId": "Mijoz identifikatori",
+          "clientSecret": "Mijoz siri",
+          "clientSecretHint": "Portal Smartupda ro'yxatdan o'tkazilganda beriladi.",
+          "clientSecretSetHint": "Sir berilgan. O'zgartirmaslik uchun maydonni bo'sh qoldiring.",
+          "isDefault": "Asosiy server: uning tugmasini umumiy bulut mijozlari ko'radi",
+          "roleMap": "Rollar mosligi",
+          "roleMapHint": "Har bir rol alohida qatorda: Smartupdagi rol = client_user yoki client_admin. Masalan: director = client_admin",
+          "endpoints": "Discovery hujjatisiz manzillar",
+          "endpointsHint": "To'rttala manzilni faqat serverda discovery hujjati bo'lmasa to'ldiring.",
+          "authorization": "Avtorizatsiya manzili",
+          "token": "Token manzili",
+          "userinfo": "Foydalanuvchi ma'lumotlari manzili",
+          "jwks": "Kalitlar manzili"
+        },
+        "save": "Saqlash",
+        "details": "Ma'lumotlar",
+        "secretSet": "Sir berilgan",
+        "callback": "Qaytish manzili",
+        "callbackHint": "Portalni ushbu serverda ro'yxatdan o'tkazishda uni Smartup dasturchilariga bering.",
+        "checkTitle": "Aloqani tekshirish",
+        "checkButton": "Aloqani tekshirish",
+        "checkNever": "Server hali tekshirilmagan.",
+        "checkedOn": "Oxirgi tekshiruv: {time}.",
+        "checkOk": "Server javob beryapti: u orqali kirish to'g'ri sozlangan.",
+        "checkFailed": "Muammolar topildi:",
+        "issues": {
+          "unreachable": "Server javob bermayapti yoki xato bilan javob berdi.",
+          "timeout": "Server 5 soniya ichida javob bermadi.",
+          "not_json": "Server JSON hujjat bilan javob bermadi.",
+          "issuer_mismatch": "Hujjatdagi kirish serveri manzili reestrdagi manzilga mos kelmaydi.",
+          "no_authorization_endpoint": "Hujjatda avtorizatsiya manzili yo'q.",
+          "no_token_endpoint": "Hujjatda token manzili yo'q.",
+          "no_userinfo_endpoint": "Hujjatda foydalanuvchi ma'lumotlari manzili yo'q.",
+          "no_jwks": "Kalitlar manzili yo'q yoki kalitlar berilmayapti.",
+          "no_pkce_s256": "Server PKCE S256 ni qo'llab-quvvatlamaydi."
+        },
+        "stateTitle": "Server orqali kirish",
+        "disable": "O'chirish",
+        "enable": "Yoqish",
+        "confirmTitle": "{name} serverini o'chirasizmi?",
+        "confirmText": "Server qayta yoqilmaguncha bu server mijozlari portalga kira olmaydi. Ochiq sessiyalar ishlashda davom etadi.",
+        "confirm": "Ha, o'chirish",
+        "cancel": "Bekor qilish",
+        "done": {
+          "added": "Server qo'shildi",
+          "saved": "Server saqlandi",
+          "disabled": "Server o'chirildi",
+          "enabled": "Server yoqildi"
+        },
+        "errors": {
+          "invalid_input": "Maydonlarni tekshiring: kod, manzillar (faqat https va faqat tashqi tugunlar), rollar mosligi va discovery hujjatisiz manzillar (to'rttasi yoki birortasi ham emas).",
+          "server_taken": "Bu Smartup manzili yoki kirish serveri manzili boshqa serverda allaqachon yozilgan.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak.",
+          "forbidden": "Bu amal uchun huquq yo'q.",
+          "not_found": "Server topilmadi."
+        },
+        "reauth": "Qayta kirish",
+        "formTitle": "Kirish sozlamalari"
+      }
     }
   },
   "auth": {

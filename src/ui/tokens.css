@@ -219,6 +219,8 @@
 
   /* Наибольшая ширина содержимого рабочего места, как у панели показателей Smartup Web */
   --container-dashboard: 1680px;
+  /* Колонка разделов в образце "Настройки" (раздел 8.11 ТЗ) */
+  --container-settings-nav: 240px;
 
   /* Точки перелома Smartup Web (docs/design/smartup-breakpoints.scss). Других в портале нет. */
   --breakpoint-*: initial;

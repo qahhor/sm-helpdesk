@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import type { SystemActor } from '@/db/with-actor';
-import { addServer, disableServer, listServers } from '@/modules/hdu/api/servers';
+import { addServer, checkServer, disableServer, listServers, type ServerIssue } from '@/modules/hdu/api/servers';
 import { inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
@@ -42,6 +42,10 @@ const HELP = `Использование: hub <команда> [ключи]
   server:disable --code <код>
       Отключить сервер: вход через него закрывается.
 
+  server:check --code <код>
+      Проверить связь с сервером: документ discovery, адреса входа, ключи и PKCE S256.
+      Код завершения 1, если найдены проблемы.
+
   telegram:set-webhook
       Поставить вебхук бота Telegram на адрес портала (HUB_URL/api/webhooks/telegram) с секретом
       из TELEGRAM_WEBHOOK_SECRET. Нужны TELEGRAM_BOT_TOKEN и TELEGRAM_WEBHOOK_SECRET.
@@ -75,6 +79,7 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   },
   'server:list': { options: {}, required: [] },
   'server:disable': { options: { code: { type: 'string' } }, required: ['code'] },
+  'server:check': { options: { code: { type: 'string' } }, required: ['code'] },
   'telegram:set-webhook': { options: {}, required: [] },
   'telegram:info': { options: {}, required: [] },
 };
@@ -95,6 +100,20 @@ const ERROR_TEXT: Record<string, string> = {
   not_found: 'Сотрудник или сервер не найден.',
   forbidden: 'Нет прав на это действие.',
   email_taken: 'Адрес занят другой учётной записью.',
+  server_taken: 'Адрес Smartup или адрес сервера входа уже записан у другого сервера.',
+};
+
+/** Проблемы проверки связи понятными строками (те же, что на странице сервера). */
+const ISSUE_TEXT: Record<ServerIssue, string> = {
+  unreachable: 'Сервер не отвечает или ответил ошибкой.',
+  timeout: 'Сервер не ответил за 5 секунд.',
+  not_json: 'Сервер ответил не документом JSON.',
+  issuer_mismatch: 'Адрес сервера входа в документе не совпадает с адресом в реестре.',
+  no_authorization_endpoint: 'В документе нет адреса авторизации.',
+  no_token_endpoint: 'В документе нет адреса токена.',
+  no_userinfo_endpoint: 'В документе нет адреса сведений о пользователе.',
+  no_jwks: 'Нет адреса ключей или ключи не отдаются.',
+  no_pkce_s256: 'Сервер не поддерживает PKCE S256.',
 };
 
 function linkLines(env: CliIo['env'], result: { token: string; expiresOn: Date }): string[] {
@@ -185,6 +204,16 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         await disableServer(ACTOR, text('code'));
         io.out(`Сервер ${text('code')} отключён.`);
         return 0;
+      }
+      case 'server:check': {
+        const result = await checkServer(ACTOR, text('code'));
+        if (result.ok) {
+          io.out(`Сервер отвечает: ${text('code')}. Вход через него настроен верно.`);
+          return 0;
+        }
+        io.out(`Сервер ${text('code')}: найдены проблемы.`);
+        for (const issue of result.issues) io.out(`  ${ISSUE_TEXT[issue]}`);
+        return 1;
       }
       case 'telegram:set-webhook': {
         const secret = io.env.TELEGRAM_WEBHOOK_SECRET;

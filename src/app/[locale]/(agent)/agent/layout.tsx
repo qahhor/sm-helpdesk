@@ -12,6 +12,7 @@ export default async function AgentLayout({ children }: LayoutProps<'/[locale]/a
   const t = await getTranslations('common.userMenu');
   return (
     <AgentShell
+      role={staff.actor.staffRole}
       userMenu={
         <UserMenu
           name={staff.user.name}

@@ -56,6 +56,20 @@ export const SMARTUP_CLAIMS = {
 /** Образец кода сервера Smartup. Тот же, что в ограничении таблицы hdu_servers. */
 export const SERVER_CODE_PATTERN = /^[a-z0-9][a-z0-9-]{1,30}$/;
 
+/** Проблемы, которые находит проверка связи с сервером Smartup (FR-ADM-01). Перечень в CHECK hdu_server_checks_c1. */
+export const SERVER_ISSUES = [
+  'unreachable',
+  'timeout',
+  'not_json',
+  'issuer_mismatch',
+  'no_authorization_endpoint',
+  'no_token_endpoint',
+  'no_userinfo_endpoint',
+  'no_jwks',
+  'no_pkce_s256',
+] as const;
+export type ServerIssue = (typeof SERVER_ISSUES)[number];
+
 /** Способы входа, которыми портал сам выдаёт сессию по своей одноразовой ссылке. */
 export const TRUSTED_SIGN_IN_WAYS = ['invitation', 'telegram'] as const;
 export type TrustedSignInWay = (typeof TRUSTED_SIGN_IN_WAYS)[number];

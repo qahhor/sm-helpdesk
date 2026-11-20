@@ -104,3 +104,84 @@ export async function assertPublicUrl(raw: string, opts: { allowLoopback: boolea
 export function isLocalPortal(hubUrl: string): boolean {
   return LOOPBACK_HOSTS.has(new URL(hubUrl).hostname);
 }
+
+// --- Загрузка документа с сервера Smartup (проверка связи, FR-ADM-01) ---
+
+export type SafeFetchReason = 'unreachable' | 'timeout' | 'too_large' | 'not_json';
+
+/** Документ не загружен. Адрес во внутреннюю сеть даёт не эту ошибку, а HduError('invalid_input'). */
+export class SafeFetchError extends Error {
+  constructor(readonly reason: SafeFetchReason) {
+    super(`Документ не загружен: ${reason}`);
+    this.name = 'SafeFetchError';
+  }
+}
+
+/** Тело ответа не длиннее maxBytes байт. Длиннее: too_large, чтение прекращается. */
+async function readLimited(response: Response, maxBytes: number): Promise<string> {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) throw new SafeFetchError('too_large');
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new SafeFetchError('too_large');
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
+/**
+ * Загружает документ JSON с сервера Smartup. Адрес проверяется assertPublicUrl в момент запроса
+ * (угроза T16), перенаправления запрещены, тело читается не дальше maxBytes, на всё отведено timeoutMs.
+ * Ошибки: HduError('invalid_input') для внутреннего адреса, иначе SafeFetchError с причиной.
+ */
+export async function safeFetchJson(
+  url: URL,
+  opts: { timeoutMs: number; maxBytes: number; allowLoopback: boolean; fetch?: typeof fetch; resolve?: Resolve },
+): Promise<unknown> {
+  await assertPublicUrl(url.toString(), { allowLoopback: opts.allowLoopback, resolve: opts.resolve });
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new SafeFetchError('timeout'));
+    }, opts.timeoutMs);
+  });
+  const load = async () => {
+    let response: Response;
+    try {
+      response = await (opts.fetch ?? globalThis.fetch)(url, {
+        redirect: 'error',
+        signal: controller.signal,
+        headers: { accept: 'application/json' },
+      });
+    } catch {
+      throw new SafeFetchError('unreachable');
+    }
+    // Перенаправление тоже ошибка: новый адрес не проверен.
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
+      throw new SafeFetchError('unreachable');
+    }
+    const text = await readLimited(response, opts.maxBytes);
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      throw new SafeFetchError('not_json');
+    }
+  };
+  try {
+    return await Promise.race([load(), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}

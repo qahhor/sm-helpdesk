@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { boolean, jsonb, pgTable, pgView, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
-import type { ClientRole, MembershipSource, RecordState, StaffRole } from './pref';
+import type { ClientRole, MembershipSource, RecordState, ServerIssue, StaffRole } from './pref';
 
 // Модуль hdu: идентичность. Таблицы, ограничения, триггеры и политики RLS создаёт миграция
 // drizzle/0005_hdu_tables.sql. Здесь только описание колонок для запросов.
@@ -28,6 +28,15 @@ export const servers = pgTable('hdu_servers', {
   isDefault: boolean('is_default').notNull().default(false),
   state: text('state').$type<RecordState>().notNull().default('active'),
   code: text('code').notNull(),
+  ...stampColumns,
+});
+
+/** Результат последней проверки связи с сервером (FR-ADM-01). Отдельно от реестра: проверка не меняет настройки входа. */
+export const serverChecks = pgTable('hdu_server_checks', {
+  serverId: uuid('server_id').primaryKey(),
+  isOk: boolean('is_ok').notNull(),
+  issues: text('issues').array().$type<ServerIssue[]>().notNull().default(sql`'{}'`),
+  checkedOn: moment('checked_on').notNull().defaultNow(),
   ...stampColumns,
 });
 

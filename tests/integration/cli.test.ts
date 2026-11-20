@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test, vi } from 'vitest';
 import { runCli } from '@/cli/commands';
 import { setDnsResolverForTests } from '@/modules/hdu/url-safety';
 import { pools } from './helpers/db';
@@ -92,11 +92,34 @@ test('server:disable отключает сервер', async () => {
   expect((await pools.root.query(`select state from hdu_servers where code = 'off'`)).rows[0].state).toBe('passive');
 });
 
+test('server:check печатает итог проверки связи, код 1 при найденных проблемах', async () => {
+  const add = fakeIo({ HUB_OAUTH_CLIENT_SECRET: 's' });
+  await runCli(['server:add', '--code', 'chk', '--name', 'Chk', '--base-url', 'https://chk.example', '--issuer', 'https://id.chk.example', '--client-id', 'hub'], add.io);
+  const discovery = {
+    issuer: 'https://id.chk.example',
+    authorization_endpoint: 'https://id.chk.example/a',
+    token_endpoint: 'https://id.chk.example/t',
+    userinfo_endpoint: 'https://id.chk.example/u',
+    jwks_uri: 'https://id.chk.example/j',
+  };
+  const spy = vi.spyOn(globalThis, 'fetch');
+  spy.mockImplementation(async () => new Response(JSON.stringify(discovery)));
+  const bad = fakeIo();
+  expect(await runCli(['server:check', '--code', 'chk'], bad.io)).toBe(1);
+  expect(bad.lines.join('\n')).toContain('S256');
+  spy.mockImplementation(async () => new Response(JSON.stringify({ ...discovery, code_challenge_methods_supported: ['S256'] })));
+  const ok = fakeIo();
+  expect(await runCli(['server:check', '--code', 'chk'], ok.io)).toBe(0);
+  spy.mockRestore();
+  expect(ok.lines.join('\n')).toContain('Сервер отвечает');
+  expect(await runCli(['server:check', '--code', 'nope'], fakeIo().io)).toBe(1);
+});
+
 test('собранный файл запускается без каталога node_modules и не содержит библиотеку входа', async () => {
   execFileSync(process.execPath, ['scripts/build-cli.mjs'], { stdio: 'pipe' });
   const dir = mkdtempSync(join(tmpdir(), 'hub-cli-'));
   cpSync('dist/hub.mjs', join(dir, 'hub.mjs'));
   const out = execFileSync(process.execPath, ['hub.mjs', '--help'], { cwd: dir, encoding: 'utf8' });
-  for (const name of ['staff:create', 'staff:reset', 'server:add', 'server:list', 'server:disable']) expect(out).toContain(name);
+  for (const name of ['staff:create', 'staff:reset', 'server:add', 'server:list', 'server:disable', 'server:check']) expect(out).toContain(name);
   expect(readFileSync('dist/hub.mjs', 'utf8')).not.toMatch(/better-call|@better-auth|better-auth\/crypto/);
 }, 120_000);

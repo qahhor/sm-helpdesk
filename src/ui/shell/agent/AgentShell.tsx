@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
+import type { StaffRole } from '@/modules/hdu/pref';
 import { AgentRoot } from './AgentRoot';
 import { TopBar } from './TopBar';
 
@@ -8,7 +9,16 @@ import { TopBar } from './TopBar';
  * Доступ проверяет раскладка (agent) и каждая страница (requireStaffActor). Меню пользователя
  * приходит готовым от раскладки: у витрины компонентов его нет.
  */
-export async function AgentShell({ children, userMenu }: { children: ReactNode; userMenu?: ReactNode }) {
+export async function AgentShell({
+  children,
+  userMenu,
+  role = null,
+}: {
+  children: ReactNode;
+  userMenu?: ReactNode;
+  /** Роль сотрудника: от неё зависят пункты панели. У витрины компонентов роли нет. */
+  role?: StaffRole | null;
+}) {
   const t = await getTranslations('common');
   return (
     <AgentRoot>
@@ -18,7 +28,7 @@ export async function AgentShell({ children, userMenu }: { children: ReactNode; 
       >
         {t('skipToContent')}
       </a>
-      <TopBar userMenu={userMenu} />
+      <TopBar userMenu={userMenu} role={role} />
       <main id="main" className="mx-auto flex w-full max-w-dashboard flex-1 flex-col gap-4 px-4 py-4 laptop:px-6">
         {children}
       </main>

@@ -2,8 +2,9 @@
 // (документ discovery, PKCE, подписанный id_token, сведения о пользователе), но вместо входа
 // в Smartup страница выбора персоны. В образ не входит: только для разработки (решение 0013).
 //
-// Запуск: pnpm dev:oidc. Два сервера: mock на порту 3190 (общее облако) и mock-dedicated на 3191
-// (выделенный сервер). В реестр портала их записывает scripts/dev-up.mjs --prepare.
+// Запуск: pnpm dev:oidc. Три сервера: mock на порту 3190 (общее облако), mock-dedicated на 3191
+// (выделенный сервер) и mock-spare на 3193 (для проверки реестра в разделе "Настройки").
+// В реестр портала первые два записывает scripts/dev-up.mjs --prepare.
 import { createServer } from 'node:http';
 import { Events, OAuth2Issuer, OAuth2Service } from 'oauth2-mock-server';
 
@@ -32,6 +33,13 @@ export const MOCK_SERVERS = {
     port: 3191,
     personas: {
       alisher: { sub: '1001', name: 'Алишер', company_id: '501', company_name: 'Initech', note: 'тот же sub на другом сервере' },
+    },
+  },
+  // В реестр не записывается: на нём браузерный тест добавляет сервер через раздел "Настройки".
+  'mock-spare': {
+    port: 3193,
+    personas: {
+      alisher: { sub: '1001', name: 'Алишер', company_id: '501', company_name: 'Hooli', note: 'сервер для проверки реестра' },
     },
   },
 };

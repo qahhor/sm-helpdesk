@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/audit';
-import { admin, asActor, clientA, pools, system } from './helpers/db';
+import { admin, agentL1, asActor, clientA, pools, system } from './helpers/db';
 
 test('запись журнала получает актора от базы, а не от сервиса', async () => {
   await withActor(admin, (tx) =>
@@ -57,14 +57,16 @@ test('запись без актора отклоняется', async () => {
     );
 });
 
-test('приложение не читает, не меняет и не удаляет журнал', async () => {
+test('журнал читает только администратор портала через hub_app, менять и удалять журнал не может никто', async () => {
+  await withActor(admin, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', objectId: 'read-1' }));
+  // Решение 20 таблицы M1 (решение 0019): без чтения нет экрана журнала FR-ADM-07.
+  const read = (actor: Parameters<typeof asActor>[1]) =>
+    asActor(pools.app, actor, (c) => c.query('select object_id from hdc_audit_log')).then((r) => r.rows);
+  expect(await read(admin)).toEqual([{ object_id: 'read-1' }]);
+  for (const actor of [agentL1, { ...agentL1, staffRole: 'care' as const }, clientA, system]) expect(await read(actor), actor.type).toEqual([]);
+  await expect(asActor(pools.auth, admin, (c) => c.query('select 1 from hdc_audit_log'))).rejects.toThrow(/permission denied/);
   for (const pool of [pools.app, pools.auth])
-    for (const sql of [
-      'select 1 from hdc_audit_log',
-      `update hdc_audit_log set action = 'x'`,
-      'delete from hdc_audit_log',
-      'truncate hdc_audit_log',
-    ])
+    for (const sql of [`update hdc_audit_log set action = 'x'`, 'delete from hdc_audit_log', 'truncate hdc_audit_log'])
       await expect(asActor(pool, admin, (c) => c.query(sql)), sql).rejects.toThrow(/permission denied/);
 });
 

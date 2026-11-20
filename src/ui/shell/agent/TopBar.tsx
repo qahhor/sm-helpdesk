@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import type { Locale } from '@/i18n/locales';
+import type { StaffRole } from '@/modules/hdu/pref';
 import { localeNames } from '@/i18n/messages';
 import { Link } from '@/i18n/navigation';
 import { Logo } from '@/ui/brand/Logo';
@@ -12,13 +13,14 @@ import { type NavGroupView, SectionsMenu } from './SectionsMenu';
 /**
  * Верхняя панель рабочего места по образцу Smartup Web: тёмная в обеих темах, высота 52 px,
  * логотип для тёмного фона, пять групп разделов, справа язык, тема и меню пользователя.
+ * Пункты с ролями видны только своим ролям; без роли (витрина компонентов) только общие пункты.
  */
-export async function TopBar({ userMenu }: { userMenu?: ReactNode }) {
+export async function TopBar({ userMenu, role }: { userMenu?: ReactNode; role: StaffRole | null }) {
   const t = await getTranslations();
   const groups: NavGroupView[] = AGENT_NAV_GROUPS.map((group) => ({
     key: group.key,
     label: t(`agent.nav.groups.${group.key}`),
-    items: visibleItems(group, ENABLED_MILESTONES).map((item) => ({
+    items: visibleItems(group, ENABLED_MILESTONES, role).map((item) => ({
       key: item.key,
       href: item.href,
       label: t(`agent.nav.items.${item.key}`),

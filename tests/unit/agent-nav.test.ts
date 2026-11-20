@@ -8,8 +8,8 @@ test('пять групп в порядке таблицы раздела 8.11 �
 
 test('пункты будущих вех скрыты, группы остаются', () => {
   const work = AGENT_NAV_GROUPS[0];
-  expect(visibleItems(work, new Set(['M0']))).toEqual([]);
-  expect(visibleItems(work, new Set(['M0', 'M1', 'M2', 'M3'])).map((i) => i.key)).toEqual(['queues']);
+  expect(visibleItems(work, new Set(['M0']), 'agent_l1')).toEqual([]);
+  expect(visibleItems(work, new Set(['M0', 'M1', 'M2', 'M3']), 'agent_l1').map((i) => i.key)).toEqual(['queues']);
 });
 
 test('состав групп этапа 1 и вехи, в которых пункты появляются', () => {
@@ -21,7 +21,7 @@ test('состав групп этапа 1 и вехи, в которых пун
     knowledge: ['solutions:M5', 'candidates:M5c', 'problems:M5c', 'codeKnowledge:M8c'],
     clients: ['organizations:M1', 'ideas:M7', 'announcements:M5c'],
     analytics: ['metrics:M8', 'digests:M8b', 'aiReview:M5b'],
-    settings: ['all:M8'],
+    settings: ['all:M1'],
   });
 });
 
@@ -31,7 +31,13 @@ test('включены вехи M0 и M1', () => {
 
 test('в вехе M1 в группе "Клиенты" есть пункт "Организации"', () => {
   const group = AGENT_NAV_GROUPS.find((g) => g.key === 'clients');
-  expect(visibleItems(group!, ENABLED_MILESTONES).map((i) => i.key)).toEqual(['organizations']);
+  expect(visibleItems(group!, ENABLED_MILESTONES, 'care').map((i) => i.key)).toEqual(['organizations']);
+});
+
+test('пункт "Все настройки" виден только администратору', () => {
+  const settings = AGENT_NAV_GROUPS.find((g) => g.key === 'settings')!;
+  expect(visibleItems(settings, ENABLED_MILESTONES, 'admin').map((i) => i.key)).toEqual(['all']);
+  for (const role of ['agent_l1', 'agent_l2', 'care', 'product'] as const) expect(visibleItems(settings, ENABLED_MILESTONES, role)).toEqual([]);
 });
 
 test('у каждой группы и каждого пункта есть подпись на трёх языках', () => {

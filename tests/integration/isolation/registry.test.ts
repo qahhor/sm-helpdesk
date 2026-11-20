@@ -32,6 +32,7 @@ async function seedEverything() {
     [f.aUser.userId],
   );
   await pools.root.query(`insert into hdn_telegram_updates (update_id) values (1)`);
+  await pools.root.query(`insert into hdu_server_checks (server_id, is_ok, issues) values ($1, false, '{timeout}')`, [f.server.serverId]);
   return f;
 }
 
@@ -88,7 +89,7 @@ test('клиент видит в каждой таблице ровно то, ч
 
 test('приложение под ролью hub_app не меняет таблицы идентичности ни при каком акторе', async () => {
   const f = await seedEverything();
-  const tables = ['hdu_servers', 'hdu_organizations', 'hdu_memberships', 'hdu_staff', 'hdu_invitations', 'hdu_email_tokens'];
+  const tables = ['hdu_servers', 'hdu_server_checks', 'hdu_organizations', 'hdu_memberships', 'hdu_staff', 'hdu_invitations', 'hdu_email_tokens'];
   for (const table of tables)
     for (const actor of [f.aAdmin.actor, f.adminStaff.actor, { type: 'system', job: 'test' } as const]) {
       const run = (sql: string) => asActor(pools.app, actor, (c) => c.query(sql));
@@ -99,7 +100,7 @@ test('приложение под ролью hub_app не меняет табл�
 
 test('удалить строку идентичности не может и роль hub_auth', async () => {
   const f = await seedEverything();
-  for (const table of ['hdu_servers', 'hdu_organizations', 'hdu_memberships', 'hdu_staff', 'hdu_invitations', 'hdu_email_tokens'])
+  for (const table of ['hdu_servers', 'hdu_server_checks', 'hdu_organizations', 'hdu_memberships', 'hdu_staff', 'hdu_invitations', 'hdu_email_tokens'])
     await expect(
       asActor(pools.auth, { type: 'system', job: 'test' }, (c) => c.query(`delete from ${table}`)),
       table,

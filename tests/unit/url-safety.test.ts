@@ -1,5 +1,5 @@
-import { expect, test } from 'vitest';
-import { assertPublicUrl } from '@/modules/hdu/url-safety';
+import { expect, test, vi } from 'vitest';
+import { assertPublicUrl, safeFetchJson } from '@/modules/hdu/url-safety';
 
 const publicDns = async () => ['203.0.113.10'];
 
@@ -60,4 +60,38 @@ test('localhost допускается только в локальном реж
   await expect(assertPublicUrl('http://acme.smartup.example', { allowLoopback: true, resolve: publicDns })).rejects.toMatchObject({
     code: 'invalid_input',
   });
+});
+
+// Загрузка документа с сервера Smartup (проверка связи, FR-ADM-01): адрес проверяется в момент запроса.
+const json = (body: unknown, init: ResponseInit = {}) => vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify(body), init));
+const opts = { timeoutMs: 50, maxBytes: 1000, allowLoopback: false, resolve: async () => ['203.0.113.10'] };
+const target = () => new URL('https://id.smartup.example/x');
+
+test('документ загружается только с внешнего адреса, без перенаправлений и в пределах размера', async () => {
+  await expect(safeFetchJson(target(), { ...opts, fetch: json({ a: 1 }) })).resolves.toEqual({ a: 1 });
+  await expect(safeFetchJson(target(), { ...opts, resolve: async () => ['10.0.0.1'], fetch: json({}) })).rejects.toMatchObject({
+    code: 'invalid_input',
+  });
+  await expect(
+    safeFetchJson(target(), { ...opts, fetch: json({}, { status: 302, headers: { location: 'http://169.254.169.254/' } }) }),
+  ).rejects.toMatchObject({ reason: 'unreachable' });
+  await expect(safeFetchJson(target(), { ...opts, fetch: json({ big: 'x'.repeat(5000) }) })).rejects.toMatchObject({ reason: 'too_large' });
+  await expect(safeFetchJson(target(), { ...opts, fetch: vi.fn(() => new Promise<Response>(() => {})) })).rejects.toMatchObject({
+    reason: 'timeout',
+  });
+  const fetch = json({});
+  await safeFetchJson(target(), { ...opts, fetch });
+  expect(fetch.mock.calls[0]?.[1]).toMatchObject({ redirect: 'error' });
+});
+
+test('ответ не JSON, ошибка сети и ответ с ошибкой называются по-разному', async () => {
+  const html = vi.fn(async () => new Response('<html>', { headers: { 'content-type': 'text/html' } }));
+  await expect(safeFetchJson(target(), { ...opts, fetch: html })).rejects.toMatchObject({ reason: 'not_json' });
+  await expect(safeFetchJson(target(), { ...opts, fetch: vi.fn(async () => Promise.reject(new TypeError('сеть'))) })).rejects.toMatchObject({
+    reason: 'unreachable',
+  });
+  await expect(safeFetchJson(target(), { ...opts, fetch: json({}, { status: 500 }) })).rejects.toMatchObject({ reason: 'unreachable' });
+  // Заявленный размер больше предела: тело не читается.
+  const big = vi.fn(async () => new Response('{}', { headers: { 'content-length': '999999' } }));
+  await expect(safeFetchJson(target(), { ...opts, fetch: big })).rejects.toMatchObject({ reason: 'too_large' });
 });

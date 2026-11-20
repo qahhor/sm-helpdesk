@@ -63,9 +63,10 @@ pnpm hub server:add --code cloud --name "Облако Smartup" --base-url https:
   --issuer https://id.smartup.example --client-id hub --default
 pnpm hub server:list
 pnpm hub server:disable --code cloud
+pnpm hub server:check --code cloud
 ```
 
-Адреса сервера принимаются только внешние и только по https (исключение: сам портал запущен на localhost). Команда `server:add` печатает адрес возврата, который нужно сообщить разработчикам Smartup при регистрации портала как клиента OAuth.
+Адреса сервера принимаются только внешние и только по https (исключение: сам портал запущен на localhost). Команда `server:add` печатает адрес возврата, который нужно сообщить разработчикам Smartup при регистрации портала как клиента OAuth. Команда `server:check` проверяет документ discovery, адреса входа, ключи и PKCE S256. То же самое администратор портала делает в рабочем месте: "Настройки", раздел "Серверы Smartup" (решение 0019).
 
 ## Как устроено
 

@@ -12,7 +12,7 @@ test('база доступна: 200', async () => {
   expect(res.headers.get('cache-control')).toBe('no-store');
 });
 
-test('сервис модуля проверяет базу приложения', async () => {
+test('сервис модуля проверяет оба подключения к базе', async () => {
   expect(await isDatabaseReady()).toBe(true);
 });
 
@@ -86,4 +86,19 @@ test('готовность отказывает, если приложение �
   const { pools } = await import('./helpers/db');
   expect(await pingPool(pools.app, 2000, isRestrictedAppRole)).toBe(true);
   expect(await pingPool(pools.owner, 2000, isRestrictedAppRole)).toBe(false);
+});
+
+test('готовность проверяет оба подключения: приложения и аутентификации', async () => {
+  const { pools } = await import('./helpers/db');
+  expect(await isDatabaseReady()).toBe(true);
+  const dead = new Pool({ connectionString: 'postgres://hub_auth:x@127.0.0.1:1/hub' });
+  try {
+    expect(await isDatabaseReady({ authPool: dead })).toBe(false);
+    expect(await isDatabaseReady({ appPool: dead })).toBe(false);
+    // Подключение аутентификации под чужой ролью тоже отказ.
+    expect(await isDatabaseReady({ authPool: pools.app })).toBe(false);
+    expect(await isDatabaseReady({ authPool: pools.owner })).toBe(false);
+  } finally {
+    await dead.end().catch(() => {});
+  }
 });

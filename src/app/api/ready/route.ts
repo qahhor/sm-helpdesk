@@ -1,5 +1,4 @@
-import { isDatabaseReady } from '@/modules/hdc/api';
-import { readyResponse } from '@/modules/hdc/util';
+import { isDatabaseReady, readyResponse } from '@/modules/hdc/api';
 
 // Приложение готово принимать запросы: база отвечает. Проверку вызывает выкладка и наблюдение.
 export const dynamic = 'force-dynamic';

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { bootstrap } from '../../scripts/db/bootstrap.mjs';
 import { migrate } from '../../scripts/db/migrate.mjs';
-import { compareVersions, pools } from './helpers/db';
+import { compareVersions, dropMigratedObjects, pools } from './helpers/db';
 
 test('версия и расширения соответствуют разделу 9.2 ТЗ', async () => {
   const v = await pools.owner.query("select current_setting('server_version_num')::int as n");
@@ -49,8 +49,8 @@ test('изменённый файл применённой миграции ос
   try {
     await expect(migrate()).rejects.toThrow(/0001_.*изменён/);
   } finally {
-    await pools.owner.query('delete from migrations.applied');
-    await pools.owner.query('drop schema app cascade; drop table hdr_product_modules, hdc_settings cascade');
-    expect((await migrate()).applied).toBeGreaterThanOrEqual(2);
+    // База возвращается в исходное состояние: всё, что создали миграции, удаляется и создаётся заново.
+    await dropMigratedObjects();
+    expect((await migrate()).applied).toBeGreaterThanOrEqual(3);
   }
 });

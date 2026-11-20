@@ -1,0 +1,60 @@
+import 'server-only';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { STAFF_SESSION_TTL_SEC } from '../pref';
+import type { StaffInfo } from '../core/staff';
+
+// Перехватчики библиотеки входа. Они срабатывают и при вызове библиотеки как функции (решение 0012).
+//
+// Библиотека не обеспечивает сама три правила ТЗ, их держат эти перехватчики:
+//   1. сотрудник входит только по паролю с кодом второго фактора (FR-ID-09);
+//   2. сессия сотрудника живёт 12 часов и не продлевается (FR-ID-10);
+//   3. "доверенное устройство" обходит второй фактор и поэтому запрещено.
+
+export type StaffLookup = (userId: string) => Promise<StaffInfo | null>;
+
+/** Пути, которыми сессию может получить сотрудник: пароль и код второго фактора. */
+const STAFF_SIGN_IN_PATHS = new Set(['/sign-in/email', '/two-factor/verify-totp']);
+const PASSWORD_PATH = '/sign-in/email';
+
+type SessionDraft = { userId: string; expiresAt?: Date | string } & Record<string, unknown>;
+type HookContext = { path?: string; context?: { session?: { session?: { createdAt?: Date | string }; user?: { id?: string } } | null } } | null;
+
+export function createSessionHooks(findStaff: StaffLookup) {
+  return {
+    create: {
+      /** Кто и каким путём может получить сессию. Возврат false отменяет создание сессии. */
+      async before(session: SessionDraft, ctx: HookContext) {
+        const path = ctx?.path ?? '';
+        const staff = await findStaff(session.userId);
+        if (!staff) {
+          // Пароль есть только у сотрудников. Клиент с паролем это ошибка в данных: не пускаем.
+          return path === PASSWORD_PATH ? false : undefined;
+        }
+        if (staff.state !== 'active' || staff.role === 'agent_bot') return false;
+        if (!STAFF_SIGN_IN_PATHS.has(path)) return false;
+        return { data: { ...session, expiresAt: new Date(Date.now() + STAFF_SESSION_TTL_SEC * 1000) } };
+      },
+    },
+    update: {
+      /** Библиотека продлевает сессию при активности. Сессию сотрудника продлить дальше 12 часов нельзя. */
+      async before(data: Record<string, unknown>, ctx: HookContext) {
+        if (!('expiresAt' in data) || data.expiresAt == null) return undefined;
+        const current = ctx?.context?.session;
+        const userId = current?.user?.id;
+        const createdAt = current?.session?.createdAt;
+        if (!userId || !createdAt) return undefined;
+        if (!(await findStaff(userId))) return undefined;
+        const limit = new Date(createdAt).getTime() + STAFF_SESSION_TTL_SEC * 1000;
+        const wanted = new Date(data.expiresAt as Date | string).getTime();
+        return { data: { ...data, expiresAt: new Date(Math.min(limit, wanted)) } };
+      },
+    },
+  };
+}
+
+/** Запрос "запомнить это устройство" при проверке кода отклоняется: настройкой его не выключить. */
+export const beforeHook = createAuthMiddleware(async (ctx) => {
+  const body = ctx.body as { trustDevice?: unknown } | undefined;
+  if (ctx.path?.startsWith('/two-factor/verify-') && body?.trustDevice)
+    throw new APIError('FORBIDDEN', { code: 'TRUST_DEVICE_DISABLED', message: 'Trusted devices are disabled' });
+});

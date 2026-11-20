@@ -34,3 +34,25 @@ export function clientIp(headers: Headers): string | null {
   const first = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
   return first && isIP(first) !== 0 ? first : null;
 }
+
+const PROBLEM_TITLES: Record<number, string> = {
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  403: 'Forbidden',
+  404: 'Not Found',
+  405: 'Method Not Allowed',
+  413: 'Content Too Large',
+  429: 'Too Many Requests',
+  500: 'Internal Server Error',
+};
+
+/**
+ * Ответ об ошибке для HTTP API в формате application/problem+json (ТЗ 12.2):
+ * код для машины, без внутренних подробностей.
+ */
+export function problemResponse(status: number, code: string, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify({ type: 'about:blank', title: PROBLEM_TITLES[status] ?? 'Error', status, code }), {
+    status,
+    headers: { 'Content-Type': 'application/problem+json', ...NO_STORE, ...headers },
+  });
+}

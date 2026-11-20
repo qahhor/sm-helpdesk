@@ -49,7 +49,35 @@
   },
   "agent": {
     "nav": {
-      "sections": "Sections"
+      "sections": "Sections",
+      "soon": "Sections will appear later",
+      "groups": {
+        "work": "Work",
+        "knowledge": "Knowledge",
+        "clients": "Clients",
+        "analytics": "Analytics",
+        "settings": "Settings"
+      },
+      "items": {
+        "queues": "Queues",
+        "solutions": "Solutions",
+        "candidates": "Candidates",
+        "problems": "Known problems",
+        "codeKnowledge": "Code knowledge",
+        "organizations": "Organizations",
+        "ideas": "Ideas",
+        "announcements": "Announcements",
+        "metrics": "Metrics",
+        "digests": "Digests",
+        "aiReview": "AI answer review",
+        "all": "All settings"
+      }
+    },
+    "breadcrumbs": "Path",
+    "home": {
+      "title": "Workspace",
+      "emptyTitle": "No queues yet",
+      "emptyText": "Workspace sections open as they become ready. Request queues come first."
     }
   }
 }

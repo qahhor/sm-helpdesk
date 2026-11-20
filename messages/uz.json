@@ -49,7 +49,35 @@
   },
   "agent": {
     "nav": {
-      "sections": "Bo'limlar"
+      "sections": "Bo'limlar",
+      "soon": "Bo'limlar keyinroq paydo bo'ladi",
+      "groups": {
+        "work": "Ish",
+        "knowledge": "Bilimlar",
+        "clients": "Mijozlar",
+        "analytics": "Tahlil",
+        "settings": "Sozlamalar"
+      },
+      "items": {
+        "queues": "Navbatlar",
+        "solutions": "Yechimlar",
+        "candidates": "Nomzodlar",
+        "problems": "Ma'lum muammolar",
+        "codeKnowledge": "Koddan bilimlar",
+        "organizations": "Tashkilotlar",
+        "ideas": "G'oyalar",
+        "announcements": "E'lonlar",
+        "metrics": "Ko'rsatkichlar",
+        "digests": "Xulosalar",
+        "aiReview": "AI javoblari tahlili",
+        "all": "Barcha sozlamalar"
+      }
+    },
+    "breadcrumbs": "Yo'l",
+    "home": {
+      "title": "Ish joyi",
+      "emptyTitle": "Hozircha navbatlar yo'q",
+      "emptyText": "Ish joyi bo'limlari tayyor bo'lishi bilan ochiladi. Birinchi bo'lib murojaatlar navbatlari paydo bo'ladi."
     }
   }
 }

@@ -5,3 +5,4 @@ import 'server-only';
 // Тест tests/integration/schema-drift.test.ts сверяет этот список с базой.
 export * from '@/modules/hdc/schema';
 export * from '@/modules/hdr/schema';
+export * from '@/modules/hdu/schema';

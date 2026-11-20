@@ -1,5 +1,6 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
+import type { Locale } from '@/i18n/locales';
 import { localeNames } from '@/i18n/messages';
 import { Link } from '@/i18n/navigation';
 import { Logo } from '@/ui/brand/Logo';
@@ -32,7 +33,11 @@ export async function ClientShell({ children }: { children: ReactNode }) {
           <Logo onDark withProductName />
         </Link>
         <div className="ms-auto flex items-center">
-          <LanguageSwitcher names={await localeNames()} label={t('common.language.label')} />
+          <LanguageSwitcher
+            locale={(await getLocale()) as Locale}
+            names={await localeNames()}
+            label={t('common.language.label')}
+          />
           <ThemeSwitch
             labels={{
               label: t('common.theme.label'),

@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { NextIntlClientProvider } from 'next-intl';
-import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server';
-import { isLocale, TIME_ZONE } from '@/i18n/locales';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { isLocale } from '@/i18n/locales';
 import { StyleNonce } from '@/security/StyleNonce';
 import { ThemeScript } from '@/ui/theme/ThemeScript';
 import '../globals.css';
@@ -32,9 +31,10 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
       </head>
       <body>
         <StyleNonce />
-        <NextIntlClientProvider locale={locale} messages={await getMessages()} timeZone={TIME_ZONE}>
-          {children}
-        </NextIntlClientProvider>
+        {/* Тексты переводятся на сервере и приходят компонентам готовыми строками: библиотека сообщений
+            и сами сообщения в браузер не отправляются. Клиентскому экрану, которому нужны переводы,
+            поставщик сообщений подключается на его странице с нужной частью сообщений. */}
+        {children}
       </body>
     </html>
   );

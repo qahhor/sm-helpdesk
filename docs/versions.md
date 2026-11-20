@@ -35,6 +35,7 @@
 |---|---|---|
 | `@axe-core/playwright` | 4.14.0 | MPL-2.0 |
 | `@formatjs/icu-messageformat-parser` | 3.5.23 | MIT |
+| `@lhci/cli` | 0.16.1 | Apache-2.0 |
 | `@playwright/test` | 1.63.0 | Apache-2.0 |
 | `@tailwindcss/turbopack` | 4.3.5 | MIT |
 | `@testcontainers/postgresql` | 12.2.1 | MIT |

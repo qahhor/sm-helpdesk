@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { getEnv } from '@/env';
+import type { Locale } from '@/i18n/locales';
 import { localeNames } from '@/i18n/messages';
 import { Logo } from '@/ui/brand/Logo';
 import { TezMark } from '@/ui/brand/TezMark';
@@ -44,6 +45,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
   const only = (await searchParams).section;
   const t = await getTranslations();
   const names = await localeNames();
+  const locale = (await getLocale()) as Locale;
   const themeLabels = {
     label: t('common.theme.label'),
     light: t('common.theme.light'),
@@ -106,7 +108,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
       title: 'Выпадающее меню',
       body: () => (
         <div className="flex items-center gap-2">
-          <LanguageSwitcher names={names} label={t('common.language.label')} />
+          <LanguageSwitcher locale={locale} names={names} label={t('common.language.label')} />
           <ThemeSwitch labels={themeLabels} />
         </div>
       ),

@@ -1,4 +1,5 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
+import type { Locale } from '@/i18n/locales';
 import { localeNames } from '@/i18n/messages';
 import { Link } from '@/i18n/navigation';
 import { Logo } from '@/ui/brand/Logo';
@@ -32,7 +33,11 @@ export async function TopBar() {
         <SectionsMenu groups={groups} sectionsLabel={t('agent.nav.sections')} emptyLabel={t('agent.nav.soon')} />
       </nav>
       <div className="ms-auto flex items-center">
-        <LanguageSwitcher names={await localeNames()} label={t('common.language.label')} />
+        <LanguageSwitcher
+          locale={(await getLocale()) as Locale}
+          names={await localeNames()}
+          label={t('common.language.label')}
+        />
         <ThemeSwitch
           labels={{
             label: t('common.theme.label'),

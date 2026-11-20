@@ -1,0 +1,32 @@
+# Обновления зависимостей. Обычные обновления npm приходят раз в неделю одним запросом на слияние,
+# исправления безопасности сразу и отдельно. Пакет моложе 7 дней не предлагается:
+# то же правило задано для установки в pnpm-workspace.yaml (minimumReleaseAge).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tashkent
+    cooldown:
+      default-days: 7
+    groups:
+      weekly:
+        applies-to: version-updates
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly

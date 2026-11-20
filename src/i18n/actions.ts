@@ -1,9 +1,10 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getEnv } from '@/env';
 import { DEFAULT_LOCALE, isLocale, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from './locales';
-import { redirect } from './navigation';
+import { localizedHref } from './paths';
 
 /**
  * Посетитель выбрал язык: запомнить выбор на год и открыть ту же страницу на новом языке.
@@ -22,5 +23,5 @@ export async function chooseLocale(locale: string, pathname: string): Promise<vo
     httpOnly: true,
     secure: getEnv().HUB_URL.startsWith('https:'),
   });
-  redirect({ href: inside ? pathname : '/', locale: chosen });
+  redirect(localizedHref(chosen, inside ? pathname : '/'));
 }

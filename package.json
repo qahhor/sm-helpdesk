@@ -18,7 +18,9 @@
     "db:bootstrap": "node --env-file-if-exists=.env scripts/db/bootstrap.mjs",
     "db:migrate": "node --env-file-if-exists=.env scripts/db/migrate.mjs",
     "test:e2e": "playwright test --trace off",
-    "fonts:build": "node scripts/fonts/build.mjs"
+    "fonts:build": "node scripts/fonts/build.mjs",
+    "budget": "node scripts/checks/bundle-budget.mjs",
+    "lighthouse": "lhci collect && lhci assert"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",
@@ -39,6 +41,7 @@
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
     "@formatjs/icu-messageformat-parser": "3.5.23",
+    "@lhci/cli": "0.16.1",
     "@playwright/test": "1.63.0",
     "@tailwindcss/turbopack": "4.3.5",
     "@testcontainers/postgresql": "12.2.1",

@@ -1,46 +1,23 @@
 'use client';
 
 import { Monitor, Moon, Sun } from 'lucide-react';
-import { useEffect, useSyncExternalStore } from 'react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/ui/components/dropdown-menu';
-import { DEFAULT_THEME, isTheme, type Theme, THEME_COOKIE, THEME_COOKIE_MAX_AGE, THEMES } from './theme';
+import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from 'react';
+import { ICON_TRIGGER } from '@/ui/menu-trigger';
+import { DEFAULT_THEME, type Theme } from './theme';
+import { applyTheme, readTheme, subscribeTheme, SYSTEM_DARK } from './theme-client';
 
-const CHANGE_EVENT = 'hub-theme-change';
-const SYSTEM_DARK = '(prefers-color-scheme: dark)';
-
-function readTheme(): Theme {
-  const value = new RegExp(`(?:^|; )${THEME_COOKIE}=([a-z]+)`).exec(document.cookie)?.[1] ?? '';
-  return isTheme(value) ? value : DEFAULT_THEME;
-}
-
-function applyTheme(theme: Theme) {
-  const dark = theme === 'dark' || (theme === 'system' && window.matchMedia(SYSTEM_DARK).matches);
-  document.documentElement.classList.toggle('dark', dark);
-}
-
-function chooseTheme(theme: Theme) {
-  const secure = window.location.protocol === 'https:' ? '; secure' : '';
-  document.cookie = `${THEME_COOKIE}=${theme}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=lax${secure}`;
-  applyTheme(theme);
-  window.dispatchEvent(new Event(CHANGE_EVENT));
-}
-
-function subscribe(onChange: () => void) {
-  window.addEventListener(CHANGE_EVENT, onChange);
-  return () => window.removeEventListener(CHANGE_EVENT, onChange);
-}
+// Само меню подгружается при первом обращении к кнопке: см. комментарий в LanguageSwitcher.
+const loadMenu = () => import('./ThemeMenu');
+const ThemeMenu = lazy(loadMenu);
 
 const ICONS = { light: Sun, dark: Moon, system: Monitor } as const;
 
-/** Выбор темы оформления. Выбор запоминается на год. */
-export function ThemeSwitch({ labels }: { labels: { label: string } & Record<Theme, string> }) {
-  const theme = useSyncExternalStore(subscribe, readTheme, () => DEFAULT_THEME);
+export type ThemeLabels = { label: string } & Record<Theme, string>;
+
+/** Выбор темы оформления: светлая, тёмная или как в системе. Выбор запоминается на год. */
+export function ThemeSwitch({ labels }: { labels: ThemeLabels }) {
+  const theme = useSyncExternalStore(subscribeTheme, readTheme, () => DEFAULT_THEME);
+  const [opened, setOpened] = useState(false);
 
   // Пока выбрано "как в системе", тема следует за сменой системной настройки.
   useEffect(() => {
@@ -52,24 +29,30 @@ export function ThemeSwitch({ labels }: { labels: { label: string } & Record<The
   }, [theme]);
 
   const Icon = ICONS[theme];
+  const icon = <Icon className="size-5" aria-hidden />;
+  const button = (
+    <button
+      type="button"
+      aria-label={labels.label}
+      title={labels.label}
+      aria-haspopup="menu"
+      aria-expanded={false}
+      aria-busy={opened}
+      className={ICON_TRIGGER}
+      onPointerEnter={loadMenu}
+      onFocus={loadMenu}
+      onClick={() => setOpened(true)}
+    >
+      {icon}
+    </button>
+  );
+
+  if (!opened) return button;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={labels.label}
-        title={labels.label}
-        className="inline-flex size-control items-center justify-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Icon className="size-5" aria-hidden />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" aria-label={labels.label}>
-        <DropdownMenuRadioGroup value={theme} onValueChange={(value) => isTheme(value) && chooseTheme(value)}>
-          {THEMES.map((value) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              {labels[value]}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Suspense fallback={button}>
+      <ThemeMenu theme={theme} labels={labels}>
+        {icon}
+      </ThemeMenu>
+    </Suspense>
   );
 }

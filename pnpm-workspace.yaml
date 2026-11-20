@@ -7,6 +7,7 @@ trustPolicy: no-downgrade
 # Проверенные исключения. Причина каждого записана в docs/decisions/0001-stack-pins.md.
 trustPolicyExclude:
   - eslint-import-resolver-typescript@3.10.1
+  - chromium-bidi@157.0.8090-0
 # Установка падает, если пакет хочет выполнить сценарий сборки и его нет в allowBuilds.
 strictDepBuilds: true
 # Зависимости зависимостей только из реестра: без git и прямых ссылок на архивы.

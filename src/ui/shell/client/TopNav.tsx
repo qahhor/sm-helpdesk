@@ -1,7 +1,7 @@
 'use client';
 
 import { Link, usePathname } from '@/i18n/navigation';
-import { cn } from '@/ui/cn';
+import { clsx as cn } from 'clsx';
 import { type ClientNavItem, isActive } from './nav-config';
 import { NAV_ICONS } from './nav-icons';
 

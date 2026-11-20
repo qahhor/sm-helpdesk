@@ -1,11 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
 
 // Браузерные тесты идут против собранного приложения (pnpm build, затем pnpm start).
 // Три ширины экрана: телефон клиента, ноутбук агента и узкое окно, где меню агента сворачивается.
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
+// Каталог писем браузерных тестов. Его же читают помощники тестов.
+export const MAIL_DIR = resolve('test-results/mail');
 
 // База нужна проверке /api/ready. В CI её поднимает сама задача и задаёт адреса.
 // На машине разработчика адреса лежат в .env, базу из compose.yaml готовит tests/e2e/global-setup.ts.
@@ -52,6 +55,11 @@ export default defineConfig({
       HUB_SHOWCASE: '1',
       DATABASE_URL_APP: need('DATABASE_URL_APP'),
       DATABASE_URL_AUTH: need('DATABASE_URL_AUTH'),
+      BETTER_AUTH_SECRET: need('BETTER_AUTH_SECRET'),
+      ENCRYPTION_KEY: need('ENCRYPTION_KEY'),
+      // Письма со ссылками входа тесты читают из каталога.
+      MAIL_TRANSPORT: 'file',
+      MAIL_FILE_DIR: MAIL_DIR,
     },
   },
 });

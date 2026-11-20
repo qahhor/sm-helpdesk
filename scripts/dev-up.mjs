@@ -1,5 +1,5 @@
 // Запуск проекта одной командой: pnpm dev:up.
-// 1. Создаёт .env из .env.example со случайными паролями, если файла нет.
+// 1. Создаёт .env из .env.example со случайными паролями. В существующий файл дописывает недостающие переменные.
 // 2. Поднимает PostgreSQL (docker compose) и ждёт его готовности.
 // 3. Создаёт роли и базу, применяет миграции.
 // 4. Запускает приложение для разработки.
@@ -16,25 +16,80 @@ import { migrate } from './db/migrate.mjs';
 const root = resolve(import.meta.dirname, '..');
 const ENV_FILE = resolve(root, '.env');
 
+// Секреты, которым мало случайной строки из букв и цифр.
+/** @type {Record<string, () => string>} */
+const GENERATORS = {
+  // Ключ AES-256: ровно 32 байта в base64.
+  ENCRYPTION_KEY: () => randomBytes(32).toString('base64'),
+};
+
+const PLACEHOLDER = /change-me-[a-z]+/g;
+const escapeRegExp = (/** @type {string} */ text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Строки вида ИМЯ=значение, без комментариев. @param {string} text */
+function entries(text) {
+  /** @type {Map<string, string>} */
+  const found = new Map();
+  for (const line of text.split('\n')) {
+    const match = /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);
+    if (match) found.set(/** @type {string} */ (match[1]), /** @type {string} */ (match[2]));
+  }
+  return found;
+}
+
 /**
- * Создаёт .env со случайными паролями, если его ещё нет. Существующий файл не трогает.
- * @returns {boolean} true, если файл создан
+ * Готовит файл окружения для разработки.
+ * Файла нет: создаёт его из .env.example со случайными секретами.
+ * Файл есть: дописывает переменные, которых в нём не хватает (их приносят новые вехи), заданные не трогает.
+ * @param {{ envFile?: string; exampleFile?: string }} [opts]
+ * @returns {boolean} true, если файл создан или дополнен
  */
-export function ensureEnvFile() {
-  if (existsSync(ENV_FILE)) return false;
+export function ensureEnvFile(opts = {}) {
+  const envFile = opts.envFile ?? ENV_FILE;
+  const example = readFileSync(opts.exampleFile ?? resolve(root, '.env.example'), 'utf8');
   /** @type {Map<string, string>} */
   const secrets = new Map();
   // Одинаковая заглушка в .env.example получает один и тот же пароль:
   // пароль суперпользователя стоит и в адресе подключения, и в настройке контейнера.
-  let text = readFileSync(resolve(root, '.env.example'), 'utf8').replace(/change-me-[a-z]+/g, (placeholder) => {
-    if (!secrets.has(placeholder)) secrets.set(placeholder, randomBytes(18).toString('hex'));
-    return /** @type {string} */ (secrets.get(placeholder));
-  });
-  // Образ и порт базы, заданные в окружении, запоминаются: их читает docker compose.
-  for (const name of ['PG_IMAGE', 'PG_PORT'])
-    if (process.env[name]) text += `${name}=${process.env[name]}\n`;
-  if (process.env.PG_PORT) text = text.replaceAll('@127.0.0.1:5432/', `@127.0.0.1:${process.env.PG_PORT}/`);
-  writeFileSync(ENV_FILE, text, { mode: 0o600 });
+  const fill = (/** @type {string} */ name, /** @type {string} */ value) =>
+    GENERATORS[name] && /change-me-[a-z]+/.test(value)
+      ? GENERATORS[name]()
+      : value.replace(PLACEHOLDER, (placeholder) => {
+          if (!secrets.has(placeholder)) secrets.set(placeholder, randomBytes(18).toString('hex'));
+          return /** @type {string} */ (secrets.get(placeholder));
+        });
+
+  if (!existsSync(envFile)) {
+    let text = example
+      .split('\n')
+      .map((line) => {
+        const match = /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);
+        return match ? `${match[1]}=${fill(/** @type {string} */ (match[1]), /** @type {string} */ (match[2]))}` : line;
+      })
+      .join('\n');
+    // Образ и порт базы, заданные в окружении, запоминаются: их читает docker compose.
+    for (const name of ['PG_IMAGE', 'PG_PORT']) if (process.env[name]) text += `${name}=${process.env[name]}\n`;
+    if (process.env.PG_PORT) text = text.replaceAll('@127.0.0.1:5432/', `@127.0.0.1:${process.env.PG_PORT}/`);
+    writeFileSync(envFile, text, { mode: 0o600 });
+    return true;
+  }
+
+  const current = readFileSync(envFile, 'utf8');
+  const have = entries(current);
+  const wanted = entries(example);
+  // Секрет, который уже задан в файле, берётся оттуда: новая строка с той же заглушкой должна с ним совпасть.
+  for (const [name, template] of wanted) {
+    const value = have.get(name);
+    const placeholders = template.match(PLACEHOLDER);
+    if (value === undefined || !placeholders || placeholders.length !== 1) continue;
+    const [before, after] = template.split(/** @type {string} */ (placeholders[0]));
+    const match = new RegExp(`^${escapeRegExp(before ?? '')}(.+)${escapeRegExp(after ?? '')}$`).exec(value);
+    if (match) secrets.set(/** @type {string} */ (placeholders[0]), /** @type {string} */ (match[1]));
+  }
+  const missing = [...wanted].filter(([name]) => !have.has(name));
+  if (missing.length === 0) return false;
+  const added = missing.map(([name, value]) => `${name}=${fill(name, value)}`).join('\n');
+  writeFileSync(envFile, `${current.replace(/\n*$/, '\n')}\n# Добавлено командой pnpm dev:up\n${added}\n`, { mode: 0o600 });
   return true;
 }
 
@@ -49,7 +104,7 @@ export async function prepareDatabase() {
 
 if (import.meta.main) {
   try {
-    if (ensureEnvFile()) console.log('Создан файл .env со случайными паролями для разработки');
+    if (ensureEnvFile()) console.log('Файл .env готов: недостающие переменные получили случайные значения для разработки');
     if (process.argv.includes('--env-only')) process.exit(0);
     const { applied } = await prepareDatabase();
     console.log(applied > 0 ? `База готова, применено миграций: ${applied}` : 'База готова, новых миграций нет');

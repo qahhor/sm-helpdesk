@@ -8,6 +8,8 @@ const ok = {
   HUB_DOMAIN: 'hub.example.test',
   DATABASE_URL_APP: 'postgres://hub_app:app-secret@db:5432/hub',
   DATABASE_URL_AUTH: 'postgres://hub_auth:auth-secret@db:5432/hub',
+  BETTER_AUTH_SECRET: 'session-secret-of-at-least-32-chars!',
+  ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
 };
 
 test('полный набор проходит, значения по умолчанию подставлены', () => {
@@ -110,4 +112,55 @@ test('параметры в адресе базы не могут подмени
 test('искажённое имя пользователя и адрес без имени базы дают ошибку окружения, а не сбой', () => {
   expect(() => parseEnv({ ...ok, DATABASE_URL_APP: 'postgres://hub%zzapp:pw@db/hub' })).toThrowError(EnvError);
   expect(() => parseEnv({ ...ok, DATABASE_URL_APP: 'postgres://hub_app:pw@db:5432' })).toThrowError(/DATABASE_URL_APP/);
+});
+
+// --- Веха M1: секреты входа и режим почты ---
+
+const prod = {
+  ...ok,
+  NODE_ENV: 'production',
+  HUB_URL: 'https://hub.smartup24.com',
+  HUB_DOMAIN: 'hub.smartup24.com',
+};
+const problems = (env: Record<string, string | undefined>) => {
+  try {
+    parseEnv(env);
+    return [];
+  } catch (e) {
+    return (e as EnvError).problems;
+  }
+};
+
+test('короткий секрет сессий отклоняется, значение в сообщение не попадает', () => {
+  const p = problems({ ...prod, BETTER_AUTH_SECRET: 'short-secret' });
+  expect(p.map((x) => x.name)).toEqual(['BETTER_AUTH_SECRET']);
+  expect(JSON.stringify(p)).not.toContain('short-secret');
+});
+
+test('ключ шифрования обязан быть 32 байта в base64', () => {
+  expect(problems({ ...prod, ENCRYPTION_KEY: Buffer.alloc(16).toString('base64') }).map((x) => x.name)).toEqual([
+    'ENCRYPTION_KEY',
+  ]);
+  expect(problems({ ...prod, ENCRYPTION_KEY: 'не base64' }).map((x) => x.name)).toEqual(['ENCRYPTION_KEY']);
+  expect(problems({ ...prod, ENCRYPTION_KEY: undefined }).map((x) => x.name)).toEqual(['ENCRYPTION_KEY']);
+});
+
+test('секрет сессий и ключ шифрования не совпадают', () => {
+  const same = Buffer.alloc(32, 7).toString('base64');
+  expect(problems({ ...prod, BETTER_AUTH_SECRET: same, ENCRYPTION_KEY: same }).map((x) => x.name)).toContain(
+    'ENCRYPTION_KEY',
+  );
+});
+
+test('письма в журнал и в файл разрешены только на localhost', () => {
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'console' }).map((x) => x.name)).toEqual(['MAIL_TRANSPORT']);
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'file', MAIL_FILE_DIR: '/tmp/mail' }).map((x) => x.name)).toEqual([
+    'MAIL_TRANSPORT',
+  ]);
+  const local = { ...prod, HUB_URL: 'http://localhost:3000', HUB_DOMAIN: 'localhost' };
+  expect(problems({ ...local, MAIL_TRANSPORT: 'console' })).toEqual([]);
+  expect(problems({ ...local, MAIL_TRANSPORT: 'file' }).map((x) => x.name)).toEqual(['MAIL_FILE_DIR']);
+  expect(problems({ ...local, MAIL_TRANSPORT: 'file', MAIL_FILE_DIR: '/tmp/mail' })).toEqual([]);
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'pigeon' }).map((x) => x.name)).toEqual(['MAIL_TRANSPORT']);
+  expect(parseEnv(prod).MAIL_TRANSPORT).toBe('none');
 });

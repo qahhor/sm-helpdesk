@@ -14,11 +14,14 @@
 
 | Пакет | Версия | Лицензия |
 |---|---|---|
+| `@better-auth/sso` | 1.7.22 | MIT |
 | `@formatjs/icu-messageformat-parser` | 3.5.23 | MIT |
+| `better-auth` | 1.7.22 | MIT |
 | `class-variance-authority` | 0.7.1 | Apache-2.0 |
 | `clsx` | 2.1.1 | MIT |
 | `drizzle-orm` | 0.45.4 | Apache-2.0 |
 | `get-nonce` | 1.0.1 | MIT |
+| `kysely` | 0.29.9 | MIT |
 | `lucide-react` | 1.72.0 | ISC |
 | `next` | 16.4.6 | MIT |
 | `next-intl` | 4.15.1 | MIT |
@@ -28,6 +31,7 @@
 | `react-dom` | 19.3.1 | MIT |
 | `server-only` | 0.0.1 | MIT |
 | `tailwind-merge` | 3.7.0 | MIT |
+| `uqr` | 0.1.3 | MIT |
 | `zod` | 4.6.7 | MIT |
 
 ## Зависимости разработки
@@ -46,6 +50,8 @@
 | `eslint` | 9.39.5 | MIT |
 | `eslint-config-next` | 16.4.6 | MIT |
 | `fontkit` | 3.0.0 | MIT |
+| `oauth2-mock-server` | 9.3.0 | MIT |
+| `rolldown` | 1.2.19 | MIT |
 | `subset-font` | 2.9.0 | BSD-3-Clause |
 | `tailwindcss` | 4.3.5 | MIT |
 | `testcontainers` | 12.2.1 | MIT |

@@ -28,6 +28,10 @@ export default async function setup() {
     DATABASE_URL_OWNER: url('hub_owner', secret(), 'hub'),
     DATABASE_URL_APP: url('hub_app', secret(), 'hub'),
     DATABASE_URL_AUTH: url('hub_auth', secret(), 'hub'),
+    BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
+    ENCRYPTION_KEY: randomBytes(32).toString('base64'),
+    // Письма в тестах складываются в память, наружу ничего не уходит.
+    MAIL_TRANSPORT: 'none',
   });
 
   await bootstrap();

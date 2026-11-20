@@ -1,7 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 
-// Переменные окружения веб-приложения (ТЗ, раздел 13.5). Состав вехи M0.
+// Переменные окружения веб-приложения (ТЗ, раздел 13.5). Состав вех M0 и M1.
 // Остальные переменные добавляются в своих вехах. Адреса базы для владельца схемы
 // и суперпользователя сюда не входят: их читают только сценарии из scripts/db/.
 //
@@ -60,6 +60,15 @@ const databaseUrl = (role: 'hub_app' | 'hub_auth') =>
     return value;
   });
 
+/** Секрет подписи сессий. Короткий секрет подбирается перебором. */
+const sessionSecret = required().refine((value) => value.length >= 32, { error: 'ожидается не меньше 32 знаков' });
+
+/** Ключ AES-256: ровно 32 байта, записанные в base64. */
+const encryptionKey = required().refine(
+  (value) => /^[A-Za-z0-9+/]{43}=$/.test(value) && Buffer.from(value, 'base64').length === 32,
+  { error: 'ожидается 32 байта в base64, например вывод команды openssl rand -base64 32' },
+);
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production'], {
@@ -69,6 +78,11 @@ const schema = z
     HUB_DOMAIN: required(),
     DATABASE_URL_APP: databaseUrl('hub_app'),
     DATABASE_URL_AUTH: databaseUrl('hub_auth'),
+    BETTER_AUTH_SECRET: sessionSecret,
+    ENCRYPTION_KEY: encryptionKey,
+    // Письма со ссылками входа. Настоящая отправка появляется позже отдельным значением.
+    MAIL_TRANSPORT: z.enum(['none', 'console', 'file'], { error: 'ожидается none, console или file' }).default('none'),
+    MAIL_FILE_DIR: z.string().trim().min(1, { error: 'не задана' }).optional(),
     HUB_SHOWCASE: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error'], { error: 'ожидается debug, info, warn или error' }).default('info'),
   })
@@ -76,6 +90,21 @@ const schema = z
     const host = new URL(value.HUB_URL).hostname;
     if (value.HUB_DOMAIN !== host)
       ctx.addIssue({ code: 'custom', path: ['HUB_DOMAIN'], message: 'не совпадает с именем узла из HUB_URL' });
+    if (value.BETTER_AUTH_SECRET === value.ENCRYPTION_KEY)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ENCRYPTION_KEY'],
+        message: 'не должен совпадать с BETTER_AUTH_SECRET',
+      });
+    // Ссылка для входа это секрет: в журнале и в файле на диске ей место только на машине разработчика.
+    if (value.MAIL_TRANSPORT !== 'none' && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MAIL_TRANSPORT'],
+        message: 'значения console и file допускаются только для localhost и 127.0.0.1',
+      });
+    else if (value.MAIL_TRANSPORT === 'file' && !value.MAIL_FILE_DIR)
+      ctx.addIssue({ code: 'custom', path: ['MAIL_FILE_DIR'], message: 'не задана, а MAIL_TRANSPORT равен file' });
     if (value.HUB_SHOWCASE === '1' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({
         code: 'custom',

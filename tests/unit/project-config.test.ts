@@ -35,3 +35,20 @@ test('все зависимости закреплены точной верси
   for (const [name, range] of Object.entries({ ...p.dependencies, ...p.devDependencies }))
     expect(range, name).toMatch(/^\d+\.\d+\.\d+$/);
 });
+
+test('пакеты входа закреплены точными версиями', () => {
+  const p = pkg as unknown as Record<'dependencies' | 'devDependencies', Record<string, string>>;
+  expect(p.dependencies['better-auth']).toBe('1.7.22');
+  expect(p.dependencies['@better-auth/sso']).toBe('1.7.22');
+  expect(p.dependencies.kysely).toBe('0.29.9');
+  expect(p.dependencies.uqr).toBe('0.1.3');
+  expect(p.devDependencies['oauth2-mock-server']).toBe('9.3.0');
+  expect(p.devDependencies.rolldown).toBe('1.2.19');
+});
+
+test('пример окружения называет новые переменные без значений секретов', () => {
+  const example = readFileSync('.env.example', 'utf8');
+  for (const name of ['BETTER_AUTH_SECRET', 'ENCRYPTION_KEY', 'MAIL_TRANSPORT', 'MAIL_FILE_DIR']) expect(example).toContain(name);
+  expect(example).toMatch(/^BETTER_AUTH_SECRET=change-me-[a-z]+$/m);
+  expect(example).toMatch(/^ENCRYPTION_KEY=change-me-[a-z]+$/m);
+});

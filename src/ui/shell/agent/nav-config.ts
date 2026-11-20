@@ -39,7 +39,7 @@ export const AGENT_NAV_GROUPS: readonly AgentNavGroup[] = [
 ];
 
 /** Включённые вехи. Каждая веха, которая приносит раздел рабочего места, добавляет сюда свой код. */
-export const ENABLED_MILESTONES: ReadonlySet<string> = new Set(['M0']);
+export const ENABLED_MILESTONES: ReadonlySet<string> = new Set(['M0', 'M1']);
 
 /** Пункты группы, чьи вехи включены. */
 export function visibleItems(group: AgentNavGroup, enabled: ReadonlySet<string>): readonly AgentNavItem[] {

@@ -151,6 +151,88 @@
       "title": "Workspace",
       "emptyTitle": "No queues yet",
       "emptyText": "Workspace sections open as they become ready. Request queues come first."
+    },
+    "orgs": {
+      "title": "Organizations",
+      "search": "Search",
+      "searchHint": "Name, tax ID or company ID",
+      "find": "Find",
+      "name": "Name",
+      "inn": "Tax ID",
+      "server": "Server",
+      "category": "Category",
+      "members": "Members",
+      "state": "Status",
+      "states": {
+        "active": "Active",
+        "passive": "Disabled"
+      },
+      "none": "None",
+      "emptyTitle": "No organizations found",
+      "emptyText": "Change the query: search works by name, tax ID and company ID.",
+      "invalid": "The query is too long: 100 characters at most.",
+      "pages": "Pages",
+      "prev": "Back",
+      "next": "Next",
+      "membersTitle": "Members",
+      "memberName": "Name",
+      "email": "Email",
+      "emailNone": "Not confirmed",
+      "role": "Role",
+      "source": "Source",
+      "memberState": "Status",
+      "actions": "Actions",
+      "roles": {
+        "client_user": "User",
+        "client_admin": "Administrator"
+      },
+      "sources": {
+        "smartup": "Smartup",
+        "invite": "Client invitation",
+        "staff": "Smartup invitation",
+        "guest": "Guest"
+      },
+      "memberStates": {
+        "active": "Active",
+        "passive": "Disabled"
+      },
+      "makeAdmin": "Make administrator",
+      "makeUser": "Make user",
+      "disable": "Disable",
+      "enable": "Enable",
+      "confirmTitle": "Disable member {name}?",
+      "confirmText": "The member loses access to the organization portal on their next action. You can enable them again.",
+      "confirm": "Disable member",
+      "cancel": "Cancel",
+      "inviteTitle": "Invite to the organization",
+      "inviteEmail": "Email",
+      "invite": "Invite",
+      "invitationsTitle": "Invitations",
+      "invitationsEmpty": "No invitations.",
+      "expires": "Valid until",
+      "revoke": "Revoke",
+      "invitationStates": {
+        "pending": "Awaiting reply",
+        "accepted": "Accepted",
+        "revoked": "Revoked",
+        "expired": "Expired"
+      },
+      "reauth": "Sign in again",
+      "errors": {
+        "stale_session": "This action needs a recent sign-in: no older than 15 minutes.",
+        "forbidden": "This action is not available to you.",
+        "not_found": "Record not found. Refresh the page.",
+        "invalid_input": "Check the entered data.",
+        "already_member": "This person is already a member of the organization.",
+        "rate_limited": "Too many invitations to this organization. Try again in an hour."
+      },
+      "done": {
+        "roleChanged": "Role changed.",
+        "disabled": "Member disabled.",
+        "enabled": "Member is active again.",
+        "invited": "Invitation sent.",
+        "revoked": "Invitation revoked."
+      }
     }
   },
   "auth": {

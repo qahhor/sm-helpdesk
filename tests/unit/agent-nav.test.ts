@@ -25,8 +25,13 @@ test('состав групп этапа 1 и вехи, в которых пун
   });
 });
 
-test('в вехе M0 включена только M0', () => {
-  expect([...ENABLED_MILESTONES]).toEqual(['M0']);
+test('включены вехи M0 и M1', () => {
+  expect([...ENABLED_MILESTONES]).toEqual(['M0', 'M1']);
+});
+
+test('в вехе M1 в группе "Клиенты" есть пункт "Организации"', () => {
+  const group = AGENT_NAV_GROUPS.find((g) => g.key === 'clients');
+  expect(visibleItems(group!, ENABLED_MILESTONES).map((i) => i.key)).toEqual(['organizations']);
 });
 
 test('у каждой группы и каждого пункта есть подпись на трёх языках', () => {

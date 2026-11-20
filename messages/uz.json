@@ -151,6 +151,88 @@
       "title": "Ish joyi",
       "emptyTitle": "Hozircha navbatlar yo'q",
       "emptyText": "Ish joyi bo'limlari tayyor bo'lishi bilan ochiladi. Birinchi bo'lib murojaatlar navbatlari paydo bo'ladi."
+    },
+    "orgs": {
+      "title": "Tashkilotlar",
+      "search": "Qidiruv",
+      "searchHint": "Nomi, STIR yoki kompaniya identifikatori",
+      "find": "Topish",
+      "name": "Nomi",
+      "inn": "STIR",
+      "server": "Server",
+      "category": "Toifa",
+      "members": "A'zolar",
+      "state": "Holat",
+      "states": {
+        "active": "Faol",
+        "passive": "O'chirilgan"
+      },
+      "none": "Yo'q",
+      "emptyTitle": "Tashkilotlar topilmadi",
+      "emptyText": "So'rovni o'zgartiring: qidiruv nomi, STIR va kompaniya identifikatori bo'yicha ishlaydi.",
+      "invalid": "So'rov juda uzun: 100 belgidan oshmasin.",
+      "pages": "Sahifalar",
+      "prev": "Orqaga",
+      "next": "Keyingi",
+      "membersTitle": "A'zolar",
+      "memberName": "Ism",
+      "email": "Email",
+      "emailNone": "Tasdiqlanmagan",
+      "role": "Rol",
+      "source": "Manba",
+      "memberState": "Holat",
+      "actions": "Amallar",
+      "roles": {
+        "client_user": "Foydalanuvchi",
+        "client_admin": "Administrator"
+      },
+      "sources": {
+        "smartup": "Smartup",
+        "invite": "Mijoz taklifi",
+        "staff": "Smartup taklifi",
+        "guest": "Mehmon"
+      },
+      "memberStates": {
+        "active": "Faol",
+        "passive": "O'chirilgan"
+      },
+      "makeAdmin": "Administrator qilish",
+      "makeUser": "Foydalanuvchi qilish",
+      "disable": "O'chirish",
+      "enable": "Yoqish",
+      "confirmTitle": "{name} a'zoni o'chirasizmi?",
+      "confirmText": "A'zo keyingi amalda tashkilot kabinetiga kira olmaydi. Uni qayta yoqish mumkin.",
+      "confirm": "A'zoni o'chirish",
+      "cancel": "Bekor qilish",
+      "inviteTitle": "Tashkilotga taklif qilish",
+      "inviteEmail": "Email",
+      "invite": "Taklif qilish",
+      "invitationsTitle": "Takliflar",
+      "invitationsEmpty": "Takliflar yo'q.",
+      "expires": "Amal qiladi",
+      "revoke": "Bekor qilish",
+      "invitationStates": {
+        "pending": "Javob kutilmoqda",
+        "accepted": "Qabul qilindi",
+        "revoked": "Bekor qilindi",
+        "expired": "Muddati o'tdi"
+      },
+      "reauth": "Qayta kirish",
+      "errors": {
+        "stale_session": "Bu amal uchun yangi kirish kerak: 15 daqiqadan oshmagan.",
+        "forbidden": "Bu amal sizga mavjud emas.",
+        "not_found": "Yozuv topilmadi. Sahifani yangilang.",
+        "invalid_input": "Kiritilgan ma'lumotlarni tekshiring.",
+        "already_member": "Bu odam allaqachon tashkilot a'zosi.",
+        "rate_limited": "Bu tashkilotga takliflar juda ko'p. Bir soatdan keyin urinib ko'ring."
+      },
+      "done": {
+        "roleChanged": "Rol o'zgartirildi.",
+        "disabled": "A'zo o'chirildi.",
+        "enabled": "A'zo yana faol.",
+        "invited": "Taklif yuborildi.",
+        "revoked": "Taklif bekor qilindi."
+      }
     }
   },
   "auth": {

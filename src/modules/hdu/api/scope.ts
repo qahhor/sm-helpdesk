@@ -36,3 +36,10 @@ export function manageScope(scope: OrgScope): ResolvedScope {
   const orgId = parseInput(uuidInput, 'orgId' in scope ? scope.orgId : undefined);
   return { actor: ctx.actor, orgId, selfId: ctx.actor.userId, actorName: ctx.user.name, orgName: null };
 }
+
+/** Просмотр организаций и участников в рабочем месте: все сотрудники-люди. AI-сотрудник не видит ничего. */
+export function requireHumanStaff(ctx: StaffContext): void {
+  // Тип актора роль agent_bot не допускает, но актор строится из данных базы: проверка остаётся страховкой.
+  const role: string = ctx.actor.staffRole;
+  if (ctx.actor.type !== 'staff' || role === 'agent_bot') throw new HduError('forbidden');
+}

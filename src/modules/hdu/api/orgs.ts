@@ -1,8 +1,11 @@
 import 'server-only';
 import type { ClientActor } from '@/db/with-actor';
-import { loadClientAccess, type MyOrganization, setActiveOrganization } from '../core/orgs';
+import { z } from 'zod';
+import { getOrgRow, loadClientAccess, type MyOrganization, type OrgRow, searchOrgs, setActiveOrganization } from '../core/orgs';
 import { HduError } from '../error';
 import { parseInput, uuidInput } from '../input';
+import { requireHumanStaff } from './scope';
+import type { StaffContext } from './session';
 import { isSyntheticEmail } from '../util';
 import type { SessionData } from './request';
 
@@ -81,4 +84,31 @@ export async function switchOrganization(session: SessionData, orgId: unknown): 
   const { isStaff, orgs } = await loadClientAccess(session.user.id);
   if (isStaff || !orgs.some((org) => org.orgId === id)) throw new HduError('not_member');
   await setActiveOrganization({ sessionId: session.session.id, userId: session.user.id }, id, { remember: true });
+}
+
+// --- Организации в рабочем месте (FR-ID-13): все сотрудники-люди видят все организации ---
+
+export type { OrgRow };
+
+const ORG_PAGE_SIZE = 50;
+const searchInput = z.object({
+  query: z.string().trim().max(100).optional(),
+  page: z.coerce.number().int().min(1).max(10_000).optional(),
+});
+
+/** Поиск по названию, ИНН и идентификатору компании. По 50 строк, hasMore: есть следующая страница. */
+export async function searchOrganizations(ctx: StaffContext, input: unknown): Promise<{ items: OrgRow[]; hasMore: boolean }> {
+  requireHumanStaff(ctx);
+  const parsed = searchInput.safeParse(input ?? {});
+  if (!parsed.success) throw new HduError('invalid_input');
+  const page = parsed.data.page ?? 1;
+  const rows = await searchOrgs(ctx.actor, { query: parsed.data.query ?? '', offset: (page - 1) * ORG_PAGE_SIZE, limit: ORG_PAGE_SIZE });
+  return { items: rows.slice(0, ORG_PAGE_SIZE), hasMore: rows.length > ORG_PAGE_SIZE };
+}
+
+/** Карточка организации. Неверный или неизвестный идентификатор: пусто (страница отвечает 404). */
+export async function getOrganization(ctx: StaffContext, orgId: unknown): Promise<OrgRow | null> {
+  requireHumanStaff(ctx);
+  const parsed = uuidInput.safeParse(orgId);
+  return parsed.success ? getOrgRow(ctx.actor, parsed.data) : null;
 }

@@ -331,3 +331,15 @@ export async function clientCtx(member: { userId: string }): Promise<ClientConte
 export function staffCtx(member: { userId: string; name: string; actor: StaffActor }): StaffContext {
   return { actor: member.actor, user: { id: member.userId, name: member.name, email: '' }, isLead: false, sessionCreatedAt: new Date() };
 }
+
+/** Сотрудник с ролью строками в базе: для проверки прав сервисов. */
+export async function staffWithRole(role: StaffRole): Promise<{ userId: string; name: string; actor: StaffActor }> {
+  const userId = (
+    await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ('Сотрудник', $1, true) returning id`, [
+      `staff-role-${next()}@smartup.example`,
+    ])
+  ).rows[0].id as string;
+  await pools.root.query(`insert into hdu_staff (user_id, role) values ($1, $2)`, [userId, role]);
+  // Роль agent_bot тип актора сотрудника не допускает: тест проверяет, что сервис отказывает и в этом случае.
+  return { userId, name: 'Сотрудник', actor: { type: 'staff', userId, staffRole: role as StaffActor['staffRole'] } };
+}

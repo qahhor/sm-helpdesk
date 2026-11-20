@@ -1,10 +1,12 @@
 import 'server-only';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/audit';
+import { authUser } from '../auth-schema';
 import { HduError } from '../error';
 import type { ClientRole, MembershipSource, RecordState } from '../pref';
+import { isSyntheticEmail } from '../util';
 import { memberships, organizations, userProfiles } from '../schema';
 
 // Модуль hdu, слой core: участники организации. Чтение через hub_app и политики чтения,
@@ -68,6 +70,51 @@ export async function changeMemberState(actor: ClientActor | StaffActor, orgId: 
       objectId: userId,
       orgId,
       diff: { from: current.state, to: state },
+    });
+  });
+}
+
+/**
+ * Подтверждённые адреса пользователей для карточки организации в рабочем месте. Служебный адрес
+ * не адрес человека и не показывается. Таблица учётных записей доступна только hub_auth: читает система.
+ */
+export async function findVerifiedEmails(userIds: string[]): Promise<Map<string, string>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await withIdentity({ type: 'system', job: 'identity.staff-view' }, (tx) =>
+    tx
+      .select({ id: authUser.id, email: authUser.email })
+      .from(authUser)
+      .where(and(inArray(authUser.id, userIds), eq(authUser.emailVerified, true))),
+  );
+  return new Map(rows.filter((row) => !isSyntheticEmail(row.email)).map((row) => [row.id, row.email]));
+}
+
+/**
+ * Смена роли участника сотрудником (FR-ID-13). Роль отмечается выданной вручную: вход через Smartup
+ * её не меняет. Одна транзакция с записью member.role_changed: не записался журнал, не меняется и роль.
+ */
+export async function changeMemberRoleTx(actor: StaffActor, orgId: string, userId: string, role: ClientRole): Promise<void> {
+  await withIdentity(actor, async (tx) => {
+    const current = (
+      await tx
+        .select({ role: memberships.role })
+        .from(memberships)
+        .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, userId)))
+        .limit(1)
+        .for('update')
+    )[0];
+    if (!current) throw new HduError('not_found');
+    if (current.role === role) return;
+    await tx
+      .update(memberships)
+      .set({ role, isRoleManual: true })
+      .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, userId)));
+    await writeAudit(tx, {
+      action: 'member.role_changed',
+      objectType: 'membership',
+      objectId: userId,
+      orgId,
+      diff: { from: current.role, to: role },
     });
   });
 }

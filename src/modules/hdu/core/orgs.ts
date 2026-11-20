@@ -1,9 +1,10 @@
 import 'server-only';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
+import { type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { authSession, authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
-import { memberships, organizations, staff } from '../schema';
+import { memberships, organizations, servers, staff } from '../schema';
 
 // Модуль hdu, слой core: организации пользователя и активная организация сессии (ТЗ 11.1, FR-ID-05).
 // Без библиотеки входа: колонки activeOrgId и lastOrgId принадлежат порталу, библиотека их только хранит.
@@ -47,4 +48,56 @@ export async function setActiveOrganization(
       .where(and(eq(authSession.id, target.sessionId), eq(authSession.userId, target.userId)));
     if (opts.remember) await tx.update(authUser).set({ lastOrgId: orgId }).where(eq(authUser.id, target.userId));
   });
+}
+
+// --- Организации в рабочем месте (задача 12). Чтение через hub_app от имени сотрудника ---
+
+export type OrgRow = {
+  orgId: string;
+  name: string;
+  inn: string | null;
+  serverName: string;
+  category: 'A' | 'B' | 'C' | 'D' | null;
+  state: 'active' | 'passive';
+  /** Действующих участников. */
+  memberCount: number;
+};
+
+const orgColumns = {
+  orgId: organizations.orgId,
+  name: organizations.name,
+  inn: organizations.inn,
+  serverName: servers.name,
+  category: organizations.category,
+  state: organizations.state,
+  memberCount: sql<number>`(select count(*)::int from hdu_memberships m where m.org_id = ${organizations.orgId} and m.state = 'active')`,
+};
+
+/** Знаки шаблона LIKE в запросе ищутся как обычные знаки. */
+const likeEscape = (text: string) => text.replace(/[\\%_]/g, (char) => `\\${char}`);
+
+/** Поиск по названию, ИНН и идентификатору компании, без учёта регистра. limit + 1 строка: есть ли ещё. */
+export async function searchOrgs(actor: StaffActor, input: { query: string; offset: number; limit: number }): Promise<OrgRow[]> {
+  const pattern = `%${likeEscape(input.query)}%`;
+  const filter = input.query
+    ? or(ilike(organizations.name, pattern), ilike(organizations.inn, pattern), ilike(organizations.externalCompanyId, pattern))
+    : undefined;
+  return withActor(actor, (tx) =>
+    tx
+      .select(orgColumns)
+      .from(organizations)
+      .innerJoin(servers, eq(servers.serverId, organizations.serverId))
+      .where(filter)
+      .orderBy(asc(organizations.name), asc(organizations.orgId))
+      .limit(input.limit + 1)
+      .offset(input.offset),
+  );
+}
+
+/** Одна организация глазами сотрудника. */
+export async function getOrgRow(actor: StaffActor, orgId: string): Promise<OrgRow | null> {
+  const rows = await withActor(actor, (tx) =>
+    tx.select(orgColumns).from(organizations).innerJoin(servers, eq(servers.serverId, organizations.serverId)).where(eq(organizations.orgId, orgId)).limit(1),
+  );
+  return rows[0] ?? null;
 }

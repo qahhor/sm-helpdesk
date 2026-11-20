@@ -28,9 +28,9 @@
     "dev:telegram": "node scripts/mock-telegram.mjs"
   },
   "dependencies": {
-    "@better-auth/sso": "1.7.22",
+    "@better-auth/sso": "1.7.23",
     "@formatjs/icu-messageformat-parser": "3.5.23",
-    "better-auth": "1.7.22",
+    "better-auth": "1.7.23",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.4",
@@ -51,22 +51,22 @@
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
     "@lhci/cli": "0.16.1",
-    "@playwright/test": "1.63.0",
+    "@playwright/test": "1.65.0",
     "@tailwindcss/turbopack": "4.3.5",
     "@testcontainers/postgresql": "12.2.1",
     "@types/node": "26.6.6",
     "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "eslint": "9.39.5",
+    "eslint": "10.14.0",
     "eslint-config-next": "16.4.6",
     "fontkit": "3.0.0",
     "oauth2-mock-server": "9.3.0",
-    "rolldown": "1.2.19",
+    "rolldown": "1.3.2",
     "subset-font": "2.9.0",
     "tailwindcss": "4.3.5",
     "testcontainers": "12.2.1",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "vitest": "5.1.0",
     "yaml": "2.9.1"
   }

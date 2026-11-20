@@ -1,11 +1,10 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 import { totp } from '../../helpers/totp';
-import { dbRows } from './db';
 
 // Сотрудники браузерных тестов. Их один раз заводит проект setup (tests/e2e/staff.setup.ts):
-// приглашение, пароль и второй фактор проходят через интерфейс, как у настоящего сотрудника.
+// приглашение создаёт команда hub, пароль и второй фактор проходят через интерфейс, как у настоящего сотрудника.
 // Учётные данные и сохранённые сессии лежат в tests/e2e/.auth (каталог не попадает в репозиторий).
 
 export const AUTH_DIR = 'tests/e2e/.auth';
@@ -24,15 +23,17 @@ export function staffAccount(key: StaffKey): E2eStaff {
 }
 
 /**
- * Приглашение сотрудника строкой в базе: токен случайный, в базе лежит его хеш, как у настоящего приглашения.
- * Возвращает токен для ссылки /ru/staff/setup?token=...
+ * Приглашение сотрудника командой консоли hub (собранный файл dist/hub.mjs), как на настоящем сервере.
+ * Возвращает токен из напечатанной ссылки /ru/staff/setup?token=...
  */
-export async function createStaffInvitation(input: { email: string; name: string; role: string }): Promise<string> {
-  const token = randomBytes(32).toString('base64url');
-  await dbRows(
-    `insert into hdu_invitations (email, role, name, token_hash, expires_on) values ($1, $2, $3, $4, now() + interval '24 hours')`,
-    [input.email, input.role, input.name, createHash('sha256').update(token).digest('hex')],
+export function createStaffInvitation(input: { email: string; name: string; role: string }): string {
+  const out = execFileSync(
+    process.execPath,
+    ['dist/hub.mjs', 'staff:create', '--email', input.email, '--name', input.name, '--role', input.role],
+    { encoding: 'utf8', env: process.env },
   );
+  const token = /token=([\w-]{43})/.exec(out)?.[1];
+  if (!token) throw new Error('Команда hub не напечатала ссылку приглашения');
   return token;
 }
 

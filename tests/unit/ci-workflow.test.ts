@@ -54,3 +54,8 @@ test('в образ не попадают секреты и лишние фай�
   const ignore = readFileSync('.dockerignore', 'utf8').split('\n');
   for (const line of ['.env*', '.git', 'node_modules', 'tests', 'docs']) expect(ignore).toContain(line);
 });
+
+test('команда hub попадает в образ', () => {
+  expect(dockerfile).toMatch(/^COPY --from=build --chown=1001:1001 \/app\/dist\/hub\.mjs \.\/hub\.mjs$/m);
+  expect(pkg.scripts.build).toContain('scripts/build-cli.mjs');
+});

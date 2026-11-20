@@ -18,7 +18,7 @@ setup('сотрудники для браузерных тестов', async ({ 
   for (const account of ACCOUNTS) {
     const email = `e2e-${account.key}-${run}@smartup.example`;
     const password = `e2e-${account.key}-${run}-password`;
-    const token = await createStaffInvitation({ email, name: account.name, role: account.role });
+    const token = createStaffInvitation({ email, name: account.name, role: account.role });
     const context = await browser.newContext();
     const page = await context.newPage();
     const totpSecret = await acceptAndEnroll(page, { token, email, password });

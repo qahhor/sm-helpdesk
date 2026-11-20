@@ -82,8 +82,13 @@ test('сессия клиента живёт 30 дней', async () => {
   const client = await verifiedClientFixture('thirty@acme.test');
   await auth.api.signInMagicLink({ body: { email: client.email }, headers: new Headers() });
   await auth.api.magicLinkVerify({ query: { token: lastToken() }, headers: new Headers() });
-  const row = (await pools.root.query(`select "expiresAt" - "createdAt" as ttl from auth.session where "userId" = $1`, [client.userId])).rows[0];
-  expect(row.ttl.days).toBe(30);
+  // Срок задаёт библиотека, время создания база: между ними доли секунды, поэтому сравнение с допуском.
+  const row = (
+    await pools.root.query(`select extract(epoch from "expiresAt" - "createdAt")::int as ttl from auth.session where "userId" = $1`, [
+      client.userId,
+    ])
+  ).rows[0];
+  expect(Math.abs(row.ttl - 30 * 24 * 3600)).toBeLessThan(60);
 });
 
 test('сотрудник не получает сессию по ссылке, его пароль остаётся на месте', async () => {

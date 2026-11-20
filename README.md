@@ -40,8 +40,31 @@ pnpm dev:up
 | `pnpm lighthouse` | Lighthouse: скорость не ниже 0,85, доступность не ниже 0,95 |
 | `pnpm db:bootstrap`, `pnpm db:migrate` | Роли базы и миграции |
 | `pnpm fonts:build` | Файлы шрифта для веба из шрифта пакета бренда |
+| `pnpm hub <команда>` | Команда консоли: сотрудники и серверы Smartup (раздел ниже) |
 
 Перед каждым коммитом: `pnpm check` и `pnpm test`.
+
+## Первый администратор и серверы Smartup
+
+Сотрудников и серверы Smartup до появления экранов администратора ведёт команда консоли `hub`. В разработке: `pnpm hub <команда>`, на сервере в контейнере: `node hub.mjs <команда>`. Каждое изменение пишется в журнал аудита.
+
+```bash
+# Первый администратор портала (FR-ID-12): команда печатает одноразовую ссылку на 24 часа.
+# По ссылке человек сам задаёт пароль, затем при первом входе подключает второй фактор.
+pnpm hub staff:create --email admin@smartup24.com --name "Имя Фамилия" --role admin
+
+# Сотрудник потерял телефон с кодами: пароль и второй фактор удаляются, все сессии завершаются, печатается новая ссылка.
+pnpm hub staff:reset --email admin@smartup24.com
+
+# Сервер Smartup. Секрет клиента OAuth не передаётся аргументом: он берётся из переменной
+# HUB_OAUTH_CLIENT_SECRET или спрашивается без отображения на экране.
+pnpm hub server:add --code cloud --name "Облако Smartup" --base-url https://cloud.smartup.example \
+  --issuer https://id.smartup.example --client-id hub --default
+pnpm hub server:list
+pnpm hub server:disable --code cloud
+```
+
+Адреса сервера принимаются только внешние и только по https (исключение: сам портал запущен на localhost). Команда `server:add` печатает адрес возврата, который нужно сообщить разработчикам Smartup при регистрации портала как клиента OAuth.
 
 ## Как устроено
 

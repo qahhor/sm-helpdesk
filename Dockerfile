@@ -30,6 +30,9 @@ COPY --from=build --chown=1001:1001 /app/public ./public
 COPY --chown=1001:1001 drizzle ./drizzle
 COPY --chown=1001:1001 scripts/db ./scripts/db
 COPY --chown=1001:1001 scripts/healthcheck.mjs ./scripts/healthcheck.mjs
+# Команда консоли: первый администратор, сброс доступа сотрудника, реестр серверов Smartup.
+# Один файл со всеми зависимостями: node hub.mjs <команда>.
+COPY --from=build --chown=1001:1001 /app/dist/hub.mjs ./hub.mjs
 
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --retries=3 CMD ["node", "scripts/healthcheck.mjs"]

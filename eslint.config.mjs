@@ -33,6 +33,8 @@ const eslintConfig = defineConfig([
             {
               group: ['@/db/client', '@/db/with-actor', '**/db/client', '**/db/with-actor'],
               message: DB_BOUNDARY,
+              // Типы актора нужны и страницам: импорт типа к базе не обращается.
+              allowTypeImports: true,
             },
             AUTH_DB_PATTERN,
             {
@@ -62,6 +64,8 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Собранная команда консоли (scripts/build-cli.mjs).
+    'dist/**',
   ]),
 ]);
 

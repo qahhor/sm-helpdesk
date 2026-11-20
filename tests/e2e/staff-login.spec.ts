@@ -24,7 +24,7 @@ test('сотрудник задаёт пароль, подключает вто�
   const run = Date.now().toString(36);
   const email = `e2e-new-${run}@smartup.example`;
   const password = `e2e-new-${run}-password`;
-  const token = await createStaffInvitation({ email, name: 'Новый сотрудник', role: 'agent_l2' });
+  const token = createStaffInvitation({ email, name: 'Новый сотрудник', role: 'agent_l2' });
 
   await page.goto(`/ru/staff/setup?token=${token}`);
   await expect(page.getByText(email)).toBeVisible();
@@ -119,7 +119,8 @@ test('выход завершает сессию', async ({ page }) => {
 });
 
 test('вход записан в журнал аудита', async ({ page }) => {
-  const care = staffAccount('care');
+  // Учётная запись, под которой параллельно никто успешно не входит: счёт записей точный.
+  const care = staffAccount('l1');
   const before = await dbRows<{ n: number }>(
     `select count(*)::int as n from hdc_audit_log a join auth."user" u on u.id::text = a.actor_id where a.action = 'staff.signed_in' and u.email = $1`,
     [care.email],

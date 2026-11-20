@@ -43,3 +43,9 @@ test('страницы и интерфейс видят модуль тольк�
   // Модули между собой этим правилом не ограничены.
   expect(await lint('src/modules/hdu/core/staff.ts', "import { writeAudit } from '@/modules/hdc/audit';")).not.toContain('no-restricted-imports');
 }, 30_000);
+
+test('типы актора видны и вне слоя базы, сам клиент базы нет', async () => {
+  expect(await lint('src/cli/commands.ts', "import type { SystemActor } from '@/db/with-actor';")).not.toContain('no-restricted-imports');
+  expect(await lint('src/cli/commands.ts', "import { withActor } from '@/db/with-actor';")).toContain('no-restricted-imports');
+  expect(await lint('src/cli/main.ts', "import { closeAuthPool } from '@/db/auth-client';")).toContain('no-restricted-imports');
+}, 30_000);

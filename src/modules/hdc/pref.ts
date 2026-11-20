@@ -13,6 +13,7 @@ export const AUDIT_ACTIONS = [
   // Реестр серверов Smartup
   'server.added',
   'server.disabled',
+  'server.enabled',
   // Организации и участники
   'org.provisioned',
   'member.joined',

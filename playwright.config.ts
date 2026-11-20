@@ -7,6 +7,8 @@ const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  // Эталонные снимки лежат в одной папке, без деления по проектам и системам.
+  snapshotPathTemplate: 'tests/e2e/__screenshots__/{arg}{ext}',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

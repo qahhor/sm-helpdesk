@@ -1,0 +1,53 @@
+import Image from 'next/image';
+import { cn } from '@/ui/cn';
+import { pickTezAsset, TEZ_ASSETS } from './tez-assets';
+
+// Размеры Теза в интерфейсе и охранное поле для каждого (1/6 размера, tezClearSpace).
+// Список закрытый: поле задаётся классом, а не вычисленным стилем.
+const SIZES = {
+  24: 'p-1',
+  32: 'p-1.5',
+  40: 'p-1.75',
+  64: 'p-2.75',
+  96: 'p-4',
+  120: 'p-5',
+} as const;
+
+export type TezSize = keyof typeof SIZES;
+
+/**
+ * Тез, герой бренда и лицо AI-помощника. Файл выбирается по размеру и фону.
+ * Параметров поворота, отражения и цвета нет: гид бренда это запрещает.
+ * На экране одновременно один крупный Тез (UX-B-04).
+ *
+ * onDark не задан: фон следует за темой, файл подбирается сам.
+ * onDark задан: фон постоянный, например тёмная шапка в обеих темах.
+ */
+export function TezMark({ size, onDark, className }: { size: TezSize; onDark?: boolean; className?: string }) {
+  const image = (dark: boolean, visibility?: string) => {
+    const asset = pickTezAsset(size, dark);
+    if (!asset) return null;
+    return (
+      <Image
+        src={`/brand/tez/${TEZ_ASSETS[asset]}`}
+        width={size}
+        height={size}
+        alt=""
+        aria-hidden
+        className={visibility}
+      />
+    );
+  };
+  return (
+    <span data-tez={size > 40 ? 'main' : 'icon'} className={cn('inline-flex shrink-0', SIZES[size], className)}>
+      {onDark === undefined ? (
+        <>
+          {image(false, 'dark:hidden')}
+          {image(true, 'hidden dark:block')}
+        </>
+      ) : (
+        image(onDark)
+      )}
+    </span>
+  );
+}

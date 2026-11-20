@@ -15,7 +15,8 @@
       "light": "Light",
       "dark": "Dark",
       "system": "System"
-    }
+    },
+    "close": "Close"
   },
   "client": {
     "home": {

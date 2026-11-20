@@ -15,7 +15,8 @@
       "light": "Yorug'",
       "dark": "Qorong'i",
       "system": "Tizimdagidek"
-    }
+    },
+    "close": "Yopish"
   },
   "client": {
     "home": {

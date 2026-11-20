@@ -178,3 +178,33 @@ test('язык из Smartup при первом входе и выбор язы�
   const other = await ssoSignIn(mock, { sub: '7002', name: 'y', company_id: '501', company_name: 'ACME Trade', locale: 'de-DE' });
   expect((await pools.root.query(`select locale from auth."user" where id = $1`, [other.user.id])).rows[0].locale).toBeNull();
 });
+
+test('сбой ответа бота после привязки не отменяет её, письмо о привязке уходит, повтора не нужно (итоговая проверка, I4)', async () => {
+  const f = await seedTwoOrgs();
+  await pools.root.query(`update auth."user" set email = 'a-user@acme.test', "emailVerified" = true where id = $1`, [f.aUser.userId]);
+  tg.bot.failNext();
+  await expect(handleTelegramUpdate(start(await linkCodeFor(f.aUser)))).resolves.toBeUndefined();
+  expect((await pools.root.query(`select external_id from hdu_contact_identities where user_id = $1`, [f.aUser.userId])).rows).toEqual([
+    { external_id: '777001' },
+  ]);
+  expect(mail.mailer.sent.map((m) => m.kind)).toEqual(['telegram-linked']);
+  // Сбой ответа на команду без изменений тоже не превращается в ошибку вебхука.
+  tg.bot.failNext();
+  await expect(handleTelegramUpdate(tgUpdate({ from: 777001, text: 'привет' }))).resolves.toBeUndefined();
+});
+
+test('Telegram не отвечает: кнопка привязки не падает ошибкой и не тратит попытку (итоговая проверка, I2)', async () => {
+  const f = await seedTwoOrgs();
+  setTelegramBotForTests(
+    createTelegramBot({
+      token: '1:x',
+      secret: 'secret-secret-secret-secret-secret-0',
+      apiUrl: 'http://localhost:3199',
+      fetch: async () => Promise.reject(new TypeError('сеть')),
+    }),
+  );
+  const ctx = await clientCtx(f.aUser);
+  expect(await startTelegramLink(ctx)).toEqual({ error: 'unavailable' });
+  expect((await pools.root.query(`select 1 from hdu_link_codes where user_id = $1`, [f.aUser.userId])).rowCount).toBe(0);
+  expect((await pools.root.query(`select 1 from hdc_rate_limits where code like 'telegram-link:%'`)).rowCount).toBe(0);
+});

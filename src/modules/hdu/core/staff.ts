@@ -39,6 +39,9 @@ export type StaffInvitationInput = { email: string; name: string; role: HumanSta
  *
  * resetUserId задан при сбросе доступа: в той же транзакции у сотрудника удаляются пароль и второй фактор
  * и завершаются все сессии (ТЗ 14.3). Новый пароль он задаст по ссылке.
+ *
+ * Новое приглашение на адрес действующего сотрудника отклоняется (already_member): роль меняется только
+ * сменой роли с проверкой последнего администратора и записью аудита, доступ восстанавливается сбросом.
  */
 export async function createStaffInvitation(
   actor: Actor,
@@ -48,6 +51,15 @@ export async function createStaffInvitation(
   const { token, hash } = newToken();
   const expiresOn = new Date(Date.now() + STAFF_INVITATION_TTL_SEC * 1000);
   await withIdentity(actor, async (tx) => {
+    if (!opts.resetUserId) {
+      const existing = await tx
+        .select({ userId: staff.userId })
+        .from(staff)
+        .innerJoin(authUser, eq(authUser.id, staff.userId))
+        .where(eq(authUser.email, input.email))
+        .limit(1);
+      if (existing.length > 0) throw new HduError('already_member');
+    }
     if (opts.resetUserId) {
       await revokeUserSessions(tx, opts.resetUserId);
       await tx.delete(authTwoFactor).where(eq(authTwoFactor.userId, opts.resetUserId));
@@ -178,8 +190,9 @@ export async function acceptStaffInvitationTx(input: {
     await tx
       .insert(staff)
       .values({ userId, role: invitation.role as StaffRole, isLead: invitation.isLead })
-      // Повторное приглашение после сброса состояние сотрудника не трогает: заблокированный остаётся заблокированным.
-      .onConflictDoUpdate({ target: staff.userId, set: { role: invitation.role as StaffRole, isLead: invitation.isLead } });
+      // Ссылка после сброса роль, признак руководителя и состояние сотрудника не трогает: роль меняется
+      // только сменой роли (с проверкой последнего администратора и аудитом), заблокированный остаётся заблокированным.
+      .onConflictDoNothing({ target: staff.userId });
     await tx.update(invitations).set({ acceptedOn: new Date() }).where(eq(invitations.invitationId, invitation.invitationId));
     if (created)
       await writeAudit(tx, {

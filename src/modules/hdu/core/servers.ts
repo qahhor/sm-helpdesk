@@ -88,7 +88,12 @@ export type ServerInput = {
  * Добавляет сервер или обновляет сервер с тем же кодом (код не меняется, состояние тоже).
  * Признак "по умолчанию" снимается с прежнего сервера в той же транзакции.
  */
-export async function saveServer(actor: Actor, input: ServerInput, ip: string | null = null): Promise<void> {
+export async function saveServer(
+  actor: Actor,
+  input: ServerInput,
+  ip: string | null = null,
+  opts: { createOnly?: boolean } = {},
+): Promise<void> {
   const sealed = getSecretBox().seal(input.clientSecret, secretContext(input.code));
   const work = withIdentity(actor, async (tx) => {
     if (input.isDefault)
@@ -104,6 +109,8 @@ export async function saveServer(actor: Actor, input: ServerInput, ip: string | 
       isDefault: input.isDefault,
     };
     const existing = await tx.select({ code: servers.code }).from(servers).where(eq(servers.code, input.code)).limit(1);
+    // Форма "Добавить сервер" существующий сервер не перезаписывает: его меняют на карточке.
+    if (existing.length > 0 && opts.createOnly) throw new HduError('server_taken');
     if (existing.length > 0) await tx.update(servers).set(values).where(eq(servers.code, input.code));
     else await tx.insert(servers).values({ ...values, code: input.code });
     await writeAudit(tx, {

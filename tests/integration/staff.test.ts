@@ -144,6 +144,23 @@ test('первый вход по паролю начинает подключе�
   });
 });
 
+test('сессия без кода не становится сессией сотрудника, когда второй фактор подключили в другом браузере (итоговая проверка, C1)', async () => {
+  const staff = await acceptedStaff('admin');
+  // Браузер A: только пароль, подключение не завершено.
+  const a = newJar();
+  expect((await signInStaff({ email: staff.email, password: staff.password }, a.request)).step).toBe('enroll');
+  // Браузер B: пароль и подключение второго фактора.
+  const b = newJar();
+  const enroll = await signInStaff({ email: staff.email, password: staff.password }, b.request);
+  if (enroll.step !== 'enroll') throw new Error(`ожидался шаг подключения, получен ${enroll.step}`);
+  expect(await verifyStaffCode({ code: totp(enroll.secret) }, b.request)).toEqual({ ok: true });
+  expect(await resolveStaff(await readSession(b.request), new Date())).toHaveProperty('actor');
+  // Сессия A кода не предъявляла: рабочее место для неё закрыто.
+  const sessionA = await readSession(a.request);
+  expect(sessionA).not.toBeNull();
+  expect(await resolveStaff(sessionA, new Date())).toEqual({ denied: 'no_second_factor' });
+});
+
 test('вход с подключённым вторым фактором: пароль, затем код, запись в журнале с адресом', async () => {
   const staff = await enrolledStaffFixture(await getAuth(), { role: 'agent_l2' });
   const jar = newJar({ 'x-forwarded-for': '203.0.113.20', 'user-agent': 'Test/1.0' });

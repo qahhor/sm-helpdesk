@@ -72,3 +72,10 @@ test('браузерным тестам в CI заданы ключи порта
   expect(mocks).toBeGreaterThan(migrate);
   expect(mocks).toBeLessThan(steps.indexOf('pnpm test:e2e'));
 });
+
+test('контейнер в задаче image получает все обязательные переменные окружения (итоговая проверка M1)', () => {
+  const run = (wf.jobs.image.steps as { run?: string }[]).map((step) => step.run ?? '').join('\n');
+  const passed = new Set([...run.matchAll(/--env ([A-Z_]+)=/g)].map((m) => m[1]));
+  for (const name of ['HUB_URL', 'HUB_DOMAIN', 'DATABASE_URL_APP', 'DATABASE_URL_AUTH', 'BETTER_AUTH_SECRET', 'ENCRYPTION_KEY'])
+    expect(passed, name).toContain(name);
+});

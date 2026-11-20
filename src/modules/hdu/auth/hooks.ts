@@ -15,6 +15,8 @@ export type StaffLookup = (userId: string) => Promise<StaffInfo | null>;
 /** Пути, которыми сессию может получить сотрудник: пароль и код второго фактора. */
 const STAFF_SIGN_IN_PATHS = new Set(['/sign-in/email', '/two-factor/verify-totp']);
 const PASSWORD_PATH = '/sign-in/email';
+/** Путь проверки кода: только сессия, созданная здесь, получает отметку второго фактора. */
+const TOTP_PATH = '/two-factor/verify-totp';
 
 type SessionDraft = { userId: string; expiresAt?: Date | string } & Record<string, unknown>;
 type HookContext = { path?: string; context?: { session?: { session?: { createdAt?: Date | string }; user?: { id?: string } } | null } } | null;
@@ -32,7 +34,15 @@ export function createSessionHooks(findStaff: StaffLookup) {
         }
         if (staff.state !== 'active' || staff.role === 'agent_bot') return false;
         if (!STAFF_SIGN_IN_PATHS.has(path)) return false;
-        return { data: { ...session, expiresAt: new Date(Date.now() + STAFF_SESSION_TTL_SEC * 1000) } };
+        // Сессия после одного пароля нужна только для подключения второго фактора: отметки у неё нет,
+        // и рабочее место она не откроет, даже если второй фактор потом подключат в другом браузере.
+        return {
+          data: {
+            ...session,
+            expiresAt: new Date(Date.now() + STAFF_SESSION_TTL_SEC * 1000),
+            secondFactorAt: path === TOTP_PATH ? new Date() : null,
+          },
+        };
       },
     },
     update: {
@@ -51,6 +61,33 @@ export function createSessionHooks(findStaff: StaffLookup) {
     },
   };
 }
+
+/** Поля токенов сервера Smartup в auth.account. */
+const TOKEN_FIELDS = ['accessToken', 'refreshToken', 'idToken', 'accessTokenExpiresAt', 'refreshTokenExpiresAt'] as const;
+
+function withoutTokens(account: Record<string, unknown>): Record<string, unknown> {
+  const copy = { ...account };
+  for (const field of TOKEN_FIELDS) if (field in copy) copy[field] = null;
+  return copy;
+}
+
+/**
+ * Токены сервера Smartup портал не использует: личность берётся при входе, дальше работает сессия портала.
+ * Поэтому в базу они не пишутся, и утечка резервной копии не отдаёт действующие токены клиентов
+ * (итоговая проверка вехи M1, решение 0012).
+ */
+export const accountHooks = {
+  create: {
+    async before(account: Record<string, unknown>) {
+      return { data: withoutTokens(account) };
+    },
+  },
+  update: {
+    async before(account: Record<string, unknown>) {
+      return { data: withoutTokens(account) };
+    },
+  },
+};
 
 /** Запрос "запомнить это устройство" при проверке кода отклоняется: настройкой его не выключить. */
 export const beforeHook = createAuthMiddleware(async (ctx) => {

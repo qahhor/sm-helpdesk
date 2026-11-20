@@ -164,7 +164,8 @@
         "hint": "The Smartup Hub bot opens. Press \"Start\" there, then come back here.",
         "errors": {
           "rate_limited": "Too many attempts. Try again in an hour.",
-          "disabled": "Linking Telegram is not available right now."
+          "disabled": "Linking Telegram is not available right now.",
+          "unavailable": "Telegram is not responding right now. Try linking the bot again in a few minutes."
         }
       }
     }
@@ -395,7 +396,7 @@
         },
         "errors": {
           "invalid_input": "Check the fields: code, addresses (https and public hosts only), role mapping and endpoints without discovery (all four or none).",
-          "server_taken": "This Smartup address or sign-in server address is already used by another server.",
+          "server_taken": "The code, Smartup address or sign-in server address is already used by another server. To change a server, open its card.",
           "stale_session": "Changing settings needs a sign-in no older than 15 minutes.",
           "forbidden": "You have no rights for this action.",
           "not_found": "Server not found."
@@ -471,7 +472,8 @@
           "invalid_input": "Check the fields: address, name and role.",
           "stale_session": "This action needs a sign-in no older than 15 minutes.",
           "forbidden": "Not allowed: this is your own account, or the portal would be left without an active administrator.",
-          "not_found": "Staff member not found."
+          "not_found": "Staff member not found.",
+          "already_member": "This address already belongs to a staff member. Change their role or reset their access in the list below."
         },
         "reauth": "Sign in again",
         "manage": "Manage",
@@ -626,7 +628,8 @@
         "noServer": "No Smartup server was found for sign-in. Enter your Smartup address.",
         "rateLimited": "Too many sign-in attempts. Try again in 10 minutes.",
         "serverNotFound": "We could not find this server. Check the address or contact Smartup support.",
-        "lookupRateLimited": "Too many attempts. Try again in an hour."
+        "lookupRateLimited": "Too many attempts. Try again in an hour.",
+        "serverDown": "The Smartup server is not responding right now. Try again in a few minutes or sign in with an email link."
       },
       "botIntro": "No access to Smartup? If Telegram is linked to your account, sign in through the bot: press \"Sign in\" there.",
       "botLink": "Open the Smartup Hub bot"

@@ -33,10 +33,27 @@ test('отказ сервиса и токен с чужого сайта не п
   expect(await make(answer({ success: true })).verify('tok', null)).toBe('failed');
 });
 
-test('пустой, слишком длинный и нестроковый токен отклоняются без запроса', async () => {
+test('слишком длинный и нестроковый токен отклоняются без запроса', async () => {
   const fetch = answer({ success: true, hostname: 'hub.smartup24.com' });
-  for (const token of [null, undefined, '', 42, ['x'], 'x'.repeat(2049)]) expect(await make(fetch).verify(token, null)).toBe('failed');
+  for (const token of [42, ['x'], { a: 1 }, 'x'.repeat(2049)]) expect(await make(fetch).verify(token, null)).toBe('failed');
   expect(fetch).not.toHaveBeenCalled();
+});
+
+test('нет токена: если сервис отвечает, действие закрывается; если сервис недоступен, виджет не загрузился ни у кого и вход не закрывается (итоговая проверка, I3)', async () => {
+  // Сервис отвечает: токена нет у одного посетителя (решение 0018).
+  const alive = answer({ success: false, 'error-codes': ['missing-input-response'] });
+  const check = make(alive);
+  for (const token of [null, undefined, '']) expect(await check.verify(token, null)).toBe('failed');
+  // Проверка доступности сервиса запоминается на минуту: поток запросов без токена не множит обращения к сервису.
+  expect(alive).toHaveBeenCalledTimes(1);
+  // Сервис недоступен: виджет не загрузился ни у кого, действуют только ограничения частоты (пункт 16 плана M1).
+  const down = make(
+    vi.fn(async () => {
+      throw new Error('сеть');
+    }),
+  );
+  expect(await down.verify('', null)).toBe('unavailable');
+  expect(await make(answer({}, 503)).verify(undefined, null)).toBe('unavailable');
 });
 
 test('сбой сервиса проверки не закрывает вход', async () => {

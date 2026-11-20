@@ -2,6 +2,7 @@ import 'server-only';
 import { sso, type SSOUserResolution, type SSOUserResolutionContext, type SSOUserResolutionInput } from '@better-auth/sso';
 import type { BetterAuthOptions } from 'better-auth';
 import { magicLink, twoFactor } from 'better-auth/plugins';
+import { clientIpHeader } from '@/modules/hdc/util';
 import { PostgresDialect } from 'kysely';
 import type { Pool } from 'pg';
 import {
@@ -12,7 +13,7 @@ import {
   TOTP_LOCK_SEC,
   TOTP_MAX_FAILED_ATTEMPTS,
 } from '../pref';
-import { beforeHook, createSessionHooks, type StaffLookup } from './hooks';
+import { accountHooks, beforeHook, createSessionHooks, type StaffLookup } from './hooks';
 import { type SsoServer, toSsoProviders, trustedOriginsFor } from './sso-providers';
 import { hubTrusted } from './trusted';
 
@@ -71,7 +72,11 @@ export function buildAuthOptions(deps: AuthDeps) {
       expiresIn: SESSION_TTL_SEC,
       updateAge: SESSION_UPDATE_AGE_SEC,
       // Активную организацию меняет только сервер после проверки членства: input: false.
-      additionalFields: { activeOrgId: { type: 'string', required: false, input: false } },
+      // Отметку второго фактора ставит только хук создания сессии (auth/hooks.ts): input: false.
+      additionalFields: {
+        activeOrgId: { type: 'string', required: false, input: false },
+        secondFactorAt: { type: 'date', required: false, input: false },
+      },
     },
     // Учётные записи по совпадению email не объединяются (решение 93 ТЗ).
     account: { accountLinking: { enabled: false } },
@@ -80,14 +85,15 @@ export function buildAuthOptions(deps: AuthDeps) {
       useSecureCookies: deps.baseUrl.startsWith('https://'),
       // Идентификаторы задаёт база: uuidv7().
       database: { generateId: 'uuid' },
-      ipAddress: { ipAddressHeaders: ['x-forwarded-for'] },
+      // Тот же источник адреса посетителя, что у счётчиков и журнала портала (CLIENT_IP_HEADER).
+      ipAddress: { ipAddressHeaders: [clientIpHeader()] },
     },
     // Библиотека не считает вызовы функций, а портал вызывает её именно так. Считает портал (hdc_rate_limits).
     rateLimit: { enabled: false },
     // Ошибку возврата с сервера Smartup показывает страница входа портала, а не страница библиотеки:
     // её адрес /api/auth/error снаружи закрыт. Язык в адрес добавит прокси портала.
     onAPIError: { errorURL: `${deps.baseUrl}/login` },
-    databaseHooks: { session: createSessionHooks(deps.staff) },
+    databaseHooks: { session: createSessionHooks(deps.staff), account: accountHooks },
     hooks: { before: beforeHook },
 
     plugins: [

@@ -6,6 +6,7 @@ import { getAuth } from '@/modules/hdu/auth/instance';
 import { readSession } from '@/modules/hdu/api/request';
 import { resolveStaff, type StaffContext } from '@/modules/hdu/api/session';
 import { acceptStaffInvitation, describeStaffInvitation, signInStaff, verifyStaffCode } from '@/modules/hdu/api/staff';
+import { inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import {
   changeStaffRole,
   inviteStaffByMail,
@@ -166,4 +167,27 @@ test('сотрудник, заблокированный между пароле
   await pools.root.query(`update hdu_staff set state = 'passive' where user_id = $1`, [target.userId]);
   expect(await verifyStaffCode({ code: totp(target.totpSecret) }, jar.request)).toEqual({ ok: false, code: 'sign_in_expired' });
   expect((await pools.root.query(`select 1 from auth.session where "userId" = $1`, [target.userId])).rowCount).toBe(0);
+});
+
+test('приглашение на адрес действующего сотрудника отклоняется: роль меняется только через смену роли (итоговая проверка, I7)', async () => {
+  const f = await seedTwoOrgs();
+  const target = await enrolled('admin');
+  const system = { type: 'system', job: 'test' } as const;
+  await expect(inviteStaff(system, { email: target.email, name: 'x', role: 'care' })).rejects.toMatchObject({ code: 'already_member' });
+  await expect(inviteStaffByMail(staffCtx(f.adminStaff), { email: target.email, name: 'x', role: 'care', locale: 'ru' })).rejects.toMatchObject({
+    code: 'already_member',
+  });
+  const bot = await createStaffFixture({ role: 'agent_bot' });
+  await expect(inviteStaff(system, { email: bot.email, name: 'x', role: 'admin' })).rejects.toMatchObject({ code: 'already_member' });
+  expect((await pools.root.query(`select role from hdu_staff where user_id = $1`, [target.userId])).rows).toEqual([{ role: 'admin' }]);
+  expect(box.mailer.sent).toEqual([]);
+});
+
+test('принятие ссылки после сброса роль сотрудника не меняет', async () => {
+  const target = await enrolled('admin');
+  const { token } = await resetStaff({ type: 'system', job: 'test' }, { email: target.email });
+  // Роль в приглашении подменена в базе: принятие всё равно оставляет роль сотрудника прежней.
+  await pools.root.query(`update hdu_invitations set role = 'care' where email = $1 and accepted_on is null and revoked_on is null`, [target.email]);
+  await acceptStaffInvitation({ token, name: 'x', password: 'correct-horse-12' });
+  expect((await pools.root.query(`select role from hdu_staff where user_id = $1`, [target.userId])).rows).toEqual([{ role: 'admin' }]);
 });

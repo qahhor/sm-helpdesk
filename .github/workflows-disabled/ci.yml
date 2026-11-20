@@ -137,6 +137,8 @@ jobs:
             --env HUB_URL=http://localhost:3000 --env HUB_DOMAIN=localhost \
             --env DATABASE_URL_APP=postgres://hub_app:ci-app@127.0.0.1:5432/hub \
             --env DATABASE_URL_AUTH=postgres://hub_auth:ci-auth@127.0.0.1:5432/hub \
+            --env BETTER_AUTH_SECRET=ci-only-session-secret-0123456789abcdef \
+            --env ENCRYPTION_KEY=Y2ktb25seS1lbmNyeXB0aW9uLWtleS0zMmJ5dGVzISE= \
             smartup-hub:ci
           for attempt in $(seq 1 30); do
             if curl --silent --fail http://127.0.0.1:3000/api/health; then exit 0; fi

@@ -4,7 +4,16 @@ import { isLocale, type Locale } from '@/i18n/locales';
 import { resolveLocale } from '@/i18n/resolve-locale';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
-import { botText, getTelegramBot, queueMail, type SendOptions, type TelegramUpdate, type TelegramUser, telegramLinkedMail } from '@/modules/hdn/api';
+import {
+  botText,
+  getTelegramBot,
+  queueMail,
+  type SendOptions,
+  TelegramError,
+  type TelegramUpdate,
+  type TelegramUser,
+  telegramLinkedMail,
+} from '@/modules/hdn/api';
 import { clientIp } from '@/modules/hdc/util';
 import { createTrustedSession } from '../core/trusted';
 import {
@@ -28,20 +37,29 @@ import { readSession, type RequestInfo } from './request';
 // Привязывают только клиенты: функции принимают ClientContext, сотрудники Telegram не привязывают.
 
 /** Ссылка на бота с одноразовым кодом привязки: t.me/<бот>?start=<код>. 5 ссылок в час на пользователя. */
-export async function startTelegramLink(ctx: ClientContext): Promise<{ url: string } | { error: 'disabled' | 'rate_limited' }> {
+export async function startTelegramLink(
+  ctx: ClientContext,
+): Promise<{ url: string } | { error: 'disabled' | 'rate_limited' | 'unavailable' }> {
   const bot = getTelegramBot();
   if (!bot.enabled) return { error: 'disabled' };
+  // Имя бота первым: Telegram не отвечает, и попытка не тратится, код не создаётся (итоговая проверка M1).
+  let username: string;
+  try {
+    ({ username } = await bot.getMe());
+  } catch (error) {
+    if (error instanceof TelegramError) return { error: 'unavailable' };
+    throw error;
+  }
   const limit = await consumeRateLimit(rateKey('telegram-link:user', ctx.user.id), RATE_RULES.telegramLinkPerUser);
   if (!limit.allowed) return { error: 'rate_limited' };
   const code = await createLinkCode(ctx.actor);
-  const { username } = await bot.getMe();
   return { url: `https://t.me/${username}?start=${code}` };
 }
 
 /** То же по кукам запроса: для обработчика кнопки "Привязать Telegram". Только клиент с организацией. */
 export async function startTelegramLinkOfRequest(
   request: Pick<RequestInfo, 'headers'>,
-): Promise<{ url: string } | { error: 'disabled' | 'rate_limited' | 'no_session' }> {
+): Promise<{ url: string } | { error: 'disabled' | 'rate_limited' | 'unavailable' | 'no_session' }> {
   const client = await resolveClient(await readSession(request));
   if ('denied' in client) return { error: 'no_session' };
   return startTelegramLink(client);
@@ -99,7 +117,15 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
   const chatId = String(message?.chat.id ?? callback?.message?.chat.id ?? from.id);
   const identity = await findTelegramIdentity(externalId);
   const locale: Locale = identity?.locale ?? resolveLocale({ acceptLanguage: from.language_code ?? null });
-  const reply = (text: string, opts?: SendOptions) => bot.sendMessage(chatId, text, opts);
+  // Сбой ответа не превращается в ошибку вебхука: изменения уже сохранены, а повтор события от Telegram
+  // дал бы неверный ответ ("код недействителен" после привязки) и вторую ссылку входа. Человек повторит команду.
+  const reply = async (text: string, opts?: SendOptions) => {
+    try {
+      await bot.sendMessage(chatId, text, opts);
+    } catch (error) {
+      console.error(`Ответ бота не отправлен: ${error instanceof Error ? error.message : 'ошибка'}`);
+    }
+  };
   const fallback = () => reply(botText(locale, 'fallback'), portalButton(locale));
 
   async function unlink() {
@@ -127,6 +153,14 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
     if (result === 'invalid') return reply(botText(locale, 'codeInvalid'), portalButton(locale));
     if (result === 'taken') return reply(botText(locale, 'alreadyLinked'));
     const replyLocale = result.locale ?? locale;
+    // Письмо о новой привязке на подтверждённый адрес (угроза T30): привязал не человек, он отвяжет аккаунт.
+    // Письмо ставится до ответа бота: сбой ответа его не отменит.
+    if (result.email)
+      queueMail({
+        to: result.email,
+        kind: 'telegram-linked',
+        ...telegramLinkedMail(replyLocale, { account: displayNameOf(from as TelegramUser), url: `${getEnv().HUB_URL}/${replyLocale}/settings` }),
+      });
     await reply(botText(replyLocale, 'linked', { name: result.userName, org: result.orgName ?? '' }), {
       choices: [
         { text: botText(replyLocale, 'buttonSignIn'), data: 'login' },
@@ -134,13 +168,6 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
         { text: botText(replyLocale, 'buttonUnlink'), data: 'unlink' },
       ],
     });
-    // Письмо о новой привязке на подтверждённый адрес (угроза T30): привязал не человек, он отвяжет аккаунт.
-    if (result.email)
-      queueMail({
-        to: result.email,
-        kind: 'telegram-linked',
-        ...telegramLinkedMail(replyLocale, { account: displayNameOf(from as TelegramUser), url: `${getEnv().HUB_URL}/${replyLocale}/settings` }),
-      });
   }
 
   async function signInLink() {

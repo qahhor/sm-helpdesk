@@ -21,7 +21,7 @@ export async function ChannelsSection({ link, status }: { link: { displayName: s
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {status === 'unlinked' && <Alert tone="success">{t('unlinked')}</Alert>}
-        {(status === 'rate_limited' || status === 'disabled') && <Alert tone="danger">{t(`errors.${status}`)}</Alert>}
+        {(status === 'rate_limited' || status === 'disabled' || status === 'unavailable') && <Alert tone="danger">{t(`errors.${status}`)}</Alert>}
         {link ? (
           <form action={unlinkTelegramAction} className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
             <p>{t('linked', { account: link.displayName, date: formatDate(link.linkedOn, locale) })}</p>

@@ -6,8 +6,10 @@ import { getEnv } from '@/env';
 //
 // Вердикт:
 //   passed       проверка пройдена или выключена;
-//   failed       сервис отказал, токен с чужого сайта или токена нет: действие закрывается;
+//   failed       сервис отказал, токен с чужого сайта, токен неверного вида или токена нет при работающем
+//                сервисе: действие закрывается;
 //   unavailable  сервис не ответил: действие не закрывается, действуют ограничения частоты (пункт 16 плана M1).
+//                Токена нет, а сервис недоступен: виджет не загрузился ни у кого, это тоже unavailable.
 
 export type BotVerdict = 'passed' | 'failed' | 'unavailable';
 
@@ -20,6 +22,8 @@ const SITEVERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 /** Токен виджета не длиннее 2048 знаков (документация Turnstile). */
 const TOKEN_LIMIT = 2048;
 const DEFAULT_TIMEOUT_MS = 3000;
+/** Сколько помнить, отвечает ли сервис, когда токена нет: поток запросов без токена не множит обращения. */
+const PROBE_TTL_MS = 60_000;
 
 type Config = { secret?: string; hostname: string; fetch?: typeof fetch; timeoutMs?: number };
 
@@ -61,23 +65,41 @@ export function createBotCheck(cfg: Config): BotCheck {
     return result.success === true && result.hostname === cfg.hostname ? 'passed' : 'failed';
   }
 
+  /** Запрос к сервису с пределом времени. */
+  async function askWithTimeout(token: string, ip: string | null): Promise<BotVerdict> {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<BotVerdict>((resolve) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        resolve(unavailable('время ответа вышло'));
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([ask(token, ip, controller.signal), timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  let probe: { reachable: boolean; at: number } | null = null;
+
+  /** Отвечает ли сервис: запрос без токена. Любой ответ, кроме сбоя, значит "отвечает". */
+  async function serviceReachable(): Promise<boolean> {
+    if (probe && Date.now() - probe.at < PROBE_TTL_MS) return probe.reachable;
+    const reachable = (await askWithTimeout('', null)) !== 'unavailable';
+    probe = { reachable, at: Date.now() };
+    return reachable;
+  }
+
   return {
     enabled: true,
     async verify(token, ip) {
-      if (typeof token !== 'string' || token.length === 0 || token.length > TOKEN_LIMIT) return 'failed';
-      const controller = new AbortController();
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const timeout = new Promise<BotVerdict>((resolve) => {
-        timer = setTimeout(() => {
-          controller.abort();
-          resolve(unavailable('время ответа вышло'));
-        }, timeoutMs);
-      });
-      try {
-        return await Promise.race([ask(token, ip, controller.signal), timeout]);
-      } finally {
-        clearTimeout(timer);
-      }
+      // Токен неверного вида присылает робот: отказ без запроса.
+      if (token !== undefined && token !== null && token !== '' && (typeof token !== 'string' || token.length > TOKEN_LIMIT)) return 'failed';
+      // Токена нет: у одного посетителя заблокирован виджет (отказ) или сервис лёг у всех (вход не закрывается).
+      if (typeof token !== 'string' || token.length === 0) return (await serviceReachable()) ? 'failed' : 'unavailable';
+      return askWithTimeout(token, ip);
     },
   };
 }

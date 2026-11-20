@@ -17,7 +17,7 @@ import { InviteStaffForm } from './InviteStaffForm';
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2';
-const ERRORS = new Set(['invalid_input', 'stale_session', 'forbidden', 'not_found']);
+const ERRORS = new Set(['invalid_input', 'stale_session', 'forbidden', 'not_found', 'already_member']);
 const DONE = new Set(['invited', 'roleChanged', 'blocked', 'unblocked', 'reset']);
 const NO_MAIL: Record<string, { done: string; command: string }> = {
   invitedNoMail: { done: 'invited', command: 'hub staff:create --email <email> --name <name> --role <role>' },

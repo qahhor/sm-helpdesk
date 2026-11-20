@@ -1,5 +1,6 @@
 // Модуль hdc, слой util: чистые функции без обращения к базе (docs/naming.md, раздел 5).
 import { isIP } from 'node:net';
+import { CLIENT_IP_HEADERS, type ClientIpHeader } from '@/env';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
@@ -25,14 +26,21 @@ export async function readyResponse(ping: () => Promise<boolean>): Promise<Respo
   );
 }
 
+/** Заголовок адреса посетителя из настроек (CLIENT_IP_HEADER). Не задан: x-forwarded-for, так работает localhost. */
+export function clientIpHeader(): ClientIpHeader {
+  const configured = process.env.CLIENT_IP_HEADER;
+  return (CLIENT_IP_HEADERS as readonly string[]).includes(configured ?? '') ? (configured as ClientIpHeader) : 'x-forwarded-for';
+}
+
 /**
- * Адрес посетителя: первое значение заголовка x-forwarded-for, если это правильный адрес IPv4 или IPv6.
- * Заголовок выставляет обратный прокси перед приложением. Значение идёт в журнал аудита
- * и в ключи счётчиков частоты (в виде хеша), решений о доступе на нём не строится.
+ * Адрес посетителя из заголовка, который выставляет доверенный прокси (CLIENT_IP_HEADER, итоговая проверка M1):
+ * за Cloudflare это cf-connecting-ip. У x-forwarded-for берётся первое значение. Только правильный адрес IPv4
+ * или IPv6. Значение идёт в журнал аудита и в ключи счётчиков частоты (в виде хеша), решений о доступе на нём не строится.
  */
-export function clientIp(headers: Headers): string | null {
-  const first = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  return first && isIP(first) !== 0 ? first : null;
+export function clientIp(headers: Headers, source: ClientIpHeader = clientIpHeader()): string | null {
+  const raw = headers.get(source);
+  const value = (source === 'x-forwarded-for' ? raw?.split(',')[0] : raw)?.trim();
+  return value && isIP(value) !== 0 ? value : null;
 }
 
 const PROBLEM_TITLES: Record<number, string> = {

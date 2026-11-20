@@ -1,4 +1,5 @@
 import 'server-only';
+import { isAPIError } from 'better-auth/api';
 import { getEnv } from '@/env';
 import type { Locale } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
@@ -62,7 +63,7 @@ export async function describeLoginServer(request: Pick<RequestInfo, 'headers'>)
 export async function startSmartupSignIn(
   input: { next?: unknown; locale: Locale },
   request: RequestInfo,
-): Promise<{ url: string } | { error: 'no_server' | 'rate_limited' }> {
+): Promise<{ url: string } | { error: 'no_server' | 'rate_limited' | 'server_unavailable' }> {
   const limit = await consumeRateLimit(rateKey('sso-start:ip', clientIp(request.headers) ?? 'unknown'), RATE_RULES.ssoStartPerIp);
   if (!limit.allowed) return { error: 'rate_limited' };
   const code = rememberedCode(request.headers);
@@ -72,16 +73,27 @@ export async function startSmartupSignIn(
   if (!server) return { error: 'no_server' };
   // Сервер только что добавили: экземпляр библиотеки должен его знать.
   const auth = await getAuth({ refresh: true });
-  const result = await auth.api.signInSSO({
-    body: {
-      providerId: server.code,
-      // После входа сначала шаг первого входа: он сам пропускает дальше, если не нужен (FR-ID-07).
-      callbackURL: `/${input.locale}/welcome?next=${encodeURIComponent(safeReturnPath(input.next, `/${input.locale}`))}`,
-      errorCallbackURL: `/${input.locale}/login?error=sso`,
-    },
-    headers: request.headers,
-    returnHeaders: true,
-  });
+  let result;
+  try {
+    result = await auth.api.signInSSO({
+      body: {
+        providerId: server.code,
+        // После входа сначала шаг первого входа: он сам пропускает дальше, если не нужен (FR-ID-07).
+        callbackURL: `/${input.locale}/welcome?next=${encodeURIComponent(safeReturnPath(input.next, `/${input.locale}`))}`,
+        errorCallbackURL: `/${input.locale}/login?error=sso`,
+      },
+      headers: request.headers,
+      returnHeaders: true,
+    });
+  } catch (error) {
+    // Сервер Smartup не отдал документ discovery (не отвечает, ошибка, неверный ответ): человек видит
+    // понятное сообщение на странице входа, а не ошибку портала (итоговая проверка M1).
+    if (isAPIError(error)) {
+      console.error(`Вход через сервер ${server.code} не начат: ${error.message}`);
+      return { error: 'server_unavailable' };
+    }
+    throw error;
+  }
   request.setCookies(result.headers);
   return { url: result.response.url };
 }

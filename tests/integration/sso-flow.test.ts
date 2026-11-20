@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import type { SystemActor } from '@/db/with-actor';
-import { disableServer } from '@/modules/hdu/api/servers';
+import { addServer, disableServer } from '@/modules/hdu/api/servers';
 import { startSmartupSignIn } from '@/modules/hdu/api/sso';
 import { isSyntheticEmail } from '@/modules/hdu/util';
 import { buildTestAuth, enrolledStaffFixture, newJar } from './helpers/auth';
@@ -38,6 +38,15 @@ test('вход без email создаёт пользователя со слу�
   ]);
   const org = (await pools.root.query(`select o.name, m.role, m.source from hdu_memberships m join hdu_organizations o using (org_id) where m.user_id = $1`, [s.user.id])).rows;
   expect(org).toEqual([{ name: 'ACME Trade', role: 'client_user', source: 'smartup' }]);
+});
+
+test('токены Smartup в базе не хранятся: порталу они не нужны (итоговая проверка, I5)', async () => {
+  const a = await ssoSignIn(mock, acme('1001', { name: 'Алишер' }));
+  await ssoSignIn(mock, acme('1001', { name: 'Алишер' }));
+  const rows = (
+    await pools.root.query(`select "accessToken", "refreshToken", "idToken" from auth.account where "userId" = $1 and "providerId" <> 'credential'`, [a.user.id])
+  ).rows;
+  expect(rows).toEqual([{ accessToken: null, refreshToken: null, idToken: null }]);
 });
 
 test('повторный вход того же человека не создаёт второго пользователя и обновляет имя', async () => {
@@ -150,4 +159,17 @@ test('начало входа ограничено по частоте для о
   const request = newJar({ 'x-forwarded-for': '203.0.113.43' }).request;
   for (let i = 0; i < 30; i++) expect(await startSmartupSignIn({ locale: 'ru' }, request)).toHaveProperty('url');
   expect(await startSmartupSignIn({ locale: 'ru' }, request)).toEqual({ error: 'rate_limited' });
+});
+
+test('Smartup не отвечает: вход не падает ошибкой сервера, а говорит, что сервер недоступен (итоговая проверка, I2)', async () => {
+  // Сервер записан, но на его адресе никто не отвечает: документ discovery загрузить нельзя.
+  await addServer(system, {
+    code: 'down',
+    name: 'Недоступный',
+    baseUrl: 'http://localhost:3299',
+    issuer: 'http://localhost:3299',
+    clientId: 'hub',
+    clientSecret: 'mock-client-secret',
+  });
+  expect(await startSmartupSignIn({ locale: 'ru' }, requestWithServerCookie('down'))).toEqual({ error: 'server_unavailable' });
 });

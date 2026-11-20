@@ -21,6 +21,7 @@
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` | ключи Cloudflare Turnstile для домена staging | Задаются парой. Без них проверка "не робот" выключена |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | токен бота от BotFather и случайная строка от 32 знаков | Задаются парой. Без них бот выключен |
 | `TELEGRAM_API_URL` | не задавать | Другой адрес допускается только на localhost |
+| `CLIENT_IP_HEADER` | `cf-connecting-ip` | Обязателен в production. Откуда брать адрес посетителя для счётчиков и журнала (решение 0020). Сетевой экран пропускает на 443 только адреса Cloudflare, иначе заголовок можно подделать |
 | `LOG_LEVEL` | `info` | |
 
 База (служба `postgres`): пароли ролей `hub_owner`, `hub_app`, `hub_auth`. Миграции: `pnpm db:migrate` от роли владельца.

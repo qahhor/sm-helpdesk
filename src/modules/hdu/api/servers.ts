@@ -75,8 +75,10 @@ async function checkedBaseUrl(raw: string, allowLoopback: boolean): Promise<stri
 }
 
 /**
- * Добавляет сервер Smartup или обновляет сервер с тем же кодом. Все адреса проверяются:
- * только внешние узлы по https (угроза T16). Секрет клиента хранится зашифрованным.
+ * Добавляет сервер Smartup. Команда консоли (актор system) обновляет сервер с тем же кодом;
+ * администратор из рабочего места только создаёт новый: занятый код даёт server_taken, а сервер меняют
+ * на его карточке (updateServer). Все адреса проверяются: только внешние узлы по https (угроза T16).
+ * Секрет клиента хранится зашифрованным.
  */
 export async function addServer(who: ServerManager, input: unknown, ip: string | null = null): Promise<{ code: string }> {
   const actor = managingActor(who, new Date());
@@ -85,7 +87,7 @@ export async function addServer(who: ServerManager, input: unknown, ip: string |
   const baseUrl = await checkedBaseUrl(data.baseUrl, allowLoopback);
   await assertPublicUrl(data.issuer, { allowLoopback });
   if (data.endpoints) for (const url of Object.values(data.endpoints)) await assertPublicUrl(url, { allowLoopback });
-  await saveServer(actor, { ...data, baseUrl }, ip);
+  await saveServer(actor, { ...data, baseUrl }, ip, { createOnly: 'actor' in who });
   return { code: data.code };
 }
 

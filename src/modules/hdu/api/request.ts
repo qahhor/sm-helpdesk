@@ -24,6 +24,8 @@ export type SessionData = {
     createdAt: Date;
     expiresAt: Date;
     activeOrgId: string | null;
+    /** Когда в этой сессии предъявлен код второго фактора. Пусто у сессии одного пароля. */
+    secondFactorAt: Date | null;
     ipAddress: string | null;
     userAgent: string | null;
   };
@@ -62,6 +64,7 @@ export async function readSession(request: Pick<RequestInfo, 'headers'>): Promis
       createdAt: toDate(session.createdAt),
       expiresAt: toDate(session.expiresAt),
       activeOrgId: session.activeOrgId ?? null,
+      secondFactorAt: session.secondFactorAt ? toDate(session.secondFactorAt) : null,
       ipAddress: session.ipAddress ?? null,
       userAgent: session.userAgent ?? null,
     },

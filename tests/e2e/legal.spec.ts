@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { CLIENT_STATE } from './helpers/client';
 
 // Политика обработки данных (раздел 14.6 ТЗ, решение 0017). Утверждённого текста пока нет:
 // каталог content/legal/ без manifest.json, политика выключена.
@@ -19,4 +20,15 @@ test('страница политики не ставит куки сессии 
   const response = await page.request.get('/ru/legal/privacy', { maxRedirects: 0 });
   expect(response.status()).toBe(404);
   expect(response.headers()['set-cookie'] ?? '').not.toMatch(/session_token/);
+});
+
+test.describe('вошедший клиент', () => {
+  test.use({ storageState: CLIENT_STATE });
+
+  test('на открытой странице кука сессии не обновляется, в кабинете обновляется (итоговая проверка M1)', async ({ page }) => {
+    const publicPage = await page.request.get('/ru/legal/privacy', { maxRedirects: 0 });
+    expect(publicPage.headers()['set-cookie'] ?? '').not.toMatch(/session_token/);
+    const portal = await page.request.get('/ru/settings', { maxRedirects: 0 });
+    expect(portal.headers()['set-cookie'] ?? '').toMatch(/session_token/);
+  });
 });

@@ -290,3 +290,14 @@ test('адрес Smartup или сервера входа, который уже
   await addServer(system, { ...input, code: 'twin', baseUrl: 'https://twin.example', issuer: 'https://twin.example' });
   await expect(updateServer(staffCtx(f.adminStaff), { code: 'twin', issuer: input.issuer })).rejects.toMatchObject({ code: 'server_taken' });
 });
+
+test('форма "Добавить сервер" не перезаписывает сервер с тем же кодом, команда консоли обновляет (итоговая проверка, I6)', async () => {
+  const f = await seedTwoOrgs();
+  await addServer(system, input);
+  await expect(
+    addServer(staffCtx(f.adminStaff), { ...input, name: 'Чужой', baseUrl: 'https://other.example', issuer: 'https://other.example', clientSecret: 'other' }),
+  ).rejects.toMatchObject({ code: 'server_taken' });
+  expect((await listSsoServers()).find((s) => s.code === input.code)).toMatchObject({ issuer: input.issuer, clientSecret: 'top-secret-value' });
+  await addServer(system, { ...input, name: 'ACME 2' });
+  expect((await listServers(system)).find((s) => s.code === input.code)?.name).toBe('ACME 2');
+});

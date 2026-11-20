@@ -27,8 +27,9 @@ export async function resolveStaff(session: SessionData | null, now: Date): Prom
   if (!session) return { denied: 'no_session' };
   const staff = await findStaff(session.user.id);
   if (!staff || staff.state !== 'active' || staff.role === 'agent_bot') return { denied: 'not_staff' };
-  // Сессия после одного пароля годится только для подключения второго фактора.
-  if (!session.user.twoFactorEnabled) return { denied: 'no_second_factor' };
+  // Сессия после одного пароля годится только для подключения второго фактора. Проверяется сама сессия:
+  // признак учётной записи появляется и у сессии, открытой паролем до подключения в другом браузере.
+  if (!session.user.twoFactorEnabled || !session.session.secondFactorAt) return { denied: 'no_second_factor' };
   if (now.getTime() - session.session.createdAt.getTime() > STAFF_SESSION_TTL_SEC * 1000) {
     await revokeSessionById(session.session.id);
     return { denied: 'expired' };

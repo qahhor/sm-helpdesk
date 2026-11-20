@@ -45,7 +45,19 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
         <p className="text-secondary-foreground">{t('intro')}</p>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {error && <Alert tone="danger">{t(error === 'no_server' ? 'errors.noServer' : error === 'rate_limited' ? 'errors.rateLimited' : 'errors.sso')}</Alert>}
+        {error && (
+          <Alert tone="danger">
+            {t(
+              error === 'no_server'
+                ? 'errors.noServer'
+                : error === 'rate_limited'
+                  ? 'errors.rateLimited'
+                  : error === 'server_unavailable'
+                    ? 'errors.serverDown'
+                    : 'errors.sso',
+            )}
+          </Alert>
+        )}
 
         {server.state === 'unavailable' && <Alert tone="info">{t('serverUnavailable')}</Alert>}
 

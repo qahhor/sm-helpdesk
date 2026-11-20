@@ -5,13 +5,14 @@ import { localizedPath, resolveLocale } from '@/i18n/resolve-locale';
 import { routing } from '@/i18n/routing';
 import { sessionCookieRefresh } from '@/modules/hdu/api/session-cookie';
 import { buildCsp, createNonce, CSP_HEADER } from '@/security/csp';
+import { isPublicPath } from '@/security/public-paths';
 
 // Выполняется перед каждым запросом страницы (в Next.js 16 файл называется proxy, раньше middleware).
 // 1. Адрес без языка или с неподдерживаемым языком перенаправляется на язык посетителя (FR-I18N-06).
 // 2. Для страницы создаётся одноразовый код и политика CSP (ТЗ 14.4).
 // 3. Приложению передаётся путь запроса: по нему страница входа знает, куда вернуть человека.
 // 4. На запросе страницы кука сессии ставится заново на 30 дней (FR-ID-10). В базу прокси не ходит:
-//    действительна ли сессия, решает только база.
+//    действительна ли сессия, решает только база. На страницах открытой зоны кука не трогается (ТЗ 18.10).
 
 const withLocale = createMiddleware(routing);
 
@@ -42,7 +43,7 @@ export function proxy(request: NextRequest): NextResponse {
   const response = withLocale(request);
   response.headers.set(CSP_HEADER, csp);
   // Только чтение страницы: ответ на серверное действие (POST) может как раз удалять куку при выходе.
-  if (request.method === 'GET') {
+  if (request.method === 'GET' && !isPublicPath(request.nextUrl.pathname)) {
     const refresh = sessionCookieRefresh(request.headers.get('cookie'));
     if (refresh) response.headers.append('set-cookie', refresh);
   }

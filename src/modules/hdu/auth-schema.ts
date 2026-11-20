@@ -34,8 +34,9 @@ export const authSession = auth.table('session', {
   ipAddress: text('ipAddress'),
   userAgent: text('userAgent'),
   userId: uuid('userId').notNull(),
-  // Колонка портала.
+  // Колонки портала.
   activeOrgId: uuid('activeOrgId'),
+  secondFactorAt: moment('secondFactorAt'),
 });
 
 export const authAccount = auth.table('account', {

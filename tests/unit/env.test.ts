@@ -121,6 +121,7 @@ const prod = {
   NODE_ENV: 'production',
   HUB_URL: 'https://hub.smartup24.com',
   HUB_DOMAIN: 'hub.smartup24.com',
+  CLIENT_IP_HEADER: 'cf-connecting-ip',
 };
 const problems = (env: Record<string, string | undefined>) => {
   try {
@@ -184,4 +185,12 @@ test('отправка через Resend требует ключ и адрес �
   expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'hub@mail.smartup24.com' })).toEqual([]);
   // Письма в журнал и в файлы по-прежнему только на машине разработчика.
   expect(problems({ ...prod, MAIL_TRANSPORT: 'console' }).map((x) => x.name)).toEqual(['MAIL_TRANSPORT']);
+});
+
+test('в production на настоящем адресе заголовок адреса клиента задаётся явно (итоговая проверка, I1)', () => {
+  expect(problems({ ...prod, CLIENT_IP_HEADER: undefined }).map((p) => p.name)).toEqual(['CLIENT_IP_HEADER']);
+  expect(problems({ ...prod, CLIENT_IP_HEADER: 'x-evil' }).map((p) => p.name)).toEqual(['CLIENT_IP_HEADER']);
+  expect(parseEnv(prod).CLIENT_IP_HEADER).toBe('cf-connecting-ip');
+  // Разработка и тесты на localhost: по умолчанию x-forwarded-for.
+  expect(parseEnv({ ...ok, NODE_ENV: 'production', HUB_URL: 'http://localhost:3100', HUB_DOMAIN: 'localhost' }).CLIENT_IP_HEADER).toBeUndefined();
 });

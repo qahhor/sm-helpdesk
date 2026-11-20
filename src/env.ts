@@ -72,6 +72,10 @@ const encryptionKey = required().refine(
   { error: 'ожидается 32 байта в base64, например вывод команды openssl rand -base64 32' },
 );
 
+/** Откуда брать адрес посетителя: заголовок, который выставляет доверенный прокси перед приложением. */
+export const CLIENT_IP_HEADERS = ['cf-connecting-ip', 'x-real-ip', 'x-forwarded-for'] as const;
+export type ClientIpHeader = (typeof CLIENT_IP_HEADERS)[number];
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production'], {
@@ -105,11 +109,20 @@ const schema = z
     TELEGRAM_API_URL: z.url({ error: 'ожидается адрес' }).default('https://api.telegram.org'),
     HUB_SHOWCASE: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error'], { error: 'ожидается debug, info, warn или error' }).default('info'),
+    // Заголовок, из которого берётся адрес посетителя для счётчиков частоты и журнала аудита (итоговая проверка M1).
+    // За Cloudflare это cf-connecting-ip. Не задан: x-forwarded-for, только для localhost.
+    CLIENT_IP_HEADER: z
+      .enum(CLIENT_IP_HEADERS, { error: 'ожидается cf-connecting-ip, x-real-ip или x-forwarded-for' })
+      .optional(),
   })
   .superRefine((value, ctx) => {
     const host = new URL(value.HUB_URL).hostname;
     if (value.HUB_DOMAIN !== host)
       ctx.addIssue({ code: 'custom', path: ['HUB_DOMAIN'], message: 'не совпадает с именем узла из HUB_URL' });
+    // Первое значение x-forwarded-for за Cloudflare и Caddy это адрес узла Cloudflare или значение, которое прислал
+    // сам посетитель. На настоящем адресе источник адреса посетителя выбирается явно (docs/runbooks/staging-after-m1.md).
+    if (value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host) && !value.CLIENT_IP_HEADER)
+      ctx.addIssue({ code: 'custom', path: ['CLIENT_IP_HEADER'], message: 'не задан: за Cloudflare задайте cf-connecting-ip' });
     if (value.BETTER_AUTH_SECRET === value.ENCRYPTION_KEY)
       ctx.addIssue({
         code: 'custom',

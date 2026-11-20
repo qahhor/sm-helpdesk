@@ -15,7 +15,7 @@ import {
 // Действия раздела "Сотрудники" (FR-ADM-03). Права, свежесть входа и запреты (себя, последнего
 // администратора) проверяет модуль. Итог показывается кодом в адресе страницы.
 
-const KNOWN_ERRORS = new Set(['invalid_input', 'stale_session', 'forbidden', 'not_found']);
+const KNOWN_ERRORS = new Set(['invalid_input', 'stale_session', 'forbidden', 'not_found', 'already_member']);
 
 async function run(action: (staff: StaffContext, locale: string) => Promise<string>): Promise<never> {
   const staff = await requireStaffActor({ roles: ['admin'] });

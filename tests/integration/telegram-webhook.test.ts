@@ -9,14 +9,19 @@ import { memoryBotPerTest, tgUpdate } from './helpers/telegram';
 const tg = memoryBotPerTest();
 const SECRET = MemoryTelegramBot.SECRET;
 
-const post = (body: unknown, headers: Record<string, string> = { 'x-telegram-bot-api-secret-token': SECRET }, method = 'POST') =>
+const post = (
+  body: unknown,
+  headers: Record<string, string> = { 'x-telegram-bot-api-secret-token': SECRET },
+  method = 'POST',
+  onUpdate: Parameters<typeof handleTelegramWebhook>[1] = handleTelegramUpdate,
+) =>
   handleTelegramWebhook(
     new Request('http://localhost:3000/api/webhooks/telegram', {
       method,
       headers: { 'content-type': 'application/json', ...headers },
       body: method === 'GET' ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
     }),
-    handleTelegramUpdate,
+    onUpdate,
   );
 
 test('запрос без секретного заголовка или с чужим отклоняется и не обрабатывается', async () => {
@@ -37,12 +42,24 @@ test('событие обрабатывается, повторная доста
   expect((await pools.root.query(`select update_id from hdn_telegram_updates`)).rows).toEqual([{ update_id: '9001' }]);
 });
 
-test('сбой обработки отвечает 500 и позволяет Telegram прислать событие снова', async () => {
+test('сбой обработки до записи отвечает 500 и позволяет Telegram прислать событие снова', async () => {
   const update = tgUpdate({ from: 555, text: 'привет', updateId: 9002 });
-  tg.bot.failNext();
-  expect((await post(update)).status).toBe(500);
-  expect((await post(update)).status).toBe(200);
+  let calls = 0;
+  const flaky = async (incoming: Parameters<typeof handleTelegramUpdate>[0]) => {
+    calls += 1;
+    if (calls === 1) throw new Error('база недоступна');
+    await handleTelegramUpdate(incoming);
+  };
+  expect((await post(update, undefined, 'POST', flaky)).status).toBe(500);
+  expect((await post(update, undefined, 'POST', flaky)).status).toBe(200);
   expect(tg.bot.sent).toHaveLength(1);
+});
+
+test('сбой самого ответа бота не превращается в ошибку вебхука: повтор дал бы неверный ответ (итоговая проверка, I4)', async () => {
+  const update = tgUpdate({ from: 555, text: 'привет', updateId: 9003 });
+  tg.bot.failNext();
+  expect((await post(update)).status).toBe(200);
+  expect((await pools.root.query(`select update_id from hdn_telegram_updates where update_id = 9003`)).rowCount).toBe(1);
 });
 
 test('слишком большое и неверное тело отклоняются', async () => {

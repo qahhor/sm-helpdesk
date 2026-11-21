@@ -2,7 +2,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { formatDateTime } from '@/i18n/format';
 import { type Locale, TIME_ZONE } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
-import { AUDIT_ACTIONS, type AuditRow, isHdcError, listAudit } from '@/modules/hdc/api';
+import { AUDIT_ACTIONS, isHdcError, listAudit } from '@/modules/hdc/api';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
@@ -12,8 +12,9 @@ import { Label } from '@/ui/components/label';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { settingsNav } from '../sections';
+import { firstParam } from '@/lib/search-params';
+import { diffLines } from './diff';
 
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2 align-top';
 const OBJECT_TYPES = ['staff', 'server', 'membership', 'invitation', 'user', 'session', 'organization'] as const;
@@ -35,21 +36,6 @@ function weekAgo(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(new Date(Date.now() - 7 * 86400e3));
 }
 
-const plain = (value: unknown, none: string): string =>
-  value === null || value === undefined ? none : typeof value === 'object' ? JSON.stringify(value) : String(value);
-
-/** Изменения строкой текста: "поле: было → стало" или "поле: значение". Без разметки из данных. */
-function diffLines(diff: AuditRow['diff'], none: string): string[] {
-  if (!diff) return [];
-  return Object.entries(diff).map(([key, value]) => {
-    if (value && typeof value === 'object' && !Array.isArray(value) && 'from' in value && 'to' in value) {
-      const change = value as { from: unknown; to: unknown };
-      return `${key}: ${plain(change.from, none)} → ${plain(change.to, none)}`;
-    }
-    return `${key}: ${plain(value, none)}`;
-  });
-}
-
 // Журнал аудита (FR-ADM-07): только admin, от новых к старым, по 50 строк. Кнопок изменения и удаления нет:
 // прав на них нет ни у одной роли приложения. Отбор по автору и организации ставится ссылкой из строки.
 export default async function AuditPage({ searchParams }: PageProps<'/[locale]/agent/settings/audit'>) {
@@ -58,16 +44,18 @@ export default async function AuditPage({ searchParams }: PageProps<'/[locale]/a
   const locale = (await getLocale()) as Locale;
   const t = await getTranslations('agent');
   const ta = await getTranslations('agent.settings.audit');
+  // Поля и коды значений словами интерфейса; неизвестное как есть (проверка main, Q14).
+  const word = (raw: string) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw) && ta.has(`words.${raw}`) ? ta(`words.${raw}`) : raw);
 
   const filters = {
-    from: first(query.from) ?? weekAgo(),
-    to: first(query.to) ?? '',
-    action: first(query.action) ?? '',
-    type: first(query.type) ?? '',
-    actor: first(query.actor) ?? '',
-    org: first(query.org) ?? '',
+    from: firstParam(query.from) ?? weekAgo(),
+    to: firstParam(query.to) ?? '',
+    action: firstParam(query.action) ?? '',
+    type: firstParam(query.type) ?? '',
+    actor: firstParam(query.actor) ?? '',
+    org: firstParam(query.org) ?? '',
   };
-  const cursor = first(query.cursor);
+  const cursor = firstParam(query.cursor);
   let page: Awaited<ReturnType<typeof listAudit>> | null = null;
   try {
     page = await listAudit(staff, {
@@ -220,7 +208,7 @@ export default async function AuditPage({ searchParams }: PageProps<'/[locale]/a
                       )}
                     </td>
                     <td className={`${cell} wrap-anywhere`}>
-                      {diffLines(row.diff, ta('none')).map((line) => (
+                      {diffLines(row.diff, word, ta('none')).map((line) => (
                         <span key={line} className="block">
                           {line}
                         </span>

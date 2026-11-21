@@ -1,6 +1,15 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import { botText, createTelegramBot, setTelegramBotForTests } from '@/modules/hdn/api';
-import { getTelegramLink, handleTelegramUpdate, rememberLocale, startTelegramLink, unlinkTelegram } from '@/modules/hdu/api/telegram';
+import { botText, createTelegramBot } from '@/modules/hdn/api';
+import { MemoryTelegramBot, setTelegramBotForTests } from '@/modules/hdn/testing';
+import {
+  getBotLink,
+  getTelegramLink,
+  handleTelegramUpdate,
+  rememberLocale,
+  resetBotLinkForTests,
+  startTelegramLink,
+  unlinkTelegram,
+} from '@/modules/hdu/api/telegram';
 import { hashToken } from '@/modules/hdu/tokens';
 import { clientCtx } from './helpers/auth';
 import { pools } from './helpers/db';
@@ -207,4 +216,24 @@ test('Telegram не отвечает: кнопка привязки не пад�
   expect(await startTelegramLink(ctx)).toEqual({ error: 'unavailable' });
   expect((await pools.root.query(`select 1 from hdu_link_codes where user_id = $1`, [f.aUser.userId])).rowCount).toBe(0);
   expect((await pools.root.query(`select 1 from hdc_rate_limits where code like 'telegram-link:%'`)).rowCount).toBe(0);
+});
+
+test('страница входа не ждёт имя бота снова сразу после неответа Telegram (итоговая проверка M1, мелкое 7)', async () => {
+  const silent = new MemoryTelegramBot();
+  let calls = 0;
+  silent.getMe = () => {
+    calls++;
+    return new Promise(() => {});
+  };
+  setTelegramBotForTests(silent);
+  resetBotLinkForTests();
+  expect(await getBotLink(50)).toBeNull();
+  const started = Date.now();
+  expect(await getBotLink(1000)).toBeNull();
+  expect(Date.now() - started).toBeLessThan(200);
+  expect(calls).toBe(1);
+  // Ответивший Telegram даёт адрес бота.
+  setTelegramBotForTests(new MemoryTelegramBot());
+  resetBotLinkForTests();
+  expect(await getBotLink(1000)).toBe('https://t.me/hub_test_bot');
 });

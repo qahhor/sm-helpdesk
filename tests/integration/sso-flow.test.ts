@@ -1,9 +1,12 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import type { SystemActor } from '@/db/with-actor';
 import { addServer, disableServer } from '@/modules/hdu/api/servers';
 import { startSmartupSignIn } from '@/modules/hdu/api/sso';
 import { isSyntheticEmail } from '@/modules/hdu/util';
 import { buildTestAuth, enrolledStaffFixture, newJar } from './helpers/auth';
+import { RATE_RULES } from '@/modules/hdc/pref';
+import { consumeRateLimit } from '@/modules/hdc/rate-limit';
+import { ipRateKey } from '@/modules/hdc/util';
 import { pools } from './helpers/db';
 import { type MockServer, registerMock, requestWithServerCookie, ssoSignIn, startMockOidc } from './helpers/sso';
 
@@ -84,8 +87,17 @@ test('email сотрудника в сведениях Smartup не даёт п�
 });
 
 test('пользователь без сведений о компании входит, но членства не получает', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   const s = await ssoSignIn(mock, { sub: '3001', name: 'Без компании' });
   expect((await pools.root.query(`select 1 from hdu_memberships where user_id = $1`, [s.user.id])).rowCount).toBe(0);
+  // Журнал называет поля без значений (проверка main, Q1).
+  expect(warn).toHaveBeenCalledWith('Вход через Smartup без организации: причина no_company, сервер mock, поля companyId, companyName');
+  warn.mockRestore();
+});
+
+test('неверная роль из Smartup не лишает организации (проверка main, Q1)', async () => {
+  const s = await ssoSignIn(mock, acme('3002', { role: 'r'.repeat(500) }));
+  expect((await pools.root.query(`select role from hdu_memberships where user_id = $1`, [s.user.id])).rows).toEqual([{ role: 'client_user' }]);
 });
 
 test('новый сервер в реестре принимает вход без перезапуска, отключённый перестаёт', async () => {
@@ -157,8 +169,16 @@ test('поиск сервера по адресу ограничен по час
 
 test('начало входа ограничено по частоте для одного адреса', async () => {
   const request = newJar({ 'x-forwarded-for': '203.0.113.43' }).request;
-  for (let i = 0; i < 30; i++) expect(await startSmartupSignIn({ locale: 'ru' }, request)).toHaveProperty('url');
+  expect(await startSmartupSignIn({ locale: 'ru' }, request)).toHaveProperty('url');
+  // Остаток предела расходуется напрямую: сотни настоящих начал входа тест не ускорят.
+  const key = ipRateKey('sso-start:ip', request.headers);
+  for (let i = 1; i < RATE_RULES.ssoStartPerIp.limit; i++) await consumeRateLimit(key, RATE_RULES.ssoStartPerIp);
   expect(await startSmartupSignIn({ locale: 'ru' }, request)).toEqual({ error: 'rate_limited' });
+  // Соседний адрес той же сети IPv6 /64 считается тем же адресом (проверка main, S6).
+  const v6 = newJar({ 'x-forwarded-for': '2001:db8:5:6::1' }).request;
+  const v6key = ipRateKey('sso-start:ip', v6.headers);
+  for (let i = 0; i < RATE_RULES.ssoStartPerIp.limit; i++) await consumeRateLimit(v6key, RATE_RULES.ssoStartPerIp);
+  expect(await startSmartupSignIn({ locale: 'ru' }, newJar({ 'x-forwarded-for': '2001:db8:5:6:ffff::2' }).request)).toEqual({ error: 'rate_limited' });
 });
 
 test('Smartup не отвечает: вход не падает ошибкой сервера, а говорит, что сервер недоступен (итоговая проверка, I2)', async () => {

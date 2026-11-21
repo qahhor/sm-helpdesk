@@ -156,17 +156,14 @@ test('проверка связи называет каждую проблему
   await addServer(system, { ...input, code: 'chk', issuer: 'https://id.chk.example', baseUrl: 'https://chk.example' });
   expect(await withDiscovery(good, () => checkServer(system, 'chk'))).toMatchObject({ ok: true, issues: [] });
   const bad = { ...good, issuer: 'https://other.example', code_challenge_methods_supported: ['plain'], userinfo_endpoint: undefined };
-  expect((await withDiscovery(bad, () => checkServer(system, 'chk'))).issues.sort()).toEqual([
-    'issuer_mismatch',
-    'no_pkce_s256',
-    'no_userinfo_endpoint',
-  ]);
+  // Адрес сведений о пользователе не обязателен: сведения портал берёт из подписанного id_token (проверка main, Q21).
+  expect((await withDiscovery(bad, () => checkServer(system, 'chk'))).issues.sort()).toEqual(['issuer_mismatch', 'no_pkce_s256']);
+  expect((await withDiscovery({ ...good, userinfo_endpoint: undefined }, () => checkServer(system, 'chk')))).toMatchObject({ ok: true, issues: [] });
   expect((await withDiscovery({ issuer: good.issuer }, () => checkServer(system, 'chk'))).issues.sort()).toEqual([
     'no_authorization_endpoint',
     'no_jwks',
     'no_pkce_s256',
     'no_token_endpoint',
-    'no_userinfo_endpoint',
   ]);
   expect((await withDiscovery(new Error('сеть'), () => checkServer(system, 'chk'))).issues).toEqual(['unreachable']);
   expect((await withDiscovery('<html>', () => checkServer(system, 'chk'))).issues).toEqual(['not_json']);

@@ -4,15 +4,17 @@ import { notFound, redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { cache } from 'react';
 import type { Locale } from '@/i18n/locales';
+import { clientIp } from '@/modules/hdc/api';
 import { getAuth } from '../auth/instance';
 import { findStaff } from '../core/staff';
 import type { StaffRole } from '../pref';
-import { safeReturnPath } from '../util';
+import { policyNoticeUrl, safeReturnPath } from '../util';
+import { acknowledgePolicy, confirmEmail } from './email';
 import { type ClientContext, type ClientDenial, resolveClient, switchOrganization } from './orgs';
 import { listMySessions, revokeMySession, revokeOtherSessions, type SessionView } from './sessions';
 import { rememberLocale } from './telegram';
 import { readSession, type RequestInfo, type SessionData } from './request';
-import { FRESH_SIGN_IN_SEC, isFresh, resolveStaff, type StaffContext, type StaffDenial } from './session';
+import { resolveStaff, type StaffContext, type StaffDenial } from './session';
 
 // Вход в защищённые разделы: проверка сессии и роли на каждом запросе (ТЗ 9.4, правило 7).
 // Раскладка и страница вызывают эти функции каждая сама: одинаковые проверки в пределах одного запроса
@@ -23,12 +25,28 @@ async function currentPath(): Promise<string> {
   return (await headers()).get('x-hub-path') ?? '';
 }
 
+/** Шаг о новой редакции политики с возвратом на текущую страницу (итоговая проверка M1). */
+export async function policyNoticePath(): Promise<string> {
+  return policyNoticeUrl(await getLocale(), await currentPath());
+}
+
 /** Сессия текущего запроса. Проверяет её библиотека входа по базе, один раз на запрос. */
 const sessionOfRequest = cache(async (): Promise<SessionData | null> => readSession({ headers: new Headers(await headers()) }));
 
-const staffOfRequest = cache(async (): Promise<StaffContext | StaffDenial> => resolveStaff(await sessionOfRequest(), new Date()));
+/** Проверенный адрес посетителя: актор несёт его в транзакцию, база ставит его в журнал аудита (S5). */
+async function requestIp(): Promise<string | null> {
+  return clientIp(new Headers(await headers()));
+}
 
-const clientOfRequest = cache(async (): Promise<ClientContext | ClientDenial> => resolveClient(await sessionOfRequest()));
+const staffOfRequest = cache(async (): Promise<StaffContext | StaffDenial> => {
+  const result = await resolveStaff(await sessionOfRequest(), new Date());
+  return 'denied' in result ? result : { ...result, actor: { ...result.actor, ip: await requestIp() } };
+});
+
+const clientOfRequest = cache(async (): Promise<ClientContext | ClientDenial> => {
+  const result = await resolveClient(await sessionOfRequest());
+  return 'denied' in result ? result : { ...result, actor: { ...result.actor, ip: await requestIp() } };
+});
 
 /**
  * Сотрудник текущего запроса. Без входа, без второго фактора и после 12 часов перенаправляет
@@ -45,22 +63,6 @@ export async function requireStaffActor(opts: { roles?: readonly StaffRole[] } =
   }
   if (opts.roles && !opts.roles.includes(result.actor.staffRole)) notFound();
   return result;
-}
-
-/**
- * То же, но вход должен быть свежим: не старше 15 минут (ТЗ 14.3). Иначе сотрудник входит заново
- * и возвращается на эту же страницу.
- */
-export async function requireFreshStaffActor(
-  opts: { roles?: readonly StaffRole[]; maxAgeSec?: number } = {},
-): Promise<StaffContext> {
-  const ctx = await requireStaffActor(opts);
-  if (!isFresh(ctx, new Date(), opts.maxAgeSec ?? FRESH_SIGN_IN_SEC)) {
-    const locale = await getLocale();
-    const next = safeReturnPath(await currentPath(), `/${locale}/agent`);
-    redirect(`/${locale}/staff/login?reauth=1&next=${encodeURIComponent(next)}`);
-  }
-  return ctx;
 }
 
 /** Сотрудник текущего запроса, если он вошёл полностью. Для страниц входа: вошедшего туда не пускаем повторно. */
@@ -145,7 +147,7 @@ export async function mySessions(): Promise<{ items: SessionView[]; hidden: numb
 /** Завершение всех своих сессий, кроме текущей, из серверного действия. */
 export async function revokeOtherSessionsOfRequest(): Promise<{ revoked: number }> {
   const session = await readSession({ headers: new Headers(await headers()) });
-  return session ? revokeOtherSessions(session) : { revoked: 0 };
+  return session ? revokeOtherSessions(session, await requestIp()) : { revoked: 0 };
 }
 
 /**
@@ -155,7 +157,31 @@ export async function revokeOtherSessionsOfRequest(): Promise<{ revoked: number 
 export async function revokeMySessionOfRequest(sessionId: unknown): Promise<{ signedOut: boolean }> {
   const session = await readSession({ headers: new Headers(await headers()) });
   if (!session) return { signedOut: true };
-  return revokeMySession(session, sessionId);
+  return revokeMySession(session, sessionId, await requestIp());
+}
+
+/** Имя вошедшего клиента для страниц без входа (подтверждение адреса). Пусто, если клиента нет. */
+export async function currentClientName(): Promise<string | null> {
+  const session = await sessionOfRequest();
+  if (!session) return null;
+  const kind = await signedInKind();
+  return kind === 'client' ? session.user.name : null;
+}
+
+/** Имя учётной записи, в которую вошли в этом браузере, клиента или сотрудника. Без входа: пусто. */
+export async function signedInName(): Promise<string | null> {
+  return (await sessionOfRequest())?.user.name ?? null;
+}
+
+/** Согласие с редакцией политики с адресом этого запроса в журнале (итоговая проверка доработки). */
+export async function acknowledgePolicyOfRequest(userId: string, version: string): Promise<void> {
+  await acknowledgePolicy(userId, version, await requestIp());
+}
+
+/** Подтверждение адреса по ссылке от имени сессии этого запроса (проверка main, S2). */
+export async function confirmEmailOfRequest(input: unknown): ReturnType<typeof confirmEmail> {
+  const requestHeaders = new Headers(await headers());
+  return confirmEmail(input, await readSession({ headers: requestHeaders }), clientIp(requestHeaders));
 }
 
 /** Вошедший пользователь выбрал язык в портале: письма и бот пойдут на нём (решение 0018, пункт 19). */

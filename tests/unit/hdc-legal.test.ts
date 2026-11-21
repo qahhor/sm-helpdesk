@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
@@ -56,4 +56,23 @@ test('имя файла политики не строится из чужого
   writeFileSync(join(legal, 'privacy.ru.md'), '# Политика');
   await expect(getPolicy('../../etc/passwd' as never, legal)).resolves.toMatchObject({ locale: 'ru' });
   await expect(getPolicy('../../etc/passwd' as never, dir())).resolves.toBeNull();
+});
+
+test('версия политики не перечитывается, пока файл не изменился (проверка main, Q13)', async () => {
+  const legal = dir();
+  const manifest = join(legal, 'manifest.json');
+  // Время изменения в целых секундах: его можно вернуть файлу точно.
+  const at = new Date('2026-11-01T10:00:00Z');
+  writeFileSync(manifest, JSON.stringify({ privacy: { version: '2026-12-01' } }));
+  utimesSync(manifest, at, at);
+  expect(await getPolicyVersion(legal)).toBe('2026-12-01');
+  // Другое содержимое той же длины с прежним временем изменения: файл не читается заново.
+  writeFileSync(manifest, JSON.stringify({ privacy: { version: '2026-12-02' } }));
+  utimesSync(manifest, at, at);
+  expect(statSync(manifest).mtime.getTime()).toBe(at.getTime());
+  expect(await getPolicyVersion(legal)).toBe('2026-12-01');
+  // Новое время изменения: новая версия.
+  const later = new Date(at.getTime() + 5000);
+  utimesSync(manifest, later, later);
+  expect(await getPolicyVersion(legal)).toBe('2026-12-02');
 });

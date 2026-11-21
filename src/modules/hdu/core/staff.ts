@@ -2,8 +2,8 @@ import 'server-only';
 import { and, asc, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import type { Actor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
-import { authAccount, authTwoFactor, authUser } from '../auth-schema';
+import { writeAudit } from '@/modules/hdc/api';
+import { authAccount, authTwoFactor, authUser, authVerification } from '../auth-schema';
 import { HduError } from '../error';
 import { type HumanStaffRole, type RecordState, STAFF_INVITATION_TTL_SEC, type StaffRole } from '../pref';
 import { invitations, memberships, staff } from '../schema';
@@ -18,6 +18,25 @@ const SYSTEM = { type: 'system', job: 'identity.staff' } as const;
 const CREDENTIAL = 'credential';
 
 export type StaffInfo = { role: StaffRole; state: RecordState; isLead: boolean };
+
+/**
+ * Сотрудник, который прошёл шаг пароля в этом браузере: по значению куки ожидания второго фактора библиотека
+ * хранит пользователя в auth.verification. Нужен только журналу неудачных кодов (итоговая проверка доработки):
+ * значение куки случайное, и без шага пароля его не получить. Пусто, если шаг устарел или это не сотрудник.
+ */
+export async function findPendingStaffUserId(identifier: string): Promise<string | null> {
+  return withIdentity(SYSTEM, async (tx) => {
+    const row = (
+      await tx
+        .select({ userId: authVerification.value })
+        .from(authVerification)
+        .innerJoin(staff, eq(sql`${staff.userId}::text`, authVerification.value))
+        .where(and(eq(authVerification.identifier, identifier), gt(authVerification.expiresAt, sql`now()`)))
+        .limit(1)
+    )[0];
+    return row?.userId ?? null;
+  });
+}
 
 /** Строка сотрудника по идентификатору пользователя. Пусто, если пользователь не сотрудник. */
 export async function findStaff(userId: string): Promise<StaffInfo | null> {

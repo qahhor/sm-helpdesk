@@ -24,8 +24,10 @@ export type RecordState = (typeof RECORD_STATES)[number];
 
 /** Сессия клиента: 30 дней с продлением при активности (FR-ID-10). */
 export const SESSION_TTL_SEC = 30 * 24 * 3600;
-/** Приставка имён кук библиотеки входа: кука сессии hub.session_token, на https __Secure-hub.session_token. */
+/** Приставка имён кук библиотеки входа: кука сессии hub.session_token, на https __Host-hub.session_token. */
 export const AUTH_COOKIE_PREFIX = 'hub';
+/** Куки библиотеки входа и её дополнений, которым на https задаётся имя с приставкой __Host- (решение 0021). */
+export const AUTH_COOKIE_NAMES = ['session_token', 'session_data', 'dont_remember', 'account_data', 'state', 'oauth_state', 'two_factor', 'trust_device'] as const;
 /** Как часто библиотека продлевает сессию при активности. */
 export const SESSION_UPDATE_AGE_SEC = 24 * 3600;
 /** Сессия сотрудника: 12 часов без продления (FR-ID-10). */
@@ -36,6 +38,12 @@ export const STAFF_INVITATION_TTL_SEC = 24 * 3600;
 export const LOGIN_BOT_LINK_TTL_SEC = 10 * 60;
 /** Ссылка для входа на email: 15 минут (FR-ID-05). */
 export const LOGIN_LINK_TTL_SEC = 15 * 60;
+/** Ссылка подтверждения email живёт час (письмо называет этот срок, тест сверяет). */
+export const EMAIL_TOKEN_TTL_SEC = 60 * 60;
+/** Приглашение в организацию живёт 7 дней (FR-ID-08). */
+export const INVITATION_TTL_SEC = 7 * 24 * 3600;
+/** Сколько приглашений показывает список организации: новые первыми. */
+export const INVITATIONS_LIST_LIMIT = 100;
 /** Код второго фактора: 5 неверных попыток, затем блокировка на 15 минут (ТЗ 14.5). */
 export const TOTP_MAX_FAILED_ATTEMPTS = 5;
 export const TOTP_LOCK_SEC = 15 * 60;
@@ -66,6 +74,7 @@ export const SERVER_ISSUES = [
   'issuer_mismatch',
   'no_authorization_endpoint',
   'no_token_endpoint',
+  // Больше не выдаётся (проверка main, Q21), остаётся для прежних записей проверки в hdu_server_checks.
   'no_userinfo_endpoint',
   'no_jwks',
   'no_pkce_s256',

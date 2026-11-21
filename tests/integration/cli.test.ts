@@ -115,6 +115,28 @@ test('server:check печатает итог проверки связи, код
   expect(await runCli(['server:check', '--code', 'nope'], fakeIo().io)).toBe(1);
 });
 
+test('maintenance:cleanup удаляет только просроченные служебные строки (проверка main, Q8)', async () => {
+  const user = (await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ('Ч', 'c@acme.test', true) returning id`)).rows[0].id;
+  await pools.root.query(`insert into hdc_rate_limits (code, window_on, hits) values ('old:1', now() - interval '3 days', 1), ('new:1', now(), 1)`);
+  await pools.root.query(`insert into hdn_telegram_updates (update_id, received_on) values (1, now() - interval '3 days'), (2, now())`);
+  await pools.root.query(
+    `insert into auth.session (token, "userId", "expiresAt", "updatedAt")
+     values ('t-old', $1, now() - interval '2 days', now()), ('t-new', $1, now() + interval '1 day', now())`,
+    [user],
+  );
+  await pools.root.query(
+    `insert into auth.verification (identifier, value, "expiresAt")
+     values ('i-old', 'x', now() - interval '2 days'), ('i-new', 'x', now() + interval '1 hour')`,
+  );
+  const { io, lines } = fakeIo();
+  expect(await runCli(['maintenance:cleanup'], io)).toBe(0);
+  expect(lines).toEqual(['Удалено просроченных строк: счётчики частоты 1, события Telegram 1, сессии 1, одноразовые значения входа 1.']);
+  expect((await pools.root.query(`select code from hdc_rate_limits`)).rows).toEqual([{ code: 'new:1' }]);
+  expect((await pools.root.query(`select update_id from hdn_telegram_updates`)).rows).toEqual([{ update_id: '2' }]);
+  expect((await pools.root.query(`select token from auth.session`)).rows).toEqual([{ token: 't-new' }]);
+  expect((await pools.root.query(`select identifier from auth.verification`)).rows).toEqual([{ identifier: 'i-new' }]);
+});
+
 test('собранный файл запускается без каталога node_modules и не содержит библиотеку входа', async () => {
   execFileSync(process.execPath, ['scripts/build-cli.mjs'], { stdio: 'pipe' });
   const dir = mkdtempSync(join(tmpdir(), 'hub-cli-'));

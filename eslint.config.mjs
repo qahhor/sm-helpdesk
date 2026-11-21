@@ -1,3 +1,4 @@
+import { readdirSync } from 'node:fs';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import nextVitals from 'eslint-config-next/core-web-vitals';
 import nextTs from 'eslint-config-next/typescript';
@@ -13,6 +14,27 @@ const AUTH_DB_PATTERN = {
   group: ['@/db/auth-client', '@/db/with-identity', '**/db/auth-client', '**/db/with-identity'],
   message: AUTH_DB_BOUNDARY,
 };
+
+const MODULE_TO_MODULE =
+  'Модуль берёт у другого модуля только его api (api.ts, api/) и pref.ts, внутренние файлы не видны (docs/naming.md, раздел 5)';
+
+// Модули портала (docs/naming.md, раздел 1) и каталоги src/modules/*. Для каждого своё правило:
+// чужие внутренности закрыты, свои открыты. Модуль из перечня получает правило ещё до своего каталога.
+const PLANNED_MODULES = ['hdc', 'hdu', 'hdr', 'hdt', 'hdk', 'hdi', 'hdn', 'hdp', 'hda', 'hdw', 'hdh'];
+const MODULES = [
+  ...new Set([
+    ...PLANNED_MODULES,
+    ...readdirSync(new URL('./src/modules', import.meta.url), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name),
+  ]),
+];
+
+const moduleBoundary = (name) => ({
+  group: ['@/modules/*/*', `!@/modules/${name}/**`, '!@/modules/*/api', '!@/modules/*/pref', '../hd?/**', '../../hd?/**', '../../../hd?/**'],
+  message: MODULE_TO_MODULE,
+  allowTypeImports: true,
+});
 
 const PUBLIC_BOUNDARY = 'Открытые страницы (public) не читают сессию и не берут актора, кроме public (CLAUDE.md)';
 
@@ -63,14 +85,14 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  {
-    // Остальные модули работают с базой только под ролью hub_app.
-    files: ['src/modules/**/*.{ts,tsx}'],
-    ignores: ['src/modules/hdu/**'],
+  // Модули: только api и pref других модулей (проверка main, Q6). Кроме hdu, модули работают с базой
+  // только под ролью hub_app.
+  ...MODULES.map((name) => ({
+    files: [`src/modules/${name}/**/*.{ts,tsx}`],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [AUTH_DB_PATTERN] }],
+      'no-restricted-imports': ['error', { patterns: [moduleBoundary(name), ...(name === 'hdu' ? [] : [AUTH_DB_PATTERN])] }],
     },
-  },
+  })),
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

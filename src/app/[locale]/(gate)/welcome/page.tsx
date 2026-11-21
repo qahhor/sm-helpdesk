@@ -8,8 +8,7 @@ import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { FormField } from '@/ui/components/form-field';
 import { acknowledgePolicyAction, sendWelcomeLinkAction, skipWelcomeAction } from './actions';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Шаг первого входа (FR-ID-07): после входа через Smartup портал один раз предлагает указать email.
 // У большинства пользователей Smartup адреса нет (решение 89 ТЗ), поэтому шаг можно пропустить.
@@ -19,8 +18,8 @@ export default async function WelcomePage({ searchParams }: PageProps<'/[locale]
   const client = await requireClientActor();
   const params = await searchParams;
   const locale = await getLocale();
-  const next = safeReturnPath(first(params.next), `/${locale}`);
-  const sent = first(params.sent) === '1';
+  const next = safeReturnPath(firstParam(params.next), `/${locale}`);
+  const sent = firstParam(params.sent) === '1';
   const policyVersion = await getPolicyVersion();
   const policyDue = needsPolicyNotice(client.user, policyVersion);
   const firstStep = !client.user.onboarded && !client.user.hasVerifiedEmail;
@@ -51,7 +50,7 @@ export default async function WelcomePage({ searchParams }: PageProps<'/[locale]
       </Card>
     );
 
-  const error = first(params.error);
+  const error = firstParam(params.error);
   return (
     <Card>
       <CardHeader>

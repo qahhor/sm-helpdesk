@@ -2,16 +2,15 @@ import 'server-only';
 import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import type { ClientActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
-import { emailTokens, memberships, organizations, staff } from '../schema';
+import { EMAIL_TOKEN_TTL_SEC } from '../pref';
+import { emailTokens, memberships } from '../schema';
+import { signInMemberships } from './access';
 import { newToken } from '../tokens';
 
 // Модуль hdu, слой core: адрес email клиента (FR-ID-06, FR-ID-07, решение 0016).
 // Адрес становится адресом для входа только после подтверждения ссылкой из письма.
-
-/** Ссылка подтверждения адреса живёт 60 минут. */
-export const EMAIL_TOKEN_TTL_SEC = 60 * 60;
 
 /**
  * Кому можно отправить ссылку для входа: учётная запись с этим подтверждённым адресом, не сотрудник,
@@ -19,21 +18,16 @@ export const EMAIL_TOKEN_TTL_SEC = 60 * 60;
  */
 export async function isLoginLinkRecipient(email: string): Promise<boolean> {
   return withIdentity({ type: 'system', job: 'identity.login-link' }, async (tx) => {
-    const rows = await tx
-      .select({ id: authUser.id })
-      .from(authUser)
-      // Гостевое членство входа не даёт: гостю ссылка не уходит (решение 0017).
-      .innerJoin(memberships, and(eq(memberships.userId, authUser.id), eq(memberships.state, 'active'), ne(memberships.source, 'guest')))
-      .innerJoin(organizations, and(eq(organizations.orgId, memberships.orgId), eq(organizations.state, 'active')))
-      .where(
-        and(
-          eq(authUser.email, email),
-          eq(authUser.emailVerified, true),
-          sql`not exists (select 1 from ${staff} where ${staff.userId} = ${authUser.id})`,
-        ),
-      )
-      .limit(1);
-    return rows.length > 0;
+    const account = (
+      await tx
+        .select({ id: authUser.id })
+        .from(authUser)
+        .where(and(eq(authUser.email, email), eq(authUser.emailVerified, true)))
+        .limit(1)
+    )[0];
+    if (!account) return false;
+    // Общее условие входа клиента (core/access.ts): гостю, сотруднику и клиенту отключённого сервера ссылка не уходит.
+    return (await signInMemberships(tx, eq(memberships.userId, account.id)).limit(1)).length > 0;
   });
 }
 
@@ -60,18 +54,19 @@ export async function createEmailToken(actor: ClientActor, email: string): Promi
   return token;
 }
 
-export type ConfirmResult = 'ok' | 'link_invalid' | 'email_taken';
+export type ConfirmResult = 'ok' | 'link_invalid' | 'email_taken' | 'wrong_account';
 
 const UNIQUE_VIOLATION = '23505';
 
 /**
  * Подтверждение адреса по ссылке. Одна транзакция: адрес становится адресом для входа,
  * указанный адрес очищается, ссылка помечается использованной, запись в журнале аудита (без адреса).
- * Человек в этот момент может быть не вошедшим, поэтому действует система.
+ * Ссылку тратит только тот, кто её запросил (userId вошедшего): иначе чужой человек указал бы адрес
+ * жертвы, жертва нажала бы ссылку, и адрес достался бы ему (проверка main, S2). Чужая ссылка не тратится.
  */
-export async function confirmEmailToken(tokenHash: string): Promise<ConfirmResult> {
+export async function confirmEmailToken(tokenHash: string, userId: string, ip?: string | null): Promise<ConfirmResult> {
   try {
-    return await withIdentity({ type: 'system', job: 'identity.email' }, async (tx) => {
+    return await withIdentity({ type: 'system', job: 'identity.email', ip }, async (tx) => {
       const row = (
         await tx
           .select({ tokenId: emailTokens.tokenId, userId: emailTokens.userId, email: emailTokens.email })
@@ -81,6 +76,7 @@ export async function confirmEmailToken(tokenHash: string): Promise<ConfirmResul
           .for('update')
       )[0];
       if (!row) return 'link_invalid';
+      if (row.userId !== userId) return 'wrong_account';
       await tx.update(emailTokens).set({ usedOn: sql`now()` }).where(eq(emailTokens.tokenId, row.tokenId));
       // Один подтверждённый адрес принадлежит одной учётной записи. Ссылка при этом тратится:
       // ответ "адрес занят" человек видит только после доказательства, что ящик его.
@@ -111,9 +107,18 @@ export async function markOnboarded(userId: string): Promise<void> {
   );
 }
 
-/** Записывает версию политики обработки данных, которую увидел пользователь (раздел 14.6 ТЗ). */
-export async function setPolicyVersion(userId: string, version: string): Promise<void> {
-  await withIdentity({ type: 'system', job: 'identity.policy' }, (tx) =>
-    tx.update(authUser).set({ policyVersion: version, updatedAt: sql`now()` }).where(eq(authUser.id, userId)),
-  );
+/**
+ * Записывает версию политики обработки данных, которую увидел пользователь (раздел 14.6 ТЗ), и запись
+ * журнала аудита: так видна история согласия, а не только последняя редакция (проверка main, Q17).
+ * Та же версия повторно ничего не пишет.
+ */
+export async function setPolicyVersion(userId: string, version: string, ip?: string | null): Promise<void> {
+  await withIdentity({ type: 'system', job: 'identity.policy', ip }, async (tx) => {
+    const changed = await tx
+      .update(authUser)
+      .set({ policyVersion: version, updatedAt: sql`now()` })
+      .where(and(eq(authUser.id, userId), sql`${authUser.policyVersion} is distinct from ${version}`))
+      .returning({ id: authUser.id });
+    if (changed.length > 0) await writeAudit(tx, { action: 'user.policy_acknowledged', objectType: 'user', objectId: userId, diff: { version } });
+  });
 }

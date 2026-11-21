@@ -66,7 +66,8 @@ test('ключ, адрес и ссылка не попадают в сообще
     .catch((e: unknown) => e);
   spy.mockRestore();
   expect(error).toBeInstanceOf(MailError);
-  expect(lines.join('\n')).toContain('login-link');
+  // Журнал пишет queueMail, одной строкой (проверка main, Q16).
+  expect(lines).toEqual([]);
   for (const secret of ['re_secret_key', 'person@example.test', 'token=abc', 'Вход в Smartup Hub']) {
     expect(String((error as Error).message)).not.toContain(secret);
     expect(lines.join('\n')).not.toContain(secret);

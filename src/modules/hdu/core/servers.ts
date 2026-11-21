@@ -2,7 +2,7 @@ import 'server-only';
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import type { Actor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { getSecretBox } from '@/security/secret-box';
 import { HduError } from '../error';
 import type { SsoServer } from '../auth/sso-providers';

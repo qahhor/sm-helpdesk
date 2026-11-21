@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Env, getEnv } from '@/env';
-import { createResendMailer } from './resend';
+import { createResendMailer, MailError } from './resend';
 
 // Модуль hdn, слой mailer: отправка писем (ТЗ 11.11, решение 0016).
 //
@@ -106,7 +106,9 @@ export function queueMail(message: MailMessage): void {
   } catch (error) {
     sending = Promise.reject(error);
   }
+  // Одна строка на сбой: вид письма и код ответа сервиса, без адреса, темы и ссылки (проверка main, Q16).
   sending.catch((error: unknown) => {
-    console.error(`Письмо ${message.kind} не отправлено: ${error instanceof Error ? error.name : 'ошибка'}`);
+    const reason = error instanceof MailError ? (error.status === null ? 'нет ответа' : `код ${error.status}`) : error instanceof Error ? error.name : 'ошибка';
+    console.error(`Письмо ${message.kind} не отправлено: ${reason}`);
   });
 }

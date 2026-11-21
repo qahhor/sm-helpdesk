@@ -1,5 +1,6 @@
 import { afterEach, beforeEach } from 'vitest';
-import { type MailMessage, MemoryMailer, setMailerForTests } from '@/modules/hdn/api';
+import { type MailMessage } from '@/modules/hdn/api';
+import { MemoryMailer, setMailerForTests } from '@/modules/hdn/testing';
 
 // Письма интеграционных тестов складываются в память: по одному ящику на тест.
 

@@ -3,16 +3,15 @@ import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { completeTelegramLoginAction } from './actions';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Страница ссылки входа из бота Telegram (FR-ID-14). Открытие страницы ничего не меняет: Telegram
 // открывает ссылки для предпросмотра, и ссылка от этого не сгорает. Входит только нажатие кнопки.
 export default async function TelegramLoginPage({ searchParams }: PageProps<'/[locale]/login/tg'>) {
   const params = await searchParams;
   const t = await getTranslations('auth.telegram');
-  const token = first(params.token);
-  const invalid = first(params.error) === 'link_invalid' || !token;
+  const token = firstParam(params.token);
+  const invalid = firstParam(params.error) === 'link_invalid' || !token;
 
   return (
     <Card>

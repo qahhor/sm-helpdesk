@@ -11,3 +11,5 @@ playwright-report
 .lighthouseci
 *.md
 dist
+# Шаблон *.md выше касается только корня, но тексты политики нужны в образе всегда (content/legal/README.md).
+!content/**

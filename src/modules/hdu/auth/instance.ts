@@ -29,15 +29,8 @@ const REGISTRY_CHECK_MS = 15_000;
 type State = { auth: Auth; stamp: string; checkedAt: number };
 const shared = globalThis as typeof globalThis & {
   __hubAuth?: State;
-  __hubAuthHandlers?: AuthHandlers;
   __hubAuthBuilding?: Promise<State>;
 };
-
-/** Подключает обработчики писем и входа через Smartup. Экземпляр будет создан заново. */
-export function setAuthHandlers(handlers: Partial<AuthHandlers>): void {
-  shared.__hubAuthHandlers = { ...(shared.__hubAuthHandlers ?? DEFAULT_HANDLERS), ...handlers };
-  shared.__hubAuth = undefined;
-}
 
 async function build(stamp: string): Promise<State> {
   const auth = createAuth({
@@ -46,7 +39,7 @@ async function build(stamp: string): Promise<State> {
     baseUrl: env.HUB_URL,
     servers: await listSsoServers(),
     staff: findStaff,
-    ...(shared.__hubAuthHandlers ?? DEFAULT_HANDLERS),
+    ...DEFAULT_HANDLERS,
   });
   return { auth, stamp, checkedAt: Date.now() };
 }

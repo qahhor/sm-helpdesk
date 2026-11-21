@@ -15,7 +15,7 @@ import {
   resetStaffByMail,
   setStaffState,
 } from '@/modules/hdu/api/staff-manage';
-import { totp } from '../helpers/totp';
+import { freshTotp, totp } from '../helpers/totp';
 import { createStaffFixture, enrolledStaffFixture, newJar, noRequest, reload, type StaffFixture, staffCtx } from './helpers/auth';
 import { pools } from './helpers/db';
 import { memoryMailerPerTest, tokenFrom } from './helpers/mail';
@@ -36,7 +36,7 @@ async function enrolled(role: StaffRole): Promise<StaffFixture> {
 async function sessionOf(staff: StaffFixture) {
   const jar = newJar();
   expect(await signInStaff({ email: staff.email, password: staff.password }, jar.request)).toEqual({ step: 'code' });
-  expect(await verifyStaffCode({ code: totp(staff.totpSecret) }, jar.request)).toEqual({ ok: true });
+  expect(await verifyStaffCode({ code: freshTotp(staff.totpSecret) }, jar.request)).toEqual({ ok: true });
   const session = await readSession({ headers: new Headers({ cookie: jar.cookie() }) });
   if (!session) throw new Error('Сессии нет');
   return session;
@@ -98,6 +98,15 @@ test('себя нельзя заблокировать и понизить, по
   await pools.root.query(`update hdu_staff set role = 'admin' where user_id = $1`, [only.userId]);
   await setStaffState(ctxOf(second, 'admin'), { userId: only.userId, state: 'passive' });
   await expect(changeStaffRole(ctxOf(second, 'admin'), { userId: third.userId, role: 'care' })).resolves.toBeUndefined();
+});
+
+test('изменение, после которого не останется администратора, отклоняется своим кодом (проверка main, Q5)', async () => {
+  const x = await enrolled('admin');
+  const y = await enrolled('admin');
+  // Пока шёл запрос Y, его самого заблокировали: действующий администратор остался один, X.
+  await pools.root.query(`update hdu_staff set state = 'passive' where user_id = $1`, [y.userId]);
+  await expect(changeStaffRole(ctxOf(y, 'admin'), { userId: x.userId, role: 'care' })).rejects.toMatchObject({ code: 'last_admin' });
+  await expect(setStaffState(ctxOf(y, 'admin'), { userId: x.userId, state: 'passive' })).rejects.toMatchObject({ code: 'last_admin' });
 });
 
 test('роль меняет только admin со свежим входом, роль agent_bot не выдаётся', async () => {

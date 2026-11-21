@@ -1,7 +1,8 @@
 import 'server-only';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/locales';
+import { POLICY_VERSION_PATTERN } from './pref';
 
 // Политика обработки данных (раздел 14.6 ТЗ, решение 0017). Текст лежит файлами в content/legal/:
 // manifest.json с версией и privacy.<язык>.md. Пока manifest.json нет, политика выключена:
@@ -12,9 +13,6 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/locales';
 
 export type PolicyBlock = { kind: 'h1' | 'h2' | 'p' | 'li'; text: string };
 export type Policy = { version: string; locale: Locale; blocks: PolicyBlock[] };
-
-/** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */
-export const POLICY_VERSION_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const DEFAULT_DIR = join(process.cwd(), 'content', 'legal');
 
@@ -44,16 +42,41 @@ export function parsePolicy(source: string): PolicyBlock[] {
   return blocks;
 }
 
-/** Действующая версия политики из manifest.json. Пусто: политика выключена или файл испорчен. */
-export async function getPolicyVersion(dir: string = DEFAULT_DIR): Promise<string | null> {
+// Версия политики нужна каждой странице кабинета. Файл меняется только при выкладке, поэтому он
+// перечитывается, лишь когда изменились время изменения или размер (проверка main, Q13).
+const versions = new Map<string, { mtimeMs: number; size: number; version: string | null }>();
+
+function parseVersion(text: string): string | null {
   let manifest: unknown;
   try {
-    manifest = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8'));
+    manifest = JSON.parse(text);
   } catch {
     return null;
   }
   const version = (manifest as { privacy?: { version?: unknown } } | null)?.privacy?.version;
   return typeof version === 'string' && POLICY_VERSION_PATTERN.test(version) ? version : null;
+}
+
+/** Действующая версия политики из manifest.json. Пусто: политика выключена или файл испорчен. */
+export async function getPolicyVersion(dir: string = DEFAULT_DIR): Promise<string | null> {
+  const file = join(dir, 'manifest.json');
+  let info;
+  try {
+    info = await stat(file);
+  } catch {
+    versions.delete(dir);
+    return null;
+  }
+  const cached = versions.get(dir);
+  if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) return cached.version;
+  let version: string | null;
+  try {
+    version = parseVersion(await readFile(file, 'utf8'));
+  } catch {
+    version = null;
+  }
+  versions.set(dir, { mtimeMs: info.mtimeMs, size: info.size, version });
+  return version;
 }
 
 /**

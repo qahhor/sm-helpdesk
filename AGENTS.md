@@ -7,3 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Smartup Hub
+
+Правила проекта для любого агента: `CLAUDE.md` (источник требований `docs/TZ.md`, порядок работы, запреты). Блок выше пишет `next dev`, его не правят руками.

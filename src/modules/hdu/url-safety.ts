@@ -1,6 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 import { HduError } from './error';
+import { readLimited } from '@/modules/hdc/api';
 
 // Адреса серверов Smartup вводит администратор, и портал потом сам ходит по ним (документ discovery,
 // ключи, обмен кода на токен). Чтобы этим нельзя было заставить портал обратиться во внутреннюю сеть
@@ -35,6 +36,10 @@ for (const [net, prefix] of [
   // Любой IPv4 в записи IPv6 закрыт целиком: так не проверять его отдельно.
   ['::ffff:0:0', 96],
   ['64:ff9b::', 96],
+  // Тоже несут адрес IPv4 внутри: локальный NAT64, 6to4 и Teredo (итоговая проверка M1).
+  ['64:ff9b:1::', 48],
+  ['2002::', 16],
+  ['2001::', 32],
   ['100::', 64],
   ['fc00::', 7],
   ['fe80::', 10],
@@ -118,24 +123,10 @@ export class SafeFetchError extends Error {
 }
 
 /** Тело ответа не длиннее maxBytes байт. Длиннее: too_large, чтение прекращается. */
-async function readLimited(response: Response, maxBytes: number): Promise<string> {
-  const declared = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > maxBytes) throw new SafeFetchError('too_large');
-  if (!response.body) return '';
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel().catch(() => {});
-      throw new SafeFetchError('too_large');
-    }
-    chunks.push(value);
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks));
+async function readLimitedOrThrow(response: Response, maxBytes: number): Promise<string> {
+  const text = await readLimited(response, maxBytes);
+  if (text === null) throw new SafeFetchError('too_large');
+  return text;
 }
 
 /**
@@ -172,7 +163,7 @@ export async function safeFetchJson(
       await response.body?.cancel().catch(() => {});
       throw new SafeFetchError('unreachable');
     }
-    const text = await readLimited(response, opts.maxBytes);
+    const text = await readLimitedOrThrow(response, opts.maxBytes);
     try {
       return JSON.parse(text) as unknown;
     } catch {

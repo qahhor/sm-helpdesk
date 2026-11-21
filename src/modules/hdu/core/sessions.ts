@@ -2,7 +2,7 @@ import 'server-only';
 import { and, desc, eq, gt, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authSession } from '../auth-schema';
 import { staff } from '../schema';
 
@@ -37,17 +37,17 @@ export async function listUserSessions(userId: string): Promise<SessionRow[]> {
 }
 
 /** Сотрудник действует от своего имени (запись в журнале), клиент от имени системы (журнал не пишется). */
-async function sessionActor(userId: string) {
+async function sessionActor(userId: string, ip?: string | null) {
   const staffRow = (await withIdentity(SYSTEM, (tx) => tx.select({ role: staff.role }).from(staff).where(eq(staff.userId, userId)).limit(1)))[0];
-  return staffRow && staffRow.role !== 'agent_bot' ? ({ type: 'staff', userId, staffRole: staffRow.role } as const) : SYSTEM;
+  return staffRow && staffRow.role !== 'agent_bot' ? ({ type: 'staff', userId, staffRole: staffRow.role, ip } as const) : SYSTEM;
 }
 
 /**
  * Завершает сессию по паре "идентификатор и пользователь": чужую так не найти. Завершение сессии
  * сотрудником пишется в журнал аудита в той же транзакции. Возвращает, была ли такая сессия.
  */
-export async function revokeOwnSession(userId: string, sessionId: string): Promise<boolean> {
-  const actor = await sessionActor(userId);
+export async function revokeOwnSession(userId: string, sessionId: string, ip?: string | null): Promise<boolean> {
+  const actor = await sessionActor(userId, ip);
   return withIdentity(actor, async (tx) => {
     const removed = await tx
       .delete(authSession)
@@ -60,8 +60,8 @@ export async function revokeOwnSession(userId: string, sessionId: string): Promi
 }
 
 /** Завершает все сессии пользователя, кроме текущей. Возвращает, сколько завершено. */
-export async function revokeOtherOwnSessions(userId: string, currentId: string): Promise<number> {
-  const actor = await sessionActor(userId);
+export async function revokeOtherOwnSessions(userId: string, currentId: string, ip?: string | null): Promise<number> {
+  const actor = await sessionActor(userId, ip);
   return withIdentity(actor, async (tx) => {
     const removed = await tx
       .delete(authSession)

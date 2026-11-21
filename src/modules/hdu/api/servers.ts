@@ -161,7 +161,7 @@ function fetchIssue(error: unknown): ServerIssue {
   throw error;
 }
 
-/** Что не так с документом discovery: issuer, адреса и поддержка PKCE S256. */
+/** Что не так с документом discovery: issuer, адреса входа, ключей и поддержка PKCE S256. */
 function discoveryIssues(doc: unknown, issuer: string): ServerIssue[] {
   if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) return ['not_json'];
   const d = doc as Record<string, unknown>;
@@ -169,7 +169,7 @@ function discoveryIssues(doc: unknown, issuer: string): ServerIssue[] {
   if (d.issuer !== issuer) issues.push('issuer_mismatch');
   if (!nonEmpty(d.authorization_endpoint)) issues.push('no_authorization_endpoint');
   if (!nonEmpty(d.token_endpoint)) issues.push('no_token_endpoint');
-  if (!nonEmpty(d.userinfo_endpoint)) issues.push('no_userinfo_endpoint');
+  // Адрес сведений о пользователе не обязателен: портал берёт сведения из подписанного id_token (проверка main, Q21).
   if (!nonEmpty(d.jwks_uri)) issues.push('no_jwks');
   const methods = d.code_challenge_methods_supported;
   if (!Array.isArray(methods) || !methods.includes('S256')) issues.push('no_pkce_s256');

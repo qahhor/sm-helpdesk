@@ -6,8 +6,7 @@ import { PageHeader } from '@/ui/components/PageHeader';
 import { SessionsList } from '@/ui/components/SessionsList';
 import { sessionItems } from '../../../sessions-view';
 import { revokeOtherStaffSessionsAction, revokeStaffSessionAction } from './actions';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Сессии сотрудника: где выполнен вход. Сессия сотрудника живёт 12 часов (FR-ID-10).
 export default async function AccountPage({ searchParams }: PageProps<'/[locale]/agent/account'>) {
@@ -15,7 +14,7 @@ export default async function AccountPage({ searchParams }: PageProps<'/[locale]
   const params = await searchParams;
   const t = await getTranslations();
   const { items, labels } = await sessionItems(await mySessions());
-  const status = first(params.session);
+  const status = firstParam(params.session);
   return (
     <>
       <PageHeader

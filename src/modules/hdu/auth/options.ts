@@ -2,11 +2,12 @@ import 'server-only';
 import { sso, type SSOUserResolution, type SSOUserResolutionContext, type SSOUserResolutionInput } from '@better-auth/sso';
 import type { BetterAuthOptions } from 'better-auth';
 import { magicLink, twoFactor } from 'better-auth/plugins';
-import { clientIpHeader } from '@/modules/hdc/util';
+import { clientIpHeader } from '@/modules/hdc/api';
 import { PostgresDialect } from 'kysely';
 import type { Pool } from 'pg';
 import {
   LOGIN_LINK_TTL_SEC,
+  AUTH_COOKIE_NAMES,
   AUTH_COOKIE_PREFIX,
   SESSION_TTL_SEC,
   SESSION_UPDATE_AGE_SEC,
@@ -46,6 +47,20 @@ export type AuthDeps = {
   provisionUser: ProvisionSmartupUser;
 };
 
+/**
+ * Имена и свойства кук. Библиотека умеет только приставку __Secure-, поэтому на https её приставка
+ * выключена, а имена с __Host- заданы явно: кука принадлежит только этому хосту, с Secure и Path=/,
+ * поддомен её не перезапишет (проверка main, S7; решение 0021). На http имена без приставки.
+ */
+function cookieOptions(https: boolean) {
+  if (!https) return { useSecureCookies: false };
+  return {
+    useSecureCookies: false,
+    defaultCookieAttributes: { secure: true, path: '/' },
+    cookies: Object.fromEntries(AUTH_COOKIE_NAMES.map((name) => [name, { name: `__Host-${AUTH_COOKIE_PREFIX}.${name}` }])),
+  };
+}
+
 export function buildAuthOptions(deps: AuthDeps) {
   return {
     appName: 'Smartup Hub',
@@ -82,7 +97,7 @@ export function buildAuthOptions(deps: AuthDeps) {
     account: { accountLinking: { enabled: false } },
     advanced: {
       cookiePrefix: AUTH_COOKIE_PREFIX,
-      useSecureCookies: deps.baseUrl.startsWith('https://'),
+      ...cookieOptions(deps.baseUrl.startsWith('https://')),
       // Идентификаторы задаёт база: uuidv7().
       database: { generateId: 'uuid' },
       // Тот же источник адреса посетителя, что у счётчиков и журнала портала (CLIENT_IP_HEADER).

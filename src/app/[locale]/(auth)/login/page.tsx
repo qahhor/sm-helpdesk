@@ -12,15 +12,14 @@ import { cn } from '@/ui/cn';
 import { forgetServerAction } from './actions';
 import { LoginLinkForm } from './LoginLinkForm';
 import { ServerAddressForm } from './ServerAddressForm';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Вход клиента (FR-ID-01..03). Клиент общего облака видит одну кнопку. Клиент выделенного сервера
 // один раз вводит адрес своего Smartup. Список серверов не показывается нигде.
 export default async function LoginPage({ searchParams }: PageProps<'/[locale]/login'>) {
   const params = await searchParams;
   const locale = await getLocale();
-  const next = safeReturnPath(first(params.next), `/${locale}`);
+  const next = safeReturnPath(firstParam(params.next), `/${locale}`);
 
   const kind = await signedInKind();
   if (kind === 'staff') redirect(`/${locale}/agent`);
@@ -31,10 +30,10 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
   // Проверка "не робот" на формах без входа (решение 0018). Без ключа сайта виджета нет.
   const botCheck = { siteKey: getEnv().TURNSTILE_SITE_KEY, nonce: (await headers()).get('x-nonce') ?? '', locale: locale as Locale };
   const server = await describeLoginServer({ headers: new Headers(await headers()) });
-  const showAddress = first(params.mode) === 'server' || server.state === 'none';
-  const showLink = first(params.mode) === 'link';
-  const lookup = first(params.server);
-  const error = first(params.error);
+  const showAddress = firstParam(params.mode) === 'server' || server.state === 'none';
+  const showLink = firstParam(params.mode) === 'link';
+  const lookup = firstParam(params.server);
+  const error = firstParam(params.error);
   const startHref = `/${locale}/login/smartup?next=${encodeURIComponent(next)}`;
   const botLink = await getBotLink();
 
@@ -108,7 +107,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
             <h2 id="login-link" className="text-base font-semibold">
               {tl('request.title')}
             </h2>
-            {first(params.sent) === '1' ? (
+            {firstParam(params.sent) === '1' ? (
               <Alert tone="success">{tl('request.sent')}</Alert>
             ) : (
               <p className="text-sm text-secondary-foreground">{tl('request.intro')}</p>

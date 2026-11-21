@@ -1,6 +1,6 @@
 // Модуль hdu, слой util: чистые функции без обращения к базе (docs/naming.md, раздел 5).
 import { randomUUID } from 'node:crypto';
-import { SERVER_CODE_PATTERN } from './pref';
+import { CLIENT_ROLES, type ClientRole, SERVER_CODE_PATTERN } from './pref';
 
 const SSO_CALLBACK = /^\/api\/auth\/sso\/callback\/([^/]+)$/;
 
@@ -111,4 +111,22 @@ export function describeUserAgent(ua: string | null): DeviceInfo {
  */
 export function needsPolicyNotice(user: { policyVersion: string | null }, current: string | null): boolean {
   return current !== null && user.policyVersion !== current;
+}
+
+/**
+ * Роль клиента по соответствию ролей сервера Smartup. Ищется только среди собственных ключей
+ * соответствия: роль `constructor` или `__proto__` не находит свойство объекта (итоговая проверка M1).
+ */
+export function mapClientRole(roleMap: Record<string, ClientRole>, role: string | undefined): ClientRole {
+  if (!role || !Object.hasOwn(roleMap, role)) return 'client_user';
+  const mapped: unknown = roleMap[role];
+  return (CLIENT_ROLES as readonly unknown[]).includes(mapped) ? (mapped as ClientRole) : 'client_user';
+}
+
+/**
+ * Адрес короткого шага о новой редакции политики с возвратом на страницу, куда шёл человек
+ * (итоговая проверка M1). Чужой или пустой адрес заменяется главной кабинета.
+ */
+export function policyNoticeUrl(locale: string, rawPath: string): string {
+  return `/${locale}/welcome?next=${encodeURIComponent(safeReturnPath(rawPath, `/${locale}`))}`;
 }

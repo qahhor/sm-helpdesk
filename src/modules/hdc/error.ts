@@ -1,5 +1,6 @@
 // Модуль hdc, слой error: ошибки модуля (docs/naming.md, раздел 5).
 // Сервис возвращает код, а не текст: текст на языке пользователя подставляет страница из messages/*.json.
+// Правило ошибок всех модулей: docs/decisions/0022-error-convention.md.
 
 export const HDC_ERROR_CODES = ['forbidden', 'invalid_input'] as const;
 

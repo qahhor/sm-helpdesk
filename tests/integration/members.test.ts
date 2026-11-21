@@ -70,6 +70,19 @@ test('смена роли требует свежего входа', async () =>
   });
 });
 
+test('блокировка участника и настройки организации сотрудником требуют свежего входа (проверка main, Q18)', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = staffCtx(f.care);
+  const later = new Date(ctx.sessionCreatedAt.getTime() + 901_000);
+  await expect(setMemberState({ ctx, orgId: f.orgA.orgId }, { userId: f.aUser.userId, state: 'passive' }, later)).rejects.toMatchObject({
+    code: 'stale_session',
+  });
+  await expect(updateOrganization(ctx, { orgId: f.orgA.orgId, category: 'A' }, later)).rejects.toMatchObject({ code: 'stale_session' });
+  expect((await pools.root.query(`select state from hdu_memberships where user_id = $1`, [f.aUser.userId])).rows[0].state).toBe('active');
+  // Администратор клиента работает в своей организации без этого правила: у клиента нет второго фактора.
+  await setMemberState({ ctx: await clientCtx(f.aAdmin) }, { userId: f.aUser.userId, state: 'passive' }, later);
+});
+
 test('если запись журнала не прошла, роль не меняется', async () => {
   const f = await seedTwoOrgs();
   await pools.root.query(`alter table hdc_audit_log add constraint test_block check (action <> 'member.role_changed')`);

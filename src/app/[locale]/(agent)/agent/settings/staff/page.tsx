@@ -13,11 +13,11 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 import { settingsNav } from '../sections';
 import { changeStaffRoleAction, resetStaffAction, setStaffStateAction } from './actions';
 import { InviteStaffForm } from './InviteStaffForm';
+import { STAFF_PAGE_ERRORS } from './errors';
+import { firstParam } from '@/lib/search-params';
 
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2';
-const ERRORS = new Set(['invalid_input', 'stale_session', 'forbidden', 'not_found', 'already_member']);
 const DONE = new Set(['invited', 'roleChanged', 'blocked', 'unblocked', 'reset']);
 const NO_MAIL: Record<string, { done: string; command: string }> = {
   invitedNoMail: { done: 'invited', command: 'hub staff:create --email <email> --name <name> --role <role>' },
@@ -35,11 +35,11 @@ export default async function StaffSettingsPage({ searchParams }: PageProps<'/[l
   const ts = await getTranslations('agent.settings.staff');
   const [rows, invitations] = await Promise.all([listStaff(staff), listStaffInvitations(staff)]);
 
-  const error = first(query.error);
-  const done = first(query.done);
-  const inviting = first(query.invite) === '1';
-  const selected = rows.find((row) => row.userId === first(query.user) && !row.isSelf);
-  const confirm = first(query.confirm);
+  const error = firstParam(query.error);
+  const done = firstParam(query.done);
+  const inviting = firstParam(query.invite) === '1';
+  const selected = rows.find((row) => row.userId === firstParam(query.user) && !row.isSelf);
+  const confirm = firstParam(query.confirm);
   const roles = Object.fromEntries(HUMAN_STAFF_ROLES.map((role) => [role, ts(`roles.${role}`)]));
   const here = `/${locale}/agent/settings/staff`;
   const cancel = (
@@ -79,7 +79,7 @@ export default async function StaffSettingsPage({ searchParams }: PageProps<'/[l
         }
       />
       <SettingsLayout {...await settingsNav('staff')}>
-        {error && ERRORS.has(error) && (
+        {error && STAFF_PAGE_ERRORS.has(error) && (
           <Alert tone="danger">
             {ts(`errors.${error}`)}
             {error === 'stale_session' && (

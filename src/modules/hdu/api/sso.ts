@@ -3,14 +3,14 @@ import { isAPIError } from 'better-auth/api';
 import { getEnv } from '@/env';
 import type { Locale } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
-import { clientIp } from '@/modules/hdc/util';
+import { clientIp, consumeRateLimit, ipRateKey } from '@/modules/hdc/api';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
 import { SERVER_CODE_PATTERN } from '../pref';
 import { safeReturnPath } from '../util';
 import type { RequestInfo } from './request';
 import { findLoginServer, findServerByAddress } from './servers';
+import { cookieValue } from '@/lib/cookies';
 
 // Вход клиента через Smartup (FR-ID-01..03). Список серверов наружу не отдаётся: клиент общего облака
 // видит одну кнопку, клиент выделенного сервера один раз вводит адрес своего Smartup, выбор запоминается.
@@ -19,17 +19,9 @@ import { findLoginServer, findServerByAddress } from './servers';
 export const SERVER_COOKIE = 'hub_server';
 const SERVER_COOKIE_MAX_AGE = 365 * 24 * 3600;
 
-function readCookie(headers: Headers, name: string): string | null {
-  for (const pair of (headers.get('cookie') ?? '').split(';')) {
-    const [key, ...rest] = pair.trim().split('=');
-    if (key === name) return rest.join('=');
-  }
-  return null;
-}
-
 /** Код сервера из куки, если он записан правильно. */
 function rememberedCode(headers: Headers): string | null {
-  const code = readCookie(headers, SERVER_COOKIE);
+  const code = cookieValue(headers.get('cookie'), SERVER_COOKIE);
   return code && SERVER_CODE_PATTERN.test(code) ? code : null;
 }
 
@@ -64,11 +56,11 @@ export async function startSmartupSignIn(
   input: { next?: unknown; locale: Locale },
   request: RequestInfo,
 ): Promise<{ url: string } | { error: 'no_server' | 'rate_limited' | 'server_unavailable' }> {
-  const limit = await consumeRateLimit(rateKey('sso-start:ip', clientIp(request.headers) ?? 'unknown'), RATE_RULES.ssoStartPerIp);
+  const limit = await consumeRateLimit(ipRateKey('sso-start:ip', request.headers), RATE_RULES.ssoStartPerIp);
   if (!limit.allowed) return { error: 'rate_limited' };
   const code = rememberedCode(request.headers);
   // Кука есть, но её значение неверно: на сервер по умолчанию не переключаемся.
-  if (code === null && readCookie(request.headers, SERVER_COOKIE) !== null) return { error: 'no_server' };
+  if (code === null && cookieValue(request.headers.get('cookie'), SERVER_COOKIE) !== undefined) return { error: 'no_server' };
   const server = await findLoginServer({ code });
   if (!server) return { error: 'no_server' };
   // Сервер только что добавили: экземпляр библиотеки должен его знать.
@@ -111,7 +103,7 @@ export async function rememberServer(
   // Проверка "не робот": робот, перебирающий адреса, получает тот же ответ "не найден" (решение 0018).
   const check = getBotCheck();
   if (check.enabled && (await check.verify(botToken, ip)) === 'failed') return { found: false };
-  const limit = await consumeRateLimit(rateKey('server-lookup:ip', ip ?? 'unknown'), RATE_RULES.serverLookupPerIp);
+  const limit = await consumeRateLimit(ipRateKey('server-lookup:ip', request.headers), RATE_RULES.serverLookupPerIp);
   if (!limit.allowed) return { found: false, rateLimited: true };
   const server = await findServerByAddress(address);
   if (!server) return { found: false };

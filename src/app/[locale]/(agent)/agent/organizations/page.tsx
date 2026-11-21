@@ -8,8 +8,8 @@ import { EmptyState } from '@/ui/components/EmptyState';
 import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
 import { PageHeader } from '@/ui/components/PageHeader';
+import { firstParam } from '@/lib/search-params';
 
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3';
 
@@ -18,8 +18,8 @@ const cell = 'px-3';
 export default async function OrganizationsPage({ searchParams }: PageProps<'/[locale]/agent/organizations'>) {
   const staff = await requireStaffActor();
   const params = await searchParams;
-  const query = first(params.q) ?? '';
-  const page = Number(first(params.page) ?? '1');
+  const query = firstParam(params.q) ?? '';
+  const page = Number(firstParam(params.page) ?? '1');
   const t = await getTranslations('agent');
 
   let result: Awaited<ReturnType<typeof searchOrganizations>> | null = null;

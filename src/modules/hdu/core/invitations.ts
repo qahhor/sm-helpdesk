@@ -1,20 +1,19 @@
 import 'server-only';
-import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
 import { HduError } from '../error';
-import type { ClientRole, MembershipSource } from '../pref';
+import { type ClientRole, INVITATION_TTL_SEC, INVITATIONS_LIST_LIMIT, type MembershipSource } from '../pref';
 import { invitations, memberships, organizations, staff } from '../schema';
 import { newToken } from '../tokens';
+import { signInMemberships } from './access';
 
 // Модуль hdu, слой core: приглашения в организацию клиента (FR-ID-08). Токен хранится хешем.
 // Создание и отзыв идут от имени приглашающего: политики базы пускают администратора клиента
 // только в свою организацию и только от своего имени. Принятие выполняет система.
 
-/** Приглашение живёт 7 дней (FR-ID-08). */
-export const INVITATION_TTL_SEC = 7 * 24 * 3600;
 
 const SYSTEM = { type: 'system', job: 'identity.invitation' } as const;
 
@@ -40,6 +39,8 @@ export async function createInvitation(
         and(
           eq(memberships.orgId, input.orgId),
           eq(memberships.state, 'active'),
+          // Гостя приглашают: принятие сделает его обычным участником.
+          ne(memberships.source, 'guest'),
           eq(authUser.email, input.email),
           eq(authUser.emailVerified, true),
         ),
@@ -79,7 +80,7 @@ export type InvitationRow = {
   revokedOn: Date | null;
 };
 
-/** Приглашения организации, новые первыми. Хеш токена не читается: у hub_app нет права на эту колонку. */
+/** Приглашения организации, новые первыми, не больше сотни (проверка main, Q13). Хеш токена не читается: у hub_app нет права на эту колонку. */
 export async function listOrgInvitations(actor: ClientActor | StaffActor, orgId: string): Promise<InvitationRow[]> {
   const rows = await withActor(actor, (tx) =>
     tx
@@ -93,7 +94,8 @@ export async function listOrgInvitations(actor: ClientActor | StaffActor, orgId:
       })
       .from(invitations)
       .where(eq(invitations.orgId, orgId))
-      .orderBy(desc(invitations.createdOn), desc(invitations.invitationId)),
+      .orderBy(desc(invitations.createdOn), desc(invitations.invitationId))
+      .limit(INVITATIONS_LIST_LIMIT),
   );
   return rows as InvitationRow[];
 }
@@ -128,15 +130,26 @@ export async function findPendingInvitation(tokenHash: string): Promise<{ orgNam
   });
 }
 
-export type AcceptResult = { userId: string } | 'link_invalid' | 'email_taken';
+/** signIn: ссылка служит входом (новая учётная запись или учётная запись, которой войти нечем). */
+export type AcceptResult =
+  | { userId: string; orgId: string; created: boolean; signIn: boolean }
+  | 'link_invalid'
+  | 'email_taken'
+  | 'sign_in_required'
+  | 'wrong_account';
 
 /**
- * Принятие приглашения одной транзакцией от системы. Ссылка из письма доказала адрес: учётная запись
- * находится по нему или создаётся с подтверждённым адресом. Адрес сотрудника участником клиента не становится.
- * Отключённое членство приглашение не включает.
+ * Принятие приглашения одной транзакцией от системы. Ссылка из письма доказала адрес для новой учётной
+ * записи: она создаётся с подтверждённым адресом. Существующая учётная запись принимает приглашение
+ * только из своей сессии (sessionUserId): иначе пересланная ссылка служила бы входом в неё на 7 дней
+ * (проверка main, S3); приглашение при этом остаётся ждущим. Чужая сессия: wrong_account. Исключение:
+ * учётной записи нечем войти (только гостевое или отключённое членство), тогда ссылка служит входом, как
+ * для новой: доступа к другим организациям у неё нет (итоговая проверка доработки, замечание 1).
+ * Адрес сотрудника участником клиента не становится. Отключённое членство приглашение не включает.
+ * Гостевое членство становится обычным.
  */
-export async function acceptInvitationTx(tokenHash: string, name: string): Promise<AcceptResult> {
-  return withIdentity(SYSTEM, async (tx) => {
+export async function acceptInvitationTx(tokenHash: string, name: string, sessionUserId: string | null, ip?: string | null): Promise<AcceptResult> {
+  return withIdentity({ ...SYSTEM, ip }, async (tx) => {
     const invitation = (
       await tx
         .select({
@@ -155,8 +168,25 @@ export async function acceptInvitationTx(tokenHash: string, name: string): Promi
     if (!invitation?.orgId) return 'link_invalid';
     const orgId = invitation.orgId;
 
+    let trusted = false;
     let user = (await tx.select({ id: authUser.id, emailVerified: authUser.emailVerified }).from(authUser).where(eq(authUser.email, invitation.email)).limit(1))[0];
     if (user && (await tx.select({ userId: staff.userId }).from(staff).where(eq(staff.userId, user.id)).limit(1)).length > 0) return 'email_taken';
+    if (user) {
+      // Отключённое членство приглашение не включает: ответ тот же, что у недействительной ссылки.
+      const passive = await tx
+        .select({ state: memberships.state })
+        .from(memberships)
+        .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, user.id), eq(memberships.state, 'passive')))
+        .limit(1);
+      if (passive.length > 0) return 'link_invalid';
+      if (user.id !== sessionUserId) {
+        if (sessionUserId !== null) return 'wrong_account';
+        const canSignIn = (await signInMemberships(tx, eq(memberships.userId, user.id)).limit(1)).length > 0;
+        if (canSignIn) return 'sign_in_required';
+        trusted = true;
+      }
+    }
+    const created = !user;
     if (!user) {
       user = (
         await tx
@@ -170,7 +200,7 @@ export async function acceptInvitationTx(tokenHash: string, name: string): Promi
 
     const current = (
       await tx
-        .select({ state: memberships.state })
+        .select({ state: memberships.state, source: memberships.source })
         .from(memberships)
         .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, user.id)))
         .limit(1)
@@ -185,12 +215,25 @@ export async function acceptInvitationTx(tokenHash: string, name: string): Promi
       await tx.update(invitations).set({ acceptedOn: sql`now()` }).where(eq(invitations.invitationId, invitation.invitationId));
       await writeAudit(tx, { action: 'invitation.accepted', objectType: 'invitation', objectId: invitation.invitationId, orgId });
       await writeAudit(tx, { action: 'member.joined', objectType: 'membership', objectId: user.id, orgId, diff: { role: invitation.role, source } });
+    } else if (current.source === 'guest') {
+      // Гость стал приглашённым участником: членство получает роль из приглашения и даёт вход.
+      const byStaff = invitation.invitedBy
+        ? (await tx.select({ userId: staff.userId }).from(staff).where(eq(staff.userId, invitation.invitedBy)).limit(1)).length > 0
+        : false;
+      const source: MembershipSource = byStaff ? 'staff' : 'invite';
+      await tx
+        .update(memberships)
+        .set({ source, role: invitation.role as ClientRole })
+        .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, user.id)));
+      await tx.update(invitations).set({ acceptedOn: sql`now()` }).where(eq(invitations.invitationId, invitation.invitationId));
+      await writeAudit(tx, { action: 'invitation.accepted', objectType: 'invitation', objectId: invitation.invitationId, orgId });
+      await writeAudit(tx, { action: 'member.joined', objectType: 'membership', objectId: user.id, orgId, diff: { role: invitation.role, source, from: 'guest' } });
     } else {
       // Уже действующий участник: приглашение принято, членство не меняется.
       await tx.update(invitations).set({ acceptedOn: sql`now()` }).where(eq(invitations.invitationId, invitation.invitationId));
       await writeAudit(tx, { action: 'invitation.accepted', objectType: 'invitation', objectId: invitation.invitationId, orgId });
     }
     await tx.update(authUser).set({ lastOrgId: orgId, updatedAt: sql`now()` }).where(eq(authUser.id, user.id));
-    return { userId: user.id };
+    return { userId: user.id, orgId, created, signIn: created || trusted };
   });
 }

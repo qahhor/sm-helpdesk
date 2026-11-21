@@ -1,13 +1,14 @@
 import 'server-only';
-import { and, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { type ClientActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import type { Locale } from '@/i18n/locales';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
 import { LOGIN_BOT_LINK_TTL_SEC } from '../pref';
-import { contactIdentities, linkCodes, loginCodes, memberships, organizations, staff } from '../schema';
+import { contactIdentities, linkCodes, loginCodes, memberships, organizations } from '../schema';
 import { newToken } from '../tokens';
+import { signInMemberships } from './access';
 import { isSyntheticEmail } from '../util';
 
 // Модуль hdu, слой core: привязка Telegram (FR-ID-14, решение 94 ТЗ, решение 0018).
@@ -166,7 +167,7 @@ type Tx = Parameters<Parameters<typeof withIdentity>[1]>[0];
 
 /**
  * Может ли пользователь войти по ссылке из бота: аккаунт Telegram привязан к нему и не заблокирован,
- * он не сотрудник, у него есть действующее негостевое членство в действующей организации.
+ * и выполняется общее условие входа клиента (core/access.ts).
  */
 async function canSignInFromBot(tx: Tx, userId: string, externalId: string | null): Promise<boolean> {
   const identity = await tx
@@ -182,14 +183,8 @@ async function canSignInFromBot(tx: Tx, userId: string, externalId: string | nul
     )
     .limit(1);
   if (identity.length === 0) return false;
-  if ((await tx.select({ userId: staff.userId }).from(staff).where(eq(staff.userId, userId)).limit(1)).length > 0) return false;
-  const membership = await tx
-    .select({ orgId: memberships.orgId })
-    .from(memberships)
-    .innerJoin(organizations, and(eq(organizations.orgId, memberships.orgId), eq(organizations.state, 'active')))
-    .where(and(eq(memberships.userId, userId), eq(memberships.state, 'active'), ne(memberships.source, 'guest')))
-    .limit(1);
-  return membership.length > 0;
+  // Общее условие входа клиента (core/access.ts): не сотрудник, негостевое членство, действующие организация и сервер.
+  return (await signInMemberships(tx, eq(memberships.userId, userId)).limit(1)).length > 0;
 }
 
 /**

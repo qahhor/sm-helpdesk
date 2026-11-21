@@ -1,6 +1,6 @@
 # Staging после вехи M1: памятка
 
-Что настроить и проверить, когда портал впервые разворачивается на staging. Решения: 0013, 0015, 0016, 0018, 0019.
+Что настроить и проверить, когда портал впервые разворачивается на staging. Решения: 0013, 0015, 0016, 0018, 0019, 0020, 0021, 0023. Файлы развёртывания: `compose.prod.yaml` и `Caddyfile` (разделы 13.3 и 13.4 ТЗ, часть вехи M1). Уточнено 21.11.2026 после проверки main: команды ниже работают в образе, где нет pnpm и исходников.
 
 ## 1. Переменные окружения
 
@@ -13,20 +13,42 @@
 | `HUB_DOMAIN` | узел из `HUB_URL` | С ним сверяется проверка "не робот" |
 | `DATABASE_URL_APP` | подключение роли `hub_app` | |
 | `DATABASE_URL_AUTH` | подключение роли `hub_auth` | |
-| `BETTER_AUTH_SECRET` | случайная строка от 32 знаков | Секрет |
-| `ENCRYPTION_KEY` | ключ шифрования секретов серверов Smartup | Секрет. Смена ключа делает секреты серверов нечитаемыми: их задают заново |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` | Секрет. Не меньше 32 знаков, не совпадает с `ENCRYPTION_KEY` |
+| `ENCRYPTION_KEY` | `openssl rand -base64 32` | Секрет: ровно 32 байта в base64 (44 знака со знаком `=` в конце). Смена ключа делает секреты серверов нечитаемыми: их задают заново |
 | `MAIL_TRANSPORT` | `resend` | `console` и `file` только на localhost |
 | `RESEND_API_KEY` | ключ Resend | Секрет |
-| `MAIL_FROM` | `Smartup Hub <hub@домен>` | Домен проверен в Resend |
+| `MAIL_FROM` | `Smartup Hub <hub@домен>` | Домен отправителя проверен в Resend: записи SPF и DKIM, которые показывает Resend, добавлены в DNS |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` | ключи Cloudflare Turnstile для домена staging | Задаются парой. Без них проверка "не робот" выключена |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | токен бота от BotFather и случайная строка от 32 знаков | Задаются парой. Без них бот выключен |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | токен бота от BotFather и `openssl rand -hex 32` | Задаются парой. Без них бот выключен. Секрет вебхука: только латинские буквы, цифры, `_` и `-` (так требует Telegram), поэтому hex, а не base64 |
 | `TELEGRAM_API_URL` | не задавать | Другой адрес допускается только на localhost |
 | `CLIENT_IP_HEADER` | `cf-connecting-ip` | Обязателен в production. Откуда брать адрес посетителя для счётчиков и журнала (решение 0020). Сетевой экран пропускает на 443 только адреса Cloudflare, иначе заголовок можно подделать |
 | `LOG_LEVEL` | `info` | |
 
-База (служба `postgres`): пароли ролей `hub_owner`, `hub_app`, `hub_auth`. Миграции: `pnpm db:migrate` от роли владельца.
+Файлы рядом с `compose.prod.yaml`:
+
+| Файл | Что в нём |
+|---|---|
+| `.env` | Переменные портала из таблицы выше. Подключения владельца и суперпользователя здесь нет |
+| `.env.migrate` | `DATABASE_URL_OWNER`: подключение роли `hub_owner`. Только для миграций |
+| `.env.bootstrap` | `DATABASE_URL_SUPERUSER` (к базе `postgres`), `HUB_OWNER_PASSWORD`, `HUB_APP_PASSWORD`, `HUB_AUTH_PASSWORD`. Нужен один раз, потом файл удаляется |
+| `secrets/pg_superuser` | Пароль суперпользователя PostgreSQL |
+
+Переменные оболочки для `docker compose`: `HUB_IMAGE` (образ портала с тегом) и `HUB_DOMAIN`.
+
+## 1a. Первый запуск
+
+1. `docker compose -f compose.prod.yaml up -d postgres`
+2. `docker compose -f compose.prod.yaml run --rm bootstrap`: роли `hub_owner`, `hub_app`, `hub_auth`, база и расширения. Затем удалить `.env.bootstrap`.
+3. `docker compose -f compose.prod.yaml run --rm migrate`: миграции. Повторять при каждой выкладке до запуска нового портала.
+4. `docker compose -f compose.prod.yaml up -d`
+5. Проверка: `curl -fsS https://<адрес staging>/api/health` отвечает `{"status":"ok"}`, `curl -fsS https://<адрес staging>/api/ready` отвечает `ready` (портал видит базу под обеими ролями).
+6. Расписание сервера раз в сутки: `docker compose -f compose.prod.yaml exec web node hub.mjs maintenance:cleanup` (очистка просроченных служебных строк до фоновых задач M2, решение 0023).
+
+На https куки входа называются `__Host-hub.*` (решение 0021): портал не должен открываться по адресу с другим узлом, чем `HUB_URL`.
 
 ## 2. Команды hub по порядку
+
+Команды выполняются внутри контейнера портала: `docker compose -f compose.prod.yaml exec web node hub.mjs <команда>`. Ниже для краткости `hub <команда>`.
 
 1. Первый администратор: `hub staff:create --email <адрес> --name <имя> --role admin`. Ссылку из вывода передать лично: по ней задаётся пароль и подключается второй фактор.
 2. Серверы Smartup. Секрет клиента OAuth передаётся переменной `HUB_OAUTH_CLIENT_SECRET` или вводится по запросу команды, в аргументах он не принимается:

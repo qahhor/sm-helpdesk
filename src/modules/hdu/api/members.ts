@@ -24,8 +24,10 @@ const stateInput = z.object({ userId: uuidInput, state: z.enum(RECORD_STATES) })
  * Отключить или снова включить участника. Себя нельзя. Сессии отключённого не удаляются:
  * доступ закрывает проверка членства на каждом запросе.
  */
-export async function setMemberState(scope: OrgScope, input: unknown): Promise<void> {
+export async function setMemberState(scope: OrgScope, input: unknown, now: Date = new Date()): Promise<void> {
   const s = manageScope(scope);
+  // Сотрудник отключает участника клиента только со свежим входом, как при смене роли (проверка main, Q18).
+  if (scope.ctx.actor.type === 'staff' && !isFresh(scope.ctx as StaffContext, now, FRESH_SIGN_IN_SEC)) throw new HduError('stale_session');
   const parsed = stateInput.safeParse(input);
   if (!parsed.success) throw new HduError('invalid_input');
   if (parsed.data.userId === s.selfId) throw new HduError('forbidden');

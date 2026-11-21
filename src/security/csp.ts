@@ -2,6 +2,8 @@
 // с одноразовым кодом запроса (nonce), unsafe-inline нет.
 
 const TURNSTILE = 'https://challenges.cloudflare.com';
+/** Адрес приёма отчётов о нарушениях: src/app/api/csp-report/route.ts. */
+export const CSP_REPORT_PATH = '/api/csp-report';
 const NONCE = /^[A-Za-z0-9+/_-]+={0,2}$/;
 
 /** Адрес источника для политики: только схема https, узел и порт. */
@@ -56,6 +58,9 @@ export function buildCsp(opts: {
     "base-uri 'none'",
     "form-action 'self'",
     "object-src 'none'",
+    // Нарушения приходят порталу (проверка main, S9). report-to не задан: с ним Chrome перестаёт
+    // слать отчёты на report-uri, а Firefox report-to не знает.
+    `report-uri ${CSP_REPORT_PATH}`,
   ].join('; ');
 }
 

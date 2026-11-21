@@ -9,8 +9,8 @@ import { FormField } from '@/ui/components/form-field';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { Label } from '@/ui/components/label';
 import { changeRoleAction, inviteStaffAction, revokeStaffAction, setMemberStateStaffAction, updateOrgSettingsAction } from './actions';
+import { firstParam } from '@/lib/search-params';
 
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3';
 const ERRORS = new Set(['stale_session', 'forbidden', 'not_found', 'invalid_input', 'already_member', 'rate_limited']);
@@ -29,9 +29,9 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
     canManage ? listInvitations({ ctx: staff, orgId: org.orgId }) : Promise.resolve([]),
   ]);
   const query = await searchParams;
-  const error = first(query.error);
-  const done = first(query.done);
-  const confirming = members.find((m) => m.userId === first(query.confirm) && m.state === 'active');
+  const error = firstParam(query.error);
+  const done = firstParam(query.done);
+  const confirming = members.find((m) => m.userId === firstParam(query.confirm) && m.state === 'active');
   const t = await getTranslations('agent');
   const format = await getFormatter();
   const locale = await getLocale();

@@ -14,9 +14,9 @@ import {
 import { HduError } from '../error';
 import { parseInput, uuidInput } from '../input';
 import { requireHumanStaff } from './scope';
-import type { StaffContext } from './session';
 import { isSyntheticEmail } from '../util';
 import type { SessionData } from './request';
+import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './session';
 
 // Актор клиента из проверенной сессии (ТЗ 11.1, FR-ID-05). Функции этого файла не зависят от Next.js:
 // их вызывают страницы (через api/actor.ts) и тесты.
@@ -137,9 +137,11 @@ const settingsInput = z
   .strict();
 
 /** Категория клиента и отключение AI-обработки (FR-ADM-02): care и admin. Запись org.updated в той же транзакции. */
-export async function updateOrganization(ctx: StaffContext, input: unknown): Promise<void> {
+export async function updateOrganization(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<void> {
   const actor = ctx?.actor;
   if (actor?.type !== 'staff' || (actor.staffRole !== 'care' && actor.staffRole !== 'admin')) throw new HduError('forbidden');
+  // Категория и AI-обработка меняют, что уходит в AI и как обслуживается клиент: свежий вход (проверка main, Q18).
+  if (!isFresh(ctx, now, FRESH_SIGN_IN_SEC)) throw new HduError('stale_session');
   const { orgId, ...settings } = parseInput(settingsInput, input);
   if (!(await updateOrgSettings(actor, orgId, settings))) throw new HduError('not_found');
 }

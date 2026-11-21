@@ -96,7 +96,17 @@ test('секреты, большие объёмы и неизвестные де
   await expect(
     withActor(admin, (tx) => writeAudit(tx, { action: 'staff.reset', objectType: 'staff', ip: 'not an ip' })),
   ).rejects.toThrow();
+  // Составные имена одноразовых кодов тоже секрет (итоговая проверка доработки).
+  for (const key of ['codeHash', 'otp', 'backupCodes', 'api_key', 'refresh_token', 'X-Api-Key', 'cookie', 'linkCode', 'loginCode', 'recovery_code', 'verificationCode', 'authCode'])
+    await expect(write({ [key]: 'x' }), key).rejects.toThrow();
   expect((await pools.root.query('select 1 from hdc_audit_log')).rowCount).toBe(0);
+});
+
+test('обычные поля со словами code и pass записываются (проверка main, Q4)', async () => {
+  const write = (diff: Record<string, unknown>) =>
+    withActor(admin, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', diff }));
+  await write({ code: 'mock', serverCode: 'acme', state: 'passive', companyCode: '501' });
+  expect((await pools.root.query('select diff from hdc_audit_log')).rows).toEqual([{ diff: { code: 'mock', serverCode: 'acme', state: 'passive', companyCode: '501' } }]);
 });
 
 // --- Просмотр журнала (задача 20, FR-ADM-07) ---
@@ -154,4 +164,19 @@ test('строка журнала называет автора и органи�
   expect((await listAudit(ctx, { orgId: f.orgB.orgId })).items).toEqual([]);
   expect((await listAudit(ctx, { actorId: f.adminStaff.userId })).items).toHaveLength(1);
   expect((await listAudit(ctx, { to: new Date(Date.now() - 86400e3).toISOString() })).items).toEqual([]);
+});
+
+test('адрес запроса из актора попадает в журнал сам: действия администратора записываются с адресом (проверка main, S5)', async () => {
+  await withActor({ ...admin, ip: '203.0.113.9' }, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', objectId: 'ip-1' }));
+  await withIdentity({ ...admin, ip: '2001:db8::7' }, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', objectId: 'ip-2' }));
+  // Явно переданный адрес важнее адреса актора; без адреса пусто.
+  await withActor({ ...admin, ip: '203.0.113.9' }, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', objectId: 'ip-3', ip: '198.51.100.1' }));
+  await withActor(admin, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', objectId: 'ip-4' }));
+  const rows = (await pools.root.query(`select object_id, host(ip) as ip from hdc_audit_log where object_id like 'ip-%' order by object_id`)).rows;
+  expect(rows).toEqual([
+    { object_id: 'ip-1', ip: '203.0.113.9' },
+    { object_id: 'ip-2', ip: '2001:db8::7' },
+    { object_id: 'ip-3', ip: '198.51.100.1' },
+    { object_id: 'ip-4', ip: null },
+  ]);
 });

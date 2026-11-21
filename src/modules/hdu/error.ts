@@ -1,5 +1,6 @@
 // Модуль hdu, слой error: ошибки модуля (docs/naming.md, раздел 5).
 // Сервис возвращает код, а не текст: текст на языке пользователя подставляет страница из messages/*.json.
+// Правило ошибок всех модулей: docs/decisions/0022-error-convention.md.
 
 export const HDU_ERROR_CODES = [
   'forbidden',
@@ -20,6 +21,8 @@ export const HDU_ERROR_CODES = [
   'bot_check',
   // Адрес Smartup или сервера входа уже записан у другого сервера реестра.
   'server_taken',
+  // После изменения в портале не осталось бы ни одного действующего администратора.
+  'last_admin',
 ] as const;
 
 export type HduErrorCode = (typeof HDU_ERROR_CODES)[number];

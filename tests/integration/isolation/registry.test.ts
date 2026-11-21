@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { asActor, pools } from '../helpers/db';
 import { seedTwoOrgs } from './fixture';
-import { DOMAIN_OBJECTS } from './tables';
+import { DOMAIN_OBJECTS, type Write } from './tables';
 
 // Строки во все таблицы, чтобы "пусто" означало "закрыто политикой", а не "в таблице ничего нет".
 async function seedEverything() {
@@ -75,35 +75,69 @@ test('запрос без актора не возвращает ни одной
 
 test('клиент видит в каждой таблице ровно то, что записано в наборе', async () => {
   const f = await seedEverything();
-  for (const [name, rule] of Object.entries(DOMAIN_OBJECTS))
+  const people = new Set(
+    (await pools.root.query(`select user_id from hdu_memberships where org_id = $1 union select user_id from hdu_staff where state = 'active'`, [f.orgA.orgId])).rows.map(
+      (row) => row.user_id as string,
+    ),
+  );
+  for (const [name, rule] of Object.entries(DOMAIN_OBJECTS)) {
+    let seen = 0;
     for (const actor of [f.aUser.actor, f.aAdmin.actor]) {
-      const rows = await rowsOrDenied(asActor(pools.app, actor, (c) => c.query(`select * from ${name}`)));
+      // Столбец, по которому видно принадлежность. Не select *: у hub_app нет права на секретные столбцы
+      // (например, хеш токена приглашения), и отказ выглядел бы как "клиент ничего не видит".
+      const column = { none: '1', all: '1', 'own-org': 'org_id', 'org-people': 'user_id', 'own-user': 'user_id' }[rule.client];
+      const rows = await rowsOrDenied(asActor(pools.app, actor, (c) => c.query(`select ${column} from ${name}`)));
+      seen += rows.length;
       const label = `${name} для ${actor.orgRole}`;
       if (rule.client === 'none') expect(rows, label).toEqual([]);
       if (rule.client === 'all') expect(rows.length, label).toBeGreaterThan(0);
-      if (rule.client === 'own-org')
-        expect(rows.filter((row) => 'org_id' in row && row.org_id !== f.orgA.orgId), label).toEqual([]);
+      if (rule.client === 'own-org') expect(rows.filter((row) => row.org_id !== f.orgA.orgId), label).toEqual([]);
+      if (rule.client === 'org-people') expect(rows.filter((row) => !people.has(row.user_id as string)), label).toEqual([]);
       if (rule.client === 'own-user') expect(rows.filter((row) => row.user_id !== actor.userId), label).toEqual([]);
     }
+    // Проверка "только своё" ничего не значит, если клиент не видит вообще ничего (проверка main, Q2).
+    if (rule.client !== 'none') expect(seen, `${name}: клиент видит свои строки`).toBeGreaterThan(0);
+  }
 });
 
-test('приложение под ролью hub_app не меняет таблицы идентичности ни при каком акторе', async () => {
-  const f = await seedEverything();
-  const tables = ['hdu_servers', 'hdu_server_checks', 'hdu_organizations', 'hdu_memberships', 'hdu_staff', 'hdu_invitations', 'hdu_email_tokens'];
-  for (const table of tables)
-    for (const actor of [f.aAdmin.actor, f.adminStaff.actor, { type: 'system', job: 'test' } as const]) {
-      const run = (sql: string) => asActor(pools.app, actor, (c) => c.query(sql));
-      await expect(run(`update ${table} set modified_on = now()`), `update ${table}`).rejects.toThrow(/permission denied/);
-      await expect(run(`delete from ${table}`), `delete ${table}`).rejects.toThrow(/permission denied/);
-    }
+const WRITES: Write[] = ['insert', 'update', 'delete'];
+
+test('права ролей приложения на изменение совпадают с набором', async () => {
+  const actual = await pools.owner.query(`select c.relname as name, r.role, lower(p.priv) as priv
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    cross join (values ('hub_app'), ('hub_auth')) r(role) cross join (values ('INSERT'), ('UPDATE'), ('DELETE')) p(priv)
+    where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm') and has_table_privilege(r.role, c.oid, p.priv)`);
+  const granted = (name: string, role: string) =>
+    actual.rows.filter((row) => row.name === name && row.role === role).map((row) => row.priv as Write).sort();
+  for (const [name, rule] of Object.entries(DOMAIN_OBJECTS)) {
+    expect(granted(name, 'hub_app'), `${name} hub_app`).toEqual([...(rule.app ?? [])].sort());
+    expect(granted(name, 'hub_auth'), `${name} hub_auth`).toEqual([...(rule.auth ?? [])].sort());
+  }
 });
 
-test('удалить строку идентичности не может и роль hub_auth', async () => {
+test('изменения, которых нет в наборе, закрыты при любом акторе', async () => {
   const f = await seedEverything();
-  for (const table of ['hdu_servers', 'hdu_server_checks', 'hdu_organizations', 'hdu_memberships', 'hdu_staff', 'hdu_invitations', 'hdu_email_tokens'])
-    await expect(
-      asActor(pools.auth, { type: 'system', job: 'test' }, (c) => c.query(`delete from ${table}`)),
-      table,
-    ).rejects.toThrow(/permission denied/);
+  const actors = [f.aAdmin.actor, f.adminStaff.actor, { type: 'system', job: 'test' } as const];
+  // Первый столбец каждого объекта: обновление без изменения значения, только проверка права.
+  const firstColumn = new Map(
+    (
+      await pools.owner.query(`select table_name, column_name from information_schema.columns where table_schema = 'public' and ordinal_position = 1`)
+    ).rows.map((row) => [row.table_name as string, row.column_name as string]),
+  );
+  const statement = {
+    update: (t: string) => `update ${t} set ${firstColumn.get(t)} = ${firstColumn.get(t)}`,
+    delete: (t: string) => `delete from ${t}`,
+  };
+  for (const [name, rule] of Object.entries(DOMAIN_OBJECTS))
+    for (const [role, pool, allowed] of [
+      ['hub_app', pools.app, rule.app ?? []],
+      ['hub_auth', pools.auth, rule.auth ?? []],
+    ] as const)
+      for (const write of WRITES.filter((w) => w !== 'insert' && !allowed.includes(w)) as ('update' | 'delete')[])
+        for (const actor of actors)
+          await expect(
+            asActor(pool, actor, (c) => c.query(statement[write](name))),
+            `${write} ${name} под ${role}`,
+          ).rejects.toThrow(/permission denied|cannot (update|delete from) view/);
   expect(f.orgA.orgId).not.toBe(f.orgB.orgId);
 });

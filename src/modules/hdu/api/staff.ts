@@ -3,16 +3,16 @@ import { hashPassword } from 'better-auth/crypto';
 import { encode as encodeQr } from 'uqr';
 import * as z from 'zod';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
+import { clientIp, consumeRateLimit, rateKey, resetRateLimit, writeAudit } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { consumeRateLimit, rateKey, resetRateLimit } from '@/modules/hdc/rate-limit';
-import { clientIp } from '@/modules/hdc/util';
+import { cookieValue } from '@/lib/cookies';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
-import { revokeSessionById } from '../core/sessions';
-import { acceptStaffInvitationTx, findStaff, findStaffInvitation } from '../core/staff';
+import { revokeOtherOwnSessions, revokeSessionById } from '../core/sessions';
+import { acceptStaffInvitationTx, findPendingStaffUserId, findStaff, findStaffByEmail, findStaffInvitation } from '../core/staff';
 import type { HduErrorCode } from '../error';
 import { emailInput, nameInput, parseInput, passwordInput, tokenInput, totpCodeInput } from '../input';
+import { AUTH_COOKIE_PREFIX } from '../pref';
 import { hashToken } from '../tokens';
 import { readSession, type RequestInfo } from './request';
 
@@ -31,6 +31,51 @@ export type StaffSignInResult =
   | { step: 'error'; code: HduErrorCode; retryAfterSec?: number };
 
 const accountKey = (email: string) => rateKey('staff-login:account', email);
+
+type FailedStep = 'password' | 'rate_limited' | 'code' | 'code_locked' | 'code_reused';
+/** Шаги, которые повторяются на каждой попытке во время блокировки: в журнал раз за окно (итоговая проверка). */
+const ONCE_PER_LOCK: ReadonlySet<FailedStep> = new Set(['rate_limited', 'code_locked']);
+
+/**
+ * Неудачный вход сотрудника в журнал аудита с адресом (ТЗ, угроза T11; проверка main, S5). Пишется только
+ * для сотрудника: попытки с чужими адресами журнал не засоряют и не раскрывают, есть ли сотрудник.
+ * Неверный код после верного пароля тоже пишется: это самый явный признак украденного пароля.
+ */
+async function recordStaffFailure(userId: string, step: FailedStep, request: Pick<RequestInfo, 'headers'>): Promise<void> {
+  if (ONCE_PER_LOCK.has(step)) {
+    const once = await consumeRateLimit(rateKey(`staff-failure-audit:${step}`, userId), RATE_RULES.staffFailureAuditOnce);
+    if (!once.allowed) return;
+  }
+  await withIdentity({ type: 'system', job: 'identity.staff.sign-in' }, (tx) =>
+    writeAudit(tx, { action: 'staff.sign_in_failed', objectType: 'staff', objectId: userId, diff: { step }, ip: clientIp(request.headers) }),
+  );
+}
+
+async function recordFailedSignIn(email: string, step: 'password' | 'rate_limited', request: Pick<RequestInfo, 'headers'>): Promise<void> {
+  const staffRow = await findStaffByEmail(email);
+  if (staffRow) await recordStaffFailure(staffRow.userId, step, request);
+}
+
+const TWO_FACTOR_COOKIES = [`__Host-${AUTH_COOKIE_PREFIX}.two_factor`, `${AUTH_COOKIE_PREFIX}.two_factor`];
+
+/** Сотрудник, ждущий шага кода в этом браузере, по куке библиотеки (значение до подписи). */
+async function pendingStaffUserId(request: Pick<RequestInfo, 'headers'>): Promise<string | null> {
+  const header = request.headers.get('cookie');
+  for (const name of TWO_FACTOR_COOKIES) {
+    const raw = cookieValue(header, name);
+    if (!raw) continue;
+    let value: string;
+    try {
+      value = decodeURIComponent(raw);
+    } catch {
+      return null;
+    }
+    const dot = value.lastIndexOf('.');
+    const identifier = dot > 0 ? value.slice(0, dot) : '';
+    return /^2fa-[A-Za-z0-9_-]{10,64}$/.test(identifier) ? findPendingStaffUserId(identifier) : null;
+  }
+  return null;
+}
 
 /** Приглашение сотрудника по токену ссылки: чей это адрес. Пусто, если ссылка не действует. */
 export async function describeStaffInvitation(token: unknown): Promise<{ email: string; name: string | null } | null> {
@@ -81,7 +126,10 @@ export async function signInStaff(input: unknown, request: RequestInfo): Promise
   if (check.enabled && (await check.verify(botToken, clientIp(request.headers))) === 'failed') return { step: 'error', code: 'bot_check' };
 
   const limit = await consumeRateLimit(accountKey(email), RATE_RULES.staffLoginPerAccount);
-  if (!limit.allowed) return { step: 'error', code: 'rate_limited', retryAfterSec: limit.retryAfterSec };
+  if (!limit.allowed) {
+    await recordFailedSignIn(email, 'rate_limited', request);
+    return { step: 'error', code: 'rate_limited', retryAfterSec: limit.retryAfterSec };
+  }
 
   const previous = await readSession(request);
   const auth = await getAuth();
@@ -89,6 +137,7 @@ export async function signInStaff(input: unknown, request: RequestInfo): Promise
   try {
     result = await auth.api.signInEmail({ body: { email, password }, headers: request.headers, returnHeaders: true });
   } catch {
+    await recordFailedSignIn(email, 'password', request);
     return { step: 'error', code: 'invalid_credentials' };
   }
   request.setCookies(result.headers);
@@ -119,6 +168,13 @@ const CODE_ERRORS: Record<string, HduErrorCode> = {
 /**
  * Второй шаг входа: код из приложения. Тот же вызов завершает подключение второго фактора при первом входе.
  * Пять неверных кодов блокируют проверку на 15 минут.
+ *
+ * Сессия уже есть (проверка main, S1):
+ * - у сотрудника второй фактор уже подключён: код этой сессии не нужен. Сессия без отметки второго фактора
+ *   (открыта одним паролем до подключения в другом браузере) завершается, иначе через неё подбирали бы код:
+ *   на этом пути библиотека попытки не считает;
+ * - второй фактор подключается: попытки считает портал, а после подключения остальные сессии сотрудника
+ *   завершаются.
  */
 export async function verifyStaffCode(
   input: unknown,
@@ -126,20 +182,46 @@ export async function verifyStaffCode(
 ): Promise<{ ok: true } | { ok: false; code: HduErrorCode }> {
   const parsed = codeInput.safeParse(input);
   if (!parsed.success) return { ok: false, code: 'invalid_input' };
+  const current = await readSession(request);
+  if (current?.user.twoFactorEnabled) {
+    if (!current.session.secondFactorAt) await revokeSessionById(current.session.id);
+    return { ok: false, code: 'sign_in_expired' };
+  }
+  if (current) {
+    const limit = await consumeRateLimit(rateKey('staff-enroll-code:user', current.user.id), RATE_RULES.staffEnrollCodePerUser);
+    if (!limit.allowed) return { ok: false, code: 'code_locked' };
+  }
   const auth = await getAuth();
   let result;
   try {
     result = await auth.api.verifyTOTP({ body: { code: parsed.data.code }, headers: request.headers, returnHeaders: true });
   } catch (error) {
     const libraryCode = (error as { body?: { code?: string } }).body?.code ?? '';
+    const code = CODE_ERRORS[libraryCode] ?? 'sign_in_expired';
+    if (code === 'code_invalid' || code === 'code_locked') {
+      const userId = current?.user.id ?? (await pendingStaffUserId(request));
+      if (userId) await recordStaffFailure(userId, code === 'code_invalid' ? 'code' : 'code_locked', request);
+    }
     // Любая другая ошибка означает, что шаг пароля не пройден или устарел: вход начинается заново.
-    return { ok: false, code: CODE_ERRORS[libraryCode] ?? 'sign_in_expired' };
+    return { ok: false, code };
   }
-  request.setCookies(result.headers);
 
   const session = await readSession({ headers: withNewCookies(request, result.headers) });
   const staff = session ? await findStaff(session.user.id) : null;
   if (!session || !staff || staff.role === 'agent_bot') return { ok: false, code: 'sign_in_expired' };
+  // Библиотека принимает код весь его срок (до 90 секунд с соседними шагами). Принятый код второй раз
+  // не открывает сессию (RFC 6238, 5.2; проверка main, S11): подсмотренный вместе с паролем код бесполезен.
+  const once = await consumeRateLimit(rateKey('staff-totp-used', `${session.user.id}:${parsed.data.code}`), RATE_RULES.staffTotpCodeOnce);
+  if (!once.allowed) {
+    // Куки сессии браузеру не отдаются, а сама сессия завершается.
+    await revokeSessionById(session.session.id);
+    await recordStaffFailure(session.user.id, 'code_reused', request);
+    return { ok: false, code: 'code_invalid' };
+  }
+  // Куки браузеру только после проверки повтора кода (итоговая проверка доработки).
+  request.setCookies(result.headers);
+  // Второй фактор только что подключён: сессии, открытые до этого одним паролем, больше не нужны.
+  if (current) await revokeOtherOwnSessions(session.user.id, session.session.id, clientIp(request.headers));
   await resetRateLimit(accountKey(session.user.email));
   await withIdentity({ type: 'staff', userId: session.user.id, staffRole: staff.role }, (tx) =>
     writeAudit(tx, { action: 'staff.signed_in', objectType: 'staff', objectId: session.user.id, ip: clientIp(request.headers) }),

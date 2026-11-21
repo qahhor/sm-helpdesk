@@ -20,12 +20,11 @@ test('страницы кабинета не кешируются, в шапке
 
 test('кука сессии продлевается при заходе на страницу', async ({ page, context }) => {
   await signInAs(page, 'alisher');
-  const expires = async () => (await context.cookies()).find((c) => c.name.endsWith('hub.session_token'))!.expires;
-  const before = await expires();
-  await page.waitForTimeout(2000);
+  const cookie = async () => (await context.cookies()).find((c) => c.name.endsWith('hub.session_token'))!;
+  // Срок куки укорачивается до суток: продление видно сразу, без ожидания (проверка main, Q7).
+  await context.addCookies([{ ...(await cookie()), expires: Math.floor(Date.now() / 1000) + 86400 }]);
   await page.goto('/ru/tickets');
-  expect(await expires()).toBeGreaterThan(before);
-  expect((await expires()) - Date.now() / 1000).toBeGreaterThan(29 * 86400);
+  expect((await cookie()).expires - Date.now() / 1000).toBeGreaterThan(29 * 86400);
   // Продлённая кука по-прежнему открывает кабинет.
   await page.goto('/ru/ideas');
   await expect(page).toHaveURL(/\/ru\/ideas$/);

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 import { totp } from '../../helpers/totp';
+import { dbRows } from './db';
 
 // Сотрудники браузерных тестов. Их один раз заводит проект setup (tests/e2e/staff.setup.ts):
 // приглашение создаёт команда hub, пароль и второй фактор проходят через интерфейс, как у настоящего сотрудника.
@@ -37,14 +38,33 @@ export function createStaffInvitation(input: { email: string; name: string; role
   return token;
 }
 
+/**
+ * Текущий код второго фактора. Портал не принимает код второй раз (проверка main, S11), а тесты входят
+ * одним сотрудником много раз за 30 секунд. Поэтому отметки принятых кодов в базе тестов снимаются.
+ */
+export async function staffCode(staff: E2eStaff): Promise<string> {
+  await dbRows(`delete from hdc_rate_limits where code like 'staff-totp-used:%'`);
+  return totp(staff.totpSecret);
+}
+
 /** Вход сотрудника через страницу входа: пароль, затем код из приложения. */
 export async function signInStaff(page: Page, staff: E2eStaff, opts: { startAt?: string } = {}): Promise<void> {
-  await page.goto(opts.startAt ?? '/ru/staff/login');
-  await page.getByLabel('Email').fill(staff.email);
-  await page.getByLabel('Пароль', { exact: true }).fill(staff.password);
-  await page.getByRole('button', { name: 'Войти' }).click();
-  await page.getByLabel('Код из приложения').fill(totp(staff.totpSecret));
-  await page.getByRole('button', { name: 'Подтвердить' }).click();
+  // Параллельный тест мог войти тем же сотрудником тем же кодом между снятием отметки и отправкой: вход заново.
+  for (let attempt = 1; ; attempt++) {
+    await page.goto(opts.startAt ?? '/ru/staff/login');
+    await page.getByLabel('Email').fill(staff.email);
+    await page.getByLabel('Пароль', { exact: true }).fill(staff.password);
+    await page.getByRole('button', { name: 'Войти' }).click();
+    await page.getByLabel('Код из приложения').fill(await staffCode(staff));
+    await page.getByRole('button', { name: 'Подтвердить' }).click();
+    if (attempt === 3) break;
+    try {
+      await expect(page).not.toHaveURL(/\/staff\/login/, { timeout: 5_000 });
+      return;
+    } catch {
+      // Ещё одна попытка.
+    }
+  }
   await expect(page).not.toHaveURL(/\/staff\/login/);
 }
 

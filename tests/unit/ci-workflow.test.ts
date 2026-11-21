@@ -39,6 +39,16 @@ test('контейнер не работает от root', () => {
   expect(dockerfile.trimEnd().split('\n').at(-1)).toBe('CMD ["node", "server.js"]');
 });
 
+test('файлы приложения принадлежат root: процесс не может их изменить (проверка main, S10)', () => {
+  expect(dockerfile).not.toMatch(/--chown/);
+  // Писать процессу можно только в каталог кеша Next.js.
+  expect(dockerfile).toMatch(/^RUN mkdir -p \.next\/cache && chown 1001:1001 \.next\/cache$/m);
+});
+
+test('базовый образ закреплён по digest (проверка main, S10)', () => {
+  expect(dockerfile).toMatch(/^ARG NODE_IMAGE=node:[0-9.]+-slim@sha256:[0-9a-f]{64}$/m);
+});
+
 test('образ собран на той же версии Node.js и pnpm, что и проект', () => {
   const node = readFileSync('.node-version', 'utf8').trim();
   expect(dockerfile).toContain(`node:${node}-`);
@@ -56,7 +66,7 @@ test('в образ не попадают секреты и лишние фай�
 });
 
 test('команда hub попадает в образ', () => {
-  expect(dockerfile).toMatch(/^COPY --from=build --chown=1001:1001 \/app\/dist\/hub\.mjs \.\/hub\.mjs$/m);
+  expect(dockerfile).toMatch(/^COPY --from=build \/app\/dist\/hub\.mjs \.\/hub\.mjs$/m);
   expect(pkg.scripts.build).toContain('scripts/build-cli.mjs');
 });
 

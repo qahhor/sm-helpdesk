@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { EnvError, parseEnv } from '@/env';
+import { clientIpHeaderOf, EnvError, parseEnv } from '@/env';
 import { missingInEnvExample } from '../../scripts/checks/env-example.mjs';
 
 const ok = {
@@ -193,4 +193,10 @@ test('в production на настоящем адресе заголовок ад
   expect(parseEnv(prod).CLIENT_IP_HEADER).toBe('cf-connecting-ip');
   // Разработка и тесты на localhost: по умолчанию x-forwarded-for.
   expect(parseEnv({ ...ok, NODE_ENV: 'production', HUB_URL: 'http://localhost:3100', HUB_DOMAIN: 'localhost' }).CLIENT_IP_HEADER).toBeUndefined();
+});
+
+test('заголовок адреса посетителя читается той же схемой, что и окружение (проверка main, Q20)', () => {
+  expect(clientIpHeaderOf({ CLIENT_IP_HEADER: 'cf-connecting-ip' })).toBe('cf-connecting-ip');
+  expect(clientIpHeaderOf({})).toBe('x-forwarded-for');
+  expect(() => clientIpHeaderOf({ CLIENT_IP_HEADER: 'x-evil' })).toThrowError(/CLIENT_IP_HEADER/);
 });

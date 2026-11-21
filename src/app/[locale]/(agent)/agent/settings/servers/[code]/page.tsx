@@ -14,8 +14,8 @@ import { settingsNav } from '../../sections';
 import { checkServerAction, disableServerAction, enableServerAction } from '../actions';
 import { serverFormLabels } from '../form-labels';
 import { ServerForm } from '../ServerForm';
+import { firstParam } from '@/lib/search-params';
 
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 const ERRORS = new Set(['invalid_input', 'server_taken', 'stale_session', 'forbidden', 'not_found']);
 const DONE = new Set(['added', 'saved', 'disabled', 'enabled']);
 
@@ -30,9 +30,9 @@ export default async function ServerPage({ params, searchParams }: PageProps<'/[
   const locale = (await getLocale()) as Locale;
   const t = await getTranslations('agent');
   const ts = await getTranslations('agent.settings.servers');
-  const error = first(query.error);
-  const done = first(query.done);
-  const confirming = first(query.confirm) === 'disable' && server.state === 'active';
+  const error = firstParam(query.error);
+  const done = firstParam(query.done);
+  const confirming = firstParam(query.confirm) === 'disable' && server.state === 'active';
   const here = `/${locale}/agent/settings/servers/${server.code}`;
   const reauthHref = `/${locale}/staff/login?reauth=1&next=${encodeURIComponent(here)}`;
   const endpoints = server.endpoints ?? { authorization: '', token: '', userinfo: '', jwks: '' };

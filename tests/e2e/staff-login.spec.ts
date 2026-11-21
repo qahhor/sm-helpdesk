@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { totp } from '../helpers/totp';
 import { dbRows } from './helpers/db';
-import { createStaffInvitation, signInStaff, staffAccount } from './helpers/staff';
+import { createStaffInvitation, signInStaff, staffAccount, staffCode } from './helpers/staff';
 
 // Вход сотрудников (FR-ID-09): пароль и обязательный второй фактор. Проверяется на ширине ноутбука.
 // Сообщение формы. Next.js держит на странице свой элемент с ролью alert для объявлений о переходах,
@@ -77,7 +77,7 @@ test('вход с подключённым вторым фактором и во
   // Шаг кода: до него рабочее место закрыто.
   await expect(page.getByLabel('Код из приложения')).toBeVisible();
   await expect(page.getByTestId('totp-secret')).toHaveCount(0);
-  await page.getByLabel('Код из приложения').fill(totp(care.totpSecret));
+  await page.getByLabel('Код из приложения').fill(await staffCode(care));
   await page.getByRole('button', { name: 'Подтвердить' }).click();
   await expect(page).toHaveURL(/\/ru\/agent$/);
   await expect(page.getByRole('button', { name: /Камила/ })).toBeVisible();

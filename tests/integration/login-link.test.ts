@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'vitest';
-import { setMailerForTests } from '@/modules/hdn/api';
+import { setMailerForTests } from '@/modules/hdn/testing';
 import { completeLoginLink, requestLoginLink } from '@/modules/hdu/api/login-link';
 import { rememberServer } from '@/modules/hdu/api/sso';
 import { type BotCheck, type BotVerdict, setBotCheckForTests } from '@/security/bot-check';
@@ -97,6 +97,17 @@ test('двадцать первый запрос с одного IP за час 
   expect(box.mailer.sent).toHaveLength(20);
 });
 
+test('запросы сверх предела IP не тратят счётчик адреса (итоговая проверка M1, мелкое 2)', async () => {
+  await verifiedClientFixture('anvar@acme.test');
+  const flood = { headers: new Headers({ 'x-forwarded-for': '203.0.113.51' }) };
+  for (let i = 0; i < 20; i++) await requestLoginLink({ email: `nobody${i}@acme.test`, locale: 'ru' }, flood);
+  // Предел IP исчерпан: дальше эти запросы адрес человека не расходуют.
+  for (let i = 0; i < 10; i++) await requestLoginLink({ email: 'anvar@acme.test', locale: 'ru' }, flood);
+  expect(box.mailer.sent).toHaveLength(0);
+  expect(await requestLoginLink({ email: 'anvar@acme.test', locale: 'ru' }, { headers: new Headers({ 'x-forwarded-for': '203.0.113.52' }) })).toEqual({ ok: true });
+  expect(box.mailer.sent).toHaveLength(1);
+});
+
 test('ответ не ждёт отправки письма', async () => {
   await verifiedClientFixture('anvar@acme.test');
   setMailerForTests({ delivers: true, send: () => new Promise(() => {}) });
@@ -157,6 +168,6 @@ test('гостю ссылка для входа не уходит, ответ т
   const guest = await verifiedClientFixture('guest@example.test', { memberships: 0 });
   await addMembership(guest.userId, await ensureOrg('Гостевая'), 'client_user', 'guest');
   expect(await requestLoginLink({ email: 'guest@example.test', locale: 'ru' }, noRequest)).toEqual({ ok: true });
-  await sleep(50);
+  // Письмо, если бы оно было, уже лежало бы в памяти: отправка ставится до ответа (проверка main, Q7).
   expect(box.mailer.sent).toEqual([]);
 });

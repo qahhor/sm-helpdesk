@@ -5,16 +5,20 @@ import 'server-only';
 // Страницы и интерфейс импортируют модуль только отсюда: это проверяет линтер.
 
 export {
+  acknowledgePolicyOfRequest,
+  confirmEmailOfRequest,
+  currentClientName,
   currentStaff,
   mySessions,
+  policyNoticePath,
   requireClientActor,
-  requireFreshStaffActor,
   requireSignedInClient,
   requireStaffActor,
   revokeMySessionOfRequest,
   rememberMyLocale,
   revokeOtherSessionsOfRequest,
   signedInKind,
+  signedInName,
   signOut,
   switchOrganizationOfRequest,
 } from './api/actor';

@@ -64,7 +64,9 @@ test('завершение сессии сотрудником пишется в
   const f = await seedTwoOrgs();
   const staffFirst = await clientSession(f.care);
   const staffSecond = await clientSession(f.care);
-  await revokeMySession(staffFirst, staffSecond.session.id);
+  await revokeMySession(staffFirst, staffSecond.session.id, '203.0.113.71');
+  // Адрес запроса в записи журнала (итоговая проверка доработки, замечание 8).
+  expect((await pools.root.query(`select host(ip) as ip from hdc_audit_log where action = 'session.revoked'`)).rows).toEqual([{ ip: '203.0.113.71' }]);
   const clientFirst = await clientSession(f.aUser);
   const clientSecond = await clientSession(f.aUser);
   await revokeMySession(clientFirst, clientSecond.session.id);

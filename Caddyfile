@@ -1,0 +1,20 @@
+# Caddy по разделу 13.4 ТЗ. Перед ним Cloudflare (Full strict), сетевой экран пускает на 80 и 443
+# только адреса Cloudflare: тогда заголовку CF-Connecting-IP можно верить (CLIENT_IP_HEADER, решение 0020).
+# Content-Security-Policy ставит само приложение (src/proxy.ts): в нём одноразовый код запроса.
+
+{$HUB_DOMAIN} {
+	encode zstd gzip
+	# Файлы пойдут напрямую в хранилище, мимо портала.
+	request_body {
+		max_size 2MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+	reverse_proxy web:3000
+}

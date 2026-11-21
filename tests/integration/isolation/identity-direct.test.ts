@@ -128,6 +128,9 @@ test('администратор клиента может только отоз
   await expect(update(`email = 'other@example.test'`)).rejects.toThrow(/нельзя/);
   await expect(update(`expires_on = now() + interval '10 years'`)).rejects.toThrow(/нельзя/);
   await expect(update('accepted_on = now()')).rejects.toThrow(/нельзя/);
+  // Отозванное приглашение не возвращается и отметка об отзыве не переписывается (итоговая проверка M1, мелкое 5).
+  await expect(update('revoked_on = null')).rejects.toThrow(/нельзя/);
+  await expect(update(`revoked_on = now() + interval '1 day'`)).rejects.toThrow(/нельзя/);
   expect(await update('revoked_on = now()', f.aUser.actor)).toBe(0);
 });
 

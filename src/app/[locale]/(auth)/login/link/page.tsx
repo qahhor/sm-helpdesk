@@ -4,16 +4,15 @@ import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { completeLoginLinkAction } from './actions';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Страница ссылки для входа из письма. Открытие страницы ничего не меняет: почтовый сканер,
 // который открыл ссылку первым, её не тратит. Входит только нажатие кнопки (решение 0016).
 export default async function LoginLinkPage({ searchParams }: PageProps<'/[locale]/login/link'>) {
   const params = await searchParams;
   const t = await getTranslations('auth.link');
-  const token = first(params.token);
-  const invalid = first(params.error) === 'link_invalid' || !token;
+  const token = firstParam(params.token);
+  const invalid = firstParam(params.error) === 'link_invalid' || !token;
 
   return (
     <Card>
@@ -32,7 +31,7 @@ export default async function LoginLinkPage({ searchParams }: PageProps<'/[local
         ) : (
           <form action={completeLoginLinkAction}>
             <input type="hidden" name="token" value={token} />
-            <input type="hidden" name="next" value={first(params.next) ?? ''} />
+            <input type="hidden" name="next" value={firstParam(params.next) ?? ''} />
             <Button type="submit" className="w-full">
               {t('page.submit')}
             </Button>

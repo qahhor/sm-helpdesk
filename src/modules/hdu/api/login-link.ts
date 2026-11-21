@@ -3,8 +3,7 @@ import { isAPIError } from 'better-auth/api';
 import { z } from 'zod';
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
-import { clientIp } from '@/modules/hdc/util';
+import { clientIp, consumeRateLimit, ipRateKey, rateKey } from '@/modules/hdc/api';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
 import { isLoginLinkRecipient } from '../core/email';
@@ -36,10 +35,11 @@ export async function requestLoginLink(input: unknown, request: Pick<RequestInfo
   const check = getBotCheck();
   if (check.enabled && (await check.verify(raw.botToken, ip)) === 'failed') return { ok: true };
 
-  const byIp = await consumeRateLimit(rateKey('login-link:ip', ip ?? 'unknown'), RATE_RULES.loginLinkPerIp);
-  if (!email.success) return { ok: true };
+  const byIp = await consumeRateLimit(ipRateKey('login-link:ip', request.headers), RATE_RULES.loginLinkPerIp);
+  // Сверх предела IP счётчик адреса не расходуется: поток с одного адреса не лишает человека его ссылок.
+  if (!byIp.allowed || !email.success) return { ok: true };
   const byAddress = await consumeRateLimit(rateKey('login-link:email', email.data), RATE_RULES.loginLinkPerAddress);
-  if (!byIp.allowed || !byAddress.allowed) return { ok: true };
+  if (!byAddress.allowed) return { ok: true };
   if (!(await isLoginLinkRecipient(email.data))) return { ok: true };
 
   // Библиотека записывает хеш токена и вызывает отправку письма (auth/mail.ts) с языком и адресом возврата.

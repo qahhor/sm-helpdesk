@@ -10,6 +10,7 @@ export const AUDIT_ACTIONS = [
   'staff.created',
   'staff.reset',
   'staff.signed_in',
+  'staff.sign_in_failed',
   'staff.role_changed',
   'staff.state_changed',
   // Реестр серверов Smartup
@@ -29,6 +30,7 @@ export const AUDIT_ACTIONS = [
   'invitation.accepted',
   // Учётная запись и сессии
   'user.email_confirmed',
+  'user.policy_acknowledged',
   'session.revoked',
   // Каналы связи
   'telegram.linked',
@@ -51,6 +53,12 @@ export const RATE_RULES = {
   loginLinkPerIp: { limit: 20, windowSec: 3600 },
   /** Попытка входа сотрудника: 10 в 15 минут на учётную запись, затем блокировка на 15 минут. */
   staffLoginPerAccount: { limit: 10, windowSec: 900 },
+  /** Коды при подключении второго фактора: библиотека на этом пути попытки не считает (проверка main, S1). */
+  staffEnrollCodePerUser: { limit: 10, windowSec: 900 },
+  /** Принятый код второго фактора: один раз за 120 секунд, дольше его срока с соседними шагами (проверка main, S11). */
+  staffTotpCodeOnce: { limit: 1, windowSec: 120 },
+  /** Запись о блокировке входа сотрудника в журнал: раз за окно блокировки (итоговая проверка доработки). */
+  staffFailureAuditOnce: { limit: 1, windowSec: 900 },
   /** Поиск сервера Smartup по адресу на странице входа. */
   serverLookupPerIp: { limit: 20, windowSec: 3600 },
   /** Запрос подтверждения email. */
@@ -61,8 +69,14 @@ export const RATE_RULES = {
   telegramLinkPerUser: { limit: 5, windowSec: 3600 },
   /** Ссылки входа из бота на аккаунт Telegram (раздел 14.5 ТЗ). */
   loginLinkPerTelegram: { limit: 5, windowSec: 3600 },
-  /** Начало входа через Smartup: каждое начало оставляет в базе одноразовое значение состояния. */
-  ssoStartPerIp: { limit: 30, windowSec: 600 },
+  /** Начало входа через Smartup: каждое начало оставляет в базе одноразовое значение состояния. Предел на адрес
+   * (IPv6 по сети /64) с запасом на офис клиента за одним адресом в утренний час (проверка main, S6). */
+  ssoStartPerIp: { limit: 300, windowSec: 600 },
   /** Возврат с сервера Smartup на единственный открытый адрес библиотеки входа. */
-  ssoCallbackPerIp: { limit: 60, windowSec: 60 },
+  ssoCallbackPerIp: { limit: 120, windowSec: 60 },
+  /** Отчёты о нарушениях CSP с одного адреса (проверка main, S9): страница присылает несколько за раз. */
+  cspReportPerIp: { limit: 60, windowSec: 600 },
 } as const satisfies Record<string, RateRule>;
+
+/** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */
+export const POLICY_VERSION_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

@@ -128,7 +128,7 @@
         "revoke": "Revoke"
       },
       "done": {
-        "invited": "Invitation sent. The link is valid for 7 days.",
+        "invited": "The invitation is being emailed. The link is valid for 7 days. If the email does not arrive, invite again.",
         "revoked": "Invitation revoked.",
         "disabled": "Member disabled.",
         "enabled": "Member is active again."
@@ -280,7 +280,7 @@
         "roleChanged": "Role changed.",
         "disabled": "Member disabled.",
         "enabled": "Member is active again.",
-        "invited": "Invitation sent.",
+        "invited": "The invitation is being emailed. If the email does not arrive, invite again.",
         "revoked": "Invitation revoked.",
         "settingsSaved": "Saved."
       },
@@ -461,17 +461,18 @@
         "waiting": "Waiting for reply",
         "noInvitations": "No pending invitations.",
         "done": {
-          "invited": "Invitation sent",
+          "invited": "The invitation is being emailed. If the email does not arrive, invite again.",
           "roleChanged": "Role changed",
           "blocked": "Staff member blocked, their sessions ended",
           "unblocked": "Staff member unblocked",
-          "reset": "Access reset, the link was sent to the staff member"
+          "reset": "Access reset. The link is being emailed to the staff member. If the email does not arrive, reset access again."
         },
         "noMail": "Portal mail is not connected, the email was not sent. Issue the link with the console command: {command}",
         "errors": {
           "invalid_input": "Check the fields: address, name and role.",
           "stale_session": "This action needs a sign-in no older than 15 minutes.",
-          "forbidden": "Not allowed: this is your own account, or the portal would be left without an active administrator.",
+          "forbidden": "Not allowed: this is your own account.",
+          "last_admin": "Not allowed: the portal would be left without an active administrator.",
           "not_found": "Staff member not found.",
           "already_member": "This address already belongs to a staff member. Change their role or reset their access in the list below."
         },
@@ -528,7 +529,8 @@
             "reset": "Staff access reset",
             "signed_in": "Staff sign-in",
             "role_changed": "Staff role changed",
-            "state_changed": "Staff member blocked or unblocked"
+            "state_changed": "Staff member blocked or unblocked",
+            "sign_in_failed": "Failed staff sign-in"
           },
           "server": {
             "added": "Server added",
@@ -552,6 +554,7 @@
           },
           "user": {
             "email_confirmed": "Address confirmed",
+            "policy_acknowledged": "Policy version acknowledged",
             "signed_in_telegram": "Sign-in through the Telegram bot"
           },
           "session": {
@@ -561,6 +564,46 @@
             "linked": "Telegram linked",
             "unlinked": "Telegram unlinked"
           }
+        },
+        "words": {
+          "role": "Role",
+          "source": "Source",
+          "isLead": "Line lead",
+          "state": "State",
+          "changed": "Changed",
+          "isDefault": "Default",
+          "updated": "Updated",
+          "others": "Other sessions",
+          "step": "Step",
+          "from": "Was",
+          "to": "Now",
+          "name": "Name",
+          "baseUrl": "Smartup address",
+          "issuer": "Sign-in server",
+          "clientId": "Client ID",
+          "roleMap": "Role mapping",
+          "endpoints": "Sign-in endpoints",
+          "client_user": "Client user",
+          "client_admin": "Client administrator",
+          "admin": "Portal administrator",
+          "care": "Customer Care",
+          "agent_l1": "First line",
+          "agent_l2": "Second line",
+          "product": "Product",
+          "agent_bot": "AI agent",
+          "active": "active",
+          "passive": "disabled",
+          "smartup": "Smartup",
+          "invite": "invitation",
+          "staff": "staff",
+          "guest": "guest",
+          "true": "yes",
+          "false": "no",
+          "password": "password",
+          "rate_limited": "attempt limit reached",
+          "category": "Client category",
+          "isAiEnabled": "AI assistant handling",
+          "version": "Version"
         }
       }
     }
@@ -676,7 +719,11 @@
       "toPortal": "Go to portal",
       "invalid": "This link no longer works. Request a new one in your profile.",
       "taken": "This address is already linked to another account. Enter a different address in your profile.",
-      "toSettings": "Open profile"
+      "toSettings": "Open profile",
+      "signInRequired": "To confirm the address, sign in to the portal in this browser with the account where you entered it, then open the link again.",
+      "signIn": "Sign in",
+      "wrongAccount": "This link was issued for another account. Sign in with the account where you entered the address, or delete the email if you did not enter it.",
+      "account": "The address will be linked to the account {name}."
     },
     "welcome": {
       "title": "Hello, {name}",
@@ -703,7 +750,13 @@
       "submit": "Accept invitation",
       "invalidTitle": "Invitation",
       "invalid": "This invitation no longer works. Ask your company administrator to send a new one.",
-      "taken": "This address cannot be used for an invitation. Ask for an invitation to a different address."
+      "taken": "This address cannot be used for an invitation. Ask for an invitation to a different address.",
+      "existingAccount": "This address already has an account: sign in to it to accept the invitation.",
+      "signInRequired": "Sign in with the account for {email} and open the link again: the invitation will wait.",
+      "signIn": "Sign in",
+      "wrongAccount": "You are signed in as {name}, but the invitation is for {email}. Sign out and accept the invitation again.",
+      "otherAccount": "another user",
+      "signOut": "Sign out and return to the invitation"
     },
     "telegram": {
       "title": "Sign in to Smartup Hub",
@@ -722,16 +775,19 @@
       "text": "Hello,\n\nTo sign in to Smartup Hub with a link sent to this address, open the link and press \"Confirm address\":\n{url}\n\nThe link works for {minutes} minutes. If you did not enter this address, just delete this email: an unconfirmed address is not linked to anything."
     },
     "invitation": {
-      "subject": "{inviterName} invites you to Smartup Hub",
-      "text": "Hello,\n\n{inviterName} invites you to the organization {orgName} in Smartup Hub, the Smartup support portal.\n\nTo accept the invitation, open the link and press \"Accept\":\n{url}\n\nThe invitation is valid for {days} days."
+      "subject": "Invitation to Smartup Hub",
+      "text": "Hello,\n\n{inviterName} invites you to the organization {orgName} in Smartup Hub, the Smartup support portal.\n\nTo accept the invitation, open the link and press \"Accept\":\n{url}\n\nThe invitation is valid for {days} days.",
+      "inviterFallback": "Your colleague"
     },
     "telegramLinked": {
       "subject": "Telegram is linked to Smartup Hub",
-      "text": "Hello,\n\nThe Telegram account {account} is now linked to your Smartup Hub account. It can be used to sign in to the portal.\n\nIf this was not you, unlink it in your profile:\n{url}"
+      "text": "Hello,\n\nThe Telegram account {account} is now linked to your Smartup Hub account. It can be used to sign in to the portal.\n\nIf this was not you, unlink it in your profile:\n{url}",
+      "accountFallback": "without a display name"
     },
     "staffInvitation": {
-      "subject": "{inviterName} invites you to the Smartup Hub workspace",
-      "text": "Hello!\n\n{inviterName} invites you to the workspace of Smartup Hub, the Smartup support portal.\n\nOpen the link, set a password and connect the second sign-in factor:\n{url}\n\nThe link works for {hours} hours and only once. Do not forward it to anyone."
+      "subject": "Invitation to the Smartup Hub workspace",
+      "text": "Hello!\n\n{inviterName} invites you to the workspace of Smartup Hub, the Smartup support portal.\n\nOpen the link, set a password and connect the second sign-in factor:\n{url}\n\nThe link works for {hours} hours and only once. Do not forward it to anyone.",
+      "inviterFallback": "The portal administrator"
     },
     "staffReset": {
       "subject": "Your Smartup Hub access was reset",
@@ -755,5 +811,34 @@
     "loginLink": "Your sign-in link for Smartup Hub. It works for {minutes} min and only once. Do not forward it to anyone.",
     "loginTooOften": "Too many sign-in links. Try again in {minutes} min.",
     "loginNoAccess": "This account has no access to the portal right now. Contact your company administrator."
+  },
+  "dev": {
+    "title": "Component showcase",
+    "zones": {
+      "agent": "Workspace",
+      "client": "Client area"
+    },
+    "sections": {
+      "buttons": "Buttons",
+      "labels": "Status labels",
+      "input": "Input field",
+      "card": "Card",
+      "menu": "Dropdown menu",
+      "sheet": "Bottom sheet",
+      "skeleton": "Skeleton",
+      "empty-state": "Empty state",
+      "brand": "Logo and Tez mark",
+      "text": "Text sample"
+    },
+    "tones": {
+      "gray": "Draft",
+      "green": "New",
+      "orange": "In progress",
+      "purple": "Awaiting reply",
+      "blue": "Handed over",
+      "teal": "Resolved",
+      "danger": "Overdue"
+    },
+    "numbers": "1,250,000 UZS, 11/10/2026"
   }
 }

@@ -115,9 +115,10 @@ const RASTER: readonly DetectedType[] = ['png', 'jpeg', 'gif', 'webp'];
 
 /**
  * Какие настоящие типы допустимы для заявленного (угроза T6, решение 0027). Офисные файлы нового формата и
- * OpenDocument это ZIP, файл Office с паролем хранится в контейнере OLE, старые doc, xls, ppt это OLE, тексты
- * без нулевых байтов или в UTF-16 с меткой. Картинка с чужим расширением (PNG в файле .jpg) принимается: это та же
- * растровая картинка, в строку записывается её настоящий тип. HTML, SVG и исполняемые файлы не допустимы нигде.
+ * OpenDocument это ZIP, старые doc, xls, ppt это OLE, тексты без нулевых байтов или в UTF-16 с меткой. Документ
+ * нового формата с паролем лежит в контейнере OLE и не принимается: его нельзя проверить (пункт 20). Картинка с
+ * чужим расширением (PNG в файле .jpg) принимается: это та же растровая картинка, в строку записывается её
+ * настоящий тип. HTML, SVG и исполняемые файлы не допустимы нигде.
  */
 export const ACCEPTED_TYPES: Readonly<Record<string, readonly DetectedType[]>> = {
   'image/png': RASTER,
@@ -129,9 +130,9 @@ export const ACCEPTED_TYPES: Readonly<Record<string, readonly DetectedType[]>> =
   'application/msword': ['ole'],
   'application/vnd.ms-excel': ['ole'],
   'application/vnd.ms-powerpoint': ['ole'],
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['zip', 'ole'],
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['zip', 'ole'],
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['zip', 'ole'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['zip'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['zip'],
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['zip'],
   'application/vnd.oasis.opendocument.text': ['zip'],
   'application/vnd.oasis.opendocument.spreadsheet': ['zip'],
   'application/vnd.oasis.opendocument.presentation': ['zip'],
@@ -142,6 +143,15 @@ export const ACCEPTED_TYPES: Readonly<Record<string, readonly DetectedType[]>> =
   'application/xml': ['text'],
   'video/mp4': ['mp4'],
 };
+
+/**
+ * Почему файл не принят, если причину можно назвать клиенту (решение 0027, пункт 20): зашифрован (архив или
+ * документ с паролем) или превышает пределы проверки (вложенность, число файлов, размер после распаковки).
+ */
+export type RejectReason = 'encrypted' | 'limits';
+
+/** Подпись отказа для документа Office нового формата в контейнере OLE: так хранится документ с паролем. */
+export const ENCRYPTED_OFFICE_SIGNATURE = 'encrypted_office';
 
 /** Предел размера файла (FR-TK-13): 25 МБ, видео MP4 до 50 МБ. */
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;

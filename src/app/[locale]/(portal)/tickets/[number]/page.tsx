@@ -1,7 +1,15 @@
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getFormatter, getTranslations } from 'next-intl/server';
-import { ALLOWED_FILE_EXTENSIONS, CSAT_REASONS, findTicketInOtherOrganizations, getTicket, MAX_FILES_PER_MESSAGE, parseNumber } from '@/modules/hdt/api';
+import {
+  ALLOWED_FILE_EXTENSIONS,
+  type AttachmentView,
+  CSAT_REASONS,
+  findTicketInOtherOrganizations,
+  getTicket,
+  MAX_FILES_PER_MESSAGE,
+  parseNumber,
+} from '@/modules/hdt/api';
 import { requireClientActor } from '@/modules/hdu/api';
 import { Link } from '@/i18n/navigation';
 import { Alert } from '@/ui/components/alert';
@@ -22,6 +30,12 @@ import { TicketActions } from './TicketActions';
 // обращение не отличается от несуществующего: страница "не найдено".
 
 /** Номер из адреса. Испорченная последовательность %XX даёт null, а не исключение (ошибку 500). */
+/** Подпись состояния файла: у отказа причина, если её можно назвать клиенту (решение 0027, пункт 20). */
+function scanLabel(file: Pick<AttachmentView, 'scanStatus' | 'rejectReason'>): string {
+  if (file.scanStatus === 'rejected') return file.rejectReason ?? 'rejected';
+  return file.scanStatus === 'infected' ? 'infected' : 'pending';
+}
+
 function safeDecode(value: string): string | null {
   try {
     return decodeURIComponent(value);
@@ -30,7 +44,7 @@ function safeDecode(value: string): string | null {
   }
 }
 
-type Attachment = { attachmentId: string; fileName: string; scanStatus: string; isImage: boolean };
+type Attachment = Pick<AttachmentView, 'attachmentId' | 'fileName' | 'scanStatus' | 'rejectReason' | 'isImage'>;
 
 export default async function TicketPage({
   params,
@@ -84,7 +98,7 @@ export default async function TicketPage({
               </a>
             ) : (
               <span className="break-all" data-scan={file.scanStatus}>
-                {file.fileName} <span className="text-muted-foreground">({t(`page.scan.${file.scanStatus === 'infected' || file.scanStatus === 'rejected' ? file.scanStatus : 'pending'}`)})</span>
+                {file.fileName} <span className="text-muted-foreground">({t(`page.scan.${scanLabel(file)}`)})</span>
               </span>
             )}
           </li>

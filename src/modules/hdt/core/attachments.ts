@@ -4,9 +4,9 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
 import { enqueue, getScanner, getStorage, SNIFF_BYTES, sniffFileType, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
-import type { ScanStatus } from '../pref';
+import { ENCRYPTED_OFFICE_SIGNATURE, type ScanStatus } from '../pref';
 import { attachments } from '../schema';
-import { fileKey, quarantineKey, typeMatches } from '../util';
+import { fileKey, isEncryptedOffice, quarantineKey, rejectReasonOf, typeMatches } from '../util';
 
 // Модуль hdt, слой core: загрузки в карантин (раздел 11.11, решение 0027). Строка создаётся до загрузки,
 // ключ хранилища строится из её идентификатора. Организация и загрузивший берутся из актора.
@@ -87,7 +87,7 @@ type ScanResult = {
   scanStatus: Exclude<ScanStatus, 'pending'>;
   storageKey?: string;
   detectedType?: string;
-  scanSignature?: string;
+  scanSignature?: string | null;
   sha256?: string;
 };
 
@@ -192,7 +192,9 @@ export async function scanAttachment(attachmentId: string): Promise<ScanStatus> 
   const detected = sniffFileType(head);
   if (!typeMatches(row.mime, detected)) {
     await whole.cancel().catch(() => {});
-    const status = await finish(row, { scanStatus: 'rejected', detectedType: detected });
+    // Документ с паролем называется причиной: клиенту понятно, что приложить его нужно без пароля.
+    const scanSignature = isEncryptedOffice(row.mime, detected) ? ENCRYPTED_OFFICE_SIGNATURE : null;
+    const status = await finish(row, { scanStatus: 'rejected', detectedType: detected, scanSignature });
     await storage.remove(quarantine);
     return status;
   }
@@ -208,7 +210,10 @@ export async function scanAttachment(attachmentId: string): Promise<ScanStatus> 
   });
   const verdict = await getScanner().scan(whole.pipeThrough(hashing));
   if (!verdict.clean) {
-    const status = await finish(row, { scanStatus: 'infected', detectedType: detected, scanSignature: verdict.signature ?? 'unknown' });
+    // Зашифрованный файл и файл сверх пределов проверки антивирус не прочитал: это отказ, а не заражение.
+    const signature = verdict.signature ?? 'unknown';
+    const scanStatus = rejectReasonOf(signature) ? 'rejected' : 'infected';
+    const status = await finish(row, { scanStatus, detectedType: detected, scanSignature: signature });
     await storage.remove(quarantine);
     return status;
   }

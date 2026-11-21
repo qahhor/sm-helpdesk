@@ -141,7 +141,7 @@ export type MessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId'
 export type EventRecord = Pick<typeof ticketEvents.$inferSelect, 'kind' | 'actorType' | 'actorId' | 'payload' | 'createdOn'>;
 export type AttachmentRecord = Pick<
   typeof attachments.$inferSelect,
-  'attachmentId' | 'messageId' | 'uploaderId' | 'fileName' | 'mime' | 'size' | 'scanStatus' | 'createdOn'
+  'attachmentId' | 'messageId' | 'uploaderId' | 'fileName' | 'mime' | 'size' | 'scanStatus' | 'scanSignature' | 'createdOn'
 >;
 
 /**
@@ -180,6 +180,7 @@ export async function readTicket(
         mime: attachments.mime,
         size: attachments.size,
         scanStatus: attachments.scanStatus,
+        scanSignature: attachments.scanSignature,
         createdOn: attachments.createdOn,
       })
       .from(attachments)

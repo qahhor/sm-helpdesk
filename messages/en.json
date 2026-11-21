@@ -179,7 +179,9 @@
         "scan": {
           "pending": "being checked",
           "infected": "failed the virus check",
-          "rejected": "not accepted, attach the file again"
+          "rejected": "not accepted, attach the file again",
+          "encrypted": "not accepted: the file is password-protected, attach it without a password",
+          "limits": "not accepted: the archive is too large to check, attach the files separately"
         },
         "reply": "Reply",
         "replyPlaceholder": "Write a reply",

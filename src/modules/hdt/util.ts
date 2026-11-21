@@ -1,7 +1,7 @@
 // Модуль hdt, слой util: чистые функции без обращения к базе (docs/naming.md, раздел 5).
 
 import type { DetectedType } from '@/modules/hdc/api';
-import { ACCEPTED_TYPES, ALLOWED_FILES, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES } from './pref';
+import { ACCEPTED_TYPES, ALLOWED_FILES, ENCRYPTED_OFFICE_SIGNATURE, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES, type RejectReason } from './pref';
 
 // Тема из описания нужна и форме в браузере (подстановка при вводе): общая функция лежит в src/lib/subject.ts.
 export { titleFromDescription } from '@/lib/subject';
@@ -39,3 +39,18 @@ export const fileKey = (orgId: string, attachmentId: string): string => `files/$
 
 /** Допустим ли настоящий тип файла для его заявленного типа (ACCEPTED_TYPES). */
 export const typeMatches = (mime: string, detected: DetectedType): boolean => ACCEPTED_TYPES[mime]?.includes(detected) ?? false;
+
+/**
+ * Причина отказа по подписи (решение 0027, пункт 20). Эвристики ClamAV Heuristics.Encrypted.* и
+ * Heuristics.Limits.Exceeded.* означают "проверить нельзя", а не "заражён". Остальные подписи: null.
+ */
+export function rejectReasonOf(signature: string | null): RejectReason | null {
+  if (signature === null) return null;
+  if (signature === ENCRYPTED_OFFICE_SIGNATURE || signature.startsWith('Heuristics.Encrypted.')) return 'encrypted';
+  if (signature.startsWith('Heuristics.Limits.Exceeded.')) return 'limits';
+  return null;
+}
+
+/** Документ Office нового формата в контейнере OLE: так хранится документ с паролем. */
+export const isEncryptedOffice = (mime: string, detected: DetectedType): boolean =>
+  detected === 'ole' && mime.startsWith('application/vnd.openxmlformats-officedocument.');

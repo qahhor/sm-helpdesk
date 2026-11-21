@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import type { AntivirusScanner } from '@/modules/hdc/api';
 import { MemoryJobQueue, MemoryStorage, setJobQueueForTests, setScannerForTests, setStorageForTests } from '@/modules/hdc/testing';
 import { createStubScanner } from '@/modules/hdc/antivirus/stub';
-import { completeUpload, presignUpload, scanAttachment } from '@/modules/hdt/api';
+import { completeUpload, createTicket, getTicket, presignUpload, scanAttachment } from '@/modules/hdt/api';
 import { EICAR } from '../helpers/fake-clamd';
 import { clientCtx } from './helpers/auth';
 import { pools } from './helpers/db';
@@ -36,6 +36,8 @@ afterEach(() => {
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...new Array(56).fill(7)]);
 const text = (value: string) => new TextEncoder().encode(value);
+const OLE = new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, ...new Array(56).fill(0)]);
+const ZIP = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...new Array(60).fill(1)]);
 const row = (id: string) =>
   pools.root
     .query(`select org_id, storage_key, scan_status, scan_signature, detected_type, sha256 from hdt_attachments where attachment_id = $1`, [id])
@@ -102,13 +104,12 @@ test('EICAR получает infected, объект из карантина уд
   expect(scans).toBe(1);
 });
 
-test('законные файлы не отклоняются: журнал в UTF-16, офисный файл с паролем, PNG с расширением .jpg', async () => {
+test('законные файлы не отклоняются: журнал в UTF-16, старый формат Office, PNG с расширением .jpg', async () => {
   const f = await seedTwoOrgs();
   const utf16 = new Uint8Array([0xff, 0xfe, ...Array.from(Buffer.from('2026-11-21 ошибка синхронизации\r\n', 'utf16le'))]);
   expect(await scanAttachment(SYSTEM, await upload(f.aUser, 'sync.log', 'text/plain', utf16))).toBe('clean');
-  // Файл Office с паролем хранится в контейнере OLE, а не в ZIP.
-  const ole = new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, ...new Array(56).fill(0)]);
-  expect(await scanAttachment(SYSTEM, await upload(f.aUser, 'отчёт с паролем.xlsx', '', ole))).toBe('clean');
+  // Старый формат Office это контейнер OLE.
+  expect(await scanAttachment(SYSTEM, await upload(f.aUser, 'отчёт.xls', '', OLE))).toBe('clean');
   const jpg = await upload(f.aUser, 'screen.jpg', 'image/jpeg', PNG);
   expect(await scanAttachment(SYSTEM, jpg)).toBe('clean');
   expect((await row(jpg)).detected_type).toBe('png');
@@ -175,4 +176,41 @@ test('обрыв после переноса: повтор отмечает clea
   expect(await scanAttachment(SYSTEM, lost)).toBe('rejected');
   expect(scans).toBe(0);
   await expect(scanAttachment(SYSTEM, '0192d2a4-0000-7000-8000-000000000000')).rejects.toMatchObject({ code: 'not_found' });
+});
+
+test('зашифрованный файл и архив сверх пределов проверки: rejected с причиной, а не infected (решение 0027, пункт 20)', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = await clientCtx(f.aUser);
+  const verdict = (signature: string): AntivirusScanner => ({
+    scan: async (stream) => {
+      await stream.pipeTo(new WritableStream());
+      return { clean: false, signature };
+    },
+  });
+  const ids: string[] = [];
+  for (const signature of ['Heuristics.Encrypted.Zip', 'Heuristics.Limits.Exceeded.MaxFiles']) {
+    setScannerForTests(verdict(signature));
+    const id = await upload(f.aUser, 'архив.zip', 'application/zip', ZIP);
+    ids.push(id);
+    expect(await scanAttachment(SYSTEM, id), signature).toBe('rejected');
+    expect(await row(id)).toMatchObject({ scan_status: 'rejected', scan_signature: signature, storage_key: `quarantine/${id}` });
+    expect(storage.has(`quarantine/${id}`)).toBe(false);
+  }
+  // Документ Office с паролем лежит в контейнере OLE: до антивируса не доходит, причина та же.
+  setScannerForTests(counting(createStubScanner()));
+  const office = await upload(f.aUser, 'отчёт с паролем.xlsx', '', OLE);
+  ids.push(office);
+  expect(await scanAttachment(SYSTEM, office)).toBe('rejected');
+  expect(await row(office)).toMatchObject({ scan_status: 'rejected', scan_signature: 'encrypted_office', detected_type: 'ole' });
+  expect(scans).toBe(0);
+  // Это не заражение: в журнале аудита записей о заражении нет.
+  const audit = await pools.root.query(`select 1 from hdc_audit_log where action = 'attachment.infected' and object_id = any($1::text[])`, [ids]);
+  expect(audit.rows).toEqual([]);
+  // На странице обращения видна причина: что сделать клиенту.
+  const fresh = await upload(f.aUser, 'ещё архив.zip', 'application/zip', ZIP);
+  const created = await createTicket(ctx, { description: 'Архив с паролем', type: 'bug', impact: 'minor', locale: 'ru', attachmentIds: [fresh] });
+  setScannerForTests(verdict('Heuristics.Encrypted.Zip'));
+  expect(await scanAttachment(SYSTEM, fresh)).toBe('rejected');
+  const view = await getTicket(ctx, String(created.number));
+  expect(view?.attachments.map((a) => ({ scanStatus: a.scanStatus, rejectReason: a.rejectReason }))).toEqual([{ scanStatus: 'rejected', rejectReason: 'encrypted' }]);
 });

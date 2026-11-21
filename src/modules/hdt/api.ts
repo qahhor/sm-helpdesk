@@ -16,6 +16,7 @@ import {
   MAX_FILES_PER_MESSAGE,
   REOPEN_DAYS_DEFAULT,
   REOPEN_DAYS_SETTING,
+  type RejectReason,
   type ScanStatus,
   TICKET_PAGE_SIZE,
   type TicketStatus,
@@ -24,7 +25,7 @@ import {
   type Priority,
   type Visibility,
 } from './pref';
-import { parseNumber, titleFromDescription } from './util';
+import { parseNumber, rejectReasonOf, titleFromDescription } from './util';
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeUpload, handleUploadRequest, presignUpload } from './api/uploads';
@@ -112,7 +113,17 @@ export async function listTickets(ctx: ClientContext, input: unknown): Promise<{
   };
 }
 
-export type AttachmentView = { attachmentId: string; fileName: string; mime: string; size: number; scanStatus: ScanStatus; isImage: boolean; isMine: boolean };
+export type AttachmentView = {
+  attachmentId: string;
+  fileName: string;
+  mime: string;
+  size: number;
+  scanStatus: ScanStatus;
+  /** Почему файл не принят, если это можно назвать клиенту (решение 0027, пункт 20). */
+  rejectReason: RejectReason | null;
+  isImage: boolean;
+  isMine: boolean;
+};
 export type MessageView = { messageId: string; authorType: AuthorType; authorName: string | null; isMine: boolean; body: string; createdOn: Date; attachments: AttachmentView[] };
 export type EventView = { kind: EventKind; actorType: AuthorType; payload: Record<string, unknown>; createdOn: Date };
 export type TicketActions = { reply: boolean; confirm: boolean; reopen: boolean; rate: boolean; changeVisibility: boolean; watch: boolean };
@@ -183,6 +194,7 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
     mime: a.mime,
     size: a.size,
     scanStatus: a.scanStatus,
+    rejectReason: a.scanStatus === 'rejected' ? rejectReasonOf(a.scanSignature) : null,
     isImage: INLINE_IMAGE_TYPES.includes(a.mime),
     isMine: a.uploaderId === me,
   });

@@ -54,6 +54,14 @@ services:
     image: clamav/clamav:1.5.5@sha256:12177441d1b40cef3c47b44c4090d59d4babc4c67bedd5af0fa315e603aa6dd8
     restart: unless-stopped
     volumes: ['clamav_db:/var/lib/clamav']
+    # Образ переносит CLAMD_CONF_<параметр> в clamd.conf при каждом запуске (решение 0027, пункт 20). Зашифрованный
+    # архив или документ и архив сверх пределов проверки (вложенность, число файлов, размер) получают подпись
+    # Heuristics.Encrypted.* или Heuristics.Limits.Exceeded.*, а не "чисто". Поток длиннее самого большого вложения.
+    environment:
+      CLAMD_CONF_AlertEncryptedArchive: 'yes'
+      CLAMD_CONF_AlertEncryptedDoc: 'yes'
+      CLAMD_CONF_AlertExceedsMax: 'yes'
+      CLAMD_CONF_StreamMaxLength: '60M'
     healthcheck:
       test: ['CMD', 'clamdcheck.sh']
       interval: 30s

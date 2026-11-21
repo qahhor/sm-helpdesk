@@ -67,3 +67,15 @@ test('ClamAV без портов наружу, базы подписей на т
   expect(clamav.volumes).toEqual(['clamav_db:/var/lib/clamav']);
   expect(compose.volumes).toHaveProperty('clamav_db');
 });
+
+test('ClamAV не пропускает то, что не может проверить: зашифрованное и сверх пределов (решение 0027, пункт 20)', () => {
+  // Образ при каждом запуске переносит CLAMD_CONF_<параметр> в clamd.conf. Без этих параметров архив с паролем
+  // и архив сверх пределов проверки антивирус отдаёт как чистые (проверено на образе этой версии).
+  expect((services.clamav as { environment?: unknown }).environment).toEqual({
+    CLAMD_CONF_AlertEncryptedArchive: 'yes',
+    CLAMD_CONF_AlertEncryptedDoc: 'yes',
+    CLAMD_CONF_AlertExceedsMax: 'yes',
+    // Поток длиннее самого большого вложения (видео 50 МБ), иначе clamd обрывает проверку.
+    CLAMD_CONF_StreamMaxLength: '60M',
+  });
+});

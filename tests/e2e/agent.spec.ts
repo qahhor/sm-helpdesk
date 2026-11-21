@@ -401,3 +401,78 @@ test('на широком экране список и обращение ряд
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(pane).toBeHidden();
 });
+
+/** Нет прокрутки вбок: содержимое помещается в окно (UX-C-12 для рабочего места). */
+const noSideScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+const seriousViolations = async (page: Page) =>
+  (await new AxeBuilder({ page }).analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id);
+
+test('приёмка M3, сценарий S3: очередь по сроку, взять, приоритет с причиной, заметка, ответ с ожиданием, клиент вернул в работу', async ({ page, browser }) => {
+  const description = `S3 ${Date.now()}: не формируется отчёт по остаткам`;
+  const number = await clientTicket(browser, description);
+  const ticketRow = async () =>
+    (
+      await dbRows<{ status: string; sla_paused_on: Date | null; sla_paused_minutes: number; resolution_due_on: Date }>(
+        `select status, sla_paused_on, sla_paused_minutes, resolution_due_on from hdt_tickets where number = $1`,
+        [number],
+      )
+    )[0];
+
+  // 1. Очередь "Новые" отсортирована по сроку: обращение в ней со сроком.
+  await page.goto(`/ru/agent/queues?queue=new&q=SUP-${number}`);
+  await expect(main(page).locator(`tr[data-number="${number}"] [data-sla]`)).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  await main(page).locator(`tr[data-number="${number}"] [data-row-link]`).click();
+
+  // 2. Берёт в работу, уточняет приоритет с причиной.
+  const panel = page.getByRole('complementary', { name: 'Сведения об обращении' });
+  await panel.getByRole('button', { name: 'Взять себе' }).click();
+  await expect(main(page).getByRole('status').filter({ hasText: 'Обращение у вас' })).toBeVisible();
+  await panel.getByLabel('Приоритет', { exact: true }).selectOption('p2');
+  await panel.getByLabel('Причина').fill('Отчёт нужен для закрытия месяца');
+  await panel.getByRole('button', { name: 'Подтвердить приоритет' }).click();
+  await expect(main(page).locator('[data-event="priority"]')).toContainText('Отчёт нужен для закрытия месяца');
+
+  // 3. Заметка коллегам и ответ клиенту с "Ждём ответа клиента" (4: срок решения на паузе).
+  const composer = main(page).getByRole('form', { name: 'Ответ по обращению' });
+  await expect(composer).toHaveAttribute('data-ready', '');
+  await composer.getByRole('radio', { name: 'Внутренняя заметка' }).check();
+  await composer.getByLabel('Текст заметки').fill('Похоже на фильтр по складам, проверю права');
+  await composer.getByRole('button', { name: 'Сохранить заметку' }).click();
+  await expect(main(page).locator('[data-internal]')).toContainText('Похоже на фильтр по складам');
+  await composer.getByRole('radio', { name: 'Ответ клиенту' }).check();
+  await composer.getByLabel('Текст ответа').fill('Уточните, пожалуйста, какой склад выбран в отчёте');
+  await composer.getByLabel('Ждём ответа клиента').check();
+  await composer.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(panel).toContainText('на паузе, ждём клиента');
+  const paused = await ticketRow();
+  expect(paused?.status).toBe('waiting_customer');
+  expect(paused?.sla_paused_on).not.toBeNull();
+  expect(await seriousViolations(page)).toEqual([]);
+
+  // 5. Клиент отвечает на портале: обращение возвращается в работу, пауза учтена в сроке. Заметку клиент не видит.
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.getByRole('main')).toContainText('Ждём вашего ответа');
+  await expect(client.getByRole('main')).toContainText('Поддержка Smartup');
+  await expect(client.getByRole('main')).not.toContainText('Похоже на фильтр по складам');
+  await expect(client.locator('form[data-ready]').first()).toBeAttached();
+  await client.getByLabel('Ответ', { exact: true }).fill('Склад "Основной"');
+  await resetLimits();
+  await client.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(client.getByRole('main')).toContainText('Склад "Основной"');
+  await clientContext.close();
+  await expect.poll(async () => (await ticketRow())?.sla_paused_on === null, { timeout: 15_000 }).toBe(true);
+  const resumed = await ticketRow();
+  expect(resumed?.status).toBe('in_progress');
+  expect(resumed?.resolution_due_on.getTime()).toBeGreaterThanOrEqual(paused?.resolution_due_on.getTime() ?? 0);
+  await page.reload();
+  await expect(main(page).getByText('В работе', { exact: true }).first()).toBeVisible();
+
+  // Ширина ноутбука при масштабе 200%: окно вдвое уже в точках CSS, прокрутки вбок нет.
+  await page.setViewportSize({ width: 640, height: 400 });
+  expect(await noSideScroll(page)).toBe(true);
+  await page.goto('/ru/agent/queues?queue=all');
+  expect(await noSideScroll(page)).toBe(true);
+});

@@ -53,7 +53,7 @@ export default async function TicketPage({
               </a>
             ) : (
               <span className="break-all" data-scan={file.scanStatus}>
-                {file.fileName} <span className="text-muted-foreground">({t(`page.scan.${file.scanStatus === 'pending' ? 'pending' : 'infected'}`)})</span>
+                {file.fileName} <span className="text-muted-foreground">({t(`page.scan.${file.scanStatus === 'infected' || file.scanStatus === 'rejected' ? file.scanStatus : 'pending'}`)})</span>
               </span>
             )}
           </li>

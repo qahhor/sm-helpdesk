@@ -86,6 +86,20 @@ test('EICAR получает infected, объект из карантина уд
   expect(scans).toBe(1);
 });
 
+test('законные файлы не отклоняются: журнал в UTF-16, офисный файл с паролем, PNG с расширением .jpg', async () => {
+  const f = await seedTwoOrgs();
+  const utf16 = new Uint8Array([0xff, 0xfe, ...Array.from(Buffer.from('2026-11-21 ошибка синхронизации\r\n', 'utf16le'))]);
+  expect(await scanAttachment(SYSTEM, await upload(f.aUser, 'sync.log', 'text/plain', utf16))).toBe('clean');
+  // Файл Office с паролем хранится в контейнере OLE, а не в ZIP.
+  const ole = new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, ...new Array(56).fill(0)]);
+  expect(await scanAttachment(SYSTEM, await upload(f.aUser, 'отчёт с паролем.xlsx', '', ole))).toBe('clean');
+  const jpg = await upload(f.aUser, 'screen.jpg', 'image/jpeg', PNG);
+  expect(await scanAttachment(SYSTEM, jpg)).toBe('clean');
+  expect((await row(jpg)).detected_type).toBe('png');
+  // Исполняемый файл под видом картинки по-прежнему не принимается.
+  expect(await scanAttachment(SYSTEM, await upload(f.aUser, 'photo.jpg', 'image/jpeg', text('MZ\x90\0\x03\0\0\0')))).toBe('rejected');
+});
+
 test('report.pdf с HTML внутри получает rejected (на что смотреть, 1)', async () => {
   const f = await seedTwoOrgs();
   const id = await upload(f.aUser, 'report.pdf', 'application/pdf', text('<!DOCTYPE html><html><script>alert(1)</script></html>'));
@@ -108,6 +122,30 @@ test('антивирус не ответил: статус pending, ошибка
   // Повтор задачи после восстановления антивируса доводит проверку до конца.
   setScannerForTests(createStubScanner());
   expect(await scanAttachment(SYSTEM, id)).toBe('clean');
+});
+
+test('файл подменили во время проверки: перенос не происходит, повторная проверка оценивает новый файл (угроза T6)', async () => {
+  const f = await seedTwoOrgs();
+  const id = await upload(f.aUser, 'отчёт.txt', 'text/plain', text('a'.repeat(EICAR.length)));
+  // Пока антивирус читает файл, загрузивший кладёт по той же ссылке другой файл того же размера и типа.
+  const swapped = text(EICAR);
+  setScannerForTests({
+    scan: async (stream) => {
+      storage.put(`quarantine/${id}`, swapped);
+      return createStubScanner().scan(stream);
+    },
+  });
+  await expect(scanAttachment(SYSTEM, id)).rejects.toThrow();
+  expect((await row(id)).scan_status).toBe('pending');
+  expect(storage.has(`files/${f.orgA.orgId}/${id}`)).toBe(false);
+  // Повтор задачи проверяет уже новый файл, и антивирус его находит.
+  setScannerForTests(createStubScanner());
+  expect(await scanAttachment(SYSTEM, id)).toBe('infected');
+  expect(storage.has(`files/${f.orgA.orgId}/${id}`)).toBe(false);
+  // Файл другого размера после чтения тоже не становится чистым.
+  const resized = await upload(f.aUser, 'журнал.txt', 'text/plain', text('b'.repeat(40)));
+  storage.put(`quarantine/${resized}`, text('b'.repeat(41)));
+  expect(await scanAttachment(SYSTEM, resized)).toBe('rejected');
 });
 
 test('обрыв после переноса: повтор отмечает clean без второй проверки, пропавший файл получает rejected', async () => {

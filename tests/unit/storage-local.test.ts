@@ -22,9 +22,17 @@ test('подписанная ссылка на загрузку проверяе
   await storage.write('quarantine/0192-a', new TextEncoder().encode('hello'));
   expect(readFileSync(join(dir, 'quarantine/0192-a'), 'utf8')).toBe('hello');
   expect(await storage.head('quarantine/0192-a')).toEqual({ size: 5 });
-  await storage.move('quarantine/0192-a', 'files/org/0192-a');
+  const read = await storage.stream('quarantine/0192-a');
+  expect(await new Response(read.body).text()).toBe('hello');
+  // Файл переписали после чтения: перенос с прежней меткой отказывает.
+  await storage.write('quarantine/0192-a', new TextEncoder().encode('HELLO'));
+  await expect(storage.move('quarantine/0192-a', 'files/org/0192-a', read.etag)).rejects.toThrow();
+  expect(await storage.head('files/org/0192-a')).toBeNull();
+  const fresh = await storage.stream('quarantine/0192-a');
+  await fresh.body.cancel();
+  await storage.move('quarantine/0192-a', 'files/org/0192-a', fresh.etag);
   expect(await storage.head('quarantine/0192-a')).toBeNull();
-  expect(await new Response(await storage.stream('files/org/0192-a')).text()).toBe('hello');
+  expect(await new Response((await storage.stream('files/org/0192-a')).body).text()).toBe('HELLO');
   await storage.remove('files/org/0192-a');
   expect(await storage.head('files/org/0192-a')).toBeNull();
 });

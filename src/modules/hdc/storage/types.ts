@@ -8,8 +8,13 @@ export interface Storage {
   presignDownload(key: string, filename: string, ttlSeconds: number, inline?: boolean): Promise<string>;
   /** Размер объекта или null, если объекта нет. */
   head(key: string): Promise<{ size: number } | null>;
-  move(fromKey: string, toKey: string): Promise<void>;
-  stream(key: string): Promise<ReadableStream<Uint8Array>>;
+  /**
+   * Перенос. С ifMatch переносится только тот объект, который был прочитан с этой меткой (ETag): если файл
+   * подменили после чтения, перенос бросает ошибку и источник остаётся на месте.
+   */
+  move(fromKey: string, toKey: string, ifMatch?: string): Promise<void>;
+  /** Содержимое и метка версии объекта (ETag) на момент чтения. */
+  stream(key: string): Promise<{ body: ReadableStream<Uint8Array>; etag: string }>;
   /** Удаление. Отсутствующий объект ошибкой не считается. */
   remove(key: string): Promise<void>;
 }

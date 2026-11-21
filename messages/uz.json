@@ -175,8 +175,8 @@
         "files": "Fayllar",
         "scan": {
           "pending": "tekshirilmoqda",
-          "infected": "tekshiruvdan o'tmadi",
-          "rejected": "tekshiruvdan o'tmadi"
+          "infected": "viruslarga tekshiruvdan o'tmadi",
+          "rejected": "qabul qilinmadi, faylni qaytadan qo'shing"
         },
         "reply": "Javob",
         "replyPlaceholder": "Javob yozing",

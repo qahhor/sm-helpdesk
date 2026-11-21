@@ -175,8 +175,8 @@
         "files": "Files",
         "scan": {
           "pending": "being checked",
-          "infected": "failed the check",
-          "rejected": "failed the check"
+          "infected": "failed the virus check",
+          "rejected": "not accepted, attach the file again"
         },
         "reply": "Reply",
         "replyPlaceholder": "Write a reply",

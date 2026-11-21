@@ -47,3 +47,12 @@ test('исполняемые файлы, текст и неизвестное', 
   expect(sniffFileType(bytes(0x01, 0x02, 0x00, 0x03))).toBe('unknown');
   expect(sniffFileType(bytes())).toBe('unknown');
 });
+
+test('текст в UTF-16 с меткой порядка байт: журналы Windows и "Юникод-текст" Excel', () => {
+  const utf16le = new Uint8Array([0xff, 0xfe, ...Array.from(Buffer.from('2026-11-21 ошибка\r\n', 'utf16le'))]);
+  expect(sniffFileType(utf16le)).toBe('text');
+  const utf16be = new Uint8Array([0xfe, 0xff, 0x00, 0x41, 0x00, 0x42]);
+  expect(sniffFileType(utf16be)).toBe('text');
+  // Без метки нулевые байты по-прежнему не текст.
+  expect(sniffFileType(new Uint8Array([0x41, 0x00, 0x42, 0x00]))).toBe('unknown');
+});

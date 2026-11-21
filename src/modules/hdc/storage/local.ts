@@ -75,6 +75,11 @@ export function createLocalStorage(opts: LocalOptions): LocalStorage {
     if (!path.startsWith(root + sep)) throw new Error('хранилище: недопустимый ключ');
     return path;
   };
+  /** Метка версии файла: размер и время изменения с точностью до наносекунды. */
+  const etagOf = async (key: string) => {
+    const info = await stat(pathOf(key), { bigint: true });
+    return `${info.size}-${info.mtimeNs}-${info.ino}`;
+  };
   const sizeOf = async (key: string) => {
     try {
       return (await stat(pathOf(key))).size;
@@ -95,14 +100,16 @@ export function createLocalStorage(opts: LocalOptions): LocalStorage {
       const size = await sizeOf(key);
       return size === null ? null : { size };
     },
-    async move(fromKey, toKey) {
+    async move(fromKey, toKey, ifMatch) {
+      if (ifMatch !== undefined && (await etagOf(fromKey)) !== ifMatch) throw new Error('хранилище: файл изменился после чтения');
       const target = pathOf(toKey);
       await mkdir(dirname(target), { recursive: true });
       await rename(pathOf(fromKey), target);
     },
     async stream(key) {
       if ((await sizeOf(key)) === null) throw new Error('хранилище: объекта нет');
-      return Readable.toWeb(createReadStream(pathOf(key))) as ReadableStream<Uint8Array>;
+      const etag = await etagOf(key);
+      return { body: Readable.toWeb(createReadStream(pathOf(key))) as ReadableStream<Uint8Array>, etag };
     },
     async remove(key) {
       await rm(pathOf(key), { force: true });
@@ -158,7 +165,7 @@ export function createLocalHandler(opts: { storage: LocalStorage; secret: string
     if (!(await opts.storage.head(grant.key))) return problemResponse(404, 'not_found');
     const ext = grant.name.toLowerCase().split('.').pop() ?? '';
     const type = grant.disposition === 'inline' ? INLINE_TYPES[ext] : undefined;
-    return new Response(await opts.storage.stream(grant.key), {
+    return new Response((await opts.storage.stream(grant.key)).body, {
       headers: {
         'Content-Type': type ?? 'application/octet-stream',
         'Content-Disposition': contentDisposition(type ? 'inline' : 'attachment', grant.name),

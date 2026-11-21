@@ -4,12 +4,16 @@ import { assertKey, contentDisposition, type Storage } from './types';
 
 export class MemoryStorage implements Storage {
   readonly objects = new Map<string, Uint8Array>();
+  /** Версия объекта: растёт при каждой записи, служит меткой ETag. */
+  private readonly versions = new Map<string, number>();
+  private version = 0;
   /** Выданные ссылки на загрузку. */
   readonly presigned: { key: string; mime: string; size: number }[] = [];
 
   /** Файл, который "загрузил браузер". */
   put(key: string, bytes: Uint8Array): void {
     this.objects.set(assertKey(key), bytes);
+    this.versions.set(key, ++this.version);
   }
 
   has(key: string): boolean {
@@ -31,25 +35,29 @@ export class MemoryStorage implements Storage {
     return bytes ? { size: bytes.byteLength } : null;
   }
 
-  async move(fromKey: string, toKey: string) {
+  async move(fromKey: string, toKey: string, ifMatch?: string) {
     const bytes = this.objects.get(fromKey);
     if (!bytes) throw new Error('хранилище: объекта нет');
-    this.objects.set(assertKey(toKey), bytes);
+    if (ifMatch !== undefined && ifMatch !== String(this.versions.get(fromKey))) throw new Error('хранилище: объект изменился после чтения');
+    this.put(toKey, bytes);
     this.objects.delete(fromKey);
+    this.versions.delete(fromKey);
   }
 
   async stream(key: string) {
     const bytes = this.objects.get(key);
     if (!bytes) throw new Error('хранилище: объекта нет');
-    return new ReadableStream<Uint8Array>({
+    const body = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(bytes);
         controller.close();
       },
     });
+    return { body, etag: String(this.versions.get(key)) };
   }
 
   async remove(key: string) {
     this.objects.delete(key);
+    this.versions.delete(key);
   }
 }

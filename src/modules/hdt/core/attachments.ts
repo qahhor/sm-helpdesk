@@ -4,9 +4,9 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
 import { enqueue, getScanner, getStorage, SNIFF_BYTES, sniffFileType, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
-import { DETECTED_BY_MIME, type ScanStatus } from '../pref';
+import type { ScanStatus } from '../pref';
 import { attachments } from '../schema';
-import { fileKey, quarantineKey } from '../util';
+import { fileKey, quarantineKey, typeMatches } from '../util';
 
 // Модуль hdt, слой core: загрузки в карантин (раздел 11.11, решение 0027). Строка создаётся до загрузки,
 // ключ хранилища строится из её идентификатора. Организация и загрузивший берутся из актора.
@@ -90,20 +90,45 @@ type ScanResult = {
   sha256?: string;
 };
 
-/** Первые bytes байт потока, остальное не читается. */
-async function readHead(stream: ReadableStream<Uint8Array>, bytes: number): Promise<Uint8Array> {
+/**
+ * Первые bytes байт потока и поток всего файла с теми же байтами в начале: тип определяется и антивирус читает
+ * одно и то же чтение объекта. Два отдельных чтения дали бы загрузившему окно подменить файл между ними.
+ */
+async function splitHead(stream: ReadableStream<Uint8Array>, bytes: number): Promise<{ head: Uint8Array; whole: ReadableStream<Uint8Array> }> {
   const reader = stream.getReader();
-  const head = new Uint8Array(bytes);
+  const chunks: Uint8Array[] = [];
   let read = 0;
+  let finished = false;
   while (read < bytes) {
     const { done, value } = await reader.read();
-    if (done) break;
-    const take = value.subarray(0, bytes - read);
-    head.set(take, read);
-    read += take.byteLength;
+    if (done) {
+      finished = true;
+      break;
+    }
+    chunks.push(value);
+    read += value.byteLength;
   }
-  await reader.cancel().catch(() => {});
-  return head.subarray(0, read);
+  const buffered = new Uint8Array(read);
+  let offset = 0;
+  for (const chunk of chunks) {
+    buffered.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  let sentHead = false;
+  const whole = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (!sentHead) {
+        sentHead = true;
+        if (buffered.byteLength > 0) return controller.enqueue(buffered);
+      }
+      if (finished) return controller.close();
+      const { done, value } = await reader.read();
+      if (done) controller.close();
+      else controller.enqueue(value);
+    },
+    cancel: (reason) => reader.cancel(reason),
+  });
+  return { head: buffered.subarray(0, bytes), whole };
 }
 
 /** Итог проверки в строку, только если она ещё pending. Заражённый файл пишется в журнал аудита той же транзакцией. */
@@ -159,8 +184,12 @@ export async function scanAttachment(attachmentId: string): Promise<ScanStatus> 
     return finish(row, { scanStatus: 'rejected' });
   }
 
-  const detected = sniffFileType(await readHead(await storage.stream(quarantine), SNIFF_BYTES));
-  if (DETECTED_BY_MIME[row.mime] !== detected) {
+  // Одно чтение объекта: по его началу тип, по нему же антивирус и хеш, его метка (ETag) при переносе.
+  const { body, etag } = await storage.stream(quarantine);
+  const { head, whole } = await splitHead(body, SNIFF_BYTES);
+  const detected = sniffFileType(head);
+  if (!typeMatches(row.mime, detected)) {
+    await whole.cancel().catch(() => {});
     const status = await finish(row, { scanStatus: 'rejected', detectedType: detected });
     await storage.remove(quarantine);
     return status;
@@ -175,15 +204,20 @@ export async function scanAttachment(attachmentId: string): Promise<ScanStatus> 
       controller.enqueue(chunk);
     },
   });
-  const verdict = await getScanner().scan((await storage.stream(quarantine)).pipeThrough(hashing));
+  const verdict = await getScanner().scan(whole.pipeThrough(hashing));
   if (!verdict.clean) {
     const status = await finish(row, { scanStatus: 'infected', detectedType: detected, scanSignature: verdict.signature ?? 'unknown' });
     await storage.remove(quarantine);
     return status;
   }
-  // Чистым считается только файл, прочитанный антивирусом целиком.
-  if (scanned !== row.size) throw new Error('hdt: антивирус прочитал файл не целиком');
-  await storage.move(quarantine, target);
+  // Антивирус прочитал не тот размер, что заявлен и проверен при загрузке: файл заменили, он не принимается.
+  if (scanned !== row.size) {
+    const status = await finish(row, { scanStatus: 'rejected', detectedType: detected });
+    await storage.remove(quarantine);
+    return status;
+  }
+  // Переносится только прочитанная версия: подменённый после чтения файл не копируется, задача повторится.
+  await storage.move(quarantine, target, etag);
   return finish(row, { scanStatus: 'clean', storageKey: target, detectedType: detected, sha256: hash.digest('hex') });
 }
 

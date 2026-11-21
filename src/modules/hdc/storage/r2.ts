@@ -66,8 +66,12 @@ export function createR2Storage(opts: R2Options): Storage {
       return { size: Number(response.headers.get('content-length')) };
     },
 
-    async move(fromKey, toKey) {
-      const copied = await call('PUT', toKey, { 'x-amz-copy-source': `/${opts.bucket}/${assertKey(fromKey)}` });
+    async move(fromKey, toKey, ifMatch) {
+      const copied = await call('PUT', toKey, {
+        'x-amz-copy-source': `/${opts.bucket}/${assertKey(fromKey)}`,
+        // Подменённый после чтения объект не копируется: R2 отвечает 412.
+        ...(ifMatch ? { 'x-amz-copy-source-if-match': ifMatch } : {}),
+      });
       if (!copied.ok) return fail('COPY', copied);
       await copied.body?.cancel().catch(() => {});
       await this.remove(fromKey);
@@ -76,7 +80,7 @@ export function createR2Storage(opts: R2Options): Storage {
     async stream(key) {
       const response = await call('GET', key);
       if (!response.ok || !response.body) return fail('GET', response);
-      return response.body;
+      return { body: response.body, etag: response.headers.get('etag') ?? '' };
     },
 
     async remove(key) {

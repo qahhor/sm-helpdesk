@@ -111,32 +111,36 @@ export const MIME_ALIASES: Readonly<Record<string, readonly string[]>> = {
   zip: ['application/x-zip-compressed', 'application/x-zip'],
 };
 
+const RASTER: readonly DetectedType[] = ['png', 'jpeg', 'gif', 'webp'];
+
 /**
- * Какой настоящий тип ожидается у файла заявленного типа (угроза T6, решение 0027). Офисные файлы нового
- * формата и OpenDocument это ZIP, старые doc, xls, ppt это OLE, тексты без нулевых байтов.
+ * Какие настоящие типы допустимы для заявленного (угроза T6, решение 0027). Офисные файлы нового формата и
+ * OpenDocument это ZIP, файл Office с паролем хранится в контейнере OLE, старые doc, xls, ppt это OLE, тексты
+ * без нулевых байтов или в UTF-16 с меткой. Картинка с чужим расширением (PNG в файле .jpg) принимается: это та же
+ * растровая картинка, в строку записывается её настоящий тип. HTML, SVG и исполняемые файлы не допустимы нигде.
  */
-export const DETECTED_BY_MIME: Readonly<Record<string, DetectedType>> = {
-  'image/png': 'png',
-  'image/jpeg': 'jpeg',
-  'image/gif': 'gif',
-  'image/webp': 'webp',
-  'image/heic': 'heic',
-  'application/pdf': 'pdf',
-  'application/msword': 'ole',
-  'application/vnd.ms-excel': 'ole',
-  'application/vnd.ms-powerpoint': 'ole',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'zip',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'zip',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'zip',
-  'application/vnd.oasis.opendocument.text': 'zip',
-  'application/vnd.oasis.opendocument.spreadsheet': 'zip',
-  'application/vnd.oasis.opendocument.presentation': 'zip',
-  'application/zip': 'zip',
-  'text/plain': 'text',
-  'text/csv': 'text',
-  'application/json': 'text',
-  'application/xml': 'text',
-  'video/mp4': 'mp4',
+export const ACCEPTED_TYPES: Readonly<Record<string, readonly DetectedType[]>> = {
+  'image/png': RASTER,
+  'image/jpeg': RASTER,
+  'image/gif': RASTER,
+  'image/webp': RASTER,
+  'image/heic': ['heic'],
+  'application/pdf': ['pdf'],
+  'application/msword': ['ole'],
+  'application/vnd.ms-excel': ['ole'],
+  'application/vnd.ms-powerpoint': ['ole'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['zip', 'ole'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['zip', 'ole'],
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['zip', 'ole'],
+  'application/vnd.oasis.opendocument.text': ['zip'],
+  'application/vnd.oasis.opendocument.spreadsheet': ['zip'],
+  'application/vnd.oasis.opendocument.presentation': ['zip'],
+  'application/zip': ['zip'],
+  'text/plain': ['text'],
+  'text/csv': ['text'],
+  'application/json': ['text'],
+  'application/xml': ['text'],
+  'video/mp4': ['mp4'],
 };
 
 /** Предел размера файла (FR-TK-13): 25 МБ, видео MP4 до 50 МБ. */

@@ -1,6 +1,7 @@
 // Модуль hdt, слой util: чистые функции без обращения к базе (docs/naming.md, раздел 5).
 
-import { ALLOWED_FILES, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES } from './pref';
+import type { DetectedType } from '@/modules/hdc/api';
+import { ACCEPTED_TYPES, ALLOWED_FILES, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES } from './pref';
 
 // Тема из описания нужна и форме в браузере (подстановка при вводе): общая функция лежит в src/lib/subject.ts.
 export { titleFromDescription } from '@/lib/subject';
@@ -35,3 +36,6 @@ export const maxBytesFor = (mime: string): number => (mime === 'video/mp4' ? MAX
 /** Ключи хранилища (раздел 11.11): до проверки файл лежит в карантине, после чистой проверки в папке организации. */
 export const quarantineKey = (attachmentId: string): string => `quarantine/${attachmentId}`;
 export const fileKey = (orgId: string, attachmentId: string): string => `files/${orgId}/${attachmentId}`;
+
+/** Допустим ли настоящий тип файла для его заявленного типа (ACCEPTED_TYPES). */
+export const typeMatches = (mime: string, detected: DetectedType): boolean => ACCEPTED_TYPES[mime]?.includes(detected) ?? false;

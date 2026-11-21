@@ -55,28 +55,41 @@ test('ссылка на скачивание на 60 секунд с Content-Dis
   expect(inline.searchParams.get('response-content-disposition')).toMatch(/^inline; /);
 });
 
-test('head, move, stream и remove обращаются к бакету подписанными запросами', async () => {
-  const calls: { method: string; url: string; copy: string | null }[] = [];
+test('head, move, stream и remove обращаются к бакету подписанными запросами; перенос сверяет ETag прочитанного', async () => {
+  const calls: { method: string; url: string; copy: string | null; ifMatch: string | null }[] = [];
   const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const req = new Request(input, init);
-    calls.push({ method: req.method, url: req.url, copy: req.headers.get('x-amz-copy-source') });
+    calls.push({ method: req.method, url: req.url, copy: req.headers.get('x-amz-copy-source'), ifMatch: req.headers.get('x-amz-copy-source-if-match') });
     expect(req.headers.get('authorization')).toMatch(/^AWS4-HMAC-SHA256 /);
     if (req.method === 'HEAD') return new Response(null, { status: 200, headers: { 'content-length': '42' } });
-    if (req.method === 'GET') return new Response('data');
+    if (req.method === 'GET') return new Response('data', { headers: { etag: '"abc123"' } });
     return new Response(null, { status: 200 });
   }) as unknown as typeof fetch;
   const s = make(fetchImpl);
   expect(await s.head('quarantine/x')).toEqual({ size: 42 });
-  await s.move('quarantine/x', 'files/o/x');
-  expect(await new Response(await s.stream('files/o/x')).text()).toBe('data');
+  const { body, etag } = await s.stream('files/o/x');
+  expect(await new Response(body).text()).toBe('data');
+  expect(etag).toBe('"abc123"');
+  await s.move('quarantine/x', 'files/o/x', etag);
   await s.remove('files/o/x');
-  expect(calls.map((c) => `${c.method} ${new URL(c.url).pathname} ${c.copy ?? ''}`.trim())).toEqual([
+  expect(calls.map((c) => `${c.method} ${new URL(c.url).pathname} ${c.copy ?? ''} ${c.ifMatch ?? ''}`.trim())).toEqual([
     'HEAD /hub/quarantine/x',
-    'PUT /hub/files/o/x /hub/quarantine/x',
-    'DELETE /hub/quarantine/x',
     'GET /hub/files/o/x',
+    'PUT /hub/files/o/x /hub/quarantine/x "abc123"',
+    'DELETE /hub/quarantine/x',
     'DELETE /hub/files/o/x',
   ]);
+});
+
+test('объект подменили после чтения: копирование отвечает 412, перенос бросает ошибку и источник не удаляется', async () => {
+  const methods: string[] = [];
+  const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const req = new Request(input, init);
+    methods.push(req.method);
+    return new Response(null, { status: req.method === 'PUT' ? 412 : 200 });
+  }) as unknown as typeof fetch;
+  await expect(make(fetchImpl).move('quarantine/x', 'files/o/x', '"old"')).rejects.toThrow(/412/);
+  expect(methods).toEqual(['PUT']);
 });
 
 test('нет объекта: head пусто, ошибка бакета бросает исключение без ключа доступа', async () => {

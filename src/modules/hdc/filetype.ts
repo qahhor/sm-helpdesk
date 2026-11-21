@@ -53,6 +53,12 @@ export function sniffFileType(head: Uint8Array): DetectedType {
     [0xca, 0xfe, 0xba, 0xbe],
   ])
     if (startsWith(head, magic)) return 'executable';
+  // Текст в UTF-16 с меткой порядка байт (журналы Windows, "Юникод-текст" Excel): нулевые байты в нём законны.
+  if (startsWith(head, [0xff, 0xfe]) || startsWith(head, [0xfe, 0xff])) {
+    const encoding = head[0] === 0xff ? 'utf-16le' : 'utf-16be';
+    const start = new TextDecoder(encoding).decode(head.subarray(2, SNIFF_BYTES)).trimStart().toLowerCase();
+    return markupType(start) ?? 'text';
+  }
   if (head.subarray(0, SNIFF_BYTES).includes(0)) return 'unknown';
   return markupType(markupStart(head)) ?? 'text';
 }

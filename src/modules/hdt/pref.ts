@@ -18,6 +18,18 @@ export const PRIORITY_BY_IMPACT: Record<Impact, Priority> = { blocker: 'p1', maj
 export const TICKET_STATUSES = ['new', 'in_progress', 'waiting_customer', 'in_development', 'resolved', 'closed'] as const;
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
 
+/** Разрешённые переходы статуса (раздел 7.2). Любой другой переход сервис отклоняет. */
+export const TRANSITIONS: Readonly<Record<TicketStatus, readonly TicketStatus[]>> = {
+  new: ['in_progress', 'waiting_customer'],
+  in_progress: ['waiting_customer', 'in_development', 'resolved'],
+  waiting_customer: ['in_progress', 'resolved', 'closed'],
+  in_development: ['in_progress', 'resolved'],
+  resolved: ['closed', 'in_progress'],
+  closed: ['in_progress'],
+};
+
+export const canTransition = (from: TicketStatus, to: TicketStatus): boolean => TRANSITIONS[from].includes(to);
+
 /** Видимость (FR-TK-04): вся организация или только автор (и администратор клиента). */
 export const VISIBILITIES = ['org', 'private'] as const;
 export type Visibility = (typeof VISIBILITIES)[number];

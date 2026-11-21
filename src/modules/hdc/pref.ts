@@ -82,6 +82,8 @@ export const RATE_RULES = {
   cspReportPerIp: { limit: 60, windowSec: 600 },
   /** Создание обращения: 10 в час на пользователя (раздел 14.5). */
   ticketCreatePerUser: { limit: 10, windowSec: 3600 },
+  /** Ответы в обращениях: 60 в час на пользователя (предложение плана M2, в ТЗ предела нет). */
+  ticketReplyPerUser: { limit: 60, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

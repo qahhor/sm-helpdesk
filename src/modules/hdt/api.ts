@@ -3,9 +3,10 @@ import { type ClientContext, namesOf } from '@/modules/hdu/api';
 import { consumeRateLimit, rateKey, readSetting } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule } from '@/modules/hdr/api';
+import { confirmTx, rateTx, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
 import { createTicketTx, listTicketRows, readTicket } from './core/tickets';
 import { HdtError } from './error';
-import { createTicketInput, listTicketsInput, parseInput } from './input';
+import { createTicketInput, listTicketsInput, numberInput, parseInput, rateInput, reopenInput, replyInput, visibilityInput } from './input';
 import {
   type AuthorType,
   type CsatReason,
@@ -197,4 +198,48 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
       watch: ticket.visibility === 'org' && !isMine,
     },
   };
+}
+
+// --- Действия клиента (FR-TK-08..12). Отказ: HdtError с кодом из error.ts. ---
+
+/** Ответ на портале с файлами (FR-TK-08). Не больше 60 ответов в час на пользователя. */
+export async function replyToTicket(ctx: ClientContext, input: unknown): Promise<void> {
+  const data = parseInput(replyInput, input);
+  const ids = [...new Set(data.attachmentIds)];
+  if (ids.length > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
+  const limit = await consumeRateLimit(rateKey('ticket-reply:user', ctx.actor.userId), RATE_RULES.ticketReplyPerUser);
+  if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
+  await replyTx(ctx.actor, data.number, data.body, ids);
+}
+
+/** "Решение подошло" (FR-TK-10). */
+export async function confirmResolution(ctx: ClientContext, number: unknown): Promise<void> {
+  await confirmTx(ctx.actor, parseInput(numberInput, number));
+}
+
+/** Открыть заново (FR-TK-12): решённое или закрытое в пределах срока из настройки. */
+export async function reopenTicket(ctx: ClientContext, input: unknown): Promise<void> {
+  const data = parseInput(reopenInput, input);
+  await reopenTx(ctx.actor, data.number, await reopenDays(), data.body);
+}
+
+/** Оценка закрытого обращения (FR-TK-11). */
+export async function rateTicket(ctx: ClientContext, input: unknown): Promise<void> {
+  const data = parseInput(rateInput, input);
+  await rateTx(ctx.actor, data.number, { score: data.score, reason: data.reason, comment: data.comment });
+}
+
+/** Видимость обращения (FR-TK-04). */
+export async function setTicketVisibility(ctx: ClientContext, input: unknown): Promise<void> {
+  const data = parseInput(visibilityInput, input);
+  await visibilityTx(ctx.actor, data.number, data.visibility);
+}
+
+/** Подписка на обращение коллеги (FR-TK-09). */
+export async function watchTicket(ctx: ClientContext, number: unknown): Promise<void> {
+  await watchTx(ctx.actor, parseInput(numberInput, number));
+}
+
+export async function unwatchTicket(ctx: ClientContext, number: unknown): Promise<void> {
+  await unwatchTx(ctx.actor, parseInput(numberInput, number));
 }

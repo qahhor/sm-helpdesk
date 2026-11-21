@@ -488,6 +488,10 @@
         "audit": {
           "title": "Audit jurnali",
           "text": "Huquqlar va sozlamalar bilan kim, nima va qachon qilgani. Yozuvlarni o'zgartirib yoki o'chirib bo'lmaydi."
+        },
+        "sla": {
+          "title": "Muddatlar va ish vaqti",
+          "text": "Ustuvorlik bo'yicha muddatlar, ish jadvali va bayramlar."
         }
       },
       "servers": {
@@ -694,7 +698,9 @@
           "organization": "Tashkilot",
           "ticket": "Murojaat",
           "attachment": "Ilova",
-          "module": "Mahsulot modullari"
+          "module": "Mahsulot modullari",
+          "sla_policy": "SLA muddatlari",
+          "business_calendar": "Ish kalendari"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -753,6 +759,11 @@
           },
           "modules": {
             "imported": "Modullar ma'lumotnomasi yuklandi"
+          },
+          "sla": {
+            "policy_changed": "SLA muddatlari o'zgartirildi",
+            "calendar_changed": "Qo'llab-quvvatlash ish jadvali o'zgartirildi",
+            "holidays_changed": "Bayram kunlari o'zgartirildi"
           }
         },
         "words": {
@@ -794,6 +805,49 @@
           "category": "Mijoz toifasi",
           "isAiEnabled": "AI-yordamchi ishlovi",
           "version": "Tahrir"
+        }
+      },
+      "sla": {
+        "title": "Muddatlar va ish vaqti",
+        "intro": "Ustuvorlik bo'yicha birinchi javob va hal qilish muddatlari, qo'llab-quvvatlash ish jadvali va bayram kunlari. Ustuvorlik uchun kecha-kunduz hisob tanlanmagan bo'lsa, muddatlar faqat ish vaqtida hisoblanadi.",
+        "policiesTitle": "Ustuvorlik bo'yicha muddatlar",
+        "firstResponse": "Birinchi javob, daqiqa",
+        "resolution": "Hal qilish",
+        "resolutionKind": "Hal qilish muddati birligi",
+        "minutes": "daqiqa",
+        "days": "ish kuni",
+        "clock": "Hisob",
+        "clockBusiness": "Ish vaqti",
+        "clock24x7": "Kecha-kunduz",
+        "firstResponseHint": "60 daqiqa 1 soat, 480 daqiqa 8 soat. Ish kunlaridagi muddat sutkaning shu vaqtida tugaydi; agar u o'sha kun jadvalidan tashqarida bo'lsa, ish kuni oxiriga ko'chiriladi.",
+        "calendarTitle": "Ish vaqti",
+        "timeZone": "Vaqt mintaqasi",
+        "week": "Hafta jadvali",
+        "from": "{day}: boshlanishi",
+        "to": "{day}: tugashi",
+        "holidaysTitle": "Bayram kunlari",
+        "holidaysYear": "{year}-yil bayramlari",
+        "holidaysHint": "Sanalar YYYY-OO-KK ko'rinishida, har biri yangi qatorda. Bayram kuni butunlay ishlanmaydi.",
+        "holidaysMissing": "{year}-yil bayramlari hali kiritilmagan. Ularsiz bu kunlar ish kuni hisoblanadi.",
+        "appliesToNew": "Yangi qiymatlar yangi hisoblarga amal qiladi. Ochiq murojaatlar muddatlari ularning keyingi hodisasida o'zgaradi: ustuvorlik, holat yoki javob.",
+        "save": "Saqlash",
+        "done": {
+          "policy": "Muddatlar saqlandi",
+          "calendar": "Ish vaqti saqlandi",
+          "holidays": "Bayramlar saqlandi"
+        },
+        "errors": {
+          "forbidden": "Muddatlarni faqat administrator o'zgartira oladi",
+          "invalid_input": "Qiymatlarni tekshiring: daqiqa va kunlar noldan katta, ish kuni oxiri boshlanishidan keyin, bayram sanalari shu yilga tegishli va takrorlanmagan"
+        },
+        "days7": {
+          "0": "Yakshanba",
+          "1": "Dushanba",
+          "2": "Seshanba",
+          "3": "Chorshanba",
+          "4": "Payshanba",
+          "5": "Juma",
+          "6": "Shanba"
         }
       }
     }

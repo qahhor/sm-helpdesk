@@ -488,6 +488,10 @@
         "audit": {
           "title": "Audit log",
           "text": "Who did what and when with rights and settings. Entries cannot be changed or deleted."
+        },
+        "sla": {
+          "title": "Targets and working hours",
+          "text": "First response and resolution targets by priority, working hours and holidays."
         }
       },
       "servers": {
@@ -694,7 +698,9 @@
           "organization": "Organization",
           "ticket": "Ticket",
           "attachment": "Attachment",
-          "module": "Product modules"
+          "module": "Product modules",
+          "sla_policy": "SLA targets",
+          "business_calendar": "Working calendar"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -753,6 +759,11 @@
           },
           "modules": {
             "imported": "Module catalog imported"
+          },
+          "sla": {
+            "policy_changed": "SLA targets changed",
+            "calendar_changed": "Support working hours changed",
+            "holidays_changed": "Holidays changed"
           }
         },
         "words": {
@@ -794,6 +805,49 @@
           "category": "Client category",
           "isAiEnabled": "AI assistant handling",
           "version": "Version"
+        }
+      },
+      "sla": {
+        "title": "Targets and working hours",
+        "intro": "First response and resolution targets by priority, support working hours and holidays. Targets count only working time unless round-the-clock counting is chosen for a priority.",
+        "policiesTitle": "Targets by priority",
+        "firstResponse": "First response, minutes",
+        "resolution": "Resolution",
+        "resolutionKind": "Resolution unit",
+        "minutes": "minutes",
+        "days": "working days",
+        "clock": "Counting",
+        "clockBusiness": "Working hours",
+        "clock24x7": "Round the clock",
+        "firstResponseHint": "60 minutes is 1 hour, 480 minutes is 8 hours. A target in working days falls at the same time of day; outside that day’s hours it moves to the end of the working day.",
+        "calendarTitle": "Working hours",
+        "timeZone": "Time zone",
+        "week": "Weekly schedule",
+        "from": "{day}: start",
+        "to": "{day}: end",
+        "holidaysTitle": "Holidays",
+        "holidaysYear": "Holidays of {year}",
+        "holidaysHint": "Dates as YYYY-MM-DD, one per line. A holiday is a non-working day.",
+        "holidaysMissing": "Holidays of {year} are not filled in yet. Without them these days count as working days.",
+        "appliesToNew": "New values apply to new calculations. Targets of open tickets change at their next event: priority, status or reply.",
+        "save": "Save",
+        "done": {
+          "policy": "Targets saved",
+          "calendar": "Working hours saved",
+          "holidays": "Holidays saved"
+        },
+        "errors": {
+          "forbidden": "Only an administrator can change targets",
+          "invalid_input": "Check the values: minutes and days above zero, the end of a working day after its start, holiday dates of this year without repeats"
+        },
+        "days7": {
+          "0": "Sunday",
+          "1": "Monday",
+          "2": "Tuesday",
+          "3": "Wednesday",
+          "4": "Thursday",
+          "5": "Friday",
+          "6": "Saturday"
         }
       }
     }

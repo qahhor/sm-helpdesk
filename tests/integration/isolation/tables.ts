@@ -29,7 +29,9 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Уведомления
   hdn_telegram_updates: { client: 'none', app: ['insert', 'delete'] },
   // Справочники
+  hdr_business_calendars: { client: 'all', app: IU },
   hdr_product_modules: { client: 'all', app: IUD },
+  hdr_sla_policies: { client: 'all', app: IU },
   // Идентичность: меняет только hub_auth, удаляет только отвязка контакта.
   hdu_contact_identities: { client: 'own-user', auth: IUD },
   // Ссылки и коды удаляет только ночная очистка системой (решение 0023, дополнение M2).

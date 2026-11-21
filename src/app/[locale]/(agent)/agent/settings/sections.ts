@@ -2,10 +2,11 @@ import 'server-only';
 import { getTranslations } from 'next-intl/server';
 import type { SettingsSection } from '@/ui/components/SettingsLayout';
 
-// Разделы "Настроек" вехи M1. SLA, AI-помощник и почта появляются со своими вехами.
+// Разделы "Настроек". Сроки и рабочее время с вехи M3, AI-помощник и почта появятся со своими вехами.
 const SECTIONS = [
   { key: 'servers', href: '/agent/settings/servers' },
   { key: 'staff', href: '/agent/settings/staff' },
+  { key: 'sla', href: '/agent/settings/sla' },
   { key: 'audit', href: '/agent/settings/audit' },
 ] as const;
 

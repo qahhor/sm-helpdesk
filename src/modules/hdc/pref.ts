@@ -44,6 +44,10 @@ export const AUDIT_ACTIONS = [
   'attachment.infected',
   // Загрузка справочника модулей командой hub modules:import.
   'modules.imported',
+  // Сроки SLA и рабочий календарь (веха M3).
+  'sla.policy_changed',
+  'sla.calendar_changed',
+  'sla.holidays_changed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

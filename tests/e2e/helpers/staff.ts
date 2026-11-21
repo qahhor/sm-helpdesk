@@ -44,7 +44,7 @@ export function createStaffInvitation(input: { email: string; name: string; role
  * одним сотрудником много раз за 30 секунд. Поэтому отметки принятых кодов в базе тестов снимаются.
  */
 export async function staffCode(staff: E2eStaff): Promise<string> {
-  await dbRows(`delete from hdc_rate_limits where key like 'staff-totp-used:%'`);
+  await dbRows(`delete from hdc_rate_limits where code like 'staff-totp-used:%'`);
   return totp(staff.totpSecret);
 }
 

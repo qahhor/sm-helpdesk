@@ -9,7 +9,7 @@ import { getAuth } from '../auth/instance';
 import { findStaff } from '../core/staff';
 import type { StaffRole } from '../pref';
 import { policyNoticeUrl, safeReturnPath } from '../util';
-import { confirmEmail } from './email';
+import { acknowledgePolicy, confirmEmail } from './email';
 import { type ClientContext, type ClientDenial, resolveClient, switchOrganization } from './orgs';
 import { listMySessions, revokeMySession, revokeOtherSessions, type SessionView } from './sessions';
 import { rememberLocale } from './telegram';
@@ -147,7 +147,7 @@ export async function mySessions(): Promise<{ items: SessionView[]; hidden: numb
 /** Завершение всех своих сессий, кроме текущей, из серверного действия. */
 export async function revokeOtherSessionsOfRequest(): Promise<{ revoked: number }> {
   const session = await readSession({ headers: new Headers(await headers()) });
-  return session ? revokeOtherSessions(session) : { revoked: 0 };
+  return session ? revokeOtherSessions(session, await requestIp()) : { revoked: 0 };
 }
 
 /**
@@ -157,10 +157,9 @@ export async function revokeOtherSessionsOfRequest(): Promise<{ revoked: number 
 export async function revokeMySessionOfRequest(sessionId: unknown): Promise<{ signedOut: boolean }> {
   const session = await readSession({ headers: new Headers(await headers()) });
   if (!session) return { signedOut: true };
-  return revokeMySession(session, sessionId);
+  return revokeMySession(session, sessionId, await requestIp());
 }
 
-/** Вошедший пользователь выбрал язык в портале: письма и бот пойдут на нём (решение 0018, пункт 19). */
 /** Имя вошедшего клиента для страниц без входа (подтверждение адреса). Пусто, если клиента нет. */
 export async function currentClientName(): Promise<string | null> {
   const session = await sessionOfRequest();
@@ -169,11 +168,23 @@ export async function currentClientName(): Promise<string | null> {
   return kind === 'client' ? session.user.name : null;
 }
 
-/** Подтверждение адреса по ссылке от имени сессии этого запроса (проверка main, S2). */
-export async function confirmEmailOfRequest(input: unknown): ReturnType<typeof confirmEmail> {
-  return confirmEmail(input, await readSession({ headers: new Headers(await headers()) }));
+/** Имя учётной записи, в которую вошли в этом браузере, клиента или сотрудника. Без входа: пусто. */
+export async function signedInName(): Promise<string | null> {
+  return (await sessionOfRequest())?.user.name ?? null;
 }
 
+/** Согласие с редакцией политики с адресом этого запроса в журнале (итоговая проверка доработки). */
+export async function acknowledgePolicyOfRequest(userId: string, version: string): Promise<void> {
+  await acknowledgePolicy(userId, version, await requestIp());
+}
+
+/** Подтверждение адреса по ссылке от имени сессии этого запроса (проверка main, S2). */
+export async function confirmEmailOfRequest(input: unknown): ReturnType<typeof confirmEmail> {
+  const requestHeaders = new Headers(await headers());
+  return confirmEmail(input, await readSession({ headers: requestHeaders }), clientIp(requestHeaders));
+}
+
+/** Вошедший пользователь выбрал язык в портале: письма и бот пойдут на нём (решение 0018, пункт 19). */
 export async function rememberMyLocale(locale: Locale): Promise<void> {
   const session = await sessionOfRequest();
   if (session) await rememberLocale(session.user.id, locale);

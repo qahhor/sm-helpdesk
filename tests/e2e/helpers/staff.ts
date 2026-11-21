@@ -38,7 +38,6 @@ export function createStaffInvitation(input: { email: string; name: string; role
   return token;
 }
 
-/** Вход сотрудника через страницу входа: пароль, затем код из приложения. */
 /**
  * Текущий код второго фактора. Портал не принимает код второй раз (проверка main, S11), а тесты входят
  * одним сотрудником много раз за 30 секунд. Поэтому отметки принятых кодов в базе тестов снимаются.
@@ -48,6 +47,7 @@ export async function staffCode(staff: E2eStaff): Promise<string> {
   return totp(staff.totpSecret);
 }
 
+/** Вход сотрудника через страницу входа: пароль, затем код из приложения. */
 export async function signInStaff(page: Page, staff: E2eStaff, opts: { startAt?: string } = {}): Promise<void> {
   // Параллельный тест мог войти тем же сотрудником тем же кодом между снятием отметки и отправкой: вход заново.
   for (let attempt = 1; ; attempt++) {

@@ -753,7 +753,10 @@
       "taken": "This address cannot be used for an invitation. Ask for an invitation to a different address.",
       "existingAccount": "This address already has an account: sign in to it to accept the invitation.",
       "signInRequired": "Sign in with the account for {email} and open the link again: the invitation will wait.",
-      "signIn": "Sign in"
+      "signIn": "Sign in",
+      "wrongAccount": "You are signed in as {name}, but the invitation is for {email}. Sign out and accept the invitation again.",
+      "otherAccount": "another user",
+      "signOut": "Sign out and return to the invitation"
     },
     "telegram": {
       "title": "Sign in to Smartup Hub",
@@ -778,7 +781,8 @@
     },
     "telegramLinked": {
       "subject": "Telegram is linked to Smartup Hub",
-      "text": "Hello,\n\nThe Telegram account {account} is now linked to your Smartup Hub account. It can be used to sign in to the portal.\n\nIf this was not you, unlink it in your profile:\n{url}"
+      "text": "Hello,\n\nThe Telegram account {account} is now linked to your Smartup Hub account. It can be used to sign in to the portal.\n\nIf this was not you, unlink it in your profile:\n{url}",
+      "accountFallback": "without a display name"
     },
     "staffInvitation": {
       "subject": "Invitation to the Smartup Hub workspace",

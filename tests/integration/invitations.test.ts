@@ -200,9 +200,10 @@ test('приглашение на существующую учётную зап
   await inviteMember({ ctx: await clientCtx(f.bAdmin) }, { email: 'known@acme.test', role: 'client_admin', locale: 'ru' });
   const token = tokenFrom(box.mailer.sent[0]);
   const sessions = async () => (await pools.root.query(`select count(*)::int as n from auth.session where "userId" = $1`, [existing.userId])).rows[0].n;
-  // Без входа и в чужой учётной записи: просьба войти, приглашение ждёт, членства нет, сессии не появилось.
+  // Без входа: просьба войти, приглашение ждёт, членства нет, сессии не появилось.
   expect(await acceptInvitation({ token }, noRequest)).toEqual({ ok: false, code: 'sign_in_required' });
-  expect(await acceptInvitation({ token }, (await signedInAs('stranger@acme.test')).request)).toEqual({ ok: false, code: 'sign_in_required' });
+  // В чужой учётной записи отдельный ответ: страница предложит выйти, а не войти (итоговая проверка, замечание 2).
+  expect(await acceptInvitation({ token }, (await signedInAs('stranger@acme.test')).request)).toEqual({ ok: false, code: 'wrong_account' });
   expect(await sessions()).toBe(0);
   expect((await pools.root.query(`select accepted_on from hdu_invitations where email = 'known@acme.test'`)).rows[0].accepted_on).toBeNull();
   // Вошедший владелец адреса принимает: новая сессия не создаётся, организация становится активной.
@@ -222,5 +223,38 @@ test('гость, которого пригласили, становится о
   expect(await acceptInvitation({ token: tokenFrom(box.mailer.sent[0]) }, (await signedInAs('guest-invite@acme.test')).request)).toEqual({ ok: true });
   expect((await pools.root.query(`select source, role from hdu_memberships where org_id = $1 and user_id = $2`, [f.orgB.orgId, guest.userId])).rows).toEqual([
     { source: 'invite', role: 'client_admin' },
+  ]);
+});
+
+test('учётная запись, которой войти нечем, принимает приглашение по ссылке и получает сессию (итоговая проверка, замечание 1)', async () => {
+  const f = await seedTwoOrgs();
+  // Гость без другого членства и человек, чьё единственное членство отключено: войти в портал им нечем.
+  const guest = await verifiedClientFixture('only-guest@acme.test', { memberships: 0 });
+  await pools.root.query(`insert into hdu_memberships (org_id, user_id, role, source) values ($1, $2, 'client_user', 'guest')`, [f.orgB.orgId, guest.userId]);
+  const blocked = await verifiedClientFixture('blocked@acme.test', { orgId: f.orgA.orgId });
+  await pools.root.query(`update hdu_memberships set state = 'passive' where user_id = $1`, [blocked.userId]);
+  for (const [email, userId] of [
+    ['only-guest@acme.test', guest.userId],
+    ['blocked@acme.test', blocked.userId],
+  ] as const) {
+    const before = box.mailer.sent.length;
+    await inviteMember({ ctx: await clientCtx(f.bAdmin) }, { email, role: 'client_user', locale: 'ru' });
+    const jar = newJar();
+    expect(await acceptInvitation({ token: tokenFrom(box.mailer.sent[before]) }, jar.request), email).toEqual({ ok: true });
+    expect((await pools.root.query(`select count(*)::int as n from auth.session where "userId" = $1`, [userId])).rows[0].n, email).toBe(1);
+    expect((await listMyOrganizations(userId)).map((o) => o.orgId), email).toEqual([f.orgB.orgId]);
+  }
+  // Отключённое членство в организации A осталось отключённым.
+  expect((await pools.root.query(`select state from hdu_memberships where user_id = $1 and org_id = $2`, [blocked.userId, f.orgA.orgId])).rows[0].state).toBe('passive');
+});
+
+test('принятие приглашения пишется в журнал с адресом запроса (итоговая проверка доработки, замечание 8)', async () => {
+  const f = await seedTwoOrgs();
+  await inviteMember({ ctx: await clientCtx(f.aAdmin) }, { email: 'with-ip@acme.test', role: 'client_user', locale: 'ru' });
+  expect(await acceptInvitation({ token: tokenFrom(box.mailer.sent[0]), name: 'Айбек' }, newJar({ 'x-forwarded-for': '203.0.113.74' }).request)).toEqual({ ok: true });
+  const rows = (await pools.root.query(`select action, host(ip) as ip from hdc_audit_log where action in ('invitation.accepted', 'member.joined') order by action`)).rows;
+  expect(rows).toEqual([
+    { action: 'invitation.accepted', ip: '203.0.113.74' },
+    { action: 'member.joined', ip: '203.0.113.74' },
   ]);
 });

@@ -57,6 +57,8 @@ export const RATE_RULES = {
   staffEnrollCodePerUser: { limit: 10, windowSec: 900 },
   /** Принятый код второго фактора: один раз за 120 секунд, дольше его срока с соседними шагами (проверка main, S11). */
   staffTotpCodeOnce: { limit: 1, windowSec: 120 },
+  /** Запись о блокировке входа сотрудника в журнал: раз за окно блокировки (итоговая проверка доработки). */
+  staffFailureAuditOnce: { limit: 1, windowSec: 900 },
   /** Поиск сервера Smartup по адресу на странице входа. */
   serverLookupPerIp: { limit: 20, windowSec: 3600 },
   /** Запрос подтверждения email. */

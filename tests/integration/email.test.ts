@@ -28,7 +28,8 @@ test('подтверждение адреса заменяет служебны�
   expect(await requestEmailConfirmation(ctx, { email: 'Dilnoza@Acme.Test', locale: 'ru' })).toEqual({ ok: true });
   expect(box.mailer.sent[0]).toMatchObject({ to: 'dilnoza@acme.test', kind: 'confirm-email' });
   expect(linkFrom(box.mailer.sent[0]).toString()).toMatch(/^http:\/\/localhost:3000\/ru\/confirm-email\?token=[\w-]{43}$/);
-  expect(await confirmEmail({ token: tokenFrom(box.mailer.sent[0]) }, s)).toEqual({ ok: true });
+  expect(await confirmEmail({ token: tokenFrom(box.mailer.sent[0]) }, s, '203.0.113.72')).toEqual({ ok: true });
+  expect((await pools.root.query(`select host(ip) as ip from hdc_audit_log where action = 'user.email_confirmed'`)).rows).toEqual([{ ip: '203.0.113.72' }]);
   expect((await pools.root.query(`select email, "emailVerified", "claimedEmail" from auth."user" where id = $1`, [s.user.id])).rows).toEqual([
     { email: 'dilnoza@acme.test', emailVerified: true, claimedEmail: null },
   ]);

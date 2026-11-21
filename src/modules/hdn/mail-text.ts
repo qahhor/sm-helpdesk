@@ -26,7 +26,13 @@ const mailOf = (locale: Locale) => createTranslator({ locale, messages: MESSAGES
 const NAME_MAX = 60;
 const ORG_NAME_MAX = 100;
 /** Похоже на ссылку или адрес: схема, www., домен, email. */
-const LINK_LIKE = /[a-z][a-z0-9+.-]*:\/\/|www\.|[\p{L}\p{N}-]+\.\p{L}{2,}|@/iu;
+// Домен узнаётся по буквам одного регистра после точки: инициалы "А.Каримов" ссылкой не считаются,
+// а "evil.example" и "EVIL.COM" считаются. Схема и www. в любом регистре.
+const SCHEME_OR_WWW = /[a-z][a-z0-9+.-]*:\/\/|www\./i;
+const DOMAIN_OR_EMAIL = /[\p{L}\p{N}-]+\.(?:\p{Ll}{2,}|\p{Lu}{2,}(?!\p{Ll}))|@/u;
+const LINK_LIKE = { test: (value: string) => SCHEME_OR_WWW.test(value) || DOMAIN_OR_EMAIL.test(value) };
+/** Имя пользователя Telegram: латиница, цифры и подчёркивание, от 5 до 32 знаков. */
+const TELEGRAM_USERNAME = /^@[A-Za-z0-9_]{5,32}$/;
 
 /** Без управляющих знаков и знаков направления текста, пробелы схлопнуты, длина не больше предела. */
 function plain(value: string, max: number): string {
@@ -42,6 +48,15 @@ function plain(value: string, max: number): string {
 function personName(value: string, fallback: string): string {
   const name = plain(value, NAME_MAX);
   return name && !LINK_LIKE.test(name) ? name : fallback;
+}
+
+/**
+ * Название организации: его задаёт сервер Smartup или сотрудник, поэтому оно не заменяется, но точки и знак @
+ * в похожем на ссылку названии заменяются похожими знаками: почтовая программа не сделает из него ссылку.
+ */
+function orgTitle(value: string): string {
+  const name = plain(value, ORG_NAME_MAX);
+  return LINK_LIKE.test(name) ? name.replaceAll('.', '\u2024').replaceAll('@', '\uFF20').replaceAll('://', ' ') : name;
 }
 
 /** Письмо со ссылкой для входа. */
@@ -65,14 +80,16 @@ export function invitationMail(locale: Locale, input: { url: string; orgName: st
   const inviterName = personName(input.inviterName, t('invitation.inviterFallback'));
   return {
     subject: t('invitation.subject'),
-    text: t('invitation.text', { url: input.url, orgName: plain(input.orgName, ORG_NAME_MAX), inviterName, days: INVITATION_DAYS }),
+    text: t('invitation.text', { url: input.url, orgName: orgTitle(input.orgName), inviterName, days: INVITATION_DAYS }),
   };
 }
 
 /** Письмо о новой привязке Telegram (угроза T30): если привязал не человек, он отвяжет аккаунт в профиле. */
 export function telegramLinkedMail(locale: Locale, input: { account: string; url: string }): MailText {
   const t = mailOf(locale);
-  return { subject: t('telegramLinked.subject'), text: t('telegramLinked.text', input) };
+  // Имя в Telegram задаёт кто угодно: без ссылок и управляющих знаков, как имя в приглашении (итоговая проверка доработки).
+  const account = TELEGRAM_USERNAME.test(input.account) ? input.account : personName(input.account, t('telegramLinked.accountFallback'));
+  return { subject: t('telegramLinked.subject'), text: t('telegramLinked.text', { url: input.url, account }) };
 }
 
 /** Приглашение сотрудника в рабочее место (FR-ADM-03): пароль и второй фактор человек задаёт сам по ссылке. */

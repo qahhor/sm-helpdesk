@@ -64,9 +64,9 @@ const UNIQUE_VIOLATION = '23505';
  * Ссылку тратит только тот, кто её запросил (userId вошедшего): иначе чужой человек указал бы адрес
  * жертвы, жертва нажала бы ссылку, и адрес достался бы ему (проверка main, S2). Чужая ссылка не тратится.
  */
-export async function confirmEmailToken(tokenHash: string, userId: string): Promise<ConfirmResult> {
+export async function confirmEmailToken(tokenHash: string, userId: string, ip?: string | null): Promise<ConfirmResult> {
   try {
-    return await withIdentity({ type: 'system', job: 'identity.email' }, async (tx) => {
+    return await withIdentity({ type: 'system', job: 'identity.email', ip }, async (tx) => {
       const row = (
         await tx
           .select({ tokenId: emailTokens.tokenId, userId: emailTokens.userId, email: emailTokens.email })
@@ -112,8 +112,8 @@ export async function markOnboarded(userId: string): Promise<void> {
  * журнала аудита: так видна история согласия, а не только последняя редакция (проверка main, Q17).
  * Та же версия повторно ничего не пишет.
  */
-export async function setPolicyVersion(userId: string, version: string): Promise<void> {
-  await withIdentity({ type: 'system', job: 'identity.policy' }, async (tx) => {
+export async function setPolicyVersion(userId: string, version: string, ip?: string | null): Promise<void> {
+  await withIdentity({ type: 'system', job: 'identity.policy', ip }, async (tx) => {
     const changed = await tx
       .update(authUser)
       .set({ policyVersion: version, updatedAt: sql`now()` })

@@ -24,7 +24,7 @@ const PLANNED_MODULES = ['hdc', 'hdu', 'hdr', 'hdt', 'hdk', 'hdi', 'hdn', 'hdp',
 const MODULES = [
   ...new Set([
     ...PLANNED_MODULES,
-    ...readdirSync('src/modules', { withFileTypes: true })
+    ...readdirSync(new URL('./src/modules', import.meta.url), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name),
   ]),

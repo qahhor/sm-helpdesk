@@ -5,6 +5,7 @@ import 'server-only';
 // Страницы и интерфейс импортируют модуль только отсюда: это проверяет линтер.
 
 export {
+  acknowledgePolicyOfRequest,
   confirmEmailOfRequest,
   currentClientName,
   currentStaff,
@@ -17,6 +18,7 @@ export {
   rememberMyLocale,
   revokeOtherSessionsOfRequest,
   signedInKind,
+  signedInName,
   signOut,
   switchOrganizationOfRequest,
 } from './api/actor';

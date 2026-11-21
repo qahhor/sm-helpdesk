@@ -1,21 +1,22 @@
 import { getLocale, getTranslations } from 'next-intl/server';
-import { describeInvitation } from '@/modules/hdu/api';
+import { describeInvitation, signedInName } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { FormField } from '@/ui/components/form-field';
-import { acceptInvitationAction } from './actions';
+import { acceptInvitationAction, signOutForInvitationAction } from './actions';
 import { firstParam } from '@/lib/search-params';
 
 // Страница приглашения из письма. Открытие ничего не меняет (почтовый сканер ссылку не тратит),
 // принимает только нажатие кнопки (решение 0016). Имя спрашивается, если учётной записи ещё нет.
-// Существующая учётная запись принимает приглашение, только войдя в неё (проверка main, S3).
+// Существующая учётная запись принимает приглашение, только войдя в неё (проверка main, S3). Если вошли
+// в другую учётную запись, страница предлагает выйти из неё (итоговая проверка доработки).
 export default async function InvitePage({ searchParams }: PageProps<'/[locale]/invite'>) {
   const params = await searchParams;
   const t = await getTranslations('auth.invite');
   const token = firstParam(params.token);
   const error = firstParam(params.error);
-  const invitation = token && (!error || error === 'sign_in_required') ? await describeInvitation(token) : null;
+  const invitation = token && (!error || error === 'sign_in_required' || error === 'wrong_account') ? await describeInvitation(token) : null;
   const locale = await getLocale();
 
   if (!invitation)
@@ -44,6 +45,19 @@ export default async function InvitePage({ searchParams }: PageProps<'/[locale]/
             <a href={`/${locale}/login?next=${encodeURIComponent(`/${locale}/invite?token=${token}`)}`} className={buttonVariants()}>
               {t('signIn')}
             </a>
+          </>
+        )}
+        {error === 'wrong_account' && (
+          <>
+            <Alert tone="info">
+              {t('wrongAccount', { name: (await signedInName()) ?? t('otherAccount'), email: invitation.email })}
+            </Alert>
+            <form action={signOutForInvitationAction}>
+              <input type="hidden" name="token" value={token} />
+              <Button type="submit" variant="secondary">
+                {t('signOut')}
+              </Button>
+            </form>
           </>
         )}
         <form action={acceptInvitationAction} className="flex flex-col gap-4">

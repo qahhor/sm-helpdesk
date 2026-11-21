@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { getPolicyVersion } from '@/modules/hdc/api';
-import { acknowledgePolicy, completeWelcome, requestEmailConfirmation, requireClientActor, safeReturnPath } from '@/modules/hdu/api';
+import { acknowledgePolicyOfRequest, completeWelcome, requestEmailConfirmation, requireClientActor, safeReturnPath } from '@/modules/hdu/api';
 
 const welcomePath = (locale: string, next: string, extra: string) => `/${locale}/welcome?next=${encodeURIComponent(next)}${extra}`;
 
@@ -11,7 +11,7 @@ const welcomePath = (locale: string, next: string, extra: string) => `/${locale}
 async function finishStep(userId: string): Promise<void> {
   await completeWelcome(userId);
   const policy = await getPolicyVersion();
-  if (policy) await acknowledgePolicy(userId, policy);
+  if (policy) await acknowledgePolicyOfRequest(userId, policy);
 }
 
 /** "Отправить ссылку": письмо подтверждения адреса, шаг первого входа пройден. */
@@ -40,6 +40,6 @@ export async function acknowledgePolicyAction(formData: FormData): Promise<void>
   const next = safeReturnPath(formData.get('next'), `/${locale}`);
   const client = await requireClientActor();
   const policy = await getPolicyVersion();
-  if (policy) await acknowledgePolicy(client.user.id, policy);
+  if (policy) await acknowledgePolicyOfRequest(client.user.id, policy);
   redirect(next);
 }

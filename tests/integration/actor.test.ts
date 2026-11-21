@@ -109,7 +109,7 @@ test('гостевое членство не даёт войти и не пок�
 
 test('версия политики записывается и запрашивается снова после новой версии', async () => {
   const f = await seedTwoOrgs();
-  await acknowledgePolicy(f.aUser.userId, '2026-12-01');
+  await acknowledgePolicy(f.aUser.userId, '2026-12-01', '203.0.113.73');
   const version = async () => (await pools.root.query(`select "policyVersion" from auth."user" where id = $1`, [f.aUser.userId])).rows[0].policyVersion;
   expect(await version()).toBe('2026-12-01');
   await acknowledgePolicy(f.aUser.userId, '2027-03-01');
@@ -123,11 +123,11 @@ test('версия политики записывается и запрашив
   // История согласия: каждая новая редакция отдельной записью журнала, повтор той же записи не даёт (проверка main, Q17).
   await acknowledgePolicy(f.aUser.userId, '2027-03-01');
   const history = (
-    await pools.root.query(`select object_id, diff from hdc_audit_log where action = 'user.policy_acknowledged' order by created_on, audit_id`)
+    await pools.root.query(`select object_id, diff, host(ip) as ip from hdc_audit_log where action = 'user.policy_acknowledged' order by created_on, audit_id`)
   ).rows;
   expect(history).toEqual([
-    { object_id: f.aUser.userId, diff: { version: '2026-12-01' } },
-    { object_id: f.aUser.userId, diff: { version: '2027-03-01' } },
+    { object_id: f.aUser.userId, diff: { version: '2026-12-01' }, ip: '203.0.113.73' },
+    { object_id: f.aUser.userId, diff: { version: '2027-03-01' }, ip: null },
   ]);
 });
 

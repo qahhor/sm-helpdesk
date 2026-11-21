@@ -35,13 +35,13 @@ export async function listMySessions(session: SessionData): Promise<{ items: Ses
 }
 
 /** Завершает все свои сессии, кроме текущей: например, когда потерян телефон. */
-export async function revokeOtherSessions(session: SessionData): Promise<{ revoked: number }> {
-  return { revoked: await revokeOtherOwnSessions(session.user.id, session.session.id) };
+export async function revokeOtherSessions(session: SessionData, ip?: string | null): Promise<{ revoked: number }> {
+  return { revoked: await revokeOtherOwnSessions(session.user.id, session.session.id, ip) };
 }
 
 /** Завершает свою сессию. Чужая и несуществующая дают одно и то же: not_found. Текущая: это выход. */
-export async function revokeMySession(session: SessionData, sessionId: unknown): Promise<{ signedOut: boolean }> {
+export async function revokeMySession(session: SessionData, sessionId: unknown, ip?: string | null): Promise<{ signedOut: boolean }> {
   const id = parseInput(uuidInput, sessionId);
-  if (!(await revokeOwnSession(session.user.id, id))) throw new HduError('not_found');
+  if (!(await revokeOwnSession(session.user.id, id, ip))) throw new HduError('not_found');
   return { signedOut: id === session.session.id };
 }

@@ -8,6 +8,7 @@ import { HduError } from '../error';
 import { type ClientRole, INVITATION_TTL_SEC, INVITATIONS_LIST_LIMIT, type MembershipSource } from '../pref';
 import { invitations, memberships, organizations, staff } from '../schema';
 import { newToken } from '../tokens';
+import { signInMemberships } from './access';
 
 // Модуль hdu, слой core: приглашения в организацию клиента (FR-ID-08). Токен хранится хешем.
 // Создание и отзыв идут от имени приглашающего: политики базы пускают администратора клиента
@@ -129,17 +130,26 @@ export async function findPendingInvitation(tokenHash: string): Promise<{ orgNam
   });
 }
 
-export type AcceptResult = { userId: string; orgId: string; created: boolean } | 'link_invalid' | 'email_taken' | 'sign_in_required';
+/** signIn: ссылка служит входом (новая учётная запись или учётная запись, которой войти нечем). */
+export type AcceptResult =
+  | { userId: string; orgId: string; created: boolean; signIn: boolean }
+  | 'link_invalid'
+  | 'email_taken'
+  | 'sign_in_required'
+  | 'wrong_account';
 
 /**
  * Принятие приглашения одной транзакцией от системы. Ссылка из письма доказала адрес для новой учётной
  * записи: она создаётся с подтверждённым адресом. Существующая учётная запись принимает приглашение
  * только из своей сессии (sessionUserId): иначе пересланная ссылка служила бы входом в неё на 7 дней
- * (проверка main, S3); приглашение при этом остаётся ждущим. Адрес сотрудника участником клиента не
- * становится. Отключённое членство приглашение не включает. Гостевое членство становится обычным.
+ * (проверка main, S3); приглашение при этом остаётся ждущим. Чужая сессия: wrong_account. Исключение:
+ * учётной записи нечем войти (только гостевое или отключённое членство), тогда ссылка служит входом, как
+ * для новой: доступа к другим организациям у неё нет (итоговая проверка доработки, замечание 1).
+ * Адрес сотрудника участником клиента не становится. Отключённое членство приглашение не включает.
+ * Гостевое членство становится обычным.
  */
-export async function acceptInvitationTx(tokenHash: string, name: string, sessionUserId: string | null): Promise<AcceptResult> {
-  return withIdentity(SYSTEM, async (tx) => {
+export async function acceptInvitationTx(tokenHash: string, name: string, sessionUserId: string | null, ip?: string | null): Promise<AcceptResult> {
+  return withIdentity({ ...SYSTEM, ip }, async (tx) => {
     const invitation = (
       await tx
         .select({
@@ -158,6 +168,7 @@ export async function acceptInvitationTx(tokenHash: string, name: string, sessio
     if (!invitation?.orgId) return 'link_invalid';
     const orgId = invitation.orgId;
 
+    let trusted = false;
     let user = (await tx.select({ id: authUser.id, emailVerified: authUser.emailVerified }).from(authUser).where(eq(authUser.email, invitation.email)).limit(1))[0];
     if (user && (await tx.select({ userId: staff.userId }).from(staff).where(eq(staff.userId, user.id)).limit(1)).length > 0) return 'email_taken';
     if (user) {
@@ -168,7 +179,12 @@ export async function acceptInvitationTx(tokenHash: string, name: string, sessio
         .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, user.id), eq(memberships.state, 'passive')))
         .limit(1);
       if (passive.length > 0) return 'link_invalid';
-      if (user.id !== sessionUserId) return 'sign_in_required';
+      if (user.id !== sessionUserId) {
+        if (sessionUserId !== null) return 'wrong_account';
+        const canSignIn = (await signInMemberships(tx, eq(memberships.userId, user.id)).limit(1)).length > 0;
+        if (canSignIn) return 'sign_in_required';
+        trusted = true;
+      }
     }
     const created = !user;
     if (!user) {
@@ -218,6 +234,6 @@ export async function acceptInvitationTx(tokenHash: string, name: string, sessio
       await writeAudit(tx, { action: 'invitation.accepted', objectType: 'invitation', objectId: invitation.invitationId, orgId });
     }
     await tx.update(authUser).set({ lastOrgId: orgId, updatedAt: sql`now()` }).where(eq(authUser.id, user.id));
-    return { userId: user.id, orgId, created };
+    return { userId: user.id, orgId, created, signIn: created || trusted };
   });
 }

@@ -91,8 +91,11 @@ export async function rememberLocale(userId: string, locale: Locale): Promise<vo
   await setUserLocale(userId, locale);
 }
 
+// Обрезка по знакам, а не по половинкам суррогатной пары.
 const displayNameOf = (user: TelegramUser) =>
-  (user.username ? `@${user.username}` : [user.first_name, user.last_name].filter(Boolean).join(' ')).slice(0, 100);
+  Array.from(user.username ? `@${user.username}` : [user.first_name, user.last_name].filter(Boolean).join(' '))
+    .slice(0, 100)
+    .join('');
 
 const portalButton = (locale: Locale): SendOptions => ({
   linkButton: { text: botText(locale, 'buttonPortal'), url: `${getEnv().HUB_URL}/${locale}` },

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getEnv } from '@/env';
 import { LOCALES } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
+import { clientIp, consumeRateLimit, rateKey } from '@/modules/hdc/api';
 import { invitationMail, queueMail } from '@/modules/hdn/api';
 import { acceptInvitationTx, createInvitation, findPendingInvitation, listOrgInvitations, revokeOrgInvitation } from '../core/invitations';
 import { findActiveOrgName } from '../core/members';
@@ -88,13 +88,14 @@ const acceptInput = z.object({ token: tokenInput, name: z.unknown().optional() }
 /**
  * Принятие приглашения нажатием кнопки на странице ссылки. Новая учётная запись получает сессию: ссылка
  * из письма проверила человека (createTrustedSession, решение 0012). Существующая учётная запись принимает
- * приглашение только из своей сессии (sign_in_required иначе), и приглашённая организация становится
- * в этой сессии активной (проверка main, S3).
+ * приглашение только из своей сессии (sign_in_required без входа, wrong_account в чужой сессии), и приглашённая
+ * организация становится в этой сессии активной (проверка main, S3). Учётная запись, которой войти нечем,
+ * получает сессию по ссылке, как новая (итоговая проверка доработки).
  */
 export async function acceptInvitation(
   input: unknown,
   request: RequestInfo,
-): Promise<{ ok: true } | { ok: false; code: 'link_invalid' | 'email_taken' | 'sign_in_required' }> {
+): Promise<{ ok: true } | { ok: false; code: 'link_invalid' | 'email_taken' | 'sign_in_required' | 'wrong_account' }> {
   const parsed = acceptInput.safeParse(input);
   if (!parsed.success) return { ok: false, code: 'link_invalid' };
   const tokenHash = hashToken(parsed.data.token);
@@ -102,9 +103,9 @@ export async function acceptInvitation(
   // Имя спрашивается только у новой учётной записи. Без имени её подписывает начало адреса.
   const fallback = (await findPendingInvitation(tokenHash))?.email.split('@')[0] ?? 'Smartup';
   const session = await readSession(request);
-  const result = await acceptInvitationTx(tokenHash, name.success ? name.data : fallback, session?.user.id ?? null);
+  const result = await acceptInvitationTx(tokenHash, name.success ? name.data : fallback, session?.user.id ?? null, clientIp(request.headers));
   if (typeof result === 'string') return { ok: false, code: result };
-  if (result.created) await createTrustedSession(result.userId, 'invitation', request);
+  if (result.signIn) await createTrustedSession(result.userId, 'invitation', request);
   else if (session) await setActiveOrganization({ sessionId: session.session.id, userId: result.userId }, result.orgId, { remember: true });
   return { ok: true };
 }

@@ -753,7 +753,10 @@
       "taken": "Bu manzilni taklif uchun ishlatib bo'lmaydi. Taklifni boshqa manzilga yuborishni so'rang.",
       "existingAccount": "Bu manzilning hisobi allaqachon bor: taklifni qabul qilish uchun unga kirish kerak.",
       "signInRequired": "{email} manzilli hisob bilan kiring va havolani qayta oching: taklif kutib turadi.",
-      "signIn": "Kirish"
+      "signIn": "Kirish",
+      "wrongAccount": "Hozir siz {name} sifatida kirgansiz, taklif esa {email} uchun. Chiqing va taklifni qayta qabul qiling.",
+      "otherAccount": "boshqa foydalanuvchi",
+      "signOut": "Chiqish va taklifga qaytish"
     },
     "telegram": {
       "title": "Smartup Hub tizimiga kirish",
@@ -778,7 +781,8 @@
     },
     "telegramLinked": {
       "subject": "Telegram Smartup Hub tizimiga bog'landi",
-      "text": "Assalomu alaykum!\n\nSmartup Hub hisobingizga {account} Telegram akkaunti bog'landi. U orqali portalga kirish mumkin.\n\nAgar bu siz bo'lmasangiz, uni profilda uzing:\n{url}"
+      "text": "Assalomu alaykum!\n\nSmartup Hub hisobingizga {account} Telegram akkaunti bog'landi. U orqali portalga kirish mumkin.\n\nAgar bu siz bo'lmasangiz, uni profilda uzing:\n{url}",
+      "accountFallback": "ko'rsatiladigan ismsiz"
     },
     "staffInvitation": {
       "subject": "Smartup Hub ish joyiga taklif",

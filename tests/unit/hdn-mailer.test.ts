@@ -15,6 +15,7 @@ import {
   STAFF_LINK_HOURS,
   staffInvitationMail,
   staffResetMail,
+  telegramLinkedMail,
 } from '@/modules/hdn/mail-text';
 import { EMAIL_TOKEN_TTL_SEC, INVITATION_TTL_SEC, LOGIN_LINK_TTL_SEC, STAFF_INVITATION_TTL_SEC } from '@/modules/hdu/pref';
 
@@ -134,4 +135,18 @@ test('сбой письма пишется в журнал одной строк
   setMailerForTests(null);
   spy.mockRestore();
   expect(lines).toEqual(['Письмо invitation не отправлено: код 422', 'Письмо login-link не отправлено: нет ответа']);
+});
+
+test('отображаемое имя Telegram и название организации в письмах без ссылок (итоговая проверка доработки)', () => {
+  const linked = (account: string) => telegramLinkedMail('ru', { account, url: 'https://hub.example/p' }).text;
+  expect(linked('@alisher_k')).toContain('@alisher_k');
+  for (const bad of ['Срочно https://evil.example', 'evil-login.com', 'a‮b www.evil.example'])
+    expect(linked(bad), bad).not.toMatch(/evil/);
+  expect(linked('Алишер\nКаримов')).toContain('Алишер Каримов');
+  // Название организации со ссылкой остаётся узнаваемым, но почтовая программа не сделает из него ссылку.
+  const text = invitationMail('ru', { url: 'https://hub.example/z', orgName: 'Перейдите на evil.example', inviterName: 'Дильноза' }).text;
+  expect(text).not.toContain('evil.example');
+  expect(text).toContain('evil․example');
+  // Инициалы с точкой ссылкой не считаются.
+  expect(invitationMail('ru', { url: 'https://hub.example/z', orgName: 'ACME', inviterName: 'А.Каримов' }).text).toContain('А.Каримов приглашает');
 });

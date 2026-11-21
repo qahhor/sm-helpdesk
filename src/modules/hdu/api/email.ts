@@ -45,11 +45,12 @@ export async function requestEmailConfirmation(
 export async function confirmEmail(
   input: unknown,
   session: SessionData | null,
+  ip?: string | null,
 ): Promise<{ ok: true } | { ok: false; code: 'link_invalid' | 'email_taken' | 'sign_in_required' | 'wrong_account' }> {
   const parsed = z.object({ token: tokenInput }).safeParse(input);
   if (!parsed.success) return { ok: false, code: 'link_invalid' };
   if (!session) return { ok: false, code: 'sign_in_required' };
-  const result = await confirmEmailToken(hashToken(parsed.data.token), session.user.id);
+  const result = await confirmEmailToken(hashToken(parsed.data.token), session.user.id, ip);
   return result === 'ok' ? { ok: true } : { ok: false, code: result };
 }
 
@@ -62,7 +63,7 @@ export async function completeWelcome(userId: string): Promise<void> {
  * Пользователь увидел политику обработки данных этой версии (раздел 14.6 ТЗ). Шаг первого входа
  * покажет строку о политике снова, только когда выйдет новая версия.
  */
-export async function acknowledgePolicy(userId: string, version: string): Promise<void> {
+export async function acknowledgePolicy(userId: string, version: string, ip?: string | null): Promise<void> {
   if (!POLICY_VERSION_PATTERN.test(version)) throw new HduError('invalid_input');
-  await setPolicyVersion(userId, version);
+  await setPolicyVersion(userId, version, ip);
 }

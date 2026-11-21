@@ -372,7 +372,27 @@ test('неудачный вход сотрудника и упор в счётч
   expect(await signInStaff({ email: 'nobody@smartup.example', password: 'wrong-password-1' }, jar.request)).toMatchObject({ step: 'error' });
   const rows = (await pools.root.query(`select actor_type, object_id, diff, host(ip) as ip from hdc_audit_log where action = 'staff.sign_in_failed'`)).rows;
   expect(rows).toEqual([{ actor_type: 'system', object_id: staff.userId, diff: { step: 'password' }, ip: '203.0.113.31' }]);
-  for (let i = 0; i < 10; i++) await signInStaff({ email: staff.email, password: 'wrong-password-1' }, jar.request);
+  for (let i = 0; i < 20; i++) await signInStaff({ email: staff.email, password: 'wrong-password-1' }, jar.request);
+  // Упор в счётчик пишется один раз за окно блокировки, а не на каждую попытку (итоговая проверка, замечание 3).
   const locked = (await pools.root.query(`select diff from hdc_audit_log where action = 'staff.sign_in_failed' and diff->>'step' = 'rate_limited'`)).rows;
-  expect(locked.length).toBeGreaterThan(0);
+  expect(locked).toHaveLength(1);
+});
+
+test('неверный и повторный код второго фактора записываются в журнал с адресом (итоговая проверка, замечание 4)', async () => {
+  const staff = await enrolledStaffFixture(await getAuth(), { role: 'care' });
+  const code = freshTotp(staff.totpSecret);
+  const first = newJar({ 'x-forwarded-for': '203.0.113.32' });
+  expect(await signInStaff({ email: staff.email, password: staff.password }, first.request)).toEqual({ step: 'code' });
+  expect(await verifyStaffCode({ code: '000000' }, first.request)).toEqual({ ok: false, code: 'code_invalid' });
+  expect(await verifyStaffCode({ code }, first.request)).toEqual({ ok: true });
+  const second = newJar({ 'x-forwarded-for': '203.0.113.33' });
+  expect(await signInStaff({ email: staff.email, password: staff.password }, second.request)).toEqual({ step: 'code' });
+  expect(await verifyStaffCode({ code }, second.request)).toEqual({ ok: false, code: 'code_invalid' });
+  const rows = (
+    await pools.root.query(`select object_id, diff, host(ip) as ip from hdc_audit_log where action = 'staff.sign_in_failed' order by created_on, audit_id`)
+  ).rows;
+  expect(rows).toEqual([
+    { object_id: staff.userId, diff: { step: 'code' }, ip: '203.0.113.32' },
+    { object_id: staff.userId, diff: { step: 'code_reused' }, ip: '203.0.113.33' },
+  ]);
 });

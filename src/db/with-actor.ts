@@ -26,7 +26,8 @@ export type StaffActor = {
   /** Проверенный адрес посетителя: база ставит его в журнал аудита (миграция 0009). */
   ip?: string | null;
 };
-export type SystemActor = { type: 'system'; job: string };
+/** ip: адрес запроса, если система действует по запросу человека (принятие приглашения, подтверждение адреса). */
+export type SystemActor = { type: 'system'; job: string; ip?: string | null };
 /** AI-сотрудник, который работает через сервер MCP. */
 export type AgentActor = { type: 'agent'; tokenId: string; tools: string[] };
 export type Actor = ClientActor | StaffActor | SystemActor | AgentActor;

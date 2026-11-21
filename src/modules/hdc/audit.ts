@@ -37,10 +37,18 @@ const wordsOf = (key: string) =>
     .split(/[^a-z0-9]+/)
     .filter(Boolean);
 
+// Слово code само по себе не секрет (код сервера, код компании), а вместе с этими словами это одноразовый код.
+const SECRET_CODE_WORDS = new Set(['link', 'login', 'recovery', 'verification', 'verify', 'auth', 'magic', 'reset', 'confirm', 'invite', 'invitation']);
+
+function isSecretKey(key: string): boolean {
+  const words = wordsOf(key);
+  return words.some((word) => SECRET_WORDS.has(word)) || (words.includes('code') && words.some((word) => SECRET_CODE_WORDS.has(word)));
+}
+
 function hasSecretKey(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(hasSecretKey);
   if (value === null || typeof value !== 'object') return false;
-  return Object.entries(value).some(([key, nested]) => wordsOf(key).some((word) => SECRET_WORDS.has(word)) || hasSecretKey(nested));
+  return Object.entries(value).some(([key, nested]) => isSecretKey(key) || hasSecretKey(nested));
 }
 
 /** Добавляет запись в журнал аудита внутри транзакции действия (withActor или withIdentity). */

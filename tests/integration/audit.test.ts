@@ -96,7 +96,8 @@ test('секреты, большие объёмы и неизвестные де
   await expect(
     withActor(admin, (tx) => writeAudit(tx, { action: 'staff.reset', objectType: 'staff', ip: 'not an ip' })),
   ).rejects.toThrow();
-  for (const key of ['codeHash', 'otp', 'backupCodes', 'api_key', 'refresh_token', 'X-Api-Key', 'cookie'])
+  // Составные имена одноразовых кодов тоже секрет (итоговая проверка доработки).
+  for (const key of ['codeHash', 'otp', 'backupCodes', 'api_key', 'refresh_token', 'X-Api-Key', 'cookie', 'linkCode', 'loginCode', 'recovery_code', 'verificationCode', 'authCode'])
     await expect(write({ [key]: 'x' }), key).rejects.toThrow();
   expect((await pools.root.query('select 1 from hdc_audit_log')).rowCount).toBe(0);
 });

@@ -95,6 +95,42 @@ test('оценка только у закрытого, один раз, прич
   await expect(rateTicket(ctx, { number: t.number, score: 5 })).rejects.toMatchObject({ code: 'already_rated' });
 });
 
+test('подписки коллег снимаются и при повторном "Только я": сбой прошлой попытки чинится, сбой снятия не ломает действие', async () => {
+  const f = await seedTwoOrgs();
+  const t = f.tickets.aOrg;
+  const watchers = () => pools.root.query(`select user_id from hdt_ticket_watchers where ticket_id = $1 and source = 'manual'`, [t.ticketId]).then((r) => r.rows);
+  // Прошлая попытка сменила видимость, а снять подписку не успела: обращение уже личное, подписка коллеги осталась.
+  await pools.root.query(`update hdt_tickets set visibility = 'private' where ticket_id = $1`, [t.ticketId]);
+  await pools.root.query(`insert into hdt_ticket_watchers (org_id, ticket_id, user_id, source) values ($1, $2, $3, 'manual')`, [f.orgA.orgId, t.ticketId, f.aAdmin.userId]);
+  await setTicketVisibility(await clientCtx(f.aUser), { number: t.number, visibility: 'private' });
+  expect(await watchers()).toEqual([]);
+  // Видимость не менялась: события и записи журнала нет.
+  expect(await events(t.ticketId, 'visibility')).toEqual([]);
+
+  // Снятие подписок отказало: видимость уже сменена, клиент видит успех, сбой виден в журнале процесса.
+  await pools.root.query(`update hdt_tickets set visibility = 'org' where ticket_id = $1`, [t.ticketId]);
+  await pools.root.query(`insert into hdt_ticket_watchers (org_id, ticket_id, user_id, source) values ($1, $2, $3, 'manual')`, [f.orgA.orgId, t.ticketId, f.aAdmin.userId]);
+  const trigger = `t_fail_${t.ticketId.replaceAll('-', '')}`;
+  await pools.root.query(`create function app.${trigger}() returns trigger language plpgsql as $$ begin
+      if old.ticket_id = '${t.ticketId}' then raise exception 'сбой для теста'; end if; return old; end $$`);
+  await pools.root.query(`create trigger ${trigger} before delete on hdt_ticket_watchers for each row execute function app.${trigger}()`);
+  const errors: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void errors.push(args.join(' '));
+  try {
+    await expect(setTicketVisibility(await clientCtx(f.aUser), { number: t.number, visibility: 'private' })).resolves.toBeUndefined();
+  } finally {
+    console.error = original;
+    await pools.root.query(`drop trigger ${trigger} on hdt_ticket_watchers`);
+    await pools.root.query(`drop function app.${trigger}()`);
+  }
+  expect(errors.join('\n')).toContain(t.ticketId);
+  expect(await events(t.ticketId, 'visibility')).toEqual([{ from: 'org', to: 'private' }]);
+  // Следующая попытка снимает оставшуюся подписку.
+  await setTicketVisibility(await clientCtx(f.aUser), { number: t.number, visibility: 'private' });
+  expect(await watchers()).toEqual([]);
+});
+
 test('видимость меняет автор или администратор клиента; личное обращение коллегам не видно, подписки коллег снимаются (решение 17 плана)', async () => {
   const f = await seedTwoOrgs();
   const t = f.tickets.aOrg;

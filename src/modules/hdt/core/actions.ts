@@ -142,34 +142,41 @@ export async function visibilityTx(actor: ClientActor, number: number, visibilit
   const ticketId = await withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
     if (ticket.authorId !== actor.userId && actor.orgRole !== 'client_admin') throw new HdtError('forbidden');
-    if (ticket.visibility === visibility) return null;
+    if (ticket.visibility === visibility) return ticket.ticketId;
     await tx.update(tickets).set({ visibility }).where(eq(tickets.ticketId, ticket.ticketId));
     const diff = { from: ticket.visibility, to: visibility };
     await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'visibility', actorType: 'client', actorId: actor.userId, payload: diff });
     await writeAudit(tx, { action: 'ticket.visibility_changed', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff });
     return ticket.ticketId;
   });
-  if (ticketId && visibility === 'private') await dropColleagueWatchers(ticketId, actor.ip ?? null);
+  // И при неизменной видимости: так повторное "Только я" чинит прошлую попытку, где снятие подписок сорвалось.
+  if (visibility === 'private') await dropColleagueWatchers(ticketId, actor.ip ?? null);
 }
 
 /**
  * Обращение стало личным: подписки коллег снимаются (решение 17 плана M2), автор и сотрудники остаются.
  * Чужие строки подписок клиент удалить не может (политика RLS), поэтому снимает фоновая роль, и только пока
- * обращение действительно личное. Повторный вызов безопасен.
+ * обращение действительно личное. Повторный вызов безопасен. Видимость к этому моменту уже сменена, поэтому сбой
+ * не превращает успешное действие в ошибку: он пишется в журнал процесса, а следующее "Только я" снимает остаток.
+ * Коллега личное обращение и так не видит (RLS), оставшаяся строка влияет только на уведомления (решение 0026, пункт 25).
  */
 async function dropColleagueWatchers(ticketId: string, ip: string | null): Promise<void> {
   const system: SystemActor = { type: 'system', job: 'ticket.visibility', ip };
-  await withActor(system, (tx) =>
-    tx
-      .delete(ticketWatchers)
-      .where(
-        and(
-          eq(ticketWatchers.ticketId, ticketId),
-          eq(ticketWatchers.source, 'manual'),
-          sql`exists (select 1 from hdt_tickets t where t.ticket_id = ${ticketWatchers.ticketId} and t.visibility = 'private')`,
+  try {
+    await withActor(system, (tx) =>
+      tx
+        .delete(ticketWatchers)
+        .where(
+          and(
+            eq(ticketWatchers.ticketId, ticketId),
+            eq(ticketWatchers.source, 'manual'),
+            sql`exists (select 1 from hdt_tickets t where t.ticket_id = ${ticketWatchers.ticketId} and t.visibility = 'private')`,
+          ),
         ),
-      ),
-  );
+    );
+  } catch (error) {
+    console.error(`Подписки коллег на личное обращение ${ticketId} не сняты: ${error instanceof Error ? error.message : 'ошибка'}`);
+  }
 }
 
 /** Подписка на обращение организации (FR-TK-09). Повторная подписка ничего не меняет. */

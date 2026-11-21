@@ -82,6 +82,7 @@ export type ListFilters = {
   mineOnly: boolean;
   status?: TicketStatus;
   type?: TicketType;
+  /** Номер и текст ищутся через "или": цифры могут быть и номером обращения, и частью описания. */
   number?: number;
   text?: string;
   /** Курсор: время изменения текстом базы (с микросекундами, Date их теряет) и идентификатор. */
@@ -109,8 +110,11 @@ export async function listTicketRows(actor: ClientActor, filters: ListFilters): 
   if (filters.mineOnly) where.push(eq(tickets.authorId, actor.userId));
   if (filters.status) where.push(eq(tickets.status, filters.status));
   if (filters.type) where.push(eq(tickets.type, filters.type));
-  if (filters.number !== undefined) where.push(eq(tickets.number, filters.number));
-  if (filters.text) where.push(or(ilike(tickets.title, likeText(filters.text)), ilike(tickets.description, likeText(filters.text))) as SQL);
+  // Поиск: номер обращения или текст темы и описания. Цифры ищутся и как номер, и как текст (код ошибки, документ).
+  const search: SQL[] = [];
+  if (filters.number !== undefined) search.push(eq(tickets.number, filters.number));
+  if (filters.text) search.push(ilike(tickets.title, likeText(filters.text)), ilike(tickets.description, likeText(filters.text)));
+  if (search.length > 0) where.push(or(...search) as SQL);
   if (filters.after) where.push(sql`(${tickets.modifiedOn}, ${tickets.ticketId}) < (${filters.after.modifiedOn}::timestamptz, ${filters.after.ticketId}::uuid)`);
   return withActor(actor, (tx) =>
     tx

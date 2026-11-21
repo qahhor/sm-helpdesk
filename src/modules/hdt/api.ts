@@ -92,7 +92,8 @@ export async function listTickets(ctx: ClientContext, input: unknown): Promise<{
     status: data.status,
     type: data.type,
     number: number ?? undefined,
-    text: number === null ? data.q : undefined,
+    // Текст ищется всегда: "500" это и номер обращения, и код ошибки в описании.
+    text: number === null ? data.q : String(number),
     after: data.cursor ? decodeCursor(data.cursor) : undefined,
   });
   const page = rows.slice(0, TICKET_PAGE_SIZE);

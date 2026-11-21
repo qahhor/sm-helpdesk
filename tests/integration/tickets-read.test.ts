@@ -29,6 +29,22 @@ test('список: мои и организации, фильтр по стат
   await expect(listTickets(ctx, { status: 'deleted' })).rejects.toMatchObject({ code: 'invalid_input' });
 });
 
+test('поиск цифрами находит и номер, и текст: код ошибки или номер документа из описания', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = await clientCtx(f.aUser);
+  const r = await pools.root.query(
+    `insert into hdt_tickets (org_id, author_id, type, impact, priority, title, description, locale, source)
+     values ($1, $2, 'bug', 'major', 'p2', 'Ошибка при печати', 'Сервер вернул ошибку 500 при печати накладной 77031', 'ru', 'portal') returning number`,
+    [f.orgA.orgId, f.aUser.userId],
+  );
+  const created = Number(r.rows[0].number);
+  expect(numbers((await listTickets(ctx, { q: '500' })).items)).toEqual([created]);
+  expect(numbers((await listTickets(ctx, { q: '77031' })).items)).toEqual([created]);
+  // Номер обращения по-прежнему находится и цифрами, и с приставкой.
+  expect(numbers((await listTickets(ctx, { q: String(f.tickets.aMine.number) })).items)).toContain(f.tickets.aMine.number);
+  expect(numbers((await listTickets(ctx, { q: `SUP-${created}` })).items)).toEqual([created]);
+});
+
 test('текст обращения Б не находится поиском пользователя А (15.2)', async () => {
   const f = await seedTwoOrgs();
   expect((await listTickets(await clientCtx(f.aAdmin), { q: 'Секрет Б' })).items).toEqual([]);

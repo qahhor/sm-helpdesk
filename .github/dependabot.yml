@@ -30,3 +30,9 @@ updates:
     directory: /
     schedule:
       interval: monthly
+
+  # Образы Caddy и PostgreSQL в compose.prod.yaml закреплены по digest (проверка main, C2, C7).
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: monthly

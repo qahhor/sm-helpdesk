@@ -1,0 +1,79 @@
+# Развёртывание портала по разделам 13.3 и 13.4 ТЗ, часть вехи M1 (проверка main, C2).
+# Фоновый процесс (worker), TEI и ClamAV добавятся в своих вехах. Порядок первого запуска:
+# docs/runbooks/staging-after-m1.md.
+#
+#   docker compose -f compose.prod.yaml run --rm bootstrap   # один раз: роли и база
+#   docker compose -f compose.prod.yaml run --rm migrate     # при каждой выкладке
+#   docker compose -f compose.prod.yaml up -d
+
+services:
+  caddy:
+    # Закреплён по digest. Новый digest: docker buildx imagetools inspect caddy:<версия>.
+    image: caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+    restart: unless-stopped
+    ports: ['80:80', '443:443']
+    environment:
+      HUB_DOMAIN: ${HUB_DOMAIN:?задайте HUB_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [web]
+
+  web:
+    image: ${HUB_IMAGE:?задайте HUB_IMAGE, например ghcr.io/<org>/smartup-hub:<тег>}
+    restart: unless-stopped
+    command: ['node', 'server.js']
+    env_file: ['.env']
+    user: '1001:1001'
+    read_only: true
+    # Писать процессу можно только сюда: временные файлы и кеш Next.js (Dockerfile).
+    tmpfs: ['/tmp', '/app/.next/cache']
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', 'scripts/healthcheck.mjs']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  # Миграции от роли hub_owner. Подключение владельца есть только здесь (раздел 13.5 ТЗ).
+  migrate:
+    image: ${HUB_IMAGE:?задайте HUB_IMAGE}
+    profiles: ['tools']
+    command: ['node', 'scripts/db/migrate.mjs']
+    env_file: ['.env.migrate']
+    user: '1001:1001'
+    read_only: true
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # Начальная настройка базы под суперпользователем: роли, база, расширения. Один раз на сервер.
+  bootstrap:
+    image: ${HUB_IMAGE:?задайте HUB_IMAGE}
+    profiles: ['tools']
+    command: ['node', 'scripts/db/bootstrap.mjs']
+    env_file: ['.env.bootstrap']
+    user: '1001:1001'
+    read_only: true
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  postgres:
+    # Закреплён по digest. Том в /var/lib/postgresql: образ версии 18 хранит данные в /var/lib/postgresql/18/docker.
+    image: pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser
+    secrets: [pg_superuser]
+    volumes: ['pg_data:/var/lib/postgresql']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+
+volumes:
+  caddy_data: {}
+  pg_data: {}
+
+secrets:
+  pg_superuser:
+    file: ./secrets/pg_superuser

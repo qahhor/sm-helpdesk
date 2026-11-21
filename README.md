@@ -2,7 +2,7 @@
 
 Портал клиентов Smartup: обращения в поддержку, база решений, идеи по продукту. Адрес: `hub.smartup24.com`.
 
-Состояние: веха M0 (основа проекта) готова. Отчёт: `docs/plans/M0-report.md`. Порядок следующих вех: `docs/plans/README.md`.
+Состояние: вехи M0 (основа проекта) и M1 (вход и личность) готовы, исправления по проверке `main` в работе. Отчёты: `docs/plans/M0-report.md`, `docs/plans/M1-report.md`, `docs/plans/M1-hardening.md`. Порядок следующих вех: `docs/plans/README.md`.
 
 ## Что нужно
 
@@ -23,7 +23,14 @@ pnpm dev:up
 - `http://localhost:3000/ru/agent` - рабочее место сотрудника;
 - `http://localhost:3000/api/ready` - готовность, ответ `{"status":"ready","checks":{"db":"ok"}}`.
 
-Витрина компонентов открывается по адресу `/ru/agent/dev/ui`, если в `.env` задано `HUB_SHOWCASE=1`.
+Витрина компонентов открывается по адресу `/ru/dev/ui`, если в `.env` задано `HUB_SHOWCASE=1`.
+
+### Как войти на своей машине
+
+- Клиент: `pnpm dev:oidc` в соседнем окне поднимает ложные серверы Smartup (`pnpm dev:up` уже записал их в реестр). На `/ru/login` кнопка "Войти через Smartup" открывает форму ложного сервера: любой идентификатор, имя и компания. Роль `director` даёт администратора клиента.
+- Сотрудник: `pnpm hub staff:create --email you@smartup.example --name "Имя" --role admin` печатает ссылку. По ней задаётся пароль, при первом входе на `/ru/staff/login` подключается второй фактор (любое приложение с кодами).
+- Письма со ссылками входа в разработке печатаются в окне приложения (`MAIL_TRANSPORT=console`) или пишутся в каталог (`file`).
+- Бот Telegram: `pnpm dev:telegram` поднимает ложный Bot API на порту 3192, в `.env` задаются `TELEGRAM_API_URL=http://localhost:3192`, `TELEGRAM_BOT_TOKEN` и `TELEGRAM_WEBHOOK_SECRET`.
 
 ## Команды
 
@@ -42,8 +49,9 @@ pnpm dev:up
 | `pnpm fonts:build` | Файлы шрифта для веба из шрифта пакета бренда |
 | `pnpm hub <команда>` | Команда консоли: сотрудники и серверы Smartup (раздел ниже) |
 | `pnpm dev:oidc` | Ложные серверы Smartup для входа клиента: облако на порту 3190, выделенный сервер на 3191 (решение 0013) |
+| `pnpm dev:telegram` | Ложный Telegram Bot API на порту 3192 (решение 0018) |
 
-Перед каждым коммитом: `pnpm check` и `pnpm test`.
+Перед каждым коммитом: `pnpm check`, `pnpm test` и `pnpm test:integration`.
 
 ## Первый администратор и серверы Smartup
 
@@ -64,6 +72,9 @@ pnpm hub server:add --code cloud --name "Облако Smartup" --base-url https:
 pnpm hub server:list
 pnpm hub server:disable --code cloud
 pnpm hub server:check --code cloud
+
+# Раз в сутки, пока нет фоновых задач M2: удалить просроченные служебные строки (решение 0023).
+pnpm hub maintenance:cleanup
 ```
 
 Адреса сервера принимаются только внешние и только по https (исключение: сам портал запущен на localhost). Команда `server:add` печатает адрес возврата, который нужно сообщить разработчикам Smartup при регистрации портала как клиента OAuth. Команда `server:check` проверяет документ discovery, адреса входа, ключи и PKCE S256. То же самое администратор портала делает в рабочем месте: "Настройки", раздел "Серверы Smartup" (решение 0019).
@@ -86,9 +97,10 @@ pnpm hub server:check --code cloud
 | `CLAUDE.md` | Правила работы с кодом |
 | `docs/naming.md` | Имена таблиц, колонок и модулей |
 | `docs/plans/` | План реализации по вехам и отчёты |
-| `docs/runbooks/` | Памятки по развёртыванию, в том числе первый запуск staging |
+| `docs/runbooks/`, `compose.prod.yaml`, `Caddyfile` | Развёртывание: памятка первого запуска staging и файлы по разделам 13.3 и 13.4 ТЗ |
 | `docs/legal/`, `content/legal/` | Черновик политики обработки данных для юриста и утверждённые тексты для портала |
 | `docs/decisions/` | Принятые решения и их причины |
+| `docs/security/` | Проверки ASVS по вехам |
 | `docs/versions.md` | Версии зависимостей и лицензии |
 | `docs/i18n-review.md` | Состояние вычитки переводов |
 | `docs/design/`, `docs/brand/` | Токены, макеты Smartup Web, логотип, Тез, шрифт |
@@ -101,4 +113,4 @@ pnpm hub server:check --code cloud
 PG_IMAGE=mirror.gcr.io/pgvector/pgvector:pg18 pnpm dev:up
 ```
 
-Для сборки образа приложения: `docker build --build-arg NODE_IMAGE=mirror.gcr.io/library/node:26.13.1-slim .`
+Для сборки образа приложения: `docker build --build-arg NODE_IMAGE=mirror.gcr.io/library/node:26.13.1-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc .` (тот же digest, что в `Dockerfile`).

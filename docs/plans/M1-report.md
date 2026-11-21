@@ -268,3 +268,12 @@
 - Final: Ruling: re-graded M9 (disabled CI image job lacks BETTER_AUTH_SECRET and ENCRYPTION_KEY) to important - task 22 delivers the CI file; it would fail on the day it is enabled.
 - Final: Ruling: declined items stand as set aside by the reviewer - staff lockout and per-address link limits (TZ 14.5), mailbox control equals sign-in (0013), first password holder enrols TOTP (0015), single visitor with blocked Cloudflare (0018), mail without a queue (0018), Resend/Telegram field correctness (staging check), unaudited client session revocation (task 13), Telegram is_blocked and my_chat_member (M4b), cleanup jobs (M2), company_id meaning (question 43), no org disable UI (not in plan), GET side effects on /settings/telegram and /login/smartup (no exploit found), translations and visuals (reviewed by screenshots), report draft (outside range) - cost if wrong: each is a known, recorded limitation.
 - Final: Ruling: bot-check failure on the login-link form still answers "sent" for a single visitor whose widget is blocked (reviewer suggestion in I3) - the outage case is now unavailable and proceeds; changing the form contract is a UX change for M8 together with M12 wording - cost if wrong: that visitor waits for a mail that does not come and retries.
+
+## Дополнение 21.11.2026: после проверки main
+
+После слияния в `main` прошли две независимые проверки. По решению владельца исправлено всё найденное, вместе с отложенными мелкими замечаниями этого отчёта: план `M1-hardening.md`, итог `M1-hardening-report.md`. Что в этом отчёте устарело:
+
+- Отложенные мелкие замечания 1-10 исправлены (S11, Q2, Q22 плана доработки). Замечание 11 остаётся известным ограничением решения 0018.
+- Письмо разработчикам Smartup (`docs/questions.md`, раздел 1) уточнено: `id_token` обязателен, адрес userinfo нет, поля с типами и обязательностью.
+- Памятка staging переписана под команды, которые работают в образе (`node hub.mjs`, `node scripts/db/migrate.mjs`), добавлены `compose.prod.yaml` и `Caddyfile`.
+- Пределы частоты из раздела "Решения вехи" пересмотрены (решение 0014, пункт 9).

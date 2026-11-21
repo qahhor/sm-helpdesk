@@ -31,6 +31,7 @@
 | `radix-ui` | 1.8.1 | MIT |
 | `react` | 19.3.1 | MIT |
 | `react-dom` | 19.3.1 | MIT |
+| `react-markdown` | 10.1.0 | MIT |
 | `server-only` | 0.0.1 | MIT |
 | `tailwind-merge` | 3.7.0 | MIT |
 | `uqr` | 0.1.3 | MIT |

@@ -35,7 +35,7 @@ export {
 export type { OrgScope } from './api/scope';
 export type { SessionView } from './api/sessions';
 export { handleAuthRequest } from './api/auth-route';
-export { acknowledgePolicy, completeWelcome, confirmEmail, requestEmailConfirmation } from './api/email';
+export { acknowledgePolicy, completeWelcome, confirmEmail, dismissHints, hintsPending, requestEmailConfirmation } from './api/email';
 export {
   acceptInvitation,
   describeInvitation,

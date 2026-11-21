@@ -59,7 +59,8 @@ export function buildCsp(opts: {
     "default-src 'self'",
     `script-src 'self' ${nonce}${opts.dev ? " 'unsafe-eval'" : ''} ${TURNSTILE}`,
     `style-src 'self' ${nonce}`,
-    `img-src 'self' data:${storage}`,
+    // blob: миниатюры выбранных файлов до отправки (URL.createObjectURL), только из памяти страницы.
+    `img-src 'self' data: blob:${storage}`,
     `connect-src 'self'${storage}`,
     `frame-src ${TURNSTILE}`,
     `frame-ancestors ${ancestors}`,

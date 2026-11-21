@@ -55,6 +55,8 @@ const APP_ENV = {
   TELEGRAM_API_URL: 'http://localhost:3192',
   TELEGRAM_BOT_TOKEN: '123456:e2e-telegram-bot-token',
   TELEGRAM_WEBHOOK_SECRET: 'e2e-telegram-webhook-secret-0123456789abcdef',
+  // Портал и фоновый процесс запускаются из разных каталогов: путь к файлам задаётся полностью.
+  FILE_STORAGE_DIR: resolve('test-results/storage'),
 };
 
 export default defineConfig({
@@ -105,9 +107,10 @@ export default defineConfig({
       env: APP_ENV,
     },
     // Фоновый процесс (решение 0028): проверка вложений заглушкой антивируса, файлы в локальном хранилище.
+    // Серверы стартуют до подготовки базы (tests/e2e/global-setup.ts): процесс ждёт схему pg-boss сам,
+    // поэтому готовности здесь не ждём.
     {
       command: 'node dist/worker.mjs',
-      wait: { stdout: /Фоновый процесс запущен/ },
       timeout: 30_000,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 },
       env: APP_ENV,

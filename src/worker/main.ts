@@ -22,9 +22,17 @@ export const SCHEDULES = [
 const scanJob = z.object({ attachmentId: z.uuid() }).strict();
 const actor = (job: string): SystemActor => ({ type: 'system', job });
 
+/**
+ * Сколько раз пытаться запуститься: база или схема pg-boss могут появиться позже процесса (выкладка, где миграции
+ * идут параллельно, браузерные тесты). Паузы растут от 1 до 30 секунд, всего около восьми минут (StartOptions pg-boss).
+ */
+const START_ATTEMPTS = 20;
+
 export interface WorkerOptions {
   connectionString?: string;
   pollingIntervalSeconds?: number;
+  /** Попыток запуска: по умолчанию START_ATTEMPTS. */
+  startAttempts?: number;
   /** false: без расписаний (тесты). */
   schedules?: boolean;
 }
@@ -32,7 +40,7 @@ export interface WorkerOptions {
 export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): Promise<void> }> {
   const boss = new PgBoss(bossOptions(opts.connectionString ?? getEnv().DATABASE_URL_APP, 'worker'));
   boss.on('error', (error) => console.error(`Фоновый процесс: ${error.message}`));
-  await boss.start();
+  await boss.start({ attempts: opts.startAttempts ?? START_ATTEMPTS });
   setJobQueue(createPgBossQueue(boss));
   const polling = { pollingIntervalSeconds: opts.pollingIntervalSeconds ?? 2 };
 

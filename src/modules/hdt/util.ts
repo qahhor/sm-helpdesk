@@ -2,21 +2,8 @@
 
 import { ALLOWED_FILES, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES } from './pref';
 
-const TITLE_MAX = 80;
-
-/**
- * Тема обращения из описания (FR-TK-02): первая строка, из неё первое предложение без конечного знака,
- * не длиннее 80 знаков с обрезкой по границе слова. Клиент может поправить тему.
- */
-export function titleFromDescription(description: string): string {
-  const firstLine = description.trim().split(/\r?\n/)[0]?.trim() ?? '';
-  const sentence = (/^(.*?[^.!?])[.!?]+(\s|$)/u.exec(firstLine)?.[1] ?? firstLine).trim();
-  const chars = Array.from(sentence);
-  if (chars.length <= TITLE_MAX) return sentence;
-  const cut = chars.slice(0, TITLE_MAX).join('');
-  const space = cut.lastIndexOf(' ');
-  return space > 0 ? cut.slice(0, space).trimEnd() : cut;
-}
+// Тема из описания нужна и форме в браузере (подстановка при вводе): общая функция лежит в src/lib/subject.ts.
+export { titleFromDescription } from '@/lib/subject';
 
 /** Номер для людей: SUP-1042 (FR-TK-05). */
 export const formatNumber = (number: number): string => `SUP-${number}`;

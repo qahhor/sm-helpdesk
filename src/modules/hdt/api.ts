@@ -8,6 +8,7 @@ import { createTicketTx, listTicketRows, readTicket } from './core/tickets';
 import { HdtError } from './error';
 import { createTicketInput, listTicketsInput, numberInput, parseInput, rateInput, reopenInput, replyInput, visibilityInput } from './input';
 import {
+  ALLOWED_FILES,
   type AuthorType,
   type CsatReason,
   type EventKind,
@@ -37,6 +38,11 @@ export { scanAttachment, sweepAttachments } from './api/jobs';
 
 export { HDT_ERROR_CODES, type HdtErrorCode, HdtError, isHdtError } from './error';
 export { formatNumber, parseNumber } from './util';
+// Значения для форм и фильтров кабинета: страницы берут модуль только через api.
+export { CSAT_REASONS, IMPACTS, MAX_FILES_PER_MESSAGE, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
+export type { CsatReason, Impact, ScanStatus, TicketStatus, TicketType, Visibility } from './pref';
+/** Расширения разрешённых файлов (FR-TK-13) для поля выбора файла. */
+export const ALLOWED_FILE_EXTENSIONS: readonly string[] = Object.keys(ALLOWED_FILES);
 
 /**
  * Новое обращение клиента (FR-TK-01..05). Организация и автор из контекста, поля организации во входе

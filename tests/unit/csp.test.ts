@@ -7,7 +7,7 @@ test('политика из раздела 14.4 ТЗ', () => {
     "default-src 'self'",
     "script-src 'self' 'nonce-abc' https://challenges.cloudflare.com",
     "style-src 'self' 'nonce-abc'",
-    "img-src 'self' data:",
+    "img-src 'self' data: blob:",
     "connect-src 'self'",
     'frame-src https://challenges.cloudflare.com',
     "frame-ancestors 'none'",
@@ -28,7 +28,7 @@ test('в разработке разрешён eval, которого требу
 
 test('хранилище файлов добавляется в img-src и connect-src', () => {
   const csp = buildCsp({ nonce: 'abc', dev: false, storageOrigin: 'https://files.example.test' });
-  expect(csp).toContain("img-src 'self' data: https://files.example.test");
+  expect(csp).toContain("img-src 'self' data: blob: https://files.example.test");
   expect(csp).toContain("connect-src 'self' https://files.example.test");
 });
 
@@ -68,5 +68,5 @@ test('адрес хранилища для политики берётся из 
   expect(storageOriginOf({})).toBeUndefined();
   const csp = buildCsp({ nonce: 'abc', dev: false, storageOrigin: storageOriginOf({ FILE_STORAGE: 'r2', R2_ENDPOINT: 'https://acct.r2.cloudflarestorage.com' }) });
   expect(csp).toContain('connect-src \'self\' https://acct.r2.cloudflarestorage.com');
-  expect(csp).toContain("img-src 'self' data: https://acct.r2.cloudflarestorage.com");
+  expect(csp).toContain("img-src 'self' data: blob: https://acct.r2.cloudflarestorage.com");
 });

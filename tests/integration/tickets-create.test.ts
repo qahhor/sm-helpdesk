@@ -75,9 +75,9 @@ test('чужое или уже прикреплённое вложение не 
   const { number } = await createTicket(ctx, input({ attachmentIds: [mine] }));
   const t = await ticketByNumber(number);
   expect((await pools.root.query(`select ticket_id from hdt_attachments where attachment_id = $1`, [mine])).rows[0].ticket_id).toBe(t.ticket_id);
-  // Уже прикреплённое и чужое: отказ, обращение не создаётся.
+  // Уже прикреплённое и чужое: отказ "файл недоступен", обращение не создаётся.
   const colleague = await upload(f.aAdmin.userId, f.orgA.orgId);
-  for (const ids of [[mine], [colleague]]) await expect(createTicket(ctx, input({ attachmentIds: ids }))).rejects.toMatchObject({ code: 'invalid_input' });
+  for (const ids of [[mine], [colleague]]) await expect(createTicket(ctx, input({ attachmentIds: ids }))).rejects.toMatchObject({ code: 'file_unavailable' });
   const many = await Promise.all(Array.from({ length: 11 }, () => upload(f.aUser.userId, f.orgA.orgId)));
   await expect(createTicket(ctx, input({ attachmentIds: many }))).rejects.toMatchObject({ code: 'too_many_files' });
 });

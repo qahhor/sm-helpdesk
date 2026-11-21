@@ -150,7 +150,7 @@ test('ответ с файлами прикрепляет свои загруз�
   const row = (await pools.root.query(`select a.ticket_id, m.body from hdt_attachments a join hdt_ticket_messages m using (message_id) where a.attachment_id = $1`, [mine])).rows[0];
   expect(row).toEqual({ ticket_id: f.tickets.aOrg.ticketId, body: 'Журнал' });
   await expect(replyToTicket(await clientCtx(f.aUser), { number: f.tickets.aOrg.number, body: 'x', attachmentIds: [await upload(f.aAdmin.userId)] })).rejects.toMatchObject({
-    code: 'invalid_input',
+    code: 'file_unavailable',
   });
 });
 

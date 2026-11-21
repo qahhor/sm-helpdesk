@@ -248,7 +248,8 @@
         "file_not_allowed": "Bunday faylni qo'shib bo'lmaydi",
         "file_too_large": "Fayl 25 MB dan, video 50 MB dan katta",
         "upload": "Fayl yuklanmadi. Yana urinib ko'ring",
-        "reason": "Nima yoqmaganini tanlang"
+        "reason": "Nima yoqmaganini tanlang",
+        "file_unavailable": "Fayllardan biri endi mavjud emas yoki tekshiruvdan o'tmagan. Uni olib tashlang va qaytadan qo'shing"
       }
     },
     "ideas": {

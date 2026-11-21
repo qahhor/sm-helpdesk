@@ -248,7 +248,8 @@
         "file_not_allowed": "This file cannot be attached",
         "file_too_large": "The file is larger than 25 MB, video larger than 50 MB",
         "upload": "The file did not upload. Try again",
-        "reason": "Choose what went wrong"
+        "reason": "Choose what went wrong",
+        "file_unavailable": "One of the files is no longer available or failed the check. Remove it and attach it again"
       }
     },
     "ideas": {

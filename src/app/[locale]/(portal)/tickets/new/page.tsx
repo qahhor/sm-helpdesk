@@ -44,7 +44,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
           submit: t('new.submit'),
           busy: t('files.busy'),
           errors: Object.fromEntries(
-            ['description', 'invalid_input', 'rate_limited', 'too_many_files', 'file_not_allowed', 'file_too_large', 'upload'].map((code) => [code, t(`errors.${code}`)]),
+            ['description', 'invalid_input', 'rate_limited', 'too_many_files', 'file_not_allowed', 'file_too_large', 'file_unavailable', 'upload'].map((code) => [code, t(`errors.${code}`)]),
           ),
           files: {
             add: t('files.add'),

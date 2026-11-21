@@ -237,7 +237,7 @@ export default async function TicketPage({
             placeholder: t('page.replyPlaceholder'),
             send: t('page.send'),
             busy: t('files.busy'),
-            errors: Object.fromEntries(['invalid_input', 'rate_limited', 'too_many_files', 'transition_refused', 'upload'].map((code) => [code, t(`errors.${code}`)])),
+            errors: Object.fromEntries(['invalid_input', 'rate_limited', 'too_many_files', 'transition_refused', 'file_unavailable', 'upload'].map((code) => [code, t(`errors.${code}`)])),
             files: {
               add: t('files.add'),
               hint: t('files.hint'),

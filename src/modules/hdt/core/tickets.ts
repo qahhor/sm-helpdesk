@@ -67,7 +67,7 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
           ),
         )
         .returning({ attachmentId: attachments.attachmentId });
-      if (attached.length !== new Set(input.attachmentIds).size) throw new HdtError('invalid_input');
+      if (attached.length !== new Set(input.attachmentIds).size) throw new HdtError('file_unavailable');
     }
     await tx.insert(ticketWatchers).values({ orgId: actor.orgId, ticketId: row.ticketId, userId: actor.userId, source: 'author' });
     await tx.insert(ticketEvents).values({ orgId: actor.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: actor.userId });

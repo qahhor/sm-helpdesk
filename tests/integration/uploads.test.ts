@@ -108,9 +108,9 @@ test('загрузка завершена: размер не совпал с з�
   // Отклонённый файл к обращению не прикрепляется.
   await expect(
     createTicket(ctx, { description: 'С отклонённым файлом', type: 'bug', impact: 'minor', locale: 'ru', attachmentIds: [short.attachmentId] }),
-  ).rejects.toMatchObject({ code: 'invalid_input' });
+  ).rejects.toMatchObject({ code: 'file_unavailable' });
   await expect(replyToTicket(ctx, { number: f.tickets.aOrg.number, body: 'Файл', attachmentIds: [short.attachmentId] })).rejects.toMatchObject({
-    code: 'invalid_input',
+    code: 'file_unavailable',
   });
   // Размер совпал: файл остаётся в карантине, ставится задача проверки.
   const good = await presignUpload(ctx, { fileName: 'shot.png', size: 2048, mime: 'image/png' });
@@ -139,6 +139,22 @@ test('очередь недоступна: загрузка завершаетс
   }
 });
 
+test('форма, открытая дольше суток: файл уже удалён обходом, отказ называет файл, а не "проверьте поля"', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = await clientCtx(f.aUser);
+  const { attachmentId } = await presignUpload(ctx, { fileName: 'shot.png', size: 4, mime: 'image/png' });
+  // Обход удалил неприкреплённую загрузку старше суток.
+  await pools.root.query(`delete from hdt_attachments where attachment_id = $1`, [attachmentId]);
+  const ticket = { description: 'Форма была открыта со вчера', type: 'bug', impact: 'minor', locale: 'ru', attachmentIds: [attachmentId] };
+  await expect(createTicket(ctx, ticket)).rejects.toMatchObject({ code: 'file_unavailable' });
+  await expect(replyToTicket(ctx, { number: f.tickets.aOrg.number, body: 'Ответ с файлом', attachmentIds: [attachmentId] })).rejects.toMatchObject({
+    code: 'file_unavailable',
+  });
+  // Ни обращение, ни ответ не сохранились.
+  expect((await pools.root.query(`select count(*)::int as n from hdt_tickets where description = $1`, [ticket.description])).rows[0].n).toBe(0);
+  expect((await pools.root.query(`select count(*)::int as n from hdt_ticket_messages where body = 'Ответ с файлом'`)).rows[0].n).toBe(0);
+});
+
 test('чужую загрузку завершить нельзя, неприкреплённая видна только загрузившему', async () => {
   const f = await seedTwoOrgs();
   const mine = await presignUpload(await clientCtx(f.aUser), { fileName: 'shot.png', size: 4, mime: 'image/png' });
@@ -149,7 +165,7 @@ test('чужую загрузку завершить нельзя, неприк�
   // Коллега не прикрепит чужую загрузку к своему обращению.
   await expect(
     createTicket(await clientCtx(f.aAdmin), { description: 'С чужим файлом', type: 'bug', impact: 'minor', locale: 'ru', attachmentIds: [mine.attachmentId] }),
-  ).rejects.toMatchObject({ code: 'invalid_input' });
+  ).rejects.toMatchObject({ code: 'file_unavailable' });
   expect((await row(mine.attachmentId)).scan_status).toBe('pending');
   expect(storage.has(`quarantine/${mine.attachmentId}`)).toBe(true);
   expect(jobs.sent).toEqual([]);

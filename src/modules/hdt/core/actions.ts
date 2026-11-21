@@ -78,7 +78,7 @@ async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body
         ),
       )
       .returning({ attachmentId: attachments.attachmentId });
-    if (attached.length !== attachmentIds.length) throw new HdtError('invalid_input');
+    if (attached.length !== attachmentIds.length) throw new HdtError('file_unavailable');
   }
 }
 

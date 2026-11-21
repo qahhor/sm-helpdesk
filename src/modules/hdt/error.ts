@@ -15,6 +15,9 @@ export const HDT_ERROR_CODES = [
   'too_many_files',
   'file_not_allowed',
   'file_too_large',
+  // Приложенного файла больше нет или его нельзя приложить: удалён обходом через сутки, не прошёл проверку,
+  // уже прикреплён или загружен другим человеком (без различия причин).
+  'file_unavailable',
 ] as const;
 
 export type HdtErrorCode = (typeof HDT_ERROR_CODES)[number];

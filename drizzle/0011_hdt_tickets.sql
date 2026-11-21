@@ -83,6 +83,9 @@ CREATE TABLE hdt_tickets (
   CONSTRAINT hdt_tickets_c13 CHECK (csat_comment IS NULL OR length(csat_comment) <= 2000)
 );
 
+-- Последовательность принадлежит колонке: удаляется вместе с таблицей.
+ALTER SEQUENCE hdt_tickets_number_sq OWNED BY hdt_tickets.number;
+
 CREATE INDEX hdt_tickets_i1 ON hdt_tickets (org_id, status);
 CREATE INDEX hdt_tickets_i2 ON hdt_tickets (org_id, modified_on DESC, ticket_id DESC);
 CREATE INDEX hdt_tickets_i3 ON hdt_tickets USING gin (title gin_trgm_ops);

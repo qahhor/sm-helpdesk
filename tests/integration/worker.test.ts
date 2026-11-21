@@ -7,7 +7,7 @@ import { PgBoss } from 'pg-boss';
 import { bossOptions, createPgBossQueue, JOB_NAMES } from '@/modules/hdc/api';
 import { MemoryJobQueue, MemoryStorage, setJobQueueForTests, setScannerForTests, setStorageForTests } from '@/modules/hdc/testing';
 import { createStubScanner } from '@/modules/hdc/antivirus/stub';
-import { completeUpload, createTicket, presignUpload, sweepAttachments } from '@/modules/hdt/api';
+import { completeUpload, createTicket, presignUpload, SWEEP_BATCH, sweepAttachments } from '@/modules/hdt/api';
 import { startWorker } from '@/worker/main';
 import { QUEUES } from '../../scripts/db/pgboss.mjs';
 import { clientCtx } from './helpers/auth';
@@ -147,6 +147,39 @@ test('проверка, которая не проходит больше сут
   // В журнале процесса идентификатор, без имени файла: по нему оператор находит зависшую проверку.
   expect(errors.join('\n')).toContain(attachmentId);
   expect(errors.join('\n')).not.toContain('archive.zip');
+});
+
+test('зависших проверок много: обход берёт их пачками, а не все одной транзакцией (вторая проверка M2)', async () => {
+  const f = await seedTwoOrgs();
+  setJobQueueForTests(new MemoryJobQueue());
+  // Антивирус лежал несколько дней: зависших файлов больше, чем берёт один проход.
+  const client = await pools.root.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local session_replication_role = replica');
+    await client.query(
+      `insert into hdt_attachments (attachment_id, org_id, ticket_id, uploader_id, storage_key, file_name, mime, size, created_on)
+       select id, $1, $2, $3, 'quarantine/' || id, 'a.png', 'image/png', 10, now() - interval '25 hours'
+         from (select uuidv7() as id from generate_series(1, $4::int)) as generated`,
+      [f.orgA.orgId, f.tickets.aOrg.ticketId, f.aUser.userId, SWEEP_BATCH + 1],
+    );
+    await client.query('commit');
+  } finally {
+    client.release();
+  }
+  const original = console.error;
+  console.error = () => {};
+  try {
+    expect((await sweepAttachments({ type: 'system', job: 'attachment.sweep' })).failed).toBe(SWEEP_BATCH);
+    expect((await sweepAttachments({ type: 'system', job: 'attachment.sweep' })).failed).toBe(1);
+  } finally {
+    console.error = original;
+  }
+  const left = await pools.root.query(
+    `select count(*)::int as n from hdt_attachments where scan_status = 'pending' and ticket_id = $1 and created_on < now() - interval '1 day'`,
+    [f.tickets.aOrg.ticketId],
+  );
+  expect(left.rows[0].n).toBe(0);
 });
 
 test('неприкреплённая загрузка старше суток удаляется вместе с объектом в хранилище', async () => {

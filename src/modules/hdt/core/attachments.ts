@@ -1,10 +1,10 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
 import { enqueue, getScanner, getStorage, SNIFF_BYTES, sniffFileType, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
-import { ENCRYPTED_OFFICE_SIGNATURE, type ScanStatus } from '../pref';
+import { ENCRYPTED_OFFICE_SIGNATURE, type ScanStatus, SWEEP_BATCH } from '../pref';
 import { attachments } from '../schema';
 import { fileKey, isEncryptedOffice, quarantineKey, rejectReasonOf, typeMatches } from '../util';
 
@@ -231,8 +231,6 @@ export async function scanAttachment(attachmentId: string): Promise<ScanStatus> 
 // --- Обход загрузок (расписание attachment.sweep раз в минуту, решение 0028) ---
 
 const SWEEP_ACTOR: SystemActor = { type: 'system', job: 'attachment.sweep' };
-/** Сколько строк берёт один проход: остальное возьмёт следующий через минуту. */
-const SWEEP_BATCH = 200;
 
 /**
  * Файлы pending старше двух минут снова ставятся на проверку: постановка после "загрузка завершена" могла
@@ -244,11 +242,23 @@ export async function sweepAttachments(): Promise<{ requeued: number; removed: n
   const storage = getStorage();
   // Проверка, которая не прошла за сутки (антивирус не отвечает, файл не успевает за тайм-аут), заканчивается:
   // файл не принимается, иначе он вечно "проверяется", а задача каждую минуту гоняет его через антивирус.
+  // Пачкой: после долгого простоя антивируса зависших файлов много, одна транзакция на все держала бы блокировки.
   const stuck = await withActor(SWEEP_ACTOR, (tx) =>
     tx
       .update(attachments)
       .set({ scanStatus: 'rejected', scanSignature: 'scan_failed' })
-      .where(and(eq(attachments.scanStatus, 'pending'), sql`${attachments.createdOn} < now() - interval '1 day'`))
+      .where(
+        inArray(
+          attachments.attachmentId,
+          tx
+            .select({ attachmentId: attachments.attachmentId })
+            .from(attachments)
+            .where(and(eq(attachments.scanStatus, 'pending'), sql`${attachments.createdOn} < now() - interval '1 day'`))
+            .orderBy(attachments.createdOn)
+            .limit(SWEEP_BATCH)
+            .for('update', { skipLocked: true }),
+        ),
+      )
       .returning({ attachmentId: attachments.attachmentId }),
   );
   for (const row of stuck) {

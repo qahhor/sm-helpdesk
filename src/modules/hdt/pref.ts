@@ -166,3 +166,6 @@ export const TICKET_PAGE_SIZE = 20;
 
 /** Растровые картинки: только их можно показать миниатюрой (раздел 14.3: SVG и HTML всегда на скачивание). */
 export const INLINE_IMAGE_TYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+/** Сколько строк берёт один проход обхода загрузок: остальное возьмёт следующий через минуту. */
+export const SWEEP_BATCH = 200;

@@ -67,3 +67,39 @@ test('обращение у сотрудника открывается из о�
   expect((await client.goto('/ru/agent/queues'))?.status()).toBe(404);
   await clientContext.close();
 });
+
+test('действия агента: взять себе, подтвердить приоритет с причиной, ждать клиента, отложить; клиент видит только статус', async ({ page, browser }) => {
+  const description = `Действия агента ${Date.now()}`;
+  const number = await clientTicket(browser, description);
+  await page.goto(`/ru/agent/tickets/SUP-${number}`);
+  const panel = page.getByRole('complementary', { name: 'Сведения об обращении' });
+  await panel.getByRole('button', { name: 'Взять себе' }).click();
+  await expect(main(page).getByRole('status').filter({ hasText: 'Обращение у вас' })).toBeVisible();
+  await expect(main(page).getByText('В работе', { exact: true }).first()).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Взять себе' })).toHaveCount(0);
+
+  // Приоритет без причины браузер не отправит, с причиной подтверждается и пишется в историю.
+  await panel.getByLabel('Приоритет', { exact: true }).selectOption('p1');
+  await panel.getByLabel('Причина').fill('Не проводятся накладные у всех агентов');
+  await panel.getByRole('button', { name: 'Подтвердить приоритет' }).click();
+  await expect(main(page).locator('[data-event="priority"]')).toContainText('Не проводятся накладные у всех агентов');
+  await expect(panel.getByRole('button', { name: 'Сменить приоритет' })).toBeVisible();
+
+  await panel.getByLabel('Статус', { exact: true }).selectOption('waiting_customer');
+  await panel.getByRole('button', { name: 'Сменить статус' }).click();
+  await expect(main(page).getByText('Ждём клиента', { exact: true }).first()).toBeVisible();
+  await expect(panel).toContainText('на паузе, ждём клиента');
+
+  await panel.getByRole('button', { name: 'На час' }).click();
+  await expect(main(page)).toContainText('отложено до');
+  await panel.getByRole('button', { name: 'Вернуть в очередь' }).click();
+  await expect(main(page)).not.toContainText('отложено до');
+
+  // Клиент видит смену статуса, но не приоритет, исполнителя и отложение.
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.getByRole('main')).toContainText('Ждём вашего ответа');
+  await expect(client.getByRole('main')).not.toContainText('Не проводятся накладные у всех агентов');
+  await clientContext.close();
+});

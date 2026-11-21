@@ -1,5 +1,6 @@
 import 'server-only';
-import { findOrgIds, findUserIds, namesOf, type OrgSummary, orgSummaries, type StaffContext, verifiedEmails } from '@/modules/hdu/api';
+import { findOrgIds, findUserIds, listAssignableStaff, namesOf, type OrgSummary, orgSummaries, type StaffContext, verifiedEmails } from '@/modules/hdu/api';
+import { isActiveModule } from '@/modules/hdr/api';
 import { loadSlaConfig } from '@/modules/hdr/api';
 import { calendarFor, type SlaPhase, slaPhase } from '../core/sla';
 import {
@@ -13,7 +14,9 @@ import {
   saveFilterTx,
 } from '../core/agent-queues';
 import { markReadTx, readAgentTicketTx } from '../core/agent-ticket';
-import { parseInput, queueInput, savedFilterInput } from '../input';
+import { assertCanWrite, assignTx, setModuleTx, setPriorityTx, setStatusTx, setTypeTx, snoozeTx, takeTx } from '../core/agent-actions';
+import { HdtError, isHdtError } from '../error';
+import { assignInput, moduleInput, numberInput, parseInput, priorityInput, queueInput, savedFilterInput, snoozeInput, statusInput, typeInput } from '../input';
 import { type AuthorType, type EventKind, type Impact, INLINE_IMAGE_TYPES, type Priority, type Queue, type ScanStatus, type TicketSource, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { workingMinutesBetween } from '../sla';
 import { parseNumber, parseSearch, rejectReasonOf } from '../util';
@@ -270,6 +273,68 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
 /** Отметка "просмотрено" (UX-A-15). */
 export async function markTicketRead(ctx: StaffContext, ticketId: unknown): Promise<void> {
   await markReadTx(ctx.actor, parseInput(z.uuid(), ticketId));
+}
+
+// --- Действия сотрудника (план M3, задача 7) ---
+
+/** "Взять себе" (FR-AG-02). Уже взял другой: already_taken с его именем. */
+export async function takeTicket(ctx: StaffContext, number: unknown): Promise<void> {
+  const parsed = parseInput(numberInput, number);
+  try {
+    await takeTx(ctx.actor, parsed, ctx.user.name);
+  } catch (error) {
+    if (isHdtError(error) && error.code === 'already_taken' && error.holderId) {
+      const name = (await namesOf(ctx.actor, [error.holderId])).get(error.holderId);
+      throw new HdtError('already_taken', { holderId: error.holderId, holderName: name });
+    }
+    throw error;
+  }
+}
+
+/** Назначить коллегу или снять исполнителя (FR-AG-02). Исполнитель только из сотрудников, которые ведут обращения. */
+export async function assignTicket(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(assignInput, input);
+  if (data.assigneeId === null) return assignTx(ctx.actor, data.number, null);
+  const assignee = (await listAssignableStaff(ctx)).find((s) => s.userId === data.assigneeId);
+  if (!assignee) throw new HdtError('invalid_input');
+  await assignTx(ctx.actor, data.number, { id: assignee.userId, name: assignee.name });
+}
+
+/** Статус по таблице 7.2; "Решено" с итогом (FR-AG-09). */
+export async function setStatus(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(statusInput, input);
+  await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version });
+}
+
+/** Приоритет с причиной (FR-SLA-03). Пустая причина: reason_required. */
+export async function setPriority(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(priorityInput, input);
+  if (!data.reason) throw new HdtError('reason_required');
+  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason);
+}
+
+export async function setTicketType(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(typeInput, input);
+  await setTypeTx(ctx.actor, data.number, data.type);
+}
+
+/** Модуль из справочника; отключённый и неизвестный отклоняются. */
+export async function setTicketModule(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(moduleInput, input);
+  if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
+  await setModuleTx(ctx.actor, data.number, data.moduleId);
+}
+
+/** Отложить до момента в будущем, не дальше года (FR-AG-13, UX-A-11); null снимает. */
+export async function snoozeTicket(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(snoozeInput, input);
+  await snoozeTx(ctx.actor, data.number, data.until);
 }
 
 export type { SavedFilter } from '../core/agent-queues';

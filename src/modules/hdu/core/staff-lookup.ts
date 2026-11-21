@@ -1,9 +1,9 @@
 import 'server-only';
-import { and, eq, ilike, inArray, or } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, or } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { authUser } from '../auth-schema';
-import { organizations, servers } from '../schema';
+import { organizations, servers, staff } from '../schema';
 import { isSyntheticEmail } from '../util';
 
 // Модуль hdu, слой core: поиск организаций и людей для рабочего места (FR-AG-10; план M3, задача 5).
@@ -54,4 +54,22 @@ export async function orgSummariesTx(actor: StaffActor, orgIds: string[]): Promi
       .where(inArray(organizations.orgId, [...new Set(orgIds)])),
   );
   return new Map(rows.map((row) => [row.orgId, row]));
+}
+
+export type AssignableStaff = { userId: string; name: string; role: 'agent_l1' | 'agent_l2' | 'care' | 'admin' };
+
+/**
+ * Сотрудники, на которых можно назначить обращение: действующие, кроме роли product (ТЗ 5.2). Таблицу сотрудников
+ * читает только hub_auth, поэтому список берёт система, а показывается он любому сотруднику.
+ */
+export async function assignableStaffTx(): Promise<AssignableStaff[]> {
+  const rows = await withIdentity({ type: 'system', job: 'identity.staff-directory' }, (tx) =>
+    tx
+      .select({ userId: staff.userId, name: authUser.name, role: staff.role })
+      .from(staff)
+      .innerJoin(authUser, eq(authUser.id, staff.userId))
+      .where(and(eq(staff.state, 'active'), inArray(staff.role, ['agent_l1', 'agent_l2', 'care', 'admin'])))
+      .orderBy(asc(authUser.name)),
+  );
+  return rows as AssignableStaff[];
 }

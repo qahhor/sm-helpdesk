@@ -759,7 +759,12 @@
           "ticket": {
             "created": "Ticket created",
             "status_changed": "Ticket status changed",
-            "visibility_changed": "Ticket visibility changed"
+            "visibility_changed": "Ticket visibility changed",
+            "assigned": "Assignee set",
+            "priority_changed": "Priority changed",
+            "type_changed": "Ticket type changed",
+            "module_changed": "Ticket module changed",
+            "snoozed": "Ticket snoozed"
           },
           "attachment": {
             "infected": "Infected file found"
@@ -997,7 +1002,63 @@
       "noDeadline": "not set",
       "workTitle": "WORK",
       "assignee": "Assignee: {name}",
-      "source": "Source: {source}"
+      "source": "Source: {source}",
+      "controls": {
+        "title": "ACTIONS",
+        "take": "Take it",
+        "assignee": "Assignee",
+        "apply": "Apply",
+        "status": "Status",
+        "resolution": "Outcome",
+        "resolutionHint": "Choose if resolved",
+        "version": "Version with the fix",
+        "changeStatus": "Change status",
+        "priority": "Priority",
+        "reason": "Reason",
+        "changePriority": "Change priority",
+        "confirmPriority": "Confirm priority",
+        "type": "Type",
+        "module": "Module",
+        "noModule": "Not set",
+        "snooze": "Snooze",
+        "snoozeUntil": "Snooze until date and time",
+        "snoozeApply": "Snooze",
+        "unsnooze": "Back to queue",
+        "someone": "another agent",
+        "snoozePresets": {
+          "hour": "For an hour",
+          "tomorrow": "Until tomorrow",
+          "monday": "Until Monday"
+        },
+        "resolutions": {
+          "solved": "Solved",
+          "workaround": "Workaround",
+          "not_reproducible": "Not reproducible",
+          "duplicate": "Duplicate",
+          "by_design": "By design",
+          "fixed_in_version": "Fixed in version"
+        },
+        "done": {
+          "taken": "The ticket is yours",
+          "assigned": "Assignee saved",
+          "status": "Status changed",
+          "priority": "Priority saved",
+          "type": "Type saved",
+          "module": "Module saved",
+          "snoozed": "Snooze saved"
+        },
+        "errors": {
+          "forbidden": "Your role does not allow this action.",
+          "transition_refused": "This change is not possible now. Refresh the page: the ticket may have changed.",
+          "already_taken": "{holder} has already taken this ticket.",
+          "reason_required": "Write the reason for the priority change.",
+          "resolution_required": "Choose the outcome. For \"Fixed in version\", enter the version number.",
+          "invalid_input": "Check the data you entered.",
+          "not_found": "Ticket not found.",
+          "rate_limited": "Too many actions in a row. Wait a minute.",
+          "other": "That did not work. Try again."
+        }
+      }
     }
   },
   "auth": {

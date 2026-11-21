@@ -55,6 +55,13 @@ export const STAFF_WRITE_ROLES = ['agent_l1', 'agent_l2', 'care', 'admin'] as co
 export const DEVELOPMENT_ROLES = ['agent_l2', 'care', 'admin'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
+/** Переходы, которые сотрудник с этой ролью может сделать из статуса: таблица 7.2 за вычетом чужих прав. */
+export function allowedStaffTransitions(from: TicketStatus, role: string): TicketStatus[] {
+  if (!(STAFF_WRITE_ROLES as readonly string[]).includes(role)) return [];
+  const development = (DEVELOPMENT_ROLES as readonly string[]).includes(role);
+  return TRANSITIONS[from].filter((to) => to !== 'in_development' || development);
+}
+
 export const WATCHER_SOURCES = ['author', 'manual', 'staff'] as const;
 export type WatcherSource = (typeof WATCHER_SOURCES)[number];
 
@@ -175,3 +182,10 @@ export const INLINE_IMAGE_TYPES: readonly string[] = ['image/png', 'image/jpeg',
 
 /** Сколько строк берёт один проход обхода загрузок: остальное возьмёт следующий через минуту. */
 export const SWEEP_BATCH = 200;
+
+/** Итог при решении (FR-AG-09): решено, обходной путь, не воспроизводится, дубль, работает как задумано, исправлено в версии. */
+export const RESOLUTION_TYPES = ['solved', 'workaround', 'not_reproducible', 'duplicate', 'by_design', 'fixed_in_version'] as const;
+export type ResolutionType = (typeof RESOLUTION_TYPES)[number];
+
+/** Дальше этого обращение не откладывается: отложение не заменяет закрытие. */
+export const MAX_SNOOZE_DAYS = 365;

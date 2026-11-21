@@ -2,7 +2,7 @@ import * as z from 'zod';
 import { LOCALES } from '@/i18n/locales';
 import { cleanUserText } from '@/modules/hdc/pref';
 import { HdtError } from './error';
-import { CSAT_REASONS, IMPACTS, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
+import { CSAT_REASONS, IMPACTS, MAX_SNOOZE_DAYS, PRIORITIES, RESOLUTION_TYPES, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
 import { QUEUE_KEYS, QUEUE_SORTS } from './core/agent-queue-keys';
 
 // Схемы входных данных модуля hdt. Каждая точка входа разбирает свой вход схемой (ТЗ 9.4, правило 7).
@@ -91,6 +91,33 @@ export const savedFilterInput = z.object({
   name: z.string().overwrite(cleanUserText).trim().min(1).max(80),
   query: z.object({ queue: z.enum(QUEUE_KEYS), sort: z.enum(QUEUE_SORTS).optional(), q: z.string().trim().max(200).optional() }),
   isShared: z.boolean().default(false),
+});
+
+export const assignInput = z.object({ number: numberInput, assigneeId: z.uuid().nullable() });
+
+export const statusInput = z.object({
+  number: numberInput,
+  to: z.enum(TICKET_STATUSES),
+  resolution: optional(z.enum(RESOLUTION_TYPES)),
+  version: optional(z.string().overwrite(cleanUserText).trim().min(1).max(50)),
+});
+
+/** Причина обязательна (FR-SLA-03): пустую сервис отклоняет кодом reason_required, а не invalid_input. */
+export const priorityInput = z.object({
+  number: numberInput,
+  priority: z.enum(PRIORITIES),
+  reason: z.string().overwrite(cleanUserText).trim().max(500),
+});
+
+export const typeInput = z.object({ number: numberInput, type: z.enum(TICKET_TYPES) });
+export const moduleInput = z.object({ number: numberInput, moduleId: z.uuid().nullable() });
+
+export const snoozeInput = z.object({
+  number: numberInput,
+  until: z.coerce
+    .date()
+    .nullable()
+    .refine((value) => value === null || (value.getTime() > Date.now() && value.getTime() < Date.now() + MAX_SNOOZE_DAYS * 86_400_000)),
 });
 
 export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {

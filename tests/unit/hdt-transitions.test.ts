@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { canTransition, TICKET_STATUSES } from '@/modules/hdt/pref';
+import { allowedStaffTransitions, canTransition, TICKET_STATUSES } from '@/modules/hdt/pref';
 
 // Разрешённые переходы статуса обращения: ровно таблица раздела 7.2 ТЗ.
 const ALLOWED = [
@@ -22,4 +22,11 @@ test('из 36 пар статусов разрешены ровно 13 пере�
   const allowed: string[] = [];
   for (const from of TICKET_STATUSES) for (const to of TICKET_STATUSES) if (canTransition(from, to)) allowed.push(`${from}>${to}`);
   expect(allowed.sort()).toEqual([...ALLOWED].sort());
+});
+
+test('сотруднику предлагаются только его переходы: "В разработке" нет у первой линии и у product', () => {
+  expect(allowedStaffTransitions('in_progress', 'agent_l1')).toEqual(['waiting_customer', 'resolved']);
+  expect(allowedStaffTransitions('in_progress', 'agent_l2')).toEqual(['waiting_customer', 'in_development', 'resolved']);
+  expect(allowedStaffTransitions('closed', 'care')).toEqual(['in_progress']);
+  expect(allowedStaffTransitions('in_progress', 'product')).toEqual([]);
 });

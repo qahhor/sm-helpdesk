@@ -18,6 +18,11 @@ export const HDT_ERROR_CODES = [
   // Приложенного файла больше нет или его нельзя приложить: удалён обходом через сутки, не прошёл проверку,
   // уже прикреплён или загружен другим человеком (без различия причин).
   'file_unavailable',
+  // Рабочее место (веха M3): обращение уже взял другой сотрудник; смена приоритета без причины (FR-SLA-03);
+  // "Решено" без итога или "исправлено в версии" без номера (FR-AG-09).
+  'already_taken',
+  'reason_required',
+  'resolution_required',
 ] as const;
 
 export type HdtErrorCode = (typeof HDT_ERROR_CODES)[number];
@@ -26,12 +31,17 @@ export class HdtError extends Error {
   readonly code: HdtErrorCode;
   /** Через сколько секунд можно повторить (для rate_limited). */
   readonly retryAfterSec?: number;
+  /** Кто уже взял обращение (для already_taken): идентификатор ставит ядро, имя подставляет слой api. */
+  readonly holderId?: string;
+  readonly holderName?: string;
 
-  constructor(code: HdtErrorCode, opts: { retryAfterSec?: number } = {}) {
+  constructor(code: HdtErrorCode, opts: { retryAfterSec?: number; holderId?: string; holderName?: string } = {}) {
     super(`hdt: ${code}`);
     this.name = 'HdtError';
     this.code = code;
     this.retryAfterSec = opts.retryAfterSec;
+    this.holderId = opts.holderId;
+    this.holderName = opts.holderName;
   }
 }
 

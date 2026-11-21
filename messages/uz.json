@@ -759,7 +759,12 @@
           "ticket": {
             "created": "Murojaat yaratildi",
             "status_changed": "Murojaat holati o'zgartirildi",
-            "visibility_changed": "Murojaat ko'rinishi o'zgartirildi"
+            "visibility_changed": "Murojaat ko'rinishi o'zgartirildi",
+            "assigned": "Ijrochi tayinlandi",
+            "priority_changed": "Ustuvorlik o'zgartirildi",
+            "type_changed": "Murojaat turi o'zgartirildi",
+            "module_changed": "Murojaat moduli o'zgartirildi",
+            "snoozed": "Murojaat qoldirildi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi"
@@ -997,7 +1002,63 @@
       "noDeadline": "belgilanmagan",
       "workTitle": "ISH",
       "assignee": "Ijrochi: {name}",
-      "source": "Manba: {source}"
+      "source": "Manba: {source}",
+      "controls": {
+        "title": "AMALLAR",
+        "take": "O'zimga olish",
+        "assignee": "Ijrochi",
+        "apply": "Qo'llash",
+        "status": "Holat",
+        "resolution": "Natija",
+        "resolutionHint": "Hal qilingan bo'lsa tanlang",
+        "version": "Tuzatilgan versiya",
+        "changeStatus": "Holatni o'zgartirish",
+        "priority": "Muhimlik",
+        "reason": "Sabab",
+        "changePriority": "Muhimlikni o'zgartirish",
+        "confirmPriority": "Muhimlikni tasdiqlash",
+        "type": "Turi",
+        "module": "Modul",
+        "noModule": "Ko'rsatilmagan",
+        "snooze": "Keyinga qoldirish",
+        "snoozeUntil": "Sana va vaqtgacha qoldirish",
+        "snoozeApply": "Qoldirish",
+        "unsnooze": "Navbatga qaytarish",
+        "someone": "boshqa xodim",
+        "snoozePresets": {
+          "hour": "Bir soatga",
+          "tomorrow": "Ertagacha",
+          "monday": "Dushanbagacha"
+        },
+        "resolutions": {
+          "solved": "Hal qilindi",
+          "workaround": "Aylanma yechim",
+          "not_reproducible": "Takrorlanmaydi",
+          "duplicate": "Takroriy murojaat",
+          "by_design": "Shunday o'ylangan",
+          "fixed_in_version": "Versiyada tuzatildi"
+        },
+        "done": {
+          "taken": "Murojaat sizda",
+          "assigned": "Ijrochi saqlandi",
+          "status": "Holat o'zgardi",
+          "priority": "Muhimlik saqlandi",
+          "type": "Turi saqlandi",
+          "module": "Modul saqlandi",
+          "snoozed": "Qoldirish saqlandi"
+        },
+        "errors": {
+          "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
+          "transition_refused": "Bu o'tish hozir mumkin emas. Sahifani yangilang: murojaat o'zgargan bo'lishi mumkin.",
+          "already_taken": "Murojaatni {holder} allaqachon olgan.",
+          "reason_required": "Muhimlikni o'zgartirish sababini yozing.",
+          "resolution_required": "Natijani tanlang. «Versiyada tuzatildi» uchun versiya raqamini kiriting.",
+          "invalid_input": "Kiritilgan ma'lumotlarni tekshiring.",
+          "not_found": "Murojaat topilmadi.",
+          "rate_limited": "Juda ko'p amal ketma-ket. Bir daqiqa kuting.",
+          "other": "Bo'lmadi. Yana urinib ko'ring."
+        }
+      }
     }
   },
   "auth": {

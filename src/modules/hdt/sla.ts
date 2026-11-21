@@ -135,3 +135,24 @@ export function workingMinutesBetween(a: Date, b: Date, cal: Calendar): number {
   }
   return Math.floor(total / MINUTE);
 }
+
+/** Местные дата и время 'YYYY-MM-DDTHH:mm' в часовом поясе как момент. Несуществующая дата: исключение. */
+export function zonedToDate(local: string, timeZone: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+  if (!match) throw new Error('sla: ожидается ГГГГ-ММ-ДДTЧЧ:ММ');
+  const [, y, m, d, hh, mm] = match.map(Number) as [number, number, number, number, number, number];
+  const check = new Date(Date.UTC(y, m - 1, d));
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d || hh > 23 || mm > 59) throw new Error('sla: такой даты нет');
+  return new Date(toInstant({ y, m, d }, hh * 60 + mm, timeZone));
+}
+
+export type SnoozePreset = 'hour' | 'tomorrow' | 'monday';
+
+/** Быстрые варианты "Отложить" (UX-A-11): через час, завтра в 09:00, в ближайший следующий понедельник в 09:00. */
+export function snoozeTarget(preset: SnoozePreset, now: Date, timeZone: string): Date {
+  if (preset === 'hour') return new Date(now.getTime() + 60 * MINUTE);
+  let date: LocalDate = localParts(now.getTime(), timeZone);
+  date = nextDate(date);
+  if (preset === 'monday') while (weekdayOf(date) !== 1) date = nextDate(date);
+  return new Date(toInstant(date, 9 * 60, timeZone));
+}

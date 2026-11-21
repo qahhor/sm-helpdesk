@@ -1,15 +1,18 @@
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { getFormatter, getTranslations } from 'next-intl/server';
-import { type AgentFileView, type AgentTimelineEntry, getAgentTicket, markTicketRead } from '@/modules/hdt/api';
-import { requireStaffActor } from '@/modules/hdu/api';
+import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
+import { listActiveModules } from '@/modules/hdr/api';
+import { type AgentFileView, type AgentTimelineEntry, getAgentTicket, HDT_ERROR_CODES, markTicketRead } from '@/modules/hdt/api';
+import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
+import { Alert } from '@/ui/components/alert';
 import { Card, CardContent } from '@/ui/components/card';
 import { Markdown } from '@/ui/components/markdown';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { cn } from '@/ui/cn';
 import { STATUS_TONE } from '@/ui/ticket-status';
+import { TicketControls } from './TicketControls';
 
 // Обращение у сотрудника (раздел 8.4 "Обращение у агента", FR-AG-04, FR-AG-05, UX-A-14, UX-A-15).
 // Слева переписка с заметками и историей, справа клиент, сроки, контекст. Новое с прошлого визита отмечено.
@@ -22,13 +25,22 @@ function safeDecode(value: string): string | null {
   }
 }
 
-export default async function AgentTicketPage({ params }: { params: Promise<{ number: string }> }) {
+const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed'] as const;
+
+type Search = { done?: string; error?: string };
+
+export default async function AgentTicketPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<Search> }) {
   const staff = await requireStaffActor();
+  const search = await searchParams;
   const raw = safeDecode((await params).number);
   const ticket = raw ? await getAgentTicket(staff, raw) : null;
   if (!ticket) notFound();
   // Отметка просмотра после чтения: отметки "новое" показывают то, что было новым до этого визита.
   await markTicketRead(staff, ticket.ticketId);
+  const canWrite = staff.actor.staffRole !== 'product';
+  const [assignable, modules] = canWrite ? await Promise.all([listAssignableStaff(staff), listActiveModules(staff.actor, await getLocale())]) : [[], []];
+  const done = DONE.find((code) => code === search.done);
+  const error = HDT_ERROR_CODES.find((code) => code === search.error);
   const t = await getTranslations('agent');
   const format = await getFormatter();
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
@@ -149,6 +161,14 @@ export default async function AgentTicketPage({ params }: { params: Promise<{ nu
             <span className="text-muted-foreground">{t(`ticket.lines.${ticket.line}`)}</span>
             {ticket.snoozedUntil && <span className="text-muted-foreground">{t('ticket.snoozed', { time: when(ticket.snoozedUntil) })}</span>}
           </div>
+          {done && <Alert tone="success">{t(`ticket.controls.done.${done}`)}</Alert>}
+          {error && (
+            <Alert tone="danger">
+              {t.has(`ticket.controls.errors.${error}`)
+                ? t(`ticket.controls.errors.${error}`, { holder: ticket.assignee?.name ?? t('ticket.controls.someone') })
+                : t('ticket.controls.errors.other')}
+            </Alert>
+          )}
           {ticket.changedSince && <p className="text-sm text-muted-foreground">{t('ticket.lastVisit', { time: when(ticket.changedSince) })}</p>}
           <Card>
             <CardContent className="flex flex-col gap-4 pt-6">
@@ -159,6 +179,7 @@ export default async function AgentTicketPage({ params }: { params: Promise<{ nu
           </Card>
         </div>
         <aside className="flex flex-col gap-4" aria-label={t('ticket.details')}>
+          <TicketControls ticket={ticket} me={staff.user.id} role={staff.actor.staffRole} staff={assignable} modules={modules} />
           <Card>
             <CardContent className="flex flex-col gap-1 pt-6 text-sm">
               <h2 className="text-xs font-medium text-secondary-foreground">{t('ticket.clientTitle')}</h2>

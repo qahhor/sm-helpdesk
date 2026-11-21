@@ -44,6 +44,12 @@ export const AUDIT_ACTIONS = [
   'attachment.infected',
   // Загрузка справочника модулей командой hub modules:import.
   'modules.imported',
+  // Действия сотрудника с обращением (веха M3). Текста обращения в журнале нет.
+  'ticket.assigned',
+  'ticket.priority_changed',
+  'ticket.type_changed',
+  'ticket.module_changed',
+  'ticket.snoozed',
   // Сроки SLA и рабочий календарь (веха M3).
   'sla.policy_changed',
   'sla.calendar_changed',

@@ -37,6 +37,7 @@ export { needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments } f
 export {
   deleteFilter,
   listFilters,
+  assignTicket,
   getAgentTicket,
   type AgentFileView,
   type AgentTicketView,
@@ -52,8 +53,16 @@ export {
   type QueueSort,
   type SavedFilter,
   saveFilter,
+  setPriority,
+  setStatus,
+  setTicketModule,
+  setTicketType,
+  snoozeTicket,
+  takeTicket,
 } from './api/agent';
 export { SWEEP_BATCH } from './pref';
+// Расчёт момента "отложить до" для формы рабочего места (UX-A-11).
+export { type SnoozePreset, snoozeTarget, zonedToDate } from './sla';
 
 // Модуль hdt (обращения), слой api: точки входа для страниц, обработчиков и других модулей.
 // Каждая функция принимает проверенный контекст клиента и разбирает вход схемой (ТЗ 9.4, правило 7).
@@ -61,8 +70,18 @@ export { SWEEP_BATCH } from './pref';
 export { HDT_ERROR_CODES, type HdtErrorCode, HdtError, isHdtError } from './error';
 export { formatNumber, parseNumber } from './util';
 // Значения для форм и фильтров кабинета: страницы берут модуль только через api.
-export { CSAT_REASONS, IMPACTS, MAX_FILES_PER_MESSAGE, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
-export type { CsatReason, Impact, ScanStatus, TicketStatus, TicketType, Visibility } from './pref';
+export {
+  allowedStaffTransitions,
+  CSAT_REASONS,
+  IMPACTS,
+  MAX_FILES_PER_MESSAGE,
+  PRIORITIES,
+  RESOLUTION_TYPES,
+  TICKET_STATUSES,
+  TICKET_TYPES,
+  VISIBILITIES,
+} from './pref';
+export type { CsatReason, Impact, Priority, ResolutionType, ScanStatus, TicketStatus, TicketType, Visibility } from './pref';
 /** Расширения разрешённых файлов (FR-TK-13) для поля выбора файла. */
 export const ALLOWED_FILE_EXTENSIONS: readonly string[] = Object.keys(ALLOWED_FILES);
 

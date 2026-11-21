@@ -35,6 +35,9 @@ export async function presignUpload(
  */
 export async function completeUpload(ctx: ClientContext, attachmentId: unknown): Promise<{ status: ScanStatus }> {
   const id = parseInput(attachmentIdInput, attachmentId);
+  // Каждый вызов смотрит в хранилище и ставит задачу: повторы ограничены (вторая проверка M2).
+  const limit = await consumeRateLimit(rateKey('upload-complete:user', ctx.actor.userId), RATE_RULES.uploadCompletePerUser);
+  if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
   const upload = await findOwnUpload(ctx.actor, id);
   if (!upload) throw new HdtError('not_found');
   const storage = getStorage();

@@ -182,3 +182,13 @@ test('чужую загрузку завершить нельзя, неприк�
   expect(storage.has(`quarantine/${mine.attachmentId}`)).toBe(true);
   expect(jobs.sent).toEqual([]);
 });
+
+test('завершение загрузки ограничено по частоте: повторы не гоняют хранилище и очередь без конца (вторая проверка M2)', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = await clientCtx(f.aUser);
+  const { attachmentId } = await presignUpload(ctx, { fileName: 'shot.png', size: 4, mime: 'image/png' });
+  storage.put(`quarantine/${attachmentId}`, new Uint8Array(4));
+  for (let i = 0; i < RATE_RULES.uploadCompletePerUser.limit; i++) await completeUpload(ctx, attachmentId);
+  await expect(completeUpload(ctx, attachmentId)).rejects.toMatchObject({ code: 'rate_limited' });
+  expect(RATE_RULES.uploadCompletePerUser.limit).toBeGreaterThanOrEqual(2 * RATE_RULES.uploadPresignPerUser.limit);
+});

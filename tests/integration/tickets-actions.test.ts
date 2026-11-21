@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { confirmResolution, getTicket, rateTicket, reopenTicket, replyToTicket, setTicketVisibility, unwatchTicket, watchTicket } from '@/modules/hdt/api';
+import { RATE_RULES } from '@/modules/hdc/pref';
 import { clientCtx } from './helpers/auth';
 import { pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
@@ -234,4 +235,22 @@ test('оценивает только автор, решение подтвер�
   await expect(rateTicket(admin, { number: mine.number, score: 2, reason: 'slow' })).rejects.toMatchObject({ code: 'forbidden' });
   await rateTicket(colleague, { number: mine.number, score: 5 });
   expect((await getTicket(colleague, String(mine.number)))?.csat).toMatchObject({ score: 5 });
+});
+
+test('действия с обращением ограничены по частоте: общий предел на пользователя (вторая проверка M2)', async () => {
+  const f = await seedTwoOrgs();
+  const admin = await clientCtx(f.aAdmin);
+  // Подписка и отписка подряд: самый дешёвый способ забить базу событиями и строками.
+  for (let i = 0; i < RATE_RULES.ticketActionPerUser.limit; i++)
+    await (i % 2 === 0 ? watchTicket(admin, f.tickets.aOrg.number) : unwatchTicket(admin, f.tickets.aOrg.number));
+  for (const action of [
+    () => watchTicket(admin, f.tickets.aOrg.number),
+    () => setTicketVisibility(admin, { number: f.tickets.aOrg.number, visibility: 'private' }),
+    () => confirmResolution(admin, f.tickets.aOrg.number),
+    () => reopenTicket(admin, { number: f.tickets.aOrg.number }),
+    () => rateTicket(admin, { number: f.tickets.aOrg.number, score: 5 }),
+  ])
+    await expect(action()).rejects.toMatchObject({ code: 'rate_limited' });
+  // Предел свой у каждого пользователя.
+  await expect(watchTicket(await clientCtx(f.bAdmin), f.tickets.bOrg.number)).resolves.toBeUndefined();
 });

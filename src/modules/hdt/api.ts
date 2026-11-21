@@ -255,34 +255,49 @@ export async function replyToTicket(ctx: ClientContext, input: unknown): Promise
   await replyTx(ctx.actor, data.number, data.body, ids);
 }
 
+/** Общий предел действий с обращением на пользователя (вторая проверка M2): каждое пишет событие и журнал. */
+async function consumeAction(ctx: ClientContext): Promise<void> {
+  const limit = await consumeRateLimit(rateKey('ticket-action:user', ctx.actor.userId), RATE_RULES.ticketActionPerUser);
+  if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
+}
+
 /** "Решение подошло" (FR-TK-10). */
 export async function confirmResolution(ctx: ClientContext, number: unknown): Promise<void> {
-  await confirmTx(ctx.actor, parseInput(numberInput, number));
+  const parsed = parseInput(numberInput, number);
+  await consumeAction(ctx);
+  await confirmTx(ctx.actor, parsed);
 }
 
 /** Открыть заново (FR-TK-12): решённое или закрытое в пределах срока из настройки. */
 export async function reopenTicket(ctx: ClientContext, input: unknown): Promise<void> {
   const data = parseInput(reopenInput, input);
+  await consumeAction(ctx);
   await reopenTx(ctx.actor, data.number, await reopenDays(), data.body);
 }
 
 /** Оценка закрытого обращения (FR-TK-11). */
 export async function rateTicket(ctx: ClientContext, input: unknown): Promise<void> {
   const data = parseInput(rateInput, input);
+  await consumeAction(ctx);
   await rateTx(ctx.actor, data.number, { score: data.score, reason: data.reason, comment: data.comment });
 }
 
 /** Видимость обращения (FR-TK-04). */
 export async function setTicketVisibility(ctx: ClientContext, input: unknown): Promise<void> {
   const data = parseInput(visibilityInput, input);
+  await consumeAction(ctx);
   await visibilityTx(ctx.actor, data.number, data.visibility);
 }
 
 /** Подписка на обращение коллеги (FR-TK-09). */
 export async function watchTicket(ctx: ClientContext, number: unknown): Promise<void> {
-  await watchTx(ctx.actor, parseInput(numberInput, number));
+  const parsed = parseInput(numberInput, number);
+  await consumeAction(ctx);
+  await watchTx(ctx.actor, parsed);
 }
 
 export async function unwatchTicket(ctx: ClientContext, number: unknown): Promise<void> {
-  await unwatchTx(ctx.actor, parseInput(numberInput, number));
+  const parsed = parseInput(numberInput, number);
+  await consumeAction(ctx);
+  await unwatchTx(ctx.actor, parsed);
 }

@@ -11,7 +11,10 @@ test.use({ storageState: CLIENT_STATE });
 // Сессия Алишера общая для всех тестов, проектов и прогонов, а обращений не больше 10 в час на человека (раздел 14.5):
 // счётчики обращений, ответов и загрузок в базе браузерных тестов сбрасываются прямо перед каждой отправкой.
 const resetLimits = () =>
-  dbRows(`delete from hdc_rate_limits where code like 'ticket-create:user:%' or code like 'ticket-reply:user:%' or code like 'upload-presign:user:%'`);
+  dbRows(
+    `delete from hdc_rate_limits where code like 'ticket-create:user:%' or code like 'ticket-reply:user:%' or code like 'ticket-action:user:%'
+        or code like 'upload-presign:user:%' or code like 'upload-complete:user:%'`,
+  );
 test.beforeEach(resetLimits);
 
 // Настоящая картинка PNG 1x1: фоновый процесс сверяет тип по содержимому.

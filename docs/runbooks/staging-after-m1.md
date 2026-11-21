@@ -23,6 +23,34 @@
 | `TELEGRAM_API_URL` | не задавать | Другой адрес допускается только на localhost |
 | `CLIENT_IP_HEADER` | `cf-connecting-ip` | Обязателен в production. Откуда брать адрес посетителя для счётчиков и журнала (решение 0020). Сетевой экран пропускает на 443 только адреса Cloudflare, иначе заголовок можно подделать |
 | `LOG_LEVEL` | `info` | |
+| `FILE_STORAGE` | `r2` | Обязательно на настоящем адресе в production (решение 0027). `local` только на localhost |
+| `R2_ENDPOINT` | `https://<счёт>.r2.cloudflarestorage.com` | Адрес S3 счёта Cloudflare, без пути |
+| `R2_BUCKET` | имя бакета, например `hub-staging-files` | Бакет закрытый, без публичного доступа |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | ключ API R2 с правом "Object Read & Write" только на этот бакет | Секрет. В ссылки попадает только идентификатор ключа |
+| `CLAMAV_HOST` | `clamav` | Обязателен на настоящем адресе в production. Имя службы ClamAV в `compose.prod.yaml` |
+| `CLAMAV_PORT` | не задавать | По умолчанию 3310 |
+
+Те же переменные читает фоновый процесс `worker` (тот же файл `.env`).
+
+Бакет R2 (Cloudflare, раздел "R2", решение 0027):
+
+1. Создать бакет без публичного доступа и ключ API с правом чтения и записи только для него.
+2. Настройка CORS бакета (вкладка Settings, CORS Policy): браузер кладёт файл прямо в бакет и показывает картинки оттуда.
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://<адрес staging>"],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedHeaders": ["content-type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+3. Правило жизненного цикла не нужно: неприкреплённые загрузки удаляет фоновый процесс через сутки.
+
+ClamAV: служба `clamav` в `compose.prod.yaml` (образ `clamav/clamav:1.5.5` по digest, без портов наружу, базы подписей на томе `clamav_db`). Ей нужно около 2-3 ГБ памяти. Первое обновление баз занимает несколько минут: `worker` ждёт готовности ClamAV до 10 минут.
 
 Файлы рядом с `compose.prod.yaml`:
 
@@ -41,7 +69,8 @@
 2. `docker compose -f compose.prod.yaml run --rm bootstrap`: роли `hub_owner`, `hub_app`, `hub_auth`, база и расширения. Затем удалить `.env.bootstrap`.
 3. `docker compose -f compose.prod.yaml run --rm migrate`: миграции. Повторять при каждой выкладке до запуска нового портала.
 4. `docker compose -f compose.prod.yaml up -d`
-5. Проверка: `curl -fsS https://<адрес staging>/api/health` отвечает `{"status":"ok"}`, `curl -fsS https://<адрес staging>/api/ready` отвечает `ready` (портал видит базу под обеими ролями).
+5. Проверка: `curl -fsS https://<адрес staging>/api/health` отвечает `{"status":"ok"}`, `curl -fsS https://<адрес staging>/api/ready` отвечает `ready` (портал видит базу под обеими ролями). `docker compose -f compose.prod.yaml logs worker` показывает "Фоновый процесс запущен".
+5a. Проверка вложений после первого запуска: войти клиентом, создать обращение со скриншотом (миниатюра появится после проверки), затем приложить файл `readme.txt` с тестовой строкой EICAR (её текст есть на сайте eicar.org): он получает "не прошёл проверку", ссылки на скачивание нет, в журнале аудита запись "Найден заражённый файл". Так проверяется связка браузер, R2, CORS и настоящий ClamAV: в тестах ClamAV заменён ложным сервером.
 6. Отдельное расписание сервера для очистки больше не нужно: с вехи M2 её выполняет фоновый процесс `worker` каждую ночь в 03:00 по Ташкенту (решение 0028). Если расписание `maintenance:cleanup` в cron сервера было заведено после M1, его можно удалить. Ручной запуск остаётся: `docker compose -f compose.prod.yaml exec web node hub.mjs maintenance:cleanup`.
 
 На https куки входа называются `__Host-hub.*` (решение 0021): портал не должен открываться по адресу с другим узлом, чем `HUB_URL`.

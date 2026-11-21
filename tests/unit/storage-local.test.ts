@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
@@ -35,6 +35,21 @@ test('подписанная ссылка на загрузку проверяе
   expect(await new Response((await storage.stream('files/org/0192-a')).body).text()).toBe('HELLO');
   await storage.remove('files/org/0192-a');
   expect(await storage.head('files/org/0192-a')).toBeNull();
+});
+
+test('перезапись того же размера с тем же временем изменения меняет метку версии: перенос по старой метке отказывает', async () => {
+  const { dir, storage } = setup();
+  const path = join(dir, 'quarantine/0192-e');
+  const sameTime = new Date('2026-11-21T10:00:00Z');
+  await storage.write('quarantine/0192-e', new TextEncoder().encode('first'));
+  utimesSync(path, sameTime, sameTime);
+  const read = await storage.stream('quarantine/0192-e');
+  await read.body.cancel();
+  // Подмена тем же размером в тот же тик часов: время изменения не отличить.
+  await storage.write('quarantine/0192-e', new TextEncoder().encode('FIRST'));
+  utimesSync(path, sameTime, sameTime);
+  await expect(storage.move('quarantine/0192-e', 'files/o/0192-e', read.etag)).rejects.toThrow();
+  expect(await storage.head('files/o/0192-e')).toBeNull();
 });
 
 test('просроченная, подменённая и ведущая за пределы каталога ссылка отклоняется', async () => {

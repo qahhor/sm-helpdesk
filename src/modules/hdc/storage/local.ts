@@ -75,7 +75,11 @@ export function createLocalStorage(opts: LocalOptions): LocalStorage {
     if (!path.startsWith(root + sep)) throw new Error('хранилище: недопустимый ключ');
     return path;
   };
-  /** Метка версии файла: размер и время изменения с точностью до наносекунды. */
+  /**
+   * Метка версии файла: размер, время изменения и номер узла файловой системы. Запись идёт во временный файл
+   * с переименованием поверх прежнего (write), поэтому у каждой записи свой узел: подмену того же размера в тот же
+   * тик часов метка всё равно отличает, а читатель прежней версии дочитывает её целиком.
+   */
   const etagOf = async (key: string) => {
     const info = await stat(pathOf(key), { bigint: true });
     return `${info.size}-${info.mtimeNs}-${info.ino}`;
@@ -117,7 +121,9 @@ export function createLocalStorage(opts: LocalOptions): LocalStorage {
     async write(key, bytes) {
       const target = pathOf(key);
       await mkdir(dirname(target), { recursive: true });
-      await writeFile(target, bytes);
+      const temp = `${target}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.part`;
+      await writeFile(temp, bytes);
+      await rename(temp, target);
     },
   };
 }

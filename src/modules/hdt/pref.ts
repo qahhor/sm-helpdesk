@@ -46,7 +46,13 @@ export type TicketSource = (typeof TICKET_SOURCES)[number];
 export const AUTHOR_TYPES = ['client', 'staff', 'system', 'ai', 'agent'] as const;
 export type AuthorType = (typeof AUTHOR_TYPES)[number];
 
-export const EVENT_KINDS = ['created', 'status', 'visibility', 'rated', 'priority', 'assignee', 'queue', 'due', 'rule', 'merge'] as const;
+export const EVENT_KINDS = ['created', 'status', 'visibility', 'rated', 'priority', 'assignee', 'queue', 'due', 'rule', 'merge', 'type', 'module', 'snooze'] as const;
+/** События, которые клиент может видеть. Остальные база принимает только внутренними (миграция 0021). */
+export const CLIENT_VISIBLE_EVENT_KINDS: readonly EventKind[] = ['created', 'status', 'visibility', 'rated', 'merge'];
+/** Кто из сотрудников ведёт обращения: product только читает (ТЗ 5.2). */
+export const STAFF_WRITE_ROLES = ['agent_l1', 'agent_l2', 'care', 'admin'] as const;
+/** Кто ставит "В разработке" и возвращает обращение на первую линию (ТЗ 5.2, FR-LINE-04). */
+export const DEVELOPMENT_ROLES = ['agent_l2', 'care', 'admin'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
 export const WATCHER_SOURCES = ['author', 'manual', 'staff'] as const;

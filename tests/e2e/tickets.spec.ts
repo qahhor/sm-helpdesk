@@ -225,6 +225,30 @@ test('ссылка на обращение другой своей органи�
   }
 });
 
+test('модуль: поиск по названию и недавние значения сверху (решение 14 плана)', async ({ page }) => {
+  const tag = `${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+  const names = ['Заказы', 'Склад', 'Возвраты', 'Финансы', 'Маршруты', 'Отчёты', 'Цены', 'Акции', 'Долги', 'Визиты'];
+  for (const [i, name] of names.entries())
+    await dbRows(`insert into hdr_product_modules (code, name) values ($1, $2)`, [`e2e-${tag}-${i}`, JSON.stringify({ ru: `${name} ${tag}` })]);
+  try {
+    await page.goto('/ru/tickets/new');
+    await formReady(page);
+    const select = page.getByLabel('Модуль', { exact: true });
+    await page.getByLabel('Поиск модуля').fill(`склад ${tag}`);
+    await expect(select.locator('option', { hasText: `Склад ${tag}` })).toHaveCount(1);
+    await expect(select.locator('option', { hasText: `Заказы ${tag}` })).toHaveCount(0);
+    await select.selectOption({ label: `Склад ${tag}` });
+    await page.getByLabel('Поиск модуля').fill('');
+    await page.reload();
+    await formReady(page);
+    // Недавние на этом устройстве сверху.
+    await expect(select.locator('optgroup').first()).toHaveAttribute('label', 'Недавние');
+    await expect(select.locator('optgroup').first().locator('option')).toHaveText([`Склад ${tag}`]);
+  } finally {
+    await dbRows(`delete from hdr_product_modules where code like $1`, [`e2e-${tag}-%`]);
+  }
+});
+
 test('страницы обращений без серьёзных нарушений доступности, без прокрутки вбок на 360 px, масштаб 200% (UX-C-12)', async ({ page }) => {
   test.setTimeout(90_000);
   const number = await createTicket(page, { description: `Проверка доступности ${Date.now()}. Длинный текст без пробелов: ${'х'.repeat(120)}` });

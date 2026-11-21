@@ -126,7 +126,10 @@
         "visibilityHint": "Tashkilot murojaatlarini hamkasblar ko'radi, shaxsiylarini faqat siz va administrator.",
         "related": "{number} murojaatining davomi",
         "hours": "Xodimlar ish kunlari 08:00 dan 20:00 gacha, shanba kuni 09:00 dan 17:00 gacha ishlaydi.",
-        "submit": "Murojaatni yuborish"
+        "submit": "Murojaatni yuborish",
+        "moduleSearch": "Modulni qidirish",
+        "moduleRecent": "Yaqinda tanlanganlar",
+        "moduleAll": "Barcha modullar"
       },
       "list": {
         "new": "Yangi murojaat",

@@ -11,6 +11,7 @@ import { RadioGroup, type RadioOption } from '@/ui/components/radio-group';
 import { Textarea } from '@/ui/components/textarea';
 import { browserDrafts, clearDraft, type Draft, draftKey, saveDraft, useDraft } from '@/ui/drafts';
 import { createTicketAction, type NewTicketState } from './actions';
+import { ModulePicker } from './ModulePicker';
 
 // Форма нового обращения (ТЗ 8.3, FR-TK-02): описание, тема из описания, тип, модуль, влияние, видимость, файлы.
 // Черновик сохраняется на устройстве (UX-C-02), ошибка показывается у поля, введённое не теряется (UX-C-10).
@@ -23,6 +24,9 @@ export type NewTicketLabels = {
   type: string;
   module: string;
   moduleNone: string;
+  moduleSearch: string;
+  moduleRecent: string;
+  moduleAll: string;
   impact: string;
   visibility: string;
   visibilityHint: string;
@@ -59,6 +63,7 @@ export function NewTicketForm(props: FormProps) {
 const pick = (value: string | undefined, options: RadioOption[], fallback: string) => (value && options.some((o) => o.value === value) ? value : fallback);
 
 function Fields({
+  userId,
   relatedNumber,
   modules,
   types,
@@ -149,17 +154,13 @@ function Fields({
       <RadioGroup name="type" legend={labels.type} options={types} value={type} onChange={setType} />
 
       {modules.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="field-module">{labels.module}</Label>
-          <select id="field-module" name="moduleId" className={select} value={moduleId} onChange={(event) => setModuleId(event.target.value)}>
-            <option value="">{labels.moduleNone}</option>
-            {modules.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <ModulePicker
+          userId={userId}
+          modules={modules}
+          value={moduleId}
+          onChange={setModuleId}
+          labels={{ module: labels.module, none: labels.moduleNone, search: labels.moduleSearch, recent: labels.moduleRecent, all: labels.moduleAll }}
+        />
       )}
 
       <div className="flex flex-col gap-1">

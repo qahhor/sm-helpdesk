@@ -1,7 +1,7 @@
 import * as z from 'zod';
 import { LOCALES } from '@/i18n/locales';
 import { HdtError } from './error';
-import { IMPACTS, TICKET_TYPES, VISIBILITIES } from './pref';
+import { IMPACTS, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
 
 // Схемы входных данных модуля hdt. Каждая точка входа разбирает свой вход схемой (ТЗ 9.4, правило 7).
 
@@ -22,6 +22,14 @@ export const createTicketInput = z.object({
   // Предел в 10 файлов проверяет сервис своим кодом (too_many_files), схема отсекает только явный мусор.
   attachmentIds: z.array(z.uuid()).max(100).default([]),
   locale: z.enum(LOCALES),
+});
+
+export const listTicketsInput = z.object({
+  scope: z.enum(['mine', 'org']).default('org'),
+  status: optional(z.enum(TICKET_STATUSES)),
+  type: optional(z.enum(TICKET_TYPES)),
+  q: optional(z.string().trim().min(1).max(100)),
+  cursor: optional(z.string().max(200)),
 });
 
 /** Разбирает вход схемой. Неверный вход превращается в ошибку модуля с кодом invalid_input. */

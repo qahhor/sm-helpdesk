@@ -48,3 +48,13 @@ export type CsatReason = (typeof CSAT_REASONS)[number];
 
 /** Сколько файлов можно приложить к одному сообщению (FR-TK-13). */
 export const MAX_FILES_PER_MESSAGE = 10;
+
+/** Срок повторного открытия закрытого обращения, дней (FR-TK-12). Меняется настройкой tickets.reopen_days. */
+export const REOPEN_DAYS_DEFAULT = 14;
+export const REOPEN_DAYS_SETTING = 'tickets.reopen_days';
+
+/** Страница списка обращений. */
+export const TICKET_PAGE_SIZE = 20;
+
+/** Растровые картинки: только их можно показать миниатюрой (раздел 14.3: SVG и HTML всегда на скачивание). */
+export const INLINE_IMAGE_TYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];

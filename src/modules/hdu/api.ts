@@ -97,3 +97,5 @@ export {
 export { inviteStaff, resetStaff } from './api/staff-admin';
 export { HduError, type HduErrorCode, isHduError } from './error';
 export { needsPolicyNotice, safeReturnPath } from './util';
+// Имена людей для других модулей (обращения): только те, кого актор вправе видеть.
+export { namesOf } from './core/members';

@@ -14,6 +14,8 @@ export { cleanupRateLimits, consumeRateLimit, resetRateLimit } from './rate-limi
 export { clientIp, clientIpHeader, ipBucket, ipRateKey, problemResponse, rateKey, readLimited } from './util';
 // Приём отчётов о нарушениях CSP (проверка main, S9).
 export { handleCspReport } from './csp-report';
+// Настройки портала (hdc_settings).
+export { readSetting } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';

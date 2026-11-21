@@ -187,3 +187,62 @@ test('удалить вложение может только система и 
   expect(await remove(systemActor, attached)).toBe(0);
   expect(await remove(systemActor, old)).toBe(1);
 });
+
+test('клиент не создаёт обращение с чужим приоритетом, каналом или служебными полями, не ссылается на обращение Б (42501, внешний ключ)', async () => {
+  const f = await seedTwoOrgs();
+  const insert = (columns: string, values: string, params: unknown[] = []) =>
+    run(
+      f.aUser.actor,
+      `insert into hdt_tickets (org_id, author_id, type, impact, priority, title, description, locale, source${columns ? `, ${columns}` : ''})
+       values ($1, $2, 'bug', 'major', 'p2', 'x', 'x', 'ru', 'portal'${values ? `, ${values}` : ''})`,
+      [f.orgA.orgId, f.aUser.userId, ...params],
+    );
+  // Обычное создание проходит.
+  expect(await insert('', '')).toBe(1);
+  // Приоритет считается из влияния (FR-TK-03): "Серьёзно мешает" это P2, не P1.
+  await expect(
+    run(
+      f.aUser.actor,
+      `insert into hdt_tickets (org_id, author_id, type, impact, priority, title, description, locale, source)
+       values ($1, $2, 'bug', 'major', 'p1', 'x', 'x', 'ru', 'portal')`,
+      [f.orgA.orgId, f.aUser.userId],
+    ),
+  ).rejects.toThrow(/нельзя/);
+  for (const [columns, values] of [
+    ['snoozed_until', "now() + interval '1 day'"],
+    ['sla_paused_seconds', '600'],
+    ['sla_paused_on', 'now()'],
+    ['first_responded_on', 'now()'],
+    ['resolution_type', "'solved'"],
+    ['ai_handoff_reason', "'x'"],
+    ['known_problem_id', "'0192d2a4-0000-7000-8000-000000000001'"],
+  ])
+    await expect(insert(columns, values), columns).rejects.toThrow(/нельзя/);
+  // Канал письма и сотрудника клиенту не доступен.
+  for (const source of ['email', 'staff'])
+    await expect(
+      run(
+        f.aUser.actor,
+        `insert into hdt_tickets (org_id, author_id, type, impact, priority, title, description, locale, source)
+         values ($1, $2, 'bug', 'major', 'p2', 'x', 'x', 'ru', $3)`,
+        [f.orgA.orgId, f.aUser.userId, source],
+      ),
+      source,
+    ).rejects.toThrow(/нельзя/);
+  // Связь с прежним обращением только внутри своей организации: ключ проверяет пару (обращение, организация).
+  await expect(insert('related_ticket_id', '$3', [f.tickets.bOrg.ticketId])).rejects.toThrow(/violates foreign key|hdt_tickets_f6/);
+  expect(await insert('related_ticket_id', '$3', [f.tickets.aOrg.ticketId])).toBe(1);
+});
+
+test('вложение нельзя привязать к сообщению другого обращения: ключ проверяет пару (сообщение, обращение)', async () => {
+  const f = await seedTwoOrgs();
+  const message = (await pools.root.query(`select message_id from hdt_ticket_messages where ticket_id = $1 limit 1`, [f.tickets.aPrivate.ticketId])).rows[0]
+    .message_id as string;
+  await expect(
+    pools.root.query(
+      `insert into hdt_attachments (org_id, ticket_id, message_id, uploader_id, storage_key, file_name, mime, size)
+       values ($1, $2, $3, $4, 'files/x/mismatch', 'a.png', 'image/png', 10)`,
+      [f.orgA.orgId, f.tickets.aOrg.ticketId, message, f.aUser.userId],
+    ),
+  ).rejects.toThrow(/violates foreign key|hdt_attachments_f2/);
+});

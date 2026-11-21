@@ -1045,7 +1045,9 @@
           "priority": "Muhimlik saqlandi",
           "type": "Turi saqlandi",
           "module": "Modul saqlandi",
-          "snoozed": "Qoldirish saqlandi"
+          "snoozed": "Qoldirish saqlandi",
+          "sent": "Javob yuborildi",
+          "noted": "Eslatma saqlandi"
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -1057,6 +1059,39 @@
           "not_found": "Murojaat topilmadi.",
           "rate_limited": "Juda ko'p amal ketma-ket. Bir daqiqa kuting.",
           "other": "Bo'lmadi. Yana urinib ko'ring."
+        }
+      },
+      "presence": {
+        "viewing": "{name} murojaatni ochgan",
+        "typing": "{name} javob yozmoqda"
+      },
+      "composer": {
+        "form": "Murojaat bo'yicha javob",
+        "mode": "Qayerga yozamiz",
+        "modeReply": "Mijozga javob",
+        "modeNote": "Ichki eslatma",
+        "replyField": "Javob matni",
+        "noteField": "Eslatma matni",
+        "noteHint": "Eslatmani faqat xodimlar ko'radi. Hamkasbni belgilang: @Ism.",
+        "waitForClient": "Mijoz javobini kutamiz",
+        "send": "Yuborish",
+        "saveNote": "Eslatmani saqlash",
+        "draftSaved": "Qoralama saqlandi",
+        "errors": {
+          "invalid_input": "Matn yozing: 1 dan 20 000 belgigacha.",
+          "forbidden": "Rolingiz javob berishga ruxsat bermaydi.",
+          "not_found": "Murojaat topilmadi.",
+          "transition_refused": "Bu holatni hozir qo'yib bo'lmaydi. Belgisiz yuboring.",
+          "file_unavailable": "Fayllardan birini endi qo'shib bo'lmaydi. Uni olib tashlab, qayta yuboring.",
+          "other": "Yuborilmadi. Matn saqlandi, yana urinib ko'ring."
+        },
+        "changed": {
+          "title": "Siz yozayotganingizda murojaat o'zgardi. Javob yuborilmadi.",
+          "messages": "yangi xabarlar: {count}",
+          "status": "holat o'zgardi",
+          "assignee": "ijrochi o'zgardi",
+          "show": "O'zgarishlarni ko'rsatish",
+          "sendAnyway": "Baribir yuborish"
         }
       }
     }

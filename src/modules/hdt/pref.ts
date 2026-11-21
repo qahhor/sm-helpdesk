@@ -184,6 +184,12 @@ export const INLINE_IMAGE_TYPES: readonly string[] = ['image/png', 'image/jpeg',
 export const SWEEP_BATCH = 200;
 
 /** Итог при решении (FR-AG-09): решено, обходной путь, не воспроизводится, дубль, работает как задумано, исправлено в версии. */
+/** Присутствие на странице обращения (FR-AG-12): открыл или печатает. Отметка раз в 10 секунд, живёт 60 (решение 10). */
+export const PRESENCE_MODES = ['viewing', 'typing'] as const;
+export type PresenceMode = (typeof PRESENCE_MODES)[number];
+export const PRESENCE_TTL_SEC = 60;
+export const PRESENCE_TOUCH_SEC = 10;
+
 export const RESOLUTION_TYPES = ['solved', 'workaround', 'not_reproducible', 'duplicate', 'by_design', 'fixed_in_version'] as const;
 export type ResolutionType = (typeof RESOLUTION_TYPES)[number];
 

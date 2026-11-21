@@ -67,3 +67,35 @@ export function rejectReasonOf(signature: string | null): RejectReason | null {
 /** Документ Office нового формата в контейнере OLE: так хранится документ с паролем. */
 export const isEncryptedOffice = (mime: string, detected: DetectedType): boolean =>
   detected === 'ole' && mime.startsWith('application/vnd.openxmlformats-officedocument.');
+
+const LETTER = /[\p{L}\p{N}_]/u;
+
+/**
+ * Кого упомянули во внутренней заметке (UX-A-05): "@" в начале слова и полное имя сотрудника, или одно имя,
+ * если такое имя у сотрудников одно. Регистр не важен, после имени не должно идти буквы. Порядок первого упоминания.
+ */
+export function findMentions(body: string, people: readonly { userId: string; name: string }[]): string[] {
+  const firstNames = new Map<string, number>();
+  for (const person of people) {
+    const first = person.name.trim().split(/\s+/)[0]?.toLocaleLowerCase('ru') ?? '';
+    if (first) firstNames.set(first, (firstNames.get(first) ?? 0) + 1);
+  }
+  // Длинные варианты первыми: "@Азиз Рахимов" не должно совпасть с "Азиз".
+  const variants = people
+    .flatMap((person) => {
+      const full = person.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('ru');
+      const first = full.split(' ')[0] ?? '';
+      return [{ userId: person.userId, text: full }, ...(first !== full && firstNames.get(first) === 1 ? [{ userId: person.userId, text: first }] : [])];
+    })
+    .filter((variant) => variant.text.length > 0)
+    .sort((a, b) => b.text.length - a.text.length);
+  const lower = body.toLocaleLowerCase('ru');
+  const found: string[] = [];
+  for (let at = lower.indexOf('@'); at !== -1; at = lower.indexOf('@', at + 1)) {
+    if (at > 0 && LETTER.test(lower[at - 1] ?? '')) continue;
+    const rest = lower.slice(at + 1).replace(/^(\S+)\s+/, (_, word: string) => `${word} `);
+    const hit = variants.find((variant) => rest.startsWith(variant.text) && !LETTER.test(rest[variant.text.length] ?? ''));
+    if (hit && !found.includes(hit.userId)) found.push(hit.userId);
+  }
+  return found;
+}

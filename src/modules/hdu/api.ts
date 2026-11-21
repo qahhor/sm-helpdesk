@@ -102,7 +102,9 @@ export {
   findOrgIds,
   findUserIds,
   listAssignableStaff,
+  listStaffDirectory,
   type OrgSummary,
+  type StaffMember,
   orgSummaries,
   verifiedEmails,
 } from './api/staff-lookup';

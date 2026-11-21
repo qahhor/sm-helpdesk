@@ -29,7 +29,9 @@ import {
 import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from './util';
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
-export { completeUpload, handleUploadRequest, presignUpload } from './api/uploads';
+export { completeStaffUpload, completeUpload, handleUploadRequest, presignStaffUpload, presignUpload } from './api/uploads';
+// Ответ, заметка, черновик и присутствие сотрудника (план M3, задача 8).
+export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type PresenceEntry, saveDraft, touchPresence } from './api/agent-messages';
 // Скачивание вложений (задача 8).
 export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest, staffAttachmentRedirect } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
@@ -240,7 +242,9 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
   const found = await readTicket(ctx.actor, number);
   if (!found) return null;
   const { ticket } = found;
-  const names = await namesOf(ctx.actor, [ticket.authorId, ...found.messages.map((m) => m.authorId).filter((id): id is string => id !== null)]);
+  // Имена только людей клиента: ответ сотрудника подписан "Поддержка Smartup", имя сотрудника клиенту не уходит (FR-LINE-07).
+  const clientAuthors = found.messages.filter((m) => m.authorType === 'client' && m.authorId !== null).map((m) => m.authorId as string);
+  const names = await namesOf(ctx.actor, [ticket.authorId, ...clientAuthors]);
   const me = ctx.actor.userId;
   const fileView = (a: (typeof found.attachments)[number]): AttachmentView => ({
     attachmentId: a.attachmentId,
@@ -274,7 +278,7 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
     messages: found.messages.map((m) => ({
       messageId: m.messageId,
       authorType: m.authorType,
-      authorName: m.authorId ? (names.get(m.authorId) ?? null) : null,
+      authorName: m.authorType === 'client' && m.authorId ? (names.get(m.authorId) ?? null) : null,
       isMine: m.authorId === me,
       body: m.body,
       createdOn: m.createdOn,

@@ -1045,7 +1045,9 @@
           "priority": "Priority saved",
           "type": "Type saved",
           "module": "Module saved",
-          "snoozed": "Snooze saved"
+          "snoozed": "Snooze saved",
+          "sent": "Reply sent",
+          "noted": "Note saved"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -1057,6 +1059,39 @@
           "not_found": "Ticket not found.",
           "rate_limited": "Too many actions in a row. Wait a minute.",
           "other": "That did not work. Try again."
+        }
+      },
+      "presence": {
+        "viewing": "{name} has this ticket open",
+        "typing": "{name} is typing a reply"
+      },
+      "composer": {
+        "form": "Reply to the ticket",
+        "mode": "Where to write",
+        "modeReply": "Reply to client",
+        "modeNote": "Internal note",
+        "replyField": "Reply text",
+        "noteField": "Note text",
+        "noteHint": "Only staff see the note. Mention a colleague: @Name.",
+        "waitForClient": "Waiting for the client",
+        "send": "Send",
+        "saveNote": "Save note",
+        "draftSaved": "Draft saved",
+        "errors": {
+          "invalid_input": "Write the text: 1 to 20,000 characters.",
+          "forbidden": "Your role does not allow replying.",
+          "not_found": "Ticket not found.",
+          "transition_refused": "This status cannot be set now. Send without the checkbox.",
+          "file_unavailable": "One of the files can no longer be attached. Remove it and send again.",
+          "other": "Could not send. The text is saved, try again."
+        },
+        "changed": {
+          "title": "The ticket changed while you were writing. The reply was not sent.",
+          "messages": "new messages: {count}",
+          "status": "status changed",
+          "assignee": "assignee changed",
+          "show": "Show changes",
+          "sendAnyway": "Send anyway"
         }
       }
     }

@@ -5,7 +5,12 @@ import { getLocale } from 'next-intl/server';
 import { loadSlaConfig } from '@/modules/hdr/api';
 import {
   assignTicket,
+  type ChangeSummary,
   isHdtError,
+  listPresence,
+  postStaffMessage,
+  type PresenceEntry,
+  saveDraft,
   setPriority,
   setStatus,
   setTicketModule,
@@ -14,6 +19,7 @@ import {
   snoozeTarget,
   snoozeTicket,
   takeTicket,
+  touchPresence,
   zonedToDate,
 } from '@/modules/hdt/api';
 import { requireStaffActor, type StaffContext } from '@/modules/hdu/api';
@@ -84,4 +90,61 @@ export async function snoozeAction(form: FormData): Promise<void> {
     },
     'snoozed',
   );
+}
+
+// --- Поле ответа, черновик, присутствие (план M3, задача 8) ---
+
+export type ComposerState =
+  | { status: 'idle' }
+  | { status: 'changed'; changed: ChangeSummary; version: string }
+  | { status: 'error'; code: string };
+
+/**
+ * Ответ клиенту или заметка. Ушло: страница открывается заново с отметкой. Обращение изменили другие: форма
+ * показывает, что изменилось, и версию, с которой агент может отправить, уже зная об изменениях (UX-A-06).
+ */
+export async function staffMessageAction(_prev: ComposerState, form: FormData): Promise<ComposerState> {
+  const staff = await requireStaffActor();
+  const number = Number(text(form, 'number'));
+  const internal = text(form, 'internal') === '1';
+  let result: Awaited<ReturnType<typeof postStaffMessage>>;
+  try {
+    result = await postStaffMessage(staff, {
+      number,
+      body: String(form.get('body') ?? ''),
+      internal,
+      attachmentIds: form.getAll('attachmentIds').map(String),
+      waitForClient: !internal && form.get('waitForClient') === 'on',
+      seenVersion: text(form, 'acceptVersion') || text(form, 'seenVersion'),
+    });
+  } catch (error) {
+    if (!isHdtError(error)) throw error;
+    return { status: 'error', code: error.code };
+  }
+  if (!result.ok) return { status: 'changed', changed: result.changed, version: result.version };
+  redirect(`/${await getLocale()}/agent/tickets/SUP-${number}?done=${internal ? 'noted' : 'sent'}`);
+}
+
+/** Черновик из поля ответа: через секунду после ввода и при уходе со страницы (UX-A-07). */
+export async function saveDraftAction(input: { number: number; body: string; internal: boolean }): Promise<{ ok: boolean }> {
+  const staff = await requireStaffActor();
+  try {
+    await saveDraft(staff, input);
+    return { ok: true };
+  } catch (error) {
+    if (!isHdtError(error)) throw error;
+    return { ok: false };
+  }
+}
+
+/** Отметка "открыл" или "печатает" и список коллег на этом обращении (решение 10). */
+export async function presenceAction(input: { number: number; mode: 'viewing' | 'typing' }): Promise<PresenceEntry[]> {
+  const staff = await requireStaffActor();
+  try {
+    await touchPresence(staff, input);
+    return await listPresence(staff, input.number);
+  } catch (error) {
+    if (!isHdtError(error)) throw error;
+    return [];
+  }
 }

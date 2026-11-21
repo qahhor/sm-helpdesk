@@ -7,6 +7,7 @@ import type {
   EventKind,
   Impact,
   Priority,
+  PresenceMode,
   Queue,
   ScanStatus,
   TicketSource,
@@ -154,5 +155,28 @@ export const ticketReads = pgTable('hdt_ticket_reads', {
   ticketId: uuid('ticket_id').notNull(),
   userId: uuid('user_id').notNull(),
   seenOn: moment('seen_on').notNull(),
+  ...stampColumns,
+});
+
+export const replyDrafts = pgTable('hdt_reply_drafts', {
+  ticketId: uuid('ticket_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  body: text('body').notNull(),
+  isInternal: boolean('is_internal').notNull().default(false),
+  ...stampColumns,
+});
+
+export const ticketPresence = pgTable('hdt_ticket_presence', {
+  ticketId: uuid('ticket_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  mode: text('mode').$type<PresenceMode>().notNull(),
+  expiresOn: moment('expires_on').notNull(),
+  ...stampColumns,
+});
+
+export const mentions = pgTable('hdt_mentions', {
+  messageId: uuid('message_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  readOn: moment('read_on'),
   ...stampColumns,
 });

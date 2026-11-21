@@ -110,7 +110,7 @@ export async function changeStatusTx(
 }
 
 /** Исполнитель с событием и аудитом. Тот же исполнитель: ничего не меняется. */
-async function changeAssigneeTx(tx: Tx, actor: StaffActor, ticket: LockedTicket, assigneeId: string | null, assigneeName: string | null): Promise<void> {
+export async function changeAssigneeTx(tx: Tx, actor: StaffActor, ticket: LockedTicket, assigneeId: string | null, assigneeName: string | null): Promise<void> {
   if (ticket.assigneeId === assigneeId) return;
   await tx.update(tickets).set({ assigneeId }).where(eq(tickets.ticketId, ticket.ticketId));
   await recordChange(tx, actor, ticket, { kind: 'assignee', payload: { from: ticket.assigneeId, to: assigneeId, toName: assigneeName }, audit: 'ticket.assigned' });

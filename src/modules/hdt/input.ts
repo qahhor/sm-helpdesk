@@ -2,7 +2,7 @@ import * as z from 'zod';
 import { LOCALES } from '@/i18n/locales';
 import { cleanUserText } from '@/modules/hdc/pref';
 import { HdtError } from './error';
-import { CSAT_REASONS, IMPACTS, MAX_SNOOZE_DAYS, PRIORITIES, RESOLUTION_TYPES, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
+import { CSAT_REASONS, IMPACTS, MAX_SNOOZE_DAYS, PRESENCE_MODES, PRIORITIES, RESOLUTION_TYPES, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
 import { QUEUE_KEYS, QUEUE_SORTS } from './core/agent-queue-keys';
 
 // Схемы входных данных модуля hdt. Каждая точка входа разбирает свой вход схемой (ТЗ 9.4, правило 7).
@@ -119,6 +119,29 @@ export const snoozeInput = z.object({
     .nullable()
     .refine((value) => value === null || (value.getTime() > Date.now() && value.getTime() < Date.now() + MAX_SNOOZE_DAYS * 86_400_000)),
 });
+
+/**
+ * Ответ клиенту или внутренняя заметка (FR-AG-03). seenVersion: время последнего изменения, которое видел агент
+ * (FR-AG-12). "Ждём ответа клиента" бывает только у ответа клиенту.
+ */
+export const staffMessageInput = z
+  .object({
+    number: numberInput,
+    body,
+    internal: z.boolean(),
+    attachmentIds: z.array(z.uuid()).max(100).default([]),
+    waitForClient: z.boolean().default(false),
+    seenVersion: z.iso.datetime(),
+  })
+  .refine((data) => !(data.internal && data.waitForClient));
+
+/** Черновик: пустой текст удаляет черновик. */
+export const draftInput = z.object({ number: numberInput, body: z.string().overwrite(cleanUserText).trim().max(20000), internal: z.boolean() });
+
+export const presenceInput = z.object({ number: numberInput, mode: z.enum(PRESENCE_MODES) });
+
+/** Загрузка сотрудника: организация файла берётся из обращения, поэтому нужен его номер. */
+export const staffPresignInput = presignUploadInput.extend({ number: numberInput });
 
 export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);

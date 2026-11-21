@@ -57,19 +57,27 @@ export async function orgSummariesTx(actor: StaffActor, orgIds: string[]): Promi
 }
 
 export type AssignableStaff = { userId: string; name: string; role: 'agent_l1' | 'agent_l2' | 'care' | 'admin' };
+export type StaffMember = { userId: string; name: string; role: 'agent_l1' | 'agent_l2' | 'care' | 'product' | 'admin' };
 
 /**
- * Сотрудники, на которых можно назначить обращение: действующие, кроме роли product (ТЗ 5.2). Таблицу сотрудников
- * читает только hub_auth, поэтому список берёт система, а показывается он любому сотруднику.
+ * Действующие сотрудники с именами. Таблицу сотрудников читает только hub_auth, поэтому список берёт система,
+ * а показывается он любому сотруднику. writersOnly: без роли product (ТЗ 5.2), на неё нельзя назначить.
  */
-export async function assignableStaffTx(): Promise<AssignableStaff[]> {
+export async function staffDirectoryTx(opts: { writersOnly: boolean }): Promise<StaffMember[]> {
+  const roles: StaffMember['role'][] = opts.writersOnly ? ['agent_l1', 'agent_l2', 'care', 'admin'] : ['agent_l1', 'agent_l2', 'care', 'product', 'admin'];
   const rows = await withIdentity({ type: 'system', job: 'identity.staff-directory' }, (tx) =>
     tx
       .select({ userId: staff.userId, name: authUser.name, role: staff.role })
       .from(staff)
       .innerJoin(authUser, eq(authUser.id, staff.userId))
-      .where(and(eq(staff.state, 'active'), inArray(staff.role, ['agent_l1', 'agent_l2', 'care', 'admin'])))
+      .where(and(eq(staff.state, 'active'), inArray(staff.role, roles)))
       .orderBy(asc(authUser.name)),
   );
-  return rows as AssignableStaff[];
+  // Условие на роли выше отсекает служебные учётные записи AI-сотрудников.
+  return rows as StaffMember[];
+}
+
+/** Сотрудники, на которых можно назначить обращение: действующие, кроме роли product. */
+export async function assignableStaffTx(): Promise<AssignableStaff[]> {
+  return (await staffDirectoryTx({ writersOnly: true })) as AssignableStaff[];
 }

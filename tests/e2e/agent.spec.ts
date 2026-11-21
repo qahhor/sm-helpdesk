@@ -103,3 +103,65 @@ test('действия агента: взять себе, подтвердить
   await expect(client.getByRole('main')).not.toContainText('Не проводятся накладные у всех агентов');
   await clientContext.close();
 });
+
+test('ответ и заметка: два режима, "Ждём ответа клиента", черновик с другого устройства; клиент видит "Поддержка Smartup" без заметки', async ({ page, browser }) => {
+  const number = await clientTicket(browser, `Ответ агента ${Date.now()}`);
+  await page.goto(`/ru/agent/tickets/SUP-${number}`);
+  const composer = main(page).getByRole('form', { name: 'Ответ по обращению' });
+  await expect(composer).toHaveAttribute('data-ready', '');
+
+  await composer.getByRole('radio', { name: 'Внутренняя заметка' }).check();
+  await composer.getByLabel('Текст заметки').fill('Проверю логи сервера клиента');
+  await composer.getByRole('button', { name: 'Сохранить заметку' }).click();
+  await expect(main(page).locator('[data-internal]')).toContainText('Проверю логи сервера клиента');
+
+  await composer.getByRole('radio', { name: 'Ответ клиенту' }).check();
+  await composer.getByLabel('Текст ответа').fill('Пришлите, пожалуйста, снимок экрана с ошибкой');
+  await composer.getByLabel('Ждём ответа клиента').check();
+  await composer.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(main(page).getByText('Ждём клиента', { exact: true }).first()).toBeVisible();
+  await expect(main(page).locator('article:not([data-internal])').last()).toContainText('Пришлите, пожалуйста, снимок экрана');
+
+  // Черновик сохраняется на сервере и открывается на другом устройстве (новая сессия того же сотрудника).
+  await composer.getByLabel('Текст ответа').fill('Черновик для другого устройства');
+  await expect(composer.getByText('Черновик сохранён')).toBeVisible();
+  const other = await browser.newContext({ storageState: storageStateOf('l1') });
+  const second = await other.newPage();
+  await second.goto(`/ru/agent/tickets/SUP-${number}`);
+  await expect(second.getByRole('main').getByLabel('Текст ответа')).toHaveValue('Черновик для другого устройства');
+  await other.close();
+
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.getByRole('main')).toContainText('Поддержка Smartup');
+  await expect(client.getByRole('main')).toContainText('Пришлите, пожалуйста, снимок экрана с ошибкой');
+  await expect(client.getByRole('main')).not.toContainText('Проверю логи сервера клиента');
+  await expect(client.getByRole('main')).not.toContainText('Азиз');
+  await clientContext.close();
+});
+
+test('обращение изменилось, пока агент писал: ответ не ушёл, видно что изменилось, "Отправить всё равно" отправляет', async ({ page, browser }) => {
+  const number = await clientTicket(browser, `Изменилось ${Date.now()}`);
+  await page.goto(`/ru/agent/tickets/SUP-${number}`);
+  const composer = main(page).getByRole('form', { name: 'Ответ по обращению' });
+  await expect(composer).toHaveAttribute('data-ready', '');
+  await composer.getByLabel('Текст ответа').fill('Ответ, написанный до сообщения клиента');
+  // Клиент дописал, пока агент печатал.
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.locator('form[data-ready]').first()).toBeAttached();
+  await client.getByLabel('Ответ', { exact: true }).fill('Дополнение: ошибка только у одного агента');
+  await resetLimits();
+  await client.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(client.getByRole('main')).toContainText('Дополнение: ошибка только у одного агента');
+  await clientContext.close();
+
+  await composer.getByRole('button', { name: 'Отправить', exact: true }).click();
+  const warning = main(page).getByRole('alert').filter({ hasText: 'Пока вы писали' });
+  await expect(warning).toContainText('новых сообщений: 1');
+  await expect(main(page).locator('article:not([data-internal])').last()).not.toContainText('Ответ, написанный до сообщения клиента');
+  await warning.getByRole('button', { name: 'Отправить всё равно' }).click();
+  await expect(main(page).locator('article:not([data-internal])').last()).toContainText('Ответ, написанный до сообщения клиента');
+});

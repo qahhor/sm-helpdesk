@@ -11,6 +11,15 @@ async function seedEverything() {
   await pools.root.query(`insert into hdr_business_calendars (code, timezone, week_hours) values ('default', 'Asia/Tashkent', '{"0": null}')`);
   await pools.root.query(`insert into hdt_saved_filters (owner_id, name, query) values ($1, 'Мои', '{"queue": "mine"}')`, [f.l1.userId]);
   await pools.root.query(`insert into hdt_ticket_reads (ticket_id, user_id, seen_on) values ($1, $2, now())`, [f.tickets.aOrg.ticketId, f.l1.userId]);
+  await pools.root.query(`insert into hdt_reply_drafts (ticket_id, user_id, body) values ($1, $2, 'Черновик')`, [f.tickets.aOrg.ticketId, f.l1.userId]);
+  await pools.root.query(`insert into hdt_ticket_presence (ticket_id, user_id, mode, expires_on) values ($1, $2, 'viewing', now() + interval '1 minute')`, [
+    f.tickets.aOrg.ticketId,
+    f.l1.userId,
+  ]);
+  await pools.root.query(
+    `insert into hdt_mentions (message_id, user_id) select message_id, $2 from hdt_ticket_messages where ticket_id = $1 and is_internal limit 1`,
+    [f.tickets.aOrg.ticketId, f.care.userId],
+  );
   await pools.root.query(
     `insert into hdr_sla_policies (priority, first_response_minutes, resolution_minutes, calendar_id) select 'p1', 15, 180, calendar_id from hdr_business_calendars`,
   );

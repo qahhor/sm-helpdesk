@@ -2,7 +2,16 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { listActiveModules } from '@/modules/hdr/api';
-import { type AgentFileView, type AgentTimelineEntry, getAgentTicket, HDT_ERROR_CODES, markTicketRead } from '@/modules/hdt/api';
+import {
+  type AgentFileView,
+  type AgentTimelineEntry,
+  ALLOWED_FILE_EXTENSIONS,
+  getAgentTicket,
+  HDT_ERROR_CODES,
+  loadDraft,
+  markTicketRead,
+  MAX_FILES_PER_MESSAGE,
+} from '@/modules/hdt/api';
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
@@ -11,7 +20,9 @@ import { Markdown } from '@/ui/components/markdown';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { cn } from '@/ui/cn';
-import { STATUS_TONE } from '@/ui/ticket-status';
+import { acceptOf, STATUS_TONE } from '@/ui/ticket-status';
+import { Composer } from './Composer';
+import { PresenceBar } from './PresenceBar';
 import { TicketControls } from './TicketControls';
 
 // Обращение у сотрудника (раздел 8.4 "Обращение у агента", FR-AG-04, FR-AG-05, UX-A-14, UX-A-15).
@@ -25,7 +36,7 @@ function safeDecode(value: string): string | null {
   }
 }
 
-const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed'] as const;
+const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted'] as const;
 
 type Search = { done?: string; error?: string };
 
@@ -38,7 +49,10 @@ export default async function AgentTicketPage({ params, searchParams }: { params
   // Отметка просмотра после чтения: отметки "новое" показывают то, что было новым до этого визита.
   await markTicketRead(staff, ticket.ticketId);
   const canWrite = staff.actor.staffRole !== 'product';
-  const [assignable, modules] = canWrite ? await Promise.all([listAssignableStaff(staff), listActiveModules(staff.actor, await getLocale())]) : [[], []];
+  const [assignable, modules, draft] = canWrite
+    ? await Promise.all([listAssignableStaff(staff), listActiveModules(staff.actor, await getLocale()), loadDraft(staff, ticket.number)])
+    : [[], [], null];
+  const tc = await getTranslations('client.tickets');
   const done = DONE.find((code) => code === search.done);
   const error = HDT_ERROR_CODES.find((code) => code === search.error);
   const t = await getTranslations('agent');
@@ -170,6 +184,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
             </Alert>
           )}
           {ticket.changedSince && <p className="text-sm text-muted-foreground">{t('ticket.lastVisit', { time: when(ticket.changedSince) })}</p>}
+          <PresenceBar number={ticket.number} labels={{ viewing: t.raw('ticket.presence.viewing') as string, typing: t.raw('ticket.presence.typing') as string }} />
           <Card>
             <CardContent className="flex flex-col gap-4 pt-6">
               {rows.map((row) => (
@@ -177,6 +192,50 @@ export default async function AgentTicketPage({ params, searchParams }: { params
               ))}
             </CardContent>
           </Card>
+          {canWrite && (
+            <Composer
+              key={ticket.version}
+              number={ticket.number}
+              version={ticket.version}
+              draft={draft ? { body: draft.body, internal: draft.internal } : null}
+              accept={acceptOf(ALLOWED_FILE_EXTENSIONS)}
+              maxFiles={MAX_FILES_PER_MESSAGE}
+              labels={{
+                form: t('ticket.composer.form'),
+                mode: t('ticket.composer.mode'),
+                modeReply: t('ticket.composer.modeReply'),
+                modeNote: t('ticket.composer.modeNote'),
+                replyField: t('ticket.composer.replyField'),
+                noteField: t('ticket.composer.noteField'),
+                noteHint: t('ticket.composer.noteHint'),
+                waitForClient: t('ticket.composer.waitForClient'),
+                send: t('ticket.composer.send'),
+                saveNote: t('ticket.composer.saveNote'),
+                busy: tc('files.busy'),
+                draftSaved: t('ticket.composer.draftSaved'),
+                errors: Object.fromEntries(
+                  ['invalid_input', 'forbidden', 'not_found', 'transition_refused', 'file_unavailable', 'other'].map((code) => [code, t(`ticket.composer.errors.${code}`)]),
+                ),
+                changed: {
+                  title: t('ticket.composer.changed.title'),
+                  messages: t.raw('ticket.composer.changed.messages') as string,
+                  status: t('ticket.composer.changed.status'),
+                  assignee: t('ticket.composer.changed.assignee'),
+                  show: t('ticket.composer.changed.show'),
+                  sendAnyway: t('ticket.composer.changed.sendAnyway'),
+                },
+                files: {
+                  add: tc('files.add'),
+                  hint: tc('files.hint'),
+                  remove: tc.raw('files.remove') as string,
+                  uploading: tc.raw('files.uploading') as string,
+                  ready: tc('files.ready'),
+                  failed: tc('files.failed'),
+                  errors: Object.fromEntries(['too_many_files', 'file_not_allowed', 'file_too_large', 'rate_limited', 'upload'].map((code) => [code, tc(`errors.${code}`)])),
+                },
+              }}
+            />
+          )}
         </div>
         <aside className="flex flex-col gap-4" aria-label={t('ticket.details')}>
           <TicketControls ticket={ticket} me={staff.user.id} role={staff.actor.staffRole} staff={assignable} modules={modules} />

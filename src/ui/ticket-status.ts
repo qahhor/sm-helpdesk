@@ -9,3 +9,6 @@ export const STATUS_TONE: Record<string, StatusTone> = {
   resolved: 'teal',
   closed: 'gray',
 };
+
+/** Расширения разрешённых файлов для поля выбора (FR-TK-13); image/* открывает камеру и галерею на телефоне. */
+export const acceptOf = (extensions: readonly string[]): string => ['image/*', ...extensions.map((ext) => `.${ext}`)].join(',');

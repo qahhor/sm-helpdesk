@@ -1,12 +1,12 @@
 import 'server-only';
 import { findVerifiedEmails } from '../core/members';
-import { type AssignableStaff, assignableStaffTx, findOrgIdsTx, findUserIdsTx, type OrgSummary, orgSummariesTx } from '../core/staff-lookup';
+import { type AssignableStaff, assignableStaffTx, findOrgIdsTx, findUserIdsTx, type OrgSummary, orgSummariesTx, type StaffMember, staffDirectoryTx } from '../core/staff-lookup';
 import type { StaffContext } from './session';
 
 // Поиск организаций и людей для рабочего места (FR-AG-10). Только сотрудник: контекст сотрудника строит
 // requireStaffActor, клиенту эти функции недоступны.
 
-export type { AssignableStaff, OrgSummary } from '../core/staff-lookup';
+export type { AssignableStaff, OrgSummary, StaffMember } from '../core/staff-lookup';
 
 const clean = (query: string) => query.trim().slice(0, 200);
 
@@ -31,4 +31,9 @@ export function verifiedEmails(_ctx: StaffContext, userIds: string[]): Promise<M
 export async function listAssignableStaff(ctx: StaffContext): Promise<AssignableStaff[]> {
   if (ctx.actor.staffRole === 'product') return [];
   return assignableStaffTx();
+}
+
+/** Все действующие сотрудники, включая product: кого можно упомянуть во внутренней заметке (UX-A-05). */
+export function listStaffDirectory(_ctx: StaffContext, opts: { writersOnly: boolean } = { writersOnly: false }): Promise<StaffMember[]> {
+  return staffDirectoryTx(opts);
 }

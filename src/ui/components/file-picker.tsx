@@ -57,8 +57,8 @@ function put(url: string, headers: Record<string, string>, file: File, onProgres
   });
 }
 
-async function upload(file: File, onProgress: (percent: number) => void): Promise<string> {
-  const { attachmentId, url, headers } = (await postJson('/api/uploads/presign', { fileName: file.name, size: file.size, mime: file.type })) as {
+async function upload(file: File, onProgress: (percent: number) => void, extra: Record<string, unknown>): Promise<string> {
+  const { attachmentId, url, headers } = (await postJson('/api/uploads/presign', { ...extra, fileName: file.name, size: file.size, mime: file.type })) as {
     attachmentId: string;
     url: string;
     headers: Record<string, string>;
@@ -75,12 +75,15 @@ export function FilePicker({
   maxFiles,
   labels,
   onBusyChange,
+  presignExtra,
 }: {
   name?: string;
   accept: string;
   maxFiles: number;
   labels: FilePickerLabels;
   onBusyChange?: (busy: boolean) => void;
+  /** Дополнительные поля запроса ссылки: сотрудник передаёт номер обращения, организация файла берётся из него. */
+  presignExtra?: Record<string, unknown>;
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -101,12 +104,12 @@ export function FilePicker({
         countRef.current += 1;
         const preview = PREVIEW_TYPES.has(file.type) ? URL.createObjectURL(file) : null;
         setItems((list) => [...list, { key, name: file.name || 'screenshot.png', preview, progress: 0, state: 'uploading' }]);
-        upload(file, (progress) => patch(key, { progress }))
+        upload(file, (progress) => patch(key, { progress }), presignExtra ?? {})
           .then((attachmentId) => patch(key, { state: 'ready', progress: 100, attachmentId }))
           .catch((error: unknown) => patch(key, { state: 'failed', error: errorText(error instanceof UploadError ? error.code : 'upload') }));
       }
     },
-    [errorText, maxFiles],
+    [errorText, maxFiles, presignExtra],
   );
 
   // Скриншот из буфера обмена: Ctrl+V в любом месте страницы с этой формой.

@@ -58,8 +58,60 @@ export type ScanStatus = (typeof SCAN_STATUSES)[number];
 export const CSAT_REASONS = ['slow', 'not_solved', 'unclear', 'other'] as const;
 export type CsatReason = (typeof CSAT_REASONS)[number];
 
+/** Какие загрузки можно прикрепить к сообщению: отклонённые и заражённые нельзя (решение 0027). */
+export const ATTACHABLE_SCAN_STATUSES: readonly ScanStatus[] = ['pending', 'clean'];
+
 /** Сколько файлов можно приложить к одному сообщению (FR-TK-13). */
 export const MAX_FILES_PER_MESSAGE = 10;
+
+/**
+ * Разрешённые файлы (FR-TK-13): расширение и тип, который хранится в строке и подписывается в ссылке.
+ * SVG и HTML не принимаются никогда (раздел 14.3).
+ */
+export const ALLOWED_FILES: Readonly<Record<string, string>> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  heic: 'image/heic',
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  odt: 'application/vnd.oasis.opendocument.text',
+  ods: 'application/vnd.oasis.opendocument.spreadsheet',
+  odp: 'application/vnd.oasis.opendocument.presentation',
+  txt: 'text/plain',
+  log: 'text/plain',
+  csv: 'text/csv',
+  json: 'application/json',
+  xml: 'application/xml',
+  zip: 'application/zip',
+  mp4: 'video/mp4',
+};
+
+/**
+ * Типы, которые браузеры и системы присылают для тех же файлов (решение 0027). Они принимаются, но в строку
+ * и подпись идёт тип из ALLOWED_FILES. Пустой тип и application/octet-stream принимаются для любого расширения.
+ */
+export const MIME_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  jpg: ['image/pjpeg'],
+  jpeg: ['image/pjpeg'],
+  heic: ['image/heif'],
+  csv: ['application/vnd.ms-excel', 'application/csv', 'text/x-csv', 'text/comma-separated-values'],
+  log: ['text/x-log'],
+  json: ['text/json'],
+  xml: ['text/xml'],
+  zip: ['application/x-zip-compressed', 'application/x-zip'],
+};
+
+/** Предел размера файла (FR-TK-13): 25 МБ, видео MP4 до 50 МБ. */
+export const MAX_FILE_BYTES = 25 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 /** Срок повторного открытия закрытого обращения, дней (FR-TK-12). Меняется настройкой tickets.reopen_days. */
 export const REOPEN_DAYS_DEFAULT = 14;

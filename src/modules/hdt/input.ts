@@ -50,6 +50,23 @@ export const rateInput = z
 
 export const visibilityInput = z.object({ number: numberInput, visibility: z.enum(VISIBILITIES) });
 
+/**
+ * Запрос ссылки на загрузку. Имя файла без пути и управляющих знаков. Пределы размера и тип проверяет сервис
+ * своими кодами (file_too_large, file_not_allowed), схема отсекает только явный мусор.
+ */
+export const presignUploadInput = z.object({
+  fileName: z
+    .string()
+    .trim()
+    .min(1)
+    .max(255)
+    .refine((name) => !/[\p{Cc}/\\]/u.test(name)),
+  size: z.coerce.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+  mime: optional(z.string().trim().max(127)),
+});
+
+export const attachmentIdInput = z.uuid();
+
 /** Разбирает вход схемой. Неверный вход превращается в ошибку модуля с кодом invalid_input. */
 export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);

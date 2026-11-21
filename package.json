@@ -30,6 +30,7 @@
   "dependencies": {
     "@better-auth/sso": "1.7.22",
     "@formatjs/icu-messageformat-parser": "3.5.23",
+    "aws4fetch": "1.0.20",
     "better-auth": "1.7.22",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",

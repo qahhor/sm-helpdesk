@@ -16,6 +16,7 @@
 |---|---|---|
 | `@better-auth/sso` | 1.7.22 | MIT |
 | `@formatjs/icu-messageformat-parser` | 3.5.23 | MIT |
+| `aws4fetch` | 1.0.20 | MIT |
 | `better-auth` | 1.7.22 | MIT |
 | `class-variance-authority` | 0.7.1 | Apache-2.0 |
 | `clsx` | 2.1.1 | MIT |

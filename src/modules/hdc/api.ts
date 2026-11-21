@@ -11,9 +11,12 @@ export { HdcError, isHdcError } from './error';
 // ответы обработчиков. Внутренние файлы модуля другим модулям не видны (правило линтера, проверка main, Q6).
 export { type AuditEntry, writeAudit } from './audit';
 export { cleanupRateLimits, consumeRateLimit, resetRateLimit } from './rate-limit';
-export { clientIp, clientIpHeader, ipBucket, ipRateKey, problemResponse, rateKey, readLimited } from './util';
+export { clientIp, clientIpHeader, ipBucket, ipRateKey, isSameOriginJson, problemResponse, rateKey, readLimited } from './util';
 // Приём отчётов о нарушениях CSP (проверка main, S9).
 export { handleCspReport } from './csp-report';
+// Хранилище вложений и фоновые задачи (раздел 11.11, решение 0027).
+export { contentDisposition, getStorage, handleLocalStorage, type Storage, UPLOAD_LINK_TTL_SEC } from './storage';
+export { enqueue, type JobName } from './jobs';
 // Настройки портала (hdc_settings).
 export { readSetting } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';

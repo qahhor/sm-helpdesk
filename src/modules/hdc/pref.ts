@@ -84,6 +84,8 @@ export const RATE_RULES = {
   ticketCreatePerUser: { limit: 10, windowSec: 3600 },
   /** Ответы в обращениях: 60 в час на пользователя (предложение плана M2, в ТЗ предела нет). */
   ticketReplyPerUser: { limit: 60, windowSec: 3600 },
+  /** Ссылки на загрузку файла: 30 в час на пользователя (план M2, задача 5). */
+  uploadPresignPerUser: { limit: 30, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

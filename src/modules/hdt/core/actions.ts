@@ -4,7 +4,7 @@ import type { Tx } from '@/db/client';
 import { type ClientActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
-import { canTransition, type CsatReason, type TicketStatus, type Visibility } from '../pref';
+import { ATTACHABLE_SCAN_STATUSES, canTransition, type CsatReason, type TicketStatus, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 
 // Модуль hdt, слой core: действия клиента над обращением (FR-TK-08..12). Каждое действие одной
@@ -69,7 +69,14 @@ async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body
     const attached = await tx
       .update(attachments)
       .set({ ticketId: ticket.ticketId, messageId: message.messageId })
-      .where(and(inArray(attachments.attachmentId, attachmentIds), eq(attachments.uploaderId, actor.userId), isNull(attachments.ticketId)))
+      .where(
+        and(
+          inArray(attachments.attachmentId, attachmentIds),
+          eq(attachments.uploaderId, actor.userId),
+          isNull(attachments.ticketId),
+          inArray(attachments.scanStatus, ATTACHABLE_SCAN_STATUSES),
+        ),
+      )
       .returning({ attachmentId: attachments.attachmentId });
     if (attached.length !== attachmentIds.length) throw new HdtError('invalid_input');
   }

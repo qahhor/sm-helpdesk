@@ -7,6 +7,7 @@ import 'server-only';
 export {
   acknowledgePolicyOfRequest,
   confirmEmailOfRequest,
+  currentClient,
   currentClientName,
   currentStaff,
   mySessions,

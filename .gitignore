@@ -48,3 +48,6 @@ playwright-report/
 # Учётные данные и сессии сотрудников браузерных тестов
 tests/e2e/.auth/
 dist/
+
+# local file storage (FILE_STORAGE=local)
+/.storage/

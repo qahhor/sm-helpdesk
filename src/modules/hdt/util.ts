@@ -1,5 +1,7 @@
 // Модуль hdt, слой util: чистые функции без обращения к базе (docs/naming.md, раздел 5).
 
+import { ALLOWED_FILES, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES } from './pref';
+
 const TITLE_MAX = 80;
 
 /**
@@ -24,3 +26,25 @@ export function parseNumber(raw: string): number | null {
   const match = /^\s*(?:sup-)?(\d{1,12})\s*$/i.exec(raw);
   return match ? Number(match[1]) : null;
 }
+
+/**
+ * Тип файла по расширению, сверенный с заявленным браузером (FR-TK-13). null: расширение не из списка
+ * или заявлен другой тип (например, text/html для .png). Регистр расширения не важен.
+ */
+export function fileTypeOf(fileName: string, declared: string): string | null {
+  const dot = fileName.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const ext = fileName.slice(dot + 1).toLowerCase();
+  const mime = Object.hasOwn(ALLOWED_FILES, ext) ? ALLOWED_FILES[ext] : undefined;
+  if (!mime) return null;
+  const given = declared.split(';')[0]?.trim().toLowerCase() ?? '';
+  if (given === '' || given === 'application/octet-stream' || given === mime || MIME_ALIASES[ext]?.includes(given)) return mime;
+  return null;
+}
+
+/** Предел размера для типа: видео MP4 до 50 МБ, остальное до 25 МБ. */
+export const maxBytesFor = (mime: string): number => (mime === 'video/mp4' ? MAX_VIDEO_BYTES : MAX_FILE_BYTES);
+
+/** Ключи хранилища (раздел 11.11): до проверки файл лежит в карантине, после чистой проверки в папке организации. */
+export const quarantineKey = (attachmentId: string): string => `quarantine/${attachmentId}`;
+export const fileKey = (orgId: string, attachmentId: string): string => `files/${orgId}/${attachmentId}`;

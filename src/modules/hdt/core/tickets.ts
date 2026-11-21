@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'd
 import { type ClientActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
-import { type Impact, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
+import { ATTACHABLE_SCAN_STATUSES, type Impact, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 
 // Модуль hdt, слой core: обращения. Операции с данными внутри withActor под ролью hub_app.
@@ -58,7 +58,14 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
       const attached = await tx
         .update(attachments)
         .set({ ticketId: row.ticketId })
-        .where(and(inArray(attachments.attachmentId, input.attachmentIds), eq(attachments.uploaderId, actor.userId), isNull(attachments.ticketId)))
+        .where(
+          and(
+            inArray(attachments.attachmentId, input.attachmentIds),
+            eq(attachments.uploaderId, actor.userId),
+            isNull(attachments.ticketId),
+            inArray(attachments.scanStatus, ATTACHABLE_SCAN_STATUSES),
+          ),
+        )
         .returning({ attachmentId: attachments.attachmentId });
       if (attached.length !== new Set(input.attachmentIds).size) throw new HdtError('invalid_input');
     }

@@ -4,7 +4,7 @@ import { LOCALE_COOKIE } from '@/i18n/locales';
 import { localizedPath, resolveLocale } from '@/i18n/resolve-locale';
 import { routing } from '@/i18n/routing';
 import { sessionCookieRefresh } from '@/modules/hdu/api/session-cookie';
-import { buildCsp, createNonce, CSP_HEADER } from '@/security/csp';
+import { buildCsp, createNonce, CSP_HEADER, storageOriginOf } from '@/security/csp';
 import { isPublicPath } from '@/security/public-paths';
 
 // Выполняется перед каждым запросом страницы (в Next.js 16 файл называется proxy, раньше middleware).
@@ -30,7 +30,7 @@ export function proxy(request: NextRequest): NextResponse {
   }
 
   const nonce = createNonce();
-  const csp = buildCsp({ nonce, dev: process.env.NODE_ENV === 'development' });
+  const csp = buildCsp({ nonce, dev: process.env.NODE_ENV === 'development', storageOrigin: storageOriginOf(process.env) });
 
   // Приложение получает код только от прокси: значения, присланные клиентом, затираются.
   // Next.js берёт код для своих скриптов из заголовка политики в запросе.

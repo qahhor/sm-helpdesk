@@ -149,3 +149,10 @@ export const savedFilters = pgTable('hdt_saved_filters', {
   isShared: boolean('is_shared').notNull().default(false),
   ...stampColumns,
 });
+
+export const ticketReads = pgTable('hdt_ticket_reads', {
+  ticketId: uuid('ticket_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  seenOn: moment('seen_on').notNull(),
+  ...stampColumns,
+});

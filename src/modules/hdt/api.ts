@@ -31,13 +31,18 @@ import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from '
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeUpload, handleUploadRequest, presignUpload } from './api/uploads';
 // Скачивание вложений (задача 8).
-export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest } from './api/attachments';
+export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest, staffAttachmentRedirect } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
 export { needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments } from './api/jobs';
 export {
   deleteFilter,
   listFilters,
+  getAgentTicket,
+  type AgentFileView,
+  type AgentTicketView,
+  type AgentTimelineEntry,
   listQueue,
+  markTicketRead,
   QUEUE_KEYS,
   QUEUE_PAGE_SIZE,
   QUEUE_SORTS,

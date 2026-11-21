@@ -1,4 +1,5 @@
 import 'server-only';
+import { findVerifiedEmails } from '../core/members';
 import { findOrgIdsTx, findUserIdsTx, type OrgSummary, orgSummariesTx } from '../core/staff-lookup';
 import type { StaffContext } from './session';
 
@@ -19,4 +20,9 @@ export function findUserIds(ctx: StaffContext, query: string): Promise<string[]>
 
 export function orgSummaries(ctx: StaffContext, orgIds: string[]): Promise<Map<string, OrgSummary>> {
   return orgSummariesTx(ctx.actor, orgIds);
+}
+
+/** Подтверждённые адреса людей для карточки обращения. Служебных адресов без почты нет. */
+export function verifiedEmails(_ctx: StaffContext, userIds: string[]): Promise<Map<string, string>> {
+  return findVerifiedEmails(userIds);
 }

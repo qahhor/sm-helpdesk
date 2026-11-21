@@ -924,6 +924,80 @@
       "errors": {
         "filterInvalid": "Ro'yxatga nom bering: 1 dan 80 belgigacha."
       }
+    },
+    "ticket": {
+      "files": "Fayllar",
+      "preview": "Ochish",
+      "internalFile": "eslatma fayli",
+      "system": "Tizim",
+      "client": "Mijoz",
+      "note": "Eslatma",
+      "new": "yangi",
+      "scan": {
+        "pending": "tekshirilmoqda",
+        "infected": "viruslarga tekshiruvdan o'tmadi",
+        "rejected": "qabul qilinmadi"
+      },
+      "authors": {
+        "client": "Mijoz",
+        "staff": "Xodim",
+        "system": "Tizim",
+        "ai": "Tez · AI-yordamchi",
+        "agent": "AI-xodim"
+      },
+      "events": {
+        "status": "{actor}: holat {from} > {to}",
+        "priority": "{actor}: ustuvorlik {from} > {to}. Sabab: {reason}",
+        "assignee": "{actor}: ijrochi {to}",
+        "unassigned": "{actor}: ijrochi olib tashlandi",
+        "queue": "{actor}: {to}",
+        "due": "Muddat buzildi: {kind}",
+        "type": "{actor}: turi o'zgartirildi",
+        "module": "{actor}: modul o'zgartirildi",
+        "snooze": "{actor}: qoldirildi",
+        "merge": "{actor}: birlashtirildi",
+        "visibility": "{actor}: ko'rinish o'zgartirildi",
+        "rated": "{actor}: baho qo'yildi",
+        "rule": "Qoida ishladi"
+      },
+      "dueKinds": {
+        "first_response": "birinchi javob",
+        "resolution": "hal qilish"
+      },
+      "lines": {
+        "l1": "Birinchi liniya",
+        "l2": "Ikkinchi liniya",
+        "care": "Customer Care"
+      },
+      "types": {
+        "bug": "Xato",
+        "question": "Savol",
+        "service_request": "Xizmat ko'rsatish so'rovi"
+      },
+      "sources": {
+        "portal": "portal",
+        "widget_web": "vidjet",
+        "widget_mobile": "mobil ilova",
+        "email": "pochta",
+        "staff": "xodim tomonidan yaratilgan"
+      },
+      "priorityUnconfirmed": "ustuvorlik tasdiqlanmagan",
+      "snoozed": "{time} gacha qoldirilgan",
+      "lastVisit": "Oldingi tashrifingiz: {time}. O'shandan beri yangilari belgilangan.",
+      "details": "Murojaat ma'lumotlari",
+      "clientTitle": "MIJOZ",
+      "inn": "STIR {inn}",
+      "server": "Server: {server}",
+      "category": "Toifa: {category}",
+      "slaTitle": "MUDDATLAR",
+      "firstResponse": "Birinchi javob: {time}",
+      "resolution": "Hal qilish: {time}",
+      "done": "{time} da berildi",
+      "paused": "pauzada, mijoz kutilmoqda",
+      "noDeadline": "belgilanmagan",
+      "workTitle": "ISH",
+      "assignee": "Ijrochi: {name}",
+      "source": "Manba: {source}"
     }
   },
   "auth": {

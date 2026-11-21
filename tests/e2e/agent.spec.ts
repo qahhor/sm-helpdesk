@@ -49,3 +49,21 @@ test('очереди: новое обращение клиента в "Новы�
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
 });
+
+test('обращение у сотрудника открывается из очереди; клиенту адрес рабочего места отвечает "не найдено"', async ({ page, browser }) => {
+  const description = `Страница агента ${Date.now()}`;
+  const number = await clientTicket(browser, description);
+  await page.goto(`/ru/agent/queues?queue=all&q=SUP-${number}`);
+  await main(page).getByRole('link', { name: String(number), exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${number}$`));
+  await expect(main(page).locator('article').getByText(description)).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Сведения об обращении' })).toContainText('ACME Trade');
+  const axe = await new AxeBuilder({ page }).analyze();
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  // Клиент по ссылке рабочего места: одинаковое "не найдено", без подсказки, что такой раздел есть.
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  expect((await client.goto(`/ru/agent/tickets/SUP-${number}`))?.status()).toBe(404);
+  expect((await client.goto('/ru/agent/queues'))?.status()).toBe(404);
+  await clientContext.close();
+});

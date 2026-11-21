@@ -924,6 +924,80 @@
       "errors": {
         "filterInvalid": "Name the list: 1 to 80 characters."
       }
+    },
+    "ticket": {
+      "files": "Files",
+      "preview": "Open",
+      "internalFile": "note file",
+      "system": "System",
+      "client": "Client",
+      "note": "Note",
+      "new": "new",
+      "scan": {
+        "pending": "being checked",
+        "infected": "failed the virus check",
+        "rejected": "not accepted"
+      },
+      "authors": {
+        "client": "Client",
+        "staff": "Staff member",
+        "system": "System",
+        "ai": "Tez · AI assistant",
+        "agent": "AI employee"
+      },
+      "events": {
+        "status": "{actor}: status {from} > {to}",
+        "priority": "{actor}: priority {from} > {to}. Reason: {reason}",
+        "assignee": "{actor}: assignee {to}",
+        "unassigned": "{actor}: assignee removed",
+        "queue": "{actor}: {to}",
+        "due": "Deadline missed: {kind}",
+        "type": "{actor}: type changed",
+        "module": "{actor}: module changed",
+        "snooze": "{actor}: snoozed",
+        "merge": "{actor}: merged",
+        "visibility": "{actor}: visibility changed",
+        "rated": "{actor}: rated",
+        "rule": "A rule fired"
+      },
+      "dueKinds": {
+        "first_response": "first response",
+        "resolution": "resolution"
+      },
+      "lines": {
+        "l1": "First line",
+        "l2": "Second line",
+        "care": "Customer Care"
+      },
+      "types": {
+        "bug": "Bug",
+        "question": "Question",
+        "service_request": "Service request"
+      },
+      "sources": {
+        "portal": "portal",
+        "widget_web": "widget",
+        "widget_mobile": "mobile app",
+        "email": "email",
+        "staff": "created by staff"
+      },
+      "priorityUnconfirmed": "priority not confirmed",
+      "snoozed": "snoozed until {time}",
+      "lastVisit": "Your last visit: {time}. Everything new since then is marked.",
+      "details": "Ticket details",
+      "clientTitle": "CLIENT",
+      "inn": "TIN {inn}",
+      "server": "Server: {server}",
+      "category": "Category: {category}",
+      "slaTitle": "DEADLINES",
+      "firstResponse": "First response: {time}",
+      "resolution": "Resolution: {time}",
+      "done": "given {time}",
+      "paused": "paused, waiting for the client",
+      "noDeadline": "not set",
+      "workTitle": "WORK",
+      "assignee": "Assignee: {name}",
+      "source": "Source: {source}"
     }
   },
   "auth": {

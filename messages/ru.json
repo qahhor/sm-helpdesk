@@ -924,6 +924,80 @@
       "errors": {
         "filterInvalid": "Назовите список: от 1 до 80 знаков."
       }
+    },
+    "ticket": {
+      "files": "Файлы",
+      "preview": "Открыть",
+      "internalFile": "файл заметки",
+      "system": "Система",
+      "client": "Клиент",
+      "note": "Заметка",
+      "new": "новое",
+      "scan": {
+        "pending": "проверяется",
+        "infected": "не прошёл проверку на вирусы",
+        "rejected": "не принят"
+      },
+      "authors": {
+        "client": "Клиент",
+        "staff": "Сотрудник",
+        "system": "Система",
+        "ai": "Тез · AI-ассистент",
+        "agent": "AI-сотрудник"
+      },
+      "events": {
+        "status": "{actor}: статус {from} > {to}",
+        "priority": "{actor}: приоритет {from} > {to}. Причина: {reason}",
+        "assignee": "{actor}: исполнитель {to}",
+        "unassigned": "{actor}: исполнитель снят",
+        "queue": "{actor}: {to}",
+        "due": "Нарушен срок: {kind}",
+        "type": "{actor}: изменён тип",
+        "module": "{actor}: изменён модуль",
+        "snooze": "{actor}: отложено",
+        "merge": "{actor}: объединено",
+        "visibility": "{actor}: изменена видимость",
+        "rated": "{actor}: поставлена оценка",
+        "rule": "Сработало правило"
+      },
+      "dueKinds": {
+        "first_response": "первый ответ",
+        "resolution": "решение"
+      },
+      "lines": {
+        "l1": "Первая линия",
+        "l2": "Вторая линия",
+        "care": "Customer Care"
+      },
+      "types": {
+        "bug": "Ошибка",
+        "question": "Вопрос",
+        "service_request": "Запрос на обслуживание"
+      },
+      "sources": {
+        "portal": "портал",
+        "widget_web": "виджет",
+        "widget_mobile": "мобильное приложение",
+        "email": "почта",
+        "staff": "создано сотрудником"
+      },
+      "priorityUnconfirmed": "приоритет не подтверждён",
+      "snoozed": "отложено до {time}",
+      "lastVisit": "Ваш прошлый визит: {time}. Новое с тех пор отмечено.",
+      "details": "Сведения об обращении",
+      "clientTitle": "КЛИЕНТ",
+      "inn": "ИНН {inn}",
+      "server": "Сервер: {server}",
+      "category": "Категория: {category}",
+      "slaTitle": "СРОКИ",
+      "firstResponse": "Первый ответ: {time}",
+      "resolution": "Решение: {time}",
+      "done": "дан {time}",
+      "paused": "на паузе, ждём клиента",
+      "noDeadline": "не задан",
+      "workTitle": "РАБОТА",
+      "assignee": "Исполнитель: {name}",
+      "source": "Источник: {source}"
     }
   },
   "auth": {

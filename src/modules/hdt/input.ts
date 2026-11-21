@@ -2,7 +2,7 @@ import * as z from 'zod';
 import { LOCALES } from '@/i18n/locales';
 import { cleanUserText } from '@/modules/hdc/pref';
 import { HdtError } from './error';
-import { CSAT_REASONS, IMPACTS, MAX_SNOOZE_DAYS, PRESENCE_MODES, PRIORITIES, RESOLUTION_TYPES, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
+import { CSAT_REASONS, IMPACTS, MAX_SNOOZE_DAYS, PRESENCE_MODES, PRIORITIES, RESOLUTION_TYPES, TICKET_STATUSES, TICKET_TYPES, TRANSFER_REASONS, VISIBILITIES } from './pref';
 import { QUEUE_KEYS, QUEUE_SORTS } from './core/agent-queue-keys';
 
 // Схемы входных данных модуля hdt. Каждая точка входа разбирает свой вход схемой (ТЗ 9.4, правило 7).
@@ -142,6 +142,18 @@ export const presenceInput = z.object({ number: numberInput, mode: z.enum(PRESEN
 
 /** Загрузка сотрудника: организация файла берётся из обращения, поэтому нужен его номер. */
 export const staffPresignInput = presignUploadInput.extend({ number: numberInput });
+
+/** Передача на вторую линию (FR-LINE-03): причина из списка, что проверено, что требуется. Пункты памятки по желанию. */
+export const transferInput = z.object({
+  number: numberInput,
+  reason: z.enum(TRANSFER_REASONS),
+  checked: z.string().overwrite(cleanUserText).trim().min(1).max(2000),
+  needed: z.string().overwrite(cleanUserText).trim().min(1).max(2000),
+  checklist: z.array(z.string().overwrite(cleanUserText).trim().min(1).max(300)).max(50).default([]),
+});
+
+/** Возврат на первую линию (FR-LINE-04): пояснение обязательно. */
+export const returnInput = z.object({ number: numberInput, explanation: z.string().overwrite(cleanUserText).trim().min(1).max(2000) });
 
 export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);

@@ -10,6 +10,7 @@ import {
   listPresence,
   postStaffMessage,
   type PresenceEntry,
+  returnToL1,
   saveDraft,
   setPriority,
   setStatus,
@@ -20,6 +21,7 @@ import {
   snoozeTicket,
   takeTicket,
   touchPresence,
+  transferToL2,
   zonedToDate,
 } from '@/modules/hdt/api';
 import { requireStaffActor, type StaffContext } from '@/modules/hdu/api';
@@ -147,4 +149,25 @@ export async function presenceAction(input: { number: number; mode: 'viewing' | 
     if (!isHdtError(error)) throw error;
     return [];
   }
+}
+
+// --- Передача между линиями (план M3, задача 9) ---
+
+export async function transferAction(form: FormData): Promise<void> {
+  await run(
+    form,
+    (staff, number) =>
+      transferToL2(staff, {
+        number,
+        reason: text(form, 'reason'),
+        checked: String(form.get('checked') ?? ''),
+        needed: String(form.get('needed') ?? ''),
+        checklist: form.getAll('checklist').map(String),
+      }),
+    'transferred',
+  );
+}
+
+export async function returnAction(form: FormData): Promise<void> {
+  await run(form, (staff, number) => returnToL1(staff, { number, explanation: String(form.get('explanation') ?? '') }), 'returned');
 }

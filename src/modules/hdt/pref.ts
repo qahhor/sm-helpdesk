@@ -190,6 +190,14 @@ export type PresenceMode = (typeof PRESENCE_MODES)[number];
 export const PRESENCE_TTL_SEC = 60;
 export const PRESENCE_TOUCH_SEC = 10;
 
+/** Причины передачи на вторую линию (FR-LINE-03, решение 3 плана M3, подтверждено владельцем). */
+export const TRANSFER_REASONS = ['needs_client_data', 'suspected_bug', 'client_configuration', 'data_fix', 'not_in_playbook', 'other'] as const;
+export type TransferReason = (typeof TRANSFER_REASONS)[number];
+/** Срок "взять в работу" для второй линии по приоритету, рабочих минут (FR-LINE-06): {"p1": 30}. Нет: срок первого ответа. */
+export const PICKUP_SETTING = 'lines.pickup_minutes';
+/** Из каких статусов первая линия передаёт обращение на вторую. */
+export const TRANSFERABLE_STATUSES: readonly TicketStatus[] = ['new', 'in_progress', 'waiting_customer'];
+
 export const RESOLUTION_TYPES = ['solved', 'workaround', 'not_reproducible', 'duplicate', 'by_design', 'fixed_in_version'] as const;
 export type ResolutionType = (typeof RESOLUTION_TYPES)[number];
 

@@ -383,7 +383,8 @@
       "title": "Workspace",
       "emptyTitle": "Start with the queues",
       "emptyText": "Client tickets are gathered in queues by reply deadline.",
-      "openQueues": "Open queues"
+      "openQueues": "Open queues",
+      "openPlaybooks": "First-line playbooks"
     },
     "orgs": {
       "title": "Organizations",
@@ -707,7 +708,8 @@
           "attachment": "Attachment",
           "module": "Product modules",
           "sla_policy": "SLA targets",
-          "business_calendar": "Working calendar"
+          "business_calendar": "Working calendar",
+          "playbook": "First-line playbook"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -764,7 +766,9 @@
             "priority_changed": "Priority changed",
             "type_changed": "Ticket type changed",
             "module_changed": "Ticket module changed",
-            "snoozed": "Ticket snoozed"
+            "snoozed": "Ticket snoozed",
+            "line_transferred": "Transferred to the second line",
+            "line_returned": "Returned to the first line"
           },
           "attachment": {
             "infected": "Infected file found"
@@ -776,6 +780,9 @@
             "policy_changed": "SLA targets changed",
             "calendar_changed": "Support working hours changed",
             "holidays_changed": "Holidays changed"
+          },
+          "playbook": {
+            "saved": "First-line playbook saved"
           }
         },
         "words": {
@@ -963,7 +970,9 @@
         "merge": "{actor}: merged",
         "visibility": "{actor}: visibility changed",
         "rated": "{actor}: rated",
-        "rule": "A rule fired"
+        "rule": "A rule fired",
+        "transferred": "{actor}: transferred to the second line. Reason: {reason}. Checked: {checked}. Needed: {needed}",
+        "returned": "{actor}: returned to the first line. {explanation}"
       },
       "dueKinds": {
         "first_response": "first response",
@@ -1047,7 +1056,9 @@
           "module": "Module saved",
           "snoozed": "Snooze saved",
           "sent": "Reply sent",
-          "noted": "Note saved"
+          "noted": "Note saved",
+          "transferred": "Ticket transferred to the second line",
+          "returned": "Ticket returned to the first line"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -1093,6 +1104,59 @@
           "show": "Show changes",
           "sendAnyway": "Send anyway"
         }
+      },
+      "line": "Line: {line}",
+      "pickupDue": "Pick up by: {time}",
+      "transfer": {
+        "open": "Transfer to the second line",
+        "title": "Transfer to the second line",
+        "reason": "Reason",
+        "reasonHint": "Choose a reason",
+        "playbook": "First-line playbook for \"{scope}\":",
+        "noPlaybook": "There is no playbook for this module and type yet.",
+        "playbooksLink": "All playbooks",
+        "anyModule": "All modules",
+        "checked": "What was already checked",
+        "needed": "What the second line needs to do",
+        "deadlineReply": "The client deadline does not change: reply by {time}.",
+        "deadlineResolution": "The client deadline does not change: resolution by {time}.",
+        "deadlineNone": "The client deadline does not change.",
+        "cancel": "Cancel",
+        "submit": "Transfer to second",
+        "close": "Close",
+        "reasons": {
+          "needs_client_data": "Needs access to client data",
+          "suspected_bug": "Looks like a product bug",
+          "client_configuration": "Needs configuration at the client",
+          "data_fix": "Data needs fixing",
+          "not_in_playbook": "Not in the first-line playbook",
+          "other": "Other"
+        }
+      },
+      "return": {
+        "open": "Return to the first line",
+        "title": "Return to the first line",
+        "explanation": "Explanation for the first line",
+        "submit": "Return"
+      }
+    },
+    "playbooks": {
+      "title": "First-line playbooks",
+      "intro": "What to check before handing over to the second line, by module and ticket type. The agent sees the playbook in the transfer window.",
+      "anyModule": "All modules",
+      "emptyTitle": "No playbooks yet",
+      "emptyText": "The second line will add the first playbook here.",
+      "owner": "Kept by {name}, changed {time}",
+      "editTitle": "Add or change a playbook",
+      "editHint": "One item per line. A playbook for the same module and type is replaced.",
+      "module": "Module",
+      "type": "Ticket type",
+      "body": "Playbook items",
+      "save": "Save playbook",
+      "saved": "Playbook saved",
+      "errors": {
+        "forbidden": "Playbooks are kept by the second line, Customer Care and the administrator.",
+        "invalid_input": "Write at least one item."
       }
     }
   },

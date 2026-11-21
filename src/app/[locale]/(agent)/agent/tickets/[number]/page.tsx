@@ -1,16 +1,19 @@
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
-import { listActiveModules } from '@/modules/hdr/api';
+import { getPlaybook, listActiveModules } from '@/modules/hdr/api';
 import {
   type AgentFileView,
   type AgentTimelineEntry,
   ALLOWED_FILE_EXTENSIONS,
+  DEVELOPMENT_ROLES,
   getAgentTicket,
   HDT_ERROR_CODES,
   loadDraft,
   markTicketRead,
   MAX_FILES_PER_MESSAGE,
+  TRANSFER_REASONS,
+  TRANSFERABLE_STATUSES,
 } from '@/modules/hdt/api';
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
@@ -23,7 +26,9 @@ import { cn } from '@/ui/cn';
 import { acceptOf, STATUS_TONE } from '@/ui/ticket-status';
 import { Composer } from './Composer';
 import { PresenceBar } from './PresenceBar';
+import { ReturnDialog } from './ReturnDialog';
 import { TicketControls } from './TicketControls';
+import { TransferDialog } from './TransferDialog';
 
 // Обращение у сотрудника (раздел 8.4 "Обращение у агента", FR-AG-04, FR-AG-05, UX-A-14, UX-A-15).
 // Слева переписка с заметками и историей, справа клиент, сроки, контекст. Новое с прошлого визита отмечено.
@@ -36,7 +41,7 @@ function safeDecode(value: string): string | null {
   }
 }
 
-const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted'] as const;
+const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned'] as const;
 
 type Search = { done?: string; error?: string };
 
@@ -52,10 +57,18 @@ export default async function AgentTicketPage({ params, searchParams }: { params
   const [assignable, modules, draft] = canWrite
     ? await Promise.all([listAssignableStaff(staff), listActiveModules(staff.actor, await getLocale()), loadDraft(staff, ticket.number)])
     : [[], [], null];
+  const t = await getTranslations('agent');
   const tc = await getTranslations('client.tickets');
+  // Линии (FR-LINE-03, 04): передать может тот, кто ведёт обращения, с первой линии; вернуть вторая линия, care, admin.
+  const canTransfer = canWrite && ticket.line === 'l1' && TRANSFERABLE_STATUSES.includes(ticket.status);
+  const canReturn =
+    (DEVELOPMENT_ROLES as readonly string[]).includes(staff.actor.staffRole) && ticket.line !== 'l1' && ticket.status !== 'resolved' && ticket.status !== 'closed';
+  const playbook = canTransfer ? await getPlaybook(staff.actor, { moduleId: ticket.moduleId, type: ticket.type }) : null;
+  const playbookScope = playbook
+    ? `${playbook.moduleId ? (modules.find((m) => m.moduleId === playbook.moduleId)?.name ?? '') : t('ticket.transfer.anyModule')} / ${t(`ticket.types.${ticket.type}`)}`
+    : null;
   const done = DONE.find((code) => code === search.done);
   const error = HDT_ERROR_CODES.find((code) => code === search.error);
-  const t = await getTranslations('agent');
   const format = await getFormatter();
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
   const label = `SUP-${ticket.number}`;
@@ -104,6 +117,14 @@ export default async function AgentTicketPage({ params, searchParams }: { params
       case 'assignee':
         return p.toName ? t('ticket.events.assignee', { actor, to: String(p.toName) }) : t('ticket.events.unassigned', { actor });
       case 'queue':
+        if (p.from !== undefined && p.to === 'l1') return t('ticket.events.returned', { actor, explanation: String(p.explanation ?? '') });
+        if (p.from !== undefined)
+          return t('ticket.events.transferred', {
+            actor,
+            reason: t.has(`ticket.transfer.reasons.${String(p.reason)}`) ? t(`ticket.transfer.reasons.${String(p.reason)}`) : String(p.reason ?? ''),
+            checked: String(p.checked ?? ''),
+            needed: String(p.needed ?? ''),
+          });
         return t('ticket.events.queue', { actor, to: t.has(`ticket.lines.${String(p.to)}`) ? t(`ticket.lines.${String(p.to)}`) : String(p.to ?? '') });
       case 'due':
         return t('ticket.events.due', { kind: t.has(`ticket.dueKinds.${String(p.kind)}`) ? t(`ticket.dueKinds.${String(p.kind)}`) : '' });
@@ -263,8 +284,49 @@ export default async function AgentTicketPage({ params, searchParams }: { params
           <Card>
             <CardContent className="flex flex-col gap-1 pt-6 text-sm">
               <h2 className="text-xs font-medium text-secondary-foreground">{t('ticket.workTitle')}</h2>
+              <p>{t('ticket.line', { line: t(`ticket.lines.${ticket.line}`) })}</p>
+              {ticket.pickup && <p data-pickup>{t('ticket.pickupDue', { time: when(ticket.pickup.dueOn) })}</p>}
               <p>{t('ticket.assignee', { name: ticket.assignee?.name ?? t('queues.unassigned') })}</p>
               <p>{t('ticket.source', { source: t(`ticket.sources.${ticket.source}`) })}</p>
+              {canTransfer && (
+                <TransferDialog
+                  number={ticket.number}
+                  reasons={TRANSFER_REASONS.map((value) => ({ value, label: t(`ticket.transfer.reasons.${value}`) }))}
+                  items={playbook?.items ?? []}
+                  labels={{
+                    open: t('ticket.transfer.open'),
+                    title: t('ticket.transfer.title'),
+                    reason: t('ticket.transfer.reason'),
+                    reasonHint: t('ticket.transfer.reasonHint'),
+                    playbook: playbookScope ? t('ticket.transfer.playbook', { scope: playbookScope }) : null,
+                    noPlaybook: t('ticket.transfer.noPlaybook'),
+                    playbooksLink: t('ticket.transfer.playbooksLink'),
+                    checked: t('ticket.transfer.checked'),
+                    needed: t('ticket.transfer.needed'),
+                    deadline: !ticket.sla.firstRespondedOn && ticket.sla.firstResponseDueOn
+                      ? t('ticket.transfer.deadlineReply', { time: when(ticket.sla.firstResponseDueOn) })
+                      : ticket.sla.resolutionDueOn
+                        ? t('ticket.transfer.deadlineResolution', { time: when(ticket.sla.resolutionDueOn) })
+                        : t('ticket.transfer.deadlineNone'),
+                    cancel: t('ticket.transfer.cancel'),
+                    submit: t('ticket.transfer.submit'),
+                    close: t('ticket.transfer.close'),
+                  }}
+                />
+              )}
+              {canReturn && (
+                <ReturnDialog
+                  number={ticket.number}
+                  labels={{
+                    open: t('ticket.return.open'),
+                    title: t('ticket.return.title'),
+                    explanation: t('ticket.return.explanation'),
+                    cancel: t('ticket.transfer.cancel'),
+                    submit: t('ticket.return.submit'),
+                    close: t('ticket.transfer.close'),
+                  }}
+                />
+              )}
             </CardContent>
           </Card>
         </aside>

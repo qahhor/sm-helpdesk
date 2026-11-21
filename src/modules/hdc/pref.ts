@@ -50,6 +50,10 @@ export const AUDIT_ACTIONS = [
   'ticket.type_changed',
   'ticket.module_changed',
   'ticket.snoozed',
+  'ticket.line_transferred',
+  'ticket.line_returned',
+  // Памятки первой линии (веха M3).
+  'playbook.saved',
   // Сроки SLA и рабочий календарь (веха M3).
   'sla.policy_changed',
   'sla.calendar_changed',

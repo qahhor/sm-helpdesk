@@ -1,4 +1,6 @@
 import * as z from 'zod';
+import { cleanUserText } from '@/modules/hdc/pref';
+import { TICKET_TYPES } from '@/modules/hdt/pref';
 
 // Модуль hdr: схема файла выгрузки модулей Smartup для команды hub modules:import (план M2, задача 10).
 
@@ -74,3 +76,10 @@ export const holidaysInput = z
   .strictObject({ year: z.coerce.number().int().min(2024).max(2100), dates: z.array(realDate).max(60) })
   .refine((value) => value.dates.every((date) => date.startsWith(`${value.year}-`)))
   .refine((value) => new Set(value.dates).size === value.dates.length);
+
+/** Памятка первой линии (FR-LINE-10): модуль (пусто: общая для типа), тип обращения, пункты по строкам. */
+export const playbookInput = z.object({
+  moduleId: z.uuid().nullable(),
+  type: z.enum(TICKET_TYPES),
+  body: z.string().overwrite(cleanUserText).trim().min(1).max(10000),
+});

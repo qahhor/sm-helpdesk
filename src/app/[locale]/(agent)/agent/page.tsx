@@ -22,9 +22,14 @@ export default async function AgentHomePage() {
           title={t('home.emptyTitle')}
           text={t('home.emptyText')}
           action={
-            <Link href="/agent/queues" className={buttonVariants()}>
-              {t('home.openQueues')}
-            </Link>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link href="/agent/queues" className={buttonVariants()}>
+                {t('home.openQueues')}
+              </Link>
+              <Link href="/agent/playbooks" className={buttonVariants({ variant: 'secondary' })}>
+                {t('home.openPlaybooks')}
+              </Link>
+            </div>
           }
         />
       </Card>

@@ -30,6 +30,8 @@ import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from '
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeStaffUpload, completeUpload, handleUploadRequest, presignStaffUpload, presignUpload } from './api/uploads';
+// Передача между линиями (план M3, задача 9).
+export { returnToL1, transferToL2 } from './api/lines';
 // Ответ, заметка, черновик и присутствие сотрудника (план M3, задача 8).
 export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type PresenceEntry, saveDraft, touchPresence } from './api/agent-messages';
 // Скачивание вложений (задача 8).
@@ -75,12 +77,15 @@ export { formatNumber, parseNumber } from './util';
 export {
   allowedStaffTransitions,
   CSAT_REASONS,
+  DEVELOPMENT_ROLES,
   IMPACTS,
   MAX_FILES_PER_MESSAGE,
   PRIORITIES,
   RESOLUTION_TYPES,
   TICKET_STATUSES,
   TICKET_TYPES,
+  TRANSFER_REASONS,
+  TRANSFERABLE_STATUSES,
   VISIBILITIES,
 } from './pref';
 export type { CsatReason, Impact, Priority, ResolutionType, ScanStatus, TicketStatus, TicketType, Visibility } from './pref';

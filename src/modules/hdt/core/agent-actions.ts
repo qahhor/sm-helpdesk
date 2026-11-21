@@ -1,5 +1,5 @@
 import 'server-only';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { type AuditAction, writeAudit } from '@/modules/hdc/api';
@@ -14,7 +14,7 @@ import {
   type TicketStatus,
   type TicketType,
 } from '../pref';
-import { ticketEvents, tickets } from '../schema';
+import { lineTransfers, ticketEvents, tickets } from '../schema';
 import { refreshSla } from './sla';
 
 // Модуль hdt, слой core: действия сотрудника с обращением (FR-AG-02, 04, 09, 13, FR-SLA-03, раздел 7.2;
@@ -117,6 +117,18 @@ export async function changeAssigneeTx(tx: Tx, actor: StaffActor, ticket: Locked
   ticket.assigneeId = assigneeId;
 }
 
+/**
+ * Вторая линия взялась за обращение (FR-LINE-06): первое "Взять себе" или ответ сотрудника второй линии
+ * отмечает открытую передачу на вторую линию. Повторное действие отметку не меняет.
+ */
+export async function markPickedUpTx(tx: Tx, actor: StaffActor, ticket: LockedTicket): Promise<void> {
+  if (ticket.queue === 'l1' || !(DEVELOPMENT_ROLES as readonly string[]).includes(actor.staffRole)) return;
+  await tx
+    .update(lineTransfers)
+    .set({ pickedUpOn: sql`now()`, pickedUpBy: actor.userId })
+    .where(and(eq(lineTransfers.ticketId, ticket.ticketId), eq(lineTransfers.fromLine, 'l1'), isNull(lineTransfers.pickedUpOn)));
+}
+
 /** "Взять себе" (FR-AG-02): исполнитель я, новое становится "В работе". Уже взял другой: already_taken. */
 export async function takeTx(actor: StaffActor, number: number, myName: string): Promise<{ ticketId: string }> {
   assertCanWrite(actor);
@@ -125,6 +137,7 @@ export async function takeTx(actor: StaffActor, number: number, myName: string):
     if (ticket.assigneeId && ticket.assigneeId !== actor.userId) throw new HdtError('already_taken', { holderId: ticket.assigneeId });
     await changeAssigneeTx(tx, actor, ticket, actor.userId, myName);
     if (ticket.status === 'new') await changeStatusTx(tx, actor, ticket, 'in_progress');
+    await markPickedUpTx(tx, actor, ticket);
     return { ticketId: ticket.ticketId };
   });
 }

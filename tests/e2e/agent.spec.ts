@@ -165,3 +165,52 @@ test('обращение изменилось, пока агент писал: �
   await warning.getByRole('button', { name: 'Отправить всё равно' }).click();
   await expect(main(page).locator('article:not([data-internal])').last()).toContainText('Ответ, написанный до сообщения клиента');
 });
+
+test('передача на вторую линию: кнопка неактивна без трёх полей, памятка с флажками, возврат с пояснением; клиент линий не видит', async ({ page, browser }) => {
+  // Вторая линия (care) ведёт общую памятку для ошибок.
+  const care = await browser.newContext({ storageState: storageStateOf('care') });
+  const carePage = await care.newPage();
+  await carePage.goto('/ru/agent/playbooks');
+  await carePage.getByLabel('Тип обращения').selectOption('bug');
+  await carePage.getByLabel('Пункты памятки').fill('- Уточнён период отчёта\n- Проверено на другом пользователе');
+  await carePage.getByRole('button', { name: 'Сохранить памятку' }).click();
+  await expect(carePage.getByRole('status').filter({ hasText: 'Памятка сохранена' })).toBeVisible();
+
+  const number = await clientTicket(browser, `Передача ${Date.now()}`);
+  await page.goto(`/ru/agent/tickets/SUP-${number}`);
+  await page.getByRole('button', { name: 'Передать на вторую линию' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Передать на вторую линию' });
+  const submit = dialog.getByRole('button', { name: 'Передать на вторую', exact: true });
+  await expect(submit).toBeDisabled();
+  await dialog.getByLabel('Причина').selectOption({ label: 'Похоже на ошибку в продукте' });
+  await expect(submit).toBeDisabled();
+  await dialog.getByLabel('Что уже проверено').fill('Период месяц, у другого пользователя отчёт строится');
+  await expect(submit).toBeDisabled();
+  await dialog.getByLabel('Что требуется от второй линии').fill('Проверить права на склады');
+  await expect(submit).toBeEnabled();
+  await expect(dialog).toContainText('Срок перед клиентом не меняется');
+  await dialog.getByLabel('Уточнён период отчёта').check();
+  await submit.click();
+  await expect(main(page).getByRole('status').filter({ hasText: 'Обращение передано на вторую линию' })).toBeVisible();
+  await expect(main(page).locator('[data-event="queue"]')).toContainText('Проверено: Период месяц');
+  const details = page.getByRole('complementary', { name: 'Сведения об обращении' });
+  await expect(details).toContainText('Линия: Вторая линия');
+  await expect(details.locator('[data-pickup]')).toContainText('Взять в работу до');
+  await expect(details.getByRole('button', { name: 'Передать на вторую линию' })).toHaveCount(0);
+
+  await carePage.goto(`/ru/agent/tickets/SUP-${number}`);
+  await carePage.getByRole('button', { name: 'Вернуть на первую линию' }).click();
+  const back = carePage.getByRole('dialog', { name: 'Вернуть на первую линию' });
+  await expect(back.getByRole('button', { name: 'Вернуть', exact: true })).toBeDisabled();
+  await back.getByLabel('Пояснение для первой линии').fill('Права в порядке, уточните склад у клиента');
+  await back.getByRole('button', { name: 'Вернуть', exact: true }).click();
+  await expect(carePage.getByRole('main').getByRole('status').filter({ hasText: 'Обращение возвращено на первую линию' })).toBeVisible();
+  await care.close();
+
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.getByRole('main')).not.toContainText(/линия|эскалац/i);
+  await expect(client.getByRole('main')).not.toContainText('Права в порядке');
+  await clientContext.close();
+});

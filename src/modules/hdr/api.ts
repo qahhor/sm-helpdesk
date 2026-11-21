@@ -2,9 +2,10 @@ import 'server-only';
 import { and, asc, eq } from 'drizzle-orm';
 import { type Actor, withActor } from '@/db/with-actor';
 import type { StaffContext } from '@/modules/hdu/api';
+import { findPlaybookTx, listPlaybooksTx, type Playbook, PLAYBOOK_KEEPERS, savePlaybookTx } from './core/playbooks';
 import { loadSlaConfigTx, saveCalendarTx, saveHolidaysTx, saveSlaPolicyTx, type SlaConfig } from './core/sla-config';
 import { HdrError } from './error';
-import { calendarInput, holidaysInput, slaPolicyInput } from './input';
+import { calendarInput, holidaysInput, playbookInput, slaPolicyInput } from './input';
 import { productModules } from './schema';
 
 // Модуль hdr (справочники), слой api: то, что могут вызывать страницы и другие модули.
@@ -80,4 +81,26 @@ export async function saveHolidays(ctx: StaffContext, input: unknown): Promise<v
   requireAdmin(ctx);
   const data = parse(holidaysInput, input);
   await saveHolidaysTx(ctx.actor, data.year, data.dates);
+}
+
+// --- Памятки первой линии (план M3, задача 9) ---
+
+export { type Playbook, PLAYBOOK_KEEPERS } from './core/playbooks';
+export { playbookItems } from './util';
+
+/** Памятка "что проверить до передачи" для модуля и типа обращения, иначе общая для типа (FR-LINE-10). */
+export function getPlaybook(actor: Actor, input: { moduleId: string | null; type: string }): Promise<Playbook | null> {
+  const data = parse(playbookInput.pick({ moduleId: true, type: true }), input);
+  return findPlaybookTx(actor, data.moduleId, data.type);
+}
+
+export function listPlaybooks(ctx: StaffContext): Promise<Playbook[]> {
+  return listPlaybooksTx(ctx.actor);
+}
+
+/** Сохранить памятку: вторая линия, care и admin (10.5). */
+export async function savePlaybook(ctx: StaffContext, input: unknown): Promise<void> {
+  if (!(PLAYBOOK_KEEPERS as readonly string[]).includes(ctx.actor.staffRole)) throw new HdrError('forbidden');
+  const data = parse(playbookInput, input);
+  await savePlaybookTx(ctx.actor, data.moduleId, data.type, data.body);
 }

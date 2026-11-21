@@ -57,3 +57,16 @@ export const slaPolicies = pgTable('hdr_sla_policies', {
   calendarId: uuid('calendar_id').notNull(),
   ...stampColumns,
 });
+
+export type PlaybookTicketType = 'bug' | 'question' | 'service_request';
+
+export const playbooks = pgTable('hdr_l1_playbooks', {
+  playbookId: uuid('playbook_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  moduleId: uuid('module_id'),
+  ticketType: text('ticket_type').$type<PlaybookTicketType>().notNull(),
+  body: text('body').notNull(),
+  ownerId: uuid('owner_id').notNull(),
+  ...stampColumns,
+});

@@ -99,3 +99,12 @@ export function findMentions(body: string, people: readonly { userId: string; na
   }
   return found;
 }
+
+/** Срок "взять в работу" для второй линии, рабочих минут (FR-LINE-06): из настройки по приоритету, иначе срок первого ответа. */
+export function pickupMinutes(priority: string, setting: unknown, firstResponseMinutes: number): number {
+  if (setting && typeof setting === 'object' && !Array.isArray(setting)) {
+    const value = (setting as Record<string, unknown>)[priority];
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 100_000) return value;
+  }
+  return firstResponseMinutes;
+}

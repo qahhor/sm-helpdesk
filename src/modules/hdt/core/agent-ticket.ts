@@ -1,7 +1,7 @@
 import 'server-only';
-import { and, asc, eq, like, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, like, sql } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
-import { attachments, ticketEvents, ticketMessages, ticketReads, tickets } from '../schema';
+import { attachments, lineTransfers, ticketEvents, ticketMessages, ticketReads, tickets } from '../schema';
 
 // Модуль hdt, слой core: обращение глазами сотрудника (FR-AG-04, FR-AG-05, UX-A-15; план M3, задача 6).
 // Сотрудник видит всё: заметки, внутренние события, файлы любого состояния (5.3). Скачать можно только чистый файл.
@@ -17,7 +17,14 @@ export type AgentAttachmentRecord = Pick<
 export async function readAgentTicketTx(
   actor: StaffActor,
   number: number,
-): Promise<{ ticket: AgentTicketRecord; messages: AgentMessageRecord[]; events: AgentEventRecord[]; attachments: AgentAttachmentRecord[]; seenOn: Date | null } | null> {
+): Promise<{
+  ticket: AgentTicketRecord;
+  messages: AgentMessageRecord[];
+  events: AgentEventRecord[];
+  attachments: AgentAttachmentRecord[];
+  seenOn: Date | null;
+  transfer: { toLine: string; pickupDueOn: Date | null; pickedUpOn: Date | null } | null;
+} | null> {
   return withActor(actor, async (tx) => {
     const [ticket] = await tx.select().from(tickets).where(eq(tickets.number, number)).limit(1);
     if (!ticket) return null;
@@ -62,11 +69,17 @@ export async function readAgentTicketTx(
       .from(attachments)
       .where(eq(attachments.ticketId, ticket.ticketId))
       .orderBy(asc(attachments.createdOn), asc(attachments.attachmentId));
+    const [transfer] = await tx
+      .select({ toLine: lineTransfers.toLine, pickupDueOn: lineTransfers.pickupDueOn, pickedUpOn: lineTransfers.pickedUpOn })
+      .from(lineTransfers)
+      .where(eq(lineTransfers.ticketId, ticket.ticketId))
+      .orderBy(desc(lineTransfers.createdOn))
+      .limit(1);
     const [read] = await tx
       .select({ seenOn: ticketReads.seenOn })
       .from(ticketReads)
       .where(and(eq(ticketReads.ticketId, ticket.ticketId), eq(ticketReads.userId, actor.userId)));
-    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null };
+    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, transfer: transfer ?? null };
   });
 }
 

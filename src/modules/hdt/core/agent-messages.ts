@@ -3,10 +3,10 @@ import { type AnyColumn, and, count, eq, gt, inArray, isNull, ne, sql } from 'dr
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
-import { ATTACHABLE_SCAN_STATUSES, type PresenceMode, PRESENCE_TTL_SEC, type TicketStatus } from '../pref';
+import { ATTACHABLE_SCAN_STATUSES, DEVELOPMENT_ROLES, type PresenceMode, PRESENCE_TTL_SEC, type TicketStatus } from '../pref';
 import { attachments, mentions, replyDrafts, ticketEvents, ticketMessages, ticketPresence, tickets } from '../schema';
 import { findMentions } from '../util';
-import { assertCanWrite, changeAssigneeTx, changeStatusTx, lockAgentTicket } from './agent-actions';
+import { assertCanWrite, changeAssigneeTx, changeStatusTx, lockAgentTicket, markPickedUpTx } from './agent-actions';
 
 // Модуль hdt, слой core: ответ клиенту и внутренняя заметка сотрудника, черновик, присутствие
 // (FR-AG-03, FR-AG-12, FR-AG-21, FR-SLA-04, UX-A-05..07; план M3, задача 8, решения 6 и 10).
@@ -110,9 +110,12 @@ export async function postStaffMessageTx(
         .update(tickets)
         .set({ firstRespondedOn: sql`coalesce(${tickets.firstRespondedOn}, now())`, clientWaitingSince: null })
         .where(eq(tickets.ticketId, ticket.ticketId));
-      if (!ticket.assigneeId && ticket.status === 'new') await changeAssigneeTx(tx, actor, ticket, actor.userId, people.myName);
+      // Ответ берёт новое обращение на своей линии (решение 6): ответ первой линии на переданное второй не забирает его.
+      const ownLine = ticket.queue === 'l1' || (DEVELOPMENT_ROLES as readonly string[]).includes(actor.staffRole);
+      if (!ticket.assigneeId && ticket.status === 'new' && ownLine) await changeAssigneeTx(tx, actor, ticket, actor.userId, people.myName);
       const target: TicketStatus | null = input.waitForClient ? 'waiting_customer' : ticket.status === 'new' ? 'in_progress' : null;
       if (target && target !== ticket.status) await changeStatusTx(tx, actor, ticket, target);
+      await markPickedUpTx(tx, actor, ticket);
     }
     await tx.delete(replyDrafts).where(and(eq(replyDrafts.ticketId, ticket.ticketId), eq(replyDrafts.userId, actor.userId)));
     return { ok: true, ticketId: ticket.ticketId };

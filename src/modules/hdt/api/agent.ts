@@ -161,6 +161,8 @@ export type AgentTicketView = {
   resolutionType: string | null;
   resolvedVersion: string | null;
   snoozedUntil: Date | null;
+  /** Открытая передача на вторую линию (FR-LINE-06): срок "взять в работу", пока вторая линия не взялась. */
+  pickup: { dueOn: Date } | null;
   /** Прошлый визит этого сотрудника (UX-A-15): всё, что позже, отмечено как новое. */
   changedSince: Date | null;
   /** Время последней записи переписки и истории, которую видит агент: по нему ответ узнаёт об изменениях других (FR-AG-12). */
@@ -263,6 +265,10 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
     resolutionType: ticket.resolutionType,
     resolvedVersion: ticket.resolvedVersion,
     snoozedUntil: ticket.snoozedUntil && ticket.snoozedUntil.getTime() > now.getTime() ? ticket.snoozedUntil : null,
+    pickup:
+      found.transfer && found.transfer.toLine !== 'l1' && !found.transfer.pickedUpOn && found.transfer.pickupDueOn && ticket.queue !== 'l1'
+        ? { dueOn: found.transfer.pickupDueOn }
+        : null,
     changedSince: seenOn,
     // Последнее, что агент видит на странице: по нему ответ узнаёт об изменениях других (FR-AG-12).
     version: new Date(Math.max(ticket.createdOn.getTime(), ...found.messages.map((m) => m.createdOn.getTime()), ...found.events.map((e) => e.createdOn.getTime()))).toISOString(),

@@ -180,3 +180,22 @@ export const mentions = pgTable('hdt_mentions', {
   readOn: moment('read_on'),
   ...stampColumns,
 });
+
+export const lineTransfers = pgTable('hdt_ticket_line_transfers', {
+  transferId: uuid('transfer_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ticketId: uuid('ticket_id').notNull(),
+  fromLine: text('from_line').$type<Queue>().notNull(),
+  toLine: text('to_line').$type<Queue>().notNull(),
+  reasonCode: text('reason_code'),
+  checked: text('checked'),
+  needed: text('needed'),
+  explanation: text('explanation'),
+  checklist: jsonb('checklist').$type<string[]>().notNull().default([]),
+  byUser: uuid('by_user').notNull(),
+  pickupDueOn: moment('pickup_due_on'),
+  pickedUpOn: moment('picked_up_on'),
+  pickedUpBy: uuid('picked_up_by'),
+  ...stampColumns,
+});

@@ -17,7 +17,7 @@ import { diffLines } from './diff';
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2 align-top';
-const OBJECT_TYPES = ['staff', 'server', 'membership', 'invitation', 'user', 'session', 'organization'] as const;
+const OBJECT_TYPES = ['staff', 'server', 'membership', 'invitation', 'user', 'session', 'organization', 'ticket'] as const;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const select = 'h-field w-full rounded-control border border-input bg-card px-3 text-base text-foreground';
 

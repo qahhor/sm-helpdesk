@@ -45,3 +45,6 @@ export type ScanStatus = (typeof SCAN_STATUSES)[number];
 /** Причины низкой оценки (FR-TK-11, решение 0026). */
 export const CSAT_REASONS = ['slow', 'not_solved', 'unclear', 'other'] as const;
 export type CsatReason = (typeof CSAT_REASONS)[number];
+
+/** Сколько файлов можно приложить к одному сообщению (FR-TK-13). */
+export const MAX_FILES_PER_MESSAGE = 10;

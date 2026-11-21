@@ -29,7 +29,9 @@ export const tickets = pgTable('hdt_tickets', {
     .primaryKey()
     .default(sql`uuidv7()`),
   orgId: uuid('org_id').notNull(),
-  number: bigint('number', { mode: 'number' }).notNull(),
+  number: bigint('number', { mode: 'number' })
+    .notNull()
+    .default(sql`nextval('hdt_tickets_number_sq')`),
   authorId: uuid('author_id').notNull(),
   type: text('type').$type<TicketType>().notNull(),
   status: text('status').$type<TicketStatus>().notNull().default('new'),

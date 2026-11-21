@@ -515,7 +515,8 @@
           "invitation": "Приглашение",
           "user": "Пользователь",
           "session": "Сессия",
-          "organization": "Организация"
+          "organization": "Организация",
+          "ticket": "Обращение"
         },
         "none": "нет",
         "empty": "За выбранный период записей нет.",
@@ -563,6 +564,11 @@
           "telegram": {
             "linked": "Telegram привязан",
             "unlinked": "Telegram отвязан"
+          },
+          "ticket": {
+            "created": "Обращение создано",
+            "status_changed": "Статус обращения изменён",
+            "visibility_changed": "Видимость обращения изменена"
           }
         },
         "words": {

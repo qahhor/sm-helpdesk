@@ -36,6 +36,10 @@ export const AUDIT_ACTIONS = [
   'telegram.linked',
   'telegram.unlinked',
   'user.signed_in_telegram',
+  // Обращения (веха M2): создание, смена статуса и видимости. Текста обращения в журнале нет.
+  'ticket.created',
+  'ticket.status_changed',
+  'ticket.visibility_changed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -76,6 +80,8 @@ export const RATE_RULES = {
   ssoCallbackPerIp: { limit: 120, windowSec: 60 },
   /** Отчёты о нарушениях CSP с одного адреса (проверка main, S9): страница присылает несколько за раз. */
   cspReportPerIp: { limit: 60, windowSec: 600 },
+  /** Создание обращения: 10 в час на пользователя (раздел 14.5). */
+  ticketCreatePerUser: { limit: 10, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

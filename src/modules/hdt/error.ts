@@ -1,0 +1,37 @@
+// Модуль hdt, слой error: ошибки модуля (docs/naming.md, раздел 5; правило ошибок: решение 0022).
+// Сервис возвращает код, а не текст: текст на языке пользователя подставляет страница из messages/*.json.
+
+export const HDT_ERROR_CODES = [
+  'invalid_input',
+  'not_found',
+  'forbidden',
+  'rate_limited',
+  // Переход статуса запрещён таблицей раздела 7.2 или обращение уже изменилось (второе нажатие).
+  'transition_refused',
+  // Закрытое обращение нельзя открыть заново: срок вышел (FR-TK-12).
+  'reopen_expired',
+  'already_rated',
+  // Больше 10 файлов в одном сообщении (FR-TK-13).
+  'too_many_files',
+  'file_not_allowed',
+  'file_too_large',
+] as const;
+
+export type HdtErrorCode = (typeof HDT_ERROR_CODES)[number];
+
+export class HdtError extends Error {
+  readonly code: HdtErrorCode;
+  /** Через сколько секунд можно повторить (для rate_limited). */
+  readonly retryAfterSec?: number;
+
+  constructor(code: HdtErrorCode, opts: { retryAfterSec?: number } = {}) {
+    super(`hdt: ${code}`);
+    this.name = 'HdtError';
+    this.code = code;
+    this.retryAfterSec = opts.retryAfterSec;
+  }
+}
+
+export function isHdtError(error: unknown): error is HdtError {
+  return error instanceof HdtError;
+}

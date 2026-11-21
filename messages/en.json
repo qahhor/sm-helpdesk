@@ -515,7 +515,8 @@
           "invitation": "Invitation",
           "user": "User",
           "session": "Session",
-          "organization": "Organization"
+          "organization": "Organization",
+          "ticket": "Ticket"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -563,6 +564,11 @@
           "telegram": {
             "linked": "Telegram linked",
             "unlinked": "Telegram unlinked"
+          },
+          "ticket": {
+            "created": "Ticket created",
+            "status_changed": "Ticket status changed",
+            "visibility_changed": "Ticket visibility changed"
           }
         },
         "words": {

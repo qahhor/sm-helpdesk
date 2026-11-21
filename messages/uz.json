@@ -515,7 +515,8 @@
           "invitation": "Taklif",
           "user": "Foydalanuvchi",
           "session": "Sessiya",
-          "organization": "Tashkilot"
+          "organization": "Tashkilot",
+          "ticket": "Murojaat"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -563,6 +564,11 @@
           "telegram": {
             "linked": "Telegram bog'landi",
             "unlinked": "Telegram uzildi"
+          },
+          "ticket": {
+            "created": "Murojaat yaratildi",
+            "status_changed": "Murojaat holati o'zgartirildi",
+            "visibility_changed": "Murojaat ko'rinishi o'zgartirildi"
           }
         },
         "words": {

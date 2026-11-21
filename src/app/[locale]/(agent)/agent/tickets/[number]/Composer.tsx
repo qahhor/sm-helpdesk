@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useActionState, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
 import { FilePicker, type FilePickerLabels } from '@/ui/components/file-picker';
@@ -14,6 +14,7 @@ import { type ComposerState, saveDraftAction, staffMessageAction } from './actio
 import { ChangedWarning, type ChangedLabels } from './ChangedWarning';
 import { TYPING_EVENT } from './PresenceBar';
 import { type PickerTemplate, TemplatePicker } from './TemplatePicker';
+import { useHotkey } from '@/ui/hotkeys/bus';
 
 // Поле ответа агента (FR-AG-03, 8.4): ответ клиенту или внутренняя заметка. Режимы различаются цветом токена,
 // подписью поля и текстом кнопки. Черновик на сервере через секунду после ввода и при уходе со страницы
@@ -30,6 +31,7 @@ export type ComposerLabels = {
   waitForClient: string;
   send: string;
   saveNote: string;
+  sendNext: string;
   busy: string;
   draftSaved: string;
   errors: Record<string, string>;
@@ -46,14 +48,21 @@ type Props = {
   maxFiles: number;
   /** Включённые шаблоны, уже на языке обращения (FR-AG-06). */
   templates: PickerTemplate[];
+  /** Очередь и сортировка, из которых открыто обращение: для "Отправить и к следующему" (FR-AG-17). */
+  queue: string;
+  sort: string;
   labels: ComposerLabels;
 };
+
+/** События страницы для поля ответа: перейти в режим и в поле (клавиши R, N), вставить шаблон (палитра). */
+export const COMPOSER_FOCUS = 'hub:composer-focus';
+export const COMPOSER_INSERT = 'hub:composer-insert';
 
 const DRAFT_DELAY_MS = 1000;
 const INITIAL: ComposerState = { status: 'idle' };
 const noop = () => () => undefined;
 
-export function Composer({ number, version, draft, accept, maxFiles, templates, labels }: Props) {
+export function Composer({ number, version, draft, accept, maxFiles, templates, queue, sort, labels }: Props) {
   const router = useRouter();
   const [state, action, pending] = useActionState(staffMessageAction, INITIAL);
   const [internal, setInternal] = useState(draft?.internal ?? false);
@@ -65,6 +74,8 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
   const saving = useRef<{ body: string; internal: boolean } | null>(null);
   const extra = useMemo(() => ({ number }), [number]);
   const field = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
   // "/" в начале слова открывает шаблоны (UX-A-05): откуда начинается код и что набрано.
   const [slash, setSlash] = useState<{ start: number; query: string } | null>(null);
   const [active, setActive] = useState(0);
@@ -147,10 +158,40 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
     router.refresh();
   };
 
+  // Клавиши R и N и вставка шаблона из палитры (UX-A-02, UX-A-17).
+  useEffect(() => {
+    const onFocus = (event: Event) => {
+      setInternal((event as CustomEvent<string>).detail === 'note');
+      requestAnimationFrame(() => field.current?.focus());
+    };
+    const onInsert = (event: Event) => {
+      const { text, fallback } = (event as CustomEvent<{ text: string; fallback: boolean }>).detail;
+      const el = field.current;
+      const caret = el?.selectionStart ?? body.length;
+      setBody(`${body.slice(0, caret)}${text}${body.slice(caret)}`);
+      setFallbackNote(fallback);
+      requestAnimationFrame(() => {
+        el?.focus();
+        el?.setSelectionRange(caret + text.length, caret + text.length);
+      });
+    };
+    window.addEventListener(COMPOSER_FOCUS, onFocus);
+    window.addEventListener(COMPOSER_INSERT, onInsert);
+    return () => {
+      window.removeEventListener(COMPOSER_FOCUS, onFocus);
+      window.removeEventListener(COMPOSER_INSERT, onInsert);
+    };
+  }, [body]);
+  // Ctrl+Enter отправляет, Ctrl+Shift+Enter отправляет и открывает следующее обращение очереди (FR-AG-17).
+  const canSend = body.trim() !== '' && !pending && !uploading;
+  useHotkey('form.complete', useCallback(() => formRef.current?.requestSubmit(), []), canSend);
+  useHotkey('reply.sendNext', useCallback(() => formRef.current?.requestSubmit(nextRef.current), []), canSend);
+
   const error = state.status === 'error' ? (labels.errors[state.code] ?? labels.errors.other) : null;
   const fieldLabel = internal ? labels.noteField : labels.replyField;
   return (
     <form
+      ref={formRef}
       action={action}
       aria-label={labels.form}
       className={cn('flex flex-col gap-3 rounded-card border p-4', internal ? 'border-warning bg-warning-bg' : 'border-border bg-card')}
@@ -160,6 +201,8 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
       <input type="hidden" name="number" value={number} />
       <input type="hidden" name="seenVersion" value={version} />
       <input type="hidden" name="internal" value={internal ? '1' : '0'} />
+      <input type="hidden" name="queue" value={queue} />
+      <input type="hidden" name="sort" value={sort} />
       <RadioGroup
         name="mode"
         legend={labels.mode}
@@ -227,6 +270,9 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
             {labels.draftSaved}
           </span>
         )}
+        <Button ref={nextRef} type="submit" name="next" value="1" variant="secondary" disabled={pending || uploading}>
+          {labels.sendNext}
+        </Button>
         <Button type="submit" disabled={pending || uploading}>
           {internal ? labels.saveNote : labels.send}
         </Button>

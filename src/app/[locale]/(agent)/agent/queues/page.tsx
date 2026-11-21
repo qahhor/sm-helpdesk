@@ -1,4 +1,4 @@
-import { getFormatter, getTranslations } from 'next-intl/server';
+import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { HDT_ERROR_CODES, listFilters, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueCounts, type QueueSort, TRANSFER_REASONS } from '@/modules/hdt/api';
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
@@ -13,11 +13,13 @@ import { Select } from '@/ui/components/select';
 import { cn } from '@/ui/cn';
 import { deleteFilterAction, saveFilterAction } from './actions';
 import { BULK_FORM_ID, BulkBar } from './BulkBar';
+import { QueuePreview } from './QueuePreview';
+import { QueueKeys } from './QueueKeys';
 
 // Очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18, UX-A-08, UX-A-09; экран 8.4 "Очередь").
 // Слева очереди со счётчиками и сохранённые списки, справа поиск, сортировка и таблица по ближайшему сроку.
 
-type Search = { queue?: string; sort?: string; q?: string; page?: string; done?: string; error?: string };
+type Search = { queue?: string; sort?: string; q?: string; page?: string; done?: string; error?: string; open?: string };
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2 align-top';
@@ -41,6 +43,8 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
     listFilters(staff),
     canWrite ? listAssignableStaff(staff) : Promise.resolve([]),
   ]);
+  const locale = await getLocale();
+  const openNumber = Number(params.open) > 0 && Number.isInteger(Number(params.open)) ? Number(params.open) : null;
   const href = (next: { queue?: QueueKey; sort?: QueueSort; q?: string; page?: number }) => {
     const search = new URLSearchParams();
     search.set('queue', next.queue ?? queue);
@@ -126,6 +130,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           {params.done === 'filter_saved' && <Alert tone="success">{t('queues.done.filterSaved')}</Alert>}
+          {params.done === 'queue_done' && <Alert tone="info">{t('queues.done.queue_done')}</Alert>}
           {params.error === 'filter_invalid' && <Alert tone="danger">{t('queues.errors.filterInvalid')}</Alert>}
           <form method="get" className="flex flex-wrap items-end gap-2" role="search">
             <input type="hidden" name="queue" value={queue} />
@@ -218,7 +223,13 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                         </td>
                       )}
                       <td className={cn(cell, 'whitespace-nowrap')}>
-                        <Link href={`/agent/tickets/SUP-${row.number}`} className="font-semibold text-link hover:underline">
+                        <Link
+                          href={`/agent/tickets/SUP-${row.number}?queue=${queue}&sort=${sort}`}
+                          className="font-semibold text-link hover:underline"
+                          data-row-link
+                          data-preview={`/${locale}${href({ page })}&open=${row.number}`}
+                          data-open={openNumber === row.number ? '' : undefined}
+                        >
                           {row.number}
                         </Link>
                       </td>
@@ -278,7 +289,9 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
             </form>
           </details>
         </div>
+        <QueuePreview number={openNumber} queue={queue} sort={sort} staff={staff} />
       </div>
+      <QueueKeys />
     </>
   );
 }

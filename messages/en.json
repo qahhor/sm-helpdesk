@@ -975,7 +975,8 @@
       "shareFilter": "Shared with all staff",
       "saveFilter": "Save",
       "done": {
-        "filterSaved": "List saved"
+        "filterSaved": "List saved",
+        "queue_done": "No more tickets in the queue"
       },
       "errors": {
         "filterInvalid": "Name the list: 1 to 80 characters."
@@ -1002,6 +1003,11 @@
         "intro": "Client replies to resolved tickets recognized as thanks: the ticket stayed resolved. Check that no new question hides behind the \"thank you\".",
         "emptyTitle": "No such replies",
         "emptyText": "Client thanks that did not reopen a ticket will appear here."
+      },
+      "preview": {
+        "label": "Ticket next to the list",
+        "empty": "Choose a ticket with the up and down arrows: it opens here.",
+        "open": "Open in full"
       }
     },
     "ticket": {
@@ -1181,7 +1187,8 @@
           "list": "Reply templates",
           "empty": "No template with this code",
           "fallback": "The template was inserted in Russian: there is no translation for the ticket language."
-        }
+        },
+        "sendNext": "Send and next"
       },
       "line": "Line: {line}",
       "pickupDue": "Pick up by: {time}",
@@ -1278,6 +1285,41 @@
         "forbidden": "Your role does not allow creating tickets.",
         "too_many_files": "No more than 10 files.",
         "file_unavailable": "One of the files can no longer be attached. Remove it and send again."
+      }
+    },
+    "keys": {
+      "palette": {
+        "title": "Command palette",
+        "search": "Command or ticket number",
+        "empty": "Nothing found",
+        "close": "Close",
+        "list": "Commands",
+        "openTicket": "Open {number}",
+        "sections": "Section"
+      },
+      "help": {
+        "title": "Workspace keys"
+      },
+      "actions": {
+        "palette_open": "Command palette",
+        "help_open": "This help",
+        "reply_focus": "Reply to client",
+        "note_focus": "Internal note",
+        "form_complete": "Send",
+        "reply_sendNext": "Send and next",
+        "ticket_take": "Take it",
+        "ticket_snooze": "Snooze",
+        "list_next": "Next ticket",
+        "list_prev": "Previous ticket",
+        "table_refresh": "Refresh list"
+      },
+      "commands": {
+        "take": "Take it",
+        "assignMe": "Assign to me",
+        "status": "Status: {status}",
+        "template": "Template /{code}: {title}",
+        "group": "Ticket",
+        "templates": "Templates"
       }
     }
   },

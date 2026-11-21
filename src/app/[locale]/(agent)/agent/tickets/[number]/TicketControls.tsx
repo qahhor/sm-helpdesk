@@ -166,8 +166,8 @@ export async function TicketControls({ ticket, me, role, staff, modules }: Props
           {hidden}
           <span className={label}>{t('snooze')}</span>
           <div className="flex flex-wrap gap-2">
-            {(['hour', 'tomorrow', 'monday'] as const).map((preset) => (
-              <Button key={preset} type="submit" name="preset" value={preset} variant="secondary" size="small">
+            {(['hour', 'tomorrow', 'monday'] as const).map((preset, index) => (
+              <Button key={preset} type="submit" name="preset" value={preset} variant="secondary" size="small" data-snooze-first={index === 0 ? '' : undefined}>
                 {t(`snoozePresets.${preset}`)}
               </Button>
             ))}

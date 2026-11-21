@@ -43,6 +43,7 @@ export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAt
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
 export { type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
 export {
+  nextInQueue,
   listThanks,
   type ThanksRow,
   deleteFilter,

@@ -975,7 +975,8 @@
       "shareFilter": "Barcha xodimlar uchun umumiy",
       "saveFilter": "Saqlash",
       "done": {
-        "filterSaved": "Ro'yxat saqlandi"
+        "filterSaved": "Ro'yxat saqlandi",
+        "queue_done": "Navbatda boshqa murojaat yo'q"
       },
       "errors": {
         "filterInvalid": "Ro'yxatga nom bering: 1 dan 80 belgigacha."
@@ -1002,6 +1003,11 @@
         "intro": "Hal qilingan murojaatlarga mijozlarning minnatdorchilik deb tanilgan javoblari: murojaat hal qilingan holda qoldi. \"Rahmat\" ortida yangi savol yo'qligini tekshiring.",
         "emptyTitle": "Bunday javoblar yo'q",
         "emptyText": "Bu yerda murojaatni qayta ochmagan mijoz minnatdorchiliklari paydo bo'ladi."
+      },
+      "preview": {
+        "label": "Ro'yxat yonidagi murojaat",
+        "empty": "Murojaatni yuqoriga va pastga strelkalar bilan tanlang: u shu yerda ochiladi.",
+        "open": "To'liq ochish"
       }
     },
     "ticket": {
@@ -1181,7 +1187,8 @@
           "list": "Javob shablonlari",
           "empty": "Bunday kodli shablon yo'q",
           "fallback": "Shablon rus tilida qo'yildi: murojaat tiliga tarjima yo'q."
-        }
+        },
+        "sendNext": "Yuborish va keyingisiga"
       },
       "line": "Liniya: {line}",
       "pickupDue": "Ishga olish muddati: {time}",
@@ -1278,6 +1285,41 @@
         "forbidden": "Rolingiz murojaat yaratishga ruxsat bermaydi.",
         "too_many_files": "10 tadan ko'p fayl emas.",
         "file_unavailable": "Fayllardan birini endi qo'shib bo'lmaydi. Uni olib tashlab, qayta yuboring."
+      }
+    },
+    "keys": {
+      "palette": {
+        "title": "Buyruqlar palitrasi",
+        "search": "Buyruq yoki murojaat raqami",
+        "empty": "Hech narsa topilmadi",
+        "close": "Yopish",
+        "list": "Buyruqlar",
+        "openTicket": "{number} ni ochish",
+        "sections": "Bo'lim"
+      },
+      "help": {
+        "title": "Ish joyi tugmalari"
+      },
+      "actions": {
+        "palette_open": "Buyruqlar palitrasi",
+        "help_open": "Ushbu yordam",
+        "reply_focus": "Mijozga javob",
+        "note_focus": "Ichki eslatma",
+        "form_complete": "Yuborish",
+        "reply_sendNext": "Yuborish va keyingisiga",
+        "ticket_take": "O'zimga olish",
+        "ticket_snooze": "Keyinga qoldirish",
+        "list_next": "Keyingi murojaat",
+        "list_prev": "Oldingi murojaat",
+        "table_refresh": "Ro'yxatni yangilash"
+      },
+      "commands": {
+        "take": "O'zimga olish",
+        "assignMe": "Menga tayinlash",
+        "status": "Holat: {status}",
+        "template": "Shablon /{code}: {title}",
+        "group": "Murojaat",
+        "templates": "Shablonlar"
       }
     }
   },

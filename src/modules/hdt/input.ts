@@ -184,6 +184,9 @@ export const staffCreateInput = createTicketInput.omit({ relatedNumber: true }).
 /** Страница списка благодарностей. */
 export const thanksInput = z.object({ page: z.coerce.number().int().min(1).max(1000).default(1) });
 
+/** Следующее обращение очереди (FR-AG-17). */
+export const nextInput = z.object({ queue: z.enum(QUEUE_KEYS).default('mine'), sort: z.enum(QUEUE_SORTS).default('sla'), afterNumber: numberInput });
+
 export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);
   if (!result.success) throw new HdtError('invalid_input');

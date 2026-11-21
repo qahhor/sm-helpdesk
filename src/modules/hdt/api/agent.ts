@@ -18,7 +18,7 @@ import {
 import { markReadTx, readAgentTicketTx } from '../core/agent-ticket';
 import { assertCanWrite, assignTx, setModuleTx, setPriorityTx, setStatusTx, setTypeTx, snoozeTx, takeTx } from '../core/agent-actions';
 import { HdtError, isHdtError } from '../error';
-import { assignInput, moduleInput, numberInput, parseInput, priorityInput, queueInput, savedFilterInput, snoozeInput, statusInput, thanksInput, typeInput } from '../input';
+import { assignInput, moduleInput, numberInput, parseInput, priorityInput, queueInput, savedFilterInput, snoozeInput, statusInput, thanksInput, typeInput, nextInput } from '../input';
 import { type AuthorType, type EventKind, type Impact, INLINE_IMAGE_TYPES, type Priority, type Queue, type ScanStatus, type TicketSource, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { workingMinutesBetween } from '../sla';
 import { parseNumber, parseSearch, rejectReasonOf } from '../util';
@@ -366,4 +366,20 @@ export async function listThanks(ctx: StaffContext, input: unknown): Promise<{ i
     items: shown.map((row) => ({ number: row.number, orgName: orgs.get(row.orgId)?.name ?? '', body: row.body, createdOn: row.createdOn })),
     hasMore: rows.length > THANKS_PAGE_SIZE,
   };
+}
+
+// --- Следующее обращение очереди (FR-AG-17, UX-A-04; план M3, задача 14) ---
+
+const NEXT_SCAN = 200;
+
+/**
+ * Следующее обращение той же очереди и сортировки после afterNumber. Если текущего в очереди уже нет (ответ увёл его
+ * из "Новых"), берётся первое другое. Нет такого: null.
+ */
+export async function nextInQueue(ctx: StaffContext, input: unknown): Promise<number | null> {
+  const data = parseInput(nextInput, input);
+  const rows = await queueRowsTx(ctx.actor, { queue: data.queue, sort: data.sort, offset: 0, limit: NEXT_SCAN });
+  const index = rows.findIndex((row) => row.number === data.afterNumber);
+  const next = index >= 0 ? rows[index + 1] : rows.find((row) => row.number !== data.afterNumber);
+  return next?.number ?? null;
 }

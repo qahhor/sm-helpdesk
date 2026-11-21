@@ -11,7 +11,10 @@ import {
   HDT_ERROR_CODES,
   loadDraft,
   markTicketRead,
+  allowedStaffTransitions,
   MAX_FILES_PER_MESSAGE,
+  QUEUE_KEYS,
+  QUEUE_SORTS,
   TRANSFER_REASONS,
   TRANSFERABLE_STATUSES,
 } from '@/modules/hdt/api';
@@ -30,6 +33,7 @@ import { MergeDialog } from './MergeDialog';
 import { PresenceBar } from './PresenceBar';
 import { ReturnDialog } from './ReturnDialog';
 import { TicketControls } from './TicketControls';
+import { TicketKeys } from './TicketKeys';
 import { TransferDialog } from './TransferDialog';
 
 // Обращение у сотрудника (раздел 8.4 "Обращение у агента", FR-AG-04, FR-AG-05, UX-A-14, UX-A-15).
@@ -45,7 +49,7 @@ function safeDecode(value: string): string | null {
 
 const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created'] as const;
 
-type Search = { done?: string; error?: string };
+type Search = { done?: string; error?: string; queue?: string; sort?: string };
 
 export default async function AgentTicketPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<Search> }) {
   const staff = await requireStaffActor();
@@ -74,6 +78,9 @@ export default async function AgentTicketPage({ params, searchParams }: { params
   const playbookScope = playbook
     ? `${playbook.moduleId ? (modules.find((m) => m.moduleId === playbook.moduleId)?.name ?? '') : t('ticket.transfer.anyModule')} / ${t(`ticket.types.${ticket.type}`)}`
     : null;
+  // Очередь и сортировка, из которых открыто обращение (FR-AG-17): по ним "Отправить и к следующему".
+  const fromQueue = QUEUE_KEYS.find((key) => key === search.queue) ?? 'mine';
+  const fromSort = QUEUE_SORTS.find((key) => key === search.sort) ?? 'sla';
   const done = DONE.find((code) => code === search.done);
   const error = HDT_ERROR_CODES.find((code) => code === search.error);
   const format = await getFormatter();
@@ -214,6 +221,22 @@ export default async function AgentTicketPage({ params, searchParams }: { params
             </Alert>
           )}
           {ticket.changedSince && <p className="text-sm text-muted-foreground">{t('ticket.lastVisit', { time: when(ticket.changedSince) })}</p>}
+          <TicketKeys
+            number={ticket.number}
+            me={staff.user.id}
+            canWrite={canWrite}
+            canTake={ticket.assignee?.id !== staff.user.id}
+            transitions={allowedStaffTransitions(ticket.status, staff.actor.staffRole).map((to) => ({ to, label: statusName(to) }))}
+            templates={templates.map((template) => ({ shortcut: template.shortcut, title: template.title, ...renderTemplate(template, ticket.locale) }))}
+            labels={{
+              group: t('keys.commands.group'),
+              templates: t('keys.commands.templates'),
+              take: t('keys.commands.take'),
+              assignMe: t('keys.commands.assignMe'),
+              status: t.raw('keys.commands.status') as string,
+              template: t.raw('keys.commands.template') as string,
+            }}
+          />
           <PresenceBar number={ticket.number} labels={{ viewing: t.raw('ticket.presence.viewing') as string, typing: t.raw('ticket.presence.typing') as string }} />
           <Card>
             <CardContent className="flex flex-col gap-4 pt-6">
@@ -231,6 +254,8 @@ export default async function AgentTicketPage({ params, searchParams }: { params
               accept={acceptOf(ALLOWED_FILE_EXTENSIONS)}
               maxFiles={MAX_FILES_PER_MESSAGE}
               // Шаблон на языке обращения, без перевода русский с отметкой для агента (FR-AG-06).
+              queue={fromQueue}
+              sort={fromSort}
               templates={templates.map((template) => ({ shortcut: template.shortcut, title: template.title, ...renderTemplate(template, ticket.locale), isEnabled: true as const }))}
               labels={{
                 templates: {
@@ -249,6 +274,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
                 waitForClient: t('ticket.composer.waitForClient'),
                 send: t('ticket.composer.send'),
                 saveNote: t('ticket.composer.saveNote'),
+                sendNext: t('ticket.composer.sendNext'),
                 busy: tc('files.busy'),
                 draftSaved: t('ticket.composer.draftSaved'),
                 errors: Object.fromEntries(

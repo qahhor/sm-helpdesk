@@ -55,7 +55,8 @@ test('обращение у сотрудника открывается из о�
   const number = await clientTicket(browser, description);
   await page.goto(`/ru/agent/queues?queue=all&q=SUP-${number}`);
   await main(page).getByRole('link', { name: String(number), exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${number}$`));
+  // Ссылка из очереди несёт очередь и сортировку: по ним "Отправить и к следующему" (FR-AG-17).
+  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${number}\\?queue=all&sort=sla$`));
   await expect(main(page).locator('article').getByText(description)).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Сведения об обращении' })).toContainText('ACME Trade');
   const axe = await new AxeBuilder({ page }).analyze();
@@ -304,4 +305,99 @@ test('обращение за клиента: организация, участ
   await expect(client.getByRole('main')).toContainText(description);
   await expect(client.getByRole('main')).toContainText('создал сотрудник поддержки');
   await clientContext.close();
+});
+
+const keysReady = (page: Page) => expect(page.locator('html[data-hotkeys="ready"]')).toHaveCount(1);
+
+test('палитра открывает обращение по номеру и меняет статус', async ({ page, browser }) => {
+  const number = await clientTicket(browser, `Палитра ${Date.now()}`);
+  await page.goto('/ru/agent/queues');
+  await keysReady(page);
+  await page.keyboard.press('Control+k');
+  const palette = page.getByRole('dialog', { name: 'Палитра команд' });
+  await palette.getByRole('combobox', { name: 'Команда или номер обращения' }).fill(`SUP-${number}`);
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${number}$`));
+  await keysReady(page);
+  await page.keyboard.press('Control+k');
+  await palette.getByRole('combobox').fill('Ждём');
+  await expect(palette.getByRole('option', { name: /Статус: Ждём клиента/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(main(page).getByRole('status').filter({ hasText: 'Статус изменён' })).toBeVisible();
+  await expect(main(page).getByText('Ждём клиента', { exact: true }).first()).toBeVisible();
+});
+
+test('"Отправить и к следующему" открывает следующее обращение очереди', async ({ page, browser }) => {
+  const first = await clientTicket(browser, `Следующее A ${Date.now()}`);
+  const second = await clientTicket(browser, `Следующее B ${Date.now()}`);
+  // Оба у меня; в "Моих" по последнему изменению второе выше первого.
+  for (const number of [first, second]) {
+    await page.goto(`/ru/agent/tickets/SUP-${number}`);
+    await page.getByRole('complementary', { name: 'Сведения об обращении' }).getByRole('button', { name: 'Взять себе' }).click();
+    await expect(main(page).getByRole('status').filter({ hasText: 'Обращение у вас' })).toBeVisible();
+  }
+  await page.goto(`/ru/agent/tickets/SUP-${second}?queue=mine&sort=updated`);
+  const composer = main(page).getByRole('form', { name: 'Ответ по обращению' });
+  await expect(composer).toHaveAttribute('data-ready', '');
+  await composer.getByLabel('Текст ответа').fill('Готово, проверьте, пожалуйста');
+  await composer.getByRole('button', { name: 'Отправить и к следующему' }).click();
+  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${first}\\?queue=mine&sort=updated$`));
+});
+
+test('цикл S3 с клавиатуры без мыши', async ({ page, browser }) => {
+  const number = await clientTicket(browser, `Клавиатура ${Date.now()}`);
+  await page.goto(`/ru/agent/queues?queue=all&q=SUP-${number}`);
+  await keysReady(page);
+  await page.keyboard.press('ArrowDown');
+  await expect(main(page).locator(`tr[data-number="${number}"] [data-row-link]`)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${number}\\?queue=all`));
+  await keysReady(page);
+  await page.keyboard.press('t');
+  await expect(main(page).getByRole('status').filter({ hasText: 'Обращение у вас' })).toBeVisible();
+  await keysReady(page);
+  await page.keyboard.press('r');
+  await expect(main(page).getByLabel('Текст ответа')).toBeFocused();
+  await page.keyboard.type('Посмотрели, пришлите снимок экрана');
+  await page.keyboard.press('Control+Enter');
+  await expect(main(page).getByRole('status').filter({ hasText: 'Ответ отправлен' })).toBeVisible();
+  await keysReady(page);
+  await page.keyboard.press('Control+k');
+  await page.getByRole('dialog', { name: 'Палитра команд' }).getByRole('combobox').fill('Ждём');
+  await page.keyboard.press('Enter');
+  await expect(main(page).getByText('Ждём клиента', { exact: true }).first()).toBeVisible();
+  await keysReady(page);
+  await page.keyboard.press('Shift+?');
+  await expect(page.getByRole('dialog', { name: 'Клавиши рабочего места' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // Клиент отвечает: обращение возвращается в работу (S3, шаг 5).
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.locator('form[data-ready]').first()).toBeAttached();
+  await client.getByLabel('Ответ', { exact: true }).fill('Вот снимок');
+  await resetLimits();
+  await client.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(client.getByRole('main')).toContainText('Вот снимок');
+  await clientContext.close();
+  await page.reload();
+  await expect(main(page).getByText('В работе', { exact: true }).first()).toBeVisible();
+});
+
+test('на широком экране список и обращение рядом, стрелка открывает соседнее (UX-A-01)', async ({ page, browser }) => {
+  const stamp = `Рядом ${Date.now()}`;
+  const first = await clientTicket(browser, `${stamp} одно`);
+  const second = await clientTicket(browser, `${stamp} другое`);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(`/ru/agent/queues?queue=all&sort=updated&q=${encodeURIComponent(stamp)}`);
+  await keysReady(page);
+  const pane = page.getByRole('complementary', { name: 'Обращение рядом со списком' });
+  await expect(pane).toContainText('Выберите обращение');
+  await page.keyboard.press('ArrowDown');
+  await expect(pane).toContainText(`SUP-${second}`);
+  await page.keyboard.press('ArrowDown');
+  await expect(pane).toContainText(`SUP-${first}`);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(pane).toBeHidden();
 });

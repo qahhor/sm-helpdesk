@@ -9,6 +9,7 @@ import {
   isHdtError,
   listPresence,
   mergeTicket,
+  nextInQueue,
   parseNumber,
   postStaffMessage,
   type PresenceEntry,
@@ -111,8 +112,13 @@ export async function staffMessageAction(_prev: ComposerState, form: FormData): 
   const staff = await requireStaffActor();
   const number = Number(text(form, 'number'));
   const internal = text(form, 'internal') === '1';
+  // "Отправить и к следующему" (FR-AG-17): следующее берётся до отправки, пока текущее ещё стоит на своём месте в очереди.
+  const wantNext = text(form, 'next') === '1';
+  const context = { queue: text(form, 'queue') || 'mine', sort: text(form, 'sort') || 'sla' };
   let result: Awaited<ReturnType<typeof postStaffMessage>>;
+  let next: number | null = null;
   try {
+    if (wantNext) next = await nextInQueue(staff, { ...context, afterNumber: number });
     result = await postStaffMessage(staff, {
       number,
       body: String(form.get('body') ?? ''),
@@ -126,7 +132,10 @@ export async function staffMessageAction(_prev: ComposerState, form: FormData): 
     return { status: 'error', code: error.code };
   }
   if (!result.ok) return { status: 'changed', changed: result.changed, version: result.version };
-  redirect(`/${await getLocale()}/agent/tickets/SUP-${number}?done=${internal ? 'noted' : 'sent'}`);
+  const locale = await getLocale();
+  const back = new URLSearchParams(context).toString();
+  if (wantNext) redirect(next ? `/${locale}/agent/tickets/SUP-${next}?${back}` : `/${locale}/agent/queues?${back}&done=queue_done`);
+  redirect(`/${locale}/agent/tickets/SUP-${number}?done=${internal ? 'noted' : 'sent'}&${back}`);
 }
 
 /** Черновик из поля ответа: через секунду после ввода и при уходе со страницы (UX-A-07). */

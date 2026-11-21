@@ -1,7 +1,7 @@
 import 'server-only';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { type ClientActor, withActor } from '@/db/with-actor';
+import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, canTransition, type CsatReason, type TicketStatus, type Visibility } from '../pref';
@@ -135,15 +135,37 @@ export async function rateTx(actor: ClientActor, number: number, rating: { score
 
 /** Видимость (FR-TK-04): меняют автор и администратор клиента. */
 export async function visibilityTx(actor: ClientActor, number: number, visibility: Visibility): Promise<void> {
-  await withActor(actor, async (tx) => {
+  const ticketId = await withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
     if (ticket.authorId !== actor.userId && actor.orgRole !== 'client_admin') throw new HdtError('forbidden');
-    if (ticket.visibility === visibility) return;
+    if (ticket.visibility === visibility) return null;
     await tx.update(tickets).set({ visibility }).where(eq(tickets.ticketId, ticket.ticketId));
     const diff = { from: ticket.visibility, to: visibility };
     await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'visibility', actorType: 'client', actorId: actor.userId, payload: diff });
     await writeAudit(tx, { action: 'ticket.visibility_changed', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff });
+    return ticket.ticketId;
   });
+  if (ticketId && visibility === 'private') await dropColleagueWatchers(ticketId, actor.ip ?? null);
+}
+
+/**
+ * Обращение стало личным: подписки коллег снимаются (решение 17 плана M2), автор и сотрудники остаются.
+ * Чужие строки подписок клиент удалить не может (политика RLS), поэтому снимает фоновая роль, и только пока
+ * обращение действительно личное. Повторный вызов безопасен.
+ */
+async function dropColleagueWatchers(ticketId: string, ip: string | null): Promise<void> {
+  const system: SystemActor = { type: 'system', job: 'ticket.visibility', ip };
+  await withActor(system, (tx) =>
+    tx
+      .delete(ticketWatchers)
+      .where(
+        and(
+          eq(ticketWatchers.ticketId, ticketId),
+          eq(ticketWatchers.source, 'manual'),
+          sql`exists (select 1 from hdt_tickets t where t.ticket_id = ${ticketWatchers.ticketId} and t.visibility = 'private')`,
+        ),
+      ),
+  );
 }
 
 /** Подписка на обращение организации (FR-TK-09). Повторная подписка ничего не меняет. */

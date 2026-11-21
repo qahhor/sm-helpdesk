@@ -95,7 +95,7 @@ test('оценка только у закрытого, один раз, прич
   await expect(rateTicket(ctx, { number: t.number, score: 5 })).rejects.toMatchObject({ code: 'already_rated' });
 });
 
-test('видимость меняет автор или администратор клиента; личное обращение коллегам не видно и подписка на него не действует', async () => {
+test('видимость меняет автор или администратор клиента; личное обращение коллегам не видно, подписки коллег снимаются (решение 17 плана)', async () => {
   const f = await seedTwoOrgs();
   const t = f.tickets.aOrg;
   await watchTicket(await clientCtx(f.aAdmin), t.number);
@@ -104,8 +104,13 @@ test('видимость меняет автор или администрато
   await expect(setTicketVisibility(await clientCtx(f.aUser), { number: f.tickets.aPrivate.number, visibility: 'private' })).rejects.toMatchObject({ code: 'forbidden' });
   await setTicketVisibility(await clientCtx(f.aUser), { number: t.number, visibility: 'private' });
   expect(await events(t.ticketId, 'visibility')).toEqual([{ from: 'org', to: 'private' }]);
-  // Администратор клиента видит личное, а подписка коллеги без права видеть не показывается.
-  expect((await getTicket(await clientCtx(f.aAdmin), String(t.number)))?.watching).toBe(true);
+  // Подписка коллеги снята: администратор клиента видит личное обращение, но больше за ним не следит.
+  expect((await getTicket(await clientCtx(f.aAdmin), String(t.number)))?.watching).toBe(false);
+  const watchers = () => pools.root.query(`select user_id, source from hdt_ticket_watchers where ticket_id = $1 order by source`, [t.ticketId]).then((r) => r.rows);
+  expect(await watchers()).toEqual([{ user_id: f.aUser.userId, source: 'author' }]);
+  // Обращение снова открыто коллегам: прежняя подписка молча не возвращается.
+  await setTicketVisibility(await clientCtx(f.aUser), { number: t.number, visibility: 'org' });
+  expect((await getTicket(await clientCtx(f.aAdmin), String(t.number)))?.watching).toBe(false);
   expect(await getTicket(await clientCtx(f.aUser), String(f.tickets.aPrivate.number))).not.toBeNull();
 });
 

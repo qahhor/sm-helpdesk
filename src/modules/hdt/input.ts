@@ -1,5 +1,6 @@
 import * as z from 'zod';
 import { LOCALES } from '@/i18n/locales';
+import { cleanUserText } from '@/modules/hdc/pref';
 import { HdtError } from './error';
 import { CSAT_REASONS, IMPACTS, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
 
@@ -12,8 +13,8 @@ const optional = <T extends z.ZodType>(schema: T) => z.preprocess((value) => (va
 export const numberInput = z.coerce.number().int().positive().max(999_999_999_999);
 
 export const createTicketInput = z.object({
-  description: z.string().trim().min(1).max(20000),
-  title: optional(z.string().trim().min(1).max(200)),
+  description: z.string().overwrite(cleanUserText).trim().min(1).max(20000),
+  title: optional(z.string().overwrite(cleanUserText).trim().min(1).max(200)),
   type: z.enum(TICKET_TYPES),
   impact: z.enum(IMPACTS),
   visibility: z.enum(VISIBILITIES).default('org'),
@@ -32,7 +33,7 @@ export const listTicketsInput = z.object({
   cursor: optional(z.string().max(200)),
 });
 
-const body = z.string().trim().min(1).max(20000);
+const body = z.string().overwrite(cleanUserText).trim().min(1).max(20000);
 
 export const replyInput = z.object({ number: numberInput, body, attachmentIds: z.array(z.uuid()).max(100).default([]) });
 
@@ -44,7 +45,7 @@ export const rateInput = z
     number: numberInput,
     score: z.coerce.number().int().min(1).max(5),
     reason: optional(z.enum(CSAT_REASONS)),
-    comment: optional(z.string().trim().min(1).max(2000)),
+    comment: optional(z.string().overwrite(cleanUserText).trim().min(1).max(2000)),
   })
   .refine((value) => value.score > 3 || value.reason !== undefined);
 

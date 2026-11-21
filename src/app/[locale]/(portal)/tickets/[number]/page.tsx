@@ -21,6 +21,15 @@ import { TicketActions } from './TicketActions';
 // переписка в Markdown, файлы с миниатюрами, история статусов в ленте, действия по правам. Невидимое клиенту
 // обращение не отличается от несуществующего: страница "не найдено".
 
+/** Номер из адреса. Испорченная последовательность %XX даёт null, а не исключение (ошибку 500). */
+function safeDecode(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
 type Attachment = { attachmentId: string; fileName: string; scanStatus: string; isImage: boolean };
 
 export default async function TicketPage({
@@ -31,7 +40,9 @@ export default async function TicketPage({
   searchParams: Promise<{ done?: string; error?: string; created?: string }>;
 }) {
   const client = await requireClientActor();
-  const raw = decodeURIComponent((await params).number);
+  const raw = safeDecode((await params).number);
+  // Испорченная последовательность %XX в адресе: такого обращения нет.
+  if (raw === null) notFound();
   const ticket = await getTicket(client, raw);
   const t = await getTranslations('client.tickets');
   if (!ticket) {

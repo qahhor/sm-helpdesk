@@ -16,6 +16,16 @@ import { isPublicPath } from '@/security/public-paths';
 
 const withLocale = createMiddleware(routing);
 
+/** Адрес с испорченной последовательностью %XX: Next.js отвечает на него ошибкой 500 ещё до страницы. */
+function isMalformedPath(pathname: string): boolean {
+  try {
+    decodeURIComponent(pathname);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export function proxy(request: NextRequest): NextResponse {
   const target = localizedPath(request.nextUrl.pathname, () =>
     resolveLocale({
@@ -26,6 +36,16 @@ export function proxy(request: NextRequest): NextResponse {
   if (target) {
     const url = request.nextUrl.clone();
     url.pathname = target;
+    return NextResponse.redirect(url, 307);
+  }
+
+  // Испорченный адрес: Next.js разбирает его ещё до страницы и отвечает ошибкой 500, внутренняя перезапись
+  // не помогает. Перенаправляем на страницу "не найдено" того же языка (код 404). Адрес без языка к этому
+  // месту уже перенаправлен на адрес с языком.
+  if (isMalformedPath(request.nextUrl.pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${request.nextUrl.pathname.split('/')[1]}/not-found`;
+    url.search = '';
     return NextResponse.redirect(url, 307);
   }
 

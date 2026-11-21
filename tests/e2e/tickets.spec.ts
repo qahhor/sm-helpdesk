@@ -251,3 +251,12 @@ test('страницы обращений без серьёзных наруше
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `шрифт ${path}`).toBe(true);
   }
 });
+
+test('испорченный адрес обращения ведёт на "не найдено", а не на ошибку сервера', async ({ page }) => {
+  for (const path of ['/ru/tickets/%E0%A4%A', '/ru/tickets/%', '/ru/tickets/SUP-%ZZ']) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(404);
+    await expect(page).toHaveURL(/\/ru\/not-found$/);
+    await expect(page.getByRole('heading', { name: 'Страница не найдена' }), path).toBeVisible();
+  }
+});

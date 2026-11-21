@@ -243,3 +243,40 @@ test('шаблоны: администратор добавляет, агент 
   await expect(field).toHaveValue('Добрый день! Пришлите, пожалуйста, снимок экрана с ошибкой.');
   await expect(list).toHaveCount(0);
 });
+
+test('объединение дублей: дубль закрыт со ссылкой, клиент видит основное и не может открыть дубль заново', async ({ page, browser }) => {
+  const mainNumber = await clientTicket(browser, `Основное ${Date.now()}`);
+  const dup = await clientTicket(browser, `Дубль ${Date.now()}`);
+  await page.goto(`/ru/agent/tickets/SUP-${dup}`);
+  await page.getByRole('button', { name: 'Объединить с основным' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Объединить дубли' });
+  await dialog.getByLabel('Номер основного обращения').fill(`SUP-${mainNumber}`);
+  await dialog.getByRole('button', { name: 'Объединить', exact: true }).click();
+  await expect(main(page).getByRole('status').filter({ hasText: 'Обращение закрыто как дубль' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Сведения об обращении' }).locator('[data-merged]')).toContainText(`SUP-${mainNumber}`);
+
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${dup}`);
+  await expect(client.locator('[data-merged]')).toContainText(`Обращение объединено с SUP-${mainNumber}`);
+  await expect(client.getByRole('button', { name: 'Открыть снова' })).toHaveCount(0);
+  await client.locator('[data-merged]').getByRole('link').click();
+  await expect(client).toHaveURL(new RegExp(`/ru/tickets/SUP-${mainNumber}$`));
+  await clientContext.close();
+});
+
+test('массовое назначение из очереди: итог по каждому обращению', async ({ page, browser }) => {
+  const stamp = `Массовое ${Date.now()}`;
+  const first = await clientTicket(browser, `${stamp} первое`);
+  const second = await clientTicket(browser, `${stamp} второе`);
+  await page.goto(`/ru/agent/queues?queue=all&q=${encodeURIComponent(stamp)}`);
+  await main(page).getByLabel(`Выбрать SUP-${first}`).check();
+  await main(page).getByLabel(`Выбрать SUP-${second}`).check();
+  const bar = main(page).getByRole('form', { name: 'Действия с выбранными' });
+  await bar.getByLabel('Действие').selectOption('assign');
+  await bar.getByLabel('Исполнитель').selectOption({ label: 'Камила' });
+  await bar.getByRole('button', { name: 'Применить к выбранным' }).click();
+  await expect(bar.getByRole('status')).toContainText('Готово: 2');
+  await expect(main(page).locator(`tr[data-number="${first}"]`)).toContainText('Камила');
+  await expect(main(page).locator(`tr[data-number="${second}"]`)).toContainText('Камила');
+});

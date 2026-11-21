@@ -8,6 +8,8 @@ import {
   type ChangeSummary,
   isHdtError,
   listPresence,
+  mergeTicket,
+  parseNumber,
   postStaffMessage,
   type PresenceEntry,
   returnToL1,
@@ -170,4 +172,11 @@ export async function transferAction(form: FormData): Promise<void> {
 
 export async function returnAction(form: FormData): Promise<void> {
   await run(form, (staff, number) => returnToL1(staff, { number, explanation: String(form.get('explanation') ?? '') }), 'returned');
+}
+
+// --- Объединение дублей (план M3, задача 11) ---
+
+/** Номер основного из "SUP-1042" или "1042". Непонятный номер сервис отклонит как invalid_input. */
+export async function mergeAction(form: FormData): Promise<void> {
+  await run(form, async (staff, number) => void (await mergeTicket(staff, { number, intoNumber: parseNumber(text(form, 'into')) ?? 'invalid' })), 'merged');
 }

@@ -23,6 +23,10 @@ export const HDT_ERROR_CODES = [
   'already_taken',
   'reason_required',
   'resolution_required',
+  // Объединение дублей (решение 4 плана M3): само с собой, другая организация или цепочка к самому себе; объединённое
+  // обращение нельзя открыть заново, клиент идёт в основное.
+  'merge_refused',
+  'merged',
 ] as const;
 
 export type HdtErrorCode = (typeof HDT_ERROR_CODES)[number];

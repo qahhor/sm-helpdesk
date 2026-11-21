@@ -52,6 +52,7 @@ export const AUDIT_ACTIONS = [
   'ticket.snoozed',
   'ticket.line_transferred',
   'ticket.line_returned',
+  'ticket.merged',
   // Памятки первой линии и шаблоны ответов (веха M3).
   'playbook.saved',
   'template.saved',

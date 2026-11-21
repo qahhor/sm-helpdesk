@@ -24,6 +24,7 @@ export async function readAgentTicketTx(
   attachments: AgentAttachmentRecord[];
   seenOn: Date | null;
   transfer: { toLine: string; pickupDueOn: Date | null; pickedUpOn: Date | null } | null;
+  mergedIntoNumber: number | null;
 } | null> {
   return withActor(actor, async (tx) => {
     const [ticket] = await tx.select().from(tickets).where(eq(tickets.number, number)).limit(1);
@@ -79,7 +80,10 @@ export async function readAgentTicketTx(
       .select({ seenOn: ticketReads.seenOn })
       .from(ticketReads)
       .where(and(eq(ticketReads.ticketId, ticket.ticketId), eq(ticketReads.userId, actor.userId)));
-    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, transfer: transfer ?? null };
+    const mergedIntoNumber = ticket.mergedIntoId
+      ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.mergedIntoId)).limit(1))[0]?.number ?? null)
+      : null;
+    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, transfer: transfer ?? null, mergedIntoNumber };
   });
 }
 

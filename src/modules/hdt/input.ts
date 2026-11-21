@@ -155,6 +155,25 @@ export const transferInput = z.object({
 /** Возврат на первую линию (FR-LINE-04): пояснение обязательно. */
 export const returnInput = z.object({ number: numberInput, explanation: z.string().overwrite(cleanUserText).trim().min(1).max(2000) });
 
+/** Объединить дубль с основным (FR-AG-07). */
+export const mergeInput = z.object({ number: numberInput, intoNumber: numberInput });
+
+/** Массовые действия в списке (FR-AG-20): до 100 обращений; на вторую линию только с запиской, на первую с пояснением. */
+const bulkNumbers = z.array(numberInput).min(1).max(100);
+export const bulkInput = z.union([
+  z.object({ action: z.literal('assign'), numbers: bulkNumbers, assigneeId: z.uuid().nullable() }),
+  z.object({ action: z.literal('duplicate'), numbers: bulkNumbers, intoNumber: numberInput }),
+  z.object({
+    action: z.literal('queue'),
+    numbers: bulkNumbers,
+    to: z.literal('l2'),
+    reason: z.enum(TRANSFER_REASONS),
+    checked: z.string().overwrite(cleanUserText).trim().min(1).max(2000),
+    needed: z.string().overwrite(cleanUserText).trim().min(1).max(2000),
+  }),
+  z.object({ action: z.literal('queue'), numbers: bulkNumbers, to: z.literal('l1'), explanation: z.string().overwrite(cleanUserText).trim().min(1).max(2000) }),
+]);
+
 export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);
   if (!result.success) throw new HdtError('invalid_input');

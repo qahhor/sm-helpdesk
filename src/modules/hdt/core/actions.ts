@@ -19,6 +19,7 @@ type Locked = {
   visibility: Visibility;
   closedOn: Date | null;
   csatScore: number | null;
+  mergedIntoId: string | null;
 };
 
 /** Видимое актору обращение по номеру с блокировкой строки. Невидимое и несуществующее: not_found. */
@@ -33,6 +34,7 @@ async function lockTicket(tx: Tx, number: number): Promise<Locked> {
         visibility: tickets.visibility,
         closedOn: tickets.closedOn,
         csatScore: tickets.csatScore,
+        mergedIntoId: tickets.mergedIntoId,
       })
       .from(tickets)
       .where(eq(tickets.number, number))
@@ -113,6 +115,8 @@ export async function confirmTx(actor: ClientActor, number: number): Promise<voi
 export async function reopenTx(actor: ClientActor, number: number, reopenDays: number, body?: string): Promise<string> {
   return withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
+    // Объединённое закрыто навсегда: клиент продолжает в основном (решение 4 плана M3).
+    if (ticket.mergedIntoId) throw new HdtError('merged');
     if (ticket.status === 'closed') {
       const expired = !ticket.closedOn || Date.now() - ticket.closedOn.getTime() > reopenDays * 86_400_000;
       if (expired) throw new HdtError('reopen_expired');

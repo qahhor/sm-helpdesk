@@ -16,6 +16,7 @@ import {
   TRANSFERABLE_STATUSES,
 } from '@/modules/hdt/api';
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
+import { Link } from '@/i18n/navigation';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
 import { Card, CardContent } from '@/ui/components/card';
@@ -25,6 +26,7 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 import { cn } from '@/ui/cn';
 import { acceptOf, STATUS_TONE } from '@/ui/ticket-status';
 import { Composer } from './Composer';
+import { MergeDialog } from './MergeDialog';
 import { PresenceBar } from './PresenceBar';
 import { ReturnDialog } from './ReturnDialog';
 import { TicketControls } from './TicketControls';
@@ -41,7 +43,7 @@ function safeDecode(value: string): string | null {
   }
 }
 
-const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned'] as const;
+const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged'] as const;
 
 type Search = { done?: string; error?: string };
 
@@ -131,6 +133,8 @@ export default async function AgentTicketPage({ params, searchParams }: { params
             needed: String(p.needed ?? ''),
           });
         return t('ticket.events.queue', { actor, to: t.has(`ticket.lines.${String(p.to)}`) ? t(`ticket.lines.${String(p.to)}`) : String(p.to ?? '') });
+      case 'merge':
+        return typeof p.from === 'number' ? t('ticket.events.mergedFrom', { actor, number: `SUP-${p.from}` }) : t('ticket.events.merge', { actor });
       case 'due':
         return t('ticket.events.due', { kind: t.has(`ticket.dueKinds.${String(p.kind)}`) ? t(`ticket.dueKinds.${String(p.kind)}`) : '' });
       default:
@@ -298,6 +302,13 @@ export default async function AgentTicketPage({ params, searchParams }: { params
             <CardContent className="flex flex-col gap-1 pt-6 text-sm">
               <h2 className="text-xs font-medium text-secondary-foreground">{t('ticket.workTitle')}</h2>
               <p>{t('ticket.line', { line: t(`ticket.lines.${ticket.line}`) })}</p>
+              {ticket.mergedInto && (
+                <p data-merged>
+                  <Link href={`/agent/tickets/SUP-${ticket.mergedInto.number}`} className="text-link underline-offset-2 hover:underline">
+                    {t('ticket.mergedInto', { number: `SUP-${ticket.mergedInto.number}` })}
+                  </Link>
+                </p>
+              )}
               {ticket.pickup && <p data-pickup>{t('ticket.pickupDue', { time: when(ticket.pickup.dueOn) })}</p>}
               <p>{t('ticket.assignee', { name: ticket.assignee?.name ?? t('queues.unassigned') })}</p>
               <p>{t('ticket.source', { source: t(`ticket.sources.${ticket.source}`) })}</p>
@@ -323,6 +334,20 @@ export default async function AgentTicketPage({ params, searchParams }: { params
                         : t('ticket.transfer.deadlineNone'),
                     cancel: t('ticket.transfer.cancel'),
                     submit: t('ticket.transfer.submit'),
+                    close: t('ticket.transfer.close'),
+                  }}
+                />
+              )}
+              {canWrite && ticket.status !== 'closed' && (
+                <MergeDialog
+                  number={ticket.number}
+                  labels={{
+                    open: t('ticket.merge.open'),
+                    title: t('ticket.merge.title'),
+                    text: t('ticket.merge.text'),
+                    into: t('ticket.merge.into'),
+                    cancel: t('ticket.transfer.cancel'),
+                    submit: t('ticket.merge.submit'),
                     close: t('ticket.transfer.close'),
                   }}
                 />

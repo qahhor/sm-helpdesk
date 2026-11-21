@@ -30,6 +30,8 @@ import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from '
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeStaffUpload, completeUpload, handleUploadRequest, presignStaffUpload, presignUpload } from './api/uploads';
+// Объединение дублей и массовые действия (план M3, задача 11).
+export { bulkAction, type BulkResult, mergeTicket } from './api/bulk';
 // Передача между линиями (план M3, задача 9).
 export { returnToL1, transferToL2 } from './api/lines';
 // Ответ, заметка, черновик и присутствие сотрудника (план M3, задача 8).
@@ -190,6 +192,9 @@ export type TicketView = {
   isMine: boolean;
   watching: boolean;
   relatedNumber: number | null;
+  /** Обращение объединено с основным (решение 4 плана M3): номер, только если основное видно клиенту. */
+  mergedInto: { number: number } | null;
+  merged: boolean;
   csat: { score: number; reason: CsatReason | null; comment: string | null } | null;
   attachments: AttachmentView[];
   messages: MessageView[];
@@ -278,6 +283,8 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
     isMine,
     watching: found.watching,
     relatedNumber: found.relatedNumber,
+    mergedInto: found.mergedIntoNumber !== null ? { number: found.mergedIntoNumber } : null,
+    merged: ticket.mergedIntoId !== null,
     csat: ticket.csatScore !== null ? { score: ticket.csatScore, reason: ticket.csatReason, comment: ticket.csatComment } : null,
     attachments: found.attachments.filter((a) => a.messageId === null).map(fileView),
     messages: found.messages.map((m) => ({
@@ -298,7 +305,7 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
       // Решение 0026, пункт 21: подтверждают автор и администратор клиента, открыть снова может любой, кто видит,
       // оценивает только автор.
       confirm: ticket.status === 'resolved' && (isMine || ctx.actor.orgRole === 'client_admin'),
-      reopen: ticket.status === 'resolved' || (ticket.status === 'closed' && withinReopen(ticket.closedOn, days)),
+      reopen: ticket.mergedIntoId === null && (ticket.status === 'resolved' || (ticket.status === 'closed' && withinReopen(ticket.closedOn, days))),
       rate: ticket.status === 'closed' && ticket.csatScore === null && isMine,
       changeVisibility: isMine || ctx.actor.orgRole === 'client_admin',
       watch: ticket.visibility === 'org' && !isMine,

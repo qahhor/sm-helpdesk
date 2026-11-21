@@ -173,7 +173,9 @@
           "created": "Request created",
           "status": "Status: {from} > {to}",
           "visibility": "Visibility changed",
-          "rated": "Rating given"
+          "rated": "Rating given",
+          "mergedInto": "Merged with {number}",
+          "merged": "Merged with another request"
         },
         "files": "Files",
         "scan": {
@@ -235,7 +237,9 @@
           "resolution": "Resolution target: {when}",
           "today": "today, {time}",
           "tomorrow": "tomorrow, {time}"
-        }
+        },
+        "mergedLink": "This request was merged with {number}. We will continue there.",
+        "mergedHidden": "This request was merged with another request on the same topic."
       },
       "files": {
         "add": "File or screenshot",
@@ -260,7 +264,8 @@
         "file_too_large": "The file is larger than 25 MB, video larger than 50 MB",
         "upload": "The file did not upload. Try again",
         "reason": "Choose what went wrong",
-        "file_unavailable": "One of the files is no longer available or failed the check. Remove it and attach it again"
+        "file_unavailable": "One of the files is no longer available or failed the check. Remove it and attach it again",
+        "merged": "This request was merged with another one: we will continue in the main request."
       }
     },
     "ideas": {
@@ -773,7 +778,8 @@
             "module_changed": "Ticket module changed",
             "snoozed": "Ticket snoozed",
             "line_transferred": "Transferred to the second line",
-            "line_returned": "Returned to the first line"
+            "line_returned": "Returned to the first line",
+            "merged": "Tickets merged"
           },
           "attachment": {
             "infected": "Infected file found"
@@ -968,6 +974,22 @@
       },
       "errors": {
         "filterInvalid": "Name the list: 1 to 80 characters."
+      },
+      "bulk": {
+        "title": "Actions with selected",
+        "action": "Action",
+        "actions": {
+          "assign": "Assign",
+          "queue_l2": "Transfer to the second line",
+          "queue_l1": "Return to the first line",
+          "duplicate": "Close as duplicate"
+        },
+        "submit": "Apply to selected",
+        "done": "Done: {count}",
+        "refused": "{number}: {reason}",
+        "invalid": "Select tickets and fill in the action fields.",
+        "select": "Select {number}",
+        "selectColumn": "Select"
       }
     },
     "ticket": {
@@ -1005,7 +1027,8 @@
         "rated": "{actor}: rated",
         "rule": "A rule fired",
         "transferred": "{actor}: transferred to the second line. Reason: {reason}. Checked: {checked}. Needed: {needed}",
-        "returned": "{actor}: returned to the first line. {explanation}"
+        "returned": "{actor}: returned to the first line. {explanation}",
+        "mergedFrom": "{actor}: merged {number} into this ticket"
       },
       "dueKinds": {
         "first_response": "first response",
@@ -1091,7 +1114,8 @@
           "sent": "Reply sent",
           "noted": "Note saved",
           "transferred": "Ticket transferred to the second line",
-          "returned": "Ticket returned to the first line"
+          "returned": "Ticket returned to the first line",
+          "merged": "Ticket closed as a duplicate"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -1102,7 +1126,9 @@
           "invalid_input": "Check the data you entered.",
           "not_found": "Ticket not found.",
           "rate_limited": "Too many actions in a row. Wait a minute.",
-          "other": "That did not work. Try again."
+          "other": "That did not work. Try again.",
+          "merge_refused": "Cannot merge: it is the same ticket or a ticket of another organization.",
+          "merged": "The ticket is already merged."
         }
       },
       "presence": {
@@ -1177,7 +1203,15 @@
         "title": "Return to the first line",
         "explanation": "Explanation for the first line",
         "submit": "Return"
-      }
+      },
+      "merge": {
+        "open": "Merge into main",
+        "title": "Merge duplicates",
+        "text": "This ticket will be closed as a duplicate with a link to the main one. The client will see where the work continues.",
+        "into": "Main ticket number",
+        "submit": "Merge"
+      },
+      "mergedInto": "Merged with {number}"
     },
     "playbooks": {
       "title": "First-line playbooks",

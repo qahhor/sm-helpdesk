@@ -153,7 +153,12 @@ export default async function TicketPage({
             ? t('page.events.status', { from: status(String(e.payload.from)), to: status(String(e.payload.to)) })
             : e.kind === 'visibility' || e.kind === 'rated'
               ? t(`page.events.${e.kind}`)
-              : null;
+              : e.kind === 'merge'
+                ? // Номер основного только если основное видно клиенту (решение 4 плана M3).
+                  ticket.mergedInto
+                  ? t('page.events.mergedInto', { number: `SUP-${ticket.mergedInto.number}` })
+                  : t('page.events.merged')
+                : null;
         return {
           at: e.createdOn,
           key: `event-${index}`,
@@ -185,6 +190,17 @@ export default async function TicketPage({
         {ticket.nextReply && (
           <p className="text-sm" data-next-reply={ticket.nextReply.kind}>
             {t(`page.nextReply.${ticket.nextReply.kind}`, { when: deadline(ticket.nextReply.at, ticket.nextReply.timeZone) })}
+          </p>
+        )}
+        {ticket.merged && (
+          <p className="text-sm" data-merged>
+            {ticket.mergedInto ? (
+              <Link href={`/tickets/SUP-${ticket.mergedInto.number}`} className="text-link underline underline-offset-2">
+                {t('page.mergedLink', { number: `SUP-${ticket.mergedInto.number}` })}
+              </Link>
+            ) : (
+              t('page.mergedHidden')
+            )}
           </p>
         )}
         {ticket.relatedNumber && (

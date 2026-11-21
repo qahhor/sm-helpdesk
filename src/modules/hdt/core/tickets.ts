@@ -157,7 +157,7 @@ export type AttachmentRecord = Pick<
 export async function readTicket(
   actor: ClientActor,
   number: number,
-): Promise<{ ticket: TicketRecord; messages: MessageRecord[]; events: EventRecord[]; attachments: AttachmentRecord[]; watching: boolean; relatedNumber: number | null } | null> {
+): Promise<{ ticket: TicketRecord; messages: MessageRecord[]; events: EventRecord[]; attachments: AttachmentRecord[]; watching: boolean; relatedNumber: number | null; mergedIntoNumber: number | null } | null> {
   return withActor(actor, async (tx) => {
     const ticket = (await tx.select().from(tickets).where(eq(tickets.number, number)).limit(1))[0];
     if (!ticket) return null;
@@ -198,6 +198,10 @@ export async function readTicket(
     const relatedNumber = ticket.relatedTicketId
       ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.relatedTicketId)).limit(1))[0]?.number ?? null)
       : null;
-    return { ticket, messages, events, attachments: files, watching, relatedNumber };
+    // Номер основного только если основное видно этому клиенту (решение 4 плана M3): запрос идёт под его политикой.
+    const mergedIntoNumber = ticket.mergedIntoId
+      ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.mergedIntoId)).limit(1))[0]?.number ?? null)
+      : null;
+    return { ticket, messages, events, attachments: files, watching, relatedNumber, mergedIntoNumber };
   });
 }

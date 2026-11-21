@@ -1,7 +1,7 @@
 import { getFormatter, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { listFilters, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueCounts, type QueueSort } from '@/modules/hdt/api';
-import { requireStaffActor } from '@/modules/hdu/api';
+import { HDT_ERROR_CODES, listFilters, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueCounts, type QueueSort, TRANSFER_REASONS } from '@/modules/hdt/api';
+import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
@@ -12,6 +12,7 @@ import { PageHeader } from '@/ui/components/PageHeader';
 import { Select } from '@/ui/components/select';
 import { cn } from '@/ui/cn';
 import { deleteFilterAction, saveFilterAction } from './actions';
+import { BULK_FORM_ID, BulkBar } from './BulkBar';
 
 // Очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18, UX-A-08, UX-A-09; экран 8.4 "Очередь").
 // Слева очереди со счётчиками и сохранённые списки, справа поиск, сортировка и таблица по ближайшему сроку.
@@ -33,7 +34,13 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   const sort = pick<QueueSort>(params.sort, QUEUE_SORTS, 'sla');
   const q = params.q?.trim() ? params.q.trim().slice(0, 200) : undefined;
   const page = Math.max(1, Math.min(1000, Number(params.page) || 1));
-  const [list, counts, filters] = await Promise.all([listQueue(staff, { queue, sort, q, page }), queueCounts(staff), listFilters(staff)]);
+  const canWrite = staff.actor.staffRole !== 'product';
+  const [list, counts, filters, assignable] = await Promise.all([
+    listQueue(staff, { queue, sort, q, page }),
+    queueCounts(staff),
+    listFilters(staff),
+    canWrite ? listAssignableStaff(staff) : Promise.resolve([]),
+  ]);
   const href = (next: { queue?: QueueKey; sort?: QueueSort; q?: string; page?: number }) => {
     const search = new URLSearchParams();
     search.set('queue', next.queue ?? queue);
@@ -132,11 +139,45 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
               <EmptyState title={t('queues.emptyTitle')} text={q ? t('queues.emptySearch') : t('queues.emptyText')} />
             </Card>
           ) : (
+            <>
+            {canWrite && (
+              <BulkBar
+                staff={assignable.map((person) => ({ value: person.userId, label: person.name }))}
+                reasons={TRANSFER_REASONS.map((value) => ({ value, label: t(`ticket.transfer.reasons.${value}`) }))}
+                labels={{
+                  title: t('queues.bulk.title'),
+                  action: t('queues.bulk.action'),
+                  actions: {
+                    assign: t('queues.bulk.actions.assign'),
+                    queue_l2: t('queues.bulk.actions.queue_l2'),
+                    queue_l1: t('queues.bulk.actions.queue_l1'),
+                    duplicate: t('queues.bulk.actions.duplicate'),
+                  },
+                  assignee: t('ticket.controls.assignee'),
+                  unassigned: t('queues.unassigned'),
+                  reason: t('ticket.transfer.reason'),
+                  reasonHint: t('ticket.transfer.reasonHint'),
+                  checked: t('ticket.transfer.checked'),
+                  needed: t('ticket.transfer.needed'),
+                  explanation: t('ticket.return.explanation'),
+                  into: t('ticket.merge.into'),
+                  submit: t('queues.bulk.submit'),
+                  done: t.raw('queues.bulk.done') as string,
+                  refused: t.raw('queues.bulk.refused') as string,
+                  errors: Object.fromEntries([...HDT_ERROR_CODES.filter((code) => t.has(`ticket.controls.errors.${code}`)).map((code) => [code, t(`ticket.controls.errors.${code}`)]), ['invalid_input', t('queues.bulk.invalid')]]),
+                }}
+              />
+            )}
             <Card className="overflow-x-auto">
               <table className="w-full text-sm">
                 <caption className="sr-only">{t(`queues.names.${queue}`)}</caption>
                 <thead>
                   <tr className="border-b border-border">
+                    {canWrite && (
+                      <th scope="col" className={head}>
+                        <span className="sr-only">{t('queues.bulk.selectColumn')}</span>
+                      </th>
+                    )}
                     <th scope="col" className={head}>{t('queues.columns.number')}</th>
                     <th scope="col" className={head}>{t('queues.columns.title')}</th>
                     <th scope="col" className={head}>{t('queues.columns.client')}</th>
@@ -148,6 +189,18 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                 <tbody>
                   {list.items.map((row) => (
                     <tr key={row.number} className="border-b border-border last:border-0" data-number={row.number}>
+                      {canWrite && (
+                        <td className={cell}>
+                          <input
+                            type="checkbox"
+                            name="numbers"
+                            value={row.number}
+                            form={BULK_FORM_ID}
+                            className="size-5 accent-primary"
+                            aria-label={t('queues.bulk.select', { number: `SUP-${row.number}` })}
+                          />
+                        </td>
+                      )}
                       <td className={cn(cell, 'whitespace-nowrap')}>
                         <Link href={`/agent/tickets/SUP-${row.number}`} className="font-semibold text-link hover:underline">
                           {row.number}
@@ -172,6 +225,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                 </tbody>
               </table>
             </Card>
+            </>
           )}
           <div className="flex gap-2">
             {page > 1 && (

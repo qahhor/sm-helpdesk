@@ -73,6 +73,22 @@ test('чистый файл переносится из карантина и п
   expect(await scanAttachment(SYSTEM, await upload(f.aUser, 'выгрузка.csv', 'text/csv', text('код;имя\n1;Заказ\n')))).toBe('clean');
 });
 
+test('файл, положенный по ссылке повторно после проверки, не остаётся в карантине без строки', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = await clientCtx(f.aUser);
+  const id = await upload(f.aUser, 'shot.png', 'image/png', PNG);
+  expect(await scanAttachment(SYSTEM, id)).toBe('clean');
+  // Ссылка ещё жива: тот же файл положили второй раз и снова сообщили о завершении.
+  storage.put(`quarantine/${id}`, PNG);
+  expect(await completeUpload(ctx, id)).toEqual({ status: 'clean' });
+  expect(storage.has(`quarantine/${id}`)).toBe(false);
+  // И повторная задача проверки тоже убирает остаток, перенесённый файл не трогает.
+  storage.put(`quarantine/${id}`, PNG);
+  expect(await scanAttachment(SYSTEM, id)).toBe('clean');
+  expect(storage.has(`quarantine/${id}`)).toBe(false);
+  expect(storage.has(`files/${f.orgA.orgId}/${id}`)).toBe(true);
+});
+
 test('EICAR получает infected, объект из карантина удалён, файл не скачивается', async () => {
   const f = await seedTwoOrgs();
   const id = await upload(f.aUser, 'readme.txt', 'text/plain', text(EICAR));

@@ -174,8 +174,9 @@ export async function scanAttachment(attachmentId: string): Promise<ScanStatus> 
   const quarantine = quarantineKey(row.attachmentId);
   const target = fileKey(row.orgId, row.attachmentId);
   if (row.scanStatus !== 'pending') {
-    // Удаление могло не пройти в прошлый раз: в карантине не остаётся ничего, кроме непроверенного.
-    if (row.scanStatus !== 'clean') await storage.remove(quarantine);
+    // В карантине не остаётся ничего, кроме непроверенного: удаление могло не пройти в прошлый раз, а ссылка
+    // на загрузку живёт 300 секунд, и по ней могли положить файл повторно. Чистый файл лежит в files/, его не трогаем.
+    await storage.remove(quarantine);
     return row.scanStatus;
   }
   if (!(await storage.head(quarantine))) {

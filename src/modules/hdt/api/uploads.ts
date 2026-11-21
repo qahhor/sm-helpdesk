@@ -37,8 +37,12 @@ export async function completeUpload(ctx: ClientContext, attachmentId: unknown):
   const id = parseInput(attachmentIdInput, attachmentId);
   const upload = await findOwnUpload(ctx.actor, id);
   if (!upload) throw new HdtError('not_found');
-  if (upload.scanStatus !== 'pending') return { status: upload.scanStatus };
   const storage = getStorage();
+  if (upload.scanStatus !== 'pending') {
+    // Проверка уже закончена, а по живой ссылке файл положили повторно: остаток в карантине удаляется.
+    await storage.remove(quarantineKey(id));
+    return { status: upload.scanStatus };
+  }
   const stored = await storage.head(upload.storageKey);
   if (!stored || stored.size !== upload.size) {
     await storage.remove(upload.storageKey);

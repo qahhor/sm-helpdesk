@@ -246,3 +246,17 @@ test('вложение нельзя привязать к сообщению д�
     ),
   ).rejects.toThrow(/violates foreign key|hdt_attachments_f2/);
 });
+
+test('файл внутренней заметки клиенту не виден, даже если флаг is_internal у файла забыли поставить', async () => {
+  const f = await seedTwoOrgs();
+  const note = (await pools.root.query(`select message_id from hdt_ticket_messages where ticket_id = $1 and is_internal limit 1`, [f.tickets.aOrg.ticketId]))
+    .rows[0].message_id as string;
+  await pools.root.query(
+    `insert into hdt_attachments (org_id, ticket_id, message_id, uploader_id, storage_key, file_name, mime, size, scan_status, is_internal)
+     values ($1, $2, $3, $4, 'files/x/note-file', 'note.png', 'image/png', 10, 'clean', false)`,
+    [f.orgA.orgId, f.tickets.aOrg.ticketId, note, f.l1.userId],
+  );
+  for (const actor of [f.aUser.actor, f.aAdmin.actor])
+    expect(await rows(actor, `select 1 from hdt_attachments where storage_key = 'files/x/note-file'`)).toEqual([]);
+  expect(await rows(f.l1.actor, `select 1 from hdt_attachments where storage_key = 'files/x/note-file'`)).toHaveLength(1);
+});

@@ -1,5 +1,5 @@
 import { AwsV4Signer } from 'aws4fetch';
-import { assertKey, contentDisposition, type Storage, UPLOAD_LINK_TTL_SEC } from './types';
+import { assertKey, contentDisposition, DOWNLOAD_CACHE_CONTROL, type Storage, UPLOAD_LINK_TTL_SEC } from './types';
 
 // Cloudflare R2 по протоколу S3 (решение 0027): подпись SigV4 библиотекой aws4fetch, адреса вида
 // {endpoint}/{bucket}/{key}. Ключ доступа в ссылки, ошибки и журнал не попадает: в ссылке только его идентификатор.
@@ -52,10 +52,13 @@ export function createR2Storage(opts: R2Options): Storage {
       return { url: signed.url.toString(), headers: { 'Content-Type': mime } };
     },
 
-    async presignDownload(key, filename, ttlSeconds, inline = false) {
+    async presignDownload(key, { filename, contentType, ttlSeconds, inline = false }) {
       const url = urlOf(key);
       url.searchParams.set('X-Amz-Expires', String(ttlSeconds));
+      // Параметры ответа входят в подпись: тип, способ показа и кеширование задаёт портал, а не объект.
       url.searchParams.set('response-content-disposition', contentDisposition(inline ? 'inline' : 'attachment', filename));
+      url.searchParams.set('response-content-type', contentType);
+      url.searchParams.set('response-cache-control', DOWNLOAD_CACHE_CONTROL);
       return (await sign('GET', url, {}, true)).url.toString();
     },
 
@@ -66,9 +69,12 @@ export function createR2Storage(opts: R2Options): Storage {
       return { size: Number(response.headers.get('content-length')) };
     },
 
-    async move(fromKey, toKey, ifMatch) {
+    async move(fromKey, toKey, { contentType, ifMatch }) {
       const copied = await call('PUT', toKey, {
         'x-amz-copy-source': `/${opts.bucket}/${assertKey(fromKey)}`,
+        // Метаданные загрузки (Content-Encoding, Content-Disposition, x-amz-meta-*) в копию не переходят.
+        'x-amz-metadata-directive': 'REPLACE',
+        'Content-Type': contentType,
         // Подменённый после чтения объект не копируется: R2 отвечает 412.
         // Пустая метка не отключает условие: перенос либо сверяет версию, либо не происходит.
         ...(ifMatch !== undefined ? { 'x-amz-copy-source-if-match': ifMatch } : {}),

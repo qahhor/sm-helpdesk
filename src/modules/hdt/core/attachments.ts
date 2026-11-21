@@ -224,7 +224,7 @@ export async function scanAttachment(attachmentId: string): Promise<ScanStatus> 
     return status;
   }
   // Переносится только прочитанная версия: подменённый после чтения файл не копируется, задача повторится.
-  await storage.move(quarantine, target, etag);
+  await storage.move(quarantine, target, { contentType: row.mime, ifMatch: etag });
   return finish(row, { scanStatus: 'clean', storageKey: target, detectedType: detected, sha256: hash.digest('hex') });
 }
 

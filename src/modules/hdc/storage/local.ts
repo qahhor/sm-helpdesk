@@ -97,14 +97,15 @@ export function createLocalStorage(opts: LocalOptions): LocalStorage {
     async presignUpload(key, mime, size) {
       return { url: signedUrl(opts, { op: 'put', key: assertKey(key), mime, size }, UPLOAD_LINK_TTL_SEC), headers: { 'Content-Type': mime } };
     },
-    async presignDownload(key, filename, ttlSeconds, inline = false) {
+    // Заглушка отдаёт тип по расширению картинки, остальное потоком байт: contentType ей не нужен.
+    async presignDownload(key, { filename, ttlSeconds, inline = false }) {
       return signedUrl(opts, { op: 'get', key: assertKey(key), disposition: inline ? 'inline' : 'attachment', name: filename }, ttlSeconds);
     },
     async head(key) {
       const size = await sizeOf(key);
       return size === null ? null : { size };
     },
-    async move(fromKey, toKey, ifMatch) {
+    async move(fromKey, toKey, { ifMatch }) {
       if (ifMatch !== undefined && (await etagOf(fromKey)) !== ifMatch) throw new Error('хранилище: файл изменился после чтения');
       const target = pathOf(toKey);
       await mkdir(dirname(target), { recursive: true });

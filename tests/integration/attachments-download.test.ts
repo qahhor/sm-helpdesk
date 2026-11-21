@@ -61,6 +61,8 @@ test('ссылка на 60 секунд, Content-Disposition: attachment, имя
   const ctx = await clientCtx(f.aUser);
   const url = await attachmentRedirect(ctx, id, { inline: false });
   expect(params(url).get('ttl')).toBe('60');
+  // Тип ответа задаёт портал по строке вложения (вторая проверка M2).
+  expect(params(url).get('type')).toBe('application/pdf');
   const disposition = params(url).get('disposition') ?? '';
   expect(disposition).toBe(contentDisposition('attachment', 'отчёт "ноябрь".pdf'));
   expect(disposition).not.toMatch(/Users|\\/);

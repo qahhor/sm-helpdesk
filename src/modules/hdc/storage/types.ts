@@ -4,20 +4,30 @@
 export interface Storage {
   /** Ссылка PUT на UPLOAD_LINK_TTL_SEC секунд. Тип и размер подписаны: другой файл хранилище не примет. */
   presignUpload(key: string, mime: string, size: number): Promise<{ url: string; headers: Record<string, string> }>;
-  /** Ссылка GET на ttlSeconds секунд. Без inline файл скачивается (Content-Disposition: attachment). */
-  presignDownload(key: string, filename: string, ttlSeconds: number, inline?: boolean): Promise<string>;
+  /**
+   * Ссылка GET на ttlSeconds секунд. Без inline файл скачивается (Content-Disposition: attachment). Тип ответа
+   * задаёт портал (contentType), ответ не кешируется: метаданные объекта на выдачу не влияют.
+   */
+  presignDownload(key: string, opts: DownloadOptions): Promise<string>;
   /** Размер объекта или null, если объекта нет. */
   head(key: string): Promise<{ size: number } | null>;
   /**
    * Перенос. С ifMatch переносится только тот объект, который был прочитан с этой меткой (ETag): если файл
-   * подменили после чтения, перенос бросает ошибку и источник остаётся на месте.
+   * подменили после чтения, перенос бросает ошибку и источник остаётся на месте. Метаданные копии заменяются:
+   * остаётся только contentType, заголовки, с которыми браузер положил файл, не переносятся.
    */
-  move(fromKey: string, toKey: string, ifMatch?: string): Promise<void>;
+  move(fromKey: string, toKey: string, opts: MoveOptions): Promise<void>;
   /** Содержимое и метка версии объекта (ETag) на момент чтения. */
   stream(key: string): Promise<{ body: ReadableStream<Uint8Array>; etag: string }>;
   /** Удаление. Отсутствующий объект ошибкой не считается. */
   remove(key: string): Promise<void>;
 }
+
+export type DownloadOptions = { filename: string; contentType: string; ttlSeconds: number; inline?: boolean };
+export type MoveOptions = { contentType: string; ifMatch?: string };
+
+/** Заголовок Cache-Control ответа по ссылке на скачивание: файл клиента не кешируется нигде, кроме браузера. */
+export const DOWNLOAD_CACHE_CONTROL = 'private, no-store';
 
 /** Срок ссылки на загрузку (FR-TK-13). */
 export const UPLOAD_LINK_TTL_SEC = 300;

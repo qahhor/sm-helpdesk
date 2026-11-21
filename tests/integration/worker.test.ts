@@ -164,7 +164,7 @@ test('неприкреплённая загрузка старше суток у
   await createTicket(ctx, { description: 'С файлом', type: 'bug', impact: 'minor', locale: 'ru', attachmentIds: [attached] });
   // Проверенный неприкреплённый файл лежит уже в папке организации.
   const cleanOld = await upload();
-  await storage.move(`quarantine/${cleanOld}`, `files/${f.orgA.orgId}/${cleanOld}`);
+  await storage.move(`quarantine/${cleanOld}`, `files/${f.orgA.orgId}/${cleanOld}`, { contentType: 'image/png' });
   await pools.root.query(`update hdt_attachments set scan_status = 'clean', storage_key = $2 where attachment_id = $1`, [cleanOld, `files/${f.orgA.orgId}/${cleanOld}`]);
   for (const id of [old, attached, cleanOld]) await age(id, '25 hours');
   await age(recent, '23 hours');

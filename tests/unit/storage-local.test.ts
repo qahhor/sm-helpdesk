@@ -26,11 +26,11 @@ test('подписанная ссылка на загрузку проверяе
   expect(await new Response(read.body).text()).toBe('hello');
   // Файл переписали после чтения: перенос с прежней меткой отказывает.
   await storage.write('quarantine/0192-a', new TextEncoder().encode('HELLO'));
-  await expect(storage.move('quarantine/0192-a', 'files/org/0192-a', read.etag)).rejects.toThrow();
+  await expect(storage.move('quarantine/0192-a', 'files/org/0192-a', { contentType: 'image/png', ifMatch: read.etag })).rejects.toThrow();
   expect(await storage.head('files/org/0192-a')).toBeNull();
   const fresh = await storage.stream('quarantine/0192-a');
   await fresh.body.cancel();
-  await storage.move('quarantine/0192-a', 'files/org/0192-a', fresh.etag);
+  await storage.move('quarantine/0192-a', 'files/org/0192-a', { contentType: 'image/png', ifMatch: fresh.etag });
   expect(await storage.head('quarantine/0192-a')).toBeNull();
   expect(await new Response((await storage.stream('files/org/0192-a')).body).text()).toBe('HELLO');
   await storage.remove('files/org/0192-a');
@@ -48,7 +48,7 @@ test('перезапись того же размера с тем же врем�
   // Подмена тем же размером в тот же тик часов: время изменения не отличить.
   await storage.write('quarantine/0192-e', new TextEncoder().encode('FIRST'));
   utimesSync(path, sameTime, sameTime);
-  await expect(storage.move('quarantine/0192-e', 'files/o/0192-e', read.etag)).rejects.toThrow();
+  await expect(storage.move('quarantine/0192-e', 'files/o/0192-e', { contentType: 'image/png', ifMatch: read.etag })).rejects.toThrow();
   expect(await storage.head('files/o/0192-e')).toBeNull();
 });
 
@@ -69,7 +69,7 @@ test('просроченная, подменённая и ведущая за п
 
 test('ссылка на скачивание несёт способ показа и имя файла', async () => {
   const { storage, now } = setup();
-  const params = new URL(await storage.presignDownload('files/o/0192-c', 'отчёт.pdf', 60)).searchParams;
+  const params = new URL(await storage.presignDownload('files/o/0192-c', { filename: 'отчёт.pdf', contentType: 'application/pdf', ttlSeconds: 60 })).searchParams;
   expect(verifyLocalUrl(params, 'k'.repeat(32), now())).toEqual({ op: 'get', key: 'files/o/0192-c', disposition: 'attachment', name: 'отчёт.pdf' });
 });
 
@@ -88,17 +88,17 @@ test('обработчик локального хранилища: приним
   expect(await storage.head('quarantine/0192-d')).toEqual({ size: 4 });
   // Ссылка на загрузку не годится для скачивания.
   expect((await handle(new Request(url))).status).toBe(403);
-  const got = await handle(new Request(await storage.presignDownload('quarantine/0192-d', 'снимок.png', 60, true)));
+  const got = await handle(new Request(await storage.presignDownload('quarantine/0192-d', { filename: 'снимок.png', contentType: 'image/png', ttlSeconds: 60, inline: true })));
   expect(got.status).toBe(200);
   expect(got.headers.get('content-type')).toBe('image/png');
   expect(got.headers.get('content-disposition')).toMatch(/^inline; filename="______.png"; filename\*=UTF-8''/);
   expect(got.headers.get('x-content-type-options')).toBe('nosniff');
   expect(got.headers.get('cache-control')).toBe('no-store');
   expect(new Uint8Array(await got.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]));
-  const file = await handle(new Request(await storage.presignDownload('quarantine/0192-d', 'page.html', 60)));
+  const file = await handle(new Request(await storage.presignDownload('quarantine/0192-d', { filename: 'page.html', contentType: 'text/plain', ttlSeconds: 60 })));
   expect(file.headers.get('content-type')).toBe('application/octet-stream');
   expect(file.headers.get('content-disposition')).toMatch(/^attachment; /);
-  expect((await handle(new Request(await storage.presignDownload('quarantine/none', 'x.png', 60)))).status).toBe(404);
+  expect((await handle(new Request(await storage.presignDownload('quarantine/none', { filename: 'x.png', contentType: 'image/png', ttlSeconds: 60 })))).status).toBe(404);
   const off = createLocalHandler({ storage, secret: 'k'.repeat(32), enabled: false, now });
   expect((await off(new Request(url, { method: 'PUT', headers: { 'Content-Type': 'image/png' }, body: new Uint8Array(4) }))).status).toBe(404);
 });

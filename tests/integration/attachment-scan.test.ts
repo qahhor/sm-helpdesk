@@ -73,6 +73,8 @@ test('чистый файл переносится из карантина и п
   const docx = await upload(f.aUser, 'отчёт.docx', '', new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...new Array(60).fill(1)]));
   expect(await scanAttachment(SYSTEM, docx)).toBe('clean');
   expect(await scanAttachment(SYSTEM, await upload(f.aUser, 'выгрузка.csv', 'text/csv', text('код;имя\n1;Заказ\n')))).toBe('clean');
+  // Копия получает тип файла от портала, а не метаданные загрузки.
+  expect(storage.contentTypes.get(`files/${f.orgA.orgId}/${id}`)).toBe('image/png');
 });
 
 test('файл, положенный по ссылке повторно после проверки, не остаётся в карантине без строки', async () => {
@@ -168,7 +170,7 @@ test('файл подменили во время проверки: перено
 test('обрыв после переноса: повтор отмечает clean без второй проверки, пропавший файл получает rejected', async () => {
   const f = await seedTwoOrgs();
   const moved = await upload(f.aUser, 'shot.png', 'image/png', PNG);
-  await storage.move(`quarantine/${moved}`, `files/${f.orgA.orgId}/${moved}`);
+  await storage.move(`quarantine/${moved}`, `files/${f.orgA.orgId}/${moved}`, { contentType: 'image/png' });
   expect(await scanAttachment(SYSTEM, moved)).toBe('clean');
   expect((await row(moved)).storage_key).toBe(`files/${f.orgA.orgId}/${moved}`);
   const lost = await upload(f.aUser, 'shot.png', 'image/png', PNG);

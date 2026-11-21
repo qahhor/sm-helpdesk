@@ -47,12 +47,39 @@ test('подпись ссылки на загрузку совпадает с н
 });
 
 test('ссылка на скачивание на 60 секунд с Content-Disposition: attachment и именем в UTF-8', async () => {
-  const url = new URL(await make().presignDownload('files/org/0192-a', 'Отчёт "за" ноябрь.pdf', 60));
+  const url = new URL(await make().presignDownload('files/org/0192-a', { filename: 'Отчёт "за" ноябрь.pdf', contentType: 'application/pdf', ttlSeconds: 60 }));
   expect(url.searchParams.get('X-Amz-Expires')).toBe('60');
   const rfc5987 = encodeURIComponent('Отчёт "за" ноябрь.pdf').replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
   expect(url.searchParams.get('response-content-disposition')).toBe(`attachment; filename="_____ ____ ______.pdf"; filename*=UTF-8''${rfc5987}`);
-  const inline = new URL(await make().presignDownload('files/org/0192-a', 'shot.png', 60, true));
+  const inline = new URL(await make().presignDownload('files/org/0192-a', { filename: 'shot.png', contentType: 'image/png', ttlSeconds: 60, inline: true }));
   expect(inline.searchParams.get('response-content-disposition')).toMatch(/^inline; /);
+});
+
+test('ответ по ссылке на скачивание: тип файла от портала и запрет кеширования, а не то, что лежит в объекте (вторая проверка M2)', async () => {
+  const url = new URL(await make().presignDownload('files/org/0192-a', { filename: 'shot.png', contentType: 'image/png', ttlSeconds: 60, inline: true }));
+  expect(url.searchParams.get('response-content-type')).toBe('image/png');
+  expect(url.searchParams.get('response-cache-control')).toBe('private, no-store');
+  // Параметры ответа входят в подпись: ссылка с другим типом подписана иначе, поменять тип в ссылке нельзя.
+  const other = new URL(await make().presignDownload('files/org/0192-a', { filename: 'shot.png', contentType: 'text/html', ttlSeconds: 60, inline: true }));
+  expect(other.searchParams.get('X-Amz-Signature')).not.toBe(url.searchParams.get('X-Amz-Signature'));
+});
+
+test('перенос из карантина заменяет метаданные объекта: остаётся только тип файла от портала', async () => {
+  // Браузер мог положить файл с лишними заголовками (Content-Encoding, Content-Disposition, x-amz-meta-*):
+  // копия получает только то, что задал портал.
+  let copy: Request | null = null;
+  const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const req = new Request(input, init);
+    if (req.method === 'PUT') copy = req;
+    return new Response(null, { status: 200 });
+  }) as unknown as typeof fetch;
+  await make(fetchImpl).move('quarantine/x', 'files/o/x', { contentType: 'application/pdf', ifMatch: '"abc"' });
+  const sent = copy as Request | null;
+  expect(sent?.headers.get('x-amz-metadata-directive')).toBe('REPLACE');
+  expect(sent?.headers.get('content-type')).toBe('application/pdf');
+  expect(sent?.headers.get('x-amz-copy-source-if-match')).toBe('"abc"');
+  // Директива подписана: без неё копия унаследовала бы метаданные загрузки.
+  expect(sent?.headers.get('authorization')).toMatch(/SignedHeaders=[^,]*x-amz-metadata-directive/);
 });
 
 test('head, move, stream и remove обращаются к бакету подписанными запросами; перенос сверяет ETag прочитанного', async () => {
@@ -70,7 +97,7 @@ test('head, move, stream и remove обращаются к бакету подп
   const { body, etag } = await s.stream('files/o/x');
   expect(await new Response(body).text()).toBe('data');
   expect(etag).toBe('"abc123"');
-  await s.move('quarantine/x', 'files/o/x', etag);
+  await s.move('quarantine/x', 'files/o/x', { contentType: 'text/plain', ifMatch: etag });
   await s.remove('files/o/x');
   expect(calls.map((c) => `${c.method} ${new URL(c.url).pathname} ${c.copy ?? ''} ${c.ifMatch ?? ''}`.trim())).toEqual([
     'HEAD /hub/quarantine/x',
@@ -88,7 +115,7 @@ test('объект подменили после чтения: копирова�
     methods.push(req.method);
     return new Response(null, { status: req.method === 'PUT' ? 412 : 200 });
   }) as unknown as typeof fetch;
-  await expect(make(fetchImpl).move('quarantine/x', 'files/o/x', '"old"')).rejects.toThrow(/412/);
+  await expect(make(fetchImpl).move('quarantine/x', 'files/o/x', { contentType: 'text/plain', ifMatch: '"old"' })).rejects.toThrow(/412/);
   expect(methods).toEqual(['PUT']);
 });
 
@@ -109,6 +136,6 @@ test('без метки ETag чтение отказывает: перенос �
     headers.push(new Request(input, init).headers.get('x-amz-copy-source-if-match'));
     return new Response(null, { status: 200 });
   }) as unknown as typeof fetch;
-  await make(fetchImpl).move('quarantine/x', 'files/o/x', '');
+  await make(fetchImpl).move('quarantine/x', 'files/o/x', { contentType: 'text/plain', ifMatch: '' });
   expect(headers[0]).toBe('');
 });

@@ -20,7 +20,7 @@ export async function attachmentRedirect(ctx: ClientContext, id: unknown, opts: 
   const row = await findDownloadable(ctx.actor, parsed.data);
   if (!row) return null;
   const inline = opts.inline && INLINE_IMAGE_TYPES.includes(row.mime);
-  return getStorage().presignDownload(row.storageKey, baseName(row.fileName), DOWNLOAD_LINK_TTL_SEC, inline);
+  return getStorage().presignDownload(row.storageKey, { filename: baseName(row.fileName), contentType: row.mime, ttlSeconds: DOWNLOAD_LINK_TTL_SEC, inline });
 }
 
 /** Ответ обработчика: без сессии клиента 401, нет вложения 404, иначе 303 на ссылку без кеширования. */

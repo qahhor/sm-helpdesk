@@ -1,9 +1,11 @@
-import { assertKey, contentDisposition, type Storage } from './types';
+import { assertKey, contentDisposition, type DownloadOptions, type MoveOptions, type Storage } from './types';
 
 // Хранилище в памяти для тестов (CLAUDE.md: интерфейс, настоящая реализация и заглушка).
 
 export class MemoryStorage implements Storage {
   readonly objects = new Map<string, Uint8Array>();
+  /** Тип, который получил объект при переносе: метаданные копии задаёт портал. */
+  readonly contentTypes = new Map<string, string>();
   /** Версия объекта: растёт при каждой записи, служит меткой ETag. */
   private readonly versions = new Map<string, number>();
   private version = 0;
@@ -25,8 +27,8 @@ export class MemoryStorage implements Storage {
     return { url: `https://storage.test/${key}?op=put`, headers: { 'Content-Type': mime } };
   }
 
-  async presignDownload(key: string, filename: string, ttlSeconds: number, inline = false) {
-    const params = new URLSearchParams({ disposition: contentDisposition(inline ? 'inline' : 'attachment', filename), ttl: String(ttlSeconds) });
+  async presignDownload(key: string, { filename, contentType, ttlSeconds, inline = false }: DownloadOptions) {
+    const params = new URLSearchParams({ disposition: contentDisposition(inline ? 'inline' : 'attachment', filename), type: contentType, ttl: String(ttlSeconds) });
     return `https://storage.test/${assertKey(key)}?${params}`;
   }
 
@@ -35,11 +37,12 @@ export class MemoryStorage implements Storage {
     return bytes ? { size: bytes.byteLength } : null;
   }
 
-  async move(fromKey: string, toKey: string, ifMatch?: string) {
+  async move(fromKey: string, toKey: string, { contentType, ifMatch }: MoveOptions) {
     const bytes = this.objects.get(fromKey);
     if (!bytes) throw new Error('хранилище: объекта нет');
     if (ifMatch !== undefined && ifMatch !== String(this.versions.get(fromKey))) throw new Error('хранилище: объект изменился после чтения');
     this.put(toKey, bytes);
+    this.contentTypes.set(toKey, contentType);
     this.objects.delete(fromKey);
     this.versions.delete(fromKey);
   }

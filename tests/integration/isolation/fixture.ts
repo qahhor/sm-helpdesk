@@ -1,8 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import type { ClientActor, StaffActor } from '@/db/with-actor';
 import { pools } from '../helpers/db';
 
 // Данные набора изоляции (ТЗ 15.2): две организации А и Б, в каждой обычный пользователь и администратор,
-// три сотрудника. Строки создаются под суперпользователем и не зависят от сервисов:
+// три сотрудника, обращения с сообщениями, заметками и вложениями. Строки создаются под суперпользователем и не зависят от сервисов:
 // ошибка в сервисе не должна прятать ошибку в политике.
 
 export type ClientMember = { userId: string; name: string; actor: ClientActor };
@@ -19,7 +20,20 @@ export type Fixture = {
   care: StaffMember;
   l1: StaffMember;
   adminStaff: StaffMember;
+  /** Обращения (ТЗ 15.2): в каждой организации обращение для всей организации и личное. */
+  tickets: {
+    /** Автор aUser, видимость org, есть чистое и непроверенное вложение и внутреннее вложение. */
+    aOrg: TicketRef;
+    /** Автор aAdmin, личное: aUser его не видит. */
+    aPrivate: TicketRef;
+    /** Автор aUser, личное: его видит администратор клиента aAdmin. */
+    aMine: TicketRef;
+    bOrg: TicketRef;
+    bPrivate: TicketRef;
+  };
 };
+
+export type TicketRef = { ticketId: string; number: number; title: string };
 
 /** Запечатанный вид секрета: проверка базы не пускает в колонку открытый текст. */
 export const SEALED = 'v1.aXY.dGFn.ZGF0YQ';
@@ -66,6 +80,40 @@ async function invitation(orgId: string, email: string, invitedBy: string): Prom
   );
 }
 
+/** Обращение с публичным сообщением, внутренней заметкой, событием создания, внутренним событием и подпиской автора. */
+async function ticket(orgId: string, authorId: string, visibility: 'org' | 'private', title: string, staffId: string): Promise<TicketRef> {
+  const r = await pools.root.query(
+    `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source)
+     values ($1, $2, 'bug', 'major', 'p2', $3, $4, $4 || ': подробное описание', 'ru', 'portal') returning ticket_id, number`,
+    [orgId, authorId, visibility, title],
+  );
+  const ticketId = r.rows[0].ticket_id as string;
+  await pools.root.query(
+    `insert into hdt_ticket_messages (org_id, ticket_id, author_id, author_type, body, is_internal)
+     values ($1, $2, $3, 'client', 'Публичное сообщение', false), ($1, $2, $4, 'staff', 'Внутренняя заметка', true)`,
+    [orgId, ticketId, authorId, staffId],
+  );
+  await pools.root.query(
+    `insert into hdt_ticket_events (org_id, ticket_id, kind, actor_type, actor_id, payload, is_internal)
+     values ($1, $2, 'created', 'client', $3, '{}', false), ($1, $2, 'queue', 'staff', $4, '{"to":"l2"}', true)`,
+    [orgId, ticketId, authorId, staffId],
+  );
+  await pools.root.query(`insert into hdt_ticket_watchers (org_id, ticket_id, user_id, source) values ($1, $2, $3, 'author')`, [
+    orgId,
+    ticketId,
+    authorId,
+  ]);
+  return { ticketId, number: Number(r.rows[0].number), title };
+}
+
+async function attachment(orgId: string, ticketId: string, uploaderId: string, scanStatus: string, isInternal = false): Promise<void> {
+  await pools.root.query(
+    `insert into hdt_attachments (org_id, ticket_id, uploader_id, storage_key, file_name, mime, size, scan_status, is_internal)
+     values ($1, $2, $3, $6, 'screenshot.png', 'image/png', 1024, $4, $5)`,
+    [orgId, ticketId, uploaderId, scanStatus, isInternal, `files/${orgId}/${randomUUID()}`],
+  );
+}
+
 export async function seedTwoOrgs(): Promise<Fixture> {
   serial += 1;
   const code = `fixture-${serial}`;
@@ -89,5 +137,17 @@ export async function seedTwoOrgs(): Promise<Fixture> {
   await invitation(orgA.orgId, 'invited-a@acme.test', aAdmin.userId);
   await invitation(orgB.orgId, 'invited-b@globex.test', bAdmin.userId);
 
-  return { server: { serverId: server, code }, orgA, orgB, aUser, aAdmin, bUser, bAdmin, care, l1, adminStaff };
+  const tickets = {
+    aOrg: await ticket(orgA.orgId, aUser.userId, 'org', 'Отчёт А не грузится', l1.userId),
+    aPrivate: await ticket(orgA.orgId, aAdmin.userId, 'private', 'Личное обращение администратора А', l1.userId),
+    aMine: await ticket(orgA.orgId, aUser.userId, 'private', 'Личное обращение пользователя А', l1.userId),
+    bOrg: await ticket(orgB.orgId, bUser.userId, 'org', 'Секрет Б: накладная не проводится', l1.userId),
+    bPrivate: await ticket(orgB.orgId, bAdmin.userId, 'private', 'Личное обращение администратора Б', l1.userId),
+  };
+  await attachment(orgA.orgId, tickets.aOrg.ticketId, aUser.userId, 'clean');
+  await attachment(orgA.orgId, tickets.aOrg.ticketId, aAdmin.userId, 'pending');
+  await attachment(orgA.orgId, tickets.aOrg.ticketId, l1.userId, 'clean', true);
+  await attachment(orgB.orgId, tickets.bOrg.ticketId, bUser.userId, 'clean');
+
+  return { server: { serverId: server, code }, orgA, orgB, aUser, aAdmin, bUser, bAdmin, care, l1, adminStaff, tickets };
 }

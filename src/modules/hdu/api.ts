@@ -29,6 +29,7 @@ export {
   listMyOrganizations,
   type MyOrganization,
   type OrgRow,
+  otherOrganizationActors,
   searchOrganizations,
   updateOrganization,
 } from './api/orgs';

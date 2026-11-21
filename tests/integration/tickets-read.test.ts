@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { getTicket, listTickets } from '@/modules/hdt/api';
+import { findTicketInOtherOrganizations, getTicket, listTickets } from '@/modules/hdt/api';
 import { clientCtx } from './helpers/auth';
 import { pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
@@ -109,6 +109,30 @@ test('разрешённые действия зависят от статуса
   expect(await can(f.aUser, 'closed', 15)).toMatchObject({ reopen: false, rate: true });
   // Администратор клиента меняет видимость чужого обращения и может подписаться.
   expect(await can(f.aAdmin, 'in_progress')).toMatchObject({ changeVisibility: true, watch: true });
+});
+
+test('обращение другой своей организации: страница не находит его в текущей, но подсказывает организацию (UX-C-06)', async () => {
+  const f = await seedTwoOrgs();
+  // Алишер состоит и в организации Б.
+  await pools.root.query(`insert into hdu_memberships (org_id, user_id, role, source) values ($1, $2, 'client_user', 'invite')`, [f.orgB.orgId, f.aUser.userId]);
+  // Активная организация А: последняя, в которую он входил.
+  await pools.root.query(`update auth."user" set "lastOrgId" = $1 where id = $2`, [f.orgA.orgId, f.aUser.userId]);
+  const ctx = await clientCtx(f.aUser);
+  expect(ctx.actor.orgId).toBe(f.orgA.orgId);
+  expect(await getTicket(ctx, String(f.tickets.bOrg.number))).toBeNull();
+  const orgName = (await pools.root.query(`select name from hdu_organizations where org_id = $1`, [f.orgB.orgId])).rows[0].name as string;
+  expect(await findTicketInOtherOrganizations(ctx, `SUP-${f.tickets.bOrg.number}`)).toEqual({ orgId: f.orgB.orgId, orgName });
+  // Личное обращение коллеги в Б ему не видно и в Б: подсказки нет.
+  expect(await findTicketInOtherOrganizations(ctx, String(f.tickets.bPrivate.number))).toBeNull();
+  // Обращение своей текущей организации и несуществующий номер подсказки не дают.
+  expect(await findTicketInOtherOrganizations(ctx, String(f.tickets.aOrg.number))).toBeNull();
+  expect(await findTicketInOtherOrganizations(ctx, 'SUP-999999999')).toBeNull();
+  // Не участнику Б номер ничего не говорит: ни страницы, ни подсказки.
+  const stranger = await clientCtx(f.aAdmin);
+  expect(await findTicketInOtherOrganizations(stranger, String(f.tickets.bOrg.number))).toBeNull();
+  // Отключённое членство подсказки не даёт.
+  await pools.root.query(`update hdu_memberships set state = 'passive' where org_id = $1 and user_id = $2`, [f.orgB.orgId, f.aUser.userId]);
+  expect(await findTicketInOtherOrganizations(await clientCtx(f.aUser), String(f.tickets.bOrg.number))).toBeNull();
 });
 
 test('ставшее личным обращение пропадает у коллеги на следующем запросе (на что смотреть, 4)', async () => {

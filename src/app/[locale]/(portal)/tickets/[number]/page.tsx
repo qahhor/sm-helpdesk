@@ -1,16 +1,18 @@
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getFormatter, getTranslations } from 'next-intl/server';
-import { ALLOWED_FILE_EXTENSIONS, CSAT_REASONS, getTicket, MAX_FILES_PER_MESSAGE } from '@/modules/hdt/api';
+import { ALLOWED_FILE_EXTENSIONS, CSAT_REASONS, findTicketInOtherOrganizations, getTicket, MAX_FILES_PER_MESSAGE, parseNumber } from '@/modules/hdt/api';
 import { requireClientActor } from '@/modules/hdu/api';
 import { Link } from '@/i18n/navigation';
 import { Alert } from '@/ui/components/alert';
+import { Button } from '@/ui/components/button';
 import { Card, CardContent } from '@/ui/components/card';
 import { CopyButton } from '@/ui/components/copy-button';
 import { DraftCleaner } from '@/ui/components/draft-cleaner';
 import { Markdown } from '@/ui/components/markdown';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { acceptOf, STATUS_TONE } from '../status';
+import { switchToTicketAction } from './actions';
 import { ReplyForm } from './ReplyForm';
 import { StatusLine } from './StatusLine';
 import { TicketActions } from './TicketActions';
@@ -29,10 +31,27 @@ export default async function TicketPage({
   searchParams: Promise<{ done?: string; error?: string; created?: string }>;
 }) {
   const client = await requireClientActor();
-  const ticket = await getTicket(client, decodeURIComponent((await params).number));
-  if (!ticket) notFound();
-  const { done, error, created } = await searchParams;
+  const raw = decodeURIComponent((await params).number);
+  const ticket = await getTicket(client, raw);
   const t = await getTranslations('client.tickets');
+  if (!ticket) {
+    // Обращение другой своей организации: подсказка и переход вместо "не найдено" (UX-C-06).
+    const elsewhere = await findTicketInOtherOrganizations(client, raw);
+    if (!elsewhere) notFound();
+    const label = `SUP-${parseNumber(raw)}`;
+    return (
+      <>
+        <h1 className="text-2xl font-bold">{label}</h1>
+        <Alert>{t('page.otherOrg.text', { number: label, org: elsewhere.orgName })}</Alert>
+        <form action={switchToTicketAction}>
+          <input type="hidden" name="orgId" value={elsewhere.orgId} />
+          <input type="hidden" name="number" value={label} />
+          <Button type="submit">{t('page.otherOrg.switch', { org: elsewhere.orgName })}</Button>
+        </form>
+      </>
+    );
+  }
+  const { done, error, created } = await searchParams;
   const format = await getFormatter();
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
   const status = (value: string) => t(`statuses.${value}`);

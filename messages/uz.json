@@ -220,6 +220,10 @@
           "visibility": "Ko'rinish o'zgartirildi",
           "watched": "Siz murojaatni kuzatyapsiz",
           "unwatched": "Siz endi murojaatni kuzatmaysiz"
+        },
+        "otherOrg": {
+          "text": "{number} murojaati {org} tashkilotiga tegishli. Murojaatni ochish uchun unga o'ting.",
+          "switch": "{org} tashkilotiga o'tish"
         }
       },
       "files": {

@@ -190,6 +190,41 @@ test('ссылка на номер у коллеги открывается, у 
   }
 });
 
+test('ссылка на обращение другой своей организации предлагает переключиться и открывает его (UX-C-06)', async ({ browser }) => {
+  test.setTimeout(120_000);
+  // Автор из Globex создаёт обращение организации.
+  const authorContext = await browser.newContext(SIGNED_OUT);
+  const description = `Обращение Globex ${Date.now()}`;
+  let number: number;
+  try {
+    const author = await authorContext.newPage();
+    await signInAsCustom(author, { sub: uniqueSub(), name: 'Автор Globex', company_id: '502', company_name: 'Globex' });
+    number = await createTicket(author, { description });
+  } finally {
+    await authorContext.close();
+  }
+  // Участник обеих организаций, сейчас вошёл в ACME Trade.
+  const sub = uniqueSub();
+  const name = `Двойной ${sub}`;
+  const context = await browser.newContext(SIGNED_OUT);
+  try {
+    const page = await context.newPage();
+    await signInAsCustom(page, { sub, name, company_id: '501', company_name: 'ACME Trade' });
+    const [user] = await dbRows<{ id: string }>(`select id from auth."user" where name = $1`, [name]);
+    const [ticket] = await dbRows<{ org_id: string }>(`select org_id from hdt_tickets where number = $1`, [number]);
+    await dbRows(`insert into hdu_memberships (org_id, user_id, role, source) values ($1, $2, 'client_user', 'invite')`, [ticket?.org_id, user?.id]);
+    await page.goto(`/ru/tickets/SUP-${number}`);
+    await expect(page.getByText(`Обращение SUP-${number} относится к организации Globex`)).toBeVisible();
+    await expect(page.getByText(description)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Перейти в Globex' }).click();
+    await expect(page).toHaveURL(new RegExp(`/ru/tickets/SUP-${number}$`));
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(description);
+    await expect(page.getByRole('banner')).toContainText('Globex');
+  } finally {
+    await context.close();
+  }
+});
+
 test('страницы обращений без серьёзных нарушений доступности, без прокрутки вбок на 360 px, масштаб 200% (UX-C-12)', async ({ page }) => {
   test.setTimeout(90_000);
   const number = await createTicket(page, { description: `Проверка доступности ${Date.now()}. Длинный текст без пробелов: ${'х'.repeat(120)}` });

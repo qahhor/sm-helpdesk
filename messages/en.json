@@ -220,6 +220,10 @@
           "visibility": "Visibility changed",
           "watched": "You are following the request",
           "unwatched": "You no longer follow the request"
+        },
+        "otherOrg": {
+          "text": "Request {number} belongs to {org}. Switch to it to open the request.",
+          "switch": "Switch to {org}"
         }
       },
       "files": {

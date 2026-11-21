@@ -1,5 +1,5 @@
 import 'server-only';
-import { type ClientContext, namesOf } from '@/modules/hdu/api';
+import { type ClientContext, namesOf, otherOrganizationActors } from '@/modules/hdu/api';
 import { consumeRateLimit, rateKey, readSetting } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule } from '@/modules/hdr/api';
@@ -138,6 +138,19 @@ export type TicketView = {
   turn: 'client' | 'support' | 'none';
   can: TicketActions;
 };
+
+/**
+ * Обращение по номеру в другой организации пользователя (UX-C-06): ссылка из письма могла вести туда, а активна
+ * другая организация. Проверка идёт от имени пользователя в той организации, под её политиками RLS: подсказка
+ * появляется, только если после переключения обращение ему будет видно. Иначе пусто, как "не найдено".
+ */
+export async function findTicketInOtherOrganizations(ctx: ClientContext, numberRaw: unknown): Promise<{ orgId: string; orgName: string } | null> {
+  const number = typeof numberRaw === 'string' ? parseNumber(numberRaw) : null;
+  if (number === null) return null;
+  for (const other of await otherOrganizationActors(ctx))
+    if (await readTicket(other.actor, number)) return { orgId: other.orgId, orgName: other.name };
+  return null;
+}
 
 /** Срок повторного открытия, дней: настройка tickets.reopen_days, иначе 14 (FR-TK-12). */
 export async function reopenDays(): Promise<number> {

@@ -145,3 +145,15 @@ export async function updateOrganization(ctx: StaffContext, input: unknown, now:
   const { orgId, ...settings } = parseInput(settingsInput, input);
   if (!(await updateOrgSettings(actor, orgId, settings))) throw new HduError('not_found');
 }
+
+/**
+ * Акторы пользователя в других его организациях, где он действующий участник (не гость). Нужны странице
+ * обращения: ссылка из письма может вести в обращение другой организации, и вместо "не найдено" страница
+ * предлагает переключиться (UX-C-06). Организации берутся из членств пользователя, а не из запроса.
+ */
+export async function otherOrganizationActors(ctx: ClientContext): Promise<{ orgId: string; name: string; actor: ClientActor }[]> {
+  const { orgs } = await loadClientAccess(ctx.actor.userId);
+  return orgs
+    .filter((org) => org.orgId !== ctx.actor.orgId)
+    .map((org) => ({ orgId: org.orgId, name: org.name, actor: { ...ctx.actor, orgId: org.orgId, orgRole: org.role } }));
+}

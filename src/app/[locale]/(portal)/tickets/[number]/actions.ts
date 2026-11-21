@@ -1,5 +1,6 @@
 'use server';
 
+import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import {
@@ -13,7 +14,7 @@ import {
   unwatchTicket,
   watchTicket,
 } from '@/modules/hdt/api';
-import { requireClientActor } from '@/modules/hdu/api';
+import { isHduError, requireClientActor, switchOrganizationOfRequest } from '@/modules/hdu/api';
 
 // Действия на странице обращения (FR-TK-08 - FR-TK-12). Номер из формы проверяет модуль обращений:
 // невидимое клиенту обращение для него не существует. Организация и автор берутся из актора.
@@ -87,4 +88,23 @@ export async function watchAction(formData: FormData): Promise<void> {
   const client = await requireClientActor();
   const watch = formData.get('watch') === '1';
   await run(formData, (number) => (watch ? watchTicket(client, number) : unwatchTicket(client, number)), watch ? 'watched' : 'unwatched');
+}
+
+/**
+ * Переход в другую свою организацию, чтобы открыть её обращение (UX-C-06). Организацию проверяет модуль
+ * идентичности: принимается только действующее членство. После переключения открывается то же обращение.
+ */
+export async function switchToTicketAction(formData: FormData): Promise<void> {
+  await requireClientActor();
+  const locale = await getLocale();
+  const number = numberOf(formData);
+  try {
+    await switchOrganizationOfRequest(formData.get('orgId'));
+  } catch (error) {
+    if (!isHduError(error)) throw error;
+    redirect(`/${locale}/tickets`);
+  }
+  // Название организации живёт в шапке раскладки: её нужно перерисовать.
+  refresh();
+  redirect(number === null ? `/${locale}/tickets` : `/${locale}/tickets/SUP-${number}`);
 }

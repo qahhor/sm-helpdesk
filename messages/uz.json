@@ -683,7 +683,8 @@
           "session": "Sessiya",
           "organization": "Tashkilot",
           "ticket": "Murojaat",
-          "attachment": "Ilova"
+          "attachment": "Ilova",
+          "module": "Mahsulot modullari"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -739,6 +740,9 @@
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi"
+          },
+          "modules": {
+            "imported": "Modullar ma'lumotnomasi yuklandi"
           }
         },
         "words": {

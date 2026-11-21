@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, test, vi } from 'vitest';
@@ -145,3 +145,92 @@ test('собранный файл запускается без каталога
   for (const name of ['staff:create', 'staff:reset', 'server:add', 'server:list', 'server:disable', 'server:check']) expect(out).toContain(name);
   expect(readFileSync('dist/hub.mjs', 'utf8')).not.toMatch(/better-call|@better-auth|better-auth\/crypto/);
 }, 120_000);
+
+test('modules:import загружает и обновляет справочник, неверный файл отклоняется с номером строки', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hub-modules-'));
+  const file = (name: string, content: unknown) => {
+    const path = join(dir, name);
+    writeFileSync(path, typeof content === 'string' ? content : JSON.stringify(content, null, 2));
+    return path;
+  };
+  await pools.root.query(`insert into hdr_product_modules (code, name) values ('legacy', '{"ru": "Старый модуль"}')`);
+  // Справочник меняет только администратор: загрузка идёт от его имени.
+  const adminId = (
+    await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ('Админ', 'catalog-admin@smartup.example', true) returning id`)
+  ).rows[0].id as string;
+  await pools.root.query(`insert into hdu_staff (user_id, role) values ($1, 'admin')`, [adminId]);
+  const agentId = (
+    await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ('Агент', 'catalog-agent@smartup.example', true) returning id`)
+  ).rows[0].id as string;
+  await pools.root.query(`insert into hdu_staff (user_id, role) values ($1, 'agent_l1')`, [agentId]);
+  const ADMIN = ['--admin', 'catalog-admin@smartup.example'];
+  const first = file('first.json', [
+    { code: 'orders', parentCode: null, name: { ru: 'Заказы', uz: 'Buyurtmalar', en: 'Orders' }, screens: [{ code: 'order_new', name: { ru: 'Новый заказ' } }] },
+    { code: 'orders.returns', parentCode: 'orders', name: { ru: 'Возвраты' } },
+    { code: 'warehouse', parentCode: null, name: { ru: 'Склад' } },
+  ]);
+  const run = async (args: string[], admin: string[] = ADMIN) => {
+    const { io, lines, errors } = fakeIo();
+    const code = await runCli([...args, ...admin], io);
+    return { code, lines, errors };
+  };
+
+  // Без администратора, от сотрудника не admin и от неизвестного адреса справочник не меняется.
+  expect((await run(['modules:import', '--file', first], [])).code).toBe(2);
+  expect((await run(['modules:import', '--file', first], ['--admin', 'catalog-agent@smartup.example'])).code).toBe(1);
+  expect((await run(['modules:import', '--file', first], ['--admin', 'nobody@smartup.example'])).code).toBe(1);
+  expect((await pools.root.query(`select count(*)::int as n from hdr_product_modules`)).rows[0].n).toBe(1);
+  expect(await run(['modules:import', '--file', first])).toEqual({ code: 0, lines: ['Справочник модулей загружен: добавлено 3, обновлено 0, скрыто 1.'], errors: [] });
+  const rows = async () =>
+    (
+      await pools.root.query(
+        `select m.code, p.code as parent, m.name, m.screens, m.state from hdr_product_modules m
+           left join hdr_product_modules p on p.module_id = m.parent_id order by m.code`,
+      )
+    ).rows;
+  expect(await rows()).toEqual([
+    { code: 'legacy', parent: null, name: { ru: 'Старый модуль' }, screens: [], state: 'passive' },
+    { code: 'orders', parent: null, name: { ru: 'Заказы', uz: 'Buyurtmalar', en: 'Orders' }, screens: [{ code: 'order_new', name: { ru: 'Новый заказ' } }], state: 'active' },
+    { code: 'orders.returns', parent: 'orders', name: { ru: 'Возвраты' }, screens: [], state: 'active' },
+    { code: 'warehouse', parent: null, name: { ru: 'Склад' }, screens: [], state: 'active' },
+  ]);
+  // Повторная загрузка обновляет по коду: склад пропал из выгрузки и скрыт, возвраты переехали.
+  const second = file('second.json', [
+    { code: 'orders', parentCode: null, name: { ru: 'Заказы и продажи' } },
+    { code: 'orders.returns', parentCode: null, name: { ru: 'Возвраты' } },
+  ]);
+  expect((await run(['modules:import', '--file', second])).lines).toEqual(['Справочник модулей загружен: добавлено 0, обновлено 2, скрыто 1.']);
+  expect((await rows()).map((r) => [r.code, r.parent, r.state])).toEqual([
+    ['legacy', null, 'passive'],
+    ['orders', null, 'active'],
+    ['orders.returns', null, 'active'],
+    ['warehouse', null, 'passive'],
+  ]);
+  // В журнале аудита итог каждой загрузки от системы.
+  const audit = await pools.root.query(`select actor_type, actor_id, object_type, diff from hdc_audit_log where action = 'modules.imported' order by created_on`);
+  expect(audit.rows).toEqual([
+    { actor_type: 'staff', actor_id: adminId, object_type: 'module', diff: { added: 3, updated: 0, passive: 1 } },
+    { actor_type: 'staff', actor_id: adminId, object_type: 'module', diff: { added: 0, updated: 2, passive: 1 } },
+  ]);
+  // Неверный файл: номер записи и строки, справочник не меняется.
+  const broken = file('broken.json', '[\n  { "code": "orders", "name": { "ru": "Заказы" } },\n  { "code": "crm", "name": { "uz": "Mijozlar" } }\n]\n');
+  const refused = await run(['modules:import', '--file', broken]);
+  expect(refused.code).toBe(1);
+  expect(refused.errors.join('\n')).toMatch(/запись 2, строка 3: name\.ru/);
+  const syntax = await run(['modules:import', '--file', file('syntax.json', '[\n  { "code": "orders",\n')]);
+  expect(syntax.code).toBe(1);
+  expect(syntax.errors.join('\n')).toMatch(/не JSON.*строка \d+/);
+  for (const content of [
+    [{ code: 'a', name: { ru: 'A' } }, { code: 'a', name: { ru: 'A' } }],
+    [{ code: 'a', parentCode: 'missing', name: { ru: 'A' } }],
+    [{ code: 'a', parentCode: 'b', name: { ru: 'A' } }, { code: 'b', parentCode: 'a', name: { ru: 'B' } }],
+  ])
+    expect((await run(['modules:import', '--file', file('bad.json', content)])).code).toBe(1);
+  expect((await run(['modules:import', '--file', join(dir, 'нет-такого.json')])).code).toBe(1);
+  expect((await rows()).map((r) => [r.code, r.state])).toEqual([
+    ['legacy', 'passive'],
+    ['orders', 'active'],
+    ['orders.returns', 'active'],
+    ['warehouse', 'passive'],
+  ]);
+});

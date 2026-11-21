@@ -42,6 +42,8 @@ export const AUDIT_ACTIONS = [
   'ticket.visibility_changed',
   // Антивирус нашёл заражённый файл во вложении (решение 0027).
   'attachment.infected',
+  // Загрузка справочника модулей командой hub modules:import.
+  'modules.imported',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

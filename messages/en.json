@@ -683,7 +683,8 @@
           "session": "Session",
           "organization": "Organization",
           "ticket": "Ticket",
-          "attachment": "Attachment"
+          "attachment": "Attachment",
+          "module": "Product modules"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -739,6 +740,9 @@
           },
           "attachment": {
             "infected": "Infected file found"
+          },
+          "modules": {
+            "imported": "Module catalog imported"
           }
         },
         "words": {

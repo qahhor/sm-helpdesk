@@ -70,7 +70,8 @@ export function createR2Storage(opts: R2Options): Storage {
       const copied = await call('PUT', toKey, {
         'x-amz-copy-source': `/${opts.bucket}/${assertKey(fromKey)}`,
         // Подменённый после чтения объект не копируется: R2 отвечает 412.
-        ...(ifMatch ? { 'x-amz-copy-source-if-match': ifMatch } : {}),
+        // Пустая метка не отключает условие: перенос либо сверяет версию, либо не происходит.
+        ...(ifMatch !== undefined ? { 'x-amz-copy-source-if-match': ifMatch } : {}),
       });
       if (!copied.ok) return fail('COPY', copied);
       await copied.body?.cancel().catch(() => {});
@@ -80,7 +81,13 @@ export function createR2Storage(opts: R2Options): Storage {
     async stream(key) {
       const response = await call('GET', key);
       if (!response.ok || !response.body) return fail('GET', response);
-      return { body: response.body, etag: response.headers.get('etag') ?? '' };
+      // Без метки версии перенос из карантина нельзя привязать к прочитанному: читать такой объект не будем.
+      const etag = response.headers.get('etag');
+      if (!etag) {
+        await response.body.cancel().catch(() => {});
+        throw new Error('хранилище R2: ответ без ETag');
+      }
+      return { body: response.body, etag };
     },
 
     async remove(key) {

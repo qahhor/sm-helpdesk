@@ -99,3 +99,16 @@ test('нет объекта: head пусто, ошибка бакета брос
   await expect(broken.stream('files/x')).rejects.toThrow(/403/);
   await expect(broken.stream('files/x')).rejects.not.toThrow(/secret|AKID/);
 });
+
+test('без метки ETag чтение отказывает: перенос из карантина без проверки версии невозможен', async () => {
+  const noEtag = make(vi.fn(async () => new Response('data')) as unknown as typeof fetch);
+  await expect(noEtag.stream('quarantine/x')).rejects.toThrow(/ETag/);
+  // Пустая метка тоже не отключает условие копирования.
+  const headers: (string | null)[] = [];
+  const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    headers.push(new Request(input, init).headers.get('x-amz-copy-source-if-match'));
+    return new Response(null, { status: 200 });
+  }) as unknown as typeof fetch;
+  await make(fetchImpl).move('quarantine/x', 'files/o/x', '');
+  expect(headers[0]).toBe('');
+});

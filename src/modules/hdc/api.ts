@@ -17,6 +17,8 @@ export { handleCspReport } from './csp-report';
 // Хранилище вложений и фоновые задачи (раздел 11.11, решение 0027).
 export { contentDisposition, getStorage, handleLocalStorage, type Storage, UPLOAD_LINK_TTL_SEC } from './storage';
 export { enqueue, type JobName } from './jobs';
+export { type AntivirusScanner, getScanner } from './antivirus';
+export { type DetectedType, SNIFF_BYTES, sniffFileType } from './filetype';
 // Настройки портала (hdc_settings).
 export { readSetting } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';

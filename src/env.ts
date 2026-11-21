@@ -145,6 +145,13 @@ const schema = z
       .optional(),
     R2_ACCESS_KEY_ID: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
     R2_SECRET_ACCESS_KEY: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
+    // Антивирус ClamAV (решение 0027). Без адреса работает заглушка, она узнаёт только тестовую строку EICAR.
+    CLAMAV_HOST: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9.-]{1,253}$/, { error: 'ожидается имя узла или адрес IPv4' })
+      .optional(),
+    CLAMAV_PORT: z.coerce.number({ error: 'ожидается номер порта' }).int().min(1, { error: 'ожидается номер порта' }).max(65535, { error: 'ожидается номер порта' }).default(3310),
   })
   .superRefine((value, ctx) => {
     const host = new URL(value.HUB_URL).hostname;
@@ -190,6 +197,8 @@ const schema = z
     // Локальное хранилище отдаёт файлы обработчиком портала и работает только на localhost.
     if (value.FILE_STORAGE !== 'r2' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({ code: 'custom', path: ['FILE_STORAGE'], message: 'на настоящем адресе в production задайте r2' });
+    if (!value.CLAMAV_HOST && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({ code: 'custom', path: ['CLAMAV_HOST'], message: 'не задан: на настоящем адресе в production файлы проверяет ClamAV' });
     if (value.HUB_SHOWCASE === '1' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({
         code: 'custom',

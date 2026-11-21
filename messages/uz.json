@@ -516,7 +516,8 @@
           "user": "Foydalanuvchi",
           "session": "Sessiya",
           "organization": "Tashkilot",
-          "ticket": "Murojaat"
+          "ticket": "Murojaat",
+          "attachment": "Ilova"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -569,6 +570,9 @@
             "created": "Murojaat yaratildi",
             "status_changed": "Murojaat holati o'zgartirildi",
             "visibility_changed": "Murojaat ko'rinishi o'zgartirildi"
+          },
+          "attachment": {
+            "infected": "Zararlangan fayl topildi"
           }
         },
         "words": {

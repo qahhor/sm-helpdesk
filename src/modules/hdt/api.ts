@@ -27,6 +27,8 @@ import { parseNumber, titleFromDescription } from './util';
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeUpload, handleUploadRequest, presignUpload } from './api/uploads';
+// Проверка вложения для фонового процесса (задача 6): актор system.
+export { scanAttachment } from './core/attachments';
 
 // Модуль hdt (обращения), слой api: точки входа для страниц, обработчиков и других модулей.
 // Каждая функция принимает проверенный контекст клиента и разбирает вход схемой (ТЗ 9.4, правило 7).

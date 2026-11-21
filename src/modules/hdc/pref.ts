@@ -40,6 +40,8 @@ export const AUDIT_ACTIONS = [
   'ticket.created',
   'ticket.status_changed',
   'ticket.visibility_changed',
+  // Антивирус нашёл заражённый файл во вложении (решение 0027).
+  'attachment.infected',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

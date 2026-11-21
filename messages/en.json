@@ -516,7 +516,8 @@
           "user": "User",
           "session": "Session",
           "organization": "Organization",
-          "ticket": "Ticket"
+          "ticket": "Ticket",
+          "attachment": "Attachment"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -569,6 +570,9 @@
             "created": "Ticket created",
             "status_changed": "Ticket status changed",
             "visibility_changed": "Ticket visibility changed"
+          },
+          "attachment": {
+            "infected": "Infected file found"
           }
         },
         "words": {

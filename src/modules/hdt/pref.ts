@@ -1,5 +1,7 @@
 // Модуль hdt (обращения), слой pref: константы и коды (docs/naming.md, раздел 5). Значения из ТЗ, раздел 7.2.
 
+import type { DetectedType } from '@/modules/hdc/api';
+
 /** Тип обращения (FR-TK-01). */
 export const TICKET_TYPES = ['bug', 'question', 'service_request'] as const;
 export type TicketType = (typeof TICKET_TYPES)[number];
@@ -107,6 +109,34 @@ export const MIME_ALIASES: Readonly<Record<string, readonly string[]>> = {
   json: ['text/json'],
   xml: ['text/xml'],
   zip: ['application/x-zip-compressed', 'application/x-zip'],
+};
+
+/**
+ * Какой настоящий тип ожидается у файла заявленного типа (угроза T6, решение 0027). Офисные файлы нового
+ * формата и OpenDocument это ZIP, старые doc, xls, ppt это OLE, тексты без нулевых байтов.
+ */
+export const DETECTED_BY_MIME: Readonly<Record<string, DetectedType>> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpeg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'application/pdf': 'pdf',
+  'application/msword': 'ole',
+  'application/vnd.ms-excel': 'ole',
+  'application/vnd.ms-powerpoint': 'ole',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'zip',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'zip',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'zip',
+  'application/vnd.oasis.opendocument.text': 'zip',
+  'application/vnd.oasis.opendocument.spreadsheet': 'zip',
+  'application/vnd.oasis.opendocument.presentation': 'zip',
+  'application/zip': 'zip',
+  'text/plain': 'text',
+  'text/csv': 'text',
+  'application/json': 'text',
+  'application/xml': 'text',
+  'video/mp4': 'mp4',
 };
 
 /** Предел размера файла (FR-TK-13): 25 МБ, видео MP4 до 50 МБ. */

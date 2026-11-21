@@ -9,10 +9,23 @@ export { titleFromDescription } from '@/lib/subject';
 /** Номер для людей: SUP-1042 (FR-TK-05). */
 export const formatNumber = (number: number): string => `SUP-${number}`;
 
+const NUMBER_QUERY = /^\s*(sup-)?(\d{1,12})\s*$/i;
+
 /** Номер из SUP-1042, sup-1042 или 1042. Иначе пусто. */
 export function parseNumber(raw: string): number | null {
-  const match = /^\s*(?:sup-)?(\d{1,12})\s*$/i.exec(raw);
-  return match ? Number(match[1]) : null;
+  const match = NUMBER_QUERY.exec(raw);
+  return match ? Number(match[2]) : null;
+}
+
+/**
+ * Строка поиска в списке обращений (вторая проверка M2). С приставкой SUP- ищется только номер. Одни цифры
+ * ищутся и как номер, и в тексте как набраны ("007" остаётся "007", а не 7). Остальное ищется как текст.
+ */
+export function parseSearch(raw: string): { number?: number; text?: string } {
+  const match = NUMBER_QUERY.exec(raw);
+  if (!match) return { text: raw };
+  const digits = match[2] as string;
+  return match[1] ? { number: Number(digits) } : { number: Number(digits), text: digits };
 }
 
 /**

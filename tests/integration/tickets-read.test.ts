@@ -45,6 +45,28 @@ test('поиск цифрами находит и номер, и текст: к�
   expect(numbers((await listTickets(ctx, { q: `SUP-${created}` })).items)).toEqual([created]);
 });
 
+test('цифры ищутся в тексте как набраны, приставка SUP- ищет только номер (вторая проверка M2)', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = await clientCtx(f.aUser);
+  const insert = (description: string) =>
+    pools.root
+      .query(
+        `insert into hdt_tickets (org_id, author_id, type, impact, priority, title, description, locale, source)
+         values ($1, $2, 'bug', 'major', 'p2', 'Поиск', $3, 'ru', 'portal') returning number`,
+        [f.orgA.orgId, f.aUser.userId, description],
+      )
+      .then((r) => Number(r.rows[0].number));
+  const code = await insert('Ошибка 007 при печати');
+  await insert('Не прошли 7 заказов');
+  // "007" это код из описания, а не число 7: ведущие нули не теряются.
+  expect(numbers((await listTickets(ctx, { q: '007' })).items)).toEqual([code]);
+  // С приставкой SUP- ищется только номер; без неё число ищется и как номер, и в тексте.
+  const mentions = await insert(`Похоже на обращение ${f.tickets.aMine.number}`);
+  expect(numbers((await listTickets(ctx, { q: `SUP-${f.tickets.aMine.number}` })).items)).toEqual([f.tickets.aMine.number]);
+  expect(numbers((await listTickets(ctx, { q: `sup-${f.tickets.aMine.number}` })).items)).toEqual([f.tickets.aMine.number]);
+  expect(numbers((await listTickets(ctx, { q: String(f.tickets.aMine.number) })).items).sort()).toEqual([f.tickets.aMine.number, mentions].sort());
+});
+
 test('текст обращения Б не находится поиском пользователя А (15.2)', async () => {
   const f = await seedTwoOrgs();
   expect((await listTickets(await clientCtx(f.aAdmin), { q: 'Секрет Б' })).items).toEqual([]);

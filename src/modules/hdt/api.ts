@@ -25,7 +25,7 @@ import {
   type Priority,
   type Visibility,
 } from './pref';
-import { parseNumber, rejectReasonOf, titleFromDescription } from './util';
+import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from './util';
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeUpload, handleUploadRequest, presignUpload } from './api/uploads';
@@ -88,14 +88,14 @@ function decodeCursor(cursor: string): { modifiedOn: string; ticketId: string } 
  */
 export async function listTickets(ctx: ClientContext, input: unknown): Promise<{ items: TicketRow[]; nextCursor: string | null }> {
   const data = parseInput(listTicketsInput, input);
-  const number = data.q !== undefined ? parseNumber(data.q) : null;
+  const search = data.q !== undefined ? parseSearch(data.q) : {};
   const rows = await listTicketRows(ctx.actor, {
     mineOnly: data.scope === 'mine',
     status: data.status,
     type: data.type,
-    number: number ?? undefined,
-    // Текст ищется всегда: "500" это и номер обращения, и код ошибки в описании.
-    text: number === null ? data.q : String(number),
+    // Цифры без приставки ищутся и в тексте: "500" это и номер обращения, и код ошибки в описании.
+    number: search.number,
+    text: search.text,
     after: data.cursor ? decodeCursor(data.cursor) : undefined,
   });
   const page = rows.slice(0, TICKET_PAGE_SIZE);

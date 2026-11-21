@@ -23,8 +23,8 @@ export type NewTicket = {
 
 /**
  * Обращение клиента одной транзакцией: строка обращения, прикреплённые загрузки, подписка автора,
- * событие создания и запись журнала аудита. Чужая или уже прикреплённая загрузка и невидимое
- * связанное обращение отменяют всё: invalid_input.
+ * событие создания и запись журнала аудита. Отменяют всё: чужая, уже прикреплённая или не прошедшая
+ * проверку загрузка (file_unavailable) и невидимое связанное обращение (invalid_input).
  */
 export async function createTicketTx(actor: ClientActor, input: NewTicket): Promise<{ ticketId: string; number: number }> {
   return withActor(actor, async (tx) => {

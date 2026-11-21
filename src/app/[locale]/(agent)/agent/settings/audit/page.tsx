@@ -14,12 +14,12 @@ import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { settingsNav } from '../sections';
 import { firstParam } from '@/lib/search-params';
 import { diffLines } from './diff';
+import { Select } from '@/ui/components/select';
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2 align-top';
 const OBJECT_TYPES = ['staff', 'server', 'membership', 'invitation', 'user', 'session', 'organization', 'ticket', 'attachment', 'module'] as const;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const select = 'h-field w-full rounded-control border border-input bg-card px-3 text-base text-foreground';
 
 /** Дата из поля формы как начало или конец дня в часовом поясе портала. */
 function dayBoundary(date: string | undefined, end: boolean): string | undefined {
@@ -105,25 +105,25 @@ export default async function AuditPage({ searchParams }: PageProps<'/[locale]/a
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="audit-action">{ta('action')}</Label>
-            <select id="audit-action" name="action" defaultValue={filters.action} className={select}>
+            <Select id="audit-action" name="action" defaultValue={filters.action}>
               <option value="">{ta('allActions')}</option>
               {AUDIT_ACTIONS.map((action) => (
                 <option key={action} value={action}>
                   {ta(`actions.${action}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="audit-type">{ta('objectType')}</Label>
-            <select id="audit-type" name="type" defaultValue={filters.type} className={select}>
+            <Select id="audit-type" name="type" defaultValue={filters.type}>
               <option value="">{ta('allTypes')}</option>
               {OBJECT_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {ta(`objectTypes.${type}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="flex flex-wrap gap-2 tablet:col-span-2 desktop:col-span-4">
             <Button type="submit">{ta('show')}</Button>

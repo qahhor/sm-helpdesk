@@ -8,12 +8,12 @@ import { EmptyState } from '@/ui/components/EmptyState';
 import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
 import { TicketList } from './TicketList';
+import { Select } from '@/ui/components/select';
 
 // Список обращений клиента (FR-TK-06): организации или мои, статус, тип, поиск по номеру и тексту, по 20 на страницу.
 // Фильтры обычной формой GET: работают без скриптов, адрес со списком можно сохранить.
 
 type Search = { scope?: string; status?: string; type?: string; q?: string; cursor?: string };
-const select = 'h-field w-full rounded-control border border-input bg-card px-3 text-base text-foreground';
 
 export default async function ClientTicketsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const client = await requireClientActor();
@@ -42,32 +42,32 @@ export default async function ClientTicketsPage({ searchParams }: { searchParams
       <form method="get" className="grid grid-cols-1 gap-3 tablet:grid-cols-4 tablet:items-end">
         <div className="flex flex-col gap-1">
           <Label htmlFor="filter-scope">{t('tickets.list.scope')}</Label>
-          <select id="filter-scope" name="scope" defaultValue={filters.scope} className={select}>
+          <Select id="filter-scope" name="scope" defaultValue={filters.scope}>
             <option value="org">{t('tickets.list.scopes.org')}</option>
             <option value="mine">{t('tickets.list.scopes.mine')}</option>
-          </select>
+          </Select>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="filter-status">{t('tickets.list.status')}</Label>
-          <select id="filter-status" name="status" defaultValue={search.status ?? ''} className={select}>
+          <Select id="filter-status" name="status" defaultValue={search.status ?? ''}>
             <option value="">{t('tickets.list.all')}</option>
             {TICKET_STATUSES.map((value) => (
               <option key={value} value={value}>
                 {t(`tickets.statuses.${value}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="filter-type">{t('tickets.list.type')}</Label>
-          <select id="filter-type" name="type" defaultValue={search.type ?? ''} className={select}>
+          <Select id="filter-type" name="type" defaultValue={search.type ?? ''}>
             <option value="">{t('tickets.list.all')}</option>
             {TICKET_TYPES.map((value) => (
               <option key={value} value={value}>
                 {t(`tickets.types.${value}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="filter-q">{t('tickets.list.search')}</Label>

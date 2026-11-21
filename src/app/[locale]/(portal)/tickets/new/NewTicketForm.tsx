@@ -12,6 +12,7 @@ import { Textarea } from '@/ui/components/textarea';
 import { browserDrafts, browserSession, clearDraft, type Draft, draftKey, forgetSent, rememberSent, saveDraft, useDraft } from '@/ui/drafts';
 import { createTicketAction, type NewTicketState } from './actions';
 import { ModulePicker } from './ModulePicker';
+import { Select } from '@/ui/components/select';
 
 // Форма нового обращения (ТЗ 8.3, FR-TK-02): описание, тема из описания, тип, модуль, влияние, видимость, файлы.
 // Черновик сохраняется на устройстве (UX-C-02), ошибка показывается у поля, введённое не теряется (UX-C-10).
@@ -39,7 +40,6 @@ export type NewTicketLabels = {
 };
 
 const INITIAL: NewTicketState = { error: null, field: null };
-const select = 'h-field w-full rounded-control border border-input bg-card px-3 text-base text-foreground';
 
 type FormProps = {
   userId: string;
@@ -175,13 +175,13 @@ function Fields({
 
       <div className="flex flex-col gap-1">
         <Label htmlFor="field-impact">{labels.impact}</Label>
-        <select id="field-impact" name="impact" className={select} value={impact} onChange={(event) => setImpact(event.target.value)}>
+        <Select id="field-impact" name="impact" value={impact} onChange={(event) => setImpact(event.target.value)}>
           {impacts.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <RadioGroup name="visibility" legend={labels.visibility} options={visibilities} value={visibility} onChange={setVisibility} hint={labels.visibilityHint} />

@@ -6,6 +6,7 @@ import { Label } from '@/ui/components/label';
 import type { RadioOption } from '@/ui/components/radio-group';
 import { browserDrafts } from '@/ui/drafts';
 import { loadRecent, pushRecent, recentKey } from '@/ui/recent';
+import { Select } from '@/ui/components/select';
 
 // Поле "Модуль" (решение 14 плана M2): поиск по названию, когда модулей много, и недавние значения
 // этого устройства сверху списка. Обычный список выбора: работает с клавиатуры и программами экранного доступа.
@@ -15,7 +16,6 @@ export type ModulePickerLabels = { module: string; none: string; search: string;
 /** С какого числа модулей показывается поиск. */
 const SEARCH_FROM = 8;
 const noop = () => () => {};
-const select = 'h-field w-full rounded-control border border-input bg-card px-3 text-base text-foreground';
 
 export function ModulePicker({
   userId,
@@ -53,10 +53,10 @@ export function ModulePicker({
       {modules.length > SEARCH_FROM && (
         <Input type="search" aria-label={labels.search} placeholder={labels.search} value={query} onChange={(event) => setQuery(event.target.value)} />
       )}
-      <select
+      <Select
         id="field-module"
         name="moduleId"
-        className={select}
+       
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
@@ -72,7 +72,7 @@ export function ModulePicker({
         ) : (
           rest.map(option)
         )}
-      </select>
+      </Select>
     </div>
   );
 }

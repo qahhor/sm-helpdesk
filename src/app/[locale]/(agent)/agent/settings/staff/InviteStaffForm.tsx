@@ -3,6 +3,7 @@ import { Button } from '@/ui/components/button';
 import { FormField } from '@/ui/components/form-field';
 import { Label } from '@/ui/components/label';
 import { inviteStaffAction } from './actions';
+import { Select } from '@/ui/components/select';
 
 export type InviteStaffLabels = { email: string; name: string; role: string; isLead: string; send: string; roles: Record<string, string> };
 
@@ -14,13 +15,13 @@ export function InviteStaffForm({ labels }: { labels: InviteStaffLabels }) {
       <FormField name="name" label={labels.name} autoComplete="off" maxLength={120} required />
       <div className="flex flex-col gap-1">
         <Label htmlFor="field-role">{labels.role}</Label>
-        <select id="field-role" name="role" defaultValue="agent_l1" className="h-field w-full rounded-control border border-input bg-card px-3 text-base text-foreground">
+        <Select id="field-role" name="role" defaultValue="agent_l1">
           {HUMAN_STAFF_ROLES.map((role) => (
             <option key={role} value={role}>
               {labels.roles[role]}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <label className="inline-flex min-h-control items-center gap-3">
         <input type="checkbox" name="isLead" className="size-5 shrink-0 accent-primary" />

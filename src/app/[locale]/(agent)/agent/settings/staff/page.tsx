@@ -15,6 +15,7 @@ import { changeStaffRoleAction, resetStaffAction, setStaffStateAction } from './
 import { InviteStaffForm } from './InviteStaffForm';
 import { STAFF_PAGE_ERRORS } from './errors';
 import { firstParam } from '@/lib/search-params';
+import { Select } from '@/ui/components/select';
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2';
@@ -146,18 +147,18 @@ export default async function StaffSettingsPage({ searchParams }: PageProps<'/[l
                 <input type="hidden" name="userId" value={selected.userId} />
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="field-staff-role">{ts('role')}</Label>
-                  <select
+                  <Select
                     id="field-staff-role"
                     name="role"
                     defaultValue={selected.role}
-                    className="h-field w-full rounded-control border border-input bg-card px-3 text-base text-foreground"
+                   
                   >
                     {HUMAN_STAFF_ROLES.map((role) => (
                       <option key={role} value={role}>
                         {roles[role]}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <label className="inline-flex min-h-control items-center gap-3">
                   <input type="checkbox" name="isLead" defaultChecked={selected.isLead} className="size-5 shrink-0 accent-primary" />

@@ -179,7 +179,7 @@
         "scan": {
           "pending": "tekshirilmoqda",
           "infected": "viruslarga tekshiruvdan o'tmadi",
-          "rejected": "qabul qilinmadi, faylni qaytadan qo'shing",
+          "rejected": "qabul qilinmadi: mazmuni kengaytmaga mos emas yoki faylni tekshirib bo'lmadi, uni qaytadan yoki boshqa formatda qo'shing",
           "encrypted": "qabul qilinmadi: fayl parol bilan himoyalangan, uni parolsiz qo'shing",
           "limits": "qabul qilinmadi: arxiv tekshirish uchun juda katta, fayllarni alohida qo'shing"
         },

@@ -9,8 +9,10 @@ import { productModules } from '../schema';
 // по коду, отсутствующие в файле скрываются (passive), родитель ставится вторым проходом.
 
 export type ImportCounts = { added: number; updated: number; passive: number };
+export type ImportSource = 'cli';
 
-export async function importModulesTx(actor: StaffActor, records: readonly ModuleRecord[]): Promise<ImportCounts> {
+/** source: откуда пришла загрузка; журнал аудита называет и администратора, и путь (консоль или экран). */
+export async function importModulesTx(actor: StaffActor, records: readonly ModuleRecord[], source: ImportSource): Promise<ImportCounts> {
   return withActor(actor, async (tx) => {
     const codes = records.map((r) => r.code);
     const existing = new Map(
@@ -44,7 +46,7 @@ export async function importModulesTx(actor: StaffActor, records: readonly Modul
       .where(and(eq(productModules.state, 'active'), codes.length > 0 ? notInArray(productModules.code, codes) : sql`true`))
       .returning({ moduleId: productModules.moduleId });
     const counts = { added, updated, passive: hidden.length };
-    await writeAudit(tx, { action: 'modules.imported', objectType: 'module', objectId: 'catalog', diff: counts });
+    await writeAudit(tx, { action: 'modules.imported', objectType: 'module', objectId: 'catalog', diff: { ...counts, source } });
     return counts;
   });
 }

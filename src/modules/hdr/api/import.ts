@@ -1,6 +1,6 @@
 import 'server-only';
 import type { StaffActor } from '@/db/with-actor';
-import { type ImportCounts, importModulesTx } from '../core/import';
+import { type ImportCounts, type ImportSource, importModulesTx } from '../core/import';
 import { type ModuleRecord, modulesFile } from '../input';
 
 // Загрузка справочника модулей из выгрузки Smartup (команда hub modules:import, план M2, задача 10).
@@ -72,7 +72,7 @@ function structureProblems(records: readonly ModuleRecord[], where: (index: numb
   return problems;
 }
 
-export async function importModules(actor: StaffActor, text: string): Promise<ImportResult> {
+export async function importModules(actor: StaffActor, text: string, source: ImportSource): Promise<ImportResult> {
   if (actor.type !== 'staff' || actor.staffRole !== 'admin') throw new Error('Справочник загружает только администратор');
   let data: unknown;
   try {
@@ -95,5 +95,5 @@ export async function importModules(actor: StaffActor, text: string): Promise<Im
     };
   const problems = structureProblems(parsed.data, where);
   if (problems.length > 0) return { ok: false, problems: problems.slice(0, 20) };
-  return { ok: true, ...(await importModulesTx(actor, parsed.data)) };
+  return { ok: true, ...(await importModulesTx(actor, parsed.data, source)) };
 }

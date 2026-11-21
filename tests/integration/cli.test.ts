@@ -232,8 +232,9 @@ test('modules:import загружает и обновляет справочни
   // В журнале аудита итог каждой загрузки от системы.
   const audit = await pools.root.query(`select actor_type, actor_id, object_type, diff from hdc_audit_log where action = 'modules.imported' order by created_on`);
   expect(audit.rows).toEqual([
-    { actor_type: 'staff', actor_id: adminId, object_type: 'module', diff: { added: 3, updated: 0, passive: 1 } },
-    { actor_type: 'staff', actor_id: adminId, object_type: 'module', diff: { added: 0, updated: 2, passive: 1 } },
+    // Журнал называет администратора и то, что загрузка шла из консоли, а не из экрана рабочего места.
+    { actor_type: 'staff', actor_id: adminId, object_type: 'module', diff: { added: 3, updated: 0, passive: 1, source: 'cli' } },
+    { actor_type: 'staff', actor_id: adminId, object_type: 'module', diff: { added: 0, updated: 2, passive: 1, source: 'cli' } },
   ]);
   // Неверный файл: номер записи и строки, справочник не меняется.
   const broken = file('broken.json', '[\n  { "code": "orders", "name": { "ru": "Заказы" } },\n  { "code": "crm", "name": { "uz": "Mijozlar" } }\n]\n');

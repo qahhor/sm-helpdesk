@@ -262,7 +262,7 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
           io.err(`Файл не прочитан: ${text('file')}`);
           return 1;
         }
-        const result = await importModules(admin, content);
+        const result = await importModules(admin, content, 'cli');
         if (!result.ok) {
           io.err('Справочник не загружен, ошибки в файле:');
           for (const problem of result.problems) io.err(`  ${problem}`);

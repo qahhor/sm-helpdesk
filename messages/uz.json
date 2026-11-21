@@ -229,6 +229,12 @@
         "otherOrg": {
           "text": "{number} murojaati {org} tashkilotiga tegishli. Murojaatni ochish uchun unga o'ting.",
           "switch": "{org} tashkilotiga o'tish"
+        },
+        "nextReply": {
+          "first_response": "Javob muddati: {when}",
+          "resolution": "Hal qilish muddati: {when}",
+          "today": "bugun, {time}",
+          "tomorrow": "ertaga, {time}"
         }
       },
       "files": {

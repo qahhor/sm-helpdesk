@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { getFormatter, getTranslations } from 'next-intl/server';
+import { getFormatter, getNow, getTranslations } from 'next-intl/server';
 import {
   ALLOWED_FILE_EXTENSIONS,
   type AttachmentView,
@@ -78,7 +78,16 @@ export default async function TicketPage({
   }
   const { done, error, created } = await searchParams;
   const format = await getFormatter();
+  const now = await getNow();
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
+  /** Срок в часовом поясе поддержки: "сегодня, 16:30", "завтра, 09:00" или дата со временем (раздел 8.3). */
+  const deadline = (at: Date, timeZone: string) => {
+    const day = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+    const time = format.dateTime(at, { timeZone, hour: '2-digit', minute: '2-digit' });
+    if (day(at) === day(now)) return t('page.nextReply.today', { time });
+    if (day(at) === day(new Date(now.getTime() + 86_400_000))) return t('page.nextReply.tomorrow', { time });
+    return format.dateTime(at, { timeZone, day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  };
   const status = (value: string) => t(`statuses.${value}`);
   const label = `SUP-${ticket.number}`;
   const fileErrors = Object.fromEntries(['too_many_files', 'file_not_allowed', 'file_too_large', 'rate_limited', 'upload'].map((code) => [code, t(`errors.${code}`)]));
@@ -173,6 +182,11 @@ export default async function TicketPage({
           <span>{t(`types.${ticket.type}`)}</span>
           <span className="text-muted-foreground">{ticket.visibility === 'org' ? t('page.visibleOrg') : t('page.visiblePrivate')}</span>
         </div>
+        {ticket.nextReply && (
+          <p className="text-sm" data-next-reply={ticket.nextReply.kind}>
+            {t(`page.nextReply.${ticket.nextReply.kind}`, { when: deadline(ticket.nextReply.at, ticket.nextReply.timeZone) })}
+          </p>
+        )}
         {ticket.relatedNumber && (
           <Link href={`/tickets/SUP-${ticket.relatedNumber}`} className="self-start text-sm text-link underline underline-offset-2">
             {t('page.related', { number: `SUP-${ticket.relatedNumber}` })}

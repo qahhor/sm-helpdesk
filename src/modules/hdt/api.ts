@@ -2,7 +2,8 @@ import 'server-only';
 import { type ClientContext, namesOf, otherOrganizationActors } from '@/modules/hdu/api';
 import { consumeRateLimit, rateKey, readSetting } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { isActiveModule } from '@/modules/hdr/api';
+import { isActiveModule, loadSlaConfig } from '@/modules/hdr/api';
+import { refreshSlaAfterClient } from './api/jobs';
 import { confirmTx, rateTx, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
 import { createTicketTx, listTicketRows, readTicket, ticketExists } from './core/tickets';
 import { HdtError } from './error';
@@ -32,7 +33,7 @@ export { completeUpload, handleUploadRequest, presignUpload } from './api/upload
 // Скачивание вложений (задача 8).
 export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
-export { scanAttachment, sweepAttachments } from './api/jobs';
+export { needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments } from './api/jobs';
 export { SWEEP_BATCH } from './pref';
 
 // Модуль hdt (обращения), слой api: точки входа для страниц, обработчиков и других модулей.
@@ -56,11 +57,12 @@ export async function createTicket(ctx: ClientContext, input: unknown): Promise<
   if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
   const limit = await consumeRateLimit(rateKey('ticket-create:user', ctx.actor.userId), RATE_RULES.ticketCreatePerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
-  const { number } = await createTicketTx(ctx.actor, {
+  const { number, ticketId } = await createTicketTx(ctx.actor, {
     ...data,
     title: data.title ?? titleFromDescription(data.description),
     attachmentIds: [...new Set(data.attachmentIds)],
   });
+  await refreshSlaAfterClient(ticketId);
   return { number };
 }
 
@@ -148,8 +150,20 @@ export type TicketView = {
   messages: MessageView[];
   events: EventView[];
   turn: 'client' | 'support' | 'none';
+  /** Срок, который поддержка обещает клиенту сейчас (FR-SLA-08): первый ответ или решение. На ходу клиента пусто. */
+  nextReply: { kind: 'first_response' | 'resolution'; at: Date; timeZone: string } | null;
   can: TicketActions;
 };
+
+/** Срок следующего ответа для клиента: до первого ответа сам первый ответ, после него срок решения. */
+function nextReplyOf(
+  ticket: { status: TicketStatus; firstRespondedOn: Date | null; firstResponseDueOn: Date | null; resolutionDueOn: Date | null },
+  timeZone: string,
+): TicketView['nextReply'] {
+  if (turnOf(ticket.status) !== 'support') return null;
+  if (!ticket.firstRespondedOn) return ticket.firstResponseDueOn ? { kind: 'first_response', at: ticket.firstResponseDueOn, timeZone } : null;
+  return ticket.resolutionDueOn ? { kind: 'resolution', at: ticket.resolutionDueOn, timeZone } : null;
+}
 
 /**
  * Обращение по номеру в другой организации пользователя (UX-C-06): ссылка из письма могла вести туда, а активна
@@ -230,6 +244,8 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
     })),
     events: found.events.map((e) => ({ kind: e.kind, actorType: e.actorType, payload: e.payload, createdOn: e.createdOn })),
     turn: turnOf(ticket.status),
+    // Часовой пояс календаря поддержки: срок показывается в нём, а не в поясе сервера.
+    nextReply: turnOf(ticket.status) === 'support' ? nextReplyOf(ticket, (await loadSlaConfig(ctx.actor)).calendar.timeZone) : null,
     can: {
       reply: ticket.status !== 'closed',
       // Решение 0026, пункт 21: подтверждают автор и администратор клиента, открыть снова может любой, кто видит,
@@ -252,7 +268,7 @@ export async function replyToTicket(ctx: ClientContext, input: unknown): Promise
   if (ids.length > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
   const limit = await consumeRateLimit(rateKey('ticket-reply:user', ctx.actor.userId), RATE_RULES.ticketReplyPerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
-  await replyTx(ctx.actor, data.number, data.body, ids);
+  await refreshSlaAfterClient(await replyTx(ctx.actor, data.number, data.body, ids));
 }
 
 /** Общий предел действий с обращением на пользователя (вторая проверка M2): каждое пишет событие и журнал. */
@@ -272,7 +288,7 @@ export async function confirmResolution(ctx: ClientContext, number: unknown): Pr
 export async function reopenTicket(ctx: ClientContext, input: unknown): Promise<void> {
   const data = parseInput(reopenInput, input);
   await consumeAction(ctx);
-  await reopenTx(ctx.actor, data.number, await reopenDays(), data.body);
+  await refreshSlaAfterClient(await reopenTx(ctx.actor, data.number, await reopenDays(), data.body));
 }
 
 /** Оценка закрытого обращения (FR-TK-11). */

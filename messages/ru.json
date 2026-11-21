@@ -229,6 +229,12 @@
         "otherOrg": {
           "text": "Обращение {number} относится к организации {org}. Переключитесь на неё, чтобы открыть обращение.",
           "switch": "Перейти в {org}"
+        },
+        "nextReply": {
+          "first_response": "Ответим до: {when}",
+          "resolution": "Срок решения: {when}",
+          "today": "сегодня, {time}",
+          "tomorrow": "завтра, {time}"
         }
       },
       "files": {

@@ -229,6 +229,12 @@
         "otherOrg": {
           "text": "Request {number} belongs to {org}. Switch to it to open the request.",
           "switch": "Switch to {org}"
+        },
+        "nextReply": {
+          "first_response": "We will reply by: {when}",
+          "resolution": "Resolution target: {when}",
+          "today": "today, {time}",
+          "tomorrow": "tomorrow, {time}"
         }
       },
       "files": {

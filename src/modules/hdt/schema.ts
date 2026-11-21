@@ -53,7 +53,7 @@ export const tickets = pgTable('hdt_tickets', {
   firstRespondedOn: moment('first_responded_on'),
   resolvedOn: moment('resolved_on'),
   slaPausedOn: moment('sla_paused_on'),
-  slaPausedSeconds: integer('sla_paused_seconds').notNull().default(0),
+  slaPausedMinutes: integer('sla_paused_minutes').notNull().default(0),
   resolutionType: text('resolution_type'),
   solutionId: uuid('solution_id'),
   mergedIntoId: uuid('merged_into_id'),
@@ -69,6 +69,11 @@ export const tickets = pgTable('hdt_tickets', {
   csatComment: text('csat_comment'),
   closedOn: moment('closed_on'),
   ...stampColumns,
+  // Миграция 0020 добавила колонки в конец таблицы.
+  firstResponseBreachedOn: moment('first_response_breached_on'),
+  resolutionBreachedOn: moment('resolution_breached_on'),
+  clientWaitingSince: moment('client_waiting_since'),
+  resolvedVersion: text('resolved_version'),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {

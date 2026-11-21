@@ -86,14 +86,15 @@ async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body
  * Ответ клиента (FR-TK-08). "Ждём вашего ответа" и "Решено" переходят в "В работе" (решение 0026, пункт 4:
  * определение благодарности придёт в M3). В закрытое обращение ответить нельзя: его открывают заново.
  */
-export async function replyTx(actor: ClientActor, number: number, body: string, attachmentIds: string[]): Promise<void> {
-  await withActor(actor, async (tx) => {
+export async function replyTx(actor: ClientActor, number: number, body: string, attachmentIds: string[]): Promise<string> {
+  return withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
     if (ticket.status === 'closed') throw new HdtError('transition_refused');
     await addClientMessage(tx, actor, ticket, body, attachmentIds);
     if (ticket.status === 'waiting_customer' || ticket.status === 'resolved')
       await changeStatus(tx, actor, ticket, 'in_progress', { lastClientMessageOn: new Date() });
     else await tx.update(tickets).set({ lastClientMessageOn: new Date() }).where(eq(tickets.ticketId, ticket.ticketId));
+    return ticket.ticketId;
   });
 }
 
@@ -109,8 +110,8 @@ export async function confirmTx(actor: ClientActor, number: number): Promise<voi
 }
 
 /** Открыть заново: решённое всегда, закрытое в пределах срока (FR-TK-12). Необязательный текст становится сообщением. */
-export async function reopenTx(actor: ClientActor, number: number, reopenDays: number, body?: string): Promise<void> {
-  await withActor(actor, async (tx) => {
+export async function reopenTx(actor: ClientActor, number: number, reopenDays: number, body?: string): Promise<string> {
+  return withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
     if (ticket.status === 'closed') {
       const expired = !ticket.closedOn || Date.now() - ticket.closedOn.getTime() > reopenDays * 86_400_000;
@@ -118,6 +119,7 @@ export async function reopenTx(actor: ClientActor, number: number, reopenDays: n
     } else if (ticket.status !== 'resolved') throw new HdtError('transition_refused');
     if (body) await addClientMessage(tx, actor, ticket, body);
     await changeStatus(tx, actor, ticket, 'in_progress', body ? { lastClientMessageOn: new Date() } : {});
+    return ticket.ticketId;
   });
 }
 

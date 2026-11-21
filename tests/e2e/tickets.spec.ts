@@ -102,6 +102,13 @@ test('S2: вход, "Сообщить о проблеме", тип, влияни
   expect(await recent.count()).toBeLessThanOrEqual(3);
 });
 
+test('срок следующего ответа на странице обращения (FR-SLA-08)', async ({ page }) => {
+  await createTicket(page, { description: `Срок ответа ${Date.now()}` });
+  // Обращение ждёт первого ответа поддержки: виден срок, без слов "SLA" и "линия".
+  await expect(page.locator('[data-next-reply="first_response"]')).toContainText('Ответим до:');
+  await expect(page.getByText(/SLA|линия/)).toHaveCount(0);
+});
+
 test('черновик после перезагрузки на месте (UX-C-02)', async ({ page }) => {
   await page.goto('/ru/tickets/new');
   await formReady(page);

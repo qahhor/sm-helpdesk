@@ -144,6 +144,21 @@ test('действующего участника пригласить нель�
   expect(await acceptInvitation({ token: tokenFrom(box.mailer.sent[0]), name: 'x' }, noRequest)).toEqual({ ok: false, code: 'link_invalid' });
 });
 
+test('список приглашений ограничен сотней новых (проверка main, Q13)', async () => {
+  const f = await seedTwoOrgs();
+  await pools.root.query(
+    `insert into hdu_invitations (org_id, email, role, token_hash, invited_by, expires_on)
+     select $1, 'bulk' || n || '@acme.test', 'client_user', encode(sha256(('bulk' || n)::bytea), 'hex'), $2, now() + interval '7 days'
+     from generate_series(1, 120) n`,
+    [f.orgA.orgId, f.aAdmin.userId],
+  );
+  const list = await listInvitations({ ctx: await clientCtx(f.aAdmin) });
+  expect(list).toHaveLength(100);
+  // Новые первыми: последние сто массовых, а ранние и приглашение из набора не попали.
+  expect(list[0]?.email).toBe('bulk120@acme.test');
+  expect(list.some((i) => i.email === 'bulk20@acme.test' || i.email === 'invited-a@acme.test')).toBe(false);
+});
+
 test('двадцать первое приглашение в организацию за час отклоняется', async () => {
   const f = await seedTwoOrgs();
   const ctx = await clientCtx(f.aAdmin);

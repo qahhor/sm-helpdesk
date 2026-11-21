@@ -72,6 +72,10 @@ test.each([
   ['ru', 'client.x', 'Запрос на обслуживание', null],
   ['ru', 'client.x', 'Специфический случай', null],
   ['ru', 'client.x', `Статус ${String.fromCharCode(0x2014)} открыт`, 'forbidden:U+2014'],
+  // Клиент читает и страницы входа, и письма, и сообщения бота (проверка main, Q14).
+  ['ru', 'auth.x', 'Ваше обращение в очереди', 'forbidden:очеред'],
+  ['en', 'mail.x', 'Your ticket is ready', 'forbidden:ticket'],
+  ['uz', 'bot.x', 'SLA muddati', 'forbidden:SLA'],
 ])('слова: %s %s "%s"', (locale, key, value, expected) => {
   const got = checkWords({ [locale]: nest(key, value) }).map((p) => p.problem);
   expect(got).toEqual(expected ? [expected] : []);

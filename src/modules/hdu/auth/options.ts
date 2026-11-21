@@ -2,7 +2,7 @@ import 'server-only';
 import { sso, type SSOUserResolution, type SSOUserResolutionContext, type SSOUserResolutionInput } from '@better-auth/sso';
 import type { BetterAuthOptions } from 'better-auth';
 import { magicLink, twoFactor } from 'better-auth/plugins';
-import { clientIpHeader } from '@/modules/hdc/util';
+import { clientIpHeader } from '@/modules/hdc/api';
 import { PostgresDialect } from 'kysely';
 import type { Pool } from 'pg';
 import {

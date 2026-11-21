@@ -1,7 +1,7 @@
 // Модуль hdc, слой util: чистые функции без обращения к базе (docs/naming.md, раздел 5).
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
-import { CLIENT_IP_HEADERS, type ClientIpHeader } from '@/env';
+import { type ClientIpHeader, clientIpHeaderOf } from '@/env';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
@@ -27,10 +27,9 @@ export async function readyResponse(ping: () => Promise<boolean>): Promise<Respo
   );
 }
 
-/** Заголовок адреса посетителя из настроек (CLIENT_IP_HEADER). Не задан: x-forwarded-for, так работает localhost. */
+/** Заголовок адреса посетителя из настроек (CLIENT_IP_HEADER) по схеме окружения. Не задан: x-forwarded-for, так работает localhost. */
 export function clientIpHeader(): ClientIpHeader {
-  const configured = process.env.CLIENT_IP_HEADER;
-  return (CLIENT_IP_HEADERS as readonly string[]).includes(configured ?? '') ? (configured as ClientIpHeader) : 'x-forwarded-for';
+  return clientIpHeaderOf(process.env);
 }
 
 /**

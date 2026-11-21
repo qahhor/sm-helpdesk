@@ -2,6 +2,7 @@ import 'server-only';
 
 // Модуль hdn (уведомления), слой api: то, что могут вызывать другие модули.
 // В M1 это письма и бот Telegram (решение 0018). Уведомления об обращениях появятся в M4 и M4b.
+// Заглушки для тестов лежат в testing.ts.
 
 export { BOT_TEXT_KEYS, type BotTextKey, botText } from './bot-text';
 export {
@@ -16,13 +17,11 @@ export {
   staffResetMail,
   telegramLinkedMail,
 } from './mail-text';
-export { type Mailer, mailDelivers, type MailKind, type MailMessage, MemoryMailer, queueMail, setMailerForTests } from './mailer';
+export { type Mailer, mailDelivers, type MailKind, type MailMessage, queueMail } from './mailer';
 export {
   createTelegramBot,
   getTelegramBot,
-  MemoryTelegramBot,
   type SendOptions,
-  setTelegramBotForTests,
   type TelegramBot,
   TelegramError,
 } from './telegram';

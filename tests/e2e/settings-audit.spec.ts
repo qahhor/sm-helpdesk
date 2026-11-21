@@ -42,7 +42,8 @@ test('care меняет категорию и отключает AI-обрабо
   await page.getByLabel('Действие').selectOption('org.updated');
   await page.getByRole('button', { name: 'Показать' }).click();
   const row = page.getByRole('row', { name: new RegExp(company) }).first();
-  await expect(row).toContainText('category');
+  // Поле словами интерфейса, а не кодом (проверка main, Q14).
+  await expect(row).toContainText('Категория клиента');
   await expect(row).toContainText('B');
   await expect(row).toContainText(staffAccount('care').name);
   await expect(main(page).getByRole('button', { name: /Удалить|Изменить/ })).toHaveCount(0);

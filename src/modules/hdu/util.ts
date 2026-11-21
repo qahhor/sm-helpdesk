@@ -122,3 +122,11 @@ export function mapClientRole(roleMap: Record<string, ClientRole>, role: string 
   const mapped: unknown = roleMap[role];
   return (CLIENT_ROLES as readonly unknown[]).includes(mapped) ? (mapped as ClientRole) : 'client_user';
 }
+
+/**
+ * Адрес короткого шага о новой редакции политики с возвратом на страницу, куда шёл человек
+ * (итоговая проверка M1). Чужой или пустой адрес заменяется главной кабинета.
+ */
+export function policyNoticeUrl(locale: string, rawPath: string): string {
+  return `/${locale}/welcome?next=${encodeURIComponent(safeReturnPath(rawPath, `/${locale}`))}`;
+}

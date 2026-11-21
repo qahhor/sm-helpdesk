@@ -2,10 +2,10 @@ import 'server-only';
 import { and, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
 import { HduError } from '../error';
-import type { ClientRole, MembershipSource } from '../pref';
+import { type ClientRole, INVITATION_TTL_SEC, INVITATIONS_LIST_LIMIT, type MembershipSource } from '../pref';
 import { invitations, memberships, organizations, staff } from '../schema';
 import { newToken } from '../tokens';
 
@@ -13,8 +13,6 @@ import { newToken } from '../tokens';
 // Создание и отзыв идут от имени приглашающего: политики базы пускают администратора клиента
 // только в свою организацию и только от своего имени. Принятие выполняет система.
 
-/** Приглашение живёт 7 дней (FR-ID-08). */
-export const INVITATION_TTL_SEC = 7 * 24 * 3600;
 
 const SYSTEM = { type: 'system', job: 'identity.invitation' } as const;
 
@@ -81,7 +79,7 @@ export type InvitationRow = {
   revokedOn: Date | null;
 };
 
-/** Приглашения организации, новые первыми. Хеш токена не читается: у hub_app нет права на эту колонку. */
+/** Приглашения организации, новые первыми, не больше сотни (проверка main, Q13). Хеш токена не читается: у hub_app нет права на эту колонку. */
 export async function listOrgInvitations(actor: ClientActor | StaffActor, orgId: string): Promise<InvitationRow[]> {
   const rows = await withActor(actor, (tx) =>
     tx
@@ -95,7 +93,8 @@ export async function listOrgInvitations(actor: ClientActor | StaffActor, orgId:
       })
       .from(invitations)
       .where(eq(invitations.orgId, orgId))
-      .orderBy(desc(invitations.createdOn), desc(invitations.invitationId)),
+      .orderBy(desc(invitations.createdOn), desc(invitations.invitationId))
+      .limit(INVITATIONS_LIST_LIMIT),
   );
   return rows as InvitationRow[];
 }

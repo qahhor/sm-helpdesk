@@ -76,6 +76,19 @@ const encryptionKey = required().refine(
 export const CLIENT_IP_HEADERS = ['cf-connecting-ip', 'x-real-ip', 'x-forwarded-for'] as const;
 export type ClientIpHeader = (typeof CLIENT_IP_HEADERS)[number];
 
+// Одна схема для поля CLIENT_IP_HEADER: её берут и окружение целиком, и чтение заголовка в счётчиках.
+const clientIpHeaderField = z.enum(CLIENT_IP_HEADERS, { error: 'ожидается cf-connecting-ip, x-real-ip или x-forwarded-for' }).optional();
+
+/**
+ * Заголовок адреса посетителя той же схемой, что и окружение (проверка main, Q20). Не задан: x-forwarded-for.
+ * Отдельно от getEnv: счётчики и журнал не должны требовать всего окружения (команда консоли, тесты).
+ */
+export function clientIpHeaderOf(source: Record<string, string | undefined>): ClientIpHeader {
+  const parsed = clientIpHeaderField.safeParse(source.CLIENT_IP_HEADER);
+  if (!parsed.success) throw new EnvError([{ name: 'CLIENT_IP_HEADER', reason: parsed.error.issues[0]?.message ?? 'неверное значение' }]);
+  return parsed.data ?? 'x-forwarded-for';
+}
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production'], {
@@ -111,9 +124,7 @@ const schema = z
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error'], { error: 'ожидается debug, info, warn или error' }).default('info'),
     // Заголовок, из которого берётся адрес посетителя для счётчиков частоты и журнала аудита (итоговая проверка M1).
     // За Cloudflare это cf-connecting-ip. Не задан: x-forwarded-for, только для localhost.
-    CLIENT_IP_HEADER: z
-      .enum(CLIENT_IP_HEADERS, { error: 'ожидается cf-connecting-ip, x-real-ip или x-forwarded-for' })
-      .optional(),
+    CLIENT_IP_HEADER: clientIpHeaderField,
   })
   .superRefine((value, ctx) => {
     const host = new URL(value.HUB_URL).hostname;

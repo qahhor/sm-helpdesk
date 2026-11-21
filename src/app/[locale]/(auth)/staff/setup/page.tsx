@@ -3,13 +3,12 @@ import { describeStaffInvitation } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { StaffSetupForm } from './StaffSetupForm';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Сотрудник открывает ссылку приглашения и задаёт пароль. Открытие страницы приглашение не тратит:
 // его принимает только отправка формы.
 export default async function StaffSetupPage({ searchParams }: PageProps<'/[locale]/staff/setup'>) {
-  const token = first((await searchParams).token) ?? '';
+  const token = firstParam((await searchParams).token) ?? '';
   const invitation = await describeStaffInvitation(token);
   const t = await getTranslations('auth.staff.setup');
 

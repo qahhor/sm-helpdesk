@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getEnv } from '@/env';
 import { LOCALES } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
+import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
 import { invitationMail, queueMail } from '@/modules/hdn/api';
 import { acceptInvitationTx, createInvitation, findPendingInvitation, listOrgInvitations, revokeOrgInvitation } from '../core/invitations';
 import { findActiveOrgName } from '../core/members';

@@ -60,7 +60,8 @@ test('отключённое членство вход не включает', a
 test('сведения без компании и неверные сведения не создают ничего и не бросают ошибку', async () => {
   const { server, user } = await newSmartupUser();
   expect(await provisionFromSmartup(user.id, server.code, { id: '1001', name: 'Алишер' })).toEqual({ failed: 'no_company' });
-  expect(await provisionFromSmartup(user.id, server.code, { ...profile, companyName: 'я'.repeat(400) })).toEqual({ failed: 'invalid_claims' });
+  // Длинное название обрезается (проверка main, Q1), а длинный идентификатор компании не принимается.
+  expect(await provisionFromSmartup(user.id, server.code, { ...profile, companyId: '5'.repeat(400) })).toEqual({ failed: 'invalid_claims' });
   expect(await provisionFromSmartup(user.id, server.code, null)).toEqual({ failed: 'invalid_claims' });
   expect(await provisionFromSmartup(user.id, 'no-such-server', profile)).toEqual({ failed: 'invalid_claims' });
   expect(await membershipsOf(user.id)).toEqual([]);

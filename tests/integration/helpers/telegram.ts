@@ -1,5 +1,6 @@
 import { afterEach, beforeEach } from 'vitest';
-import { MemoryTelegramBot, setTelegramBotForTests, type TelegramUpdate } from '@/modules/hdn/api';
+import { type TelegramUpdate } from '@/modules/hdn/api';
+import { MemoryTelegramBot, setTelegramBotForTests } from '@/modules/hdn/testing';
 import { startTelegramLink } from '@/modules/hdu/api/telegram';
 import { clientCtx } from './auth';
 import { pools } from './db';

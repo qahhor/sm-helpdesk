@@ -5,8 +5,7 @@ import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { FormField } from '@/ui/components/form-field';
 import { acceptInvitationAction } from './actions';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Страница приглашения из письма. Открытие ничего не меняет (почтовый сканер ссылку не тратит),
 // принимает только нажатие кнопки (решение 0016). Имя спрашивается, если учётной записи ещё нет.
@@ -14,8 +13,8 @@ const first = (value: string | string[] | undefined) => (Array.isArray(value) ? 
 export default async function InvitePage({ searchParams }: PageProps<'/[locale]/invite'>) {
   const params = await searchParams;
   const t = await getTranslations('auth.invite');
-  const token = first(params.token);
-  const error = first(params.error);
+  const token = firstParam(params.token);
+  const error = firstParam(params.error);
   const invitation = token && (!error || error === 'sign_in_required') ? await describeInvitation(token) : null;
   const locale = await getLocale();
 

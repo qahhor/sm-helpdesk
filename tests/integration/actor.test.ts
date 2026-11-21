@@ -120,6 +120,15 @@ test('версия политики записывается и запрашив
   expect(needsPolicyNotice({ policyVersion: null }, '2026-12-01')).toBe(true);
   // Политика выключена: показывать нечего.
   expect(needsPolicyNotice({ policyVersion: null }, null)).toBe(false);
+  // История согласия: каждая новая редакция отдельной записью журнала, повтор той же записи не даёт (проверка main, Q17).
+  await acknowledgePolicy(f.aUser.userId, '2027-03-01');
+  const history = (
+    await pools.root.query(`select object_id, diff from hdc_audit_log where action = 'user.policy_acknowledged' order by created_on, audit_id`)
+  ).rows;
+  expect(history).toEqual([
+    { object_id: f.aUser.userId, diff: { version: '2026-12-01' } },
+    { object_id: f.aUser.userId, diff: { version: '2027-03-01' } },
+  ]);
 });
 
 test('отключённый сервер Smartup закрывает вход его клиентам всеми путями (проверка main, S4)', async () => {

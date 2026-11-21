@@ -3,7 +3,7 @@ import { getEnv } from '@/env';
 import { isLocale, type Locale } from '@/i18n/locales';
 import { resolveLocale } from '@/i18n/resolve-locale';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
+import { clientIp, consumeRateLimit, rateKey } from '@/modules/hdc/api';
 import {
   botText,
   getTelegramBot,
@@ -14,7 +14,6 @@ import {
   type TelegramUser,
   telegramLinkedMail,
 } from '@/modules/hdn/api';
-import { clientIp } from '@/modules/hdc/util';
 import { createTrustedSession } from '../core/trusted';
 import {
   consumeLinkCode,
@@ -226,19 +225,45 @@ export async function completeTelegramLogin(
 
 /** Сколько страница входа ждёт имя бота. Имя запоминается после первого ответа Telegram. */
 const BOT_LINK_WAIT_MS = 1500;
+/** После неответа Telegram страница входа минуту не ждёт имя бота (итоговая проверка M1). */
+const BOT_LINK_RETRY_MS = 60_000;
 
-/** Адрес бота для страницы входа. Пусто, если бот выключен или Telegram не ответил вовремя. */
-export async function getBotLink(): Promise<string | null> {
+type BotLinkState = { failedAt?: number; pending?: Promise<string | null> };
+const botLinkShared = globalThis as typeof globalThis & { __hubBotLink?: BotLinkState };
+
+/** Сбрасывает память о неответе Telegram: для тестов. */
+export function resetBotLinkForTests(): void {
+  botLinkShared.__hubBotLink = undefined;
+}
+
+/**
+ * Адрес бота для страницы входа. Пусто, если бот выключен или Telegram не ответил вовремя. Не ответил:
+ * минуту страница не ждёт снова, а запрос к Telegram один на все показы (итоговая проверка M1).
+ */
+export async function getBotLink(waitMs: number = BOT_LINK_WAIT_MS): Promise<string | null> {
   const bot = getTelegramBot();
   if (!bot.enabled) return null;
+  const state = (botLinkShared.__hubBotLink ??= {});
+  if (state.failedAt !== undefined && Date.now() - state.failedAt < BOT_LINK_RETRY_MS) return null;
+  state.pending ??= bot
+    .getMe()
+    .then(
+      (me) => `https://t.me/${me.username}`,
+      () => null,
+    )
+    .then((link) => {
+      state.pending = undefined;
+      state.failedAt = link === null ? Date.now() : undefined;
+      return link;
+    });
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), BOT_LINK_WAIT_MS);
+    timer = setTimeout(() => resolve(null), waitMs);
   });
   try {
-    return await Promise.race([bot.getMe().then((me) => `https://t.me/${me.username}`), late]);
-  } catch {
-    return null;
+    const link = await Promise.race([state.pending, late]);
+    if (link === null) state.failedAt ??= Date.now();
+    return link;
   } finally {
     clearTimeout(timer);
   }

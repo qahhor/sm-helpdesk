@@ -3,7 +3,7 @@ import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { type ClientActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import type { Locale } from '@/i18n/locales';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
 import { LOGIN_BOT_LINK_TTL_SEC } from '../pref';
 import { contactIdentities, linkCodes, loginCodes, memberships, organizations } from '../schema';

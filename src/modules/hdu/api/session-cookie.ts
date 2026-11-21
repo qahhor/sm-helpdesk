@@ -1,3 +1,4 @@
+import { cookieValue } from '@/lib/cookies';
 import { AUTH_COOKIE_PREFIX, SESSION_TTL_SEC } from '../pref';
 
 // Продление куки сессии (FR-ID-10). Срок сессии в базе продлевает библиотека входа при обращении,
@@ -17,12 +18,9 @@ const VALUE = /^[A-Za-z0-9%._~+/=-]{1,1024}$/;
  * Значение берётся из заголовка без раскодирования: браузер получает обратно те же байты.
  */
 export function sessionCookieRefresh(cookieHeader: string | null): string | null {
-  if (!cookieHeader) return null;
-  const pairs = cookieHeader.split(';').map((part) => part.trim());
   for (const name of NAMES) {
-    const pair = pairs.find((part) => part.startsWith(`${name}=`));
-    if (!pair) continue;
-    const value = pair.slice(name.length + 1);
+    const value = cookieValue(cookieHeader, name);
+    if (value === undefined) continue;
     if (!VALUE.test(value)) return null;
     const secure = name.startsWith('__Host-') ? '; Secure' : '';
     return `${name}=${value}; Path=/; Max-Age=${SESSION_TTL_SEC}; HttpOnly; SameSite=Lax${secure}`;

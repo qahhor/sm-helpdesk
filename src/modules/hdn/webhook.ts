@@ -1,8 +1,6 @@
 import 'server-only';
-import { eq } from 'drizzle-orm';
-import { withActor } from '@/db/with-actor';
-import { problemResponse, readLimited } from '@/modules/hdc/util';
-import { telegramUpdates } from './schema';
+import { problemResponse, readLimited } from '@/modules/hdc/api';
+import { forgetUpdate, recordUpdate } from './core';
 import { getTelegramBot } from './telegram';
 import { type TelegramUpdate, telegramUpdate } from './telegram-update';
 
@@ -11,19 +9,6 @@ import { type TelegramUpdate, telegramUpdate } from './telegram-update';
 // так модуль уведомлений не зависит от модуля идентичности.
 
 const BODY_LIMIT = 64 * 1024;
-const SYSTEM = { type: 'system', job: 'telegram.webhook' } as const;
-
-/** Запоминает номер события. Ложь: такое событие уже принято. */
-async function recordUpdate(updateId: number): Promise<boolean> {
-  const rows = await withActor(SYSTEM, (tx) =>
-    tx.insert(telegramUpdates).values({ updateId }).onConflictDoNothing().returning({ updateId: telegramUpdates.updateId }),
-  );
-  return rows.length > 0;
-}
-
-async function forgetUpdate(updateId: number): Promise<void> {
-  await withActor(SYSTEM, (tx) => tx.delete(telegramUpdates).where(eq(telegramUpdates.updateId, updateId)));
-}
 
 /**
  * Принимает событие Telegram: бот выключен 404, чужой секрет 401, тело больше 64 КБ 413, не по схеме 400,

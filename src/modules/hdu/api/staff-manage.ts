@@ -75,7 +75,7 @@ const resetInput = z.object({ userId: uuidInput, locale: z.enum(LOCALES) });
 function applied(result: 'ok' | 'not_found' | 'last_admin'): void {
   if (result === 'not_found') throw new HduError('not_found');
   // Без действующего администратора портал некому вести: такое изменение не делается.
-  if (result === 'last_admin') throw new HduError('forbidden');
+  if (result === 'last_admin') throw new HduError('last_admin');
 }
 
 /** Роль и признак руководителя линии. Свою роль изменить нельзя, роль agent_bot не выдаётся. */

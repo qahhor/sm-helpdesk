@@ -5,8 +5,7 @@ import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { confirmEmailAction } from './actions';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Подтверждение адреса по ссылке из письма (FR-ID-07). Как и у ссылки для входа,
 // открытие страницы ничего не меняет: подтверждает только нажатие кнопки, и только вошедший владелец
@@ -14,9 +13,9 @@ const first = (value: string | string[] | undefined) => (Array.isArray(value) ? 
 export default async function ConfirmEmailPage({ searchParams }: PageProps<'/[locale]/confirm-email'>) {
   const params = await searchParams;
   const t = await getTranslations('auth.confirmEmail');
-  const token = first(params.token);
-  const error = first(params.error);
-  const done = first(params.done) === '1';
+  const token = firstParam(params.token);
+  const error = firstParam(params.error);
+  const done = firstParam(params.done) === '1';
   const locale = await getLocale();
   const name = await currentClientName();
   const back = token ? `/${locale}/confirm-email?token=${encodeURIComponent(token)}` : `/${locale}/settings`;

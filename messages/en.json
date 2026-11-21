@@ -128,7 +128,7 @@
         "revoke": "Revoke"
       },
       "done": {
-        "invited": "Invitation sent. The link is valid for 7 days.",
+        "invited": "The invitation is being emailed. The link is valid for 7 days. If the email does not arrive, invite again.",
         "revoked": "Invitation revoked.",
         "disabled": "Member disabled.",
         "enabled": "Member is active again."
@@ -280,7 +280,7 @@
         "roleChanged": "Role changed.",
         "disabled": "Member disabled.",
         "enabled": "Member is active again.",
-        "invited": "Invitation sent.",
+        "invited": "The invitation is being emailed. If the email does not arrive, invite again.",
         "revoked": "Invitation revoked.",
         "settingsSaved": "Saved."
       },
@@ -461,17 +461,18 @@
         "waiting": "Waiting for reply",
         "noInvitations": "No pending invitations.",
         "done": {
-          "invited": "Invitation sent",
+          "invited": "The invitation is being emailed. If the email does not arrive, invite again.",
           "roleChanged": "Role changed",
           "blocked": "Staff member blocked, their sessions ended",
           "unblocked": "Staff member unblocked",
-          "reset": "Access reset, the link was sent to the staff member"
+          "reset": "Access reset. The link is being emailed to the staff member. If the email does not arrive, reset access again."
         },
         "noMail": "Portal mail is not connected, the email was not sent. Issue the link with the console command: {command}",
         "errors": {
           "invalid_input": "Check the fields: address, name and role.",
           "stale_session": "This action needs a sign-in no older than 15 minutes.",
-          "forbidden": "Not allowed: this is your own account, or the portal would be left without an active administrator.",
+          "forbidden": "Not allowed: this is your own account.",
+          "last_admin": "Not allowed: the portal would be left without an active administrator.",
           "not_found": "Staff member not found.",
           "already_member": "This address already belongs to a staff member. Change their role or reset their access in the list below."
         },
@@ -553,6 +554,7 @@
           },
           "user": {
             "email_confirmed": "Address confirmed",
+            "policy_acknowledged": "Policy version acknowledged",
             "signed_in_telegram": "Sign-in through the Telegram bot"
           },
           "session": {
@@ -562,6 +564,46 @@
             "linked": "Telegram linked",
             "unlinked": "Telegram unlinked"
           }
+        },
+        "words": {
+          "role": "Role",
+          "source": "Source",
+          "isLead": "Line lead",
+          "state": "State",
+          "changed": "Changed",
+          "isDefault": "Default",
+          "updated": "Updated",
+          "others": "Other sessions",
+          "step": "Step",
+          "from": "Was",
+          "to": "Now",
+          "name": "Name",
+          "baseUrl": "Smartup address",
+          "issuer": "Sign-in server",
+          "clientId": "Client ID",
+          "roleMap": "Role mapping",
+          "endpoints": "Sign-in endpoints",
+          "client_user": "Client user",
+          "client_admin": "Client administrator",
+          "admin": "Portal administrator",
+          "care": "Customer Care",
+          "agent_l1": "First line",
+          "agent_l2": "Second line",
+          "product": "Product",
+          "agent_bot": "AI agent",
+          "active": "active",
+          "passive": "disabled",
+          "smartup": "Smartup",
+          "invite": "invitation",
+          "staff": "staff",
+          "guest": "guest",
+          "true": "yes",
+          "false": "no",
+          "password": "password",
+          "rate_limited": "attempt limit reached",
+          "category": "Client category",
+          "isAiEnabled": "AI assistant handling",
+          "version": "Version"
         }
       }
     }
@@ -765,5 +807,34 @@
     "loginLink": "Your sign-in link for Smartup Hub. It works for {minutes} min and only once. Do not forward it to anyone.",
     "loginTooOften": "Too many sign-in links. Try again in {minutes} min.",
     "loginNoAccess": "This account has no access to the portal right now. Contact your company administrator."
+  },
+  "dev": {
+    "title": "Component showcase",
+    "zones": {
+      "agent": "Workspace",
+      "client": "Client area"
+    },
+    "sections": {
+      "buttons": "Buttons",
+      "labels": "Status labels",
+      "input": "Input field",
+      "card": "Card",
+      "menu": "Dropdown menu",
+      "sheet": "Bottom sheet",
+      "skeleton": "Skeleton",
+      "empty-state": "Empty state",
+      "brand": "Logo and Tez mark",
+      "text": "Text sample"
+    },
+    "tones": {
+      "gray": "Draft",
+      "green": "New",
+      "orange": "In progress",
+      "purple": "Awaiting reply",
+      "blue": "Handed over",
+      "teal": "Resolved",
+      "danger": "Overdue"
+    },
+    "numbers": "1,250,000 UZS, 11/10/2026"
   }
 }

@@ -30,6 +30,7 @@ export const AUDIT_ACTIONS = [
   'invitation.accepted',
   // Учётная запись и сессии
   'user.email_confirmed',
+  'user.policy_acknowledged',
   'session.revoked',
   // Каналы связи
   'telegram.linked',
@@ -74,3 +75,6 @@ export const RATE_RULES = {
   /** Отчёты о нарушениях CSP с одного адреса (проверка main, S9): страница присылает несколько за раз. */
   cspReportPerIp: { limit: 60, windowSec: 600 },
 } as const satisfies Record<string, RateRule>;
+
+/** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */
+export const POLICY_VERSION_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

@@ -40,8 +40,18 @@ test('страницы и интерфейс видят модуль тольк�
   expect(await lint('src/cli/commands.ts', "import { inviteStaff } from '@/modules/hdu/api/staff-admin';")).not.toContain('no-restricted-imports');
   // Импорт типа связи во время работы не создаёт.
   expect(await lint('src/ui/x.tsx', "import type { StaffRole } from '@/modules/hdu/pref';")).not.toContain('no-restricted-imports');
-  // Модули между собой этим правилом не ограничены.
-  expect(await lint('src/modules/hdu/core/staff.ts', "import { writeAudit } from '@/modules/hdc/audit';")).not.toContain('no-restricted-imports');
+}, 30_000);
+
+test('модуль берёт у другого модуля только api и pref (проверка main, Q6)', async () => {
+  expect(await lint('src/modules/hdu/core/staff.ts', "import { writeAudit } from '@/modules/hdc/audit';")).toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdu/util.ts', "import { rateKey } from '../hdc/util';")).toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdt/core.ts', "import { findStaff } from '@/modules/hdu/core/staff';")).toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdu/core/staff.ts', "import { writeAudit } from '@/modules/hdc/api';")).not.toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdu/api/staff.ts', "import { RATE_RULES } from '@/modules/hdc/pref';")).not.toContain('no-restricted-imports');
+  // Свои внутренности модулю видны.
+  expect(await lint('src/modules/hdu/api/staff.ts', "import { findStaff } from '@/modules/hdu/core/staff';")).not.toContain('no-restricted-imports');
+  // Импорт типа связи во время работы не создаёт.
+  expect(await lint('src/modules/hdu/core/staff.ts', "import type { Tx } from '@/modules/hdc/audit';")).not.toContain('no-restricted-imports');
 }, 30_000);
 
 test('типы актора видны и вне слоя базы, сам клиент базы нет', async () => {

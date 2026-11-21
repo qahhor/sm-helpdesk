@@ -100,6 +100,15 @@ test('себя нельзя заблокировать и понизить, по
   await expect(changeStaffRole(ctxOf(second, 'admin'), { userId: third.userId, role: 'care' })).resolves.toBeUndefined();
 });
 
+test('изменение, после которого не останется администратора, отклоняется своим кодом (проверка main, Q5)', async () => {
+  const x = await enrolled('admin');
+  const y = await enrolled('admin');
+  // Пока шёл запрос Y, его самого заблокировали: действующий администратор остался один, X.
+  await pools.root.query(`update hdu_staff set state = 'passive' where user_id = $1`, [y.userId]);
+  await expect(changeStaffRole(ctxOf(y, 'admin'), { userId: x.userId, role: 'care' })).rejects.toMatchObject({ code: 'last_admin' });
+  await expect(setStaffState(ctxOf(y, 'admin'), { userId: x.userId, state: 'passive' })).rejects.toMatchObject({ code: 'last_admin' });
+});
+
 test('роль меняет только admin со свежим входом, роль agent_bot не выдаётся', async () => {
   const f = await seedTwoOrgs();
   const target = await enrolled('agent_l1');

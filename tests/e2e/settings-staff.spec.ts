@@ -22,7 +22,7 @@ test('администратор приглашает сотрудника, то
   await page.getByLabel('Имя').fill('Проверочный');
   await page.getByLabel('Роль').selectOption('agent_l1');
   await page.getByRole('button', { name: 'Отправить приглашение' }).click();
-  await expect(main(page).getByRole('status')).toContainText('Приглашение отправлено');
+  await expect(main(page).getByRole('status')).toContainText('Приглашение отправляется на почту');
   await expect(page.getByRole('row', { name: new RegExp(email.replace(/[.]/g, '\\.')) })).toContainText('Ждёт ответа');
   // Ссылка администратору не показывается.
   expect(await page.content()).not.toContain('/staff/setup?token=');

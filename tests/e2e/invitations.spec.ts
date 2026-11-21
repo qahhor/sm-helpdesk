@@ -32,7 +32,7 @@ test('администратор приглашает коллегу, колле
   const email = `colleague-${org.sub}@acme.test`;
   await page.getByLabel('Email коллеги').fill(email);
   await page.getByRole('button', { name: 'Пригласить' }).click();
-  await expect(main(page).getByRole('status')).toContainText('Приглашение отправлено');
+  await expect(main(page).getByRole('status')).toContainText('Приглашение отправляется на почту');
   await expect(page.getByRole('row', { name: new RegExp(email) })).toContainText('Ждёт ответа');
 
   const guestContext = await browser.newContext();

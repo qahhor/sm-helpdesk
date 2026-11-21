@@ -24,14 +24,23 @@ export type AuditEntry = {
 };
 
 const KNOWN_ACTIONS: ReadonlySet<string> = new Set(AUDIT_ACTIONS);
-// Имена, под которыми в журнал мог бы попасть секрет. Проверяются на любой глубине.
-const SECRET_KEY = /pass|secret|token|hash|code/i;
+// Слова, под которыми в журнал мог бы попасть секрет. Имя поля делится на слова (camelCase, snake_case,
+// дефисы), поле со словом из списка отклоняется на любой глубине. Отдельные слова, а не подстроки:
+// код сервера (code) и состояние passive секретами не являются (проверка main, Q4).
+const SECRET_WORDS = new Set(['password', 'passwd', 'pass', 'secret', 'token', 'hash', 'otp', 'totp', 'backup', 'key', 'apikey', 'cookie', 'credential', 'credentials']);
 const MAX_DIFF_CHARS = 4000;
+
+const wordsOf = (key: string) =>
+  key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
 
 function hasSecretKey(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(hasSecretKey);
   if (value === null || typeof value !== 'object') return false;
-  return Object.entries(value).some(([key, nested]) => SECRET_KEY.test(key) || hasSecretKey(nested));
+  return Object.entries(value).some(([key, nested]) => wordsOf(key).some((word) => SECRET_WORDS.has(word)) || hasSecretKey(nested));
 }
 
 /** Добавляет запись в журнал аудита внутри транзакции действия (withActor или withIdentity). */

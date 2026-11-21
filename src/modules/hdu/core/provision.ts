@@ -2,12 +2,12 @@ import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
 import { withIdentity } from '@/db/with-identity';
 import { isLocale, type Locale } from '@/i18n/locales';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
 import { memberships, organizations, servers } from '../schema';
 import { mapClientRole, syntheticEmail } from '../util';
-import { smartupProfile } from './claims';
+import { claimIssues, smartupProfile } from './claims';
 
 // Первый и каждый следующий вход через Smartup (ТЗ 11.3, FR-ID-04, решение 93 ТЗ, решение 0013).
 //
@@ -62,8 +62,9 @@ function localeOf(value: string | undefined): Locale | null {
 }
 
 /** Что известно о входе, без личных данных: для журнала приложения. */
-function logFailure(reason: string, serverCode: string): void {
-  console.warn(`Вход через Smartup без организации: причина ${reason}, сервер ${serverCode.slice(0, 31)}`);
+function logFailure(reason: string, serverCode: string, fields: string[] = []): void {
+  const named = fields.length > 0 ? `, поля ${fields.join(', ')}` : '';
+  console.warn(`Вход через Smartup без организации: причина ${reason}, сервер ${serverCode.slice(0, 31)}${named}`);
 }
 
 /**
@@ -85,7 +86,7 @@ export async function provisionFromSmartup(
     const source = raw as Record<string, unknown>;
     const noCompany = [source.companyId, source.companyName].some((value) => value === undefined || value === null || value === '');
     const reason = noCompany ? 'no_company' : 'invalid_claims';
-    logFailure(reason, serverCode);
+    logFailure(reason, serverCode, claimIssues(raw));
     return { failed: reason };
   }
   const profile = parsed.data;

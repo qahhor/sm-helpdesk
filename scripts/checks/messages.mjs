@@ -114,14 +114,14 @@ const BY_LOCALE = {
   uz: [...prefix('dala', 'дала')],
 };
 
-/** По языкам, только для текстов клиента (пространства common и client). */
+/** По языкам, только для текстов, которые читает клиент: интерфейс, вход, письма и бот (проверка main, Q14). */
 /** @type {Record<string, WordRule[]>} */
 const CLIENT_ONLY = {
   ru: [...whole('SLA'), ...prefix('эскалац', 'очеред')],
   en: [...whole('SLA'), ...prefix('ticket', 'escalat', 'queue')],
   uz: [...whole('SLA'), ...prefix('tiket', 'eskalatsiya')],
 };
-const CLIENT_NAMESPACES = new Set(['common', 'client']);
+const CLIENT_NAMESPACES = new Set(['common', 'client', 'auth', 'mail', 'bot']);
 
 const LETTER = '[\\p{L}\\p{N}_]';
 const escape = (/** @type {string} */ text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

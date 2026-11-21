@@ -2,7 +2,7 @@ import 'server-only';
 import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authSession, authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
 import { memberships, organizations, servers, staff } from '../schema';

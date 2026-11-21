@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { ClientRole } from '@/modules/hdu/pref';
-import { describeUserAgent, safeReturnPath, mapClientRole } from '@/modules/hdu/util';
+import { describeUserAgent, mapClientRole, policyNoticeUrl, safeReturnPath } from '@/modules/hdu/util';
 
 test('адрес возврата: только путь внутри портала', () => {
   const fallback = '/ru/agent';
@@ -79,4 +79,10 @@ test('роль из Smartup ищется только среди своих кл
   for (const inherited of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) expect(mapClientRole(map, inherited)).toBe('client_user');
   // Значение вне списка ролей клиента не принимается.
   expect(mapClientRole({ boss: 'admin' } as unknown as Record<string, ClientRole>, 'boss')).toBe('client_user');
+});
+
+test('шаг о новой редакции политики возвращает туда, куда шёл человек (итоговая проверка M1, мелкое 6)', () => {
+  expect(policyNoticeUrl('ru', '/ru/tickets?status=open')).toBe('/ru/welcome?next=%2Fru%2Ftickets%3Fstatus%3Dopen');
+  expect(policyNoticeUrl('uz', 'https://evil.example')).toBe('/uz/welcome?next=%2Fuz');
+  expect(policyNoticeUrl('en', '')).toBe('/en/welcome?next=%2Fen');
 });

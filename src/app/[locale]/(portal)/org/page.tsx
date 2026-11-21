@@ -8,8 +8,7 @@ import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { cn } from '@/ui/cn';
 import { revokeInvitationAction, setMemberStateAction } from './actions';
 import { InviteForm } from './InviteForm';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 const ERRORS = new Set(['already_member', 'invalid_input', 'rate_limited', 'forbidden', 'not_found']);
 const DONE = new Set(['invited', 'revoked', 'disabled', 'enabled']);
@@ -36,9 +35,9 @@ export default async function OrgPage({ searchParams }: PageProps<'/[locale]/org
   const [members, invitations] = await Promise.all([listMembers({ ctx: client }), listInvitations({ ctx: client })]);
   const t = await getTranslations('client.org');
   const format = await getFormatter();
-  const error = first(params.error);
-  const done = first(params.done);
-  const confirmId = first(params.confirm);
+  const error = firstParam(params.error);
+  const done = firstParam(params.done);
+  const confirmId = firstParam(params.confirm);
   const confirming = members.find((m) => m.userId === confirmId && m.state === 'active' && !m.isSelf);
 
   return (

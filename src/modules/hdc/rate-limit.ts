@@ -1,8 +1,8 @@
 import 'server-only';
 import { rateKey } from './util';
-import { eq, sql } from 'drizzle-orm';
+import { eq, lt, sql } from 'drizzle-orm';
 import { withActor } from '@/db/with-actor';
-import type { RateRule } from './pref';
+import { RATE_RULES, type RateRule } from './pref';
 import { rateLimits } from './schema';
 
 // Ограничение частоты (ТЗ 14.5). Счётчики хранятся в PostgreSQL и работают одинаково
@@ -55,4 +55,17 @@ export async function consumeRateLimit(
 /** Обнуляет счётчик, например после успешного входа. */
 export async function resetRateLimit(key: string): Promise<void> {
   await withActor(SYSTEM, (tx) => tx.delete(rateLimits).where(eq(rateLimits.code, key)));
+}
+
+/** Самое длинное окно счётчиков: строка старше него уже ничего не считает. */
+const LONGEST_WINDOW_SEC = Math.max(...Object.values(RATE_RULES).map((rule) => rule.windowSec));
+
+/**
+ * Удаляет счётчики, окно которых закончилось (проверка main, Q8). Строки старше самого длинного
+ * окна с запасом в сутки. Возвращает число удалённых строк.
+ */
+export async function cleanupRateLimits(now: Date = new Date()): Promise<number> {
+  const before = new Date(now.getTime() - (LONGEST_WINDOW_SEC + 86400) * 1000);
+  const rows = await withActor(SYSTEM, (tx) => tx.delete(rateLimits).where(lt(rateLimits.windowOn, before)).returning({ code: rateLimits.code }));
+  return rows.length;
 }

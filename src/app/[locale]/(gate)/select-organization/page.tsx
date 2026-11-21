@@ -5,8 +5,7 @@ import { listMyOrganizations, requireSignedInClient, safeReturnPath } from '@/mo
 import { Alert } from '@/ui/components/alert';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { selectOrganizationAction } from './actions';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Выбор организации: у человека несколько организаций, и ни одна не выбрана (FR-ID-05).
 // Список строится из действующих членств, выбор проверяет серверное действие.
@@ -14,7 +13,7 @@ export default async function SelectOrganizationPage({ searchParams }: PageProps
   const user = await requireSignedInClient();
   const params = await searchParams;
   const locale = await getLocale();
-  const next = safeReturnPath(first(params.next), `/${locale}`);
+  const next = safeReturnPath(firstParam(params.next), `/${locale}`);
   const orgs = await listMyOrganizations(user.userId);
   if (orgs.length === 0) redirect(`/${locale}/no-organization`);
 
@@ -26,7 +25,7 @@ export default async function SelectOrganizationPage({ searchParams }: PageProps
         <p className="text-secondary-foreground">{t('selectOrganization.intro')}</p>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {first(params.error) === 'not_member' && <Alert tone="danger">{t('selectOrganization.notMember')}</Alert>}
+        {firstParam(params.error) === 'not_member' && <Alert tone="danger">{t('selectOrganization.notMember')}</Alert>}
         <ul className="flex flex-col gap-3">
           {orgs.map((org) => (
             <li key={org.orgId}>

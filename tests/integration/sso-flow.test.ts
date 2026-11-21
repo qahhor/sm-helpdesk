@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import type { SystemActor } from '@/db/with-actor';
 import { addServer, disableServer } from '@/modules/hdu/api/servers';
 import { startSmartupSignIn } from '@/modules/hdu/api/sso';
@@ -87,8 +87,17 @@ test('email сотрудника в сведениях Smartup не даёт п�
 });
 
 test('пользователь без сведений о компании входит, но членства не получает', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   const s = await ssoSignIn(mock, { sub: '3001', name: 'Без компании' });
   expect((await pools.root.query(`select 1 from hdu_memberships where user_id = $1`, [s.user.id])).rowCount).toBe(0);
+  // Журнал называет поля без значений (проверка main, Q1).
+  expect(warn).toHaveBeenCalledWith('Вход через Smartup без организации: причина no_company, сервер mock, поля companyId, companyName');
+  warn.mockRestore();
+});
+
+test('неверная роль из Smartup не лишает организации (проверка main, Q1)', async () => {
+  const s = await ssoSignIn(mock, acme('3002', { role: 'r'.repeat(500) }));
+  expect((await pools.root.query(`select role from hdu_memberships where user_id = $1`, [s.user.id])).rows).toEqual([{ role: 'client_user' }]);
 });
 
 test('новый сервер в реестре принимает вход без перезапуска, отключённый перестаёт', async () => {

@@ -4,18 +4,29 @@ import * as z from 'zod';
 // Портал берёт только перечисленные поля, лишние отбрасываются. Пустая строка считается отсутствием
 // значения: так Smartup может передавать незаполненные поля. Идентификаторы могут прийти числом.
 
-const text = (max: number) =>
-  z.preprocess(
-    (value) => (typeof value === 'number' && Number.isFinite(value) ? String(value) : value),
-    z.string().trim().min(1).max(max),
-  );
+// Обязательные поля: идентификаторы человека и компании и их названия. Необязательное поле с неверным
+// значением отбрасывается, а не лишает человека организации (проверка main, Q1).
+
+const asText = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? String(value) : value);
+
+/** Идентификатор: не обрезается, длиннее предела не принимается. */
+const id = (max: number) => z.preprocess(asText, z.string().trim().min(1).max(max));
+
+/** Имя или название: длиннее предела обрезается. */
+const title = (max: number) =>
+  z.preprocess((value) => {
+    const text = asText(value);
+    return typeof text === 'string' ? Array.from(text.trim()).slice(0, max).join('') : text;
+  }, z.string().min(1));
 
 const optionalText = (max: number) =>
-  z.preprocess((value) => {
-    if (value === null || value === undefined) return undefined;
-    const asText = typeof value === 'number' && Number.isFinite(value) ? String(value) : value;
-    return typeof asText === 'string' && asText.trim() === '' ? undefined : asText;
-  }, z.string().trim().min(1).max(max).optional());
+  z
+    .preprocess((value) => {
+      if (value === null || value === undefined) return undefined;
+      const text = asText(value);
+      return typeof text === 'string' && text.trim() === '' ? undefined : text;
+    }, z.string().trim().min(1).max(max).optional())
+    .catch(undefined);
 
 /** Адрес из Smartup: неверный адрес не ломает вход, а просто не запоминается. */
 const optionalEmail = z.preprocess((value) => {
@@ -26,10 +37,10 @@ const optionalEmail = z.preprocess((value) => {
 
 export const smartupProfile = z
   .object({
-    id: text(200),
-    name: text(200),
-    companyId: text(200),
-    companyName: text(300),
+    id: id(200),
+    name: title(200),
+    companyId: id(200),
+    companyName: title(300),
     inn: optionalText(50),
     role: optionalText(100),
     locale: optionalText(35),
@@ -37,5 +48,12 @@ export const smartupProfile = z
   })
   // Отсутствующее значение не остаётся ключом со значением undefined.
   .transform((profile) => Object.fromEntries(Object.entries(profile).filter(([, value]) => value !== undefined)) as typeof profile);
+
+/** Поля, не прошедшие проверку, по порядку схемы. Значения в журнал не попадают: в них личные данные. */
+export function claimIssues(raw: unknown): string[] {
+  const parsed = smartupProfile.safeParse(raw);
+  if (parsed.success) return [];
+  return [...new Set(parsed.error.issues.map((issue) => String(issue.path[0] ?? '')))].filter(Boolean);
+}
 
 export type SmartupProfile = z.infer<typeof smartupProfile>;

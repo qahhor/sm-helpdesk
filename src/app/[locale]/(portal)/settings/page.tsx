@@ -7,8 +7,7 @@ import { sessionItems } from '../../sessions-view';
 import { revokeOtherSessionsAction, revokeSessionAction } from './actions';
 import { ChannelsSection } from './ChannelsSection';
 import { EmailSection } from './EmailSection';
-
-const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+import { firstParam } from '@/lib/search-params';
 
 // Профиль клиента: адрес для входа по ссылке, привязка Telegram (если бот включён) и сессии на устройствах.
 export default async function ClientSettingsPage({ searchParams }: PageProps<'/[locale]/settings'>) {
@@ -16,12 +15,12 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
   const params = await searchParams;
   const t = await getTranslations();
   const { items, labels } = await sessionItems(await mySessions());
-  const sessionStatus = first(params.session);
+  const sessionStatus = firstParam(params.session);
   return (
     <>
       <h1 className="text-2xl font-bold">{t('client.nav.profile')}</h1>
-      <EmailSection user={client.user} status={first(params.email)} />
-      {telegramEnabled() && <ChannelsSection link={await getTelegramLink(client)} status={first(params.telegram)} />}
+      <EmailSection user={client.user} status={firstParam(params.email)} />
+      {telegramEnabled() && <ChannelsSection link={await getTelegramLink(client)} status={firstParam(params.telegram)} />}
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold">{t('common.sessions.title')}</h2>

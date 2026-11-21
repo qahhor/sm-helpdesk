@@ -128,7 +128,7 @@
         "revoke": "Bekor qilish"
       },
       "done": {
-        "invited": "Taklif yuborildi. Havola 7 kun amal qiladi.",
+        "invited": "Taklif pochtaga yuborilmoqda. Havola 7 kun amal qiladi. Xat kelmasa, qayta taklif qiling.",
         "revoked": "Taklif bekor qilindi.",
         "disabled": "A'zo o'chirildi.",
         "enabled": "A'zo yana faol."
@@ -280,7 +280,7 @@
         "roleChanged": "Rol o'zgartirildi.",
         "disabled": "A'zo o'chirildi.",
         "enabled": "A'zo yana faol.",
-        "invited": "Taklif yuborildi.",
+        "invited": "Taklif pochtaga yuborilmoqda. Xat kelmasa, qayta taklif qiling.",
         "revoked": "Taklif bekor qilindi.",
         "settingsSaved": "Saqlandi."
       },
@@ -461,17 +461,18 @@
         "waiting": "Javob kutilmoqda",
         "noInvitations": "Javob kutayotgan takliflar yo'q.",
         "done": {
-          "invited": "Taklif yuborildi",
+          "invited": "Taklif pochtaga yuborilmoqda. Xat kelmasa, qayta taklif qiling.",
           "roleChanged": "Rol o'zgartirildi",
           "blocked": "Xodim bloklandi, uning sessiyalari yakunlandi",
           "unblocked": "Xodim blokdan chiqarildi",
-          "reset": "Kirish tiklandi, havola xodimga yuborildi"
+          "reset": "Kirish tiklandi. Havola xodimning pochtasiga yuborilmoqda. Xat kelmasa, kirishni qayta tiklang."
         },
         "noMail": "Portal pochtasi ulanmagan, xat yuborilmadi. Havolani konsol buyrug'i bilan bering: {command}",
         "errors": {
           "invalid_input": "Maydonlarni tekshiring: manzil, ism va rol.",
           "stale_session": "Bu amal uchun 15 daqiqadan eski bo'lmagan kirish kerak.",
-          "forbidden": "Bunday qilib bo'lmaydi: bu sizning hisobingiz yoki portalda birorta ham faol administrator qolmaydi.",
+          "forbidden": "Bunday qilib bo'lmaydi: bu sizning hisobingiz.",
+          "last_admin": "Bunday qilib bo'lmaydi: portalda birorta ham faol administrator qolmaydi.",
           "not_found": "Xodim topilmadi.",
           "already_member": "Bu manzil allaqachon xodimga tegishli. Quyidagi ro'yxatda uning rolini o'zgartiring yoki kirishini tiklang."
         },
@@ -553,6 +554,7 @@
           },
           "user": {
             "email_confirmed": "Manzil tasdiqlandi",
+            "policy_acknowledged": "Siyosat tahriri qabul qilindi",
             "signed_in_telegram": "Telegram boti orqali kirish"
           },
           "session": {
@@ -562,6 +564,46 @@
             "linked": "Telegram bog'landi",
             "unlinked": "Telegram uzildi"
           }
+        },
+        "words": {
+          "role": "Rol",
+          "source": "Manba",
+          "isLead": "Liniya rahbari",
+          "state": "Holat",
+          "changed": "O'zgargan",
+          "isDefault": "Asosiy",
+          "updated": "Yangilangan",
+          "others": "Boshqa seanslar",
+          "step": "Qadam",
+          "from": "Edi",
+          "to": "Bo'ldi",
+          "name": "Nomi",
+          "baseUrl": "Smartup manzili",
+          "issuer": "Kirish serveri",
+          "clientId": "Mijoz identifikatori",
+          "roleMap": "Rollar mosligi",
+          "endpoints": "Kirish manzillari",
+          "client_user": "Mijoz foydalanuvchisi",
+          "client_admin": "Mijoz administratori",
+          "admin": "Portal administratori",
+          "care": "Customer Care",
+          "agent_l1": "Birinchi liniya",
+          "agent_l2": "Ikkinchi liniya",
+          "product": "Mahsulot",
+          "agent_bot": "AI-xodim",
+          "active": "faol",
+          "passive": "o'chirilgan",
+          "smartup": "Smartup",
+          "invite": "taklif",
+          "staff": "xodim",
+          "guest": "mehmon",
+          "true": "ha",
+          "false": "yo'q",
+          "password": "parol",
+          "rate_limited": "urinishlar chegarasi oshdi",
+          "category": "Mijoz toifasi",
+          "isAiEnabled": "AI-yordamchi ishlovi",
+          "version": "Tahrir"
         }
       }
     }
@@ -765,5 +807,34 @@
     "loginLink": "Smartup Hub tizimiga kirish havolasi. U {minutes} daqiqa amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang.",
     "loginTooOften": "Kirish havolalari juda ko'p. {minutes} daqiqadan keyin qayta urinib ko'ring.",
     "loginNoAccess": "Bu hisobning hozir portalga kirish huquqi yo'q. Kompaniyangiz administratoriga murojaat qiling."
+  },
+  "dev": {
+    "title": "Komponentlar vitrinasi",
+    "zones": {
+      "agent": "Ish joyi",
+      "client": "Mijoz kabineti"
+    },
+    "sections": {
+      "buttons": "Tugmalar",
+      "labels": "Holat belgilari",
+      "input": "Kiritish maydoni",
+      "card": "Karta",
+      "menu": "Ochiladigan menyu",
+      "sheet": "Pastki varaq",
+      "skeleton": "Skelet",
+      "empty-state": "Bo'sh holat",
+      "brand": "Logotip va Tez belgisi",
+      "text": "Matn namunasi"
+    },
+    "tones": {
+      "gray": "Qoralama",
+      "green": "Yangi",
+      "orange": "Ishda",
+      "purple": "Javob kutilmoqda",
+      "blue": "Uzatildi",
+      "teal": "Hal qilindi",
+      "danger": "Muddat o'tdi"
+    },
+    "numbers": "1 250 000 so'm, 10.11.2026"
   }
 }

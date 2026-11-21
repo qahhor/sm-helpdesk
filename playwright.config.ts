@@ -9,6 +9,13 @@ const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
 // Каталог писем браузерных тестов. Его же читают помощники тестов.
 export const MAIL_DIR = resolve('test-results/mail');
+const E2E_DB = 'hub_e2e';
+/** Тот же адрес подключения, другая база. */
+const withDatabase = (url: string, db: string): string => {
+  const parsed = new URL(url);
+  parsed.pathname = `/${db}`;
+  return parsed.toString();
+};
 
 // База нужна проверке /api/ready. В CI её поднимает сама задача и задаёт адреса.
 // На машине разработчика адреса лежат в .env, базу из compose.yaml готовит tests/e2e/global-setup.ts.
@@ -17,6 +24,13 @@ if (!process.env.CI) {
   // чтение настроек (список тестов, среда разработки) не запускает Docker.
   if (!existsSync('.env')) execFileSync(process.execPath, ['scripts/dev-up.mjs', '--env-only'], { stdio: 'inherit' });
   process.loadEnvFile('.env');
+  // Своя база браузерных тестов на том же сервере: тесты не пишут в базу разработки (проверка main, Q7).
+  // Переменные наследуют подготовка базы, команда hub, портал и помощники тестов.
+  process.env.HUB_DB_NAME = E2E_DB;
+  for (const name of ['DATABASE_URL_APP', 'DATABASE_URL_AUTH', 'DATABASE_URL_OWNER']) {
+    const value = process.env[name];
+    if (value) process.env[name] = withDatabase(value, E2E_DB);
+  }
 }
 const need = (name: string): string => {
   const value = process.env[name];

@@ -19,19 +19,12 @@ import { ThemeSwitch } from '@/ui/theme/ThemeSwitch';
 
 // Витрина компонентов: все базовые компоненты в зоне рабочего места и в зоне клиента.
 // Открыта только при HUB_SHOWCASE=1 (docs/decisions/0008-showcase-flag.md).
-// Подписи разделов написаны для разработчиков и не переводятся, образцы текста взяты из сообщений.
+// Подписи берутся из пространства dev (проверка main, Q14), образцы текста из сообщений. Образцы
+// письменности ниже не строки интерфейса: они проверяют, что шрифт показывает знаки этих языков.
 
 type Zone = 'agent' | 'client';
 
-const LABEL_TONES: [StatusTone, string][] = [
-  ['gray', 'Черновик'],
-  ['green', 'Новое'],
-  ['orange', 'В работе'],
-  ['purple', 'Ждём ответа'],
-  ['blue', 'Передано'],
-  ['teal', 'Решено'],
-  ['danger', 'Срок вышел'],
-];
+const LABEL_TONES: StatusTone[] = ['gray', 'green', 'orange', 'purple', 'blue', 'teal', 'danger'];
 
 const TEXT_SAMPLES = [
   ['ru', 'Обращение создано. Ответим сегодня до 12:05.'],
@@ -56,7 +49,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
   const sections: { id: string; title: string; body: (zone: Zone) => ReactNode }[] = [
     {
       id: 'buttons',
-      title: 'Кнопки',
+      title: t('dev.sections.buttons'),
       body: () => (
         <div className="flex flex-wrap items-center gap-3">
           <Button>{t('client.home.report')}</Button>
@@ -70,12 +63,12 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
     },
     {
       id: 'labels',
-      title: 'Метки статусов',
+      title: t('dev.sections.labels'),
       body: () => (
         <div className="flex flex-wrap items-center gap-2">
-          {LABEL_TONES.map(([tone, text]) => (
+          {LABEL_TONES.map((tone) => (
             <StatusLabel key={tone} tone={tone}>
-              {text}
+              {t(`dev.tones.${tone}`)}
             </StatusLabel>
           ))}
         </div>
@@ -83,7 +76,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
     },
     {
       id: 'input',
-      title: 'Поле ввода',
+      title: t('dev.sections.input'),
       body: (zone) => (
         <div className="flex flex-col gap-3">
           <Input aria-label={`${t('client.home.title')} (${zone})`} placeholder={t('client.home.title')} />
@@ -93,7 +86,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
     },
     {
       id: 'card',
-      title: 'Карточка',
+      title: t('dev.sections.card'),
       body: () => (
         <Card>
           <CardHeader>
@@ -105,7 +98,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
     },
     {
       id: 'menu',
-      title: 'Выпадающее меню',
+      title: t('dev.sections.menu'),
       body: () => (
         <div className="flex items-center gap-2">
           <LanguageSwitcher locale={locale} names={names} label={t('common.language.label')} />
@@ -115,7 +108,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
     },
     {
       id: 'sheet',
-      title: 'Нижний лист',
+      title: t('dev.sections.sheet'),
       body: () => (
         <Sheet>
           <SheetTrigger asChild>
@@ -132,7 +125,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
     },
     {
       id: 'skeleton',
-      title: 'Скелетон',
+      title: t('dev.sections.skeleton'),
       body: () => (
         <div className="flex flex-col gap-2">
           <Skeleton className="h-row w-full" />
@@ -142,7 +135,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
     },
     {
       id: 'empty-state',
-      title: 'Пустое состояние',
+      title: t('dev.sections.empty-state'),
       // Крупный Тез на экране один, поэтому он показан только в зоне клиента.
       body: (zone) => (
         <Card>
@@ -157,7 +150,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
     },
     {
       id: 'brand',
-      title: 'Логотип и значок Теза',
+      title: t('dev.sections.brand'),
       body: () => (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-4">
@@ -175,7 +168,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
     },
     {
       id: 'text',
-      title: 'Образец текста',
+      title: t('dev.sections.text'),
       body: () => (
         <div className="flex flex-col gap-2">
           {TEXT_SAMPLES.map(([lang, text]) => (
@@ -183,7 +176,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
               {text}
             </p>
           ))}
-          <p className="text-muted-foreground">1 250 000 сум, 10.11.2026</p>
+          <p className="text-muted-foreground">{t('dev.numbers')}</p>
         </div>
       ),
     },
@@ -191,7 +184,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-8 p-6">
-      <h1 className="text-2xl font-bold">Витрина компонентов</h1>
+      <h1 className="text-2xl font-bold">{t('dev.title')}</h1>
       {sections
         .filter((section) => !only || section.id === only)
         .map((section) => (
@@ -204,9 +197,7 @@ export default async function ShowcasePage({ searchParams }: PageProps<'/[locale
                   data-zone={zone === 'client' ? 'client' : undefined}
                   className="flex flex-col gap-2 rounded-card border border-border bg-background p-4 text-base"
                 >
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    {zone === 'agent' ? 'Рабочее место' : 'Кабинет клиента'}
-                  </p>
+                  <p className="text-xs font-semibold text-muted-foreground">{t(`dev.zones.${zone}`)}</p>
                   {section.body(zone)}
                 </div>
               ))}

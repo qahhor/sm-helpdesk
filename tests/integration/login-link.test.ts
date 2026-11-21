@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'vitest';
-import { setMailerForTests } from '@/modules/hdn/api';
+import { setMailerForTests } from '@/modules/hdn/testing';
 import { completeLoginLink, requestLoginLink } from '@/modules/hdu/api/login-link';
 import { rememberServer } from '@/modules/hdu/api/sso';
 import { type BotCheck, type BotVerdict, setBotCheckForTests } from '@/security/bot-check';
@@ -168,6 +168,6 @@ test('гостю ссылка для входа не уходит, ответ т
   const guest = await verifiedClientFixture('guest@example.test', { memberships: 0 });
   await addMembership(guest.userId, await ensureOrg('Гостевая'), 'client_user', 'guest');
   expect(await requestLoginLink({ email: 'guest@example.test', locale: 'ru' }, noRequest)).toEqual({ ok: true });
-  await sleep(50);
+  // Письмо, если бы оно было, уже лежало бы в памяти: отправка ставится до ответа (проверка main, Q7).
   expect(box.mailer.sent).toEqual([]);
 });

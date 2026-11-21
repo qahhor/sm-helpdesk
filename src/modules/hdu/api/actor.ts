@@ -4,17 +4,17 @@ import { notFound, redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { cache } from 'react';
 import type { Locale } from '@/i18n/locales';
-import { clientIp } from '@/modules/hdc/util';
+import { clientIp } from '@/modules/hdc/api';
 import { getAuth } from '../auth/instance';
 import { findStaff } from '../core/staff';
 import type { StaffRole } from '../pref';
-import { safeReturnPath } from '../util';
+import { policyNoticeUrl, safeReturnPath } from '../util';
 import { confirmEmail } from './email';
 import { type ClientContext, type ClientDenial, resolveClient, switchOrganization } from './orgs';
 import { listMySessions, revokeMySession, revokeOtherSessions, type SessionView } from './sessions';
 import { rememberLocale } from './telegram';
 import { readSession, type RequestInfo, type SessionData } from './request';
-import { FRESH_SIGN_IN_SEC, isFresh, resolveStaff, type StaffContext, type StaffDenial } from './session';
+import { resolveStaff, type StaffContext, type StaffDenial } from './session';
 
 // Вход в защищённые разделы: проверка сессии и роли на каждом запросе (ТЗ 9.4, правило 7).
 // Раскладка и страница вызывают эти функции каждая сама: одинаковые проверки в пределах одного запроса
@@ -23,6 +23,11 @@ import { FRESH_SIGN_IN_SEC, isFresh, resolveStaff, type StaffContext, type Staff
 /** Путь текущего запроса. Его ставит прокси портала, значение от клиента затирается. */
 async function currentPath(): Promise<string> {
   return (await headers()).get('x-hub-path') ?? '';
+}
+
+/** Шаг о новой редакции политики с возвратом на текущую страницу (итоговая проверка M1). */
+export async function policyNoticePath(): Promise<string> {
+  return policyNoticeUrl(await getLocale(), await currentPath());
 }
 
 /** Сессия текущего запроса. Проверяет её библиотека входа по базе, один раз на запрос. */
@@ -58,22 +63,6 @@ export async function requireStaffActor(opts: { roles?: readonly StaffRole[] } =
   }
   if (opts.roles && !opts.roles.includes(result.actor.staffRole)) notFound();
   return result;
-}
-
-/**
- * То же, но вход должен быть свежим: не старше 15 минут (ТЗ 14.3). Иначе сотрудник входит заново
- * и возвращается на эту же страницу.
- */
-export async function requireFreshStaffActor(
-  opts: { roles?: readonly StaffRole[]; maxAgeSec?: number } = {},
-): Promise<StaffContext> {
-  const ctx = await requireStaffActor(opts);
-  if (!isFresh(ctx, new Date(), opts.maxAgeSec ?? FRESH_SIGN_IN_SEC)) {
-    const locale = await getLocale();
-    const next = safeReturnPath(await currentPath(), `/${locale}/agent`);
-    redirect(`/${locale}/staff/login?reauth=1&next=${encodeURIComponent(next)}`);
-  }
-  return ctx;
 }
 
 /** Сотрудник текущего запроса, если он вошёл полностью. Для страниц входа: вошедшего туда не пускаем повторно. */

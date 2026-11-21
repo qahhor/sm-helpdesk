@@ -2,7 +2,7 @@ import 'server-only';
 import { and, desc, eq, gt, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authSession } from '../auth-schema';
 import { staff } from '../schema';
 

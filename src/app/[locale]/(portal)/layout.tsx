@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
-import { getLocale, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
 import { signOutAction } from '@/app/[locale]/session-actions';
 import { getPolicyVersion } from '@/modules/hdc/api';
-import { listMyOrganizations, needsPolicyNotice, requireClientActor } from '@/modules/hdu/api';
+import { listMyOrganizations, needsPolicyNotice, policyNoticePath, requireClientActor } from '@/modules/hdu/api';
 import { ClientShell } from '@/ui/shell/client/ClientShell';
 import { OrgSwitcher } from '@/ui/shell/client/OrgSwitcher';
 import { UserMenu } from '@/ui/shell/UserMenu';
@@ -14,7 +14,8 @@ import { switchOrganizationAction } from './actions';
 export default async function PortalLayout({ children }: LayoutProps<'/[locale]'>) {
   const client = await requireClientActor();
   // Вышла новая редакция политики обработки данных: сначала короткий шаг о ней (решение 0017).
-  if (needsPolicyNotice(client.user, await getPolicyVersion())) redirect(`/${await getLocale()}/welcome`);
+  // Адрес страницы сохраняется: после шага человек попадает туда, куда шёл.
+  if (needsPolicyNotice(client.user, await getPolicyVersion())) redirect(await policyNoticePath());
   const t = await getTranslations();
   const orgs = client.orgCount > 1 ? await listMyOrganizations(client.user.id) : [];
   return (

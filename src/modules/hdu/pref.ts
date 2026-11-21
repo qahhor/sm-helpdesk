@@ -38,6 +38,12 @@ export const STAFF_INVITATION_TTL_SEC = 24 * 3600;
 export const LOGIN_BOT_LINK_TTL_SEC = 10 * 60;
 /** Ссылка для входа на email: 15 минут (FR-ID-05). */
 export const LOGIN_LINK_TTL_SEC = 15 * 60;
+/** Ссылка подтверждения email живёт час (письмо называет этот срок, тест сверяет). */
+export const EMAIL_TOKEN_TTL_SEC = 60 * 60;
+/** Приглашение в организацию живёт 7 дней (FR-ID-08). */
+export const INVITATION_TTL_SEC = 7 * 24 * 3600;
+/** Сколько приглашений показывает список организации: новые первыми. */
+export const INVITATIONS_LIST_LIMIT = 100;
 /** Код второго фактора: 5 неверных попыток, затем блокировка на 15 минут (ТЗ 14.5). */
 export const TOTP_MAX_FAILED_ATTEMPTS = 5;
 export const TOTP_LOCK_SEC = 15 * 60;
@@ -68,6 +74,7 @@ export const SERVER_ISSUES = [
   'issuer_mismatch',
   'no_authorization_endpoint',
   'no_token_endpoint',
+  // Больше не выдаётся (проверка main, Q21), остаётся для прежних записей проверки в hdu_server_checks.
   'no_userinfo_endpoint',
   'no_jwks',
   'no_pkce_s256',

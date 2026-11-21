@@ -73,8 +73,7 @@ export function createResendMailer(cfg: Config): Mailer {
         if (status !== null && status >= 200 && status < 300) return;
         if (!retryable(status)) break;
       }
-      // В журнал только вид письма и код ответа: адрес, тема, текст со ссылкой и ключ сервиса туда не попадают.
-      console.error(`Письмо ${message.kind} не отправлено через Resend: ${status === null ? 'нет ответа' : `код ${status}`}`);
+      // Журнал пишет queueMail по коду ошибки: адрес, тема, текст со ссылкой и ключ сервиса туда не попадают.
       throw new MailError(status);
     },
   };

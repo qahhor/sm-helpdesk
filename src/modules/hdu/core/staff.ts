@@ -2,7 +2,7 @@ import 'server-only';
 import { and, asc, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import type { Actor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
-import { writeAudit } from '@/modules/hdc/audit';
+import { writeAudit } from '@/modules/hdc/api';
 import { authAccount, authTwoFactor, authUser } from '../auth-schema';
 import { HduError } from '../error';
 import { type HumanStaffRole, type RecordState, STAFF_INVITATION_TTL_SEC, type StaffRole } from '../pref';

@@ -1,35 +1,45 @@
 // Набор проверок изоляции (ТЗ, раздел 15.2): перечень таблиц и представлений предметной области.
 //
-// Каждая новая таблица или представление схемы public получает здесь строку: что видит клиент
-// под ролью hub_app. Тест registry.test.ts падает, если в базе есть объект без строки
-// или строка без объекта, и проверяет каждое значение запросом напрямую в базу.
+// Каждая новая таблица или представление схемы public получает здесь строку. Тест registry.test.ts
+// падает, если в базе есть объект без строки или строка без объекта, и проверяет каждое значение
+// запросом напрямую в базу.
 //
-//   none     клиент не видит ни одной строки (или не имеет права на таблицу);
-//   own-org  клиент видит только строки своей организации;
-//   all      справочник: строки одинаковы для всех организаций;
-//   own-user клиент видит только строки, где user_id его собственный.
+// client: что видит клиент под ролью hub_app.
+//   none        клиент не видит ни одной строки (или не имеет права на таблицу);
+//   own-org     клиент видит только строки своей организации, и хотя бы одну видит;
+//   org-people  клиент видит только людей своей организации и сотрудников портала;
+//   all         справочник: строки одинаковы для всех организаций;
+//   own-user    клиент видит только строки, где user_id его собственный, и хотя бы одну видит.
+//
+// app, auth: какие изменения разрешены ролям hub_app и hub_auth. Тест сверяет с правами в базе,
+// а остальные проверки берут отсюда, что должно быть закрыто (проверка main, Q2).
 
-export type ClientAccess = 'none' | 'own-org' | 'all' | 'own-user';
+export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user';
+export type Write = 'insert' | 'update' | 'delete';
+export type DomainObject = { client: ClientAccess; app?: Write[]; auth?: Write[] };
 
-export const DOMAIN_OBJECTS: Record<string, { client: ClientAccess }> = {
-  // Ядро
-  hdc_audit_log: { client: 'none' },
-  hdc_rate_limits: { client: 'none' },
-  hdc_settings: { client: 'none' },
+const IU: Write[] = ['insert', 'update'];
+const IUD: Write[] = ['insert', 'update', 'delete'];
+
+export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
+  // Ядро. Журнал аудита только пополняется (решение 0019).
+  hdc_audit_log: { client: 'none', app: ['insert'], auth: ['insert'] },
+  hdc_rate_limits: { client: 'none', app: IUD },
+  hdc_settings: { client: 'none', app: IUD },
   // Уведомления
-  hdn_telegram_updates: { client: 'none' },
+  hdn_telegram_updates: { client: 'none', app: ['insert', 'delete'] },
   // Справочники
-  hdr_product_modules: { client: 'all' },
-  // Идентичность
-  hdu_contact_identities: { client: 'own-user' },
-  hdu_email_tokens: { client: 'none' },
-  hdu_invitations: { client: 'own-org' },
-  hdu_link_codes: { client: 'none' },
-  hdu_login_codes: { client: 'none' },
-  hdu_memberships: { client: 'own-org' },
-  hdu_organizations: { client: 'own-org' },
-  hdu_server_checks: { client: 'none' },
-  hdu_servers: { client: 'none' },
-  hdu_staff: { client: 'none' },
-  hdu_user_profiles: { client: 'own-org' },
+  hdr_product_modules: { client: 'all', app: IUD },
+  // Идентичность: меняет только hub_auth, удаляет только отвязка контакта.
+  hdu_contact_identities: { client: 'own-user', auth: IUD },
+  hdu_email_tokens: { client: 'none', auth: IU },
+  hdu_invitations: { client: 'own-org', auth: IU },
+  hdu_link_codes: { client: 'none', auth: IU },
+  hdu_login_codes: { client: 'none', auth: IU },
+  hdu_memberships: { client: 'own-org', auth: IU },
+  hdu_organizations: { client: 'own-org', auth: IU },
+  hdu_server_checks: { client: 'none', auth: IU },
+  hdu_servers: { client: 'none', auth: IU },
+  hdu_staff: { client: 'none', auth: IU },
+  hdu_user_profiles: { client: 'org-people' },
 };

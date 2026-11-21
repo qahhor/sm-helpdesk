@@ -3,10 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
 import { LOCALES } from '@/i18n/locales';
-import { createMailer, MemoryMailer } from '@/modules/hdn/mailer';
+import { createMailer, MemoryMailer, queueMail, setMailerForTests } from '@/modules/hdn/mailer';
+import { MailError } from '@/modules/hdn/resend';
 import {
   CONFIRM_EMAIL_MINUTES,
   confirmEmailMail,
+  INVITATION_DAYS,
   invitationMail,
   LOGIN_LINK_MINUTES,
   loginLinkMail,
@@ -14,7 +16,7 @@ import {
   staffInvitationMail,
   staffResetMail,
 } from '@/modules/hdn/mail-text';
-import { LOGIN_LINK_TTL_SEC, STAFF_INVITATION_TTL_SEC } from '@/modules/hdu/pref';
+import { EMAIL_TOKEN_TTL_SEC, INVITATION_TTL_SEC, LOGIN_LINK_TTL_SEC, STAFF_INVITATION_TTL_SEC } from '@/modules/hdu/pref';
 
 test('режим none ничего не отправляет и не пишет адрес и ссылку в журнал', async () => {
   const lines: string[] = [];
@@ -72,9 +74,10 @@ test('тексты писем есть на трёх языках и содер�
   }
 });
 
-test('срок в тексте письма совпадает со сроком ссылки', () => {
+test('срок в тексте письма совпадает со сроком ссылки (проверка main, Q12)', () => {
   expect(LOGIN_LINK_MINUTES * 60).toBe(LOGIN_LINK_TTL_SEC);
-  expect(CONFIRM_EMAIL_MINUTES).toBe(60);
+  expect(CONFIRM_EMAIL_MINUTES * 60).toBe(EMAIL_TOKEN_TTL_SEC);
+  expect(INVITATION_DAYS * 24 * 3600).toBe(INVITATION_TTL_SEC);
 });
 
 test('письма сотрудникам: ссылка и срок на трёх языках, срок совпадает со сроком приглашения', () => {
@@ -117,4 +120,18 @@ test('почта none сообщает, что письма не доходят,
   expect(createMailer({ MAIL_TRANSPORT: 'none' }).delivers).toBe(false);
   expect(createMailer({ MAIL_TRANSPORT: 'console' }).delivers).toBe(true);
   expect(new MemoryMailer().delivers).toBe(true);
+});
+
+test('сбой письма пишется в журнал одной строкой с кодом ответа сервиса (проверка main, Q16)', async () => {
+  const lines: string[] = [];
+  const spy = vi.spyOn(console, 'error').mockImplementation((line) => void lines.push(String(line)));
+  setMailerForTests({ delivers: true, send: async () => Promise.reject(new MailError(422)) });
+  queueMail({ to: 'person@example.test', subject: 'Тема', text: 'https://hub.example/x', kind: 'invitation' });
+  await new Promise((done) => setImmediate(done));
+  setMailerForTests({ delivers: true, send: async () => Promise.reject(new MailError(null)) });
+  queueMail({ to: 'person@example.test', subject: 'Тема', text: 'x', kind: 'login-link' });
+  await new Promise((done) => setImmediate(done));
+  setMailerForTests(null);
+  spy.mockRestore();
+  expect(lines).toEqual(['Письмо invitation не отправлено: код 422', 'Письмо login-link не отправлено: нет ответа']);
 });

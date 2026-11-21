@@ -96,7 +96,16 @@ test('секреты, большие объёмы и неизвестные де
   await expect(
     withActor(admin, (tx) => writeAudit(tx, { action: 'staff.reset', objectType: 'staff', ip: 'not an ip' })),
   ).rejects.toThrow();
+  for (const key of ['codeHash', 'otp', 'backupCodes', 'api_key', 'refresh_token', 'X-Api-Key', 'cookie'])
+    await expect(write({ [key]: 'x' }), key).rejects.toThrow();
   expect((await pools.root.query('select 1 from hdc_audit_log')).rowCount).toBe(0);
+});
+
+test('обычные поля со словами code и pass записываются (проверка main, Q4)', async () => {
+  const write = (diff: Record<string, unknown>) =>
+    withActor(admin, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', diff }));
+  await write({ code: 'mock', serverCode: 'acme', state: 'passive', companyCode: '501' });
+  expect((await pools.root.query('select diff from hdc_audit_log')).rows).toEqual([{ diff: { code: 'mock', serverCode: 'acme', state: 'passive', companyCode: '501' } }]);
 });
 
 // --- Просмотр журнала (задача 20, FR-ADM-07) ---

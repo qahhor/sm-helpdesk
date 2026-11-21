@@ -1,7 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 import { HduError } from './error';
-import { readLimited } from '@/modules/hdc/util';
+import { readLimited } from '@/modules/hdc/api';
 
 // Адреса серверов Smartup вводит администратор, и портал потом сам ходит по ним (документ discovery,
 // ключи, обмен кода на токен). Чтобы этим нельзя было заставить портал обратиться во внутреннюю сеть

@@ -1,7 +1,6 @@
 import 'server-only';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { consumeRateLimit } from '@/modules/hdc/rate-limit';
-import { ipRateKey, problemResponse } from '@/modules/hdc/util';
+import { consumeRateLimit, ipRateKey, problemResponse } from '@/modules/hdc/api';
 import { getAuth } from '../auth/instance';
 import { isAllowedAuthRequest } from '../util';
 

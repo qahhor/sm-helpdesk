@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { createTelegramBot, handleTelegramWebhook, MemoryTelegramBot, setTelegramBotForTests } from '@/modules/hdn/api';
+import { createTelegramBot, handleTelegramWebhook } from '@/modules/hdn/api';
+import { MemoryTelegramBot, setTelegramBotForTests } from '@/modules/hdn/testing';
 import { handleTelegramUpdate } from '@/modules/hdu/api/telegram';
 import { pools } from './helpers/db';
 import { memoryBotPerTest, tgUpdate } from './helpers/telegram';

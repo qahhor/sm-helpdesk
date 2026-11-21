@@ -2,7 +2,8 @@ import { expect, test } from 'vitest';
 import { acceptInvitation, describeInvitation, inviteMember, listInvitations, revokeInvitation } from '@/modules/hdu/api/invitations';
 import { listMyOrganizations } from '@/modules/hdu/api/orgs';
 import { hashToken } from '@/modules/hdu/tokens';
-import { buildTestAuth, clientCtx, enrolledStaffFixture, noRequest, staffCtx, verifiedClientFixture } from './helpers/auth';
+import { completeLoginLink, requestLoginLink } from '@/modules/hdu/api/login-link';
+import { buildTestAuth, clientCtx, enrolledStaffFixture, newJar, noRequest, staffCtx, verifiedClientFixture } from './helpers/auth';
 import { pools } from './helpers/db';
 import { memoryMailerPerTest, tokenFrom } from './helpers/mail';
 import { seedTwoOrgs } from './isolation/fixture';
@@ -10,6 +11,16 @@ import { seedTwoOrgs } from './isolation/fixture';
 // Приглашения в организацию клиента (FR-ID-08, FR-ID-13).
 
 const box = memoryMailerPerTest();
+
+/** Браузер, где клиент вошёл по ссылке на свой подтверждённый адрес. */
+async function signedInAs(email: string) {
+  const jar = newJar();
+  const before = box.mailer.sent.length;
+  await requestLoginLink({ email, locale: 'ru' }, noRequest);
+  expect(await completeLoginLink({ token: tokenFrom(box.mailer.sent[before]), locale: 'ru' }, jar.request)).toMatchObject({ ok: true });
+  box.mailer.sent.splice(before);
+  return jar;
+}
 
 test('администратор клиента приглашает в свою организацию на 7 дней, токен в базе хешем', async () => {
   const f = await seedTwoOrgs();
@@ -75,7 +86,8 @@ test('существующий пользователь получает вто�
   const existing = await verifiedClientFixture('multi@acme.test', { orgId: f.orgA.orgId });
   await inviteMember({ ctx: await clientCtx(f.bAdmin) }, { email: 'multi@acme.test', role: 'client_user', locale: 'ru' });
   expect(await describeInvitation(tokenFrom(box.mailer.sent[0]))).toMatchObject({ needsName: false });
-  expect(await acceptInvitation({ token: tokenFrom(box.mailer.sent[0]) }, noRequest)).toEqual({ ok: true });
+  const token = tokenFrom(box.mailer.sent[0]);
+  expect(await acceptInvitation({ token }, (await signedInAs('multi@acme.test')).request)).toEqual({ ok: true });
   expect((await pools.root.query(`select count(*)::int as n from auth."user" where email = 'multi@acme.test'`)).rows[0].n).toBe(1);
   expect((await listMyOrganizations(existing.userId)).map((o) => o.orgId).sort()).toEqual([f.orgA.orgId, f.orgB.orgId].sort());
 });
@@ -164,4 +176,36 @@ test('отозвать можно только ждущее приглашени
   await acceptInvitation({ token: tokenFrom(box.mailer.sent[0]), name: 'Однажды' }, noRequest);
   await expect(revokeInvitation({ ctx }, invitationId)).rejects.toMatchObject({ code: 'not_found' });
   await expect(revokeInvitation({ ctx }, 'not-a-uuid')).rejects.toMatchObject({ code: 'invalid_input' });
+});
+
+test('приглашение на существующую учётную запись принимается только после её входа: ссылка не служит входом на 7 дней (проверка main, S3)', async () => {
+  const f = await seedTwoOrgs();
+  const existing = await verifiedClientFixture('known@acme.test', { orgId: f.orgA.orgId });
+  await verifiedClientFixture('stranger@acme.test', { orgId: f.orgA.orgId });
+  await inviteMember({ ctx: await clientCtx(f.bAdmin) }, { email: 'known@acme.test', role: 'client_admin', locale: 'ru' });
+  const token = tokenFrom(box.mailer.sent[0]);
+  const sessions = async () => (await pools.root.query(`select count(*)::int as n from auth.session where "userId" = $1`, [existing.userId])).rows[0].n;
+  // Без входа и в чужой учётной записи: просьба войти, приглашение ждёт, членства нет, сессии не появилось.
+  expect(await acceptInvitation({ token }, noRequest)).toEqual({ ok: false, code: 'sign_in_required' });
+  expect(await acceptInvitation({ token }, (await signedInAs('stranger@acme.test')).request)).toEqual({ ok: false, code: 'sign_in_required' });
+  expect(await sessions()).toBe(0);
+  expect((await pools.root.query(`select accepted_on from hdu_invitations where email = 'known@acme.test'`)).rows[0].accepted_on).toBeNull();
+  // Вошедший владелец адреса принимает: новая сессия не создаётся, организация становится активной.
+  const jar = await signedInAs('known@acme.test');
+  expect(await sessions()).toBe(1);
+  expect(await acceptInvitation({ token }, jar.request)).toEqual({ ok: true });
+  expect(await sessions()).toBe(1);
+  expect((await listMyOrganizations(existing.userId)).map((o) => o.orgId).sort()).toEqual([f.orgA.orgId, f.orgB.orgId].sort());
+  expect((await pools.root.query(`select "activeOrgId" from auth.session where "userId" = $1`, [existing.userId])).rows[0].activeOrgId).toBe(f.orgB.orgId);
+});
+
+test('гость, которого пригласили, становится обычным участником (отложенное замечание M1)', async () => {
+  const f = await seedTwoOrgs();
+  const guest = await verifiedClientFixture('guest-invite@acme.test', { orgId: f.orgA.orgId });
+  await pools.root.query(`insert into hdu_memberships (org_id, user_id, role, source) values ($1, $2, 'client_user', 'guest')`, [f.orgB.orgId, guest.userId]);
+  await inviteMember({ ctx: await clientCtx(f.bAdmin) }, { email: 'guest-invite@acme.test', role: 'client_admin', locale: 'ru' });
+  expect(await acceptInvitation({ token: tokenFrom(box.mailer.sent[0]) }, (await signedInAs('guest-invite@acme.test')).request)).toEqual({ ok: true });
+  expect((await pools.root.query(`select source, role from hdu_memberships where org_id = $1 and user_id = $2`, [f.orgB.orgId, guest.userId])).rows).toEqual([
+    { source: 'invite', role: 'client_admin' },
+  ]);
 });

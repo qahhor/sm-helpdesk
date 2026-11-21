@@ -3,8 +3,8 @@ import { isAPIError } from 'better-auth/api';
 import { getEnv } from '@/env';
 import type { Locale } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
-import { clientIp } from '@/modules/hdc/util';
+import { consumeRateLimit } from '@/modules/hdc/rate-limit';
+import { clientIp, ipRateKey } from '@/modules/hdc/util';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
 import { SERVER_CODE_PATTERN } from '../pref';
@@ -64,7 +64,7 @@ export async function startSmartupSignIn(
   input: { next?: unknown; locale: Locale },
   request: RequestInfo,
 ): Promise<{ url: string } | { error: 'no_server' | 'rate_limited' | 'server_unavailable' }> {
-  const limit = await consumeRateLimit(rateKey('sso-start:ip', clientIp(request.headers) ?? 'unknown'), RATE_RULES.ssoStartPerIp);
+  const limit = await consumeRateLimit(ipRateKey('sso-start:ip', request.headers), RATE_RULES.ssoStartPerIp);
   if (!limit.allowed) return { error: 'rate_limited' };
   const code = rememberedCode(request.headers);
   // Кука есть, но её значение неверно: на сервер по умолчанию не переключаемся.
@@ -111,7 +111,7 @@ export async function rememberServer(
   // Проверка "не робот": робот, перебирающий адреса, получает тот же ответ "не найден" (решение 0018).
   const check = getBotCheck();
   if (check.enabled && (await check.verify(botToken, ip)) === 'failed') return { found: false };
-  const limit = await consumeRateLimit(rateKey('server-lookup:ip', ip ?? 'unknown'), RATE_RULES.serverLookupPerIp);
+  const limit = await consumeRateLimit(ipRateKey('server-lookup:ip', request.headers), RATE_RULES.serverLookupPerIp);
   if (!limit.allowed) return { found: false, rateLimited: true };
   const server = await findServerByAddress(address);
   if (!server) return { found: false };

@@ -11,6 +11,7 @@ import { HduError } from '../error';
 import { emailInput, tokenInput } from '../input';
 import { hashToken } from '../tokens';
 import type { ClientContext } from './orgs';
+import type { SessionData } from './request';
 
 // Подтверждение адреса email и шаг первого входа (FR-ID-07, решение 0016).
 
@@ -36,11 +37,19 @@ export async function requestEmailConfirmation(
   return { ok: true };
 }
 
-/** Подтверждение адреса по ссылке из письма. Вход не нужен: ссылку могут открыть на другом устройстве. */
-export async function confirmEmail(input: unknown): Promise<{ ok: true } | { ok: false; code: 'link_invalid' | 'email_taken' }> {
+/**
+ * Подтверждение адреса по ссылке из письма. Подтверждает только вошедший пользователь, который запросил
+ * ссылку (проверка main, S2): открыли ссылку без входа, ответ sign_in_required, в другой учётной записи
+ * wrong_account. Ссылка при этом не тратится.
+ */
+export async function confirmEmail(
+  input: unknown,
+  session: SessionData | null,
+): Promise<{ ok: true } | { ok: false; code: 'link_invalid' | 'email_taken' | 'sign_in_required' | 'wrong_account' }> {
   const parsed = z.object({ token: tokenInput }).safeParse(input);
   if (!parsed.success) return { ok: false, code: 'link_invalid' };
-  const result = await confirmEmailToken(hashToken(parsed.data.token));
+  if (!session) return { ok: false, code: 'sign_in_required' };
+  const result = await confirmEmailToken(hashToken(parsed.data.token), session.user.id);
   return result === 'ok' ? { ok: true } : { ok: false, code: result };
 }
 

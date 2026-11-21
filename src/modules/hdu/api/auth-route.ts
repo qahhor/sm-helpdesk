@@ -1,7 +1,7 @@
 import 'server-only';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
-import { clientIp, problemResponse } from '@/modules/hdc/util';
+import { consumeRateLimit } from '@/modules/hdc/rate-limit';
+import { ipRateKey, problemResponse } from '@/modules/hdc/util';
 import { getAuth } from '../auth/instance';
 import { isAllowedAuthRequest } from '../util';
 
@@ -12,7 +12,7 @@ import { isAllowedAuthRequest } from '../util';
 export async function handleAuthRequest(request: Request): Promise<Response> {
   if (!isAllowedAuthRequest(request.method, new URL(request.url).pathname)) return problemResponse(404, 'not_found');
   const limit = await consumeRateLimit(
-    rateKey('sso-callback:ip', clientIp(request.headers) ?? 'unknown'),
+    ipRateKey('sso-callback:ip', request.headers),
     RATE_RULES.ssoCallbackPerIp,
   );
   if (!limit.allowed) return problemResponse(429, 'rate_limited', { 'Retry-After': String(limit.retryAfterSec) });

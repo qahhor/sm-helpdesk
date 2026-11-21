@@ -5,6 +5,8 @@ import 'server-only';
 // Страницы и интерфейс импортируют модуль только отсюда: это проверяет линтер.
 
 export {
+  confirmEmailOfRequest,
+  currentClientName,
   currentStaff,
   mySessions,
   requireClientActor,

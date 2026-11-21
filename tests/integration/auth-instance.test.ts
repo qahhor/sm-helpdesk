@@ -5,6 +5,7 @@ import { expect, test } from 'vitest';
 import { buildAuthOptions } from '@/modules/hdu/auth/options';
 import { getAuth, resetAuth } from '@/modules/hdu/auth/instance';
 import { handleAuthRequest } from '@/modules/hdu/api/auth-route';
+import { RATE_RULES } from '@/modules/hdc/pref';
 import { totp } from '../helpers/totp';
 import {
   addServerFixture,
@@ -198,7 +199,7 @@ test('возврат с сервера ограничен по частоте', 
         headers: { 'x-forwarded-for': '203.0.113.99' },
       }),
     );
-  for (let i = 0; i < 60; i++) expect((await call()).status).not.toBe(429);
+  for (let i = 0; i < RATE_RULES.ssoCallbackPerIp.limit; i++) expect((await call()).status).not.toBe(429);
   const blocked = await call();
   expect(blocked.status).toBe(429);
   expect(Number(blocked.headers.get('retry-after'))).toBeGreaterThan(0);

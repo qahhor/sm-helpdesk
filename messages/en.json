@@ -528,7 +528,8 @@
             "reset": "Staff access reset",
             "signed_in": "Staff sign-in",
             "role_changed": "Staff role changed",
-            "state_changed": "Staff member blocked or unblocked"
+            "state_changed": "Staff member blocked or unblocked",
+            "sign_in_failed": "Failed staff sign-in"
           },
           "server": {
             "added": "Server added",
@@ -676,7 +677,11 @@
       "toPortal": "Go to portal",
       "invalid": "This link no longer works. Request a new one in your profile.",
       "taken": "This address is already linked to another account. Enter a different address in your profile.",
-      "toSettings": "Open profile"
+      "toSettings": "Open profile",
+      "signInRequired": "To confirm the address, sign in to the portal in this browser with the account where you entered it, then open the link again.",
+      "signIn": "Sign in",
+      "wrongAccount": "This link was issued for another account. Sign in with the account where you entered the address, or delete the email if you did not enter it.",
+      "account": "The address will be linked to the account {name}."
     },
     "welcome": {
       "title": "Hello, {name}",
@@ -703,7 +708,10 @@
       "submit": "Accept invitation",
       "invalidTitle": "Invitation",
       "invalid": "This invitation no longer works. Ask your company administrator to send a new one.",
-      "taken": "This address cannot be used for an invitation. Ask for an invitation to a different address."
+      "taken": "This address cannot be used for an invitation. Ask for an invitation to a different address.",
+      "existingAccount": "This address already has an account: sign in to it to accept the invitation.",
+      "signInRequired": "Sign in with the account for {email} and open the link again: the invitation will wait.",
+      "signIn": "Sign in"
     },
     "telegram": {
       "title": "Sign in to Smartup Hub",

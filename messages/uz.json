@@ -528,7 +528,8 @@
             "reset": "Xodimning kirishi tiklandi",
             "signed_in": "Xodim kirdi",
             "role_changed": "Xodim roli o'zgartirildi",
-            "state_changed": "Xodim bloklandi yoki blokdan chiqarildi"
+            "state_changed": "Xodim bloklandi yoki blokdan chiqarildi",
+            "sign_in_failed": "Xodimning muvaffaqiyatsiz kirishi"
           },
           "server": {
             "added": "Server qo'shildi",
@@ -676,7 +677,11 @@
       "toPortal": "Kabinetga o'tish",
       "invalid": "Havola endi amal qilmaydi. Profilda yangisini so'rang.",
       "taken": "Bu manzil boshqa hisobga bog'langan. Profilda boshqa manzilni ko'rsating.",
-      "toSettings": "Profilni ochish"
+      "toSettings": "Profilni ochish",
+      "signInRequired": "Manzilni tasdiqlash uchun ushbu brauzerda manzilni ko'rsatgan hisobingiz bilan portalga kiring va havolani qayta oching.",
+      "signIn": "Kirish",
+      "wrongAccount": "Bu havola boshqa hisob uchun berilgan. Manzilni ko'rsatgan hisobingiz bilan kiring yoki manzilni siz ko'rsatmagan bo'lsangiz, xatni o'chiring.",
+      "account": "Manzil {name} hisobiga bog'lanadi."
     },
     "welcome": {
       "title": "Assalomu alaykum, {name}",
@@ -703,7 +708,10 @@
       "submit": "Taklifni qabul qilish",
       "invalidTitle": "Taklif",
       "invalid": "Taklif endi amal qilmaydi. Kompaniyangiz administratoridan yangisini yuborishni so'rang.",
-      "taken": "Bu manzilni taklif uchun ishlatib bo'lmaydi. Taklifni boshqa manzilga yuborishni so'rang."
+      "taken": "Bu manzilni taklif uchun ishlatib bo'lmaydi. Taklifni boshqa manzilga yuborishni so'rang.",
+      "existingAccount": "Bu manzilning hisobi allaqachon bor: taklifni qabul qilish uchun unga kirish kerak.",
+      "signInRequired": "{email} manzilli hisob bilan kiring va havolani qayta oching: taklif kutib turadi.",
+      "signIn": "Kirish"
     },
     "telegram": {
       "title": "Smartup Hub tizimiga kirish",

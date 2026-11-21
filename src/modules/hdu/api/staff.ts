@@ -9,8 +9,8 @@ import { consumeRateLimit, rateKey, resetRateLimit } from '@/modules/hdc/rate-li
 import { clientIp } from '@/modules/hdc/util';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
-import { revokeSessionById } from '../core/sessions';
-import { acceptStaffInvitationTx, findStaff, findStaffInvitation } from '../core/staff';
+import { revokeOtherOwnSessions, revokeSessionById } from '../core/sessions';
+import { acceptStaffInvitationTx, findStaff, findStaffByEmail, findStaffInvitation } from '../core/staff';
 import type { HduErrorCode } from '../error';
 import { emailInput, nameInput, parseInput, passwordInput, tokenInput, totpCodeInput } from '../input';
 import { hashToken } from '../tokens';
@@ -31,6 +31,18 @@ export type StaffSignInResult =
   | { step: 'error'; code: HduErrorCode; retryAfterSec?: number };
 
 const accountKey = (email: string) => rateKey('staff-login:account', email);
+
+/**
+ * Неудачный вход сотрудника в журнал аудита с адресом (ТЗ, угроза T11; проверка main, S5). Пишется только
+ * для адреса сотрудника: попытки с чужими адресами журнал не засоряют и не раскрывают, есть ли сотрудник.
+ */
+async function recordFailedSignIn(email: string, step: 'password' | 'rate_limited', request: Pick<RequestInfo, 'headers'>): Promise<void> {
+  const staffRow = await findStaffByEmail(email);
+  if (!staffRow) return;
+  await withIdentity({ type: 'system', job: 'identity.staff.sign-in' }, (tx) =>
+    writeAudit(tx, { action: 'staff.sign_in_failed', objectType: 'staff', objectId: staffRow.userId, diff: { step }, ip: clientIp(request.headers) }),
+  );
+}
 
 /** Приглашение сотрудника по токену ссылки: чей это адрес. Пусто, если ссылка не действует. */
 export async function describeStaffInvitation(token: unknown): Promise<{ email: string; name: string | null } | null> {
@@ -81,7 +93,10 @@ export async function signInStaff(input: unknown, request: RequestInfo): Promise
   if (check.enabled && (await check.verify(botToken, clientIp(request.headers))) === 'failed') return { step: 'error', code: 'bot_check' };
 
   const limit = await consumeRateLimit(accountKey(email), RATE_RULES.staffLoginPerAccount);
-  if (!limit.allowed) return { step: 'error', code: 'rate_limited', retryAfterSec: limit.retryAfterSec };
+  if (!limit.allowed) {
+    await recordFailedSignIn(email, 'rate_limited', request);
+    return { step: 'error', code: 'rate_limited', retryAfterSec: limit.retryAfterSec };
+  }
 
   const previous = await readSession(request);
   const auth = await getAuth();
@@ -89,6 +104,7 @@ export async function signInStaff(input: unknown, request: RequestInfo): Promise
   try {
     result = await auth.api.signInEmail({ body: { email, password }, headers: request.headers, returnHeaders: true });
   } catch {
+    await recordFailedSignIn(email, 'password', request);
     return { step: 'error', code: 'invalid_credentials' };
   }
   request.setCookies(result.headers);
@@ -119,6 +135,13 @@ const CODE_ERRORS: Record<string, HduErrorCode> = {
 /**
  * Второй шаг входа: код из приложения. Тот же вызов завершает подключение второго фактора при первом входе.
  * Пять неверных кодов блокируют проверку на 15 минут.
+ *
+ * Сессия уже есть (проверка main, S1):
+ * - у сотрудника второй фактор уже подключён: код этой сессии не нужен. Сессия без отметки второго фактора
+ *   (открыта одним паролем до подключения в другом браузере) завершается, иначе через неё подбирали бы код:
+ *   на этом пути библиотека попытки не считает;
+ * - второй фактор подключается: попытки считает портал, а после подключения остальные сессии сотрудника
+ *   завершаются.
  */
 export async function verifyStaffCode(
   input: unknown,
@@ -126,6 +149,15 @@ export async function verifyStaffCode(
 ): Promise<{ ok: true } | { ok: false; code: HduErrorCode }> {
   const parsed = codeInput.safeParse(input);
   if (!parsed.success) return { ok: false, code: 'invalid_input' };
+  const current = await readSession(request);
+  if (current?.user.twoFactorEnabled) {
+    if (!current.session.secondFactorAt) await revokeSessionById(current.session.id);
+    return { ok: false, code: 'sign_in_expired' };
+  }
+  if (current) {
+    const limit = await consumeRateLimit(rateKey('staff-enroll-code:user', current.user.id), RATE_RULES.staffEnrollCodePerUser);
+    if (!limit.allowed) return { ok: false, code: 'code_locked' };
+  }
   const auth = await getAuth();
   let result;
   try {
@@ -140,6 +172,8 @@ export async function verifyStaffCode(
   const session = await readSession({ headers: withNewCookies(request, result.headers) });
   const staff = session ? await findStaff(session.user.id) : null;
   if (!session || !staff || staff.role === 'agent_bot') return { ok: false, code: 'sign_in_expired' };
+  // Второй фактор только что подключён: сессии, открытые до этого одним паролем, больше не нужны.
+  if (current) await revokeOtherOwnSessions(session.user.id, session.session.id);
   await resetRateLimit(accountKey(session.user.email));
   await withIdentity({ type: 'staff', userId: session.user.id, staffRole: staff.role }, (tx) =>
     writeAudit(tx, { action: 'staff.signed_in', objectType: 'staff', objectId: session.user.id, ip: clientIp(request.headers) }),

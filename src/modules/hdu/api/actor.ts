@@ -4,10 +4,12 @@ import { notFound, redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { cache } from 'react';
 import type { Locale } from '@/i18n/locales';
+import { clientIp } from '@/modules/hdc/util';
 import { getAuth } from '../auth/instance';
 import { findStaff } from '../core/staff';
 import type { StaffRole } from '../pref';
 import { safeReturnPath } from '../util';
+import { confirmEmail } from './email';
 import { type ClientContext, type ClientDenial, resolveClient, switchOrganization } from './orgs';
 import { listMySessions, revokeMySession, revokeOtherSessions, type SessionView } from './sessions';
 import { rememberLocale } from './telegram';
@@ -26,9 +28,20 @@ async function currentPath(): Promise<string> {
 /** Сессия текущего запроса. Проверяет её библиотека входа по базе, один раз на запрос. */
 const sessionOfRequest = cache(async (): Promise<SessionData | null> => readSession({ headers: new Headers(await headers()) }));
 
-const staffOfRequest = cache(async (): Promise<StaffContext | StaffDenial> => resolveStaff(await sessionOfRequest(), new Date()));
+/** Проверенный адрес посетителя: актор несёт его в транзакцию, база ставит его в журнал аудита (S5). */
+async function requestIp(): Promise<string | null> {
+  return clientIp(new Headers(await headers()));
+}
 
-const clientOfRequest = cache(async (): Promise<ClientContext | ClientDenial> => resolveClient(await sessionOfRequest()));
+const staffOfRequest = cache(async (): Promise<StaffContext | StaffDenial> => {
+  const result = await resolveStaff(await sessionOfRequest(), new Date());
+  return 'denied' in result ? result : { ...result, actor: { ...result.actor, ip: await requestIp() } };
+});
+
+const clientOfRequest = cache(async (): Promise<ClientContext | ClientDenial> => {
+  const result = await resolveClient(await sessionOfRequest());
+  return 'denied' in result ? result : { ...result, actor: { ...result.actor, ip: await requestIp() } };
+});
 
 /**
  * Сотрудник текущего запроса. Без входа, без второго фактора и после 12 часов перенаправляет
@@ -159,6 +172,19 @@ export async function revokeMySessionOfRequest(sessionId: unknown): Promise<{ si
 }
 
 /** Вошедший пользователь выбрал язык в портале: письма и бот пойдут на нём (решение 0018, пункт 19). */
+/** Имя вошедшего клиента для страниц без входа (подтверждение адреса). Пусто, если клиента нет. */
+export async function currentClientName(): Promise<string | null> {
+  const session = await sessionOfRequest();
+  if (!session) return null;
+  const kind = await signedInKind();
+  return kind === 'client' ? session.user.name : null;
+}
+
+/** Подтверждение адреса по ссылке от имени сессии этого запроса (проверка main, S2). */
+export async function confirmEmailOfRequest(input: unknown): ReturnType<typeof confirmEmail> {
+  return confirmEmail(input, await readSession({ headers: new Headers(await headers()) }));
+}
+
 export async function rememberMyLocale(locale: Locale): Promise<void> {
   const session = await sessionOfRequest();
   if (session) await rememberLocale(session.user.id, locale);

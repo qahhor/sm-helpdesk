@@ -1,11 +1,12 @@
 import 'server-only';
-import { and, asc, eq, ilike, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/audit';
 import { authSession, authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
 import { memberships, organizations, servers, staff } from '../schema';
+import { signInMemberships } from './access';
 
 // Модуль hdu, слой core: организации пользователя и активная организация сессии (ТЗ 11.1, FR-ID-05).
 // Без библиотеки входа: колонки activeOrgId и lastOrgId принадлежат порталу, библиотека их только хранит.
@@ -26,15 +27,8 @@ export async function loadClientAccess(userId: string): Promise<ClientAccess> {
   return withIdentity(SYSTEM, async (tx) => {
     const staffRow = await tx.select({ userId: staff.userId }).from(staff).where(eq(staff.userId, userId)).limit(1);
     if (staffRow.length > 0) return { isStaff: true, orgs: [] };
-    const orgs = await tx
-      .select({ orgId: organizations.orgId, name: organizations.name, role: memberships.role })
-      .from(memberships)
-      .innerJoin(organizations, eq(organizations.orgId, memberships.orgId))
-      .where(
-        and(eq(memberships.userId, userId), eq(memberships.state, 'active'), ne(memberships.source, 'guest'), eq(organizations.state, 'active')),
-      )
-      .orderBy(asc(organizations.name), asc(organizations.orgId));
-    return { isStaff: false, orgs };
+    const rows = await signInMemberships(tx, eq(memberships.userId, userId)).orderBy(asc(organizations.name), asc(organizations.orgId));
+    return { isStaff: false, orgs: rows.map(({ orgId, name, role }) => ({ orgId, name, role })) };
   });
 }
 

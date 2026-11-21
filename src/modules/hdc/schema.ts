@@ -34,7 +34,7 @@ export const auditLog = pgTable('hdc_audit_log', {
   objectType: text('object_type').notNull(),
   objectId: text('object_id'),
   diff: jsonb('diff').$type<Record<string, unknown>>(),
-  ip: inet('ip'),
+  ip: inet('ip').default(sql`app.client_ip()`),
   createdOn: timestamp('created_on', { withTimezone: true }).notNull().defaultNow(),
 });
 

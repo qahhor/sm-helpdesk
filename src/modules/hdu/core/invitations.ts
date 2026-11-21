@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/audit';
@@ -40,6 +40,8 @@ export async function createInvitation(
         and(
           eq(memberships.orgId, input.orgId),
           eq(memberships.state, 'active'),
+          // Гостя приглашают: принятие сделает его обычным участником.
+          ne(memberships.source, 'guest'),
           eq(authUser.email, input.email),
           eq(authUser.emailVerified, true),
         ),
@@ -128,14 +130,16 @@ export async function findPendingInvitation(tokenHash: string): Promise<{ orgNam
   });
 }
 
-export type AcceptResult = { userId: string } | 'link_invalid' | 'email_taken';
+export type AcceptResult = { userId: string; orgId: string; created: boolean } | 'link_invalid' | 'email_taken' | 'sign_in_required';
 
 /**
- * Принятие приглашения одной транзакцией от системы. Ссылка из письма доказала адрес: учётная запись
- * находится по нему или создаётся с подтверждённым адресом. Адрес сотрудника участником клиента не становится.
- * Отключённое членство приглашение не включает.
+ * Принятие приглашения одной транзакцией от системы. Ссылка из письма доказала адрес для новой учётной
+ * записи: она создаётся с подтверждённым адресом. Существующая учётная запись принимает приглашение
+ * только из своей сессии (sessionUserId): иначе пересланная ссылка служила бы входом в неё на 7 дней
+ * (проверка main, S3); приглашение при этом остаётся ждущим. Адрес сотрудника участником клиента не
+ * становится. Отключённое членство приглашение не включает. Гостевое членство становится обычным.
  */
-export async function acceptInvitationTx(tokenHash: string, name: string): Promise<AcceptResult> {
+export async function acceptInvitationTx(tokenHash: string, name: string, sessionUserId: string | null): Promise<AcceptResult> {
   return withIdentity(SYSTEM, async (tx) => {
     const invitation = (
       await tx
@@ -157,6 +161,17 @@ export async function acceptInvitationTx(tokenHash: string, name: string): Promi
 
     let user = (await tx.select({ id: authUser.id, emailVerified: authUser.emailVerified }).from(authUser).where(eq(authUser.email, invitation.email)).limit(1))[0];
     if (user && (await tx.select({ userId: staff.userId }).from(staff).where(eq(staff.userId, user.id)).limit(1)).length > 0) return 'email_taken';
+    if (user) {
+      // Отключённое членство приглашение не включает: ответ тот же, что у недействительной ссылки.
+      const passive = await tx
+        .select({ state: memberships.state })
+        .from(memberships)
+        .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, user.id), eq(memberships.state, 'passive')))
+        .limit(1);
+      if (passive.length > 0) return 'link_invalid';
+      if (user.id !== sessionUserId) return 'sign_in_required';
+    }
+    const created = !user;
     if (!user) {
       user = (
         await tx
@@ -170,7 +185,7 @@ export async function acceptInvitationTx(tokenHash: string, name: string): Promi
 
     const current = (
       await tx
-        .select({ state: memberships.state })
+        .select({ state: memberships.state, source: memberships.source })
         .from(memberships)
         .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, user.id)))
         .limit(1)
@@ -185,12 +200,25 @@ export async function acceptInvitationTx(tokenHash: string, name: string): Promi
       await tx.update(invitations).set({ acceptedOn: sql`now()` }).where(eq(invitations.invitationId, invitation.invitationId));
       await writeAudit(tx, { action: 'invitation.accepted', objectType: 'invitation', objectId: invitation.invitationId, orgId });
       await writeAudit(tx, { action: 'member.joined', objectType: 'membership', objectId: user.id, orgId, diff: { role: invitation.role, source } });
+    } else if (current.source === 'guest') {
+      // Гость стал приглашённым участником: членство получает роль из приглашения и даёт вход.
+      const byStaff = invitation.invitedBy
+        ? (await tx.select({ userId: staff.userId }).from(staff).where(eq(staff.userId, invitation.invitedBy)).limit(1)).length > 0
+        : false;
+      const source: MembershipSource = byStaff ? 'staff' : 'invite';
+      await tx
+        .update(memberships)
+        .set({ source, role: invitation.role as ClientRole })
+        .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, user.id)));
+      await tx.update(invitations).set({ acceptedOn: sql`now()` }).where(eq(invitations.invitationId, invitation.invitationId));
+      await writeAudit(tx, { action: 'invitation.accepted', objectType: 'invitation', objectId: invitation.invitationId, orgId });
+      await writeAudit(tx, { action: 'member.joined', objectType: 'membership', objectId: user.id, orgId, diff: { role: invitation.role, source, from: 'guest' } });
     } else {
       // Уже действующий участник: приглашение принято, членство не меняется.
       await tx.update(invitations).set({ acceptedOn: sql`now()` }).where(eq(invitations.invitationId, invitation.invitationId));
       await writeAudit(tx, { action: 'invitation.accepted', objectType: 'invitation', objectId: invitation.invitationId, orgId });
     }
     await tx.update(authUser).set({ lastOrgId: orgId, updatedAt: sql`now()` }).where(eq(authUser.id, user.id));
-    return { userId: user.id };
+    return { userId: user.id, orgId, created };
   });
 }

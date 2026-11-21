@@ -4,7 +4,10 @@ import { listMyOrganizations, resolveClient, switchOrganization, type ClientCont
 import { resolveStaff } from '@/modules/hdu/api/session';
 import { needsPolicyNotice } from '@/modules/hdu/util';
 import { addMembership, buildTestAuth, clientSession, enrolledStaffFixture, reload, verifiedClientFixture } from './helpers/auth';
+import { isLoginLinkRecipient } from '@/modules/hdu/core/email';
+import { createLoginCode } from '@/modules/hdu/core/telegram';
 import { pools } from './helpers/db';
+import { linkTelegramFixture } from './helpers/telegram';
 import { seedTwoOrgs } from './isolation/fixture';
 
 test('без сессии актор не строится', async () => {
@@ -117,4 +120,17 @@ test('версия политики записывается и запрашив
   expect(needsPolicyNotice({ policyVersion: null }, '2026-12-01')).toBe(true);
   // Политика выключена: показывать нечего.
   expect(needsPolicyNotice({ policyVersion: null }, null)).toBe(false);
+});
+
+test('отключённый сервер Smartup закрывает вход его клиентам всеми путями (проверка main, S4)', async () => {
+  const f = await seedTwoOrgs();
+  const ctxBefore = await resolveClient(await clientSession(f.aUser));
+  expect(ctxBefore).toHaveProperty('actor');
+  await pools.root.query(`update auth."user" set email = 'a-user@acme.test', "emailVerified" = true where id = $1`, [f.aUser.userId]);
+  await pools.root.query(`update hdu_servers set state = 'passive' where server_id = $1`, [f.server.serverId]);
+  expect(await resolveClient(await clientSession(f.aUser))).toEqual({ denied: 'no_organization' });
+  expect(await listMyOrganizations(f.aUser.userId)).toEqual([]);
+  expect(await isLoginLinkRecipient('a-user@acme.test')).toBe(false);
+  await linkTelegramFixture(f.aUser, 777123);
+  expect(await createLoginCode('777123')).toBeNull();
 });

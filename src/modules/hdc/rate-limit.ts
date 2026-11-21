@@ -1,5 +1,5 @@
 import 'server-only';
-import { createHash } from 'node:crypto';
+import { rateKey } from './util';
 import { eq, sql } from 'drizzle-orm';
 import { withActor } from '@/db/with-actor';
 import type { RateRule } from './pref';
@@ -14,10 +14,7 @@ const SYSTEM = { type: 'system', job: 'rate-limit' } as const;
  * Ключ счётчика: вид действия и хеш того, кого считаем. Адрес, учётная запись и IP
  * в таблицу в открытом виде не попадают. Написание (регистр, пробелы) на ключ не влияет.
  */
-export function rateKey(scope: string, value: string): string {
-  const digest = createHash('sha256').update(value.trim().toLowerCase()).digest('hex');
-  return `${scope}:${digest.slice(0, 32)}`;
-}
+export { rateKey };
 
 /**
  * Учитывает попытку и говорит, укладывается ли она в предел.

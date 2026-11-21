@@ -155,3 +155,18 @@ test('строка журнала называет автора и органи�
   expect((await listAudit(ctx, { actorId: f.adminStaff.userId })).items).toHaveLength(1);
   expect((await listAudit(ctx, { to: new Date(Date.now() - 86400e3).toISOString() })).items).toEqual([]);
 });
+
+test('адрес запроса из актора попадает в журнал сам: действия администратора записываются с адресом (проверка main, S5)', async () => {
+  await withActor({ ...admin, ip: '203.0.113.9' }, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', objectId: 'ip-1' }));
+  await withIdentity({ ...admin, ip: '2001:db8::7' }, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', objectId: 'ip-2' }));
+  // Явно переданный адрес важнее адреса актора; без адреса пусто.
+  await withActor({ ...admin, ip: '203.0.113.9' }, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', objectId: 'ip-3', ip: '198.51.100.1' }));
+  await withActor(admin, (tx) => writeAudit(tx, { action: 'server.added', objectType: 'server', objectId: 'ip-4' }));
+  const rows = (await pools.root.query(`select object_id, host(ip) as ip from hdc_audit_log where object_id like 'ip-%' order by object_id`)).rows;
+  expect(rows).toEqual([
+    { object_id: 'ip-1', ip: '203.0.113.9' },
+    { object_id: 'ip-2', ip: '2001:db8::7' },
+    { object_id: 'ip-3', ip: '198.51.100.1' },
+    { object_id: 'ip-4', ip: null },
+  ]);
+});

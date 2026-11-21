@@ -8,7 +8,7 @@ import { inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { hashToken } from '@/modules/hdu/tokens';
 import { type BotCheck, type BotVerdict, setBotCheckForTests } from '@/security/bot-check';
 import { totp } from '../helpers/totp';
-import { createStaffFixture, enrolledStaffFixture, newJar, noRequest, type StaffFixture } from './helpers/auth';
+import { clientSession, createStaffFixture, enrolledStaffFixture, newJar, noRequest, type StaffFixture } from './helpers/auth';
 import { pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
 
@@ -155,10 +155,40 @@ test('сессия без кода не становится сессией со
   if (enroll.step !== 'enroll') throw new Error(`ожидался шаг подключения, получен ${enroll.step}`);
   expect(await verifyStaffCode({ code: totp(enroll.secret) }, b.request)).toEqual({ ok: true });
   expect(await resolveStaff(await readSession(b.request), new Date())).toHaveProperty('actor');
-  // Сессия A кода не предъявляла: рабочее место для неё закрыто.
-  const sessionA = await readSession(a.request);
-  expect(sessionA).not.toBeNull();
-  expect(await resolveStaff(sessionA, new Date())).toEqual({ denied: 'no_second_factor' });
+  // Сессия A кода не предъявляла: после подключения в B она завершена (проверка main, S1).
+  expect(await readSession(a.request)).toBeNull();
+  // Любая сессия без отметки второго фактора рабочее место не открывает, даже если второй фактор подключён.
+  const bare = await clientSession({ userId: staff.userId });
+  expect(bare.session.secondFactorAt).toBeNull();
+  expect(await resolveStaff(bare, new Date())).toEqual({ denied: 'no_second_factor' });
+});
+
+test('старая сессия одного пароля не даёт подбирать код и завершается; подключение второго фактора завершает остальные сессии (проверка main, S1)', async () => {
+  const staff = await acceptedStaff('admin');
+  const a = newJar();
+  expect((await signInStaff({ email: staff.email, password: staff.password }, a.request)).step).toBe('enroll');
+  const b = newJar();
+  const enroll = await signInStaff({ email: staff.email, password: staff.password }, b.request);
+  if (enroll.step !== 'enroll') throw new Error(`ожидался шаг подключения, получен ${enroll.step}`);
+  expect(await verifyStaffCode({ code: totp(enroll.secret) }, b.request)).toEqual({ ok: true });
+  // Сессия A после подключения в B завершена: подбирать код через неё нельзя.
+  expect(await readSession(a.request)).toBeNull();
+  expect(await verifyStaffCode({ code: '000000' }, a.request)).toEqual({ ok: false, code: 'sign_in_expired' });
+  expect(await verifyStaffCode({ code: totp(enroll.secret) }, a.request)).toEqual({ ok: false, code: 'sign_in_expired' });
+  // Сессия B, где второй фактор подключили, работает.
+  expect(await resolveStaff(await readSession(b.request), new Date())).toHaveProperty('actor');
+  const sessions = (await pools.root.query(`select 1 from auth.session where "userId" = $1`, [staff.userId])).rowCount;
+  expect(sessions).toBe(1);
+});
+
+test('подбор кода при подключении второго фактора ограничен (проверка main, S1)', async () => {
+  const staff = await acceptedStaff('care');
+  const jar = newJar();
+  expect((await signInStaff({ email: staff.email, password: staff.password }, jar.request)).step).toBe('enroll');
+  const answers = [];
+  for (let i = 0; i < 12; i++) answers.push((await verifyStaffCode({ code: '000000' }, jar.request)) as { code?: string });
+  expect(answers.slice(0, 10).every((a) => a.code === 'code_invalid')).toBe(true);
+  expect(answers.slice(10).map((a) => a.code)).toEqual(['code_locked', 'code_locked']);
 });
 
 test('вход с подключённым вторым фактором: пароль, затем код, запись в журнале с адресом', async () => {
@@ -315,4 +345,16 @@ test('при недоступной проверке вход сотрудник
   setBotCheckForTests(verdict('unavailable'));
   for (let i = 0; i < 10; i++) await signInStaff({ email: staff.email, password: 'wrong-password-1' }, noRequest);
   expect(await signInStaff({ email: staff.email, password: staff.password }, noRequest)).toMatchObject({ step: 'error', code: 'rate_limited' });
+});
+
+test('неудачный вход сотрудника и упор в счётчик записываются в журнал с адресом, чужой адрес не записывается (проверка main, S5)', async () => {
+  const staff = await enrolledStaffFixture(await getAuth(), { role: 'care' });
+  const jar = newJar({ 'x-forwarded-for': '203.0.113.31' });
+  expect(await signInStaff({ email: staff.email, password: 'wrong-password-1' }, jar.request)).toMatchObject({ step: 'error', code: 'invalid_credentials' });
+  expect(await signInStaff({ email: 'nobody@smartup.example', password: 'wrong-password-1' }, jar.request)).toMatchObject({ step: 'error' });
+  const rows = (await pools.root.query(`select actor_type, object_id, diff, host(ip) as ip from hdc_audit_log where action = 'staff.sign_in_failed'`)).rows;
+  expect(rows).toEqual([{ actor_type: 'system', object_id: staff.userId, diff: { step: 'password' }, ip: '203.0.113.31' }]);
+  for (let i = 0; i < 10; i++) await signInStaff({ email: staff.email, password: 'wrong-password-1' }, jar.request);
+  const locked = (await pools.root.query(`select diff from hdc_audit_log where action = 'staff.sign_in_failed' and diff->>'step' = 'rate_limited'`)).rows;
+  expect(locked.length).toBeGreaterThan(0);
 });

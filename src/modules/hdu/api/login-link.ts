@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { consumeRateLimit, rateKey } from '@/modules/hdc/rate-limit';
-import { clientIp } from '@/modules/hdc/util';
+import { clientIp, ipRateKey } from '@/modules/hdc/util';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
 import { isLoginLinkRecipient } from '../core/email';
@@ -36,7 +36,7 @@ export async function requestLoginLink(input: unknown, request: Pick<RequestInfo
   const check = getBotCheck();
   if (check.enabled && (await check.verify(raw.botToken, ip)) === 'failed') return { ok: true };
 
-  const byIp = await consumeRateLimit(rateKey('login-link:ip', ip ?? 'unknown'), RATE_RULES.loginLinkPerIp);
+  const byIp = await consumeRateLimit(ipRateKey('login-link:ip', request.headers), RATE_RULES.loginLinkPerIp);
   if (!email.success) return { ok: true };
   const byAddress = await consumeRateLimit(rateKey('login-link:email', email.data), RATE_RULES.loginLinkPerAddress);
   if (!byIp.allowed || !byAddress.allowed) return { ok: true };

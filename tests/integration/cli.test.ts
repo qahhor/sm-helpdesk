@@ -130,11 +130,34 @@ test('maintenance:cleanup удаляет только просроченные �
   );
   const { io, lines } = fakeIo();
   expect(await runCli(['maintenance:cleanup'], io)).toBe(0);
-  expect(lines).toEqual(['Удалено просроченных строк: счётчики частоты 1, события Telegram 1, сессии 1, одноразовые значения входа 1.']);
+  expect(lines).toEqual(['Удалено просроченных строк: счётчики частоты 1, события Telegram 1, сессии 1, одноразовые значения входа 1, ссылки и коды входа 0.']);
   expect((await pools.root.query(`select code from hdc_rate_limits`)).rows).toEqual([{ code: 'new:1' }]);
   expect((await pools.root.query(`select update_id from hdn_telegram_updates`)).rows).toEqual([{ update_id: '2' }]);
   expect((await pools.root.query(`select token from auth.session`)).rows).toEqual([{ token: 't-new' }]);
   expect((await pools.root.query(`select identifier from auth.verification`)).rows).toEqual([{ identifier: 'i-new' }]);
+});
+
+test('ночная очистка удаляет только строки старше суток после срока', async () => {
+  const user = (await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ('Ч', 'night@acme.test', true) returning id`)).rows[0].id;
+  const hash = (n: number) => n.toString(16).padStart(64, '0');
+  // Срок вышел больше суток назад, меньше суток назад и ещё не вышел.
+  const ages = ["now() - interval '25 hours'", "now() - interval '23 hours'", "now() + interval '1 hour'"];
+  for (const [i, age] of ages.entries()) {
+    await pools.root.query(`insert into hdu_email_tokens (user_id, email, token_hash, expires_on) values ($1, 'night@acme.test', $2, ${age})`, [user, hash(10 + i)]);
+    await pools.root.query(`insert into hdu_link_codes (user_id, kind, code_hash, expires_on) values ($1, 'telegram', $2, ${age})`, [user, hash(20 + i)]);
+    await pools.root.query(`insert into hdu_login_codes (user_id, channel, code_hash, expires_on) values ($1, 'telegram', $2, ${age})`, [user, hash(30 + i)]);
+  }
+  const { io, lines } = fakeIo();
+  expect(await runCli(['maintenance:cleanup'], io)).toBe(0);
+  expect(lines.join('\n')).toMatch(/ссылки и коды входа 3/);
+  for (const [table, column] of [
+    ['hdu_email_tokens', 'token_hash'],
+    ['hdu_link_codes', 'code_hash'],
+    ['hdu_login_codes', 'code_hash'],
+  ] as const) {
+    const left = (await pools.root.query(`select ${column} as h from ${table} where user_id = $1 order by ${column}`, [user])).rows.map((r) => r.h);
+    expect(left, table).toHaveLength(2);
+  }
 });
 
 test('собранный файл запускается без каталога node_modules и не содержит библиотеку входа', async () => {

@@ -246,9 +246,9 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
       case 'maintenance:cleanup': {
         const limits = await cleanupRateLimits();
         const updates = await cleanupTelegramUpdates(ACTOR);
-        const { sessions, verifications } = await cleanupAuthRows(ACTOR);
+        const { sessions, verifications, links } = await cleanupAuthRows(ACTOR);
         io.out(
-          `Удалено просроченных строк: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}.`,
+          `Удалено просроченных строк: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}.`,
         );
         return 0;
       }

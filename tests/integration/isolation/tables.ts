@@ -32,10 +32,11 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdr_product_modules: { client: 'all', app: IUD },
   // Идентичность: меняет только hub_auth, удаляет только отвязка контакта.
   hdu_contact_identities: { client: 'own-user', auth: IUD },
-  hdu_email_tokens: { client: 'none', auth: IU },
+  // Ссылки и коды удаляет только ночная очистка системой (решение 0023, дополнение M2).
+  hdu_email_tokens: { client: 'none', auth: IUD },
   hdu_invitations: { client: 'own-org', auth: IU },
-  hdu_link_codes: { client: 'none', auth: IU },
-  hdu_login_codes: { client: 'none', auth: IU },
+  hdu_link_codes: { client: 'none', auth: IUD },
+  hdu_login_codes: { client: 'none', auth: IUD },
   hdu_memberships: { client: 'own-org', auth: IU },
   hdu_organizations: { client: 'own-org', auth: IU },
   hdu_server_checks: { client: 'none', auth: IU },

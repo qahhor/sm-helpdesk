@@ -63,9 +63,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const system = actor('maintenance.cleanup');
     const limits = await cleanupRateLimits();
     const updates = await cleanupTelegramUpdates(system);
-    const { sessions, verifications } = await cleanupAuthRows(system);
+    const { sessions, verifications, links } = await cleanupAuthRows(system);
     console.info(
-      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}`,
+      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}`,
     );
   });
   if (opts.schedules !== false) for (const s of SCHEDULES) await boss.schedule(s.name, s.cron, null, { tz: s.tz });

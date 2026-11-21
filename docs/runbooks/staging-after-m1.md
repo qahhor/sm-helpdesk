@@ -42,7 +42,7 @@
 3. `docker compose -f compose.prod.yaml run --rm migrate`: миграции. Повторять при каждой выкладке до запуска нового портала.
 4. `docker compose -f compose.prod.yaml up -d`
 5. Проверка: `curl -fsS https://<адрес staging>/api/health` отвечает `{"status":"ok"}`, `curl -fsS https://<адрес staging>/api/ready` отвечает `ready` (портал видит базу под обеими ролями).
-6. Расписание сервера раз в сутки: `docker compose -f compose.prod.yaml exec web node hub.mjs maintenance:cleanup` (очистка просроченных служебных строк до фоновых задач M2, решение 0023).
+6. Отдельное расписание сервера для очистки больше не нужно: с вехи M2 её выполняет фоновый процесс `worker` каждую ночь в 03:00 по Ташкенту (решение 0028). Если расписание `maintenance:cleanup` в cron сервера было заведено после M1, его можно удалить. Ручной запуск остаётся: `docker compose -f compose.prod.yaml exec web node hub.mjs maintenance:cleanup`.
 
 На https куки входа называются `__Host-hub.*` (решение 0021): портал не должен открываться по адресу с другим узлом, чем `HUB_URL`.
 

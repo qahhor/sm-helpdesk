@@ -359,3 +359,23 @@ test('список сотрудников под ролью hub_auth меняе�
   expect(await block(f.aAdmin.actor)).toBe(0);
   expect(await block(f.adminStaff.actor)).toBe(1);
 });
+
+test('клиент, сотрудник и система с непросроченными строками удалить строки идентичности не могут', async () => {
+  const f = await seedTwoOrgs();
+  const user = f.aUser.userId;
+  const hash = (n: number) => n.toString(16).padStart(64, 'a');
+  for (const [i, age] of ["now() - interval '25 hours'", "now() - interval '23 hours'"].entries()) {
+    await pools.root.query(`insert into hdu_email_tokens (user_id, email, token_hash, expires_on) values ($1, 'del@acme.test', $2, ${age})`, [user, hash(40 + i)]);
+    await pools.root.query(`insert into hdu_link_codes (user_id, kind, code_hash, expires_on) values ($1, 'telegram', $2, ${age})`, [user, hash(50 + i)]);
+    await pools.root.query(`insert into hdu_login_codes (user_id, channel, code_hash, expires_on) values ($1, 'telegram', $2, ${age})`, [user, hash(60 + i)]);
+  }
+  for (const table of ['hdu_email_tokens', 'hdu_link_codes', 'hdu_login_codes']) {
+    // Клиент и сотрудник не удаляют ничего, даже свои просроченные строки.
+    for (const actor of [f.aUser.actor, f.adminStaff.actor]) expect(await count(pools.auth, actor, `delete from ${table} where user_id = $1`, [user]), table).toBe(0);
+    // Система удаляет только строки, срок которых вышел больше суток назад.
+    expect(await count(pools.auth, system, `delete from ${table} where user_id = $1 and expires_on > now() - interval '1 day'`, [user]), table).toBe(0);
+    expect(await count(pools.auth, system, `delete from ${table} where user_id = $1`, [user]), table).toBe(1);
+    // Под ролью приложения таблицы закрыты.
+    await expect(count(pools.app, system, `delete from ${table}`), table).rejects.toThrow(/permission denied/);
+  }
+});

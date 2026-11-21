@@ -101,6 +101,8 @@ export async function replyTx(actor: ClientActor, number: number, body: string, 
 export async function confirmTx(actor: ClientActor, number: number): Promise<void> {
   await withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
+    // Закрыть чужое обращение подтверждением может только администратор клиента (решение 0026, пункт 21).
+    if (ticket.authorId !== actor.userId && actor.orgRole !== 'client_admin') throw new HdtError('forbidden');
     if (ticket.status !== 'resolved') throw new HdtError('transition_refused');
     await changeStatus(tx, actor, ticket, 'closed', { closedOn: new Date() });
   });
@@ -123,6 +125,8 @@ export async function reopenTx(actor: ClientActor, number: number, reopenDays: n
 export async function rateTx(actor: ClientActor, number: number, rating: { score: number; reason?: CsatReason; comment?: string }): Promise<void> {
   await withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
+    // Оценка одна и отражает опыт автора: коллега не ставит её за него (решение 0026, пункт 21).
+    if (ticket.authorId !== actor.userId) throw new HdtError('forbidden');
     if (ticket.status !== 'closed') throw new HdtError('transition_refused');
     if (ticket.csatScore !== null) throw new HdtError('already_rated');
     await tx

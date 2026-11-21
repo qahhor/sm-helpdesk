@@ -205,9 +205,11 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
     turn: turnOf(ticket.status),
     can: {
       reply: ticket.status !== 'closed',
-      confirm: ticket.status === 'resolved',
+      // Решение 0026, пункт 21: подтверждают автор и администратор клиента, открыть снова может любой, кто видит,
+      // оценивает только автор.
+      confirm: ticket.status === 'resolved' && (isMine || ctx.actor.orgRole === 'client_admin'),
       reopen: ticket.status === 'resolved' || (ticket.status === 'closed' && withinReopen(ticket.closedOn, days)),
-      rate: ticket.status === 'closed' && ticket.csatScore === null,
+      rate: ticket.status === 'closed' && ticket.csatScore === null && isMine,
       changeVisibility: isMine || ctx.actor.orgRole === 'client_admin',
       watch: ticket.visibility === 'org' && !isMine,
     },

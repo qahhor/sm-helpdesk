@@ -168,3 +168,34 @@ test('каждое изменение статуса и видимости за�
   ]);
   expect(JSON.stringify(rows)).not.toContain('Секретный');
 });
+
+test('оценивает только автор, решение подтверждают автор и администратор клиента, открыть снова может любой коллега (решение 0026)', async () => {
+  const f = await seedTwoOrgs();
+  const set = (ticketId: string, status: string) =>
+    pools.root.query(`update hdt_tickets set visibility = 'org', status = $2, closed_on = case when $2 = 'closed' then now() end where ticket_id = $1`, [
+      ticketId,
+      status,
+    ]);
+  // Обращение администратора клиента глазами рядового коллеги.
+  const theirs = f.tickets.aPrivate;
+  const colleague = await clientCtx(f.aUser);
+  await set(theirs.ticketId, 'resolved');
+  expect((await getTicket(colleague, String(theirs.number)))?.can).toMatchObject({ confirm: false, reopen: true });
+  await expect(confirmResolution(colleague, theirs.number)).rejects.toMatchObject({ code: 'forbidden' });
+  await set(theirs.ticketId, 'closed');
+  expect((await getTicket(colleague, String(theirs.number)))?.can).toMatchObject({ rate: false, reopen: true });
+  await expect(rateTicket(colleague, { number: theirs.number, score: 5 })).rejects.toMatchObject({ code: 'forbidden' });
+  // Вопрос вернулся у коллеги: открыть снова он может.
+  await reopenTicket(colleague, { number: theirs.number });
+  expect((await getTicket(colleague, String(theirs.number)))?.status).toBe('in_progress');
+  // Обращение рядового пользователя: администратор клиента подтверждает решение, но не оценивает за автора.
+  const mine = f.tickets.aOrg;
+  const admin = await clientCtx(f.aAdmin);
+  await set(mine.ticketId, 'resolved');
+  expect((await getTicket(admin, String(mine.number)))?.can).toMatchObject({ confirm: true });
+  await confirmResolution(admin, mine.number);
+  expect((await getTicket(admin, String(mine.number)))?.can).toMatchObject({ rate: false });
+  await expect(rateTicket(admin, { number: mine.number, score: 2, reason: 'slow' })).rejects.toMatchObject({ code: 'forbidden' });
+  await rateTicket(colleague, { number: mine.number, score: 5 });
+  expect((await getTicket(colleague, String(mine.number)))?.csat).toMatchObject({ score: 5 });
+});

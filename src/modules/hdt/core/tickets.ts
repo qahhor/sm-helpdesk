@@ -136,6 +136,12 @@ export async function listTicketRows(actor: ClientActor, filters: ListFilters): 
   );
 }
 
+/** Видно ли актору обращение с этим номером (политики RLS). Одна строка без сообщений и файлов. */
+export async function ticketExists(actor: ClientActor, number: number): Promise<boolean> {
+  const rows = await withActor(actor, (tx) => tx.select({ ticketId: tickets.ticketId }).from(tickets).where(eq(tickets.number, number)).limit(1));
+  return rows.length > 0;
+}
+
 export type TicketRecord = typeof tickets.$inferSelect;
 export type MessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'createdOn'>;
 export type EventRecord = Pick<typeof ticketEvents.$inferSelect, 'kind' | 'actorType' | 'actorId' | 'payload' | 'createdOn'>;

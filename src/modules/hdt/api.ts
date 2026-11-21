@@ -4,7 +4,7 @@ import { consumeRateLimit, rateKey, readSetting } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule } from '@/modules/hdr/api';
 import { confirmTx, rateTx, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
-import { createTicketTx, listTicketRows, readTicket } from './core/tickets';
+import { createTicketTx, listTicketRows, readTicket, ticketExists } from './core/tickets';
 import { HdtError } from './error';
 import { createTicketInput, listTicketsInput, numberInput, parseInput, rateInput, reopenInput, replyInput, visibilityInput } from './input';
 import {
@@ -159,8 +159,9 @@ export type TicketView = {
 export async function findTicketInOtherOrganizations(ctx: ClientContext, numberRaw: unknown): Promise<{ orgId: string; orgName: string } | null> {
   const number = typeof numberRaw === 'string' ? parseNumber(numberRaw) : null;
   if (number === null) return null;
+  // Только наличие: страница другой организации здесь не нужна, сообщения и файлы не читаются.
   for (const other of await otherOrganizationActors(ctx))
-    if (await readTicket(other.actor, number)) return { orgId: other.orgId, orgName: other.name };
+    if (await ticketExists(other.actor, number)) return { orgId: other.orgId, orgName: other.name };
   return null;
 }
 

@@ -155,6 +155,9 @@ test('обращение другой своей организации: стр�
   // Отключённое членство подсказки не даёт.
   await pools.root.query(`update hdu_memberships set state = 'passive' where org_id = $1 and user_id = $2`, [f.orgB.orgId, f.aUser.userId]);
   expect(await findTicketInOtherOrganizations(await clientCtx(f.aUser), String(f.tickets.bOrg.number))).toBeNull();
+  // Гостевое членство входа не даёт, значит и подсказки: о чужом обращении гость не узнаёт (вторая проверка M2).
+  await pools.root.query(`update hdu_memberships set state = 'active', source = 'guest' where org_id = $1 and user_id = $2`, [f.orgB.orgId, f.aUser.userId]);
+  expect(await findTicketInOtherOrganizations(await clientCtx(f.aUser), String(f.tickets.bOrg.number))).toBeNull();
 });
 
 test('ставшее личным обращение пропадает у коллеги на следующем запросе (на что смотреть, 4)', async () => {

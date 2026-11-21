@@ -145,11 +145,27 @@ test('черновик после перезагрузки на месте (UX-C
 
 test('EICAR: файл помечен "не прошёл проверку", ссылки на скачивание нет, прямой адрес отвечает 404', async ({ page }) => {
   const name = `readme-${Date.now()}.txt`;
-  await createTicket(page, { description: `Файл с тестовой строкой ${Date.now()}`, file: { name, mimeType: 'text/plain', buffer: Buffer.from(EICAR) } });
-  await reloadUntil(page, 'не прошёл проверку');
-  await expect(page.getByRole('link', { name: new RegExp(name) })).toHaveCount(0);
-  const [row] = await dbRows<{ attachment_id: string; scan_status: string }>(`select attachment_id, scan_status from hdt_attachments where file_name = $1`, [name]);
-  expect(row?.scan_status).toBe('infected');
+  const description = `Файл с тестовой строкой ${Date.now()}`;
+  await page.goto('/ru/tickets/new');
+  await formReady(page);
+  await page.getByLabel('Что случилось?').fill(description);
+  await page.locator('input[type="file"]').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from(EICAR) });
+  await expect(page.getByText('Загружен', { exact: true })).toBeVisible();
+  await resetLimits();
+  await page.getByRole('button', { name: 'Отправить обращение' }).click();
+  // Фоновый процесс мог проверить файл раньше нажатия: заражённый файл не прикрепляется, форма говорит об этом.
+  // Иначе обращение создано, и файл помечается на его странице после проверки. Правильны оба исхода.
+  const refused = page.getByText('Один из файлов больше недоступен или не прошёл проверку');
+  await expect(page.getByRole('heading', { level: 1, name: description }).or(refused)).toBeVisible();
+  if (await refused.isVisible()) {
+    await expect(page.getByLabel('Что случилось?')).toHaveValue(description);
+  } else {
+    await reloadUntil(page, 'не прошёл проверку на вирусы');
+    await expect(page.getByRole('link', { name: new RegExp(name) })).toHaveCount(0);
+  }
+  // В обоих случаях файл заражён и не скачивается по прямому адресу.
+  await expect.poll(async () => (await dbRows<{ scan_status: string }>(`select scan_status from hdt_attachments where file_name = $1`, [name]))[0]?.scan_status, { timeout: 30_000 }).toBe('infected');
+  const [row] = await dbRows<{ attachment_id: string }>(`select attachment_id from hdt_attachments where file_name = $1`, [name]);
   const response = await page.request.get(`/api/attachments/${row?.attachment_id}`, { maxRedirects: 0 });
   expect(response.status()).toBe(404);
 });

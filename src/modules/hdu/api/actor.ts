@@ -115,6 +115,15 @@ export async function requireClientActor(): Promise<ClientContext> {
 }
 
 /**
+ * Клиент текущего запроса с организацией для обработчиков /api/: без перенаправлений. Нет входа, сотрудник,
+ * нет или не выбрана организация: null, обработчик отвечает 401.
+ */
+export async function currentClient(): Promise<ClientContext | null> {
+  const result = await clientOfRequest();
+  return 'denied' in result ? null : result;
+}
+
+/**
  * Вошедший клиент без требования организации: для экранов выбора организации и "нет организации".
  * Без входа ведёт на страницу входа, сотрудника в рабочее место.
  */

@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { mailLink } from './helpers/mail';
-import { acceptAndEnroll, createStaffInvitation, signInStaff, staffAccount } from './helpers/staff';
+import { acceptAndEnroll, createStaffInvitation, dropSession, signInStaff, staffAccount } from './helpers/staff';
 
 // Сотрудники в разделе "Настройки" (FR-ADM-03). Общих сотрудников тестов (care, l1, admin) не блокируем:
 // для блокировки заводится свой сотрудник через команду hub и страницу задания пароля.
@@ -60,7 +60,7 @@ test('у своей строки нет действий, а care раздел �
   const own = page.getByRole('row', { name: new RegExp(staffAccount('admin').email.replace(/[.]/g, '\\.')) });
   await expect(own).toContainText('это вы');
   await expect(own.getByRole('button')).toHaveCount(0);
-  await page.context().clearCookies();
+  await dropSession(page);
   await signInStaff(page, staffAccount('care'));
   expect((await page.goto('/ru/agent/settings/staff'))!.status()).toBe(404);
 });

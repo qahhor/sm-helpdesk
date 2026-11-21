@@ -23,6 +23,7 @@ export const authUser = auth.table('user', {
   lastOrgId: uuid('lastOrgId'),
   locale: text('locale').$type<'ru' | 'uz' | 'en'>(),
   policyVersion: text('policyVersion'),
+  hintsSeenAt: moment('hintsSeenAt'),
 });
 
 export const authSession = auth.table('session', {

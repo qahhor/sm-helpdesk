@@ -38,6 +38,27 @@ const need = (name: string): string => {
   return value;
 };
 
+/** Окружение портала и фонового процесса в браузерных тестах. */
+const APP_ENV = {
+  PORT: String(PORT),
+  HUB_URL: baseURL,
+  HUB_DOMAIN: 'localhost',
+  HUB_SHOWCASE: '1',
+  DATABASE_URL_APP: need('DATABASE_URL_APP'),
+  DATABASE_URL_AUTH: need('DATABASE_URL_AUTH'),
+  BETTER_AUTH_SECRET: need('BETTER_AUTH_SECRET'),
+  ENCRYPTION_KEY: need('ENCRYPTION_KEY'),
+  // Письма со ссылками входа тесты читают из каталога.
+  MAIL_TRANSPORT: 'file',
+  MAIL_FILE_DIR: MAIL_DIR,
+  // Бот идёт в ложный Telegram. Секрет вебхука тот же, что в tests/e2e/helpers/telegram.ts.
+  TELEGRAM_API_URL: 'http://localhost:3192',
+  TELEGRAM_BOT_TOKEN: '123456:e2e-telegram-bot-token',
+  TELEGRAM_WEBHOOK_SECRET: 'e2e-telegram-webhook-secret-0123456789abcdef',
+  // Портал и фоновый процесс запускаются из разных каталогов: путь к файлам задаётся полностью.
+  FILE_STORAGE_DIR: resolve('test-results/storage'),
+};
+
 export default defineConfig({
   testDir: 'tests/e2e',
   // Эталонные снимки лежат в одной папке, без деления по проектам и системам.
@@ -83,23 +104,16 @@ export default defineConfig({
       url: `${baseURL}/api/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
-      env: {
-        PORT: String(PORT),
-        HUB_URL: baseURL,
-        HUB_DOMAIN: 'localhost',
-        HUB_SHOWCASE: '1',
-        DATABASE_URL_APP: need('DATABASE_URL_APP'),
-        DATABASE_URL_AUTH: need('DATABASE_URL_AUTH'),
-        BETTER_AUTH_SECRET: need('BETTER_AUTH_SECRET'),
-        ENCRYPTION_KEY: need('ENCRYPTION_KEY'),
-        // Письма со ссылками входа тесты читают из каталога.
-        MAIL_TRANSPORT: 'file',
-        MAIL_FILE_DIR: MAIL_DIR,
-        // Бот идёт в ложный Telegram. Секрет вебхука тот же, что в tests/e2e/helpers/telegram.ts.
-        TELEGRAM_API_URL: 'http://localhost:3192',
-        TELEGRAM_BOT_TOKEN: '123456:e2e-telegram-bot-token',
-        TELEGRAM_WEBHOOK_SECRET: 'e2e-telegram-webhook-secret-0123456789abcdef',
-      },
+      env: APP_ENV,
+    },
+    // Фоновый процесс (решение 0028): проверка вложений заглушкой антивируса, файлы в локальном хранилище.
+    // Серверы стартуют до подготовки базы (tests/e2e/global-setup.ts): процесс ждёт схему pg-boss сам,
+    // поэтому готовности здесь не ждём.
+    {
+      command: 'node dist/worker.mjs',
+      timeout: 30_000,
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 },
+      env: APP_ENV,
     },
   ],
 });

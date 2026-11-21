@@ -67,7 +67,15 @@
       "title": "How can we help?",
       "report": "Report a problem",
       "idea": "Suggest an idea",
-      "myTickets": "My requests"
+      "myTickets": "My requests",
+      "all": "All",
+      "hints": {
+        "label": "Tips",
+        "report": "Report a problem: describe what happened and attach a screenshot",
+        "turn": "Follow the reply on the request page: it shows whose turn it is",
+        "visibility": "Colleagues see your organization requests, private ones only you and the administrator",
+        "ok": "Got it"
+      }
     },
     "nav": {
       "home": "Home",
@@ -79,7 +87,175 @@
     "tickets": {
       "empty": "No requests yet. Describe your question and I will look for a solution.",
       "emptyTitle": "No requests yet",
-      "emptyText": "Describe your question and I will look for a solution."
+      "emptyText": "Describe your question and I will look for a solution.",
+      "statuses": {
+        "new": "New",
+        "in_progress": "In progress",
+        "waiting_customer": "Waiting for your reply",
+        "in_development": "In development",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "types": {
+        "bug": "Bug",
+        "question": "Question",
+        "service_request": "Service request"
+      },
+      "impacts": {
+        "blocker": "Work has stopped",
+        "major": "Seriously gets in the way",
+        "minor": "Inconvenience",
+        "question": "Question"
+      },
+      "visibilities": {
+        "org": "My organization",
+        "private": "Only me"
+      },
+      "new": {
+        "title": "New request",
+        "back": "Back to requests",
+        "description": "What happened?",
+        "descriptionHint": "Describe what you were doing and what went wrong. You can paste a screenshot from the clipboard.",
+        "subject": "Subject",
+        "subjectHint": "Taken from the description, you can edit it.",
+        "type": "Type",
+        "module": "Module",
+        "moduleNone": "Not sure",
+        "impact": "Impact on work",
+        "visibility": "Who can see it",
+        "visibilityHint": "Your colleagues see organization requests. Private ones are visible only to you and the administrator.",
+        "related": "Follow-up to request {number}",
+        "hours": "Our team works on weekdays from 08:00 to 20:00 and on Saturday from 09:00 to 17:00.",
+        "submit": "Send request",
+        "moduleSearch": "Search modules",
+        "moduleRecent": "Recent",
+        "moduleAll": "All modules"
+      },
+      "list": {
+        "new": "New request",
+        "scope": "Whose requests",
+        "scopes": {
+          "org": "Organization",
+          "mine": "Mine"
+        },
+        "status": "Status",
+        "type": "Type",
+        "all": "All",
+        "search": "Number or text",
+        "find": "Search",
+        "more": "Show more",
+        "nothing": "Nothing found. Change the search conditions.",
+        "private": "Private"
+      },
+      "page": {
+        "copy": "Copy number {number}",
+        "copied": "Number copied",
+        "you": "You",
+        "support": "Smartup support",
+        "colleague": "Colleague",
+        "visibleOrg": "Visible to colleagues",
+        "visiblePrivate": "Visible to you and the administrator",
+        "steps": {
+          "label": "Request progress",
+          "created": "Created",
+          "work": "In progress",
+          "resolved": "Resolved",
+          "current": "now"
+        },
+        "turn": {
+          "client": "Your turn",
+          "support": "Support's turn",
+          "none": "Request closed"
+        },
+        "related": "Follow-up to request {number}",
+        "history": "Conversation and history",
+        "events": {
+          "created": "Request created",
+          "status": "Status: {from} > {to}",
+          "visibility": "Visibility changed",
+          "rated": "Rating given"
+        },
+        "files": "Files",
+        "scan": {
+          "pending": "being checked",
+          "infected": "failed the virus check",
+          "rejected": "not accepted: the content does not match the extension or the file could not be checked, attach it again or in another format",
+          "encrypted": "not accepted: the file is password-protected, attach it without a password",
+          "limits": "not accepted: the archive is too large to check, attach the files separately"
+        },
+        "reply": "Reply",
+        "replyPlaceholder": "Write a reply",
+        "send": "Send",
+        "confirm": "Resolved, thanks",
+        "reopen": "Not resolved",
+        "reopenHint": "If the problem is back, reopen the request.",
+        "reopenClosed": "Reopen",
+        "createNew": "Create a new one on this topic",
+        "toOrg": "Show to colleagues",
+        "toPrivate": "Make private",
+        "watch": "Follow",
+        "unwatch": "Unfollow",
+        "rate": {
+          "title": "Rate the solution",
+          "score": "Rating",
+          "scores": {
+            "1": "1 of 5",
+            "2": "2 of 5",
+            "3": "3 of 5",
+            "4": "4 of 5",
+            "5": "5 of 5"
+          },
+          "reason": "What went wrong",
+          "reasonHint": "Needed for a rating of 1-3.",
+          "reasons": {
+            "slow": "Waited too long for a reply",
+            "not_solved": "The problem is not solved",
+            "unclear": "The answer is unclear",
+            "other": "Other"
+          },
+          "comment": "Comment",
+          "submit": "Rate",
+          "done": "Your rating: {score} of 5"
+        },
+        "done": {
+          "replied": "Reply sent",
+          "confirmed": "Thank you, the request is closed",
+          "reopened": "The request is in progress again",
+          "rated": "Thank you for the rating",
+          "visibility": "Visibility changed",
+          "watched": "You are following the request",
+          "unwatched": "You no longer follow the request"
+        },
+        "otherOrg": {
+          "text": "Request {number} belongs to {org}. Switch to it to open the request.",
+          "switch": "Switch to {org}"
+        }
+      },
+      "files": {
+        "add": "File or screenshot",
+        "hint": "Up to 10 files, up to 25 MB each, MP4 video up to 50 MB. You can paste a screenshot from the clipboard or drag a file here.",
+        "remove": "Remove file {name}",
+        "uploading": "Uploading {percent}%",
+        "ready": "Uploaded",
+        "failed": "Not uploaded",
+        "busy": "Wait for the files to upload"
+      },
+      "errors": {
+        "description": "Describe what happened",
+        "invalid_input": "Check the form fields",
+        "not_found": "Request not found",
+        "forbidden": "This action is not available to you",
+        "rate_limited": "Too many requests this hour. Try again later",
+        "transition_refused": "The request has already changed. Refresh the page",
+        "reopen_expired": "The reopening period has passed. Create a new request",
+        "already_rated": "The rating has already been given",
+        "too_many_files": "No more than 10 files in one message",
+        "file_not_allowed": "This file cannot be attached",
+        "file_too_large": "The file is larger than 25 MB, video larger than 50 MB",
+        "upload": "The file did not upload. Try again",
+        "reason": "Choose what went wrong",
+        "file_unavailable": "One of the files is no longer available or failed the check. Remove it and attach it again"
+      }
     },
     "ideas": {
       "emptyTitle": "No ideas yet",
@@ -515,7 +691,10 @@
           "invitation": "Invitation",
           "user": "User",
           "session": "Session",
-          "organization": "Organization"
+          "organization": "Organization",
+          "ticket": "Ticket",
+          "attachment": "Attachment",
+          "module": "Product modules"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -563,6 +742,17 @@
           "telegram": {
             "linked": "Telegram linked",
             "unlinked": "Telegram unlinked"
+          },
+          "ticket": {
+            "created": "Ticket created",
+            "status_changed": "Ticket status changed",
+            "visibility_changed": "Ticket visibility changed"
+          },
+          "attachment": {
+            "infected": "Infected file found"
+          },
+          "modules": {
+            "imported": "Module catalog imported"
           }
         },
         "words": {

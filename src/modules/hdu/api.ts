@@ -7,6 +7,7 @@ import 'server-only';
 export {
   acknowledgePolicyOfRequest,
   confirmEmailOfRequest,
+  currentClient,
   currentClientName,
   currentStaff,
   mySessions,
@@ -28,13 +29,14 @@ export {
   listMyOrganizations,
   type MyOrganization,
   type OrgRow,
+  otherOrganizationActors,
   searchOrganizations,
   updateOrganization,
 } from './api/orgs';
 export type { OrgScope } from './api/scope';
 export type { SessionView } from './api/sessions';
 export { handleAuthRequest } from './api/auth-route';
-export { acknowledgePolicy, completeWelcome, confirmEmail, requestEmailConfirmation } from './api/email';
+export { acknowledgePolicy, completeWelcome, confirmEmail, dismissHints, hintsPending, requestEmailConfirmation } from './api/email';
 export {
   acceptInvitation,
   describeInvitation,
@@ -97,3 +99,5 @@ export {
 export { inviteStaff, resetStaff } from './api/staff-admin';
 export { HduError, type HduErrorCode, isHduError } from './error';
 export { needsPolicyNotice, safeReturnPath } from './util';
+// Имена людей для других модулей (обращения): только те, кого актор вправе видеть.
+export { namesOf } from './core/members';

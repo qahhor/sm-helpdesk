@@ -95,6 +95,7 @@ const PROBLEM_TITLES: Record<number, string> = {
   404: 'Not Found',
   405: 'Method Not Allowed',
   413: 'Content Too Large',
+  415: 'Unsupported Media Type',
   429: 'Too Many Requests',
   500: 'Internal Server Error',
 };
@@ -132,4 +133,14 @@ export async function readLimited(message: Request | Response, maxBytes: number)
     chunks.push(value);
   }
   return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
+/**
+ * Запрос JSON со страницы портала (обработчики /api/ с сессией). Чужая страница не пришлёт application/json
+ * без предварительного запроса CORS, а Origin и Sec-Fetch-Site браузер подделать не даёт.
+ */
+export function isSameOriginJson(request: Request, hubUrl: string): boolean {
+  const type = request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+  const site = request.headers.get('sec-fetch-site');
+  return type === 'application/json' && request.headers.get('origin') === hubUrl && (site === null || site === 'same-origin');
 }

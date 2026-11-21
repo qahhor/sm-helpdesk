@@ -4,7 +4,7 @@ import { LOCALE_COOKIE } from '@/i18n/locales';
 import { localizedPath, resolveLocale } from '@/i18n/resolve-locale';
 import { routing } from '@/i18n/routing';
 import { sessionCookieRefresh } from '@/modules/hdu/api/session-cookie';
-import { buildCsp, createNonce, CSP_HEADER } from '@/security/csp';
+import { buildCsp, createNonce, CSP_HEADER, storageOriginOf } from '@/security/csp';
 import { isPublicPath } from '@/security/public-paths';
 
 // Выполняется перед каждым запросом страницы (в Next.js 16 файл называется proxy, раньше middleware).
@@ -15,6 +15,16 @@ import { isPublicPath } from '@/security/public-paths';
 //    действительна ли сессия, решает только база. На страницах открытой зоны кука не трогается (ТЗ 18.10).
 
 const withLocale = createMiddleware(routing);
+
+/** Адрес с испорченной последовательностью %XX: Next.js отвечает на него ошибкой 500 ещё до страницы. */
+function isMalformedPath(pathname: string): boolean {
+  try {
+    decodeURIComponent(pathname);
+    return false;
+  } catch {
+    return true;
+  }
+}
 
 export function proxy(request: NextRequest): NextResponse {
   const target = localizedPath(request.nextUrl.pathname, () =>
@@ -29,8 +39,18 @@ export function proxy(request: NextRequest): NextResponse {
     return NextResponse.redirect(url, 307);
   }
 
+  // Испорченный адрес: Next.js разбирает его ещё до страницы и отвечает ошибкой 500, внутренняя перезапись
+  // не помогает. Перенаправляем на страницу "не найдено" того же языка (код 404). Адрес без языка к этому
+  // месту уже перенаправлен на адрес с языком.
+  if (isMalformedPath(request.nextUrl.pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${request.nextUrl.pathname.split('/')[1]}/not-found`;
+    url.search = '';
+    return NextResponse.redirect(url, 307);
+  }
+
   const nonce = createNonce();
-  const csp = buildCsp({ nonce, dev: process.env.NODE_ENV === 'development' });
+  const csp = buildCsp({ nonce, dev: process.env.NODE_ENV === 'development', storageOrigin: storageOriginOf(process.env) });
 
   // Приложение получает код только от прокси: значения, присланные клиентом, затираются.
   // Next.js берёт код для своих скриптов из заголовка политики в запросе.

@@ -56,3 +56,15 @@ export async function resetStaff(
     { resetUserId: target.userId, ip },
   );
 }
+
+/**
+ * Действующий администратор портала по адресу, для команды консоли (актор system). Справочники меняет только
+ * администратор (политики RLS), поэтому консоль действует от его имени, и журнал аудита называет его.
+ */
+export async function adminActorByEmail(actor: SystemActor, email: unknown): Promise<StaffActor> {
+  if (actor.type !== 'system') throw new HduError('forbidden');
+  const { email: address } = parseInput(resetInput, { email });
+  const found = await findStaffByEmail(address);
+  if (!found || found.state !== 'active' || found.role !== 'admin') throw new HduError('not_found');
+  return { type: 'staff', userId: found.userId, staffRole: 'admin' };
+}

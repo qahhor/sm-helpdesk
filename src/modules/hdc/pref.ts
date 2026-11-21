@@ -36,6 +36,14 @@ export const AUDIT_ACTIONS = [
   'telegram.linked',
   'telegram.unlinked',
   'user.signed_in_telegram',
+  // Обращения (веха M2): создание, смена статуса и видимости. Текста обращения в журнале нет.
+  'ticket.created',
+  'ticket.status_changed',
+  'ticket.visibility_changed',
+  // Антивирус нашёл заражённый файл во вложении (решение 0027).
+  'attachment.infected',
+  // Загрузка справочника модулей командой hub modules:import.
+  'modules.imported',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -76,6 +84,17 @@ export const RATE_RULES = {
   ssoCallbackPerIp: { limit: 120, windowSec: 60 },
   /** Отчёты о нарушениях CSP с одного адреса (проверка main, S9): страница присылает несколько за раз. */
   cspReportPerIp: { limit: 60, windowSec: 600 },
+  /** Создание обращения: 10 в час на пользователя (раздел 14.5). */
+  ticketCreatePerUser: { limit: 10, windowSec: 3600 },
+  /** Ответы в обращениях: 60 в час на пользователя (предложение плана M2, в ТЗ предела нет). */
+  ticketReplyPerUser: { limit: 60, windowSec: 3600 },
+  /** Ссылки на загрузку файла: 30 в час на пользователя (план M2, задача 5). */
+  uploadPresignPerUser: { limit: 30, windowSec: 3600 },
+  /** Завершение загрузки: вдвое больше ссылок, браузер может повторить (вторая проверка M2). */
+  uploadCompletePerUser: { limit: 60, windowSec: 3600 },
+  /** Действия с обращением (подтвердить, открыть заново, оценить, видимость, подписка): общий предел на
+   * пользователя, 60 в час. Каждое действие пишет событие и запись журнала (вторая проверка M2). */
+  ticketActionPerUser: { limit: 60, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

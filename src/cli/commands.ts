@@ -1,12 +1,14 @@
+import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import type { SystemActor } from '@/db/with-actor';
 import { addServer, checkServer, disableServer, listServers, type ServerIssue } from '@/modules/hdu/api/servers';
-import { inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
+import { adminActorByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { cleanupRateLimits } from '@/modules/hdc/api';
+import { importModules } from '@/modules/hdr/api/import';
 
 // Команда hub для консоли сервера (FR-ID-12, решение 0015): первый администратор, сброс доступа
 // сотрудника, реестр серверов Smartup. Работает от актора system, каждое изменение пишется в журнал аудита.
@@ -56,6 +58,12 @@ const HELP = `Использование: hub <команда> [ключи]
   telegram:info
       Включён ли бот и его имя в Telegram.
 
+  modules:import --file <путь> --admin <адрес>
+      Загрузить справочник модулей из выгрузки Smartup (JSON: code, parentCode, name {ru, uz, en}, screens).
+      Справочник меняет только администратор портала: загрузка идёт от имени действующего администратора
+      с этим адресом, журнал аудита называет его. Модули добавляются и обновляются по коду, отсутствующие
+      в файле скрываются. При ошибке справочник не меняется, команда называет запись и строку файла.
+
   maintenance:cleanup
       Удалить просроченные служебные строки: счётчики частоты, номера событий Telegram, сессии
       и одноразовые значения входа. Запускать раз в сутки, пока нет фоновых задач (решение 0023).
@@ -90,6 +98,7 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'telegram:set-webhook': { options: {}, required: [] },
   'telegram:info': { options: {}, required: [] },
   'maintenance:cleanup': { options: {}, required: [] },
+  'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
 };
 
 class UsageError extends Error {}
@@ -237,10 +246,29 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
       case 'maintenance:cleanup': {
         const limits = await cleanupRateLimits();
         const updates = await cleanupTelegramUpdates(ACTOR);
-        const { sessions, verifications } = await cleanupAuthRows(ACTOR);
+        const { sessions, verifications, links } = await cleanupAuthRows(ACTOR);
         io.out(
-          `Удалено просроченных строк: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}.`,
+          `Удалено просроченных строк: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}.`,
         );
+        return 0;
+      }
+      case 'modules:import': {
+        // Сначала администратор: от чужого имени файл даже не читается.
+        const admin = await adminActorByEmail(ACTOR, text('admin'));
+        let content: string;
+        try {
+          content = await readFile(text('file'), 'utf8');
+        } catch {
+          io.err(`Файл не прочитан: ${text('file')}`);
+          return 1;
+        }
+        const result = await importModules(admin, content, 'cli');
+        if (!result.ok) {
+          io.err('Справочник не загружен, ошибки в файле:');
+          for (const problem of result.problems) io.err(`  ${problem}`);
+          return 1;
+        }
+        io.out(`Справочник модулей загружен: добавлено ${result.added}, обновлено ${result.updated}, скрыто ${result.passive}.`);
         return 0;
       }
       case 'telegram:info': {

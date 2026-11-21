@@ -18,6 +18,14 @@ function assertOrigin(value: string, name: string): string {
   return value;
 }
 
+/**
+ * Адрес хранилища файлов для политики: браузер кладёт файлы в R2 и показывает картинки оттуда (решение 0027).
+ * Локальное хранилище отдаёт файлы с адреса портала, ему отдельный источник не нужен. Значение проверено src/env.ts.
+ */
+export function storageOriginOf(source: Record<string, string | undefined>): string | undefined {
+  return source.FILE_STORAGE === 'r2' && source.R2_ENDPOINT ? source.R2_ENDPOINT : undefined;
+}
+
 /** Одноразовый код запроса: 16 случайных байт в base64. */
 export function createNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -51,7 +59,8 @@ export function buildCsp(opts: {
     "default-src 'self'",
     `script-src 'self' ${nonce}${opts.dev ? " 'unsafe-eval'" : ''} ${TURNSTILE}`,
     `style-src 'self' ${nonce}`,
-    `img-src 'self' data:${storage}`,
+    // blob: миниатюры выбранных файлов до отправки (URL.createObjectURL), только из памяти страницы.
+    `img-src 'self' data: blob:${storage}`,
     `connect-src 'self'${storage}`,
     `frame-src ${TURNSTILE}`,
     `frame-ancestors ${ancestors}`,

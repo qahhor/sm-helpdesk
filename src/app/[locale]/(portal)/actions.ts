@@ -3,7 +3,7 @@
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { isHduError, switchOrganizationOfRequest } from '@/modules/hdu/api';
+import { dismissHints, isHduError, requireClientActor, switchOrganizationOfRequest } from '@/modules/hdu/api';
 
 /**
  * Переключение организации из шапки кабинета. Идентификатор из формы проверяет модуль идентичности:
@@ -20,5 +20,12 @@ export async function switchOrganizationAction(form: FormData): Promise<void> {
   // Шапка с названием организации живёт в раскладке, а раскладку переход между страницами не перерисовывает:
   // refresh() заставляет перерисовать всё дерево кабинета.
   refresh();
+  redirect(`/${await getLocale()}`);
+}
+
+/** Кнопка "Понятно" под подсказками первого входа (UX-C-14): больше они не показываются. */
+export async function dismissHintsAction(): Promise<void> {
+  const client = await requireClientActor();
+  await dismissHints(client);
   redirect(`/${await getLocale()}`);
 }

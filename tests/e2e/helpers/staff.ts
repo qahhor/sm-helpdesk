@@ -47,11 +47,24 @@ export async function staffCode(staff: E2eStaff): Promise<string> {
   return totp(staff.totpSecret);
 }
 
+/**
+ * Сессия этой вкладки без кнопки выхода. Сначала страница уходит на about:blank: запросы прежней страницы
+ * отменяются. Иначе ответ на запрос, ушедший до очистки, ставил куку сессии обратно (портал продлевает её
+ * на каждом запросе страницы), и следующий вход попадал в прежнего сотрудника.
+ */
+export async function dropSession(page: Page): Promise<void> {
+  await page.goto('about:blank');
+  await page.context().clearCookies();
+}
+
 /** Вход сотрудника через страницу входа: пароль, затем код из приложения. */
 export async function signInStaff(page: Page, staff: E2eStaff, opts: { startAt?: string } = {}): Promise<void> {
   // Параллельный тест мог войти тем же сотрудником тем же кодом между снятием отметки и отправкой: вход заново.
   for (let attempt = 1; ; attempt++) {
     await page.goto(opts.startAt ?? '/ru/staff/login');
+    // Прошлая попытка на самом деле прошла, только переход занял дольше ожидания: вошедшего сотрудника
+    // страница входа уже не показывает. Это успех, а не повод ждать поле Email до конца теста.
+    if (attempt > 1 && !/\/staff\/login/.test(new URL(page.url()).pathname)) return;
     await page.getByLabel('Email').fill(staff.email);
     await page.getByLabel('Пароль', { exact: true }).fill(staff.password);
     await page.getByRole('button', { name: 'Войти' }).click();
@@ -59,7 +72,7 @@ export async function signInStaff(page: Page, staff: E2eStaff, opts: { startAt?:
     await page.getByRole('button', { name: 'Подтвердить' }).click();
     if (attempt === 3) break;
     try {
-      await expect(page).not.toHaveURL(/\/staff\/login/, { timeout: 5_000 });
+      await expect(page).not.toHaveURL(/\/staff\/login/, { timeout: 10_000 });
       return;
     } catch {
       // Ещё одна попытка.

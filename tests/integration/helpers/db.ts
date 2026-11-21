@@ -54,7 +54,7 @@ export async function asActor<T>(pool: Pool, actor: Actor, fn: (client: PoolClie
 }
 
 /**
- * Удаляет всё, что создали миграции: журнал, схемы app и auth, таблицы и представления схемы public.
+ * Удаляет всё, что создали миграции: журнал, схемы app, auth и pgboss, таблицы и представления схемы public.
  * После этого migrate() применяет все файлы заново.
  */
 export async function dropMigratedObjects(): Promise<void> {
@@ -67,6 +67,7 @@ export async function dropMigratedObjects(): Promise<void> {
     await pools.owner.query(`drop ${relkind === 'v' ? 'view' : 'table'} if exists public."${relname}" cascade`);
   await pools.owner.query('drop schema if exists auth cascade');
   await pools.owner.query('drop schema if exists app cascade');
+  await pools.owner.query('drop schema if exists pgboss cascade');
 }
 
 /** Сравнение версий вида 0.8.7: отрицательное число, если a меньше b. */

@@ -1,6 +1,6 @@
 import 'server-only';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
+import { type Actor, type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
@@ -117,4 +117,16 @@ export async function changeMemberRoleTx(actor: StaffActor, orgId: string, userI
       diff: { from: current.role, to: role },
     });
   });
+}
+
+/**
+ * Имена пользователей по идентификаторам через представление hdu_user_profiles: клиент получает имена
+ * участников своей организации и сотрудников, остальных представление не отдаёт (раздел 10.3).
+ */
+export async function namesOf(actor: Actor, userIds: string[]): Promise<Map<string, string>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await withActor(actor, (tx) =>
+    tx.select({ userId: userProfiles.userId, name: userProfiles.name }).from(userProfiles).where(inArray(userProfiles.userId, [...new Set(userIds)])),
+  );
+  return new Map(rows.map((row) => [row.userId, row.name]));
 }

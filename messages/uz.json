@@ -67,7 +67,15 @@
       "title": "Sizga qanday yordam kerak?",
       "report": "Muammo haqida xabar berish",
       "idea": "G'oya taklif qilish",
-      "myTickets": "Mening murojaatlarim"
+      "myTickets": "Mening murojaatlarim",
+      "all": "Hammasi",
+      "hints": {
+        "label": "Maslahatlar",
+        "report": "Muammo haqida xabar bering: nima bo'lganini yozing va skrinshot qo'shing",
+        "turn": "Javobni murojaat sahifasida kuzating: u yerda navbat kimdaligi ko'rinadi",
+        "visibility": "Tashkilotingiz murojaatlarini hamkasblar ko'radi, shaxsiylarini faqat siz va administrator",
+        "ok": "Tushunarli"
+      }
     },
     "nav": {
       "home": "Bosh sahifa",
@@ -79,7 +87,175 @@
     "tickets": {
       "empty": "Hozircha murojaatlar yo'q. Savolingizni yozing, men yechim qidiraman.",
       "emptyTitle": "Hozircha murojaatlar yo'q",
-      "emptyText": "Savolingizni yozing, men yechim qidiraman."
+      "emptyText": "Savolingizni yozing, men yechim qidiraman.",
+      "statuses": {
+        "new": "Yangi",
+        "in_progress": "Ishlanmoqda",
+        "waiting_customer": "Javobingizni kutyapmiz",
+        "in_development": "Dasturchilarda",
+        "resolved": "Hal qilindi",
+        "closed": "Yopilgan"
+      },
+      "types": {
+        "bug": "Xato",
+        "question": "Savol",
+        "service_request": "Xizmat so'rovi"
+      },
+      "impacts": {
+        "blocker": "Ish to'xtab qoldi",
+        "major": "Jiddiy xalaqit beryapti",
+        "minor": "Noqulaylik",
+        "question": "Savol"
+      },
+      "visibilities": {
+        "org": "Mening tashkilotim",
+        "private": "Faqat men"
+      },
+      "new": {
+        "title": "Yangi murojaat",
+        "back": "Murojaatlarga qaytish",
+        "description": "Nima bo'ldi?",
+        "descriptionHint": "Nima qilayotganingizni va nima noto'g'ri ketganini yozing. Skrinshotni buferdan qo'yish mumkin.",
+        "subject": "Murojaat mavzusi",
+        "subjectHint": "Tavsifdan olindi, o'zgartirish mumkin.",
+        "type": "Turi",
+        "module": "Modul",
+        "moduleNone": "Bilmayman",
+        "impact": "Ishga ta'siri",
+        "visibility": "Kim ko'radi",
+        "visibilityHint": "Tashkilot murojaatlarini hamkasblar ko'radi, shaxsiylarini faqat siz va administrator.",
+        "related": "{number} murojaatining davomi",
+        "hours": "Xodimlar ish kunlari 08:00 dan 20:00 gacha, shanba kuni 09:00 dan 17:00 gacha ishlaydi.",
+        "submit": "Murojaatni yuborish",
+        "moduleSearch": "Modulni qidirish",
+        "moduleRecent": "Yaqinda tanlanganlar",
+        "moduleAll": "Barcha modullar"
+      },
+      "list": {
+        "new": "Yangi murojaat",
+        "scope": "Kimning murojaatlari",
+        "scopes": {
+          "org": "Tashkilotniki",
+          "mine": "Meniki"
+        },
+        "status": "Holati",
+        "type": "Turi",
+        "all": "Hammasi",
+        "search": "Raqam yoki matn",
+        "find": "Qidirish",
+        "more": "Yana ko'rsatish",
+        "nothing": "Hech narsa topilmadi. Qidiruv shartlarini o'zgartiring.",
+        "private": "Shaxsiy"
+      },
+      "page": {
+        "copy": "{number} raqamini nusxalash",
+        "copied": "Raqam nusxalandi",
+        "you": "Siz",
+        "support": "Smartup qo'llab-quvvatlash xizmati",
+        "colleague": "Hamkasb",
+        "visibleOrg": "Hamkasblar ko'radi",
+        "visiblePrivate": "Siz va administrator ko'radi",
+        "steps": {
+          "label": "Murojaat jarayoni",
+          "created": "Yaratildi",
+          "work": "Ishlanmoqda",
+          "resolved": "Hal qilindi",
+          "current": "hozir"
+        },
+        "turn": {
+          "client": "Navbat sizda",
+          "support": "Navbat xizmatda",
+          "none": "Murojaat yopilgan"
+        },
+        "related": "{number} murojaatining davomi",
+        "history": "Yozishma va tarix",
+        "events": {
+          "created": "Murojaat yaratildi",
+          "status": "Holati: {from} > {to}",
+          "visibility": "Ko'rinish o'zgartirildi",
+          "rated": "Baho qo'yildi"
+        },
+        "files": "Fayllar",
+        "scan": {
+          "pending": "tekshirilmoqda",
+          "infected": "viruslarga tekshiruvdan o'tmadi",
+          "rejected": "qabul qilinmadi: mazmuni kengaytmaga mos emas yoki faylni tekshirib bo'lmadi, uni qaytadan yoki boshqa formatda qo'shing",
+          "encrypted": "qabul qilinmadi: fayl parol bilan himoyalangan, uni parolsiz qo'shing",
+          "limits": "qabul qilinmadi: arxiv tekshirish uchun juda katta, fayllarni alohida qo'shing"
+        },
+        "reply": "Javob",
+        "replyPlaceholder": "Javob yozing",
+        "send": "Yuborish",
+        "confirm": "Hal bo'ldi, rahmat",
+        "reopen": "Hal bo'lmadi",
+        "reopenHint": "Muammo qaytgan bo'lsa, murojaatni qayta oching.",
+        "reopenClosed": "Qayta ochish",
+        "createNew": "Shu mavzuda yangisini yaratish",
+        "toOrg": "Hamkasblarga ko'rsatish",
+        "toPrivate": "Shaxsiy qilish",
+        "watch": "Kuzatish",
+        "unwatch": "Kuzatmaslik",
+        "rate": {
+          "title": "Yechimni baholang",
+          "score": "Baho",
+          "scores": {
+            "1": "5 dan 1",
+            "2": "5 dan 2",
+            "3": "5 dan 3",
+            "4": "5 dan 4",
+            "5": "5 dan 5"
+          },
+          "reason": "Nima yoqmadi",
+          "reasonHint": "1-3 baho qo'yilganda kerak.",
+          "reasons": {
+            "slow": "Javobni uzoq kutdim",
+            "not_solved": "Muammo hal bo'lmadi",
+            "unclear": "Javob tushunarsiz",
+            "other": "Boshqa"
+          },
+          "comment": "Izoh",
+          "submit": "Baholash",
+          "done": "Sizning bahoingiz: 5 dan {score}"
+        },
+        "done": {
+          "replied": "Javob yuborildi",
+          "confirmed": "Rahmat, murojaat yopildi",
+          "reopened": "Murojaat yana ishlanmoqda",
+          "rated": "Baho uchun rahmat",
+          "visibility": "Ko'rinish o'zgartirildi",
+          "watched": "Siz murojaatni kuzatyapsiz",
+          "unwatched": "Siz endi murojaatni kuzatmaysiz"
+        },
+        "otherOrg": {
+          "text": "{number} murojaati {org} tashkilotiga tegishli. Murojaatni ochish uchun unga o'ting.",
+          "switch": "{org} tashkilotiga o'tish"
+        }
+      },
+      "files": {
+        "add": "Fayl yoki skrinshot",
+        "hint": "10 tagacha fayl, har biri 25 MB gacha, MP4 video 50 MB gacha. Skrinshotni buferdan qo'yish yoki faylni sudrab olib kelish mumkin.",
+        "remove": "{name} faylini olib tashlash",
+        "uploading": "Yuklanmoqda {percent}%",
+        "ready": "Yuklandi",
+        "failed": "Yuklanmadi",
+        "busy": "Fayllar yuklanishini kuting"
+      },
+      "errors": {
+        "description": "Nima bo'lganini yozing",
+        "invalid_input": "Forma maydonlarini tekshiring",
+        "not_found": "Murojaat topilmadi",
+        "forbidden": "Bu amal siz uchun mavjud emas",
+        "rate_limited": "Bir soatda so'rovlar juda ko'p. Keyinroq urinib ko'ring",
+        "transition_refused": "Murojaat allaqachon o'zgargan. Sahifani yangilang",
+        "reopen_expired": "Qayta ochish muddati o'tdi. Yangi murojaat yarating",
+        "already_rated": "Baho allaqachon qo'yilgan",
+        "too_many_files": "Bitta xabarda 10 tadan ko'p fayl bo'lmaydi",
+        "file_not_allowed": "Bunday faylni qo'shib bo'lmaydi",
+        "file_too_large": "Fayl 25 MB dan, video 50 MB dan katta",
+        "upload": "Fayl yuklanmadi. Yana urinib ko'ring",
+        "reason": "Nima yoqmaganini tanlang",
+        "file_unavailable": "Fayllardan biri endi mavjud emas yoki tekshiruvdan o'tmagan. Uni olib tashlang va qaytadan qo'shing"
+      }
     },
     "ideas": {
       "emptyTitle": "Hozircha g'oyalar yo'q",
@@ -515,7 +691,10 @@
           "invitation": "Taklif",
           "user": "Foydalanuvchi",
           "session": "Sessiya",
-          "organization": "Tashkilot"
+          "organization": "Tashkilot",
+          "ticket": "Murojaat",
+          "attachment": "Ilova",
+          "module": "Mahsulot modullari"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -563,6 +742,17 @@
           "telegram": {
             "linked": "Telegram bog'landi",
             "unlinked": "Telegram uzildi"
+          },
+          "ticket": {
+            "created": "Murojaat yaratildi",
+            "status_changed": "Murojaat holati o'zgartirildi",
+            "visibility_changed": "Murojaat ko'rinishi o'zgartirildi"
+          },
+          "attachment": {
+            "infected": "Zararlangan fayl topildi"
+          },
+          "modules": {
+            "imported": "Modullar ma'lumotnomasi yuklandi"
           }
         },
         "words": {

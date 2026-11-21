@@ -10,6 +10,7 @@ import { PageHeader } from '@/ui/components/PageHeader';
 import { Label } from '@/ui/components/label';
 import { changeRoleAction, inviteStaffAction, revokeStaffAction, setMemberStateStaffAction, updateOrgSettingsAction } from './actions';
 import { firstParam } from '@/lib/search-params';
+import { Select } from '@/ui/components/select';
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3';
@@ -109,11 +110,11 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               <input type="hidden" name="orgId" value={org.orgId} />
               <div className="flex max-w-md flex-col gap-1">
                 <Label htmlFor="field-category">{t('orgs.categoryLabel')}</Label>
-                <select
+                <Select
                   id="field-category"
                   name="category"
                   defaultValue={org.category ?? ''}
-                  className="h-field w-full rounded-control border border-input bg-card px-3 text-base text-foreground"
+                 
                 >
                   <option value="">{t('orgs.categoryNone')}</option>
                   {(['A', 'B', 'C', 'D'] as const).map((category) => (
@@ -121,7 +122,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                       {category}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="inline-flex min-h-control items-center gap-3">

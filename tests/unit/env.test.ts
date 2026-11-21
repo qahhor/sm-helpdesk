@@ -122,6 +122,14 @@ const prod = {
   HUB_URL: 'https://hub.smartup24.com',
   HUB_DOMAIN: 'hub.smartup24.com',
   CLIENT_IP_HEADER: 'cf-connecting-ip',
+  // Веха M2: на настоящем адресе в production файлы только в R2.
+  FILE_STORAGE: 'r2',
+  R2_ENDPOINT: 'https://acct.r2.cloudflarestorage.com',
+  R2_BUCKET: 'hub-files',
+  R2_ACCESS_KEY_ID: 'key-id',
+  R2_SECRET_ACCESS_KEY: 'key-secret',
+  // Веха M2: антивирус ClamAV в соседнем контейнере.
+  CLAMAV_HOST: 'clamav',
 };
 const problems = (env: Record<string, string | undefined>) => {
   try {
@@ -199,4 +207,45 @@ test('заголовок адреса посетителя читается то
   expect(clientIpHeaderOf({ CLIENT_IP_HEADER: 'cf-connecting-ip' })).toBe('cf-connecting-ip');
   expect(clientIpHeaderOf({})).toBe('x-forwarded-for');
   expect(() => clientIpHeaderOf({ CLIENT_IP_HEADER: 'x-evil' })).toThrowError(/CLIENT_IP_HEADER/);
+});
+
+const r2 = {
+  FILE_STORAGE: 'r2',
+  R2_ENDPOINT: 'https://acct.r2.cloudflarestorage.com',
+  R2_BUCKET: 'hub-files',
+  R2_ACCESS_KEY_ID: 'key-id',
+  R2_SECRET_ACCESS_KEY: 'key-secret',
+};
+
+test('хранилище файлов: local по умолчанию с каталогом .storage, r2 требует адрес, бакет и пару ключей (решение 0027)', () => {
+  expect(parseEnv(ok)).toMatchObject({ FILE_STORAGE: 'local', FILE_STORAGE_DIR: '.storage' });
+  expect(parseEnv({ ...ok, ...r2 })).toMatchObject(r2);
+  for (const name of ['R2_ENDPOINT', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY'] as const) {
+    const { [name]: _omit, ...rest } = r2;
+    void _omit;
+    expect(() => parseEnv({ ...ok, ...rest }), name).toThrowError(new RegExp(name));
+  }
+  expect(() => parseEnv({ ...ok, ...r2, R2_ENDPOINT: 'http://acct.r2.cloudflarestorage.com' })).toThrowError(/R2_ENDPOINT/);
+  expect(() => parseEnv({ ...ok, ...r2, R2_ENDPOINT: 'https://acct.r2.cloudflarestorage.com/hub' })).toThrowError(/R2_ENDPOINT/);
+  expect(() => parseEnv({ ...ok, ...r2, R2_BUCKET: 'Hub_Files' })).toThrowError(/R2_BUCKET/);
+  expect(() => parseEnv({ ...ok, FILE_STORAGE: 's3' })).toThrowError(/FILE_STORAGE/);
+  // Ключ доступа в сообщение об ошибке не попадает.
+  expect(() => parseEnv({ ...ok, ...r2, R2_BUCKET: '' })).not.toThrowError(/key-secret/);
+});
+
+test('в production на настоящем адресе файлы хранятся только в R2, на localhost можно local', () => {
+  expect(problems({ ...prod, FILE_STORAGE: 'local' }).map((p) => p.name)).toEqual(['FILE_STORAGE']);
+  expect(problems({ ...prod, FILE_STORAGE: undefined }).map((p) => p.name)).toEqual(['FILE_STORAGE']);
+  expect(parseEnv(prod).FILE_STORAGE).toBe('r2');
+  expect(parseEnv({ ...prod, FILE_STORAGE: 'local', HUB_URL: 'http://localhost:3100', HUB_DOMAIN: 'localhost' }).FILE_STORAGE).toBe('local');
+});
+
+test('антивирус: CLAMAV_PORT по умолчанию 3310, на настоящем адресе в production CLAMAV_HOST обязателен (решение 0027)', () => {
+  expect(parseEnv(ok)).toMatchObject({ CLAMAV_PORT: 3310 });
+  expect(parseEnv(ok).CLAMAV_HOST).toBeUndefined();
+  expect(parseEnv({ ...ok, CLAMAV_HOST: 'clamav', CLAMAV_PORT: '3311' })).toMatchObject({ CLAMAV_HOST: 'clamav', CLAMAV_PORT: 3311 });
+  expect(() => parseEnv({ ...ok, CLAMAV_PORT: '70000' })).toThrowError(/CLAMAV_PORT/);
+  expect(() => parseEnv({ ...ok, CLAMAV_HOST: 'clam av' })).toThrowError(/CLAMAV_HOST/);
+  expect(problems({ ...prod, CLAMAV_HOST: undefined }).map((p) => p.name)).toEqual(['CLAMAV_HOST']);
+  expect(parseEnv({ ...prod, CLAMAV_HOST: undefined, FILE_STORAGE: 'local', HUB_URL: 'http://localhost:3100', HUB_DOMAIN: 'localhost' }).CLAMAV_HOST).toBeUndefined();
 });

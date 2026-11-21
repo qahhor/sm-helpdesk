@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { AUDIT_ACTIONS, RATE_RULES } from '@/modules/hdc/pref';
-import { clientIp, ipBucket, ipRateKey } from '@/modules/hdc/util';
+import { clientIp, ipBucket, ipRateKey, isSameOriginJson } from '@/modules/hdc/util';
 
 test('адрес посетителя берётся из первого значения заголовка и проверяется', () => {
   expect(clientIp(new Headers({ 'x-forwarded-for': '203.0.113.7, 10.0.0.1' }))).toBe('203.0.113.7');
@@ -44,4 +44,15 @@ test('адрес для счётчиков: IPv4 целиком, IPv6 по се�
   expect(ipRateKey('login-link:ip', new Headers({ 'x-forwarded-for': '2001:db8:1:2::1' }), 'x-forwarded-for')).toBe(
     ipRateKey('login-link:ip', new Headers({ 'x-forwarded-for': '2001:db8:1:2:aaaa::2' }), 'x-forwarded-for'),
   );
+});
+
+test('запрос JSON с той же страницы: Origin портала и тип application/json, иначе отказ (обработчики загрузок)', () => {
+  const req = (headers: Record<string, string>) => new Request('http://localhost:3000/api/uploads/presign', { method: 'POST', headers });
+  const hub = 'http://localhost:3000';
+  expect(isSameOriginJson(req({ origin: hub, 'content-type': 'application/json' }), hub)).toBe(true);
+  expect(isSameOriginJson(req({ origin: hub, 'content-type': 'application/json; charset=utf-8' }), hub)).toBe(true);
+  expect(isSameOriginJson(req({ origin: 'https://evil.test', 'content-type': 'application/json' }), hub)).toBe(false);
+  expect(isSameOriginJson(req({ 'content-type': 'application/json' }), hub)).toBe(false);
+  expect(isSameOriginJson(req({ origin: hub, 'content-type': 'text/plain' }), hub)).toBe(false);
+  expect(isSameOriginJson(req({ origin: hub, 'content-type': 'application/json', 'sec-fetch-site': 'cross-site' }), hub)).toBe(false);
 });

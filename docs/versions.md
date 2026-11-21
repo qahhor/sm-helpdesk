@@ -16,6 +16,7 @@
 |---|---|---|
 | `@better-auth/sso` | 1.7.22 | MIT |
 | `@formatjs/icu-messageformat-parser` | 3.5.23 | MIT |
+| `aws4fetch` | 1.0.20 | MIT |
 | `better-auth` | 1.7.22 | MIT |
 | `class-variance-authority` | 0.7.1 | Apache-2.0 |
 | `clsx` | 2.1.1 | MIT |
@@ -26,9 +27,11 @@
 | `next` | 16.4.6 | MIT |
 | `next-intl` | 4.15.1 | MIT |
 | `pg` | 8.23.1 | MIT |
+| `pg-boss` | 12.38.2 | MIT |
 | `radix-ui` | 1.8.1 | MIT |
 | `react` | 19.3.1 | MIT |
 | `react-dom` | 19.3.1 | MIT |
+| `react-markdown` | 10.1.0 | MIT |
 | `server-only` | 0.0.1 | MIT |
 | `tailwind-merge` | 3.7.0 | MIT |
 | `uqr` | 0.1.3 | MIT |

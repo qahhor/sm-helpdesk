@@ -27,16 +27,23 @@ export function totp(secret: string, at: Date = new Date()): string {
   return String(value % 1_000_000).padStart(6, '0');
 }
 
-const used = new Map<string, number>();
+/** Шаги кода (номер 30-секундного окна), уже выданные по каждому ключу в этом прогоне. */
+const usedSteps = new Map<string, Set<number>>();
 
 /**
  * Код, ещё не принятый порталом в этом прогоне: портал отклоняет повтор кода (проверка main, S11).
- * Библиотека принимает коды соседних шагов, поэтому по очереди даются коды шагов 0, -1 и +1.
+ * Библиотека принимает коды соседних шагов. Шаги считаются от начала эпохи, а не от момента вызова:
+ * иначе при переходе через границу 30 секунд "предыдущий" шаг второго входа совпадал с "текущим" первого.
+ * Порядок: текущий, следующий (он дольше остаётся годным), предыдущий.
  */
 export function freshTotp(secret: string): string {
-  const n = used.get(secret) ?? 0;
-  const offset = [0, -1, 1][n];
-  if (offset === undefined) throw new Error('Больше трёх входов с одним ключом за 30 секунд тест сделать не может');
-  used.set(secret, n + 1);
-  return totp(secret, new Date(Date.now() + offset * 30_000));
+  const now = Math.floor(Date.now() / 30_000);
+  const used = usedSteps.get(secret) ?? new Set<number>();
+  usedSteps.set(secret, used);
+  for (const step of [now, now + 1, now - 1]) {
+    if (used.has(step)) continue;
+    used.add(step);
+    return totp(secret, new Date(step * 30_000));
+  }
+  throw new Error('Больше трёх входов с одним ключом за 30 секунд тест сделать не может');
 }

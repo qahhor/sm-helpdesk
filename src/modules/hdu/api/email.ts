@@ -6,7 +6,7 @@ import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
 import { POLICY_VERSION_PATTERN } from '@/modules/hdc/pref';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { confirmEmailMail, queueMail } from '@/modules/hdn/api';
-import { confirmEmailToken, createEmailToken, markOnboarded, setPolicyVersion } from '../core/email';
+import { confirmEmailToken, createEmailToken, hintsPendingFor, markHintsSeen, markOnboarded, setPolicyVersion } from '../core/email';
 import { HduError } from '../error';
 import { emailInput, tokenInput } from '../input';
 import { hashToken } from '../tokens';
@@ -66,4 +66,14 @@ export async function completeWelcome(userId: string): Promise<void> {
 export async function acknowledgePolicy(userId: string, version: string, ip?: string | null): Promise<void> {
   if (!POLICY_VERSION_PATTERN.test(version)) throw new HduError('invalid_input');
   await setPolicyVersion(userId, version, ip);
+}
+
+/** Подсказки первого входа над главной (UX-C-14). Пользователь берётся из контекста клиента, не из запроса. */
+export function hintsPending(ctx: ClientContext): Promise<boolean> {
+  return hintsPendingFor(ctx.actor.userId);
+}
+
+/** Кнопка "Понятно": подсказки больше не показываются. */
+export function dismissHints(ctx: ClientContext): Promise<void> {
+  return markHintsSeen(ctx.actor.userId);
 }

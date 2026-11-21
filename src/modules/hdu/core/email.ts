@@ -107,6 +107,21 @@ export async function markOnboarded(userId: string): Promise<void> {
   );
 }
 
+/** Нужно ли показать подсказки первого входа (UX-C-14): шаг первого входа пройден, подсказки ещё не скрыты. */
+export async function hintsPendingFor(userId: string): Promise<boolean> {
+  const [row] = await withIdentity({ type: 'system', job: 'identity.hints' }, (tx) =>
+    tx.select({ onboardedAt: authUser.onboardedAt, hintsSeenAt: authUser.hintsSeenAt }).from(authUser).where(eq(authUser.id, userId)),
+  );
+  return row !== undefined && row.onboardedAt !== null && row.hintsSeenAt === null;
+}
+
+/** Скрывает подсказки первого входа навсегда. Повторный вызов время не меняет. */
+export async function markHintsSeen(userId: string): Promise<void> {
+  await withIdentity({ type: 'system', job: 'identity.hints' }, (tx) =>
+    tx.update(authUser).set({ hintsSeenAt: sql`now()` }).where(and(eq(authUser.id, userId), isNull(authUser.hintsSeenAt))),
+  );
+}
+
 /**
  * Записывает версию политики обработки данных, которую увидел пользователь (раздел 14.6 ТЗ), и запись
  * журнала аудита: так видна история согласия, а не только последняя редакция (проверка main, Q17).

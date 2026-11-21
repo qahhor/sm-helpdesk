@@ -23,6 +23,34 @@
 | `TELEGRAM_API_URL` | не задавать | Другой адрес допускается только на localhost |
 | `CLIENT_IP_HEADER` | `cf-connecting-ip` | Обязателен в production. Откуда брать адрес посетителя для счётчиков и журнала (решение 0020). Сетевой экран пропускает на 443 только адреса Cloudflare, иначе заголовок можно подделать |
 | `LOG_LEVEL` | `info` | |
+| `FILE_STORAGE` | `r2` | Обязательно на настоящем адресе в production (решение 0027). `local` только на localhost |
+| `R2_ENDPOINT` | `https://<счёт>.r2.cloudflarestorage.com` | Адрес S3 счёта Cloudflare, без пути |
+| `R2_BUCKET` | имя бакета, например `hub-staging-files` | Бакет закрытый, без публичного доступа |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | ключ API R2 с правом "Object Read & Write" только на этот бакет | Секрет. В ссылки попадает только идентификатор ключа |
+| `CLAMAV_HOST` | `clamav` | Обязателен на настоящем адресе в production. Имя службы ClamAV в `compose.prod.yaml` |
+| `CLAMAV_PORT` | не задавать | По умолчанию 3310 |
+
+Те же переменные читает фоновый процесс `worker` (тот же файл `.env`).
+
+Бакет R2 (Cloudflare, раздел "R2", решение 0027):
+
+1. Создать бакет без публичного доступа и ключ API с правом чтения и записи только для него.
+2. Настройка CORS бакета (вкладка Settings, CORS Policy): браузер кладёт файл прямо в бакет и показывает картинки оттуда.
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://<адрес staging>"],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedHeaders": ["content-type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+3. Правило жизненного цикла на префикс `quarantine/` (вкладка Settings, Object lifecycle rules): удалять объекты старше 2 дней. Строки неприкреплённых загрузок и их файлы удаляет фоновый процесс через сутки, а правило убирает то, о чём база не знает: файл, который положили по ссылке, но так и не сообщили о завершении. Остаток после повторной загрузки по живой ссылке удаляет сам портал. На `files/` правило не ставится.
+
+ClamAV: служба `clamav` в `compose.prod.yaml` (образ `clamav/clamav:1.5.5` по digest, без портов наружу, базы подписей на томе `clamav_db`). Ей нужно около 2-3 ГБ памяти. Первое обновление баз занимает несколько минут: `worker` ждёт готовности ClamAV до 10 минут.
 
 Файлы рядом с `compose.prod.yaml`:
 
@@ -41,8 +69,14 @@
 2. `docker compose -f compose.prod.yaml run --rm bootstrap`: роли `hub_owner`, `hub_app`, `hub_auth`, база и расширения. Затем удалить `.env.bootstrap`.
 3. `docker compose -f compose.prod.yaml run --rm migrate`: миграции. Повторять при каждой выкладке до запуска нового портала.
 4. `docker compose -f compose.prod.yaml up -d`
-5. Проверка: `curl -fsS https://<адрес staging>/api/health` отвечает `{"status":"ok"}`, `curl -fsS https://<адрес staging>/api/ready` отвечает `ready` (портал видит базу под обеими ролями).
-6. Расписание сервера раз в сутки: `docker compose -f compose.prod.yaml exec web node hub.mjs maintenance:cleanup` (очистка просроченных служебных строк до фоновых задач M2, решение 0023).
+5. Проверка: `curl -fsS https://<адрес staging>/api/health` отвечает `{"status":"ok"}`, `curl -fsS https://<адрес staging>/api/ready` отвечает `ready` (портал видит базу под обеими ролями). `docker compose -f compose.prod.yaml logs worker` показывает "Фоновый процесс запущен".
+5a. Проверка вложений после первого запуска: войти клиентом, создать обращение со скриншотом (миниатюра появится после проверки), затем приложить файл `readme.txt` с тестовой строкой EICAR (её текст есть на сайте eicar.org). Исход зависит от того, успела ли проверка закончиться до отправки формы: если успела, форма отказывает с текстом "Один из файлов больше недоступен или не прошёл проверку" и называет файл (решение 0026, пункт 23); если нет, файл на странице обращения получает "не прошёл проверку на вирусы". В обоих случаях ссылки на скачивание нет, в журнале аудита запись "Найден заражённый файл". Так проверяется связка браузер, R2, CORS и настоящий ClamAV: в тестах ClamAV заменён ложным сервером.
+5б. Проверка того, что нельзя проверить, и заголовков выдачи (вторая проверка M2, решение 0027, пункты 20 и 21).
+   - Архив с паролем: `zip -P secret enc.zip readme.txt`, приложить `enc.zip` к обращению. Файл получает "не принят: файл защищён паролем, приложите его без пароля", записи о заражении в журнале нет. Если файл стал чистым, ClamAV запущен без параметров `CLAMD_CONF_*`: проверить `docker compose -f compose.prod.yaml exec clamav grep -E '^Alert' /etc/clamav/clamd.conf`.
+   - Заголовки ссылки на скачивание: открыть PDF из обращения в браузере с инструментами разработчика, взять адрес перенаправления (ответ 303 портала, заголовок `Location`) и выполнить `curl -sI "<адрес>"`. Ответ R2: `Content-Type: application/pdf`, `Cache-Control: private, no-store`, `Content-Disposition: attachment; ...`. Если `Content-Type` или `Cache-Control` другие, R2 не применил параметры `response-*`: остановить выкладку и сообщить разработке.
+   - Подпись параметров: в том же адресе заменить `response-content-type=application%2Fpdf` на `response-content-type=text%2Fhtml` и повторить `curl -sI`: ответ 403.
+   - Метаданные после переноса: `aws s3api head-object --endpoint-url https://<ACCOUNT_ID>.r2.cloudflarestorage.com --bucket <бакет> --key files/<org_id>/<attachment_id>` (ключом только для чтения). `ContentType` равен типу вложения, `Metadata` пусто, `ContentEncoding` и `ContentDisposition` нет.
+6. Отдельное расписание сервера для очистки больше не нужно: с вехи M2 её выполняет фоновый процесс `worker` каждую ночь в 03:00 по Ташкенту (решение 0028). Если расписание `maintenance:cleanup` в cron сервера было заведено после M1, его можно удалить. Ручной запуск остаётся: `docker compose -f compose.prod.yaml exec web node hub.mjs maintenance:cleanup`.
 
 На https куки входа называются `__Host-hub.*` (решение 0021): портал не должен открываться по адресу с другим узлом, чем `HUB_URL`.
 

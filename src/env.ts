@@ -1,7 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 
-// Переменные окружения веб-приложения (ТЗ, раздел 13.5). Состав вех M0 и M1.
+// Переменные окружения веб-приложения (ТЗ, раздел 13.5). Состав вех M0, M1 и M2.
 // Остальные переменные добавляются в своих вехах. Адреса базы для владельца схемы
 // и суперпользователя сюда не входят: их читают только сценарии из scripts/db/.
 //
@@ -89,6 +89,15 @@ export function clientIpHeaderOf(source: Record<string, string | undefined>): Cl
   return parsed.data ?? 'x-forwarded-for';
 }
 
+/** Адрес S3 хранилища R2: только https, узел и порт (адрес попадает в политику CSP). */
+const httpsOrigin = required().refine(
+  (value) => {
+    const url = toUrl(value);
+    return url !== null && url.protocol === 'https:' && url.origin === value;
+  },
+  { error: 'ожидается адрес вида https://<счёт>.r2.cloudflarestorage.com без пути' },
+);
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production'], {
@@ -125,6 +134,24 @@ const schema = z
     // Заголовок, из которого берётся адрес посетителя для счётчиков частоты и журнала аудита (итоговая проверка M1).
     // За Cloudflare это cf-connecting-ip. Не задан: x-forwarded-for, только для localhost.
     CLIENT_IP_HEADER: clientIpHeaderField,
+    // Хранилище вложений (раздел 11.11, решение 0027): local только для машины разработчика, r2 для серверов.
+    FILE_STORAGE: z.enum(['local', 'r2'], { error: 'ожидается local или r2' }).default('local'),
+    FILE_STORAGE_DIR: z.string().trim().min(1, { error: 'пустое значение' }).default('.storage'),
+    R2_ENDPOINT: httpsOrigin.optional(),
+    R2_BUCKET: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, { error: 'ожидается имя бакета: строчные латинские буквы, цифры и -' })
+      .optional(),
+    R2_ACCESS_KEY_ID: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
+    R2_SECRET_ACCESS_KEY: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
+    // Антивирус ClamAV (решение 0027). Без адреса работает заглушка, она узнаёт только тестовую строку EICAR.
+    CLAMAV_HOST: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9.-]{1,253}$/, { error: 'ожидается имя узла или адрес IPv4' })
+      .optional(),
+    CLAMAV_PORT: z.coerce.number({ error: 'ожидается номер порта' }).int().min(1, { error: 'ожидается номер порта' }).max(65535, { error: 'ожидается номер порта' }).default(3310),
   })
   .superRefine((value, ctx) => {
     const host = new URL(value.HUB_URL).hostname;
@@ -164,6 +191,14 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SECRET'], message: 'не задан, а TURNSTILE_SITE_KEY задан: ключи задаются парой' });
     if (value.TURNSTILE_SECRET && !value.TURNSTILE_SITE_KEY)
       ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SITE_KEY'], message: 'не задан, а TURNSTILE_SECRET задан: ключи задаются парой' });
+    if (value.FILE_STORAGE === 'r2')
+      for (const name of ['R2_ENDPOINT', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY'] as const)
+        if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а FILE_STORAGE равен r2' });
+    // Локальное хранилище отдаёт файлы обработчиком портала и работает только на localhost.
+    if (value.FILE_STORAGE !== 'r2' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({ code: 'custom', path: ['FILE_STORAGE'], message: 'на настоящем адресе в production задайте r2' });
+    if (!value.CLAMAV_HOST && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({ code: 'custom', path: ['CLAMAV_HOST'], message: 'не задан: на настоящем адресе в production файлы проверяет ClamAV' });
     if (value.HUB_SHOWCASE === '1' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({
         code: 'custom',

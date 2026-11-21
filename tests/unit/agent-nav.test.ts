@@ -25,8 +25,10 @@ test('состав групп этапа 1 и вехи, в которых пун
   });
 });
 
-test('включены вехи M0 и M1', () => {
-  expect([...ENABLED_MILESTONES]).toEqual(['M0', 'M1']);
+test('включены вехи M0-M3: в группе "Работа" пункт "Очереди" виден всем сотрудникам', () => {
+  expect([...ENABLED_MILESTONES]).toEqual(['M0', 'M1', 'M2', 'M3']);
+  const work = AGENT_NAV_GROUPS.find((g) => g.key === 'work');
+  for (const role of ['agent_l1', 'agent_l2', 'care', 'product', 'admin'] as const) expect(visibleItems(work!, ENABLED_MILESTONES, role).map((i) => i.key), role).toEqual(['queues']);
 });
 
 test('в вехе M1 в группе "Клиенты" есть пункт "Организации"', () => {

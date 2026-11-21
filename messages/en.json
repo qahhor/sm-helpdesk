@@ -381,8 +381,9 @@
     "breadcrumbs": "Path",
     "home": {
       "title": "Workspace",
-      "emptyTitle": "No queues yet",
-      "emptyText": "Workspace sections open as they become ready. Request queues come first."
+      "emptyTitle": "Start with the queues",
+      "emptyText": "Client tickets are gathered in queues by reply deadline.",
+      "openQueues": "Open queues"
     },
     "orgs": {
       "title": "Organizations",
@@ -855,6 +856,73 @@
           "5": "Friday",
           "6": "Saturday"
         }
+      }
+    },
+    "queues": {
+      "title": "Queues",
+      "listLabel": "Queues",
+      "savedTitle": "My lists",
+      "shared": "shared",
+      "delete": "Delete",
+      "deleteFilter": "Delete list \"{name}\"",
+      "names": {
+        "new": "New",
+        "mine": "Mine",
+        "l2": "Second line",
+        "waiting": "Waiting for client",
+        "development": "In development",
+        "breached": "Overdue",
+        "all": "All"
+      },
+      "search": "Search",
+      "searchHint": "Number, text, organization, TIN, author",
+      "sort": "Sort",
+      "show": "Show",
+      "sorts": {
+        "sla": "Nearest deadline",
+        "client_waiting": "Client waiting longest",
+        "updated": "Last change"
+      },
+      "emptyTitle": "Nothing here",
+      "emptyText": "There are no tickets in this queue right now.",
+      "emptySearch": "Nothing matches this search. Check the number or the text.",
+      "columns": {
+        "number": "No.",
+        "title": "Subject",
+        "client": "Client",
+        "priority": "Pr",
+        "sla": "Due",
+        "assignee": "Assignee"
+      },
+      "statuses": {
+        "new": "New",
+        "in_progress": "In progress",
+        "waiting_customer": "Waiting for client",
+        "in_development": "In development",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "lineL2": "second line",
+      "snoozed": "snoozed until {time}",
+      "unassigned": "unassigned",
+      "sla": {
+        "minutes": "{value} min",
+        "hours": "{value} h",
+        "breached": "overdue",
+        "none": "no deadline",
+        "paused": "paused"
+      },
+      "prev": "Back",
+      "next": "Next",
+      "saveTitle": "Save as a list",
+      "filterName": "List name",
+      "shareFilter": "Shared with all staff",
+      "saveFilter": "Save",
+      "done": {
+        "filterSaved": "List saved"
+      },
+      "errors": {
+        "filterInvalid": "Name the list: 1 to 80 characters."
       }
     }
   },

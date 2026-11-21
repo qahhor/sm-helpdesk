@@ -47,6 +47,7 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdu_user_profiles: { client: 'org-people' },
   // Обращения (веха M2): клиент читает свою организацию, личные обращения коллег видит только администратор
   // клиента (это проверяет tickets-direct.test.ts). Удалить обращение, сообщение и событие не может никто.
+  hdt_saved_filters: { client: 'none', app: IUD },
   hdt_tickets: { client: 'own-org', app: IU },
   hdt_ticket_messages: { client: 'own-org', app: ['insert'] },
   hdt_ticket_events: { client: 'own-org', app: ['insert'] },

@@ -135,3 +135,17 @@ export const attachments = pgTable('hdt_attachments', {
   isInternal: boolean('is_internal').notNull().default(false),
   ...stampColumns,
 });
+
+/** Условия сохранённого списка рабочего места. */
+export type SavedQuery = { queue: string; sort?: string; q?: string };
+
+export const savedFilters = pgTable('hdt_saved_filters', {
+  filterId: uuid('filter_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ownerId: uuid('owner_id').notNull(),
+  name: text('name').notNull(),
+  query: jsonb('query').$type<SavedQuery>().notNull(),
+  isShared: boolean('is_shared').notNull().default(false),
+  ...stampColumns,
+});

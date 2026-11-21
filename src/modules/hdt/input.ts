@@ -3,6 +3,7 @@ import { LOCALES } from '@/i18n/locales';
 import { cleanUserText } from '@/modules/hdc/pref';
 import { HdtError } from './error';
 import { CSAT_REASONS, IMPACTS, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
+import { QUEUE_KEYS, QUEUE_SORTS } from './core/agent-queue-keys';
 
 // Схемы входных данных модуля hdt. Каждая точка входа разбирает свой вход схемой (ТЗ 9.4, правило 7).
 
@@ -76,6 +77,22 @@ export const presignUploadInput = z.object({
 export const attachmentIdInput = z.uuid();
 
 /** Разбирает вход схемой. Неверный вход превращается в ошибку модуля с кодом invalid_input. */
+// --- Рабочее место (план M3) ---
+
+/** Очередь, сортировка и строка поиска рабочего места (FR-AG-01, FR-AG-10). */
+export const queueInput = z.object({
+  queue: z.enum(QUEUE_KEYS).default('new'),
+  sort: z.enum(QUEUE_SORTS).default('sla'),
+  q: optional(z.string().trim().min(1).max(200)),
+  page: z.coerce.number().int().min(1).max(1000).default(1),
+});
+
+export const savedFilterInput = z.object({
+  name: z.string().overwrite(cleanUserText).trim().min(1).max(80),
+  query: z.object({ queue: z.enum(QUEUE_KEYS), sort: z.enum(QUEUE_SORTS).optional(), q: z.string().trim().max(200).optional() }),
+  isShared: z.boolean().default(false),
+});
+
 export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);
   if (!result.success) throw new HdtError('invalid_input');

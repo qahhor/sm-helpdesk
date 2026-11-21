@@ -381,8 +381,9 @@
     "breadcrumbs": "Yo'l",
     "home": {
       "title": "Ish joyi",
-      "emptyTitle": "Hozircha navbatlar yo'q",
-      "emptyText": "Ish joyi bo'limlari tayyor bo'lishi bilan ochiladi. Birinchi bo'lib murojaatlar navbatlari paydo bo'ladi."
+      "emptyTitle": "Navbatlardan boshlang",
+      "emptyText": "Mijozlar murojaatlari javob muddati bo'yicha navbatlarga yig'ilgan.",
+      "openQueues": "Navbatlarni ochish"
     },
     "orgs": {
       "title": "Tashkilotlar",
@@ -855,6 +856,73 @@
           "5": "Juma",
           "6": "Shanba"
         }
+      }
+    },
+    "queues": {
+      "title": "Navbatlar",
+      "listLabel": "Navbatlar",
+      "savedTitle": "Mening ro'yxatlarim",
+      "shared": "umumiy",
+      "delete": "O'chirish",
+      "deleteFilter": "\"{name}\" ro'yxatini o'chirish",
+      "names": {
+        "new": "Yangi",
+        "mine": "Meniki",
+        "l2": "Ikkinchi liniya",
+        "waiting": "Mijozni kutmoqda",
+        "development": "Ishlab chiqishda",
+        "breached": "Muddat buzilgan",
+        "all": "Hammasi"
+      },
+      "search": "Qidiruv",
+      "searchHint": "Raqam, matn, tashkilot, STIR, muallif",
+      "sort": "Saralash",
+      "show": "Ko'rsatish",
+      "sorts": {
+        "sla": "Eng yaqin muddat bo'yicha",
+        "client_waiting": "Mijoz eng uzoq kutmoqda",
+        "updated": "Oxirgi o'zgarish bo'yicha"
+      },
+      "emptyTitle": "Bu yerda bo'sh",
+      "emptyText": "Bu navbatda hozir murojaat yo'q.",
+      "emptySearch": "Bu so'rov bo'yicha hech narsa topilmadi. Raqam yoki matnni tekshiring.",
+      "columns": {
+        "number": "№",
+        "title": "Mavzu",
+        "client": "Mijoz",
+        "priority": "Us",
+        "sla": "Muddat",
+        "assignee": "Ijrochi"
+      },
+      "statuses": {
+        "new": "Yangi",
+        "in_progress": "Ishda",
+        "waiting_customer": "Mijoz javobi kutilmoqda",
+        "in_development": "Ishlab chiqishda",
+        "resolved": "Hal qilindi",
+        "closed": "Yopildi"
+      },
+      "lineL2": "ikkinchi liniya",
+      "snoozed": "{time} gacha qoldirilgan",
+      "unassigned": "tayinlanmagan",
+      "sla": {
+        "minutes": "{value} daq",
+        "hours": "{value} soat",
+        "breached": "buzilgan",
+        "none": "muddat yo'q",
+        "paused": "pauza"
+      },
+      "prev": "Orqaga",
+      "next": "Keyingi",
+      "saveTitle": "Ro'yxat sifatida saqlash",
+      "filterName": "Ro'yxat nomi",
+      "shareFilter": "Barcha xodimlar uchun umumiy",
+      "saveFilter": "Saqlash",
+      "done": {
+        "filterSaved": "Ro'yxat saqlandi"
+      },
+      "errors": {
+        "filterInvalid": "Ro'yxatga nom bering: 1 dan 80 belgigacha."
       }
     }
   },

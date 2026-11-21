@@ -97,6 +97,7 @@ export {
   verifyStaffCode,
 } from './api/staff';
 export { inviteStaff, resetStaff } from './api/staff-admin';
+export { findOrgIds, findUserIds, type OrgSummary, orgSummaries } from './api/staff-lookup';
 export { HduError, type HduErrorCode, isHduError } from './error';
 export { needsPolicyNotice, safeReturnPath } from './util';
 // Имена людей для других модулей (обращения): только те, кого актор вправе видеть.

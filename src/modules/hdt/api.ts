@@ -34,6 +34,20 @@ export { completeUpload, handleUploadRequest, presignUpload } from './api/upload
 export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
 export { needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments } from './api/jobs';
+export {
+  deleteFilter,
+  listFilters,
+  listQueue,
+  QUEUE_KEYS,
+  QUEUE_PAGE_SIZE,
+  QUEUE_SORTS,
+  type QueueKey,
+  queueCounts,
+  type QueueRow,
+  type QueueSort,
+  type SavedFilter,
+  saveFilter,
+} from './api/agent';
 export { SWEEP_BATCH } from './pref';
 
 // Модуль hdt (обращения), слой api: точки входа для страниц, обработчиков и других модулей.

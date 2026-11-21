@@ -1,0 +1,214 @@
+import { getFormatter, getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
+import { listFilters, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueCounts, type QueueSort } from '@/modules/hdt/api';
+import { requireStaffActor } from '@/modules/hdu/api';
+import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
+import { Alert } from '@/ui/components/alert';
+import { Button } from '@/ui/components/button';
+import { Card } from '@/ui/components/card';
+import { EmptyState } from '@/ui/components/EmptyState';
+import { Input } from '@/ui/components/input';
+import { PageHeader } from '@/ui/components/PageHeader';
+import { Select } from '@/ui/components/select';
+import { cn } from '@/ui/cn';
+import { deleteFilterAction, saveFilterAction } from './actions';
+
+// Очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18, UX-A-08, UX-A-09; экран 8.4 "Очередь").
+// Слева очереди со счётчиками и сохранённые списки, справа поиск, сортировка и таблица по ближайшему сроку.
+
+type Search = { queue?: string; sort?: string; q?: string; page?: string; done?: string; error?: string };
+
+const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
+const cell = 'px-3 py-2 align-top';
+
+const pick = <T extends string>(value: string | undefined, allowed: readonly T[], fallback: T): T =>
+  value && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
+
+export default async function QueuesPage({ searchParams }: { searchParams: Promise<Search> }) {
+  const staff = await requireStaffActor();
+  const t = await getTranslations('agent');
+  const format = await getFormatter();
+  const params = await searchParams;
+  const queue = pick<QueueKey>(params.queue, QUEUE_KEYS, 'new');
+  const sort = pick<QueueSort>(params.sort, QUEUE_SORTS, 'sla');
+  const q = params.q?.trim() ? params.q.trim().slice(0, 200) : undefined;
+  const page = Math.max(1, Math.min(1000, Number(params.page) || 1));
+  const [list, counts, filters] = await Promise.all([listQueue(staff, { queue, sort, q, page }), queueCounts(staff), listFilters(staff)]);
+  const href = (next: { queue?: QueueKey; sort?: QueueSort; q?: string; page?: number }) => {
+    const search = new URLSearchParams();
+    search.set('queue', next.queue ?? queue);
+    if ((next.sort ?? sort) !== 'sla') search.set('sort', next.sort ?? sort);
+    const query = 'q' in next ? next.q : q;
+    if (query) search.set('q', query);
+    if (next.page && next.page > 1) search.set('page', String(next.page));
+    return `/agent/queues?${search.toString()}`;
+  };
+  const slaText = (minutesLeft: number | null) => {
+    const label = slaLabelKey(minutesLeft);
+    return t(`queues.sla.${label.key}`, { value: label.value });
+  };
+
+  return (
+    <>
+      <PageHeader title={t('queues.title')} breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: t('queues.title') }]} breadcrumbsLabel={t('breadcrumbs')} />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <nav aria-label={t('queues.listLabel')} className="flex flex-col gap-4 lg:w-60 lg:shrink-0">
+          <ul className="flex flex-wrap gap-1 lg:flex-col">
+            {QUEUE_KEYS.map((key) => (
+              <li key={key}>
+                <Link
+                  href={href({ queue: key, q: undefined, page: 1 })}
+                  aria-current={key === queue ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center justify-between gap-3 rounded-control px-3 py-2 text-sm',
+                    key === queue ? 'bg-card-soft font-semibold text-foreground' : 'text-secondary-foreground hover:bg-card-soft',
+                  )}
+                >
+                  <span>{t(`queues.names.${key}`)}</span>
+                  <span className="tabular-nums">{counts[key]}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {filters.length > 0 && (
+            <section aria-labelledby="saved-filters" className="flex flex-col gap-1">
+              <h2 id="saved-filters" className="px-3 text-xs font-medium text-secondary-foreground">
+                {t('queues.savedTitle')}
+              </h2>
+              <ul className="flex flex-col gap-1">
+                {filters.map((filter) => (
+                  <li key={filter.filterId} className="flex items-center justify-between gap-2">
+                    <Link
+                      href={href({ queue: pick<QueueKey>(filter.query.queue, QUEUE_KEYS, 'all'), sort: pick<QueueSort>(filter.query.sort, QUEUE_SORTS, 'sla'), q: filter.query.q, page: 1 })}
+                      className="rounded-control px-3 py-1 text-sm text-link hover:underline"
+                    >
+                      {filter.name}
+                      {filter.isShared && <span className="ms-1 text-xs text-muted-foreground">{t('queues.shared')}</span>}
+                    </Link>
+                    {filter.isMine && (
+                      <form action={deleteFilterAction}>
+                        <input type="hidden" name="filterId" value={filter.filterId} />
+                        <input type="hidden" name="queue" value={queue} />
+                        <Button type="submit" variant="ghost" size="small" aria-label={t('queues.deleteFilter', { name: filter.name })}>
+                          {t('queues.delete')}
+                        </Button>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </nav>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          {params.done === 'filter_saved' && <Alert tone="success">{t('queues.done.filterSaved')}</Alert>}
+          {params.error === 'filter_invalid' && <Alert tone="danger">{t('queues.errors.filterInvalid')}</Alert>}
+          <form method="get" className="flex flex-wrap items-end gap-2" role="search">
+            <input type="hidden" name="queue" value={queue} />
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <label htmlFor="queue-q" className="text-sm font-medium">
+                {t('queues.search')}
+              </label>
+              <Input id="queue-q" name="q" defaultValue={q ?? ''} placeholder={t('queues.searchHint')} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="queue-sort" className="text-sm font-medium">
+                {t('queues.sort')}
+              </label>
+              <Select id="queue-sort" name="sort" defaultValue={sort}>
+                {QUEUE_SORTS.map((key) => (
+                  <option key={key} value={key}>
+                    {t(`queues.sorts.${key}`)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button type="submit">{t('queues.show')}</Button>
+          </form>
+
+          {list.items.length === 0 ? (
+            <Card>
+              <EmptyState title={t('queues.emptyTitle')} text={q ? t('queues.emptySearch') : t('queues.emptyText')} />
+            </Card>
+          ) : (
+            <Card className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">{t(`queues.names.${queue}`)}</caption>
+                <thead>
+                  <tr className="border-b border-border">
+                    <th scope="col" className={head}>{t('queues.columns.number')}</th>
+                    <th scope="col" className={head}>{t('queues.columns.title')}</th>
+                    <th scope="col" className={head}>{t('queues.columns.client')}</th>
+                    <th scope="col" className={head}>{t('queues.columns.priority')}</th>
+                    <th scope="col" className={head}>{t('queues.columns.sla')}</th>
+                    <th scope="col" className={head}>{t('queues.columns.assignee')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.items.map((row) => (
+                    <tr key={row.number} className="border-b border-border last:border-0" data-number={row.number}>
+                      <td className={cn(cell, 'whitespace-nowrap')}>
+                        <Link href={`/agent/tickets/SUP-${row.number}`} className="font-semibold text-link hover:underline">
+                          {row.number}
+                        </Link>
+                      </td>
+                      <td className={cn(cell, 'min-w-48')}>
+                        <span className="break-words">{row.title}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {t(`queues.statuses.${row.status}`)}
+                          {row.line === 'l2' && ` · ${t('queues.lineL2')}`}
+                          {row.snoozedUntil && ` · ${t('queues.snoozed', { time: format.dateTime(row.snoozedUntil, { dateStyle: 'short', timeStyle: 'short' }) })}`}
+                        </span>
+                      </td>
+                      <td className={cell}>{row.orgName}</td>
+                      <td className={cn(cell, 'font-semibold')}>{row.priority.toUpperCase()}</td>
+                      <td className={cell}>
+                        <SlaBadge phase={row.slaPhase} label={row.status === 'waiting_customer' ? t('queues.sla.paused') : slaText(row.minutesLeft)} />
+                      </td>
+                      <td className={cell}>{row.assigneeName ?? <span className="text-muted-foreground">{t('queues.unassigned')}</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+          <div className="flex gap-2">
+            {page > 1 && (
+              <Link href={href({ page: page - 1 })} className="text-sm text-link hover:underline">
+                {t('queues.prev')}
+              </Link>
+            )}
+            {list.hasMore && (
+              <Link href={href({ page: page + 1 })} className="text-sm text-link hover:underline">
+                {t('queues.next')}
+              </Link>
+            )}
+          </div>
+
+          <details className="rounded-control border border-border bg-card p-3">
+            <summary className="cursor-pointer text-sm font-medium">{t('queues.saveTitle')}</summary>
+            <form action={saveFilterAction} className="mt-3 flex flex-wrap items-end gap-2">
+              <input type="hidden" name="queue" value={queue} />
+              <input type="hidden" name="sort" value={sort} />
+              <input type="hidden" name="q" value={q ?? ''} />
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <label htmlFor="filter-name" className="text-sm font-medium">
+                  {t('queues.filterName')}
+                </label>
+                <Input id="filter-name" name="name" required maxLength={80} />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="isShared" className="size-4 accent-primary" />
+                {t('queues.shareFilter')}
+              </label>
+              <Button type="submit" variant="secondary">
+                {t('queues.saveFilter')}
+              </Button>
+            </form>
+          </details>
+        </div>
+      </div>
+    </>
+  );
+}

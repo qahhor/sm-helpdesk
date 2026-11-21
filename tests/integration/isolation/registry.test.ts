@@ -9,6 +9,7 @@ async function seedEverything() {
   await pools.root.query(`insert into hdr_product_modules (code, name) values ('orders', '{"ru": "Заказы"}')`);
   await pools.root.query(`insert into hdc_settings (code, value) values ('ai.enabled', 'true')`);
   await pools.root.query(`insert into hdr_business_calendars (code, timezone, week_hours) values ('default', 'Asia/Tashkent', '{"0": null}')`);
+  await pools.root.query(`insert into hdt_saved_filters (owner_id, name, query) values ($1, 'Мои', '{"queue": "mine"}')`, [f.l1.userId]);
   await pools.root.query(
     `insert into hdr_sla_policies (priority, first_response_minutes, resolution_minutes, calendar_id) select 'p1', 15, 180, calendar_id from hdr_business_calendars`,
   );

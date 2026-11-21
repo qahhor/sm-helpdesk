@@ -239,7 +239,8 @@
           "tomorrow": "ertaga, {time}"
         },
         "mergedLink": "Murojaat {number} bilan birlashtirildi. O'sha yerda davom etamiz.",
-        "mergedHidden": "Murojaat xuddi shu mavzudagi boshqa murojaat bilan birlashtirildi."
+        "mergedHidden": "Murojaat xuddi shu mavzudagi boshqa murojaat bilan birlashtirildi.",
+        "createdByStaff": "Bu murojaatni qo'ng'irog'ingiz yoki xatingiz bo'yicha qo'llab-quvvatlash xodimi yaratgan."
       },
       "files": {
         "add": "Fayl yoki skrinshot",
@@ -1115,7 +1116,8 @@
           "noted": "Eslatma saqlandi",
           "transferred": "Murojaat ikkinchi liniyaga o'tkazildi",
           "returned": "Murojaat birinchi liniyaga qaytarildi",
-          "merged": "Murojaat takroriy sifatida yopildi"
+          "merged": "Murojaat takroriy sifatida yopildi",
+          "created": "Murojaat yaratildi"
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -1230,6 +1232,41 @@
       "errors": {
         "forbidden": "Eslatmalarni ikkinchi liniya, Customer Care va administrator yuritadi.",
         "invalid_input": "Kamida bitta band yozing."
+      }
+    },
+    "newTicket": {
+      "open": "Mijoz nomidan murojaat",
+      "title": "Mijoz nomidan murojaat",
+      "intro": "Qo'ng'iroqdan keyin mijoz tashkilotini toping va ishtirokchi nomidan murojaat oching. Mijoz uni xodim yaratganini ko'radi.",
+      "orgSearch": "Tashkilot: nomi yoki STIR",
+      "find": "Topish",
+      "notFound": "Tashkilotlar topilmadi.",
+      "orgResults": "Topilgan tashkilotlar",
+      "changeOrg": "Boshqa tashkilot",
+      "noMembers": "Tashkilotda faol ishtirokchilar yo'q.",
+      "author": "Kim nomidan",
+      "type": "Turi",
+      "impact": "Ishga ta'siri",
+      "priority": "Muhimlik",
+      "priorityByImpact": "Ta'sir bo'yicha, keyinroq tasdiqlash",
+      "subject": "Mavzu",
+      "subjectHint": "To'ldirmasa ham bo'ladi: mavzu tavsif boshidan olinadi.",
+      "description": "Nima bo'ldi",
+      "module": "Modul",
+      "moduleNone": "Ko'rsatilmagan",
+      "visibility": "Kim ko'radi",
+      "locale": "Mijozga javob tili",
+      "submit": "Murojaat yaratish",
+      "locales": {
+        "ru": "Rus tili",
+        "uz": "O'zbek tili",
+        "en": "Ingliz tili"
+      },
+      "errors": {
+        "invalid_input": "Ishtirokchi va tavsifni tekshiring: ishtirokchi tashkilotning faol a'zosi bo'lishi kerak.",
+        "forbidden": "Rolingiz murojaat yaratishga ruxsat bermaydi.",
+        "too_many_files": "10 tadan ko'p fayl emas.",
+        "file_unavailable": "Fayllardan birini endi qo'shib bo'lmaydi. Uni olib tashlab, qayta yuboring."
       }
     }
   },

@@ -192,6 +192,7 @@ export default async function TicketPage({
             {t(`page.nextReply.${ticket.nextReply.kind}`, { when: deadline(ticket.nextReply.at, ticket.nextReply.timeZone) })}
           </p>
         )}
+        {ticket.createdByStaff && <p className="text-sm text-muted-foreground">{t('page.createdByStaff')}</p>}
         {ticket.merged && (
           <p className="text-sm" data-merged>
             {ticket.mergedInto ? (

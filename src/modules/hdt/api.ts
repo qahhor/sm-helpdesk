@@ -30,6 +30,8 @@ import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from '
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeStaffUpload, completeUpload, handleUploadRequest, presignStaffUpload, presignUpload } from './api/uploads';
+// Обращение от имени клиента (план M3, задача 12).
+export { createTicketForClient } from './api/staff-create';
 // Объединение дублей и массовые действия (план M3, задача 11).
 export { bulkAction, type BulkResult, mergeTicket } from './api/bulk';
 // Передача между линиями (план M3, задача 9).
@@ -195,6 +197,8 @@ export type TicketView = {
   /** Обращение объединено с основным (решение 4 плана M3): номер, только если основное видно клиенту. */
   mergedInto: { number: number } | null;
   merged: boolean;
+  /** Обращение завёл сотрудник по звонку клиента (FR-AG-08). */
+  createdByStaff: boolean;
   csat: { score: number; reason: CsatReason | null; comment: string | null } | null;
   attachments: AttachmentView[];
   messages: MessageView[];
@@ -285,6 +289,7 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
     relatedNumber: found.relatedNumber,
     mergedInto: found.mergedIntoNumber !== null ? { number: found.mergedIntoNumber } : null,
     merged: ticket.mergedIntoId !== null,
+    createdByStaff: ticket.source === 'staff',
     csat: ticket.csatScore !== null ? { score: ticket.csatScore, reason: ticket.csatReason, comment: ticket.csatComment } : null,
     attachments: found.attachments.filter((a) => a.messageId === null).map(fileView),
     messages: found.messages.map((m) => ({

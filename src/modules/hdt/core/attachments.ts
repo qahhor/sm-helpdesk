@@ -32,10 +32,14 @@ export async function createUploadTx(actor: ClientActor, upload: NewUpload): Pro
   return withActor(actor, (tx) => insertUpload(tx, actor.orgId, actor.userId, upload));
 }
 
-/** Загрузка сотрудника к обращению (план M3, задача 8): организация из обращения, загрузивший из сессии. */
-export async function createStaffUploadTx(actor: StaffActor, number: number, upload: NewUpload): Promise<string> {
+/**
+ * Загрузка сотрудника (план M3, задачи 8 и 12): организация из обращения или, для нового обращения за клиента,
+ * уже проверенная слоем api организация. Загрузивший из сессии.
+ */
+export async function createStaffUploadTx(actor: StaffActor, target: { number: number } | { orgId: string }, upload: NewUpload): Promise<string> {
   return withActor(actor, async (tx) => {
-    const [ticket] = await tx.select({ orgId: tickets.orgId }).from(tickets).where(eq(tickets.number, number)).limit(1);
+    if ('orgId' in target) return insertUpload(tx, target.orgId, actor.userId, upload);
+    const [ticket] = await tx.select({ orgId: tickets.orgId }).from(tickets).where(eq(tickets.number, target.number)).limit(1);
     if (!ticket) throw new HdtError('not_found');
     return insertUpload(tx, ticket.orgId, actor.userId, upload);
   });

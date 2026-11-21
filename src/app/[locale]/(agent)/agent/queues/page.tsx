@@ -4,7 +4,7 @@ import { HDT_ERROR_CODES, listFilters, listQueue, QUEUE_KEYS, QUEUE_SORTS, type 
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
-import { Button } from '@/ui/components/button';
+import { Button, buttonVariants } from '@/ui/components/button';
 import { Card } from '@/ui/components/card';
 import { EmptyState } from '@/ui/components/EmptyState';
 import { Input } from '@/ui/components/input';
@@ -57,7 +57,18 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title={t('queues.title')} breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: t('queues.title') }]} breadcrumbsLabel={t('breadcrumbs')} />
+      <PageHeader
+        title={t('queues.title')}
+        breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: t('queues.title') }]}
+        breadcrumbsLabel={t('breadcrumbs')}
+        action={
+          canWrite ? (
+            <Link href="/agent/tickets/new" className={buttonVariants({ variant: 'secondary' })}>
+              {t('newTicket.open')}
+            </Link>
+          ) : undefined
+        }
+      />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <nav aria-label={t('queues.listLabel')} className="flex flex-col gap-4 lg:w-60 lg:shrink-0">
           <ul className="flex flex-wrap gap-1 lg:flex-col">

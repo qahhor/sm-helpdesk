@@ -239,7 +239,8 @@
           "tomorrow": "tomorrow, {time}"
         },
         "mergedLink": "This request was merged with {number}. We will continue there.",
-        "mergedHidden": "This request was merged with another request on the same topic."
+        "mergedHidden": "This request was merged with another request on the same topic.",
+        "createdByStaff": "A support agent created this request after your call or message."
       },
       "files": {
         "add": "File or screenshot",
@@ -1115,7 +1116,8 @@
           "noted": "Note saved",
           "transferred": "Ticket transferred to the second line",
           "returned": "Ticket returned to the first line",
-          "merged": "Ticket closed as a duplicate"
+          "merged": "Ticket closed as a duplicate",
+          "created": "Ticket created"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -1230,6 +1232,41 @@
       "errors": {
         "forbidden": "Playbooks are kept by the second line, Customer Care and the administrator.",
         "invalid_input": "Write at least one item."
+      }
+    },
+    "newTicket": {
+      "open": "Ticket for a client",
+      "title": "Ticket for a client",
+      "intro": "After a call, find the client organization and create a ticket on behalf of a member. The client will see that staff created it.",
+      "orgSearch": "Organization: name or TIN",
+      "find": "Find",
+      "notFound": "No organizations found.",
+      "orgResults": "Organizations found",
+      "changeOrg": "Another organization",
+      "noMembers": "The organization has no active members.",
+      "author": "On behalf of",
+      "type": "Type",
+      "impact": "Impact on work",
+      "priority": "Priority",
+      "priorityByImpact": "By impact, confirm later",
+      "subject": "Subject",
+      "subjectHint": "Optional: the subject is taken from the start of the description.",
+      "description": "What happened",
+      "module": "Module",
+      "moduleNone": "Not set",
+      "visibility": "Who can see it",
+      "locale": "Language of replies to the client",
+      "submit": "Create ticket",
+      "locales": {
+        "ru": "Russian",
+        "uz": "Uzbek",
+        "en": "English"
+      },
+      "errors": {
+        "invalid_input": "Check the member and the description: the member must be an active member of the organization.",
+        "forbidden": "Your role does not allow creating tickets.",
+        "too_many_files": "No more than 10 files.",
+        "file_unavailable": "One of the files can no longer be attached. Remove it and send again."
       }
     }
   },

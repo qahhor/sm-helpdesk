@@ -141,7 +141,7 @@ export const draftInput = z.object({ number: numberInput, body: z.string().overw
 export const presenceInput = z.object({ number: numberInput, mode: z.enum(PRESENCE_MODES) });
 
 /** Загрузка сотрудника: организация файла берётся из обращения, поэтому нужен его номер. */
-export const staffPresignInput = presignUploadInput.extend({ number: numberInput });
+export const staffPresignInput = z.union([presignUploadInput.extend({ number: numberInput }), presignUploadInput.extend({ orgId: z.uuid() })]);
 
 /** Передача на вторую линию (FR-LINE-03): причина из списка, что проверено, что требуется. Пункты памятки по желанию. */
 export const transferInput = z.object({
@@ -173,6 +173,13 @@ export const bulkInput = z.union([
   }),
   z.object({ action: z.literal('queue'), numbers: bulkNumbers, to: z.literal('l1'), explanation: z.string().overwrite(cleanUserText).trim().min(1).max(2000) }),
 ]);
+
+/** Обращение от имени клиента (FR-AG-08): организация и участник выбраны сотрудником, остальное как у клиента. */
+export const staffCreateInput = createTicketInput.omit({ relatedNumber: true }).extend({
+  orgId: z.uuid(),
+  authorId: z.uuid(),
+  priority: optional(z.enum(PRIORITIES)),
+});
 
 export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);

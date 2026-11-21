@@ -280,3 +280,28 @@ test('массовое назначение из очереди: итог по �
   await expect(main(page).locator(`tr[data-number="${first}"]`)).toContainText('Камила');
   await expect(main(page).locator(`tr[data-number="${second}"]`)).toContainText('Камила');
 });
+
+test('обращение за клиента: организация, участник, клиент видит "создал сотрудник поддержки"', async ({ page, browser }) => {
+  const description = `Звонок клиента ${Date.now()}: не печатаются накладные`;
+  await page.goto('/ru/agent/queues');
+  await page.getByRole('link', { name: 'Обращение за клиента' }).click();
+  await main(page).getByLabel('Организация: название или ИНН').fill('ACME');
+  await main(page).getByRole('button', { name: 'Найти' }).click();
+  await main(page).getByRole('link', { name: 'ACME Trade' }).click();
+  const author = main(page).getByLabel('От чьего имени');
+  await author.selectOption((await author.locator('option', { hasText: 'Алишер' }).first().getAttribute('value')) ?? '');
+  await main(page).getByLabel('Что случилось').fill(description);
+  await main(page).getByLabel('Приоритет').selectOption('p2');
+  await main(page).getByRole('button', { name: 'Создать обращение' }).click();
+  await expect(page).toHaveURL(/\/ru\/agent\/tickets\/SUP-\d+\?done=created/);
+  await expect(main(page).getByRole('status').filter({ hasText: 'Обращение создано' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Сведения об обращении' })).toContainText('создано сотрудником');
+  const number = Number(/SUP-(\d+)/.exec(page.url())?.[1]);
+
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.getByRole('main')).toContainText(description);
+  await expect(client.getByRole('main')).toContainText('создал сотрудник поддержки');
+  await clientContext.close();
+});

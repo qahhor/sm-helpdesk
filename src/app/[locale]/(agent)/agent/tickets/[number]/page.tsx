@@ -43,7 +43,7 @@ function safeDecode(value: string): string | null {
   }
 }
 
-const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged'] as const;
+const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created'] as const;
 
 type Search = { done?: string; error?: string };
 

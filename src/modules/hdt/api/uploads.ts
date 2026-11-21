@@ -3,7 +3,7 @@ import { env } from '@/env';
 import { consumeRateLimit, enqueue, getStorage, isSameOriginJson, problemResponse, rateKey, readLimited } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import type { ClientActor, StaffActor } from '@/db/with-actor';
-import { type ClientContext, currentClient, currentStaff, type StaffContext } from '@/modules/hdu/api';
+import { type ClientContext, currentClient, currentStaff, orgSummaries, type StaffContext } from '@/modules/hdu/api';
 import { assertCanWrite } from '../core/agent-actions';
 import { createStaffUploadTx, createUploadTx, findOwnUpload, rejectUploadTx } from '../core/attachments';
 import { HdtError, isHdtError } from '../error';
@@ -43,7 +43,8 @@ export async function presignUpload(ctx: ClientContext, input: unknown): Promise
 export async function presignStaffUpload(ctx: StaffContext, input: unknown): Promise<Presigned> {
   assertCanWrite(ctx.actor);
   const data = parseInput(staffPresignInput, input);
-  return presignFor(ctx.actor.userId, data, (upload) => createStaffUploadTx(ctx.actor, data.number, upload));
+  if ('orgId' in data && !(await orgSummaries(ctx, [data.orgId])).has(data.orgId)) throw new HdtError('not_found');
+  return presignFor(ctx.actor.userId, data, (upload) => createStaffUploadTx(ctx.actor, 'number' in data ? { number: data.number } : { orgId: data.orgId }, upload));
 }
 
 /**

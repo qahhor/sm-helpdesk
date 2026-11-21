@@ -6,6 +6,7 @@ import { writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, canTransition, type CsatReason, type TicketStatus, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
+import { isThanks } from './thanks';
 
 // Модуль hdt, слой core: действия клиента над обращением (FR-TK-08..12). Каждое действие одной
 // транзакцией: обращение блокируется (одновременное второе нажатие видит уже новый статус), меняется
@@ -60,11 +61,11 @@ async function changeStatus(tx: Tx, actor: ClientActor, ticket: Locked, to: Tick
 }
 
 /** Сообщение клиента с прикреплением его загрузок. Чужая или уже прикреплённая загрузка: invalid_input. */
-async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body: string, attachmentIds: string[] = []): Promise<void> {
+async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body: string, attachmentIds: string[] = [], isThanks = false): Promise<void> {
   const message = (
     await tx
       .insert(ticketMessages)
-      .values({ orgId: ticket.orgId, ticketId: ticket.ticketId, authorId: actor.userId, authorType: 'client', body })
+      .values({ orgId: ticket.orgId, ticketId: ticket.ticketId, authorId: actor.userId, authorType: 'client', body, isThanks })
       .returning({ messageId: ticketMessages.messageId })
   )[0] as { messageId: string };
   if (attachmentIds.length > 0) {
@@ -85,13 +86,19 @@ async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body
 }
 
 /**
- * Ответ клиента (FR-TK-08). "Ждём вашего ответа" и "Решено" переходят в "В работе" (решение 0026, пункт 4:
- * определение благодарности придёт в M3). В закрытое обращение ответить нельзя: его открывают заново.
+ * Ответ клиента (FR-TK-08). "Ждём вашего ответа" и "Решено" переходят в "В работе", кроме благодарности на
+ * решённое (FR-TK-14, решение 0026, пункт 4). В закрытое обращение ответить нельзя: его открывают заново.
  */
 export async function replyTx(actor: ClientActor, number: number, body: string, attachmentIds: string[]): Promise<string> {
   return withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
     if (ticket.status === 'closed') throw new HdtError('transition_refused');
+    // Благодарность на решённое (FR-TK-14, решение 15): сообщение сохраняется, обращение остаётся решённым и не
+    // считается ждущим ответа. Файл в сообщении это уже не просто "спасибо": открывается заново.
+    if (ticket.status === 'resolved' && attachmentIds.length === 0 && isThanks(body)) {
+      await addClientMessage(tx, actor, ticket, body, [], true);
+      return ticket.ticketId;
+    }
     await addClientMessage(tx, actor, ticket, body, attachmentIds);
     if (ticket.status === 'waiting_customer' || ticket.status === 'resolved')
       await changeStatus(tx, actor, ticket, 'in_progress', { lastClientMessageOn: new Date() });

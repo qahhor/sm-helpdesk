@@ -2,9 +2,9 @@ import { PgBoss } from 'pg-boss';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
-import { bossOptions, cleanupRateLimits, createPgBossQueue, setJobQueue } from '@/modules/hdc/api';
+import { bossOptions, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
 import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
-import { isHdtError, scanAttachment, sweepAttachments } from '@/modules/hdt/api/jobs';
+import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 
@@ -13,9 +13,10 @@ import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок и задача обращений раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
+  { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
 
@@ -37,10 +38,25 @@ export interface WorkerOptions {
   schedules?: boolean;
 }
 
+/**
+ * Очереди создаёт скрипт миграций (scripts/db/pgboss.mjs). Новая версия процесса может стартовать раньше миграций
+ * (выкладка, браузерные тесты): тогда она ждёт свои очереди с теми же паузами, что и запуск pg-boss, а не падает.
+ */
+async function waitForQueues(boss: PgBoss, attempts: number): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    const missing: string[] = [];
+    for (const name of JOB_NAMES) if (!(await boss.getQueue(name))) missing.push(name);
+    if (missing.length === 0) return;
+    if (attempt >= attempts) throw new Error(`нет очередей ${missing.join(', ')}: миграции не применены`);
+    await new Promise((resolve) => setTimeout(resolve, Math.min(30_000, 500 * 2 ** attempt)));
+  }
+}
+
 export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): Promise<void> }> {
   const boss = new PgBoss(bossOptions(opts.connectionString ?? getEnv().DATABASE_URL_APP, 'worker'));
   boss.on('error', (error) => console.error(`Фоновый процесс: ${error.message}`));
   await boss.start({ attempts: opts.startAttempts ?? START_ATTEMPTS });
+  await waitForQueues(boss, opts.startAttempts ?? START_ATTEMPTS);
   setJobQueue(createPgBossQueue(boss));
   const polling = { pollingIntervalSeconds: opts.pollingIntervalSeconds ?? 2 };
 
@@ -59,6 +75,12 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const { requeued, removed, failed } = await sweepAttachments(actor('attachment.sweep'));
     if (requeued > 0 || removed > 0 || failed > 0)
       console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}, проверка не прошла за сутки ${failed}`);
+  });
+  await boss.work('tickets.minute', polling, async () => {
+    const { breached, unsnoozed, closed, refreshed, presenceRemoved } = await ticketsMinute(actor('tickets.minute'));
+    if (breached + unsnoozed + closed + refreshed > 0)
+      console.info(`Обращения: нарушено сроков ${breached}, вернулось отложенных ${unsnoozed}, закрыто автоматически ${closed}, досчитано сроков ${refreshed}`);
+    void presenceRemoved;
   });
   await boss.work('maintenance.cleanup', polling, async () => {
     const system = actor('maintenance.cleanup');

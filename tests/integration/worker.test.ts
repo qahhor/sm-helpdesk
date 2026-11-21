@@ -8,7 +8,7 @@ import { bossOptions, createPgBossQueue, JOB_NAMES } from '@/modules/hdc/api';
 import { MemoryJobQueue, MemoryStorage, setJobQueueForTests, setScannerForTests, setStorageForTests } from '@/modules/hdc/testing';
 import { createStubScanner } from '@/modules/hdc/antivirus/stub';
 import { completeUpload, createTicket, presignUpload, SWEEP_BATCH, sweepAttachments } from '@/modules/hdt/api';
-import { startWorker } from '@/worker/main';
+import { SCHEDULES, startWorker } from '@/worker/main';
 import { QUEUES } from '../../scripts/db/pgboss.mjs';
 import { clientCtx } from './helpers/auth';
 import { appUrl, pools } from './helpers/db';
@@ -93,6 +93,46 @@ test('задача проверки доходит до scanAttachment и не �
     expect(stored.rows).toEqual([{ data: { attachmentId } }]);
   } finally {
     await worker.stop();
+  }
+});
+
+test('задача обращений раз в минуту в расписании и выполняется фоновым процессом (план M3, задача 13)', async () => {
+  expect(SCHEDULES).toContainEqual({ name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' });
+  const f = await seedTwoOrgs();
+  await pools.root.query(`insert into hdt_ticket_presence (ticket_id, user_id, mode, expires_on) values ($1, $2, 'viewing', now() - interval '1 minute')`, [
+    f.tickets.aOrg.ticketId,
+    f.l1.userId,
+  ]);
+  const worker = await startWorker({ connectionString: appUrl, pollingIntervalSeconds: 0.5, schedules: false });
+  try {
+    const boss = new PgBoss(bossOptions(appUrl, 'sender'));
+    boss.on('error', () => {});
+    await boss.start();
+    try {
+      await createPgBossQueue(boss).send('tickets.minute', {});
+    } finally {
+      await boss.stop({ graceful: false });
+    }
+    await waitFor(async () => (await pools.root.query(`select count(*)::int as n from hdt_ticket_presence`)).rows[0].n === 0);
+  } finally {
+    await worker.stop();
+  }
+});
+
+test('очереди ещё нет (процесс стартовал раньше миграций): процесс ждёт её, а не падает', async () => {
+  const owner = new PgBoss({ connectionString: process.env.DATABASE_URL_OWNER, schema: 'pgboss', supervise: false, schedule: false, migrate: false });
+  owner.on('error', () => {});
+  await owner.start();
+  try {
+    await owner.deleteQueue('tickets.minute');
+    const starting = startWorker({ connectionString: appUrl, pollingIntervalSeconds: 0.5, startAttempts: 5 });
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await owner.createQueue('tickets.minute', QUEUES['tickets.minute']);
+    const worker = await starting;
+    await worker.stop();
+  } finally {
+    if (!(await owner.getQueue('tickets.minute'))) await owner.createQueue('tickets.minute', QUEUES['tickets.minute']);
+    await owner.stop({ graceful: false });
   }
 });
 
@@ -231,6 +271,7 @@ test('собранный worker.mjs запускается без каталог
   expect((await pools.root.query(`select name, cron, timezone from pgboss.schedule order by name`)).rows).toEqual([
     { name: 'attachment.sweep', cron: '* * * * *', timezone: 'UTC' },
     { name: 'maintenance.cleanup', cron: '0 3 * * *', timezone: 'Asia/Tashkent' },
+    { name: 'tickets.minute', cron: '* * * * *', timezone: 'UTC' },
   ]);
   child.kill('SIGTERM');
   expect(await exited).toBe(0);

@@ -12,11 +12,13 @@ import {
   queueRowsTx,
   type SavedFilter,
   saveFilterTx,
+  THANKS_PAGE_SIZE,
+  thanksRowsTx,
 } from '../core/agent-queues';
 import { markReadTx, readAgentTicketTx } from '../core/agent-ticket';
 import { assertCanWrite, assignTx, setModuleTx, setPriorityTx, setStatusTx, setTypeTx, snoozeTx, takeTx } from '../core/agent-actions';
 import { HdtError, isHdtError } from '../error';
-import { assignInput, moduleInput, numberInput, parseInput, priorityInput, queueInput, savedFilterInput, snoozeInput, statusInput, typeInput } from '../input';
+import { assignInput, moduleInput, numberInput, parseInput, priorityInput, queueInput, savedFilterInput, snoozeInput, statusInput, thanksInput, typeInput } from '../input';
 import { type AuthorType, type EventKind, type Impact, INLINE_IMAGE_TYPES, type Priority, type Queue, type ScanStatus, type TicketSource, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { workingMinutesBetween } from '../sla';
 import { parseNumber, parseSearch, rejectReasonOf } from '../util';
@@ -349,3 +351,19 @@ export async function snoozeTicket(ctx: StaffContext, input: unknown): Promise<v
 
 export type { SavedFilter } from '../core/agent-queues';
 export { QUEUE_KEYS, QUEUE_SORTS, type QueueKey, type QueueSort } from '../core/agent-queue-keys';
+
+// --- Благодарности, не открывшие обращение (FR-TK-14; план M3, задача 13) ---
+
+export type ThanksRow = { number: number; orgName: string; body: string; createdOn: Date };
+
+/** Список "Не открыли обращение": благодарности на решённые обращения, новые первыми. */
+export async function listThanks(ctx: StaffContext, input: unknown): Promise<{ items: ThanksRow[]; hasMore: boolean }> {
+  const page = parseInput(thanksInput, input ?? {}).page;
+  const rows = await thanksRowsTx(ctx.actor, page);
+  const shown = rows.slice(0, THANKS_PAGE_SIZE);
+  const orgs = await orgSummaries(ctx, [...new Set(shown.map((row) => row.orgId))]);
+  return {
+    items: shown.map((row) => ({ number: row.number, orgName: orgs.get(row.orgId)?.name ?? '', body: row.body, createdOn: row.createdOn })),
+    hasMore: rows.length > THANKS_PAGE_SIZE,
+  };
+}

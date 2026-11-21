@@ -87,6 +87,11 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                 </Link>
               </li>
             ))}
+            <li>
+              <Link href="/agent/queues/thanks" className="flex rounded-control px-3 py-2 text-sm text-secondary-foreground hover:bg-card-soft">
+                {t('queues.thanks.link')}
+              </Link>
+            </li>
           </ul>
           {filters.length > 0 && (
             <section aria-labelledby="saved-filters" className="flex flex-col gap-1">

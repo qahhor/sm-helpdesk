@@ -267,6 +267,10 @@
         "reason": "Nima yoqmaganini tanlang",
         "file_unavailable": "Fayllardan biri endi mavjud emas yoki tekshiruvdan o'tmagan. Uni olib tashlang va qaytadan qo'shing",
         "merged": "Murojaat boshqasi bilan birlashtirildi: asosiy murojaatda davom etamiz."
+      },
+      "system": {
+        "autoCloseResolved": "Murojaatni yopdik: yechim 5 ish kuni davomida tasdiqlanmadi. Savol qaytsa, murojaatni qayta oching.",
+        "autoCloseWaiting": "Murojaatni yopdik: 7 ish kuni davomida javobingiz bo'lmadi. Savol qolgan bo'lsa, murojaatni qayta oching."
       }
     },
     "ideas": {
@@ -991,6 +995,13 @@
         "invalid": "Murojaatlarni belgilang va amal maydonlarini to'ldiring.",
         "select": "{number} ni tanlash",
         "selectColumn": "Tanlash"
+      },
+      "thanks": {
+        "link": "Murojaatni ochmaganlar",
+        "title": "Murojaatni ochmaganlar",
+        "intro": "Hal qilingan murojaatlarga mijozlarning minnatdorchilik deb tanilgan javoblari: murojaat hal qilingan holda qoldi. \"Rahmat\" ortida yangi savol yo'qligini tekshiring.",
+        "emptyTitle": "Bunday javoblar yo'q",
+        "emptyText": "Bu yerda murojaatni qayta ochmagan mijoz minnatdorchiliklari paydo bo'ladi."
       }
     },
     "ticket": {

@@ -90,6 +90,8 @@ export const ticketMessages = pgTable('hdt_ticket_messages', {
   source: text('source').$type<TicketSource>().notNull().default('portal'),
   emailMessageId: text('email_message_id'),
   ...stampColumns,
+  // Колонка добавлена миграцией 0029 и стоит в конце таблицы.
+  isThanks: boolean('is_thanks').notNull().default(false),
 });
 
 export const ticketEvents = pgTable('hdt_ticket_events', {

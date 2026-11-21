@@ -267,6 +267,10 @@
         "reason": "Choose what went wrong",
         "file_unavailable": "One of the files is no longer available or failed the check. Remove it and attach it again",
         "merged": "This request was merged with another one: we will continue in the main request."
+      },
+      "system": {
+        "autoCloseResolved": "We closed this request: the solution was not confirmed for 5 working days. If the issue returns, reopen the request.",
+        "autoCloseWaiting": "We closed this request: there was no reply from you for 7 working days. If the issue remains, reopen the request."
       }
     },
     "ideas": {
@@ -991,6 +995,13 @@
         "invalid": "Select tickets and fill in the action fields.",
         "select": "Select {number}",
         "selectColumn": "Select"
+      },
+      "thanks": {
+        "link": "Did not reopen the ticket",
+        "title": "Did not reopen the ticket",
+        "intro": "Client replies to resolved tickets recognized as thanks: the ticket stayed resolved. Check that no new question hides behind the \"thank you\".",
+        "emptyTitle": "No such replies",
+        "emptyText": "Client thanks that did not reopen a ticket will appear here."
       }
     },
     "ticket": {

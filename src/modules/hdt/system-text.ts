@@ -1,0 +1,18 @@
+import { createTranslator } from 'next-intl';
+import type { Locale } from '@/i18n/locales';
+import en from '../../../messages/en.json';
+import ru from '../../../messages/ru.json';
+import uz from '../../../messages/uz.json';
+
+// Сообщения поддержки, которые пишет система (автозакрытие, FR-TK-10, FR-TK-15). Лежат в messages/*.json
+// в пространстве client.tickets.system: их читает клиент, поэтому они проходят проверки слов портала.
+
+const MESSAGES = { ru, uz, en } as const;
+
+export type SystemTextKey = 'autoCloseResolved' | 'autoCloseWaiting';
+
+/** Текст на языке обращения; неизвестный язык: русский. */
+export function systemText(locale: string, key: SystemTextKey): string {
+  const lang: Locale = locale === 'uz' || locale === 'en' ? locale : 'ru';
+  return createTranslator({ locale: lang, messages: MESSAGES[lang], namespace: 'client.tickets.system' })(key);
+}

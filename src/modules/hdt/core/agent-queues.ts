@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lt, ne, notInArr
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
 import type { Priority, Queue, TicketStatus } from '../pref';
-import { savedFilters, type SavedQuery, tickets } from '../schema';
+import { savedFilters, type SavedQuery, ticketMessages, tickets } from '../schema';
 import { QUEUE_KEYS, type QueueKey, type QueueSort } from './agent-queue-keys';
 
 // Модуль hdt, слой core: очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18; план M3, задача 5).
@@ -154,4 +154,22 @@ export async function deleteFilterTx(actor: StaffActor, filterId: string): Promi
     tx.delete(savedFilters).where(and(eq(savedFilters.filterId, filterId), eq(savedFilters.ownerId, actor.userId))).returning({ filterId: savedFilters.filterId }),
   );
   if (deleted.length === 0) throw new HdtError('not_found');
+}
+
+// --- Благодарности, не открывшие обращение (FR-TK-14, план M3, задача 13) ---
+
+export const THANKS_PAGE_SIZE = 50;
+
+/** Сообщения клиентов-благодарностей, новые первыми, на одну строку больше страницы. */
+export async function thanksRowsTx(actor: StaffActor, page: number): Promise<{ number: number; orgId: string; body: string; createdOn: Date }[]> {
+  return withActor(actor, (tx) =>
+    tx
+      .select({ number: tickets.number, orgId: tickets.orgId, body: ticketMessages.body, createdOn: ticketMessages.createdOn })
+      .from(ticketMessages)
+      .innerJoin(tickets, eq(tickets.ticketId, ticketMessages.ticketId))
+      .where(eq(ticketMessages.isThanks, true))
+      .orderBy(desc(ticketMessages.createdOn))
+      .limit(THANKS_PAGE_SIZE + 1)
+      .offset((page - 1) * THANKS_PAGE_SIZE),
+  );
 }

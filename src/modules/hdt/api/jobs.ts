@@ -1,6 +1,7 @@
 import 'server-only';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { scanAttachment as scanCore, sweepAttachments as sweepCore } from '../core/attachments';
+import { type MinuteResult, ticketsMinuteTx } from '../core/housekeeping';
 import { needsSlaRefreshTx, refreshSla, type SlaState } from '../core/sla';
 import { attachmentIdInput, parseInput } from '../input';
 import { type ScanStatus, SWEEP_BATCH } from '../pref';
@@ -52,4 +53,14 @@ export async function refreshSlaAfterClient(ticketId: string): Promise<void> {
   } catch (error) {
     console.error(`Сроки обращения ${ticketId} не пересчитаны после действия клиента: ${error instanceof Error ? error.message : 'ошибка'}`);
   }
+}
+
+// --- Задача раз в минуту (план M3, задача 13) ---
+
+export type { MinuteResult } from '../core/housekeeping';
+
+/** Нарушения сроков, отложенные, автозакрытие, досчёт сроков, присутствие (расписание tickets.minute). */
+export function ticketsMinute(actor: SystemActor, now: Date = new Date()): Promise<MinuteResult> {
+  assertSystem(actor);
+  return ticketsMinuteTx(actor, now);
 }

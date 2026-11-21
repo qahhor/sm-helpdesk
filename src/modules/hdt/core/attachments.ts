@@ -40,6 +40,30 @@ export async function findOwnUpload(actor: ClientActor, attachmentId: string): P
 }
 
 /**
+ * Вложение, которое актор может скачать: только проверенное чистое, не внутреннее и уже перенесённое из карантина.
+ * Чужое, несуществующее и непроверенное неразличимы: null (строка 15.2). Видимость обращения решают политики RLS.
+ */
+export async function findDownloadable(
+  actor: ClientActor,
+  attachmentId: string,
+): Promise<{ storageKey: string; fileName: string; mime: string } | null> {
+  return withActor(actor, async (tx) => {
+    const [row] = await tx
+      .select({ storageKey: attachments.storageKey, fileName: attachments.fileName, mime: attachments.mime })
+      .from(attachments)
+      .where(
+        and(
+          eq(attachments.attachmentId, attachmentId),
+          eq(attachments.scanStatus, 'clean'),
+          eq(attachments.isInternal, false),
+          sql`${attachments.storageKey} like 'files/%'`,
+        ),
+      );
+    return row ?? null;
+  });
+}
+
+/**
  * Отклоняет загрузку, файл которой не пришёл или не совпал по размеру. Состояние проверки клиент менять не может
  * (триггер t_hdt_attachments_client_guard), поэтому меняет фоновая роль, и только строку этого загрузившего в pending.
  */

@@ -27,6 +27,8 @@ import { parseNumber, titleFromDescription } from './util';
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeUpload, handleUploadRequest, presignUpload } from './api/uploads';
+// Скачивание вложений (задача 8).
+export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
 export { scanAttachment, sweepAttachments } from './api/jobs';
 

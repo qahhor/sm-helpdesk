@@ -16,7 +16,8 @@ export { clientIp, clientIpHeader, ipBucket, ipRateKey, isSameOriginJson, proble
 export { handleCspReport } from './csp-report';
 // Хранилище вложений и фоновые задачи (раздел 11.11, решение 0027).
 export { contentDisposition, getStorage, handleLocalStorage, type Storage, UPLOAD_LINK_TTL_SEC } from './storage';
-export { enqueue, type JobName } from './jobs';
+// Фоновые задачи: постановка для портала, настройки и очередь pg-boss для фонового процесса (решение 0028).
+export { bossOptions, createPgBossQueue, enqueue, JOB_NAMES, type JobName, setJobQueue } from './jobs';
 export { type AntivirusScanner, getScanner } from './antivirus';
 export { type DetectedType, SNIFF_BYTES, sniffFileType } from './filetype';
 // Настройки портала (hdc_settings).

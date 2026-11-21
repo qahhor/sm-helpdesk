@@ -48,5 +48,5 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdt_ticket_messages: { client: 'own-org', app: ['insert'] },
   hdt_ticket_events: { client: 'own-org', app: ['insert'] },
   hdt_ticket_watchers: { client: 'own-user', app: ['insert', 'delete'] },
-  hdt_attachments: { client: 'own-org', app: IU },
+  hdt_attachments: { client: 'own-org', app: IUD },
 };

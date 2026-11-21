@@ -1,16 +1,20 @@
-// Сборка команды консоли hub в один файл dist/hub.mjs со всеми зависимостями.
-// Файл кладётся в образ и запускается там без каталога node_modules: node hub.mjs <команда>.
+// Сборка команды консоли hub и фонового процесса в файлы dist/hub.mjs и dist/worker.mjs со всеми зависимостями.
+// Файлы кладутся в образ и запускаются там без каталога node_modules: node hub.mjs <команда>, node worker.mjs.
 import { resolve } from 'node:path';
 import { build } from 'rolldown';
 
 const root = resolve(import.meta.dirname, '..');
 
-/** @returns {Promise<string>} путь собранного файла */
-export async function buildCli() {
-  const file = resolve(root, 'dist/hub.mjs');
+/**
+ * @param {string} entry исходный файл точки входа
+ * @param {string} name имя собранного файла в dist/
+ * @returns {Promise<string>} путь собранного файла
+ */
+async function bundle(entry, name) {
+  const file = resolve(root, 'dist', name);
   await build({
     cwd: root,
-    input: resolve(root, 'src/cli/main.ts'),
+    input: resolve(root, entry),
     platform: 'node',
     // Необязательная родная библиотека драйвера pg: в образе её нет, драйвер обходится без неё.
     external: ['pg-native'],
@@ -32,10 +36,17 @@ export async function buildCli() {
   return file;
 }
 
+/** @returns {Promise<string>} путь собранного файла */
+export const buildCli = () => bundle('src/cli/main.ts', 'hub.mjs');
+
+/** @returns {Promise<string>} путь собранного файла фонового процесса */
+export const buildWorker = () => bundle('src/worker/main.ts', 'worker.mjs');
+
 if (import.meta.main) {
   try {
     const file = await buildCli();
     console.log(`Команда hub собрана: ${file}`);
+    console.log(`Фоновый процесс собран: ${await buildWorker()}`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

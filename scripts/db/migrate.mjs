@@ -1,5 +1,5 @@
-// Применяет файлы миграций из каталога drizzle/ по порядку имён.
-// Миграции пишутся руками на SQL (ТЗ 10.3) и после применения не правятся.
+// Применяет файлы миграций из каталога drizzle/ по порядку имён, затем ставит или обновляет схему pg-boss
+// (scripts/db/pgboss.mjs, решение 0028). Миграции пишутся руками на SQL (ТЗ 10.3) и после применения не правятся.
 //
 // Переменные окружения:
 //   DATABASE_URL_OWNER  адрес подключения роли hub_owner
@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import pg from 'pg';
+import { installPgBoss } from './pgboss.mjs';
 
 // Постоянный номер блокировки: два одновременных запуска миграций выполняются по очереди.
 const LOCK_KEY = 7_403_001;
@@ -76,6 +77,8 @@ export async function migrate(opts = {}) {
       }
       applied += 1;
     }
+    // Схема очереди задач: после миграций, потому что 0012 заранее выдаёт права на её будущие объекты.
+    await installPgBoss(ownerUrl);
     return { applied };
   } finally {
     await client.query('select pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {});

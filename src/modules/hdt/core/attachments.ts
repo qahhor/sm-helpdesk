@@ -1,8 +1,8 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
-import { getScanner, getStorage, SNIFF_BYTES, sniffFileType, writeAudit } from '@/modules/hdc/api';
+import { enqueue, getScanner, getStorage, SNIFF_BYTES, sniffFileType, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { DETECTED_BY_MIME, type ScanStatus } from '../pref';
 import { attachments } from '../schema';
@@ -161,4 +161,62 @@ export async function scanAttachment(attachmentId: string): Promise<ScanStatus> 
   if (scanned !== row.size) throw new Error('hdt: антивирус прочитал файл не целиком');
   await storage.move(quarantine, target);
   return finish(row, { scanStatus: 'clean', storageKey: target, detectedType: detected, sha256: hash.digest('hex') });
+}
+
+// --- Обход загрузок (расписание attachment.sweep раз в минуту, решение 0028) ---
+
+const SWEEP_ACTOR: SystemActor = { type: 'system', job: 'attachment.sweep' };
+/** Сколько строк берёт один проход: остальное возьмёт следующий через минуту. */
+const SWEEP_BATCH = 200;
+
+/**
+ * Файлы pending старше двух минут снова ставятся на проверку: постановка после "загрузка завершена" могла
+ * не пройти. Пока файла в карантине нет, браузер, возможно, ещё загружает его: такой ставится только через час,
+ * и проверка отклонит его. Неприкреплённые загрузки старше суток удаляются вместе с файлами.
+ */
+export async function sweepAttachments(): Promise<{ requeued: number; removed: number }> {
+  const storage = getStorage();
+  const pending = await withActor(SWEEP_ACTOR, (tx) =>
+    tx.execute<{ attachment_id: string; abandoned: boolean }>(sql`
+      select attachment_id, created_on < now() - interval '1 hour' as abandoned
+        from hdt_attachments
+       where scan_status = 'pending' and created_on < now() - interval '2 minutes'
+       order by created_on
+       limit ${SWEEP_BATCH}`),
+  );
+  let requeued = 0;
+  for (const row of pending.rows) {
+    if (!row.abandoned && !(await storage.head(quarantineKey(row.attachment_id)))) continue;
+    await enqueue('attachment.scan', { attachmentId: row.attachment_id });
+    requeued += 1;
+  }
+
+  const stale = await withActor(SWEEP_ACTOR, (tx) =>
+    tx
+      .select({ attachmentId: attachments.attachmentId, orgId: attachments.orgId })
+      .from(attachments)
+      .where(and(isNull(attachments.ticketId), sql`${attachments.createdOn} < now() - interval '1 day'`))
+      .orderBy(attachments.createdOn)
+      .limit(SWEEP_BATCH),
+  );
+  let removed = 0;
+  for (const row of stale) {
+    // Сначала строка: если загрузку успели прикрепить, она не удаляется и файл остаётся.
+    const deleted = await withActor(SWEEP_ACTOR, (tx) =>
+      tx
+        .delete(attachments)
+        .where(and(eq(attachments.attachmentId, row.attachmentId), isNull(attachments.ticketId)))
+        .returning({ attachmentId: attachments.attachmentId }),
+    );
+    if (deleted.length === 0) continue;
+    removed += 1;
+    try {
+      await storage.remove(quarantineKey(row.attachmentId));
+      await storage.remove(fileKey(row.orgId, row.attachmentId));
+    } catch (error) {
+      // Строки уже нет, файл без строки никому не выдаётся. Остаток в хранилище виден по журналу.
+      console.error(`Файл загрузки ${row.attachmentId} не удалён из хранилища: ${error instanceof Error ? error.message : 'ошибка'}`);
+    }
+  }
+  return { requeued, removed };
 }

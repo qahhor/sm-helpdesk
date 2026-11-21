@@ -121,6 +121,24 @@ test('загрузка завершена: размер не совпал с з�
   expect((await row(good.attachmentId)).scan_status).toBe('pending');
 });
 
+test('очередь недоступна: загрузка завершается, файл ждёт обхода, ошибка только в журнале процесса', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = await clientCtx(f.aUser);
+  setJobQueueForTests({ send: async () => Promise.reject(new Error('очередь недоступна')) });
+  const errors: unknown[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void errors.push(args.join(' '));
+  try {
+    const { attachmentId } = await presignUpload(ctx, { fileName: 'shot.png', size: 4, mime: 'image/png' });
+    storage.put(`quarantine/${attachmentId}`, new Uint8Array(4));
+    expect(await completeUpload(ctx, attachmentId)).toEqual({ status: 'pending' });
+    expect(errors.join('\n')).toMatch(/attachment\.scan/);
+    expect(errors.join('\n')).not.toMatch(/shot\.png/);
+  } finally {
+    console.error = original;
+  }
+});
+
 test('чужую загрузку завершить нельзя, неприкреплённая видна только загрузившему', async () => {
   const f = await seedTwoOrgs();
   const mine = await presignUpload(await clientCtx(f.aUser), { fileName: 'shot.png', size: 4, mime: 'image/png' });

@@ -152,3 +152,38 @@ test('вложение: клиент создаёт только своё неп
   ).rejects.toThrow(/row-level security/);
   expect(await run(f.aUser.actor, `update hdt_attachments set ticket_id = $1 where storage_key = 'quarantine/x'`, [f.tickets.aOrg.ticketId])).toBe(1);
 });
+
+test('удалить вложение может только система и только неприкреплённое старше суток (обход загрузок, решение 0028)', async () => {
+  const f = await seedTwoOrgs();
+  const insert = (key: string) =>
+    pools.root
+      .query(
+        `insert into hdt_attachments (org_id, uploader_id, storage_key, file_name, mime, size) values ($1, $2, $3, 'a.png', 'image/png', 10) returning attachment_id`,
+        [f.orgA.orgId, f.aUser.userId, key],
+      )
+      .then((r) => r.rows[0].attachment_id as string);
+  const age = async (id: string) => {
+    const client = await pools.root.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local session_replication_role = replica');
+      await client.query(`update hdt_attachments set created_on = now() - interval '25 hours' where attachment_id = $1`, [id]);
+      await client.query('commit');
+    } finally {
+      client.release();
+    }
+  };
+  const old = await insert('quarantine/old');
+  const fresh = await insert('quarantine/fresh');
+  await age(old);
+  const attached = (await pools.root.query(`select attachment_id from hdt_attachments where ticket_id = $1 limit 1`, [f.tickets.aOrg.ticketId])).rows[0]
+    .attachment_id as string;
+  await age(attached);
+  const remove = (actor: Actor, id: string) => run(actor, 'delete from hdt_attachments where attachment_id = $1', [id]);
+  // Клиент и сотрудник не удаляют ничего, даже старую неприкреплённую загрузку самого клиента.
+  for (const actor of [f.aUser.actor, f.aAdmin.actor, f.l1.actor]) expect(await remove(actor, old)).toBe(0);
+  const systemActor = { type: 'system', job: 'attachment.sweep' } as const;
+  expect(await remove(systemActor, fresh)).toBe(0);
+  expect(await remove(systemActor, attached)).toBe(0);
+  expect(await remove(systemActor, old)).toBe(1);
+});

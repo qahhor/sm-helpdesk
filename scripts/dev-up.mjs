@@ -146,7 +146,17 @@ if (import.meta.main) {
     process.exit(1);
   }
   if (process.argv.includes('--prepare')) process.exit(0);
+  // Фоновый процесс рядом с next dev (решение 0028): проверка вложений, обход загрузок, ночная очистка.
+  execFileSync(process.execPath, [resolve(root, 'scripts/build-cli.mjs')], { cwd: root, stdio: 'ignore' });
+  const worker = spawn(process.execPath, ['--env-file-if-exists=.env', resolve(root, 'dist/worker.mjs')], { cwd: root, stdio: 'inherit' });
   const dev = spawn(process.execPath, [resolve(root, 'scripts/next.mjs'), 'dev'], { cwd: root, stdio: 'inherit' });
-  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => dev.kill(signal));
-  dev.on('exit', (code) => process.exit(code ?? 0));
+  for (const signal of ['SIGINT', 'SIGTERM'])
+    process.on(signal, () => {
+      worker.kill(signal);
+      dev.kill(signal);
+    });
+  dev.on('exit', (code) => {
+    worker.kill('SIGTERM');
+    process.exit(code ?? 0);
+  });
 }

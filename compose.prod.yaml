@@ -1,6 +1,5 @@
-# Развёртывание портала по разделам 13.3 и 13.4 ТЗ, часть вехи M1 (проверка main, C2).
-# Фоновый процесс (worker), TEI и ClamAV добавятся в своих вехах. Порядок первого запуска:
-# docs/runbooks/staging-after-m1.md.
+# Развёртывание портала по разделам 13.3 и 13.4 ТЗ: веха M1 (проверка main, C2), фоновый процесс и ClamAV
+# в вехе M2 (решение 0028). TEI добавится в своей вехе. Порядок первого запуска: docs/runbooks/staging-after-m1.md.
 #
 #   docker compose -f compose.prod.yaml run --rm bootstrap   # один раз: роли и база
 #   docker compose -f compose.prod.yaml run --rm migrate     # при каждой выкладке
@@ -35,6 +34,32 @@ services:
       interval: 15s
       timeout: 3s
       retries: 3
+
+  # Фоновый процесс (решение 0028): задачи pg-boss под ролью hub_app, ограничения те же, что у портала.
+  worker:
+    image: ${HUB_IMAGE:?задайте HUB_IMAGE}
+    restart: unless-stopped
+    command: ['node', 'worker.mjs']
+    env_file: ['.env']
+    user: '1001:1001'
+    read_only: true
+    tmpfs: ['/tmp']
+    depends_on:
+      postgres: { condition: service_healthy }
+      clamav: { condition: service_healthy }
+
+  # Антивирус для вложений (раздел 13.3, решение 0027). Порт 3310 открыт только внутри сети compose (CLAMAV_HOST=clamav).
+  # Закреплён по digest. Базы подписей на томе: первое обновление идёт несколько минут, поэтому готовности ждём до 10 минут.
+  clamav:
+    image: clamav/clamav:1.5.5@sha256:12177441d1b40cef3c47b44c4090d59d4babc4c67bedd5af0fa315e603aa6dd8
+    restart: unless-stopped
+    volumes: ['clamav_db:/var/lib/clamav']
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10m
 
   # Миграции от роли hub_owner. Подключение владельца есть только здесь (раздел 13.5 ТЗ).
   migrate:
@@ -73,6 +98,7 @@ services:
 volumes:
   caddy_data: {}
   pg_data: {}
+  clamav_db: {}
 
 secrets:
   pg_superuser:

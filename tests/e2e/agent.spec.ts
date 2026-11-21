@@ -214,3 +214,32 @@ test('передача на вторую линию: кнопка неактив
   await expect(client.getByRole('main')).not.toContainText('Права в порядке');
   await clientContext.close();
 });
+
+test('шаблоны: администратор добавляет, агент набирает "/код" и вставляет текст на языке обращения', async ({ page, browser }) => {
+  const code = `e2e-${Date.now().toString(36)}`;
+  const admin = await browser.newContext({ storageState: storageStateOf('admin') });
+  const adminPage = await admin.newPage();
+  await adminPage.goto('/ru/agent/settings/templates');
+  const form = adminPage.locator('form').filter({ has: adminPage.getByRole('button', { name: 'Добавить шаблон' }) });
+  await form.getByLabel('Код после "/"').fill(code);
+  await form.getByLabel('Название').fill('Попросить снимок экрана');
+  await form.getByLabel('Текст на русском').fill('Пришлите, пожалуйста, снимок экрана с ошибкой.');
+  await form.getByLabel('Текст на узбекском').fill('Iltimos, xato bilan ekran rasmini yuboring.');
+  await form.getByRole('button', { name: 'Добавить шаблон' }).click();
+  await expect(adminPage.getByRole('status').filter({ hasText: 'Шаблон сохранён' })).toBeVisible();
+  await expect(adminPage.getByText(`/${code}`)).toBeVisible();
+  await admin.close();
+
+  const number = await clientTicket(browser, `Шаблон ${Date.now()}`);
+  await page.goto(`/ru/agent/tickets/SUP-${number}`);
+  const composer = main(page).getByRole('form', { name: 'Ответ по обращению' });
+  await expect(composer).toHaveAttribute('data-ready', '');
+  const field = composer.getByLabel('Текст ответа');
+  await field.click();
+  await field.pressSequentially(`Добрый день! /${code.slice(0, 8)}`);
+  const list = composer.getByRole('listbox', { name: 'Шаблоны ответов' });
+  await expect(list.getByRole('option', { name: new RegExp(code) })).toBeVisible();
+  await field.press('Enter');
+  await expect(field).toHaveValue('Добрый день! Пришлите, пожалуйста, снимок экрана с ошибкой.');
+  await expect(list).toHaveCount(0);
+});

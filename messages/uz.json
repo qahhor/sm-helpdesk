@@ -500,6 +500,10 @@
         "sla": {
           "title": "Muddatlar va ish vaqti",
           "text": "Ustuvorlik bo'yicha muddatlar, ish jadvali va bayramlar."
+        },
+        "templates": {
+          "title": "Javob shablonlari",
+          "text": "Uch tildagi javob tayyorlamalari, javob maydonida \"/\" dan keyin kod bilan chaqiriladi."
         }
       },
       "servers": {
@@ -709,7 +713,8 @@
           "module": "Mahsulot modullari",
           "sla_policy": "SLA muddatlari",
           "business_calendar": "Ish kalendari",
-          "playbook": "Birinchi liniya eslatmasi"
+          "playbook": "Birinchi liniya eslatmasi",
+          "reply_template": "Javob shabloni"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -783,6 +788,9 @@
           },
           "playbook": {
             "saved": "Birinchi liniya eslatmasi saqlandi"
+          },
+          "template": {
+            "saved": "Javob shabloni saqlandi"
           }
         },
         "words": {
@@ -867,6 +875,31 @@
           "4": "Payshanba",
           "5": "Juma",
           "6": "Shanba"
+        }
+      },
+      "templates": {
+        "title": "Javob shablonlari",
+        "intro": "Agent javob maydonida \"/\" va kodni yozadi va tayyorlamani murojaat tilida qo'yadi. Tarjima bo'lmasa, rus matni qo'yiladi.",
+        "shortcut": "\"/\" dan keyingi kod",
+        "shortcutHint": "Lotin harflari, raqamlar va chiziqcha, 40 belgigacha. Masalan: greet.",
+        "name": "Nomi",
+        "body": {
+          "ru": "Rus tilidagi matn",
+          "uz": "O'zbek tilidagi matn",
+          "en": "Ingliz tilidagi matn"
+        },
+        "module": "Modul",
+        "anyModule": "Barcha modullar",
+        "enabled": "\"/\" ro'yxatida ko'rsatish",
+        "save": "Shablonni saqlash",
+        "create": "Shablon qo'shish",
+        "newTitle": "Yangi shablon",
+        "disabled": "o'chirilgan",
+        "saved": "Shablon saqlandi",
+        "errors": {
+          "forbidden": "Shablonlarni portal administratori yuritadi.",
+          "invalid_input": "Kod, nom va rus tilidagi matnni tekshiring.",
+          "shortcut_taken": "Bu kod boshqa shablonda bor."
         }
       }
     },
@@ -1103,6 +1136,12 @@
           "assignee": "ijrochi o'zgardi",
           "show": "O'zgarishlarni ko'rsatish",
           "sendAnyway": "Baribir yuborish"
+        },
+        "templates": {
+          "open": "Shablon",
+          "list": "Javob shablonlari",
+          "empty": "Bunday kodli shablon yo'q",
+          "fallback": "Shablon rus tilida qo'yildi: murojaat tiliga tarjima yo'q."
         }
       },
       "line": "Liniya: {line}",

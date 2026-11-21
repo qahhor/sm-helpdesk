@@ -1,7 +1,8 @@
 // Модуль hdr, слой error: ошибки модуля (docs/naming.md, раздел 5).
 // Сервис возвращает код, а не текст: текст на языке пользователя подставляет страница (решение 0022).
 
-export const HDR_ERROR_CODES = ['forbidden', 'invalid_input'] as const;
+// shortcut_taken: код шаблона ответа уже занят другим шаблоном (FR-AG-06).
+export const HDR_ERROR_CODES = ['forbidden', 'invalid_input', 'shortcut_taken'] as const;
 
 export type HdrErrorCode = (typeof HDR_ERROR_CODES)[number];
 

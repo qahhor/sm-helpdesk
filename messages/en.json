@@ -500,6 +500,10 @@
         "sla": {
           "title": "Targets and working hours",
           "text": "First response and resolution targets by priority, working hours and holidays."
+        },
+        "templates": {
+          "title": "Reply templates",
+          "text": "Reply snippets in three languages, called by a code after \"/\" in the reply field."
         }
       },
       "servers": {
@@ -709,7 +713,8 @@
           "module": "Product modules",
           "sla_policy": "SLA targets",
           "business_calendar": "Working calendar",
-          "playbook": "First-line playbook"
+          "playbook": "First-line playbook",
+          "reply_template": "Reply template"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -783,6 +788,9 @@
           },
           "playbook": {
             "saved": "First-line playbook saved"
+          },
+          "template": {
+            "saved": "Reply template saved"
           }
         },
         "words": {
@@ -867,6 +875,31 @@
           "4": "Thursday",
           "5": "Friday",
           "6": "Saturday"
+        }
+      },
+      "templates": {
+        "title": "Reply templates",
+        "intro": "The agent types \"/\" and the code in the reply field and inserts the snippet in the ticket language. Without a translation the Russian text is inserted.",
+        "shortcut": "Code after \"/\"",
+        "shortcutHint": "Latin letters, digits and hyphens, up to 40 characters. For example: greet.",
+        "name": "Name",
+        "body": {
+          "ru": "Text in Russian",
+          "uz": "Text in Uzbek",
+          "en": "Text in English"
+        },
+        "module": "Module",
+        "anyModule": "All modules",
+        "enabled": "Show in the \"/\" list",
+        "save": "Save template",
+        "create": "Add template",
+        "newTitle": "New template",
+        "disabled": "off",
+        "saved": "Template saved",
+        "errors": {
+          "forbidden": "Templates are kept by the portal administrator.",
+          "invalid_input": "Check the code, name and Russian text.",
+          "shortcut_taken": "Another template already has this code."
         }
       }
     },
@@ -1103,6 +1136,12 @@
           "assignee": "assignee changed",
           "show": "Show changes",
           "sendAnyway": "Send anyway"
+        },
+        "templates": {
+          "open": "Template",
+          "list": "Reply templates",
+          "empty": "No template with this code",
+          "fallback": "The template was inserted in Russian: there is no translation for the ticket language."
         }
       },
       "line": "Line: {line}",

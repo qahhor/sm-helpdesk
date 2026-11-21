@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
-import { getPlaybook, listActiveModules } from '@/modules/hdr/api';
+import { getPlaybook, listActiveModules, listTemplates, renderTemplate } from '@/modules/hdr/api';
 import {
   type AgentFileView,
   type AgentTimelineEntry,
@@ -54,9 +54,14 @@ export default async function AgentTicketPage({ params, searchParams }: { params
   // Отметка просмотра после чтения: отметки "новое" показывают то, что было новым до этого визита.
   await markTicketRead(staff, ticket.ticketId);
   const canWrite = staff.actor.staffRole !== 'product';
-  const [assignable, modules, draft] = canWrite
-    ? await Promise.all([listAssignableStaff(staff), listActiveModules(staff.actor, await getLocale()), loadDraft(staff, ticket.number)])
-    : [[], [], null];
+  const [assignable, modules, draft, templates] = canWrite
+    ? await Promise.all([
+        listAssignableStaff(staff),
+        listActiveModules(staff.actor, await getLocale()),
+        loadDraft(staff, ticket.number),
+        listTemplates(staff, { moduleId: ticket.moduleId }),
+      ])
+    : [[], [], null, []];
   const t = await getTranslations('agent');
   const tc = await getTranslations('client.tickets');
   // Линии (FR-LINE-03, 04): передать может тот, кто ведёт обращения, с первой линии; вернуть вторая линия, care, admin.
@@ -221,7 +226,15 @@ export default async function AgentTicketPage({ params, searchParams }: { params
               draft={draft ? { body: draft.body, internal: draft.internal } : null}
               accept={acceptOf(ALLOWED_FILE_EXTENSIONS)}
               maxFiles={MAX_FILES_PER_MESSAGE}
+              // Шаблон на языке обращения, без перевода русский с отметкой для агента (FR-AG-06).
+              templates={templates.map((template) => ({ shortcut: template.shortcut, title: template.title, ...renderTemplate(template, ticket.locale), isEnabled: true as const }))}
               labels={{
+                templates: {
+                  open: t('ticket.composer.templates.open'),
+                  list: t('ticket.composer.templates.list'),
+                  empty: t('ticket.composer.templates.empty'),
+                  fallback: t('ticket.composer.templates.fallback'),
+                },
                 form: t('ticket.composer.form'),
                 mode: t('ticket.composer.mode'),
                 modeReply: t('ticket.composer.modeReply'),

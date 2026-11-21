@@ -16,6 +16,7 @@ async function seedEverything() {
      values ($1, 'l1', 'l2', 'other', 'Проверено', 'Нужно', $2, now())`,
     [f.tickets.aOrg.ticketId, f.l1.userId],
   );
+  await pools.root.query(`insert into hdr_reply_templates (shortcut, title, body) values ('greet', 'Приветствие', '{"ru": "Здравствуйте"}')`);
   await pools.root.query(`insert into hdr_l1_playbooks (ticket_type, body, owner_id) values ('bug', '- Версия', $1)`, [f.care.userId]);
   await pools.root.query(`insert into hdt_reply_drafts (ticket_id, user_id, body) values ($1, $2, 'Черновик')`, [f.tickets.aOrg.ticketId, f.l1.userId]);
   await pools.root.query(`insert into hdt_ticket_presence (ticket_id, user_id, mode, expires_on) values ($1, $2, 'viewing', now() + interval '1 minute')`, [

@@ -3,9 +3,10 @@ import { and, asc, eq } from 'drizzle-orm';
 import { type Actor, withActor } from '@/db/with-actor';
 import type { StaffContext } from '@/modules/hdu/api';
 import { findPlaybookTx, listPlaybooksTx, type Playbook, PLAYBOOK_KEEPERS, savePlaybookTx } from './core/playbooks';
+import { listAllTemplatesTx, listTemplatesTx, type ReplyTemplate, saveTemplateTx } from './core/templates';
 import { loadSlaConfigTx, saveCalendarTx, saveHolidaysTx, saveSlaPolicyTx, type SlaConfig } from './core/sla-config';
 import { HdrError } from './error';
-import { calendarInput, holidaysInput, playbookInput, slaPolicyInput } from './input';
+import { calendarInput, holidaysInput, playbookInput, slaPolicyInput, templateInput, templateQueryInput } from './input';
 import { productModules } from './schema';
 
 // Модуль hdr (справочники), слой api: то, что могут вызывать страницы и другие модули.
@@ -103,4 +104,28 @@ export async function savePlaybook(ctx: StaffContext, input: unknown): Promise<v
   if (!(PLAYBOOK_KEEPERS as readonly string[]).includes(ctx.actor.staffRole)) throw new HdrError('forbidden');
   const data = parse(playbookInput, input);
   await savePlaybookTx(ctx.actor, data.moduleId, data.type, data.body);
+}
+
+// --- Шаблоны ответов (план M3, задача 10) ---
+
+export type { ReplyTemplate } from './core/templates';
+export { filterTemplates, renderTemplate, slashQuery } from './util';
+
+/** Включённые шаблоны для поля ответа (FR-AG-06): общие и шаблоны модуля обращения. Читают сотрудники. */
+export function listTemplates(ctx: StaffContext, input: unknown): Promise<ReplyTemplate[]> {
+  const data = parse(templateQueryInput, input);
+  return listTemplatesTx(ctx.actor, { q: data.q || undefined, moduleId: data.moduleId ?? null });
+}
+
+/** Все шаблоны для экрана настроек: только администратор. */
+export function listAllTemplates(ctx: StaffContext): Promise<ReplyTemplate[]> {
+  requireAdmin(ctx);
+  return listAllTemplatesTx(ctx.actor);
+}
+
+/** Новый шаблон или правка: только администратор (10.5). */
+export async function saveTemplate(ctx: StaffContext, input: unknown): Promise<void> {
+  requireAdmin(ctx);
+  const data = parse(templateInput, input);
+  await saveTemplateTx(ctx.actor, data);
 }

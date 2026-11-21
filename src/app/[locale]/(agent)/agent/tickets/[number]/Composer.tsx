@@ -8,10 +8,12 @@ import { FilePicker, type FilePickerLabels } from '@/ui/components/file-picker';
 import { Label } from '@/ui/components/label';
 import { RadioGroup } from '@/ui/components/radio-group';
 import { Textarea } from '@/ui/components/textarea';
+import { filterTemplates, slashQuery } from '@/lib/templates';
 import { cn } from '@/ui/cn';
 import { type ComposerState, saveDraftAction, staffMessageAction } from './actions';
 import { ChangedWarning, type ChangedLabels } from './ChangedWarning';
 import { TYPING_EVENT } from './PresenceBar';
+import { type PickerTemplate, TemplatePicker } from './TemplatePicker';
 
 // Поле ответа агента (FR-AG-03, 8.4): ответ клиенту или внутренняя заметка. Режимы различаются цветом токена,
 // подписью поля и текстом кнопки. Черновик на сервере через секунду после ввода и при уходе со страницы
@@ -33,6 +35,7 @@ export type ComposerLabels = {
   errors: Record<string, string>;
   changed: ChangedLabels;
   files: FilePickerLabels;
+  templates: { open: string; list: string; empty: string; fallback: string };
 };
 
 type Props = {
@@ -41,6 +44,8 @@ type Props = {
   draft: { body: string; internal: boolean } | null;
   accept: string;
   maxFiles: number;
+  /** Включённые шаблоны, уже на языке обращения (FR-AG-06). */
+  templates: PickerTemplate[];
   labels: ComposerLabels;
 };
 
@@ -48,7 +53,7 @@ const DRAFT_DELAY_MS = 1000;
 const INITIAL: ComposerState = { status: 'idle' };
 const noop = () => () => undefined;
 
-export function Composer({ number, version, draft, accept, maxFiles, labels }: Props) {
+export function Composer({ number, version, draft, accept, maxFiles, templates, labels }: Props) {
   const router = useRouter();
   const [state, action, pending] = useActionState(staffMessageAction, INITIAL);
   const [internal, setInternal] = useState(draft?.internal ?? false);
@@ -59,6 +64,51 @@ export function Composer({ number, version, draft, accept, maxFiles, labels }: P
   const [saved, setSaved] = useState<'idle' | 'saved'>('idle');
   const saving = useRef<{ body: string; internal: boolean } | null>(null);
   const extra = useMemo(() => ({ number }), [number]);
+  const field = useRef<HTMLTextAreaElement>(null);
+  // "/" в начале слова открывает шаблоны (UX-A-05): откуда начинается код и что набрано.
+  const [slash, setSlash] = useState<{ start: number; query: string } | null>(null);
+  const [active, setActive] = useState(0);
+  const [fallbackNote, setFallbackNote] = useState(false);
+  const found = slash ? filterTemplates(templates, slash.query) : [];
+
+  const onBodyChange = (value: string, caret: number) => {
+    setBody(value);
+    const next = slashQuery(value, caret);
+    setSlash(next);
+    if (next?.query !== slash?.query) setActive(0);
+    window.dispatchEvent(new Event(TYPING_EVENT));
+  };
+
+  /** Вставить шаблон вместо набранного "/код": текст на языке обращения, агент правит его дальше. */
+  const pick = (template: PickerTemplate) => {
+    const el = field.current;
+    if (!slash || !el) return;
+    const caret = el.selectionStart ?? body.length;
+    const next = `${body.slice(0, slash.start)}${template.text}${body.slice(caret)}`;
+    const at = slash.start + template.text.length;
+    setBody(next);
+    setSlash(null);
+    setFallbackNote(template.fallback);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(at, at);
+    });
+  };
+
+  /** Кнопка "Шаблон": ставит "/" у каретки и открывает список. */
+  const openTemplates = () => {
+    const el = field.current;
+    if (!el) return;
+    const caret = el.selectionStart ?? body.length;
+    const before = body.slice(0, caret);
+    const insert = before === '' || /\s$/.test(before) ? '/' : ' /';
+    const next = `${before}${insert}${body.slice(caret)}`;
+    onBodyChange(next, caret + insert.length);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(caret + insert.length, caret + insert.length);
+    });
+  };
 
   // Черновик через секунду после последнего ввода. Первый показ ничего не сохраняет.
   const first = useRef(true);
@@ -128,18 +178,40 @@ export function Composer({ number, version, draft, accept, maxFiles, labels }: P
         name="body"
         required
         maxLength={20000}
+        ref={field}
         value={body}
-        onChange={(event) => {
-          setBody(event.target.value);
-          window.dispatchEvent(new Event(TYPING_EVENT));
+        onChange={(event) => onBodyChange(event.target.value, event.target.selectionStart)}
+        onKeyDown={(event) => {
+          if (!slash || found.length === 0) return;
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActive((index) => (index + (event.key === 'ArrowDown' ? 1 : found.length - 1)) % found.length);
+          } else if (event.key === 'Enter' || event.key === 'Tab') {
+            const template = found[active];
+            if (!template) return;
+            event.preventDefault();
+            pick(template);
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            setSlash(null);
+          }
         }}
+        onBlur={() => setSlash(null)}
         className="min-h-24 bg-card"
         aria-describedby={internal ? 'composer-note-hint' : undefined}
+        aria-activedescendant={slash && found[active] ? `composer-templates-${found[active].shortcut}` : undefined}
       />
+      {slash && <TemplatePicker id="composer-templates" items={found} active={active} label={labels.templates.list} empty={labels.templates.empty} onPick={pick} />}
+      {fallbackNote && <p className="text-sm text-muted-foreground">{labels.templates.fallback}</p>}
       {internal && (
         <p id="composer-note-hint" className="text-sm text-muted-foreground">
           {labels.noteHint}
         </p>
+      )}
+      {templates.length > 0 && (
+        <Button type="button" variant="secondary" size="small" className="self-start" onClick={openTemplates}>
+          {labels.templates.open}
+        </Button>
       )}
       <FilePicker accept={accept} maxFiles={maxFiles} labels={labels.files} onBusyChange={setUploading} presignExtra={extra} />
       {!internal && (

@@ -32,6 +32,7 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdr_business_calendars: { client: 'all', app: IU },
   hdr_l1_playbooks: { client: 'none', app: IUD },
   hdr_product_modules: { client: 'all', app: IUD },
+  hdr_reply_templates: { client: 'none', app: IU },
   hdr_sla_policies: { client: 'all', app: IU },
   // Идентичность: меняет только hub_auth, удаляет только отвязка контакта.
   hdu_contact_identities: { client: 'own-user', auth: IUD },

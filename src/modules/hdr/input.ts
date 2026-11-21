@@ -1,6 +1,7 @@
 import * as z from 'zod';
 import { cleanUserText } from '@/modules/hdc/pref';
 import { TICKET_TYPES } from '@/modules/hdt/pref';
+import { SHORTCUT_PATTERN } from './util';
 
 // Модуль hdr: схема файла выгрузки модулей Smartup для команды hub modules:import (план M2, задача 10).
 
@@ -83,3 +84,23 @@ export const playbookInput = z.object({
   type: z.enum(TICKET_TYPES),
   body: z.string().overwrite(cleanUserText).trim().min(1).max(10000),
 });
+
+const templateText = z.string().overwrite(cleanUserText).trim().max(10000);
+
+/** Шаблон ответа (FR-AG-06): код приводится к строчным, русский текст обязателен, пустые переводы отбрасываются. */
+export const templateInput = z.object({
+  templateId: z.uuid().optional(),
+  shortcut: z
+    .string()
+    .trim()
+    .transform((value) => value.toLowerCase())
+    .pipe(z.string().regex(SHORTCUT_PATTERN)),
+  title: z.string().overwrite(cleanUserText).trim().min(1).max(120),
+  body: z
+    .object({ ru: templateText.pipe(z.string().min(1)), uz: templateText.optional(), en: templateText.optional() })
+    .transform(({ ru, uz, en }) => ({ ru, ...(uz ? { uz } : {}), ...(en ? { en } : {}) })),
+  moduleId: z.uuid().nullable().default(null),
+  isEnabled: z.boolean().default(true),
+});
+
+export const templateQueryInput = z.object({ q: z.string().trim().max(100).optional(), moduleId: z.uuid().nullable().optional() });

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { date, integer, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, integer, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
 
 // Модуль hdr: справочники. Таблицы, ограничения и политики RLS создают миграции drizzle/0002_hdr_hdc_tables.sql
@@ -68,5 +68,17 @@ export const playbooks = pgTable('hdr_l1_playbooks', {
   ticketType: text('ticket_type').$type<PlaybookTicketType>().notNull(),
   body: text('body').notNull(),
   ownerId: uuid('owner_id').notNull(),
+  ...stampColumns,
+});
+
+export const replyTemplates = pgTable('hdr_reply_templates', {
+  templateId: uuid('template_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  shortcut: text('shortcut').notNull(),
+  title: text('title').notNull(),
+  body: jsonb('body').$type<LocalizedText>().notNull(),
+  moduleId: uuid('module_id'),
+  isEnabled: boolean('is_enabled').notNull().default(true),
   ...stampColumns,
 });

@@ -20,7 +20,7 @@ export function scanAttachment(actor: SystemActor, attachmentId: unknown): Promi
 }
 
 /** Обход зависших и брошенных загрузок (расписание attachment.sweep). */
-export function sweepAttachments(actor: SystemActor): Promise<{ requeued: number; removed: number }> {
+export function sweepAttachments(actor: SystemActor): Promise<{ requeued: number; removed: number; failed: number }> {
   assertSystem(actor);
   return sweepCore();
 }

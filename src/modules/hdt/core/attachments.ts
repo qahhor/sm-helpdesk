@@ -230,10 +230,24 @@ const SWEEP_BATCH = 200;
 /**
  * Файлы pending старше двух минут снова ставятся на проверку: постановка после "загрузка завершена" могла
  * не пройти. Пока файла в карантине нет, браузер, возможно, ещё загружает его: такой ставится только через час,
- * и проверка отклонит его. Неприкреплённые загрузки старше суток удаляются вместе с файлами.
+ * и проверка отклонит его. Файл pending старше суток не принимается (scan_failed). Неприкреплённые загрузки
+ * старше суток удаляются вместе с файлами.
  */
-export async function sweepAttachments(): Promise<{ requeued: number; removed: number }> {
+export async function sweepAttachments(): Promise<{ requeued: number; removed: number; failed: number }> {
   const storage = getStorage();
+  // Проверка, которая не прошла за сутки (антивирус не отвечает, файл не успевает за тайм-аут), заканчивается:
+  // файл не принимается, иначе он вечно "проверяется", а задача каждую минуту гоняет его через антивирус.
+  const stuck = await withActor(SWEEP_ACTOR, (tx) =>
+    tx
+      .update(attachments)
+      .set({ scanStatus: 'rejected', scanSignature: 'scan_failed' })
+      .where(and(eq(attachments.scanStatus, 'pending'), sql`${attachments.createdOn} < now() - interval '1 day'`))
+      .returning({ attachmentId: attachments.attachmentId }),
+  );
+  for (const row of stuck) {
+    console.error(`Проверка файла ${row.attachmentId} не прошла за сутки: файл не принят (scan_failed)`);
+    await storage.remove(quarantineKey(row.attachmentId)).catch(() => {});
+  }
   const pending = await withActor(SWEEP_ACTOR, (tx) =>
     tx.execute<{ attachment_id: string; abandoned: boolean }>(sql`
       select attachment_id, created_on < now() - interval '1 hour' as abandoned
@@ -276,5 +290,5 @@ export async function sweepAttachments(): Promise<{ requeued: number; removed: n
       console.error(`Файл загрузки ${row.attachmentId} не удалён из хранилища: ${error instanceof Error ? error.message : 'ошибка'}`);
     }
   }
-  return { requeued, removed };
+  return { requeued, removed, failed: stuck.length };
 }

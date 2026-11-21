@@ -56,8 +56,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     }
   });
   await boss.work('attachment.sweep', polling, async () => {
-    const { requeued, removed } = await sweepAttachments(actor('attachment.sweep'));
-    if (requeued > 0 || removed > 0) console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}`);
+    const { requeued, removed, failed } = await sweepAttachments(actor('attachment.sweep'));
+    if (requeued > 0 || removed > 0 || failed > 0)
+      console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}, проверка не прошла за сутки ${failed}`);
   });
   await boss.work('maintenance.cleanup', polling, async () => {
     const system = actor('maintenance.cleanup');

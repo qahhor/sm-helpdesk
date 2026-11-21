@@ -121,6 +121,34 @@ test('файл pending старше двух минут без задачи сн
   expect(jobs.sent.every((job) => job.name === 'attachment.scan' && Object.keys(job.data).length === 1)).toBe(true);
 });
 
+test('проверка, которая не проходит больше суток, заканчивается: rejected с отметкой scan_failed, файл удалён', async () => {
+  const f = await seedTwoOrgs();
+  const jobs = new MemoryJobQueue();
+  setJobQueueForTests(jobs);
+  const ctx = await clientCtx(f.aUser);
+  const { attachmentId } = await presignUpload(ctx, { fileName: 'archive.zip', size: PNG.byteLength, mime: 'application/zip' });
+  storage.put(`quarantine/${attachmentId}`, PNG);
+  // Файл уже прикреплён к обращению: обход загрузок его не удалит, а проверка всё время срывается.
+  await createTicket(ctx, { description: 'С архивом', type: 'bug', impact: 'minor', locale: 'ru', attachmentIds: [attachmentId] });
+  await age(attachmentId, '25 hours');
+  const errors: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void errors.push(args.join(' '));
+  try {
+    const result = await sweepAttachments({ type: 'system', job: 'attachment.sweep' });
+    expect(result.failed).toBe(1);
+  } finally {
+    console.error = original;
+  }
+  const [row] = (await pools.root.query(`select scan_status, scan_signature from hdt_attachments where attachment_id = $1`, [attachmentId])).rows;
+  expect(row).toEqual({ scan_status: 'rejected', scan_signature: 'scan_failed' });
+  expect(storage.has(`quarantine/${attachmentId}`)).toBe(false);
+  expect(jobs.sent).toEqual([]);
+  // В журнале процесса идентификатор, без имени файла: по нему оператор находит зависшую проверку.
+  expect(errors.join('\n')).toContain(attachmentId);
+  expect(errors.join('\n')).not.toContain('archive.zip');
+});
+
 test('неприкреплённая загрузка старше суток удаляется вместе с объектом в хранилище', async () => {
   const f = await seedTwoOrgs();
   setJobQueueForTests(new MemoryJobQueue());
@@ -147,7 +175,8 @@ test('неприкреплённая загрузка старше суток у
   expect(storage.has(`quarantine/${old}`)).toBe(false);
   expect(storage.has(`files/${f.orgA.orgId}/${cleanOld}`)).toBe(false);
   expect(await statusOf(recent)).toBe('pending');
-  expect(await statusOf(attached)).toBe('pending');
+  // Прикреплённый файл не удаляется, но его проверка не прошла за сутки: он не принят.
+  expect(await statusOf(attached)).toBe('rejected');
   expect(storage.has(`quarantine/${recent}`)).toBe(true);
 });
 

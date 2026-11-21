@@ -730,16 +730,18 @@
       "text": "Hello,\n\nTo sign in to Smartup Hub with a link sent to this address, open the link and press \"Confirm address\":\n{url}\n\nThe link works for {minutes} minutes. If you did not enter this address, just delete this email: an unconfirmed address is not linked to anything."
     },
     "invitation": {
-      "subject": "{inviterName} invites you to Smartup Hub",
-      "text": "Hello,\n\n{inviterName} invites you to the organization {orgName} in Smartup Hub, the Smartup support portal.\n\nTo accept the invitation, open the link and press \"Accept\":\n{url}\n\nThe invitation is valid for {days} days."
+      "subject": "Invitation to Smartup Hub",
+      "text": "Hello,\n\n{inviterName} invites you to the organization {orgName} in Smartup Hub, the Smartup support portal.\n\nTo accept the invitation, open the link and press \"Accept\":\n{url}\n\nThe invitation is valid for {days} days.",
+      "inviterFallback": "Your colleague"
     },
     "telegramLinked": {
       "subject": "Telegram is linked to Smartup Hub",
       "text": "Hello,\n\nThe Telegram account {account} is now linked to your Smartup Hub account. It can be used to sign in to the portal.\n\nIf this was not you, unlink it in your profile:\n{url}"
     },
     "staffInvitation": {
-      "subject": "{inviterName} invites you to the Smartup Hub workspace",
-      "text": "Hello!\n\n{inviterName} invites you to the workspace of Smartup Hub, the Smartup support portal.\n\nOpen the link, set a password and connect the second sign-in factor:\n{url}\n\nThe link works for {hours} hours and only once. Do not forward it to anyone."
+      "subject": "Invitation to the Smartup Hub workspace",
+      "text": "Hello!\n\n{inviterName} invites you to the workspace of Smartup Hub, the Smartup support portal.\n\nOpen the link, set a password and connect the second sign-in factor:\n{url}\n\nThe link works for {hours} hours and only once. Do not forward it to anyone.",
+      "inviterFallback": "The portal administrator"
     },
     "staffReset": {
       "subject": "Your Smartup Hub access was reset",

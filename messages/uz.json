@@ -730,16 +730,18 @@
       "text": "Assalomu alaykum!\n\nSmartup Hub tizimiga shu manzilga yuboriladigan havola orqali kirish uchun havolani oching va «Manzilni tasdiqlash» tugmasini bosing:\n{url}\n\nHavola {minutes} daqiqa amal qiladi. Agar siz bu manzilni ko'rsatmagan bo'lsangiz, xatni o'chirib tashlang: tasdiqlanmagan manzil hech narsaga bog'lanmaydi."
     },
     "invitation": {
-      "subject": "{inviterName} sizni Smartup Hub tizimiga taklif qilmoqda",
-      "text": "Assalomu alaykum!\n\n{inviterName} sizni Smartup qo'llab-quvvatlash portali Smartup Hub tizimidagi {orgName} tashkilotiga taklif qilmoqda.\n\nTaklifni qabul qilish uchun havolani oching va «Qabul qilish» tugmasini bosing:\n{url}\n\nTaklif {days} kun amal qiladi."
+      "subject": "Smartup Hub tizimiga taklif",
+      "text": "Assalomu alaykum!\n\n{inviterName} sizni Smartup qo'llab-quvvatlash portali Smartup Hub tizimidagi {orgName} tashkilotiga taklif qilmoqda.\n\nTaklifni qabul qilish uchun havolani oching va «Qabul qilish» tugmasini bosing:\n{url}\n\nTaklif {days} kun amal qiladi.",
+      "inviterFallback": "Hamkasbingiz"
     },
     "telegramLinked": {
       "subject": "Telegram Smartup Hub tizimiga bog'landi",
       "text": "Assalomu alaykum!\n\nSmartup Hub hisobingizga {account} Telegram akkaunti bog'landi. U orqali portalga kirish mumkin.\n\nAgar bu siz bo'lmasangiz, uni profilda uzing:\n{url}"
     },
     "staffInvitation": {
-      "subject": "{inviterName} sizni Smartup Hub ish joyiga taklif qilmoqda",
-      "text": "Assalomu alaykum!\n\n{inviterName} sizni Smartup qo'llab-quvvatlash portali Smartup Hub ish joyiga taklif qilmoqda.\n\nHavolani oching, parol o'rnating va kirishning ikkinchi omilini ulang:\n{url}\n\nHavola {hours} soat amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang."
+      "subject": "Smartup Hub ish joyiga taklif",
+      "text": "Assalomu alaykum!\n\n{inviterName} sizni Smartup qo'llab-quvvatlash portali Smartup Hub ish joyiga taklif qilmoqda.\n\nHavolani oching, parol o'rnating va kirishning ikkinchi omilini ulang:\n{url}\n\nHavola {hours} soat amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang.",
+      "inviterFallback": "Portal administratori"
     },
     "staffReset": {
       "subject": "Smartup Hub ga kirish tiklandi",

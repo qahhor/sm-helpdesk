@@ -97,6 +97,17 @@ test('двадцать первый запрос с одного IP за час 
   expect(box.mailer.sent).toHaveLength(20);
 });
 
+test('запросы сверх предела IP не тратят счётчик адреса (итоговая проверка M1, мелкое 2)', async () => {
+  await verifiedClientFixture('anvar@acme.test');
+  const flood = { headers: new Headers({ 'x-forwarded-for': '203.0.113.51' }) };
+  for (let i = 0; i < 20; i++) await requestLoginLink({ email: `nobody${i}@acme.test`, locale: 'ru' }, flood);
+  // Предел IP исчерпан: дальше эти запросы адрес человека не расходуют.
+  for (let i = 0; i < 10; i++) await requestLoginLink({ email: 'anvar@acme.test', locale: 'ru' }, flood);
+  expect(box.mailer.sent).toHaveLength(0);
+  expect(await requestLoginLink({ email: 'anvar@acme.test', locale: 'ru' }, { headers: new Headers({ 'x-forwarded-for': '203.0.113.52' }) })).toEqual({ ok: true });
+  expect(box.mailer.sent).toHaveLength(1);
+});
+
 test('ответ не ждёт отправки письма', async () => {
   await verifiedClientFixture('anvar@acme.test');
   setMailerForTests({ delivers: true, send: () => new Promise(() => {}) });

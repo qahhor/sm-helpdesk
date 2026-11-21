@@ -24,8 +24,10 @@ export type RecordState = (typeof RECORD_STATES)[number];
 
 /** Сессия клиента: 30 дней с продлением при активности (FR-ID-10). */
 export const SESSION_TTL_SEC = 30 * 24 * 3600;
-/** Приставка имён кук библиотеки входа: кука сессии hub.session_token, на https __Secure-hub.session_token. */
+/** Приставка имён кук библиотеки входа: кука сессии hub.session_token, на https __Host-hub.session_token. */
 export const AUTH_COOKIE_PREFIX = 'hub';
+/** Куки библиотеки входа и её дополнений, которым на https задаётся имя с приставкой __Host- (решение 0021). */
+export const AUTH_COOKIE_NAMES = ['session_token', 'session_data', 'dont_remember', 'account_data', 'state', 'oauth_state', 'two_factor', 'trust_device'] as const;
 /** Как часто библиотека продлевает сессию при активности. */
 export const SESSION_UPDATE_AGE_SEC = 24 * 3600;
 /** Сессия сотрудника: 12 часов без продления (FR-ID-10). */

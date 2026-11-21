@@ -110,3 +110,27 @@ export function problemResponse(status: number, code: string, headers: Record<st
     headers: { 'Content-Type': 'application/problem+json', ...NO_STORE, ...headers },
   });
 }
+
+/**
+ * Тело запроса или ответа не длиннее maxBytes байт. null: тело больше предела, чтение прекращено.
+ * Заявленная длина больше предела отклоняется без чтения.
+ */
+export async function readLimited(message: Request | Response, maxBytes: number): Promise<string | null> {
+  const declared = Number(message.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  if (!message.body) return '';
+  const reader = message.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}

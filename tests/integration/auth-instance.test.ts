@@ -1,4 +1,5 @@
-import { betterAuth } from 'better-auth';
+import { type BetterAuthOptions, betterAuth } from 'better-auth';
+import { createCookieGetter } from 'better-auth/cookies';
 import { getMigrations } from 'better-auth/db/migration';
 import { Pool } from 'pg';
 import { expect, test } from 'vitest';
@@ -37,12 +38,35 @@ test('первый же вызов библиотеки проходит про�
 test('куки сессии защищены на https, не привязаны к домену, кеша сессии в куке нет', async () => {
   const { deps } = await buildTestAuth();
   const prod = buildAuthOptions({ ...deps, baseUrl: 'https://hub.smartup24.com' });
-  expect(prod.advanced).toMatchObject({ cookiePrefix: 'hub', useSecureCookies: true });
+  expect(prod.advanced).toMatchObject({ cookiePrefix: 'hub' });
   expect(prod.advanced).not.toHaveProperty('crossSubDomainCookies');
   expect(prod.session).not.toHaveProperty('cookieCache');
-  expect(buildAuthOptions({ ...deps, baseUrl: 'http://localhost:3000' }).advanced).toMatchObject({ useSecureCookies: false });
+  // На https все куки библиотеки с приставкой __Host-: только этот хост, Secure, Path=/ (проверка main, S7).
+  const cookie = createCookieGetter(prod as BetterAuthOptions);
+  for (const name of ['session_token', 'session_data', 'dont_remember', 'account_data', 'state', 'oauth_state', 'two_factor', 'trust_device']) {
+    const c = cookie(name);
+    expect(c.name, name).toBe(`__Host-hub.${name}`);
+    expect(c.attributes, name).toMatchObject({ secure: true, path: '/', httpOnly: true, sameSite: 'lax' });
+    expect(c.attributes, name).not.toHaveProperty('domain');
+  }
+  const dev = createCookieGetter(buildAuthOptions({ ...deps, baseUrl: 'http://localhost:3000' }) as BetterAuthOptions);
+  expect(dev('session_token')).toMatchObject({ name: 'hub.session_token', attributes: { secure: false } });
   expect(prod.rateLimit).toEqual({ enabled: false });
   expect(prod.account).toEqual({ accountLinking: { enabled: false } });
+});
+
+test('на https вход сотрудника с паролем и кодом идёт на куках __Host- (проверка main, S7)', async () => {
+  const { auth } = await buildTestAuth({ baseUrl: 'https://hub.smartup24.com' });
+  const staff = await enrolledStaffFixture(auth, { role: 'admin' });
+  const pending = await passwordStep(auth, staff);
+  expect(pending.get('cookie')).toMatch(/^__Host-hub\.two_factor=/);
+  const verified = await auth.api.verifyTOTP({ body: { code: totp(staff.totpSecret) }, headers: pending, returnHeaders: true });
+  const line = verified.headers.getSetCookie().find((l) => l.startsWith('__Host-hub.session_token='));
+  expect(line).toMatch(/; Path=\/;/);
+  expect(line).toMatch(/; Secure/);
+  expect(line).not.toMatch(/Domain=/i);
+  const headers = new Headers({ cookie: (line as string).split(';')[0] as string });
+  expect((await auth.api.getSession({ headers }))?.user.id).toBe(staff.userId);
 });
 
 test('создание экземпляра не требует базы', async () => {

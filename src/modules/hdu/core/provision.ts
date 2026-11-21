@@ -6,7 +6,7 @@ import { writeAudit } from '@/modules/hdc/audit';
 import { authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
 import { memberships, organizations, servers } from '../schema';
-import { syntheticEmail } from '../util';
+import { mapClientRole, syntheticEmail } from '../util';
 import { smartupProfile } from './claims';
 
 // Первый и каждый следующий вход через Smartup (ТЗ 11.3, FR-ID-04, решение 93 ТЗ, решение 0013).
@@ -115,7 +115,7 @@ export async function provisionFromSmartup(
 
       // Членство. Роль по соответствию ролей сервера, иначе обычный пользователь.
       // Роль, выданная сотрудником вручную, не меняется. Отключённое членство вход не включает.
-      const mappedRole: ClientRole = (profile.role && server.roleMap[profile.role]) || 'client_user';
+      const mappedRole: ClientRole = mapClientRole(server.roleMap, profile.role);
       const current = (
         await tx
           .select({ role: memberships.role, isRoleManual: memberships.isRoleManual })

@@ -64,7 +64,8 @@ test('тексты писем есть на трёх языках и содер�
     expect(confirm.text).toContain('https://hub.example/y');
     expect(confirm.text).toContain('60');
     const invite = invitationMail(locale, { url: 'https://hub.example/z', orgName: 'ACME Trade', inviterName: 'Дильноза' });
-    expect(invite.subject).toContain('Дильноза');
+    expect(invite.subject).not.toContain('Дильноза');
+    expect(invite.text).toContain('Дильноза');
     expect(invite.text).toContain('ACME Trade');
     expect(invite.text).toContain('https://hub.example/z');
     for (const mail of [login, confirm, invite]) expect(`${mail.subject}${mail.text}`).not.toMatch(/[{}]/);
@@ -79,7 +80,8 @@ test('срок в тексте письма совпадает со сроком
 test('письма сотрудникам: ссылка и срок на трёх языках, срок совпадает со сроком приглашения', () => {
   for (const locale of ['ru', 'uz', 'en'] as const) {
     const invite = staffInvitationMail(locale, { url: 'https://hub.example/s', inviterName: 'Рустам' });
-    expect(invite.subject).toContain('Рустам');
+    expect(invite.subject).not.toContain('Рустам');
+    expect(invite.text).toContain('Рустам');
     expect(invite.text).toContain('https://hub.example/s');
     expect(invite.text).toContain('24');
     const reset = staffResetMail(locale, { url: 'https://hub.example/r' });
@@ -87,6 +89,28 @@ test('письма сотрудникам: ссылка и срок на трё�
     for (const mail of [invite, reset]) expect(`${mail.subject}${mail.text}`).not.toMatch(/[{}]/);
   }
   expect(STAFF_LINK_HOURS * 3600).toBe(STAFF_INVITATION_TTL_SEC);
+});
+
+test('имя из Smartup попадает в письмо приглашения без ссылок, управляющих знаков и лишней длины (проверка main, S8)', () => {
+  const text = (inviterName: string, orgName = 'ACME Trade') => invitationMail('ru', { url: 'https://hub.example/z', orgName, inviterName }).text;
+  // Имя со ссылкой заменяется общим словом: письмо не служит приманкой с чужим адресом.
+  for (const bad of ['Откройте https://evil.example', 'Зайдите на evil-login.com', 'www.evil.example', 'Алишер (evil.uz/pay)']) {
+    expect(text(bad), bad).not.toMatch(/evil/);
+    expect(text(bad), bad).toContain('Ваш коллега');
+  }
+  // Управляющие знаки и знаки направления текста убираются, пробелы схлопываются.
+  expect(text('Али\u202Eшер\u0000\n\nКаримов')).toContain('Алишер Каримов приглашает');
+  // Длинное имя обрезается.
+  const long = text('А'.repeat(300));
+  expect(long).toContain(`${'А'.repeat(60)}... приглашает`);
+  expect(long).not.toContain('А'.repeat(61));
+  // Название организации без управляющих знаков и не длиннее предела.
+  expect(text('Дильноза', 'ACME\u202E Trade\r\nBcc: x')).toContain('ACME Trade Bcc: x в Smartup Hub');
+  expect(staffInvitationMail('ru', { url: 'https://hub.example/s', inviterName: 'см. http://evil.example' }).text).toContain('Администратор портала');
+  for (const locale of LOCALES) {
+    expect(invitationMail(locale, { url: 'https://hub.example/z', orgName: 'ACME', inviterName: 'x.com' }).text).not.toContain('x.com');
+    expect(staffInvitationMail(locale, { url: 'https://hub.example/s', inviterName: 'x.com' }).text).not.toContain('x.com');
+  }
 });
 
 test('почта none сообщает, что письма не доходят, остальные виды доходят', () => {

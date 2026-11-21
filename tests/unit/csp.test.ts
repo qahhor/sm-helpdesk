@@ -18,6 +18,8 @@ test('политика из раздела 14.4 ТЗ', () => {
     expect(csp).toContain(part);
   expect(csp).not.toContain('unsafe-inline');
   expect(csp).not.toContain('unsafe-eval');
+  // Нарушения в режиме отчётов приходят порталу (проверка main, S9).
+  expect(csp).toContain('report-uri /api/csp-report');
 });
 
 test('в разработке разрешён eval, которого требует React', () => {

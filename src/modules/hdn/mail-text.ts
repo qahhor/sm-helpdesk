@@ -22,6 +22,28 @@ export type MailText = { subject: string; text: string };
 
 const mailOf = (locale: Locale) => createTranslator({ locale, messages: MESSAGES[locale], namespace: 'mail' });
 
+/** Предел длины имени человека и названия организации в письме, знаков. */
+const NAME_MAX = 60;
+const ORG_NAME_MAX = 100;
+/** Похоже на ссылку или адрес: схема, www., домен, email. */
+const LINK_LIKE = /[a-z][a-z0-9+.-]*:\/\/|www\.|[\p{L}\p{N}-]+\.\p{L}{2,}|@/iu;
+
+/** Без управляющих знаков и знаков направления текста, пробелы схлопнуты, длина не больше предела. */
+function plain(value: string, max: number): string {
+  const text = value.replace(/\p{Cf}/gu, '').replace(/\p{Cc}/gu, ' ').replace(/\s+/gu, ' ').trim();
+  const chars = Array.from(text);
+  return chars.length > max ? `${chars.slice(0, max).join('')}...` : text;
+}
+
+/**
+ * Имя человека из Smartup или профиля для письма (проверка main, S8). Имя со ссылкой или адресом
+ * заменяется общим словом: иначе приглашение служило бы приманкой с чужим адресом от имени портала.
+ */
+function personName(value: string, fallback: string): string {
+  const name = plain(value, NAME_MAX);
+  return name && !LINK_LIKE.test(name) ? name : fallback;
+}
+
 /** Письмо со ссылкой для входа. */
 export function loginLinkMail(locale: Locale, url: string): MailText {
   const t = mailOf(locale);
@@ -34,12 +56,16 @@ export function confirmEmailMail(locale: Locale, url: string): MailText {
   return { subject: t('confirmEmail.subject'), text: t('confirmEmail.text', { url, minutes: CONFIRM_EMAIL_MINUTES }) };
 }
 
-/** Приглашение в организацию клиента. */
+/**
+ * Приглашение в организацию клиента. Имени в теме нет: тема видна до открытия письма и не должна
+ * говорить словами постороннего. Название организации задаёт сервер Smartup или сотрудник портала.
+ */
 export function invitationMail(locale: Locale, input: { url: string; orgName: string; inviterName: string }): MailText {
   const t = mailOf(locale);
+  const inviterName = personName(input.inviterName, t('invitation.inviterFallback'));
   return {
-    subject: t('invitation.subject', { inviterName: input.inviterName }),
-    text: t('invitation.text', { ...input, days: INVITATION_DAYS }),
+    subject: t('invitation.subject'),
+    text: t('invitation.text', { url: input.url, orgName: plain(input.orgName, ORG_NAME_MAX), inviterName, days: INVITATION_DAYS }),
   };
 }
 
@@ -52,9 +78,10 @@ export function telegramLinkedMail(locale: Locale, input: { account: string; url
 /** Приглашение сотрудника в рабочее место (FR-ADM-03): пароль и второй фактор человек задаёт сам по ссылке. */
 export function staffInvitationMail(locale: Locale, input: { url: string; inviterName: string }): MailText {
   const t = mailOf(locale);
+  const inviterName = personName(input.inviterName, t('staffInvitation.inviterFallback'));
   return {
-    subject: t('staffInvitation.subject', { inviterName: input.inviterName }),
-    text: t('staffInvitation.text', { ...input, hours: STAFF_LINK_HOURS }),
+    subject: t('staffInvitation.subject'),
+    text: t('staffInvitation.text', { url: input.url, inviterName, hours: STAFF_LINK_HOURS }),
   };
 }
 

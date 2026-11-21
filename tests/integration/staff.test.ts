@@ -7,7 +7,7 @@ import { acceptStaffInvitation, describeStaffInvitation, signInStaff, verifyStaf
 import { inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { hashToken } from '@/modules/hdu/tokens';
 import { type BotCheck, type BotVerdict, setBotCheckForTests } from '@/security/bot-check';
-import { totp } from '../helpers/totp';
+import { freshTotp, totp } from '../helpers/totp';
 import { clientSession, createStaffFixture, enrolledStaffFixture, newJar, noRequest, type StaffFixture } from './helpers/auth';
 import { pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
@@ -28,7 +28,7 @@ async function acceptedStaff(role: 'care' | 'admin' | 'agent_l1' = 'care') {
 /** Полный вход функциями модуля: пароль, затем код. */
 async function signInWithCode(staff: StaffFixture, jar = newJar()) {
   expect(await signInStaff({ email: staff.email, password: staff.password }, jar.request)).toEqual({ step: 'code' });
-  expect(await verifyStaffCode({ code: totp(staff.totpSecret) }, jar.request)).toEqual({ ok: true });
+  expect(await verifyStaffCode({ code: freshTotp(staff.totpSecret) }, jar.request)).toEqual({ ok: true });
   return jar;
 }
 
@@ -277,6 +277,24 @@ test('код без шага пароля и неверный вид кода н
   expect(await verifyStaffCode({ code: '12345a' }, noRequest)).toEqual({ ok: false, code: 'invalid_input' });
   expect(await signInStaff({ email: 'не адрес', password: 'x' }, noRequest)).toEqual({ step: 'error', code: 'invalid_credentials' });
   expect(await signInStaff(null, noRequest)).toEqual({ step: 'error', code: 'invalid_credentials' });
+});
+
+test('принятый код второй раз не принимается, пока он ещё в окне (проверка main, S11)', async () => {
+  const staff = await enrolledStaffFixture(await getAuth(), { role: 'care' });
+  const code = freshTotp(staff.totpSecret);
+  const first = newJar();
+  expect(await signInStaff({ email: staff.email, password: staff.password }, first.request)).toEqual({ step: 'code' });
+  expect(await verifyStaffCode({ code }, first.request)).toEqual({ ok: true });
+  // Подсмотренный код и пароль: второй вход тем же кодом не открывает сессию.
+  const second = newJar();
+  expect(await signInStaff({ email: staff.email, password: staff.password }, second.request)).toEqual({ step: 'code' });
+  expect(await verifyStaffCode({ code }, second.request)).toEqual({ ok: false, code: 'code_invalid' });
+  expect(await readSession(second.request)).toBeNull();
+  expect((await pools.root.query(`select count(*)::int as n from auth.session where "userId" = $1`, [staff.userId])).rows[0].n).toBe(1);
+  // Код другого шага проходит.
+  const third = newJar();
+  expect(await signInStaff({ email: staff.email, password: staff.password }, third.request)).toEqual({ step: 'code' });
+  expect(await verifyStaffCode({ code: freshTotp(staff.totpSecret) }, third.request)).toEqual({ ok: true });
 });
 
 test('повторный вход в том же браузере отзывает прежнюю сессию', async () => {

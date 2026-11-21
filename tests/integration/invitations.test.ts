@@ -32,7 +32,7 @@ test('администратор клиента приглашает в свою
   expect(row.invited_by).toBe(f.aAdmin.userId);
   expect(row.ttl.days).toBe(6);
   expect(box.mailer.sent[0]).toMatchObject({ to: 'new@acme.test', kind: 'invitation' });
-  expect(box.mailer.sent[0]?.subject).toContain('Дильноза');
+  expect(box.mailer.sent[0]?.text).toContain('Дильноза'); // имя в тексте, не в теме (проверка main, S8)
   expect(box.mailer.sent[0]?.text).toContain('ACME Trade');
   expect(box.mailer.sent[0]?.text).toMatch(/http:\/\/localhost:3000\/ru\/invite\?token=[\w-]{43}/);
   expect(row.token_hash).toBe(hashToken(tokenFrom(box.mailer.sent[0])));

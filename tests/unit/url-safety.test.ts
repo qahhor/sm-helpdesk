@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { assertPublicUrl, safeFetchJson } from '@/modules/hdu/url-safety';
+import { assertPublicUrl, isPrivateAddress, safeFetchJson } from '@/modules/hdu/url-safety';
 
 const publicDns = async () => ['203.0.113.10'];
 
@@ -94,4 +94,12 @@ test('ответ не JSON, ошибка сети и ответ с ошибко�
   // Заявленный размер больше предела: тело не читается.
   const big = vi.fn(async () => new Response('{}', { headers: { 'content-length': '999999' } }));
   await expect(safeFetchJson(target(), { ...opts, fetch: big })).rejects.toMatchObject({ reason: 'too_large' });
+});
+
+test('адреса IPv6 со встроенным IPv4 закрыты: 6to4, Teredo, локальный NAT64 (итоговая проверка M1, мелкое 8)', () => {
+  for (const address of ['2002:7f00:1::1', '2002:a00:1::', '2001:0:4136:e378:8000:63bf:3fff:fdd2', '64:ff9b:1::a00:1'])
+    expect(isPrivateAddress(address), address).toBe(true);
+  // Документационный диапазон 2001:db8::/32 рядом, но не внутри 2001::/32.
+  expect(isPrivateAddress('2001:db8::1')).toBe(false);
+  expect(isPrivateAddress('2a00:1450:4001::1')).toBe(false);
 });

@@ -2,9 +2,13 @@ import { expect, test } from 'vitest';
 import { sessionCookieRefresh } from '@/modules/hdu/api/session-cookie';
 
 test('кука сессии на https продлевается на 30 дней с теми же байтами значения', () => {
-  expect(sessionCookieRefresh('hub_locale=ru; __Secure-hub.session_token=abc.d%2Bf%3D; other=1')).toBe(
-    '__Secure-hub.session_token=abc.d%2Bf%3D; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure',
+  expect(sessionCookieRefresh('hub_locale=ru; __Host-hub.session_token=abc.d%2Bf%3D; other=1')).toBe(
+    '__Host-hub.session_token=abc.d%2Bf%3D; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure',
   );
+});
+
+test('прежняя кука __Secure- библиотекой не читается и не продлевается (проверка main, S7)', () => {
+  expect(sessionCookieRefresh('__Secure-hub.session_token=abc.def')).toBeNull();
 });
 
 test('кука сессии на http продлевается без Secure', () => {

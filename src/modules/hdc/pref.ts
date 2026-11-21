@@ -54,6 +54,8 @@ export const RATE_RULES = {
   staffLoginPerAccount: { limit: 10, windowSec: 900 },
   /** Коды при подключении второго фактора: библиотека на этом пути попытки не считает (проверка main, S1). */
   staffEnrollCodePerUser: { limit: 10, windowSec: 900 },
+  /** Принятый код второго фактора: один раз за 120 секунд, дольше его срока с соседними шагами (проверка main, S11). */
+  staffTotpCodeOnce: { limit: 1, windowSec: 120 },
   /** Поиск сервера Smartup по адресу на странице входа. */
   serverLookupPerIp: { limit: 20, windowSec: 3600 },
   /** Запрос подтверждения email. */
@@ -69,4 +71,6 @@ export const RATE_RULES = {
   ssoStartPerIp: { limit: 300, windowSec: 600 },
   /** Возврат с сервера Smartup на единственный открытый адрес библиотеки входа. */
   ssoCallbackPerIp: { limit: 120, windowSec: 60 },
+  /** Отчёты о нарушениях CSP с одного адреса (проверка main, S9): страница присылает несколько за раз. */
+  cspReportPerIp: { limit: 60, windowSec: 600 },
 } as const satisfies Record<string, RateRule>;

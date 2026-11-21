@@ -172,6 +172,14 @@ export async function verifyStaffCode(
   const session = await readSession({ headers: withNewCookies(request, result.headers) });
   const staff = session ? await findStaff(session.user.id) : null;
   if (!session || !staff || staff.role === 'agent_bot') return { ok: false, code: 'sign_in_expired' };
+  // Библиотека принимает код весь его срок (до 90 секунд с соседними шагами). Принятый код второй раз
+  // не открывает сессию (RFC 6238, 5.2; проверка main, S11): подсмотренный вместе с паролем код бесполезен.
+  const once = await consumeRateLimit(rateKey('staff-totp-used', `${session.user.id}:${parsed.data.code}`), RATE_RULES.staffTotpCodeOnce);
+  if (!once.allowed) {
+    // Кука уже ушла браузеру, но сессии за ней больше нет.
+    await revokeSessionById(session.session.id);
+    return { ok: false, code: 'code_invalid' };
+  }
   // Второй фактор только что подключён: сессии, открытые до этого одним паролем, больше не нужны.
   if (current) await revokeOtherOwnSessions(session.user.id, session.session.id);
   await resetRateLimit(accountKey(session.user.email));

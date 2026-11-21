@@ -37,9 +37,10 @@ export async function requestLoginLink(input: unknown, request: Pick<RequestInfo
   if (check.enabled && (await check.verify(raw.botToken, ip)) === 'failed') return { ok: true };
 
   const byIp = await consumeRateLimit(ipRateKey('login-link:ip', request.headers), RATE_RULES.loginLinkPerIp);
-  if (!email.success) return { ok: true };
+  // Сверх предела IP счётчик адреса не расходуется: поток с одного адреса не лишает человека его ссылок.
+  if (!byIp.allowed || !email.success) return { ok: true };
   const byAddress = await consumeRateLimit(rateKey('login-link:email', email.data), RATE_RULES.loginLinkPerAddress);
-  if (!byIp.allowed || !byAddress.allowed) return { ok: true };
+  if (!byAddress.allowed) return { ok: true };
   if (!(await isLoginLinkRecipient(email.data))) return { ok: true };
 
   // Библиотека записывает хеш токена и вызывает отправку письма (auth/mail.ts) с языком и адресом возврата.

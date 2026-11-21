@@ -121,6 +121,18 @@ test('загрузка завершена: размер не совпал с з�
   expect((await row(good.attachmentId)).scan_status).toBe('pending');
 });
 
+test('завершение загрузки смотрит только в карантин: ключ строки не уводит проверку и удаление на проверенный файл', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = await clientCtx(f.aUser);
+  const upload = await presignUpload(ctx, { fileName: 'shot.png', size: 2048, mime: 'image/png' });
+  // Строку испортили в обход портала (суперпользователь): ключ указывает на чужой проверенный файл.
+  const victim = `files/${f.orgA.orgId}/0192d2a4-0000-7000-8000-00000000beef`;
+  storage.put(victim, new Uint8Array(10));
+  await pools.root.query(`update hdt_attachments set storage_key = $2 where attachment_id = $1`, [upload.attachmentId, victim]);
+  expect(await completeUpload(ctx, upload.attachmentId)).toEqual({ status: 'rejected' });
+  expect(storage.has(victim)).toBe(true);
+});
+
 test('очередь недоступна: загрузка завершается, файл ждёт обхода, ошибка только в журнале процесса', async () => {
   const f = await seedTwoOrgs();
   const ctx = await clientCtx(f.aUser);

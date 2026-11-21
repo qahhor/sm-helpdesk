@@ -43,9 +43,12 @@ export async function completeUpload(ctx: ClientContext, attachmentId: unknown):
     await storage.remove(quarantineKey(id));
     return { status: upload.scanStatus };
   }
-  const stored = await storage.head(upload.storageKey);
+  // Загрузка ещё не проверена, значит лежит в карантине. Ключ берётся из идентификатора, а не из строки:
+  // проверка и удаление не уйдут на проверенный файл, даже если строку испортили (вторая проверка M2).
+  const quarantine = quarantineKey(id);
+  const stored = await storage.head(quarantine);
   if (!stored || stored.size !== upload.size) {
-    await storage.remove(upload.storageKey);
+    await storage.remove(quarantine);
     await rejectUploadTx(ctx.actor, id);
     return { status: 'rejected' };
   }

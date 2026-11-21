@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test } from 'vitest';
 import type { Actor } from '@/db/with-actor';
 import { asActor, pools } from '../helpers/db';
@@ -97,7 +98,8 @@ test('клиент не меняет приоритет, исполнителя,
   for (const change of [`priority = 'p1'`, `queue = 'l2'`, `assignee_id = '${f.l1.userId}'`, `priority_confirmed = true`, `title = 'Подмена'`])
     await expect(set(change), change).rejects.toThrow(/нельзя/);
   await expect(set(`org_id = '${f.orgB.orgId}'`)).rejects.toThrow(/нельзя|row-level security/);
-  // Разрешённые колонки клиент меняет.
+  // Разрешённые колонки клиент меняет: подтверждает решённое обращение (переходы проверяет tickets-writes.test.ts).
+  await pools.root.query(`update hdt_tickets set status = 'resolved' where ticket_id = $1`, [f.tickets.aOrg.ticketId]);
   expect(await set(`status = 'closed', closed_on = now()`)).toBe(1);
   // Видимость меняют только автор и администратор клиента.
   expect(await set(`visibility = 'private'`)).toBe(1);
@@ -138,19 +140,25 @@ test('подписка: только своя строка, только в ви
 
 test('вложение: клиент создаёт только своё неприкреплённое непроверенное и не меняет состояние проверки', async () => {
   const f = await seedTwoOrgs();
+  // Ключ загрузки quarantine/<attachment_id> (миграция 0018).
+  const [x, y, z] = [randomUUID(), randomUUID(), randomUUID()];
   const insert = (actor: Actor, values: string) =>
-    run(actor, `insert into hdt_attachments (org_id, ticket_id, uploader_id, storage_key, file_name, mime, size, scan_status) values ${values}`);
-  expect(await insert(f.aUser.actor, `('${f.orgA.orgId}', null, '${f.aUser.userId}', 'quarantine/x', 'a.png', 'image/png', 10, 'pending')`)).toBe(1);
-  await expect(insert(f.aUser.actor, `('${f.orgA.orgId}', null, '${f.aUser.userId}', 'quarantine/y', 'a.png', 'image/png', 10, 'clean')`)).rejects.toThrow(/row-level security/);
-  await expect(insert(f.aUser.actor, `('${f.orgA.orgId}', null, '${f.aAdmin.userId}', 'quarantine/z', 'a.png', 'image/png', 10, 'pending')`)).rejects.toThrow(/row-level security/);
+    run(actor, `insert into hdt_attachments (attachment_id, org_id, ticket_id, uploader_id, storage_key, file_name, mime, size, scan_status) values ${values}`);
+  expect(await insert(f.aUser.actor, `('${x}', '${f.orgA.orgId}', null, '${f.aUser.userId}', 'quarantine/${x}', 'a.png', 'image/png', 10, 'pending')`)).toBe(1);
+  await expect(insert(f.aUser.actor, `('${y}', '${f.orgA.orgId}', null, '${f.aUser.userId}', 'quarantine/${y}', 'a.png', 'image/png', 10, 'clean')`)).rejects.toThrow(
+    /row-level security|нельзя/,
+  );
+  await expect(insert(f.aUser.actor, `('${z}', '${f.orgA.orgId}', null, '${f.aAdmin.userId}', 'quarantine/${z}', 'a.png', 'image/png', 10, 'pending')`)).rejects.toThrow(
+    /row-level security/,
+  );
   // Чужое неприкреплённое не видно; своё нельзя объявить чистым.
-  expect(await rows(f.aAdmin.actor, `select 1 from hdt_attachments where storage_key = 'quarantine/x'`)).toEqual([]);
-  await expect(run(f.aUser.actor, `update hdt_attachments set scan_status = 'clean' where storage_key = 'quarantine/x'`)).rejects.toThrow(/нельзя/);
+  expect(await rows(f.aAdmin.actor, `select 1 from hdt_attachments where attachment_id = $1`, [x])).toEqual([]);
+  await expect(run(f.aUser.actor, `update hdt_attachments set scan_status = 'clean' where attachment_id = $1`, [x])).rejects.toThrow(/нельзя/);
   // Прикрепить к своему видимому обращению можно, к личному коллеги нельзя.
-  await expect(
-    run(f.aUser.actor, `update hdt_attachments set ticket_id = $1 where storage_key = 'quarantine/x'`, [f.tickets.aPrivate.ticketId]),
-  ).rejects.toThrow(/row-level security/);
-  expect(await run(f.aUser.actor, `update hdt_attachments set ticket_id = $1 where storage_key = 'quarantine/x'`, [f.tickets.aOrg.ticketId])).toBe(1);
+  await expect(run(f.aUser.actor, `update hdt_attachments set ticket_id = $1 where attachment_id = $2`, [f.tickets.aPrivate.ticketId, x])).rejects.toThrow(
+    /row-level security/,
+  );
+  expect(await run(f.aUser.actor, `update hdt_attachments set ticket_id = $1 where attachment_id = $2`, [f.tickets.aOrg.ticketId, x])).toBe(1);
 });
 
 test('удалить вложение может только система и только неприкреплённое старше суток (обход загрузок, решение 0028)', async () => {

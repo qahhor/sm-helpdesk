@@ -12,7 +12,8 @@ import { fileKey, quarantineKey, typeMatches } from '../util';
 // ключ хранилища строится из её идентификатора. Организация и загрузивший берутся из актора.
 
 export type NewUpload = { fileName: string; mime: string; size: number };
-export type UploadRecord = { attachmentId: string; storageKey: string; size: number; scanStatus: ScanStatus };
+/** Своя загрузка. Ключа хранилища нет намеренно: до проверки файл лежит в карантине, ключ берётся из идентификатора. */
+export type UploadRecord = { attachmentId: string; size: number; scanStatus: ScanStatus };
 
 /** Строка неприкреплённой загрузки со статусом pending и ключом quarantine/{attachment_id}. */
 export async function createUploadTx(actor: ClientActor, upload: NewUpload): Promise<string> {
@@ -32,7 +33,7 @@ export async function createUploadTx(actor: ClientActor, upload: NewUpload): Pro
 export async function findOwnUpload(actor: ClientActor, attachmentId: string): Promise<UploadRecord | null> {
   return withActor(actor, async (tx) => {
     const [row] = await tx
-      .select({ attachmentId: attachments.attachmentId, storageKey: attachments.storageKey, size: attachments.size, scanStatus: attachments.scanStatus })
+      .select({ attachmentId: attachments.attachmentId, size: attachments.size, scanStatus: attachments.scanStatus })
       .from(attachments)
       .where(and(eq(attachments.attachmentId, attachmentId), eq(attachments.uploaderId, actor.userId)));
     return row ?? null;

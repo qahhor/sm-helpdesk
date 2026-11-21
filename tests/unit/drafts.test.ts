@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { clearDraft, draftKey, loadDraft, saveDraft } from '@/ui/drafts';
+import { clearDraft, clearIfSent, draftKey, forgetSent, loadDraft, rememberSent, saveDraft, sentMatches } from '@/ui/drafts';
 
 // Черновик обращения и ответа на устройстве (UX-C-02, FR-TK-16, решение 0026 пункт 8).
 
@@ -57,4 +57,52 @@ test('пустой черновик не хранится, испорченны�
   expect(() => saveDraft(broken, key, { description: 'текст' })).not.toThrow();
   expect(() => clearDraft(broken, key)).not.toThrow();
   expect(loadDraft(null, key)).toBeNull();
+});
+
+test('после успешной отправки удаляется только отправленный текст, новый черновик остаётся (FR-TK-16)', () => {
+  const local = new MemoryStore();
+  const session = new MemoryStore();
+  const key = draftKey('user-1', 'new-ticket');
+  saveDraft(local, key, { description: 'Отправленный текст' });
+  rememberSent(session, key, { description: 'Отправленный текст' });
+  expect(sentMatches(local, session, key)).toBe(true);
+  expect(clearIfSent(local, session, key)).toBe(true);
+  expect(loadDraft(local, key)).toBeNull();
+  // Возврат по истории на ту же страницу успеха: отметки отправки уже нет, новый черновик не трогается.
+  saveDraft(local, key, { description: 'Новый текст после отправки' });
+  expect(sentMatches(local, session, key)).toBe(false);
+  expect(clearIfSent(local, session, key)).toBe(false);
+  expect(loadDraft(local, key)).toEqual({ description: 'Новый текст после отправки' });
+});
+
+test('черновик изменили после отправки или ссылку на страницу успеха открыли в другом браузере: ничего не стирается', () => {
+  const local = new MemoryStore();
+  const session = new MemoryStore();
+  const key = draftKey('user-1', 'reply-1042');
+  rememberSent(session, key, { body: 'ответ' });
+  saveDraft(local, key, { body: 'ответ и ещё строка' });
+  expect(clearIfSent(local, session, key)).toBe(false);
+  expect(loadDraft(local, key)).toEqual({ body: 'ответ и ещё строка' });
+  // Без отметки отправки (другой браузер, вставленная ссылка) черновик тоже цел.
+  const other = new MemoryStore();
+  saveDraft(other, key, { body: 'чужой черновик' });
+  expect(clearIfSent(other, new MemoryStore(), key)).toBe(false);
+  expect(loadDraft(other, key)).toEqual({ body: 'чужой черновик' });
+  expect(sentMatches(null, null, key)).toBe(false);
+});
+
+test('неудачная отправка снимает отметку: черновик остаётся и после страницы успеха', () => {
+  const local = new MemoryStore();
+  const session = new MemoryStore();
+  const key = draftKey('user-1', 'new-ticket');
+  saveDraft(local, key, { description: 'текст' });
+  rememberSent(session, key, { description: 'текст' });
+  forgetSent(session, key);
+  expect(session.data.size).toBe(0);
+  expect(clearIfSent(local, session, key)).toBe(false);
+  expect(loadDraft(local, key)).toEqual({ description: 'текст' });
+  // Порядок полей в объекте на сравнение не влияет.
+  saveDraft(local, key, { title: 'a', description: 'b' });
+  rememberSent(session, key, { description: 'b', title: 'a' });
+  expect(sentMatches(local, session, key)).toBe(true);
 });

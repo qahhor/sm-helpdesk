@@ -111,8 +111,9 @@ test('черновик после перезагрузки на месте (UX-C
   // Обрыв сети при отправке (FR-TK-16): после перезагрузки текст на месте.
   await formReady(page);
   await page.route('**/ru/tickets/new', (route) => (route.request().method() === 'POST' ? route.abort() : route.continue()));
+  const aborted = page.waitForEvent('requestfailed', (request) => request.method() === 'POST');
   await page.getByRole('button', { name: 'Отправить обращение' }).click();
-  await page.waitForTimeout(500);
+  await aborted;
   await page.unroute('**/ru/tickets/new');
   await page.reload();
   await formReady(page);
@@ -138,6 +139,15 @@ test('черновик после перезагрузки на месте (UX-C
   // Следующий черновик после перезагрузки на месте.
   await formReady(page);
   await page.getByLabel('Ответ').fill('Следующий ответ');
+  await page.reload();
+  await formReady(page);
+  await expect(page.getByLabel('Ответ')).toHaveValue('Следующий ответ');
+  // Ссылка на страницу успеха, открытая снова (вставлена в адрес, история), новый черновик не стирает:
+  // удаляется только тот текст, который ушёл.
+  await page.goto(`/ru/tickets/SUP-${number}?done=replied`);
+  await formReady(page);
+  await expect(page).toHaveURL(new RegExp(`/ru/tickets/SUP-${number}$`));
+  await expect(page.getByLabel('Ответ')).toHaveValue('Следующий ответ');
   await page.reload();
   await formReady(page);
   await expect(page.getByLabel('Ответ')).toHaveValue('Следующий ответ');

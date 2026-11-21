@@ -9,7 +9,7 @@ import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
 import { RadioGroup, type RadioOption } from '@/ui/components/radio-group';
 import { Textarea } from '@/ui/components/textarea';
-import { browserDrafts, clearDraft, type Draft, draftKey, saveDraft, useDraft } from '@/ui/drafts';
+import { browserDrafts, browserSession, clearDraft, type Draft, draftKey, forgetSent, rememberSent, saveDraft, useDraft } from '@/ui/drafts';
 import { createTicketAction, type NewTicketState } from './actions';
 import { ModulePicker } from './ModulePicker';
 
@@ -87,12 +87,20 @@ function Fields({
   const [uploading, setUploading] = useState(false);
 
   // Текст сохраняется при каждом изменении, в том числе после ошибки отправки. До гидратации не трогаем хранилище.
+  const current = useMemo<Draft>(
+    () => ({ description, title: titleEdited ? title : '', type, impact, visibility }),
+    [description, title, titleEdited, type, impact, visibility],
+  );
   useEffect(() => {
     if (!hydrated) return;
     // Черновик нужен, только пока есть текст: выбор полей без текста не хранится.
     if (description.trim() === '' && !(titleEdited && title.trim() !== '')) clearDraft(browserDrafts(), key);
-    else saveDraft(browserDrafts(), key, { description, title: titleEdited ? title : '', type, impact, visibility });
-  }, [hydrated, key, description, title, titleEdited, type, impact, visibility, state]);
+    else saveDraft(browserDrafts(), key, current);
+  }, [hydrated, key, current, description, title, titleEdited, state]);
+  // Отправка не удалась: отметка отправки снимается, черновик остаётся черновиком.
+  useEffect(() => {
+    if (state.error) forgetSent(browserSession(), key);
+  }, [state, key]);
 
   const subject = titleEdited ? title : titleFromDescription(description);
   const descriptionError = state.field === 'description' ? labels.errors.description : undefined;
@@ -101,7 +109,9 @@ function Fields({
   return (
     <form
       action={action}
-      // Черновик удаляет страница обращения после успешной отправки: обрыв сети его не теряет.
+      // Черновик удаляет страница обращения после успешной отправки, и только если ушёл именно он: обрыв сети
+      // его не теряет, правка во время отправки сохраняется.
+      onSubmit={() => rememberSent(browserSession(), key, current)}
       className="flex flex-col gap-5"
       noValidate
       // Форма готова, когда черновик уже подставлен: до этого введённое поле пересоздаст с черновиком.

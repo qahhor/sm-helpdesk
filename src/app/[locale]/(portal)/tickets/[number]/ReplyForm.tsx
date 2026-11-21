@@ -6,7 +6,7 @@ import { Button } from '@/ui/components/button';
 import { FilePicker, type FilePickerLabels } from '@/ui/components/file-picker';
 import { Label } from '@/ui/components/label';
 import { Textarea } from '@/ui/components/textarea';
-import { browserDrafts, clearDraft, type Draft, draftKey, saveDraft, useDraft } from '@/ui/drafts';
+import { browserDrafts, browserSession, clearDraft, type Draft, draftKey, forgetSent, rememberSent, saveDraft, useDraft } from '@/ui/drafts';
 import { replyAction, type ReplyState } from './actions';
 
 // Ответ клиента (FR-TK-08): текст с файлами, черновик на устройстве (UX-C-02), ошибка без потери текста (UX-C-10).
@@ -19,7 +19,7 @@ type ReplyProps = { userId: string; number: number; accept: string; maxFiles: nu
 
 export function ReplyForm(props: ReplyProps) {
   const key = useMemo(() => draftKey(props.userId, `reply-${props.number}`), [props.userId, props.number]);
-  // Ответ ушёл (страница открылась с ?done=replied): черновик удаляется, поле пересоздаётся пустым.
+  // Ответ ушёл (страница открылась с ?done=replied): поле пустое, если на устройстве лежал именно отправленный текст.
   const { hydrated, draft } = useDraft(key, props.sent);
   return <Fields key={`${hydrated ? 'client' : 'server'}-${props.sent}`} {...props} draftKey={key} hydrated={hydrated} draft={draft} />;
 }
@@ -34,10 +34,19 @@ function Fields({ number, accept, maxFiles, labels, draftKey: key, hydrated, dra
     if (body.trim() === '') clearDraft(browserDrafts(), key);
     else saveDraft(browserDrafts(), key, { body });
   }, [hydrated, key, body, state]);
+  useEffect(() => {
+    if (state.error) forgetSent(browserSession(), key);
+  }, [state, key]);
 
   const error = state.error ? (labels.errors[state.error] ?? labels.errors.invalid_input) : null;
   return (
-    <form action={action} className="flex flex-col gap-3" noValidate data-ready={hydrated ? '' : undefined}>
+    <form
+      action={action}
+      onSubmit={() => rememberSent(browserSession(), key, { body })}
+      className="flex flex-col gap-3"
+      noValidate
+      data-ready={hydrated ? '' : undefined}
+    >
       <input type="hidden" name="number" value={number} />
       {error && <Alert tone="danger">{error}</Alert>}
       <Label htmlFor="field-body">{labels.reply}</Label>

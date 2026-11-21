@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { dbRows } from './helpers/db';
-import { signInStaff, staffAccount } from './helpers/staff';
+import { dropSession, signInStaff, staffAccount } from './helpers/staff';
 
 // Раздел "Настройки" рабочего места и реестр серверов Smartup (FR-ADM-01, раздел 8.11 ТЗ).
 // Сервер проверки: третий ложный сервер входа на порту 3193 (scripts/mock-oidc.mjs), в реестр он не записан.
@@ -58,7 +58,7 @@ test('администратор добавляет сервер Smartup, сек
 
 test('care и первая линия раздел настроек не видят и не открывают', async ({ page }) => {
   for (const key of ['care', 'l1'] as const) {
-    await page.context().clearCookies();
+    await dropSession(page);
     await signInStaff(page, staffAccount(key));
     await page.getByRole('button', { name: 'Настройки' }).click();
     await expect(page.getByRole('menuitem', { name: 'Все настройки' })).toHaveCount(0);

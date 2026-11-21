@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { totp } from '../helpers/totp';
 import { dbRows } from './helpers/db';
-import { createStaffInvitation, signInStaff, staffAccount, staffCode } from './helpers/staff';
+import { createStaffInvitation, dropSession, signInStaff, staffAccount, staffCode } from './helpers/staff';
 
 // Вход сотрудников (FR-ID-09): пароль и обязательный второй фактор. Проверяется на ширине ноутбука.
 // Сообщение формы. Next.js держит на странице свой элемент с ролью alert для объявлений о переходах,
@@ -96,7 +96,7 @@ test('неверный пароль и неизвестный адрес даю�
 test('подменённый адрес возврата не уводит с портала', async ({ page }) => {
   for (const next of ['https%3A%2F%2Fevil.example%2F', '%2F%2Fevil.example', '%2F%5Cevil.example']) {
     // Вошедшего сотрудника страница входа сразу пропускает дальше: каждый вход начинается без сессии.
-    await page.context().clearCookies();
+    await dropSession(page);
     await signInStaff(page, staffAccount('care'), { startAt: `/ru/staff/login?next=${next}` });
     await expect(page, next).toHaveURL(/^http:\/\/localhost:3100\/ru\/agent$/);
   }

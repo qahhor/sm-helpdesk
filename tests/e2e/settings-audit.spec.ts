@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { signInAsCustom, uniqueSub, withOwnAddress } from './helpers/client';
-import { signInStaff, staffAccount } from './helpers/staff';
+import { dropSession, signInStaff, staffAccount } from './helpers/staff';
 
 // Журнал аудита в разделе "Настройки" (FR-ADM-07) и настройки организации на её карточке (FR-ADM-02).
 
@@ -35,7 +35,7 @@ test('care меняет категорию и отключает AI-обрабо
   await expect(main(page).getByRole('status')).toContainText('Сохранено');
   await expect(page.getByLabel('Обращения обрабатывает AI-помощник')).not.toBeChecked();
 
-  await page.context().clearCookies();
+  await dropSession(page);
   await signInStaff(page, staffAccount('admin'));
   await page.goto('/ru/agent/settings');
   await page.getByRole('navigation', { name: 'Разделы настроек' }).getByRole('link', { name: 'Журнал аудита' }).click();

@@ -42,8 +42,8 @@ async function createTicket(page: Page, ticket: NewTicket): Promise<number> {
   }
   await resetLimits();
   await page.getByRole('button', { name: 'Отправить обращение' }).click();
-  await expect(page).toHaveURL(/\/ru\/tickets\/SUP-\d+$/);
-  return Number(/SUP-(\d+)$/.exec(page.url())?.[1]);
+  await expect(page).toHaveURL(/\/ru\/tickets\/SUP-\d+(\?created=1)?$/);
+  return Number(/SUP-(\d+)/.exec(page.url())?.[1]);
 }
 
 /** Перезагружает страницу, пока на ней не появится текст: файл проверяет фоновый процесс. */
@@ -79,8 +79,8 @@ test('S2: вход, "Сообщить о проблеме", тип, влияни
   expect(await preview.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
   await resetLimits();
   await page.getByRole('button', { name: 'Отправить обращение' }).click();
-  await expect(page).toHaveURL(/\/ru\/tickets\/SUP-\d+$/);
-  const number = /SUP-\d+$/.exec(page.url())?.[0] ?? '';
+  await expect(page).toHaveURL(/\/ru\/tickets\/SUP-\d+(\?created=1)?$/);
+  const number = /SUP-\d+/.exec(page.url())?.[0] ?? '';
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(description.split('.')[0] ?? '');
   await expect(page.getByText(number, { exact: true })).toBeVisible();
   await expect(page.getByText('Новое', { exact: true })).toBeVisible();
@@ -108,8 +108,21 @@ test('черновик после перезагрузки на месте (UX-C
   await page.reload();
   await expect(page.getByLabel('Что случилось?')).toHaveValue(text);
   await expect(page.getByRole('radio', { name: 'Только я' })).toBeChecked();
-  // Черновик ответа тоже на месте.
+  // Обрыв сети при отправке (FR-TK-16): после перезагрузки текст на месте.
+  await formReady(page);
+  await page.route('**/ru/tickets/new', (route) => (route.request().method() === 'POST' ? route.abort() : route.continue()));
+  await page.getByRole('button', { name: 'Отправить обращение' }).click();
+  await page.waitForTimeout(500);
+  await page.unroute('**/ru/tickets/new');
+  await page.reload();
+  await formReady(page);
+  await expect(page.getByLabel('Что случилось?')).toHaveValue(text);
+  // Черновик ответа тоже на месте. Отправленное обращение черновик убирает.
   const number = await createTicket(page, { description: `Для черновика ответа ${Date.now()}` });
+  await page.goto('/ru/tickets/new');
+  await formReady(page);
+  await expect(page.getByLabel('Что случилось?')).toHaveValue('');
+  await page.goto(`/ru/tickets/SUP-${number}`);
   await formReady(page);
   await page.getByLabel('Ответ').fill('Ответ, который не успел уйти');
   await page.reload();
@@ -117,9 +130,17 @@ test('черновик после перезагрузки на месте (UX-C
   // После отправки черновик пропадает.
   await resetLimits();
   await page.getByRole('button', { name: 'Отправить', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/ru/tickets/SUP-${number}\\?done=replied$`));
+  await expect(page.getByText('Ответ отправлен')).toBeVisible();
+  // Отметка успеха убрана из адреса: перезагрузка не тронет следующий черновик.
+  await expect(page).toHaveURL(new RegExp(`/ru/tickets/SUP-${number}$`));
   await expect(page.getByText('Ответ, который не успел уйти')).toBeVisible();
   await expect(page.getByLabel('Ответ')).toHaveValue('');
+  // Следующий черновик после перезагрузки на месте.
+  await formReady(page);
+  await page.getByLabel('Ответ').fill('Следующий ответ');
+  await page.reload();
+  await formReady(page);
+  await expect(page.getByLabel('Ответ')).toHaveValue('Следующий ответ');
 });
 
 test('EICAR: файл помечен "не прошёл проверку", ссылки на скачивание нет, прямой адрес отвечает 404', async ({ page }) => {

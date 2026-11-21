@@ -32,5 +32,6 @@ export async function createTicketAction(_state: NewTicketState, formData: FormD
     if (!isHdtError(error)) throw error;
     return { error: error.code, field: null };
   }
-  redirect(`/${locale}/tickets/SUP-${number}`);
+  // Отметка created: страница обращения удалит черновик формы (до успеха он не трогается).
+  redirect(`/${locale}/tickets/SUP-${number}?created=1`);
 }

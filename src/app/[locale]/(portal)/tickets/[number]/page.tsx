@@ -7,6 +7,7 @@ import { Link } from '@/i18n/navigation';
 import { Alert } from '@/ui/components/alert';
 import { Card, CardContent } from '@/ui/components/card';
 import { CopyButton } from '@/ui/components/copy-button';
+import { DraftCleaner } from '@/ui/components/draft-cleaner';
 import { Markdown } from '@/ui/components/markdown';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { acceptOf, STATUS_TONE } from '../status';
@@ -25,12 +26,12 @@ export default async function TicketPage({
   searchParams,
 }: {
   params: Promise<{ number: string }>;
-  searchParams: Promise<{ done?: string; error?: string }>;
+  searchParams: Promise<{ done?: string; error?: string; created?: string }>;
 }) {
   const client = await requireClientActor();
   const ticket = await getTicket(client, decodeURIComponent((await params).number));
   if (!ticket) notFound();
-  const { done, error } = await searchParams;
+  const { done, error, created } = await searchParams;
   const t = await getTranslations('client.tickets');
   const format = await getFormatter();
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
@@ -135,6 +136,12 @@ export default async function TicketPage({
         )}
       </div>
 
+      {(created === '1' || done === 'replied') && (
+        <DraftCleaner
+          userId={client.actor.userId}
+          scopes={done === 'replied' ? [`reply-${ticket.number}`] : [ticket.relatedNumber ? `new-ticket-${ticket.relatedNumber}` : 'new-ticket']}
+        />
+      )}
       {done && t.has(`page.done.${done}`) && <Alert tone="success">{t(`page.done.${done}`)}</Alert>}
       {error && <Alert tone="danger">{t.has(`errors.${error}`) ? t(`errors.${error}`) : t('errors.invalid_input')}</Alert>}
 
@@ -192,6 +199,7 @@ export default async function TicketPage({
         <ReplyForm
           userId={client.actor.userId}
           number={ticket.number}
+          sent={done === 'replied'}
           accept={acceptOf(ALLOWED_FILE_EXTENSIONS)}
           maxFiles={MAX_FILES_PER_MESSAGE}
           labels={{

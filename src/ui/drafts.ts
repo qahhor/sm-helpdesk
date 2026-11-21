@@ -55,9 +55,18 @@ const noop = () => () => {};
 /**
  * Черновик после гидратации: на сервере и при гидратации null, затем значение из хранилища. Форма пересоздаёт поля
  * по ключу `hydrated`, поэтому восстановление не меняет состояние в эффекте и не ломает гидратацию.
+ * discard: отправка прошла (страница открылась с отметкой успеха), черновик удаляется. До успеха он не трогается:
+ * обрыв сети или ошибка сервера при отправке текст не теряют (FR-TK-16).
  */
-export function useDraft(key: string): { hydrated: boolean; draft: Draft | null } {
+export function useDraft(key: string, discard = false): { hydrated: boolean; draft: Draft | null } {
   const hydrated = useSyncExternalStore(noop, () => true, () => false);
-  const draft = useMemo(() => (hydrated ? loadDraft(browserDrafts(), key) : null), [hydrated, key]);
+  const draft = useMemo(() => {
+    if (!hydrated) return null;
+    if (discard) {
+      clearDraft(browserDrafts(), key);
+      return null;
+    }
+    return loadDraft(browserDrafts(), key);
+  }, [hydrated, key, discard]);
   return { hydrated, draft };
 }

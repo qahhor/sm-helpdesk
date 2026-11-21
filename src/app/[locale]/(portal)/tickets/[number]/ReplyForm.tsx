@@ -15,12 +15,13 @@ export type ReplyLabels = { reply: string; placeholder: string; send: string; bu
 
 const INITIAL: ReplyState = { error: null };
 
-type ReplyProps = { userId: string; number: number; accept: string; maxFiles: number; labels: ReplyLabels };
+type ReplyProps = { userId: string; number: number; accept: string; maxFiles: number; labels: ReplyLabels; sent: boolean };
 
 export function ReplyForm(props: ReplyProps) {
   const key = useMemo(() => draftKey(props.userId, `reply-${props.number}`), [props.userId, props.number]);
-  const { hydrated, draft } = useDraft(key);
-  return <Fields key={hydrated ? 'client' : 'server'} {...props} draftKey={key} hydrated={hydrated} draft={draft} />;
+  // Ответ ушёл (страница открылась с ?done=replied): черновик удаляется, поле пересоздаётся пустым.
+  const { hydrated, draft } = useDraft(key, props.sent);
+  return <Fields key={`${hydrated ? 'client' : 'server'}-${props.sent}`} {...props} draftKey={key} hydrated={hydrated} draft={draft} />;
 }
 
 function Fields({ number, accept, maxFiles, labels, draftKey: key, hydrated, draft }: ReplyProps & { draftKey: string; hydrated: boolean; draft: Draft | null }) {
@@ -36,7 +37,7 @@ function Fields({ number, accept, maxFiles, labels, draftKey: key, hydrated, dra
 
   const error = state.error ? (labels.errors[state.error] ?? labels.errors.invalid_input) : null;
   return (
-    <form action={action} onSubmit={() => clearDraft(browserDrafts(), key)} className="flex flex-col gap-3" noValidate data-ready={hydrated ? '' : undefined}>
+    <form action={action} className="flex flex-col gap-3" noValidate data-ready={hydrated ? '' : undefined}>
       <input type="hidden" name="number" value={number} />
       {error && <Alert tone="danger">{error}</Alert>}
       <Label htmlFor="field-body">{labels.reply}</Label>

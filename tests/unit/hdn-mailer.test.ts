@@ -140,7 +140,7 @@ test('сбой письма пишется в журнал одной строк
 test('отображаемое имя Telegram и название организации в письмах без ссылок (итоговая проверка доработки)', () => {
   const linked = (account: string) => telegramLinkedMail('ru', { account, url: 'https://hub.example/p' }).text;
   expect(linked('@alisher_k')).toContain('@alisher_k');
-  for (const bad of ['Срочно https://evil.example', 'evil-login.com', 'a‮b www.evil.example'])
+  for (const bad of ['Срочно https://evil.example', 'evil-login.com', 'a\u202Eb www.evil.example'])
     expect(linked(bad), bad).not.toMatch(/evil/);
   expect(linked('Алишер\nКаримов')).toContain('Алишер Каримов');
   // Название организации со ссылкой остаётся узнаваемым, но почтовая программа не сделает из него ссылку.

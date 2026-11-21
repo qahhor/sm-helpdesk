@@ -17,18 +17,25 @@ const ascii = (head: Uint8Array, from: number, to: number) => String.fromCharCod
 /** Начало текстового файла без BOM и пробелов, в нижнем регистре, для поиска разметки. */
 function markupStart(head: Uint8Array): string {
   const textHead = new TextDecoder('utf-8', { fatal: false }).decode(head.subarray(0, SNIFF_BYTES));
-  return textHead.replace(/^﻿/, '').trimStart().toLowerCase();
+  return textHead.replace(/^\uFEFF/, '').trimStart().toLowerCase();
 }
 
-/** Разметка, которую браузер исполнит: HTML и SVG, в том числе SVG после пролога XML и комментариев. */
+/**
+ * Теги, по которым браузер узнаёт HTML в начале файла (WHATWG MIME Sniffing, шаблон HTML), и теги, которые
+ * исполняют сценарий или отправляют данные сами по себе (img, form, input, base, frame).
+ */
+const HTML_START =
+  /^<(?:!doctype\s+html|html|head|body|script|iframe|frameset|frame|object|embed|meta|link|style|base|title|div|span|p|a|b|i|u|br|hr|h[1-6]|font|table|form|input|button|textarea|select|img|video|audio|template|math)[\s>/]/;
+
+/** Разметка, которую браузер исполнит: HTML и SVG, в том числе после пролога XML и комментариев. */
 function markupType(start: string): 'html' | 'svg' | null {
-  if (/^<(?:!doctype\s+html|html|head|body|script|iframe|object|embed|meta|link|style)[\s>/]/.test(start)) return 'html';
+  if (HTML_START.test(start)) return 'html';
   if (/^<svg[\s>/]/.test(start)) return 'svg';
   if (start.startsWith('<?xml') || start.startsWith('<!--') || start.startsWith('<!doctype')) {
-    // После пролога, комментариев и объявления типа первым элементом идёт svg или html.
+    // После пролога, комментариев и объявления типа первым элементом идёт svg или тег HTML.
     const rest = start.replace(/^(?:<\?[^]*?\?>|<!--[^]*?-->|<!doctype[^>]*>|\s+)*/, '');
     if (/^<svg[\s>/]/.test(rest)) return 'svg';
-    if (/^<html[\s>/]/.test(rest)) return 'html';
+    if (HTML_START.test(rest)) return 'html';
   }
   return null;
 }
@@ -54,10 +61,13 @@ export function sniffFileType(head: Uint8Array): DetectedType {
   ])
     if (startsWith(head, magic)) return 'executable';
   // Текст в UTF-16 с меткой порядка байт (журналы Windows, "Юникод-текст" Excel): нулевые байты в нём законны.
+  // Метка перед двоичными данными текстом их не делает: символ U+0000, управляющие символы и битые суррогаты
+  // (U+FFFD) в тексте не встречаются. Одна битая пара допустима: начало файла могло разрезать её на краю.
   if (startsWith(head, [0xff, 0xfe]) || startsWith(head, [0xfe, 0xff])) {
     const encoding = head[0] === 0xff ? 'utf-16le' : 'utf-16be';
-    const start = new TextDecoder(encoding).decode(head.subarray(2, SNIFF_BYTES)).trimStart().toLowerCase();
-    return markupType(start) ?? 'text';
+    const decoded = new TextDecoder(encoding).decode(head.subarray(2, SNIFF_BYTES));
+    if (/[\u0000-\u0008\u000E-\u001F]/.test(decoded) || (decoded.match(/\uFFFD/g)?.length ?? 0) > 1) return 'unknown';
+    return markupType(decoded.trimStart().toLowerCase()) ?? 'text';
   }
   if (head.subarray(0, SNIFF_BYTES).includes(0)) return 'unknown';
   return markupType(markupStart(head)) ?? 'text';

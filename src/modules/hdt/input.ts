@@ -51,8 +51,15 @@ export const rateInput = z
 export const visibilityInput = z.object({ number: numberInput, visibility: z.enum(VISIBILITIES) });
 
 /**
- * Запрос ссылки на загрузку. Имя файла без пути и управляющих знаков. Пределы размера и тип проверяет сервис
- * своими кодами (file_too_large, file_not_allowed), схема отсекает только явный мусор.
+ * Знаки, которых не должно быть в имени файла: путь, управляющие, разделители строк и невидимые форматирующие
+ * (смена направления текста подменяет расширение для глаза: "photo\u202Egnp.txt" выглядит как "phototxt.png").
+ * Соединители нулевой ширины U+200C и U+200D законны: из них состоят эмодзи и слова некоторых языков.
+ */
+const FILE_NAME_FORBIDDEN = /[\p{Cc}\u2028\u2029/\\]|(?![\u200C\u200D])\p{Cf}/u;
+
+/**
+ * Запрос ссылки на загрузку. Имя файла без пути, управляющих и невидимых знаков. Пределы размера и тип проверяет
+ * сервис своими кодами (file_too_large, file_not_allowed), схема отсекает только явный мусор.
  */
 export const presignUploadInput = z.object({
   fileName: z
@@ -60,7 +67,7 @@ export const presignUploadInput = z.object({
     .trim()
     .min(1)
     .max(255)
-    .refine((name) => !/[\p{Cc}/\\]/u.test(name)),
+    .refine((name) => !FILE_NAME_FORBIDDEN.test(name)),
   size: z.coerce.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
   mime: optional(z.string().trim().max(127)),
 });

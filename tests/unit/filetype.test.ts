@@ -29,7 +29,7 @@ test('картинки, PDF, ZIP, OLE и MP4 по сигнатурам', () => {
 
 test('HTML и SVG узнаются и в файле с другим расширением, в том числе после BOM и пробелов', () => {
   expect(sniffFileType(text('<!DOCTYPE html><html><body>отчёт</body></html>'))).toBe('html');
-  expect(sniffFileType(text('﻿  \n<html lang="ru">'))).toBe('html');
+  expect(sniffFileType(text('\uFEFF  \n<html lang="ru">'))).toBe('html');
   expect(sniffFileType(text('<script>alert(1)</script>'))).toBe('html');
   expect(sniffFileType(text('<svg xmlns="http://www.w3.org/2000/svg"></svg>'))).toBe('svg');
   expect(sniffFileType(text('<?xml version="1.0"?>\n<!-- c -->\n<svg xmlns="http://www.w3.org/2000/svg"/>'))).toBe('svg');
@@ -55,4 +55,41 @@ test('текст в UTF-16 с меткой порядка байт: журнал
   expect(sniffFileType(utf16be)).toBe('text');
   // Без метки нулевые байты по-прежнему не текст.
   expect(sniffFileType(new Uint8Array([0x41, 0x00, 0x42, 0x00]))).toBe('unknown');
+});
+
+test('метка UTF-16 перед двоичными данными не делает их текстом (вторая проверка M2)', () => {
+  const le = (value: string) => [0xff, 0xfe, ...Array.from(Buffer.from(value, 'utf16le'))];
+  // Исполняемый файл после метки: пары нулевых байтов дают символ U+0000.
+  expect(sniffFileType(new Uint8Array([0xff, 0xfe, 0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00]))).toBe('unknown');
+  // Одиночные суррогаты дают U+FFFD, управляющие символы в журналах не встречаются.
+  expect(sniffFileType(new Uint8Array([0xff, 0xfe, ...Array.from({ length: 200 }, () => [0x00, 0xd8]).flat()]))).toBe('unknown');
+  expect(sniffFileType(new Uint8Array(le('\u0001\u0002\u0003\u0004 данные'.repeat(20))))).toBe('unknown');
+  // Законный журнал остаётся текстом: табуляция, переводы строк, эмодзи и пара суррогатов, разрезанная на краю 4 КБ.
+  const log = new Uint8Array(le('2026-11-21\tошибка синхронизации 😀\r\n'.repeat(200)));
+  expect(log.length).toBeGreaterThan(4096);
+  expect(sniffFileType(log)).toBe('text');
+  expect(sniffFileType(log.subarray(0, 4095))).toBe('text');
+});
+
+test('HTML узнаётся по любому тегу, по которому его узнаёт браузер, а не только по html и script (вторая проверка M2)', () => {
+  for (const start of [
+    '<div>Привет</div>',
+    '<a href="https://example.test">ссылка</a>',
+    '<img src=x onerror=alert(1)>',
+    '<p>Текст',
+    '<table><tr><td>1</td></tr></table>',
+    '<title>Отчёт</title>',
+    '<b>жирный</b>',
+    '<form action="https://example.test"><input name=x></form>',
+    '<input autofocus onfocus=alert(1)>',
+    '<h1>Заголовок</h1>',
+    '<font color=red>x</font>',
+    '<br>',
+    '<DIV>верхний регистр</DIV>',
+    '<?xml version="1.0"?><!-- комментарий --><div>после пролога</div>',
+  ])
+    expect(sniffFileType(text(start)), start).toBe('html');
+  // Законные текст и XML остаются текстом.
+  for (const start of ['<config><item>1</item></config>', '<?xml version="1.0"?><root/>', 'a < b и b > c', '<<< журнал >>>', '<abbr>', '<pre-formatted>'])
+    expect(sniffFileType(text(start)), start).toBe('text');
 });

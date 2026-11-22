@@ -1,11 +1,13 @@
 import 'server-only';
 import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
+import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, type Impact, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { refreshSla } from './sla';
+import { notifyTicketTx, oncallP1Tx } from './notify';
 
 // Модуль hdt, слой core: обращения. Операции с данными внутри withActor под ролью hub_app.
 // Организация и автор берутся из актора; политики RLS и триггер t_hdt_tickets_client_guard страхуют.
@@ -52,6 +54,8 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
           moduleId: input.moduleId ?? null,
           relatedTicketId,
           source: 'portal',
+          // P1 от клиента: отметка сообщения дежурным ставится вставкой, клиент колонку не обновляет (FR-SLA-07).
+          oncallNotifiedOn: priority === 'p1' ? sql`now()` : null,
         })
         .returning({ ticketId: tickets.ticketId, number: tickets.number })
     )[0] as { ticketId: string; number: number };
@@ -73,6 +77,8 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
     await tx.insert(ticketWatchers).values({ orgId: actor.orgId, ticketId: row.ticketId, userId: actor.userId, source: 'author' });
     await tx.insert(ticketEvents).values({ orgId: actor.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: actor.userId });
     await writeAudit(tx, { action: 'ticket.created', objectType: 'ticket', objectId: row.ticketId, orgId: actor.orgId, diff: { type: input.type, priority } });
+    await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: null });
+    if (priority === 'p1') await oncallP1Tx(tx, row.ticketId, { alreadyMarked: true });
     return row;
   });
 }
@@ -132,8 +138,49 @@ export async function createTicketForClientTx(
       diff: { type: input.type, priority, source: 'staff', authorId: input.authorId },
     });
     await refreshSla(tx, row.ticketId, new Date());
+    await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: actor.userId });
+    await oncallP1Tx(tx, row.ticketId);
     return row;
   });
+}
+
+/**
+ * Обращение из письма (FR-EM-01, FR-EM-10, решение 19 вехи M4) в транзакции разбора письма: тип question, влияние
+ * minor, P3 без подтверждения, источник email. Автор и организация определены разбором по адресу и DMARC, не письмом.
+ * Подписка автора, событие создания от клиента, журнал, сроки от момента создания.
+ */
+export async function createEmailTicketTx(
+  tx: Tx,
+  input: { orgId: string; authorId: string; title: string; body: string; locale: string; visibility: Visibility; senderUnconfirmed: boolean },
+): Promise<{ ticketId: string; number: number }> {
+  const [row] = await tx
+    .insert(tickets)
+    .values({
+      orgId: input.orgId,
+      authorId: input.authorId,
+      type: 'question',
+      impact: 'minor',
+      priority: PRIORITY_BY_IMPACT.minor,
+      visibility: input.visibility,
+      title: input.title,
+      description: input.body,
+      locale: input.locale,
+      source: 'email',
+      senderUnconfirmed: input.senderUnconfirmed,
+    })
+    .returning({ ticketId: tickets.ticketId, number: tickets.number });
+  if (!row) throw new Error('hdt: обращение из письма не создано');
+  await tx.insert(ticketWatchers).values({ orgId: input.orgId, ticketId: row.ticketId, userId: input.authorId, source: 'author' });
+  await tx.insert(ticketEvents).values({ orgId: input.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: input.authorId });
+  await writeAudit(tx, {
+    action: 'ticket.created',
+    objectType: 'ticket',
+    objectId: row.ticketId,
+    orgId: input.orgId,
+    diff: { type: 'question', priority: PRIORITY_BY_IMPACT.minor, source: 'email', authorId: input.authorId },
+  });
+  await refreshSla(tx, row.ticketId, new Date());
+  return row;
 }
 
 // --- Чтение ---

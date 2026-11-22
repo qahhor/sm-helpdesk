@@ -5,6 +5,7 @@ import { getLocale } from 'next-intl/server';
 import { loadSlaConfig } from '@/modules/hdr/api';
 import {
   assignTicket,
+  inviteSender,
   type ChangeSummary,
   isHdtError,
   listPresence,
@@ -188,4 +189,15 @@ export async function returnAction(form: FormData): Promise<void> {
 /** Номер основного из "SUP-1042" или "1042". Непонятный номер сервис отклонит как invalid_input. */
 export async function mergeAction(form: FormData): Promise<void> {
   await run(form, async (staff, number) => void (await mergeTicket(staff, { number, intoNumber: parseNumber(text(form, 'into')) ?? 'invalid' })), 'merged');
+}
+
+/** "Пригласить отправителя" (решения 13 и 15 вехи M4): приглашение гостю на адрес из письма в организацию обращения. */
+export async function inviteSenderAction(form: FormData): Promise<void> {
+  await run(
+    form,
+    async (staff, number) => {
+      await inviteSender(staff, number);
+    },
+    'invited',
+  );
 }

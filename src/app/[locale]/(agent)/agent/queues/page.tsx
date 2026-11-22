@@ -1,6 +1,6 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { HDT_ERROR_CODES, listFilters, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueCounts, type QueueSort, TRANSFER_REASONS } from '@/modules/hdt/api';
+import { HDT_ERROR_CODES, listFilters, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueCounts, type QueueSort, TRANSFER_REASONS, unidentifiedCount } from '@/modules/hdt/api';
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
@@ -37,11 +37,12 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   const q = params.q?.trim() ? params.q.trim().slice(0, 200) : undefined;
   const page = Math.max(1, Math.min(1000, Number(params.page) || 1));
   const canWrite = staff.actor.staffRole !== 'product';
-  const [list, counts, filters, assignable] = await Promise.all([
+  const [list, counts, filters, assignable, unidentified] = await Promise.all([
     listQueue(staff, { queue, sort, q, page }),
     queueCounts(staff),
     listFilters(staff),
     canWrite ? listAssignableStaff(staff) : Promise.resolve([]),
+    unidentifiedCount(staff),
   ]);
   const locale = await getLocale();
   const openNumber = Number(params.open) > 0 && Number.isInteger(Number(params.open)) ? Number(params.open) : null;
@@ -91,6 +92,11 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                 </Link>
               </li>
             ))}
+            <li>
+              <Link href="/agent/queues/unidentified" className="flex rounded-control px-3 py-2 text-sm text-secondary-foreground hover:bg-card-soft">
+                {t('queues.unidentified.link', { count: unidentified })}
+              </Link>
+            </li>
             <li>
               <Link href="/agent/queues/thanks" className="flex rounded-control px-3 py-2 text-sm text-secondary-foreground hover:bg-card-soft">
                 {t('queues.thanks.link')}

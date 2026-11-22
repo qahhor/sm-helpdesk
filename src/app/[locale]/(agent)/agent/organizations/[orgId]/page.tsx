@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { getOrganization, listInvitations, listMembersForStaff, requireStaffActor } from '@/modules/hdu/api';
+import { getOrganization, listInvitations, listMembersForStaff, listOrgDomains, requireStaffActor } from '@/modules/hdu/api';
+import { EmailDomains } from './EmailDomains';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
@@ -16,6 +17,9 @@ const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground
 const cell = 'px-3';
 const ERRORS = new Set(['stale_session', 'forbidden', 'not_found', 'invalid_input', 'already_member', 'rate_limited']);
 const DONE = new Set(['roleChanged', 'disabled', 'enabled', 'invited', 'revoked', 'settingsSaved']);
+/** Итог действий с доменами почты: свои тексты в orgs.domains. */
+const DOMAIN_ERRORS = new Set(['invalid_input', 'domain_taken', 'forbidden']);
+const DOMAIN_DONE = { domainAdded: 'added', domainRemoved: 'removed' } as const;
 
 // Карточка организации в рабочем месте (FR-ID-13, FR-ADM-02). Участники видны всем сотрудникам-людям,
 // управляют ролями, участниками и приглашениями care и admin. Неверный или неизвестный адрес: 404.
@@ -25,9 +29,10 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const org = await getOrganization(staff, orgId);
   if (!org) notFound();
   const canManage = staff.actor.staffRole === 'care' || staff.actor.staffRole === 'admin';
-  const [members, invitations] = await Promise.all([
+  const [members, invitations, domains] = await Promise.all([
     listMembersForStaff(staff, org.orgId),
     canManage ? listInvitations({ ctx: staff, orgId: org.orgId }) : Promise.resolve([]),
+    listOrgDomains(staff, org.orgId),
   ]);
   const query = await searchParams;
   const error = firstParam(query.error);
@@ -63,7 +68,9 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Link>
       )}
 
-      {error && ERRORS.has(error) && (
+      {error && DOMAIN_ERRORS.has(error) && query.domain !== undefined && <Alert tone="danger">{t(`orgs.domains.errors.${error}`)}</Alert>}
+      {done && done in DOMAIN_DONE && <Alert tone="success">{t(`orgs.domains.done.${DOMAIN_DONE[done as keyof typeof DOMAIN_DONE]}`)}</Alert>}
+      {error && ERRORS.has(error) && query.domain === undefined && (
         <Alert tone="danger">
           {t(`orgs.errors.${error}`)}
           {error === 'stale_session' && (
@@ -146,6 +153,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           </CardContent>
         </Card>
       )}
+
+      <EmailDomains orgId={org.orgId} domains={domains} canManage={canManage} />
 
       <Card className="overflow-x-auto">
         <CardHeader>

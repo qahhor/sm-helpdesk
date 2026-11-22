@@ -84,3 +84,17 @@ export type ServerIssue = (typeof SERVER_ISSUES)[number];
 /** Способы входа, которыми портал сам выдаёт сессию по своей одноразовой ссылке. */
 export const TRUSTED_SIGN_IN_WAYS = ['invitation', 'telegram'] as const;
 export type TrustedSignInWay = (typeof TRUSTED_SIGN_IN_WAYS)[number];
+
+/** Служебная организация "Неопознанные" (раздел 10.1, решение 12 вехи M4): идентификатор закреплён миграцией 0035. */
+export const SERVICE_ORG_ID = '00000000-0000-7000-8000-000000000001';
+export const SERVICE_ORG_NAME = 'Неопознанные';
+
+/**
+ * Домены общих почтовых служб (FR-EM-06): по ним нельзя узнать организацию, такой домен организации не присваивается.
+ */
+export const PUBLIC_MAIL_DOMAINS: ReadonlySet<string> = new Set([
+  'gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'yahoo.com', 'ymail.com', 'aol.com',
+  'icloud.com', 'me.com', 'mac.com', 'proton.me', 'protonmail.com', 'gmx.com', 'gmx.net', 'zoho.com', 'mail.com',
+  'mail.ru', 'inbox.ru', 'list.ru', 'bk.ru', 'internet.ru', 'yandex.ru', 'yandex.com', 'yandex.uz', 'ya.ru', 'rambler.ru',
+  'umail.uz', 'inbox.uz', 'mail.uz', 'bk.uz',
+]);

@@ -9,6 +9,7 @@ import { type ClientRole, INVITATION_TTL_SEC, INVITATIONS_LIST_LIMIT, type Membe
 import { invitations, memberships, organizations, staff } from '../schema';
 import { newToken } from '../tokens';
 import { signInMemberships } from './access';
+import { recordGuestMergeTx } from './guests';
 
 // Модуль hdu, слой core: приглашения в организацию клиента (FR-ID-08). Токен хранится хешем.
 // Создание и отзыв идут от имени приглашающего: политики базы пускают администратора клиента
@@ -66,6 +67,41 @@ export async function createInvitation(
     )[0] as { invitationId: string };
     // Адрес в журнал не пишется: он есть в самом приглашении.
     await writeAudit(tx, { action: 'invitation.created', objectType: 'invitation', objectId: row.invitationId, orgId: input.orgId, diff: { role: input.role } });
+    return row.invitationId;
+  });
+  return { invitationId, token };
+}
+
+/**
+ * Приглашение отправителю письма (решение 13 вехи M4): гость с адресом из письма приглашается в организацию, к которой
+ * сотрудник привязал обращение. Создаёт система: приглашать гостей могут и линии, у которых нет права на приглашения
+ * клиентов; права сотрудника проверил слой api. Прежнее ждущее приглашение на тот же адрес в ту же организацию
+ * отменяется, поэтому повтор после сбоя оставляет одно приглашение.
+ */
+export async function createGuestInvitation(
+  staffUserId: string,
+  input: { orgId: string; email: string; guestUserId: string },
+): Promise<{ invitationId: string; token: string }> {
+  const { token, hash } = newToken();
+  const invitationId = await withIdentity(SYSTEM, async (tx) => {
+    await tx
+      .update(invitations)
+      .set({ revokedOn: sql`now()` })
+      .where(and(eq(invitations.orgId, input.orgId), eq(invitations.email, input.email), isNull(invitations.acceptedOn), isNull(invitations.revokedOn)));
+    const [row] = await tx
+      .insert(invitations)
+      .values({
+        orgId: input.orgId,
+        email: input.email,
+        role: 'client_user',
+        tokenHash: hash,
+        invitedBy: staffUserId,
+        guestUserId: input.guestUserId,
+        expiresOn: sql`now() + make_interval(secs => ${INVITATION_TTL_SEC})`,
+      })
+      .returning({ invitationId: invitations.invitationId });
+    if (!row) throw new Error('приглашение гостя не создано');
+    await writeAudit(tx, { action: 'invitation.created', objectType: 'invitation', objectId: row.invitationId, orgId: input.orgId, diff: { role: 'client_user', guest: true, by: staffUserId } });
     return row.invitationId;
   });
   return { invitationId, token };
@@ -158,6 +194,7 @@ export async function acceptInvitationTx(tokenHash: string, name: string, sessio
           email: invitations.email,
           role: invitations.role,
           invitedBy: invitations.invitedBy,
+          guestUserId: invitations.guestUserId,
         })
         .from(invitations)
         .innerJoin(organizations, and(eq(organizations.orgId, invitations.orgId), eq(organizations.state, 'active')))
@@ -234,6 +271,9 @@ export async function acceptInvitationTx(tokenHash: string, name: string, sessio
       await writeAudit(tx, { action: 'invitation.accepted', objectType: 'invitation', objectId: invitation.invitationId, orgId });
     }
     await tx.update(authUser).set({ lastOrgId: orgId, updatedAt: sql`now()` }).where(eq(authUser.id, user.id));
+    // Ссылка доказала владение адресом: обращения гостя, которому привязка послала это приглашение, перейдут
+    // пользователю (решение 13 вехи M4). Другие приглашения на тот же адрес гостей не трогают (итоговая проверка M4).
+    if (invitation.guestUserId) await recordGuestMergeTx(tx, invitation.guestUserId, user.id);
     return { userId: user.id, orgId, created, signIn: created || trusted };
   });
 }

@@ -102,3 +102,10 @@ test('обработчик локального хранилища: приним
   const off = createLocalHandler({ storage, secret: 'k'.repeat(32), enabled: false, now });
   expect((await off(new Request(url, { method: 'PUT', headers: { 'Content-Type': 'image/png' }, body: new Uint8Array(4) }))).status).toBe(404);
 });
+
+test('запись файла порталом кладёт файл в каталог, ключ вне карантина и файлов отклоняется', async () => {
+  const { dir, storage } = setup();
+  await storage.put('quarantine/0192-b', new TextEncoder().encode('mail'), 'text/plain');
+  expect(readFileSync(join(dir, 'quarantine/0192-b'), 'utf8')).toBe('mail');
+  await expect(storage.put('../escape', new Uint8Array([1]), 'text/plain')).rejects.toThrow('недопустимый ключ');
+});

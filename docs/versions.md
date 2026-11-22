@@ -26,6 +26,7 @@
 | `lucide-react` | 1.72.0 | ISC |
 | `next` | 16.4.6 | MIT |
 | `next-intl` | 4.15.1 | MIT |
+| `parse5` | 8.1.1 | MIT |
 | `pg` | 8.23.1 | MIT |
 | `pg-boss` | 12.38.2 | MIT |
 | `radix-ui` | 1.8.1 | MIT |

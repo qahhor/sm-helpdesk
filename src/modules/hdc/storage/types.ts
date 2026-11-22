@@ -21,6 +21,11 @@ export interface Storage {
   stream(key: string): Promise<{ body: ReadableStream<Uint8Array>; etag: string }>;
   /** Удаление. Отсутствующий объект ошибкой не считается. */
   remove(key: string): Promise<void>;
+  /**
+   * Запись файла самим порталом (вложение письма, план M4, задача 9). Файл клиента из браузера идёт по подписанной
+   * ссылке, этот путь только для файлов, которые фоновый процесс уже скачал и ограничил по размеру.
+   */
+  put(key: string, body: Uint8Array, contentType: string): Promise<void>;
 }
 
 export type DownloadOptions = { filename: string; contentType: string; ttlSeconds: number; inline?: boolean };

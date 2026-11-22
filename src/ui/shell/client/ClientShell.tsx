@@ -4,6 +4,7 @@ import type { Locale } from '@/i18n/locales';
 import { localeNames } from '@/i18n/messages';
 import { Link } from '@/i18n/navigation';
 import { Logo } from '@/ui/brand/Logo';
+import { cn } from '@/ui/cn';
 import { LanguageSwitcher } from '@/ui/LanguageSwitcher';
 import { ThemeSwitch } from '@/ui/theme/ThemeSwitch';
 import { BottomNav } from './BottomNav';
@@ -14,9 +15,23 @@ import { TopNav } from './TopNav';
  * Оболочка кабинета клиента: сначала телефон (ТЗ 8.1).
  * Шапка 52 px как в Smartup Web. До 600 px навигация в нижней панели, от 600 px в строке под шапкой.
  * data-zone="client" включает размеры зоны клиента: текст 16 px, цель нажатия не меньше 44 px.
- * Активную организацию (org) и меню пользователя (userMenu) строит раскладка кабинета из проверенной сессии.
+ * Активную организацию (org), колокольчик уведомлений (bell) и меню пользователя (userMenu) строит раскладка кабинета
+ * из проверенной сессии.
  */
-export async function ClientShell({ children, org, userMenu }: { children: ReactNode; org?: ReactNode; userMenu?: ReactNode }) {
+export async function ClientShell({
+  children,
+  org,
+  userMenu,
+  bell,
+  support,
+}: {
+  children: ReactNode;
+  org?: ReactNode;
+  userMenu?: ReactNode;
+  bell?: ReactNode;
+  /** Показываемый адрес поддержки (решение 23 вехи M4): подвал кабинета. Не задан: подвала нет. */
+  support?: string | null;
+}) {
   const t = await getTranslations();
   const items: ClientNavItem[] = CLIENT_NAV.map(({ key, href }) => ({ key, href, label: t(`client.nav.${key}`) }));
   const navLabel = t('client.nav.label');
@@ -49,13 +64,27 @@ export async function ClientShell({ children, org, userMenu }: { children: React
               system: t('common.theme.system'),
             }}
           />
+          {bell}
           {userMenu}
         </div>
       </header>
       <TopNav items={items} label={navLabel} />
-      <main id="main" className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 pb-24 pt-6 tablet:pb-8">
+      <main id="main" className={cn('mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 pt-6', support ? 'pb-6' : 'pb-24 tablet:pb-8')}>
         {children}
       </main>
+      {support && (
+        <footer className="mx-auto w-full max-w-3xl px-4 pb-24 text-sm text-secondary-foreground tablet:pb-8">
+          <p className="border-t border-border pt-4">
+            {t.rich('client.footer.support', {
+              address: () => (
+                <a href={`mailto:${support}`} className="text-link underline underline-offset-2">
+                  {support}
+                </a>
+              ),
+            })}
+          </p>
+        </footer>
+      )}
       <BottomNav items={items} label={navLabel} />
     </div>
   );

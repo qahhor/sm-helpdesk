@@ -9,6 +9,8 @@ const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
 // Каталог писем браузерных тестов. Его же читают помощники тестов.
 export const MAIL_DIR = resolve('test-results/mail');
+/** Секрет вебхука почты браузерных тестов: whsec_ и 24 байта в base64. */
+export const E2E_WEBHOOK_SECRET = `whsec_${Buffer.alloc(24, 7).toString('base64')}`;
 const E2E_DB = 'hub_e2e';
 /** Тот же адрес подключения, другая база. */
 const withDatabase = (url: string, db: string): string => {
@@ -57,6 +59,13 @@ const APP_ENV = {
   TELEGRAM_WEBHOOK_SECRET: 'e2e-telegram-webhook-secret-0123456789abcdef',
   // Портал и фоновый процесс запускаются из разных каталогов: путь к файлам задаётся полностью.
   FILE_STORAGE_DIR: resolve('test-results/storage'),
+  // Приём писем (план M4, задача 11): вебхук с подписью Svix, домен и секрет адресов ответа. Тот же секрет вебхука
+  // в tests/e2e/helpers/inbound.ts, текст письма заглушка почты читает из MAIL_FILE_DIR/inbound.
+  RESEND_WEBHOOK_SECRET: E2E_WEBHOOK_SECRET,
+  REPLY_DOMAIN: 'reply.e2e.test',
+  REPLY_HMAC_SECRET: 'e2e-reply-hmac-secret-0123456789abcdef',
+  // Заголовок Authentication-Results, которому верит разбор писем (решение 11 вехи M4): его вписывают тесты.
+  INBOUND_AUTHSERV_ID: 'e2e.inbound.test',
 };
 
 export default defineConfig({

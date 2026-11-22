@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
+import { savePrefs } from '@/modules/hdn/api/notifications';
 import { isHduError, nextRequest, requestEmailConfirmation, requireClientActor, revokeMySessionOfRequest, revokeOtherSessionsOfRequest, signOut, unlinkTelegram } from '@/modules/hdu/api';
 
 /** Раздел "Email для входа": письмо со ссылкой подтверждения адреса (FR-ID-07). */
@@ -41,4 +42,11 @@ export async function unlinkTelegramAction(): Promise<void> {
   const client = await requireClientActor();
   await unlinkTelegram(client);
   redirect(`/${await getLocale()}/settings?telegram=unlinked`);
+}
+
+/** Какие письма получать (FR-NT-04): письма о своих обращениях не выключаются, поэтому их в форме нет. */
+export async function saveClientPrefsAction(formData: FormData): Promise<void> {
+  const client = await requireClientActor();
+  await savePrefs(client.actor, { watchedTickets: formData.get('watchedTickets') === 'on' });
+  redirect(`/${await getLocale()}/settings?prefs=saved`);
 }

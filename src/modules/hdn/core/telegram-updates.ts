@@ -1,7 +1,7 @@
 import 'server-only';
 import { eq, lt } from 'drizzle-orm';
 import { withActor } from '@/db/with-actor';
-import { telegramUpdates } from './schema';
+import { telegramUpdates } from '../schema';
 
 // Модуль hdn, слой core: операции с данными (docs/naming.md, раздел 5).
 

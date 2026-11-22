@@ -5,6 +5,7 @@ import { isHdtError } from '../error';
 import { bulkInput, mergeInput, parseInput } from '../input';
 import { assignTicket } from './agent';
 import { returnToL1, transferToL2 } from './lines';
+import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Объединение дублей и массовые действия (FR-AG-07, FR-AG-20, UX-A-10; план M3, задача 11). Массовое действие
 // идёт по каждому обращению своей транзакцией теми же функциями, что и одиночное: права, переходы, записка и
@@ -13,7 +14,9 @@ import { returnToL1, transferToL2 } from './lines';
 /** Объединить дубль с основным (решение 4): возвращает номер конечного основного обращения. */
 export async function mergeTicket(ctx: StaffContext, input: unknown): Promise<{ intoNumber: number }> {
   const data = parseInput(mergeInput, input);
-  return { intoNumber: await mergeTx(ctx.actor, data.number, data.intoNumber) };
+  const intoNumber = await mergeTx(ctx.actor, data.number, data.intoNumber);
+  await wakeOutbox();
+  return { intoNumber };
 }
 
 export type BulkResult = { done: number[]; refused: { number: number; code: string }[] };
@@ -34,5 +37,6 @@ export async function bulkAction(ctx: StaffContext, input: unknown): Promise<Bul
       result.refused.push({ number, code: error.code });
     }
   }
+  if (result.done.length > 0) await wakeOutbox();
   return result;
 }

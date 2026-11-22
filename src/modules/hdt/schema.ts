@@ -75,6 +75,13 @@ export const tickets = pgTable('hdt_tickets', {
   resolutionBreachedOn: moment('resolution_breached_on'),
   clientWaitingSince: moment('client_waiting_since'),
   resolvedVersion: text('resolved_version'),
+  // Миграция 0033 (веха M4): напоминание клиенту в "Ждём вашего ответа".
+  waitingRemindedOn: moment('waiting_reminded_on'),
+  // Миграция 0034 (веха M4): сообщение дежурным о P1 и напоминание о регулярном обновлении.
+  oncallNotifiedOn: moment('oncall_notified_on'),
+  updateRemindedOn: moment('update_reminded_on'),
+  // Миграция 0035 (веха M4): письмо с домена организации от неподтверждённого адреса (FR-EM-06).
+  senderUnconfirmed: boolean('sender_unconfirmed').notNull().default(false),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {

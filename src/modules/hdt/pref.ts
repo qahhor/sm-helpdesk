@@ -46,7 +46,7 @@ export type TicketSource = (typeof TICKET_SOURCES)[number];
 export const AUTHOR_TYPES = ['client', 'staff', 'system', 'ai', 'agent'] as const;
 export type AuthorType = (typeof AUTHOR_TYPES)[number];
 
-export const EVENT_KINDS = ['created', 'status', 'visibility', 'rated', 'priority', 'assignee', 'queue', 'due', 'rule', 'merge', 'type', 'module', 'snooze'] as const;
+export const EVENT_KINDS = ['created', 'status', 'visibility', 'rated', 'priority', 'assignee', 'queue', 'due', 'rule', 'merge', 'type', 'module', 'snooze', 'bound'] as const;
 /** События, которые клиент может видеть. Остальные база принимает только внутренними (миграция 0021). */
 export const CLIENT_VISIBLE_EVENT_KINDS: readonly EventKind[] = ['created', 'status', 'visibility', 'rated', 'merge'];
 /** Кто из сотрудников ведёт обращения: product только читает (ТЗ 5.2). */
@@ -207,3 +207,22 @@ export type ResolutionType = (typeof RESOLUTION_TYPES)[number];
 
 /** Дальше этого обращение не откладывается: отложение не заменяет закрытие. */
 export const MAX_SNOOZE_DAYS = 365;
+
+/**
+ * Сроки напоминания и автозакрытия в рабочих днях (FR-TK-10, FR-TK-15, решение 24 вехи M4): настройки
+ * администратора в hdc_settings, по умолчанию значения ТЗ.
+ */
+export const WAITING_REMINDER_SETTING = 'notify.waiting_reminder_days';
+export const AUTOCLOSE_RESOLVED_SETTING = 'tickets.autoclose_resolved_days';
+export const AUTOCLOSE_WAITING_SETTING = 'tickets.autoclose_waiting_days';
+/** Регулярное обновление клиента по обращению "В разработке" (FR-SLA-09): не реже раза в столько рабочих дней. */
+export const UPDATE_DUE_SETTING = 'sla.update_interval_days';
+export const DAY_SETTINGS_DEFAULT = {
+  [WAITING_REMINDER_SETTING]: 3,
+  [AUTOCLOSE_RESOLVED_SETTING]: 5,
+  [AUTOCLOSE_WAITING_SETTING]: 7,
+  [UPDATE_DUE_SETTING]: 5,
+} as const;
+/** Допустимые значения сроков в рабочих днях. */
+export const DAY_SETTING_MIN = 1;
+export const DAY_SETTING_MAX = 30;

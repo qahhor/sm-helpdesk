@@ -1,0 +1,45 @@
+{
+  "color": {
+    "background": "#F3F6F7",
+    "card": "#FFFFFF",
+    "foreground": "#090C0D",
+    "secondary": "#474747",
+    "muted": "#667072",
+    "line": "#E3E6E7",
+    "soft": "#F8FAFC",
+    "primary": "#027CAA",
+    "onPrimary": "#FFFFFF",
+    "link": "#036486",
+    "tint": "#E2F4FB",
+    "tintInk": "#044F69"
+  },
+  "radius": {
+    "card": "14px",
+    "control": "10px"
+  },
+  "font": {
+    "family": "\"Montserrat\", Arial, Helvetica, sans-serif",
+    "size": "16px",
+    "lineHeight": "1.35"
+  },
+  "control": {
+    "height": "44px"
+  },
+  "space": {
+    "1": "4px",
+    "2": "8px",
+    "3": "12px",
+    "4": "16px",
+    "6": "24px",
+    "8": "32px"
+  },
+  "width": {
+    "content": "600px"
+  },
+  "logo": {
+    "height": "32px"
+  },
+  "border": {
+    "width": "1px"
+  }
+}

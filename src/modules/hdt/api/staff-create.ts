@@ -7,6 +7,7 @@ import { HdtError } from '../error';
 import { parseInput, staffCreateInput } from '../input';
 import { MAX_FILES_PER_MESSAGE } from '../pref';
 import { titleFromDescription } from '../util';
+import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Обращение от имени клиента (FR-AG-08; план M3, задача 12). Организация и участник выбраны сотрудником,
 // поэтому сервис сверяет их с членством: автор только действующий участник выбранной организации.
@@ -23,5 +24,6 @@ export async function createTicketForClient(ctx: StaffContext, input: unknown): 
     title: data.title ?? titleFromDescription(data.description),
     attachmentIds: [...new Set(data.attachmentIds)],
   });
+  await wakeOutbox();
   return { number };
 }

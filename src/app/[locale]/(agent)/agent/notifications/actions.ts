@@ -1,0 +1,27 @@
+'use server';
+
+import { redirect } from 'next/navigation';
+import { getLocale } from 'next-intl/server';
+import { markRead, openNotification, unreadCount } from '@/modules/hdn/api/notifications';
+import { requireStaffActor } from '@/modules/hdu/api';
+
+/** Счётчик колокольчика рабочего места после перехода между страницами (решение 5 вехи M4). */
+export async function staffUnreadAction(): Promise<number> {
+  const staff = await requireStaffActor();
+  return unreadCount(staff.actor);
+}
+
+/** Открыть уведомление: отметка прочтения и переход к обращению или к настройке. */
+export async function openStaffNotificationAction(formData: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  const row = await openNotification(staff.actor, formData.get('id'));
+  if (row?.kind === 'holidays_reminder') redirect(`/${locale}/agent/settings/sla`);
+  redirect(row?.ticketNumber ? `/${locale}/agent/tickets/SUP-${row.ticketNumber}` : `/${locale}/agent/notifications`);
+}
+
+export async function markAllStaffAction(): Promise<void> {
+  const staff = await requireStaffActor();
+  await markRead(staff.actor, 'all');
+  redirect(`/${await getLocale()}/agent/notifications`);
+}

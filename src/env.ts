@@ -118,6 +118,25 @@ const schema = z
       .trim()
       .regex(MAIL_FROM_PATTERN, { error: 'ожидается адрес или вид "Имя <адрес>"' })
       .optional(),
+    // Вебхук Resend (решение 10 вехи M4): подпись по схеме Svix, секрет вида whsec_<base64>.
+    RESEND_WEBHOOK_SECRET: z
+      .string()
+      .trim()
+      .regex(/^whsec_[A-Za-z0-9+/]{16,}={0,2}$/, { error: 'ожидается секрет вида whsec_<base64> из настроек вебхука Resend' })
+      .optional(),
+    // Приём ответов на письма (раздел 11.8): домен адресов reply+...@домен и секрет их подписи. Без домена приём выключен.
+    REPLY_DOMAIN: z
+      .string()
+      .trim()
+      .regex(/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/, { error: 'ожидается домен строчными буквами без схемы, например reply.smartup24.com' })
+      .optional(),
+    REPLY_HMAC_SECRET: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
+    // Чей заголовок Authentication-Results учитывать (решение 11 вехи M4). Не задан: отправитель письма не опознаётся.
+    INBOUND_AUTHSERV_ID: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9.-]{1,253}$/, { error: 'ожидается имя узла, например amazonses.com' })
+      .optional(),
     // Проверка "не робот" (Cloudflare Turnstile): ключ сайта и секрет задаются парой, без них проверка выключена.
     TURNSTILE_SITE_KEY: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
     TURNSTILE_SECRET: z.string().trim().min(1, { error: 'пустое значение' }).optional(),
@@ -180,6 +199,15 @@ const schema = z
       if (!value.RESEND_API_KEY) ctx.addIssue({ code: 'custom', path: ['RESEND_API_KEY'], message: 'не задан, а MAIL_TRANSPORT равен resend' });
       if (!value.MAIL_FROM) ctx.addIssue({ code: 'custom', path: ['MAIL_FROM'], message: 'не задан, а MAIL_TRANSPORT равен resend' });
     }
+    // Без секрета вебхука портал не узнаёт о входящих письмах и недоставке: на настоящем адресе он обязателен.
+    if (value.MAIL_TRANSPORT === 'resend' && !value.RESEND_WEBHOOK_SECRET && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({ code: 'custom', path: ['RESEND_WEBHOOK_SECRET'], message: 'не задан, а MAIL_TRANSPORT равен resend: нужен секрет вебхука Resend' });
+    if (value.REPLY_DOMAIN && !value.REPLY_HMAC_SECRET)
+      ctx.addIssue({ code: 'custom', path: ['REPLY_HMAC_SECRET'], message: 'не задан, а REPLY_DOMAIN задан: задаются парой' });
+    if (value.REPLY_HMAC_SECRET && !value.REPLY_DOMAIN)
+      ctx.addIssue({ code: 'custom', path: ['REPLY_DOMAIN'], message: 'не задан, а REPLY_HMAC_SECRET задан: задаются парой' });
+    if (value.REPLY_HMAC_SECRET && (value.REPLY_HMAC_SECRET === value.BETTER_AUTH_SECRET || value.REPLY_HMAC_SECRET === value.ENCRYPTION_KEY))
+      ctx.addIssue({ code: 'custom', path: ['REPLY_HMAC_SECRET'], message: 'не должен совпадать с BETTER_AUTH_SECRET и ENCRYPTION_KEY' });
     if (value.TELEGRAM_BOT_TOKEN && !value.TELEGRAM_WEBHOOK_SECRET)
       ctx.addIssue({ code: 'custom', path: ['TELEGRAM_WEBHOOK_SECRET'], message: 'не задан, а TELEGRAM_BOT_TOKEN задан: задаются парой' });
     if (value.TELEGRAM_WEBHOOK_SECRET && !value.TELEGRAM_BOT_TOKEN)

@@ -13,10 +13,13 @@ import { TopBar } from './TopBar';
 export async function AgentShell({
   children,
   userMenu,
+  bell,
   role = null,
 }: {
   children: ReactNode;
   userMenu?: ReactNode;
+  /** Колокольчик уведомлений (веха M4): у витрины компонентов его нет. */
+  bell?: ReactNode;
   /** Роль сотрудника: от неё зависят пункты панели. У витрины компонентов роли нет. */
   role?: StaffRole | null;
 }) {
@@ -44,7 +47,7 @@ export async function AgentShell({
       >
         {t('skipToContent')}
       </a>
-      <TopBar userMenu={userMenu} role={role} />
+      <TopBar userMenu={userMenu} bell={bell} role={role} />
       {role && (
         <AgentHotkeys
           locale={await getLocale()}

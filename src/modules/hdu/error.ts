@@ -23,6 +23,8 @@ export const HDU_ERROR_CODES = [
   'server_taken',
   // После изменения в портале не осталось бы ни одного действующего администратора.
   'last_admin',
+  // Домен почты уже записан у другой организации (FR-EM-06).
+  'domain_taken',
 ] as const;
 
 export type HduErrorCode = (typeof HDU_ERROR_CODES)[number];

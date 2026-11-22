@@ -1,0 +1,15 @@
+{
+  "object": "email",
+  "id": "4ef9a417-02e9-4d39-ad75-9611e0fcc33c",
+  "to": "support@reply.example.test",
+  "from": "Ivan Petrov <ivan@example.uz>",
+  "created_at": "2026-11-22T10:15:29.000Z",
+  "subject": "Не могу войти",
+  "html": "<p>Добрый день</p>",
+  "text": "Добрый день",
+  "headers": {
+    "Authentication-Results": "inbound.example.test; spf=pass smtp.mailfrom=example.uz; dkim=pass header.d=example.uz; dmarc=pass header.from=example.uz",
+    "Message-ID": "<CAJ1234@mail.example.uz>"
+  },
+  "message_id": "<CAJ1234@mail.example.uz>"
+}

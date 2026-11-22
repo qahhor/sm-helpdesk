@@ -60,6 +60,41 @@
       "privacy": "Data processing policy",
       "version": "Version of {date}",
       "translationMissing": "There is no translation into your language yet, the Russian text is shown."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "bellNone": "Notifications, nothing new",
+      "bellSome": "Notifications, new: {count}",
+      "empty": "No notifications yet",
+      "emptyText": "Answers and news on your requests will appear here.",
+      "markAll": "Mark all as read",
+      "unread": "New",
+      "more": "Show more",
+      "notFound": "Notification not found",
+      "kinds": {
+        "ticket_created": "Request SUP-{number} created",
+        "ticket_reply": "Answer on request SUP-{number}",
+        "ticket_status": "News on request SUP-{number}",
+        "ticket_resolved": "Request SUP-{number} resolved",
+        "waiting_reminder": "Waiting for your reply on request SUP-{number}",
+        "client_replied": "The client replied on request SUP-{number}",
+        "mention": "You were mentioned in a note on request SUP-{number}",
+        "sla_breach": "Deadline missed on request SUP-{number}",
+        "snooze_returned": "Snoozed request SUP-{number} is back",
+        "update_due": "Client update due tomorrow on request SUP-{number}",
+        "holidays_reminder": "Fill in the holidays for {year}"
+      },
+      "settings": {
+        "title": "Emails",
+        "intro": "Notifications in the portal always arrive. Here you choose which emails to get.",
+        "own": "About my requests",
+        "ownHint": "These emails cannot be turned off: they carry the support answers.",
+        "watched": "About colleagues’ requests I follow",
+        "mention": "About mentions in notes",
+        "breach": "About missed deadlines",
+        "save": "Save",
+        "saved": "Saved"
+      }
     }
   },
   "client": {
@@ -269,8 +304,8 @@
         "merged": "This request was merged with another one: we will continue in the main request."
       },
       "system": {
-        "autoCloseResolved": "We closed this request: the solution was not confirmed for 5 working days. If the issue returns, reopen the request.",
-        "autoCloseWaiting": "We closed this request: there was no reply from you for 7 working days. If the issue remains, reopen the request."
+        "autoCloseResolved": "We closed this request: the solution was not confirmed for {days, plural, one {# working day} other {# working days}}. If the issue returns, reopen the request.",
+        "autoCloseWaiting": "We closed this request: there was no reply from you for {days, plural, one {# working day} other {# working days}}. If the issue remains, reopen the request."
       }
     },
     "ideas": {
@@ -360,6 +395,9 @@
           "unavailable": "Telegram is not responding right now. Try linking the bot again in a few minutes."
         }
       }
+    },
+    "footer": {
+      "support": "Support: <address></address>"
     }
   },
   "agent": {
@@ -487,7 +525,24 @@
       "ai": "AI handling",
       "aiOn": "on",
       "aiOff": "off",
-      "auditLink": "Organization audit log"
+      "auditLink": "Organization audit log",
+      "domains": {
+        "title": "Email domains",
+        "intro": "An email from such a domain that passes DMARC becomes a request of this organization marked \"Sender not confirmed\".",
+        "empty": "No domains.",
+        "label": "Domain, for example company.uz",
+        "add": "Add domain",
+        "remove": "Remove",
+        "errors": {
+          "invalid_input": "An organization domain is needed. Domains of public email services (gmail.com, mail.ru and similar) are not accepted.",
+          "domain_taken": "This domain already belongs to another organization.",
+          "forbidden": "Customer Care and the administrator change domains."
+        },
+        "done": {
+          "added": "Domain added.",
+          "removed": "Domain removed."
+        }
+      }
     },
     "settings": {
       "title": "Settings",
@@ -514,6 +569,10 @@
         "templates": {
           "title": "Reply templates",
           "text": "Reply snippets in three languages, called by a code after \"/\" in the reply field."
+        },
+        "mail": {
+          "title": "Notifications and email",
+          "text": "Support addresses and intake check, on-call staff and their bot, reminder and auto-close periods, spam."
         }
       },
       "servers": {
@@ -749,7 +808,9 @@
           },
           "org": {
             "provisioned": "Organization created",
-            "updated": "Organization settings changed"
+            "updated": "Organization settings changed",
+            "domain_added": "Organization email domain added",
+            "domain_removed": "Organization email domain removed"
           },
           "member": {
             "joined": "Member added",
@@ -784,7 +845,9 @@
             "snoozed": "Ticket snoozed",
             "line_transferred": "Transferred to the second line",
             "line_returned": "Returned to the first line",
-            "merged": "Tickets merged"
+            "merged": "Tickets merged",
+            "bound": "Email linked to an organization",
+            "author_moved": "Request author changed on guest hand-over"
           },
           "attachment": {
             "infected": "Infected file found"
@@ -802,6 +865,18 @@
           },
           "template": {
             "saved": "Reply template saved"
+          },
+          "sender": {
+            "blocked": "Address marked as spam",
+            "unblocked": "Address removed from spam"
+          },
+          "guest": {
+            "merge_recorded": "Email sender proved the address",
+            "merged": "Guest requests handed over to the user"
+          },
+          "settings": {
+            "changed": "Setting changed",
+            "oncall_changed": "On-call settings changed"
           }
         },
         "words": {
@@ -865,7 +940,7 @@
         "to": "{day}: end",
         "holidaysTitle": "Holidays",
         "holidaysYear": "Holidays of {year}",
-        "holidaysHint": "Dates as YYYY-MM-DD, one per line. A holiday is a non-working day.",
+        "holidaysHint": "Dates YYYY-MM-DD or DD.MM.YYYY, one per line or separated by commas or semicolons. A holiday name after the date may stay. A holiday is a full day off.",
         "holidaysMissing": "Holidays of {year} are not filled in yet. Without them these days count as working days.",
         "appliesToNew": "New values apply to new calculations. Targets of open tickets change at their next event: priority, status or reply.",
         "save": "Save",
@@ -876,7 +951,8 @@
         },
         "errors": {
           "forbidden": "Only an administrator can change targets",
-          "invalid_input": "Check the values: minutes and days above zero, the end of a working day after its start, holiday dates of this year without repeats"
+          "invalid_input": "Check the values: minutes and days above zero, the end of a working day after its start, holiday dates of this year without repeats",
+          "holidaysLine": "Line {line}: there is no date of this year here. Nothing was saved, fix the line."
         },
         "days7": {
           "0": "Sunday",
@@ -911,6 +987,77 @@
           "forbidden": "Templates are kept by the portal administrator.",
           "invalid_input": "Check the code, name and Russian text.",
           "shortcut_taken": "Another template already has this code."
+        }
+      },
+      "mail": {
+        "title": "Notifications and email",
+        "support": {
+          "title": "Support addresses",
+          "intro": "An email to any of these addresses becomes a request. Clients see the marked address in the portal footer and in emails.",
+          "shown": "Show to clients",
+          "remove": "Remove",
+          "add": "New support address",
+          "save": "Save addresses",
+          "empty": "No addresses yet. Add the first one: it becomes the shown address.",
+          "test": "Check intake",
+          "status": {
+            "never": "Intake not checked",
+            "waiting": "Email sent, waiting for it in the portal",
+            "received": "Email received"
+          },
+          "hintTitle": "What to set up for email",
+          "hintMx": "The MX record of {domain} from Resend: client replies arrive there.",
+          "hintSend": "SPF, DKIM and DMARC records of the sending domain.",
+          "hintForward": "Forwarding of each support address to the intake address {intake}.",
+          "hintOff": "The intake domain is not set (REPLY_DOMAIN): emails do not reach the portal."
+        },
+        "oncall": {
+          "title": "On-call staff",
+          "intro": "Alerts about P1 without a first response go here: an email to the addresses and a message to the Telegram chat.",
+          "emails": "On-call addresses",
+          "emailsHint": "One address per line.",
+          "chat": "Telegram chat number",
+          "chatHint": "A number like -1001234567890 or a channel name like @smartup_duty.",
+          "bot": "Who sends",
+          "botMain": "Main portal bot",
+          "botMainName": "Main portal bot ({name})",
+          "botOwn": "Separate bot",
+          "token": "Separate bot token",
+          "tokenSaved": "The token is saved. Enter a new one to replace it.",
+          "tokenHint": "The token from @BotFather. It is not shown after saving.",
+          "save": "Save",
+          "test": "Send a test message"
+        },
+        "timings": {
+          "title": "Reminder and auto-close periods",
+          "intro": "In working days, from 1 to 30.",
+          "waitingReminderDays": "Remind the client about our question after",
+          "autocloseResolvedDays": "Close a resolved request without confirmation after",
+          "autocloseWaitingDays": "Close a request waiting for the client after",
+          "updateIntervalDays": "Update the client on \"In development\" at least every",
+          "default": "Default {days}",
+          "save": "Save periods"
+        },
+        "blocked": {
+          "title": "Rejected as spam",
+          "intro": "Emails from these addresses are stored without a request and without a reply.",
+          "empty": "The list is empty.",
+          "remove": "Remove from spam",
+          "since": "since {time}"
+        },
+        "done": {
+          "support": "Support addresses saved.",
+          "test": "The test email is sent. Refresh the page in a minute.",
+          "oncall": "On-call settings saved.",
+          "oncallTest": "The test message is sent to the on-call chat.",
+          "timings": "Periods saved.",
+          "unblocked": "The address is removed from spam."
+        },
+        "errors": {
+          "forbidden": "Only the administrator can change these settings.",
+          "invalid_input": "Check the values: email addresses, one shown address, chat number, bot token, periods from 1 to 30.",
+          "oncallTest": "The message was not sent: check the chat number and the bot.",
+          "other": "That did not work. Try again."
         }
       }
     },
@@ -1008,6 +1155,44 @@
         "label": "Ticket next to the list",
         "empty": "Choose a ticket with the up and down arrows: it opens here.",
         "open": "Open in full"
+      },
+      "unidentified": {
+        "link": "Unidentified ({count})",
+        "title": "Unidentified",
+        "intro": "Emails from addresses the portal does not recognize. Link an email to a client organization, and the sender gets an invitation. Until then the sender received only the request number.",
+        "listLabel": "Emails without an organization",
+        "emptyTitle": "No unidentified emails",
+        "emptyText": "Emails from addresses that do not belong to portal clients appear here.",
+        "from": "From: {address}",
+        "name": "Name in the email: {name}",
+        "received": "Received: {time}",
+        "choose": "Choose an email in the list to link it.",
+        "onlyNumber": "Until linking, the sender received only the request number.",
+        "hint": "The address domain belongs to {name}.",
+        "bindHint": "Link to {name}",
+        "orgSearch": "Organization: name or tax ID",
+        "find": "Find",
+        "notFound": "No organization found.",
+        "results": "Organizations found",
+        "bind": "Link and invite",
+        "notClient": "Not a client",
+        "spam": "Spam",
+        "readOnly": "Your role allows viewing the list only.",
+        "open": "Open the request",
+        "done": {
+          "bound": "The email is linked, and the sender got an invitation.",
+          "boundNoInvite": "The email is linked, but the invitation was not sent. Retry it with \"Invite the sender\" in the request.",
+          "notClient": "The request is closed without an email to the sender.",
+          "spam": "The request is closed and the address is marked as spam: its next emails will not become requests."
+        },
+        "errors": {
+          "forbidden": "Your role does not allow this action.",
+          "not_found": "The email or the organization was not found.",
+          "transition_refused": "This email was already handled. Refresh the page.",
+          "invalid_input": "Check the chosen organization.",
+          "other": "That did not work. Try again."
+        },
+        "addressOwned": "This address belongs to a portal client, but the email did not pass the DMARC check: it may be forged. Do not mark it as spam or link it until you confirm with the client."
       }
     },
     "ticket": {
@@ -1046,7 +1231,8 @@
         "rule": "A rule fired",
         "transferred": "{actor}: transferred to the second line. Reason: {reason}. Checked: {checked}. Needed: {needed}",
         "returned": "{actor}: returned to the first line. {explanation}",
-        "mergedFrom": "{actor}: merged {number} into this ticket"
+        "mergedFrom": "{actor}: merged {number} into this ticket",
+        "bound": "{actor}: linked to the client organization"
       },
       "dueKinds": {
         "first_response": "first response",
@@ -1134,7 +1320,8 @@
           "transferred": "Ticket transferred to the second line",
           "returned": "Ticket returned to the first line",
           "merged": "Ticket closed as a duplicate",
-          "created": "Ticket created"
+          "created": "Ticket created",
+          "invited": "The invitation was sent to the sender"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -1232,7 +1419,12 @@
         "into": "Main ticket number",
         "submit": "Merge"
       },
-      "mergedInto": "Merged with {number}"
+      "mergedInto": "Merged with {number}",
+      "emailReview": "Email under review: it came from {address}, and this address is not confirmed as the client address. Nothing was shown or sent to the client. If the email is from the client, reply in the request.",
+      "senderUnconfirmed": "Sender not confirmed",
+      "senderUnconfirmedHint": "The email came from an organization address, but the person is not a portal member yet. Only staff see this request.",
+      "inviteSender": "Invite the sender",
+      "undelivered": "Email not delivered"
     },
     "playbooks": {
       "title": "First-line playbooks",
@@ -1510,7 +1702,74 @@
     "staffReset": {
       "subject": "Your Smartup Hub access was reset",
       "text": "Hello!\n\nThe portal administrator reset your password and second sign-in factor in Smartup Hub. All your sessions have been ended.\n\nOpen the link, set a new password and connect the second factor again:\n{url}\n\nThe link works for {hours} hours and only once. If you did not ask for a reset, tell the administrator."
-    }
+    },
+    "layout": {
+      "greeting": "Hello,",
+      "open": "Open the request",
+      "replyAbove": "Reply to this email and your reply will be added to the request",
+      "signature": "Smartup support",
+      "support": "Smartup support: {address}",
+      "settings": "Notification settings",
+      "contacts": "+998 71 203-03-05, smartup24.com"
+    },
+    "ticketCreated": {
+      "heading": "Request SUP-{number} created",
+      "text": "We have received your request \"{title}\". You will get the answer by email and in the portal.",
+      "viaEmail": "We have received your email \"{title}\" and created request SUP-{number}. To add details, reply to this email."
+    },
+    "ticketReply": {
+      "heading": "Answer on request SUP-{number}"
+    },
+    "ticketStatus": {
+      "heading": "News on request SUP-{number}",
+      "waiting_customer": "We are waiting for your reply on request SUP-{number} \"{title}\". Reply to this email or in the portal.",
+      "in_development": "Request SUP-{number} \"{title}\" has been passed to development. We will write when there is news.",
+      "closed": "Request SUP-{number} \"{title}\" is closed. If the question remains, write to us.",
+      "autoClosed": "Request SUP-{number} \"{title}\" is closed because we did not get a reply. If the question remains, write to us.",
+      "merged": "Request SUP-{number} has been merged with request SUP-{into}. The conversation continues there."
+    },
+    "ticketResolved": {
+      "heading": "Request SUP-{number} resolved",
+      "text": "We consider the question \"{title}\" resolved. Please rate the answer: it takes a minute. If something is wrong, reply to this email.",
+      "button": "Rate the answer"
+    },
+    "waitingReminder": {
+      "heading": "Waiting for your reply",
+      "text": "We are waiting for your reply on request SUP-{number} \"{title}\". Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
+    },
+    "unidentifiedAck": {
+      "subject": "Your email has been received",
+      "heading": "Your email has been received",
+      "text": "We have received your email. Request number: SUP-{number}. A support specialist will answer you by email."
+    },
+    "staffMention": {
+      "heading": "You were mentioned in a note",
+      "text": "{author} mentions you in a note on request SUP-{number} \"{title}\"."
+    },
+    "staffBreach": {
+      "heading": "Deadline missed",
+      "first_response": "The first response deadline for request SUP-{number} \"{title}\" has been missed.",
+      "resolution": "The resolution deadline for request SUP-{number} \"{title}\" has been missed."
+    },
+    "staffUpdateDue": {
+      "heading": "Time to update the client",
+      "text": "Tomorrow the regular update deadline expires for request SUP-{number} \"{title}\" in development. Write to the client what is known today."
+    },
+    "holidaysReminder": {
+      "subject": "Holidays for {year}",
+      "text": "The list of holidays for {year} is empty. Without it holidays count as working days when deadlines are calculated.",
+      "button": "Fill in the holidays"
+    },
+    "oncallP1": {
+      "subject": "Urgent P1 request",
+      "text": "New urgent P1 request from {orgName}: SUP-{number} \"{title}\".",
+      "button": "Open the request"
+    },
+    "inboundTest": {
+      "subject": "Smartup Hub mail intake check {token}",
+      "text": "This is a check email from the Smartup Hub portal. If it has reached the portal, mail intake for {address} works. There is no need to reply."
+    },
+    "noSubject": "Email without a subject"
   },
   "bot": {
     "linked": "Done: Telegram is linked to the account {name} in the organization {org}. You can sign in to Smartup Hub here when Smartup is not available. If you did not link it, press \"Unlink\".",
@@ -1528,7 +1787,8 @@
     "buttonUnlink": "Unlink",
     "loginLink": "Your sign-in link for Smartup Hub. It works for {minutes} min and only once. Do not forward it to anyone.",
     "loginTooOften": "Too many sign-in links. Try again in {minutes} min.",
-    "loginNoAccess": "This account has no access to the portal right now. Contact your company administrator."
+    "loginNoAccess": "This account has no access to the portal right now. Contact your company administrator.",
+    "oncallTest": "Smartup Hub test message: the on-call chat is connected, urgent request alerts will arrive here."
   },
   "dev": {
     "title": "Component showcase",

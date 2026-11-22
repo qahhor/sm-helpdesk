@@ -4,6 +4,7 @@ import { assertCanWrite } from '../core/agent-actions';
 import { type ChangeSummary, listPresenceTx, loadDraftTx, postStaffMessageTx, saveDraftTx, touchPresenceTx } from '../core/agent-messages';
 import { draftInput, numberInput, parseInput, presenceInput, staffMessageInput } from '../input';
 import type { PresenceMode } from '../pref';
+import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Ответ клиенту, заметка, черновик и присутствие на рабочем месте (план M3, задача 8). Сотрудник только из
 // проверенной сессии, вход разбирается схемой, права и данные проверяют слой core и база.
@@ -20,6 +21,7 @@ export async function postStaffMessage(ctx: StaffContext, input: unknown): Promi
   const data = parseInput(staffMessageInput, input);
   const mentionable = data.internal ? await listStaffDirectory(ctx) : [];
   const result = await postStaffMessageTx(ctx.actor, { ...data, seenVersion: new Date(data.seenVersion) }, { myName: ctx.user.name, mentionable });
+  if (result.ok) await wakeOutbox();
   return result.ok ? { ok: true } : { ok: false, changed: result.changed, version: result.version };
 }
 

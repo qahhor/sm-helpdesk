@@ -27,10 +27,10 @@ function localYearMonth(timeZone: string, now = new Date()): { year: number; mon
   return { year: Number(parts.find((p) => p.type === 'year')?.value), month: Number(parts.find((p) => p.type === 'month')?.value) };
 }
 
-export default async function SlaSettingsPage({ searchParams }: { searchParams: Promise<{ done?: string; error?: string }> }) {
+export default async function SlaSettingsPage({ searchParams }: { searchParams: Promise<{ done?: string; error?: string; line?: string }> }) {
   const staff = await requireStaffActor({ roles: ['admin'] });
   const t = await getTranslations('agent');
-  const { done, error } = await searchParams;
+  const { done, error, line: lineParam } = await searchParams;
   const config = await loadSlaConfig(staff.actor);
   const nav = await settingsNav('sla');
   const { year, month } = localYearMonth(config.calendar.timeZone);
@@ -47,7 +47,8 @@ export default async function SlaSettingsPage({ searchParams }: { searchParams: 
       />
       <SettingsLayout {...nav}>
         {done && DONE.has(done) && <Alert tone="success">{t(`settings.sla.done.${done}`)}</Alert>}
-        {error && <Alert tone="danger">{t(error === 'forbidden' ? 'settings.sla.errors.forbidden' : 'settings.sla.errors.invalid_input')}</Alert>}
+        {error === 'holidaysLine' && <Alert tone="danger">{t('settings.sla.errors.holidaysLine', { line: Number(lineParam) || 1 })}</Alert>}
+        {error && error !== 'holidaysLine' && <Alert tone="danger">{t(error === 'forbidden' ? 'settings.sla.errors.forbidden' : 'settings.sla.errors.invalid_input')}</Alert>}
         {nextYearMissing && <Alert tone="info">{t('settings.sla.holidaysMissing', { year: year + 1 })}</Alert>}
         <p className="text-secondary-foreground">{t('settings.sla.intro')}</p>
 

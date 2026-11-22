@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { isHdrError, saveCalendar, saveHolidays, saveSlaPolicy } from '@/modules/hdr/api';
+import { isHdrError, parseHolidays, saveCalendar, saveHolidays, saveSlaPolicy } from '@/modules/hdr/api';
 import { requireStaffActor, type StaffContext } from '@/modules/hdu/api';
 
 // Действия раздела "Сроки и рабочее время" (FR-SLA-01, FR-SLA-12). Права и значения проверяет модуль hdr,
@@ -45,12 +45,16 @@ export async function saveCalendarAction(form: FormData): Promise<void> {
   }, 'calendar');
 }
 
-/** Праздники года: даты ГГГГ-ММ-ДД через пробел, запятую или с новой строки. */
+/**
+ * Праздники года вставкой списка (решение 25 вехи M4): ГГГГ-ММ-ДД или ДД.ММ.ГГГГ через строку, запятую или точку с
+ * запятой, название после даты пропускается. Ошибочная строка называется, ничего не сохраняется.
+ */
 export async function saveHolidaysAction(form: FormData): Promise<void> {
-  await run(async (staff) => {
-    const dates = text(form, 'dates')
-      .split(/[\s,;]+/u)
-      .filter((value) => value !== '');
-    await saveHolidays(staff, { year: text(form, 'year'), dates });
-  }, 'holidays');
+  const year = Number(text(form, 'year'));
+  const parsed = parseHolidays(String(form.get('dates') ?? ''), year);
+  if (!parsed.ok) {
+    await requireStaffActor({ roles: ['admin'] });
+    redirect(`/${await getLocale()}/agent/settings/sla?error=holidaysLine&line=${parsed.line}`);
+  }
+  await run((staff) => saveHolidays(staff, { year, dates: parsed.dates }), 'holidays');
 }

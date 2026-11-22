@@ -12,7 +12,8 @@ import { createResendMailer, MailError } from './resend';
 
 export type MailKind = 'login-link' | 'confirm-email' | 'invitation' | 'telegram-linked' | 'staff-invitation' | 'staff-reset';
 
-export type MailMessage = { to: string; subject: string; text: string; kind: MailKind };
+/** html: оформленная часть письма (решение 4 вехи M4), text остаётся для программ без HTML. */
+export type MailMessage = { to: string; subject: string; text: string; html?: string; kind: MailKind };
 
 export interface Mailer {
   /** Доходят ли письма до адресата. Ложь только у none: тогда ссылку сотруднику выдаёт команда консоли. */

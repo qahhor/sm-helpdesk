@@ -21,7 +21,7 @@ export { bossOptions, createPgBossQueue, enqueue, JOB_NAMES, type JobName, setJo
 export { type AntivirusScanner, getScanner } from './antivirus';
 export { type DetectedType, SNIFF_BYTES, sniffFileType } from './filetype';
 // Настройки портала (hdc_settings).
-export { readSetting } from './settings';
+export { readSetting, writeSettingTx } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';

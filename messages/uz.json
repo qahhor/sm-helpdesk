@@ -60,6 +60,41 @@
       "privacy": "Ma'lumotlarni qayta ishlash siyosati",
       "version": "{date} tahriri",
       "translationMissing": "Sizning tilingizga tarjima hozircha yo'q, rus tilidagi matn ko'rsatildi."
+    },
+    "notifications": {
+      "title": "Bildirishnomalar",
+      "bellNone": "Bildirishnomalar, yangilari yo'q",
+      "bellSome": "Bildirishnomalar, yangilari: {count}",
+      "empty": "Hozircha bildirishnomalar yo'q",
+      "emptyText": "Bu yerda murojaatlar bo'yicha javoblar va yangiliklar paydo bo'ladi.",
+      "markAll": "Hammasini o'qilgan deb belgilash",
+      "unread": "Yangi",
+      "more": "Yana ko'rsatish",
+      "notFound": "Bildirishnoma topilmadi",
+      "kinds": {
+        "ticket_created": "SUP-{number} murojaati yaratildi",
+        "ticket_reply": "SUP-{number} murojaati bo'yicha javob",
+        "ticket_status": "SUP-{number} murojaati bo'yicha yangilik",
+        "ticket_resolved": "SUP-{number} murojaati hal qilindi",
+        "waiting_reminder": "SUP-{number} murojaati bo'yicha javobingizni kutyapmiz",
+        "client_replied": "Mijoz SUP-{number} murojaatida javob yozdi",
+        "mention": "SUP-{number} murojaatidagi qaydda sizni eslatishdi",
+        "sla_breach": "SUP-{number} murojaati bo'yicha muddat o'tib ketdi",
+        "snooze_returned": "Kechiktirilgan SUP-{number} murojaati qaytdi",
+        "update_due": "Ertaga SUP-{number} murojaati bo'yicha mijozga xabar berish muddati",
+        "holidays_reminder": "{year} yil bayram kunlarini to'ldiring"
+      },
+      "settings": {
+        "title": "Xatlar",
+        "intro": "Portaldagi bildirishnomalar doim keladi. Bu yerda qaysi xatlarni olishni tanlash mumkin.",
+        "own": "O'z murojaatlarim haqida",
+        "ownHint": "Bu xatlarni o'chirib bo'lmaydi: ularda qo'llab-quvvatlash javoblari bor.",
+        "watched": "Men obuna bo'lgan hamkasblar murojaatlari haqida",
+        "mention": "Qaydlarda eslatishlar haqida",
+        "breach": "Muddatlar o'tib ketishi haqida",
+        "save": "Saqlash",
+        "saved": "Saqlandi"
+      }
     }
   },
   "client": {
@@ -269,8 +304,8 @@
         "merged": "Murojaat boshqasi bilan birlashtirildi: asosiy murojaatda davom etamiz."
       },
       "system": {
-        "autoCloseResolved": "Murojaatni yopdik: yechim 5 ish kuni davomida tasdiqlanmadi. Savol qaytsa, murojaatni qayta oching.",
-        "autoCloseWaiting": "Murojaatni yopdik: 7 ish kuni davomida javobingiz bo'lmadi. Savol qolgan bo'lsa, murojaatni qayta oching."
+        "autoCloseResolved": "Murojaatni yopdik: yechim {days} ish kuni davomida tasdiqlanmadi. Savol qaytsa, murojaatni qayta oching.",
+        "autoCloseWaiting": "Murojaatni yopdik: {days} ish kuni davomida javobingiz bo'lmadi. Savol qolgan bo'lsa, murojaatni qayta oching."
       }
     },
     "ideas": {
@@ -360,6 +395,9 @@
           "unavailable": "Telegram hozir javob bermayapti. Botni bir necha daqiqadan keyin bog'lab ko'ring."
         }
       }
+    },
+    "footer": {
+      "support": "Qo'llab-quvvatlash: <address></address>"
     }
   },
   "agent": {
@@ -487,7 +525,24 @@
       "ai": "AI orqali ko'rib chiqish",
       "aiOn": "yoqilgan",
       "aiOff": "o'chirilgan",
-      "auditLink": "Tashkilot audit jurnali"
+      "auditLink": "Tashkilot audit jurnali",
+      "domains": {
+        "title": "Pochta domenlari",
+        "intro": "Shu domendan kelgan va DMARC tekshiruvidan o'tgan xat \"Yuboruvchi tasdiqlanmagan\" belgisi bilan shu tashkilot murojaati bo'ladi.",
+        "empty": "Domenlar yo'q.",
+        "label": "Domen, masalan company.uz",
+        "add": "Domen qo'shish",
+        "remove": "Olib tashlash",
+        "errors": {
+          "invalid_input": "Tashkilot domeni kerak. Umumiy pochta xizmatlari domenlari (gmail.com, mail.ru va shunga o'xshash) qabul qilinmaydi.",
+          "domain_taken": "Bu domen boshqa tashkilotda yozilgan.",
+          "forbidden": "Domenlarni Customer Care va administrator o'zgartiradi."
+        },
+        "done": {
+          "added": "Domen qo'shildi.",
+          "removed": "Domen olib tashlandi."
+        }
+      }
     },
     "settings": {
       "title": "Sozlamalar",
@@ -514,6 +569,10 @@
         "templates": {
           "title": "Javob shablonlari",
           "text": "Uch tildagi javob tayyorlamalari, javob maydonida \"/\" dan keyin kod bilan chaqiriladi."
+        },
+        "mail": {
+          "title": "Bildirishnomalar va pochta",
+          "text": "Qo'llab-quvvatlash manzillari va qabulni tekshirish, navbatchilar va ularning boti, eslatma va avtomatik yopish muddatlari, spam."
         }
       },
       "servers": {
@@ -749,7 +808,9 @@
           },
           "org": {
             "provisioned": "Tashkilot yaratildi",
-            "updated": "Tashkilot sozlamalari o'zgartirildi"
+            "updated": "Tashkilot sozlamalari o'zgartirildi",
+            "domain_added": "Tashkilot pochta domeni qo'shildi",
+            "domain_removed": "Tashkilot pochta domeni olib tashlandi"
           },
           "member": {
             "joined": "Ishtirokchi qo'shildi",
@@ -784,7 +845,9 @@
             "snoozed": "Murojaat qoldirildi",
             "line_transferred": "Ikkinchi liniyaga o'tkazildi",
             "line_returned": "Birinchi liniyaga qaytarildi",
-            "merged": "Murojaatlar birlashtirildi"
+            "merged": "Murojaatlar birlashtirildi",
+            "bound": "Xat tashkilotga bog'landi",
+            "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi"
@@ -802,6 +865,18 @@
           },
           "template": {
             "saved": "Javob shabloni saqlandi"
+          },
+          "sender": {
+            "blocked": "Manzil spam deb belgilandi",
+            "unblocked": "Manzil spamdan olib tashlandi"
+          },
+          "guest": {
+            "merge_recorded": "Xat yuboruvchisi manzilini tasdiqladi",
+            "merged": "Mehmon murojaatlari foydalanuvchiga o'tkazildi"
+          },
+          "settings": {
+            "changed": "Sozlama o'zgartirildi",
+            "oncall_changed": "Navbatchilar sozlamalari o'zgartirildi"
           }
         },
         "words": {
@@ -865,7 +940,7 @@
         "to": "{day}: tugashi",
         "holidaysTitle": "Bayram kunlari",
         "holidaysYear": "{year}-yil bayramlari",
-        "holidaysHint": "Sanalar YYYY-OO-KK ko'rinishida, har biri yangi qatorda. Bayram kuni butunlay ishlanmaydi.",
+        "holidaysHint": "YYYY-OO-KK yoki KK.OO.YYYY sanalar, qator, vergul yoki nuqtali vergul orqali. Sanadan keyin bayram nomini qoldirish mumkin. Bayram kuni to'liq dam olish kuni.",
         "holidaysMissing": "{year}-yil bayramlari hali kiritilmagan. Ularsiz bu kunlar ish kuni hisoblanadi.",
         "appliesToNew": "Yangi qiymatlar yangi hisoblarga amal qiladi. Ochiq murojaatlar muddatlari ularning keyingi hodisasida o'zgaradi: ustuvorlik, holat yoki javob.",
         "save": "Saqlash",
@@ -876,7 +951,8 @@
         },
         "errors": {
           "forbidden": "Muddatlarni faqat administrator o'zgartira oladi",
-          "invalid_input": "Qiymatlarni tekshiring: daqiqa va kunlar noldan katta, ish kuni oxiri boshlanishidan keyin, bayram sanalari shu yilga tegishli va takrorlanmagan"
+          "invalid_input": "Qiymatlarni tekshiring: daqiqa va kunlar noldan katta, ish kuni oxiri boshlanishidan keyin, bayram sanalari shu yilga tegishli va takrorlanmagan",
+          "holidaysLine": "{line}-qator: bu yerda shu yil sanasi yo'q. Hech narsa saqlanmadi, qatorni tuzating."
         },
         "days7": {
           "0": "Yakshanba",
@@ -911,6 +987,77 @@
           "forbidden": "Shablonlarni portal administratori yuritadi.",
           "invalid_input": "Kod, nom va rus tilidagi matnni tekshiring.",
           "shortcut_taken": "Bu kod boshqa shablonda bor."
+        }
+      },
+      "mail": {
+        "title": "Bildirishnomalar va pochta",
+        "support": {
+          "title": "Qo'llab-quvvatlash manzillari",
+          "intro": "Bu manzillarning istalganiga kelgan xat murojaat bo'ladi. Belgilangan manzilni mijozlar portal pastida va xatlarda ko'radi.",
+          "shown": "Mijozlarga ko'rsatish",
+          "remove": "Olib tashlash",
+          "add": "Yangi qo'llab-quvvatlash manzili",
+          "save": "Manzillarni saqlash",
+          "empty": "Hozircha manzil yo'q. Birinchisini qo'shing: u ko'rsatiladigan bo'ladi.",
+          "test": "Qabulni tekshirish",
+          "status": {
+            "never": "Qabul tekshirilmagan",
+            "waiting": "Xat yuborildi, portalda kutilmoqda",
+            "received": "Xat olindi"
+          },
+          "hintTitle": "Pochtada nimani sozlash kerak",
+          "hintMx": "{domain} domenining Resend maʼlumotlari bo'yicha MX yozuvi: mijozlar javoblari shunga keladi.",
+          "hintSend": "Xat yuborish domenining SPF, DKIM va DMARC yozuvlari.",
+          "hintForward": "Har bir qo'llab-quvvatlash manzilini {intake} qabul manziliga yo'naltirish.",
+          "hintOff": "Xat qabul domeni berilmagan (REPLY_DOMAIN): portalga xatlar kelmaydi."
+        },
+        "oncall": {
+          "title": "Navbatchilar",
+          "intro": "Birinchi javobsiz P1 haqidagi xabarlar shu yerga ketadi: manzillarga xat va Telegram chatiga xabar.",
+          "emails": "Navbatchilar manzillari",
+          "emailsHint": "Har bir manzil yangi qatorda.",
+          "chat": "Telegram chati raqami",
+          "chatHint": "-1001234567890 ko'rinishidagi son yoki @smartup_duty ko'rinishidagi kanal nomi.",
+          "bot": "Kim yuboradi",
+          "botMain": "Portalning asosiy boti",
+          "botMainName": "Portalning asosiy boti ({name})",
+          "botOwn": "Alohida bot",
+          "token": "Alohida bot tokeni",
+          "tokenSaved": "Token saqlangan. Almashtirish uchun yangisini kiriting.",
+          "tokenHint": "@BotFather tokeni. Saqlangandan keyin u ko'rsatilmaydi.",
+          "save": "Saqlash",
+          "test": "Tekshiruv xabarini yuborish"
+        },
+        "timings": {
+          "title": "Eslatma va avtomatik yopish muddatlari",
+          "intro": "Ish kunlarida, 1 dan 30 gacha.",
+          "waitingReminderDays": "Mijozga savolimizni eslatish muddati",
+          "autocloseResolvedDays": "Tasdiqlanmagan hal qilinganni yopish muddati",
+          "autocloseWaitingDays": "Mijoz javobini kutayotganni yopish muddati",
+          "updateIntervalDays": "\"Ishlab chiqishda\" bo'yicha mijozga yangilik kamida har",
+          "default": "Standart bo'yicha {days}",
+          "save": "Muddatlarni saqlash"
+        },
+        "blocked": {
+          "title": "Spam deb rad etilganlar",
+          "intro": "Bu manzillardan kelgan xatlar murojaatsiz va javobsiz saqlanadi.",
+          "empty": "Ro'yxat bo'sh.",
+          "remove": "Spamdan olib tashlash",
+          "since": "{time} dan"
+        },
+        "done": {
+          "support": "Qo'llab-quvvatlash manzillari saqlandi.",
+          "test": "Tekshiruv xati yuborildi. Bir daqiqadan keyin sahifani yangilang.",
+          "oncall": "Navbatchilar sozlamalari saqlandi.",
+          "oncallTest": "Tekshiruv xabari navbatchilar chatiga yuborildi.",
+          "timings": "Muddatlar saqlandi.",
+          "unblocked": "Manzil spamdan olib tashlandi."
+        },
+        "errors": {
+          "forbidden": "Bu sozlamalarni faqat administrator o'zgartira oladi.",
+          "invalid_input": "Qiymatlarni tekshiring: pochta manzillari, bitta ko'rsatiladigan manzil, chat raqami, bot tokeni, 1 dan 30 gacha muddatlar.",
+          "oncallTest": "Xabar yuborilmadi: chat raqami va botni tekshiring.",
+          "other": "Bo'lmadi. Yana urinib ko'ring."
         }
       }
     },
@@ -1008,6 +1155,44 @@
         "label": "Ro'yxat yonidagi murojaat",
         "empty": "Murojaatni yuqoriga va pastga strelkalar bilan tanlang: u shu yerda ochiladi.",
         "open": "To'liq ochish"
+      },
+      "unidentified": {
+        "link": "Aniqlanmaganlar ({count})",
+        "title": "Aniqlanmaganlar",
+        "intro": "Portal tanimagan manzillardan kelgan xatlar. Xatni mijoz tashkilotiga bog'lang, yuboruvchi taklif oladi. Bog'lashdan oldin u faqat murojaat raqamini olgan.",
+        "listLabel": "Tashkilotsiz xatlar",
+        "emptyTitle": "Aniqlanmagan xatlar yo'q",
+        "emptyText": "Bu yerda portal mijozlariga tegishli bo'lmagan manzillardan kelgan xatlar paydo bo'ladi.",
+        "from": "Kimdan: {address}",
+        "name": "Xatdagi ism: {name}",
+        "received": "Keldi: {time}",
+        "choose": "Bog'lash uchun ro'yxatdan xatni tanlang.",
+        "onlyNumber": "Bog'lashdan oldin yuboruvchi faqat murojaat raqamini olgan.",
+        "hint": "Manzil domeni {name} tashkilotiga tegishli.",
+        "bindHint": "{name} ga bog'lash",
+        "orgSearch": "Tashkilot: nomi yoki STIR",
+        "find": "Topish",
+        "notFound": "Tashkilot topilmadi.",
+        "results": "Topilgan tashkilotlar",
+        "bind": "Bog'lash va taklif qilish",
+        "notClient": "Bu mijoz emas",
+        "spam": "Spam",
+        "readOnly": "Rolingiz faqat ro'yxatni ko'rishga ruxsat beradi.",
+        "open": "Murojaatni ochish",
+        "done": {
+          "bound": "Xat bog'landi, yuboruvchiga taklif ketdi.",
+          "boundNoInvite": "Xat bog'landi, lekin taklif yuborilmadi. Murojaatdagi \"Yuboruvchini taklif qilish\" tugmasi bilan takrorlang.",
+          "notClient": "Murojaat yuboruvchiga xatsiz yopildi.",
+          "spam": "Murojaat yopildi, manzil spamga qo'shildi: undan keladigan keyingi xatlar murojaat bo'lmaydi."
+        },
+        "errors": {
+          "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
+          "not_found": "Xat yoki tashkilot topilmadi.",
+          "transition_refused": "Bu xat allaqachon ko'rib chiqilgan. Sahifani yangilang.",
+          "invalid_input": "Tanlangan tashkilotni tekshiring.",
+          "other": "Bo'lmadi. Yana urinib ko'ring."
+        },
+        "addressOwned": "Bu manzil portal mijoziga tegishli, lekin xat DMARC tekshiruvidan o'tmadi: uni soxtalashtirgan bo'lishlari mumkin. Mijozdan aniqlamaguncha uni spam deb belgilamang va bog'lamang."
       }
     },
     "ticket": {
@@ -1046,7 +1231,8 @@
         "rule": "Qoida ishladi",
         "transferred": "{actor}: ikkinchi liniyaga o'tkazildi. Sabab: {reason}. Tekshirildi: {checked}. Kerak: {needed}",
         "returned": "{actor}: birinchi liniyaga qaytarildi. {explanation}",
-        "mergedFrom": "{actor}: {number} qo'shildi"
+        "mergedFrom": "{actor}: {number} qo'shildi",
+        "bound": "{actor}: mijoz tashkilotiga bog'landi"
       },
       "dueKinds": {
         "first_response": "birinchi javob",
@@ -1134,7 +1320,8 @@
           "transferred": "Murojaat ikkinchi liniyaga o'tkazildi",
           "returned": "Murojaat birinchi liniyaga qaytarildi",
           "merged": "Murojaat takroriy sifatida yopildi",
-          "created": "Murojaat yaratildi"
+          "created": "Murojaat yaratildi",
+          "invited": "Yuboruvchiga taklif yuborildi"
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -1232,7 +1419,12 @@
         "into": "Asosiy murojaat raqami",
         "submit": "Birlashtirish"
       },
-      "mergedInto": "{number} bilan birlashtirildi"
+      "mergedInto": "{number} bilan birlashtirildi",
+      "emailReview": "Xat tekshiruvda: u {address} manzilidan keldi, bu manzil mijoz manzili sifatida tasdiqlanmagan. Mijozga hech narsa ko'rsatilmadi va yuborilmadi. Xat mijozdan bo'lsa, unga murojaatda javob bering.",
+      "senderUnconfirmed": "Yuboruvchi tasdiqlanmagan",
+      "senderUnconfirmedHint": "Xat tashkilot manzilidan keldi, lekin u odam hali portal ishtirokchisi emas. Murojaatni faqat xodimlar ko'radi.",
+      "inviteSender": "Yuboruvchini taklif qilish",
+      "undelivered": "Xat yetkazilmadi"
     },
     "playbooks": {
       "title": "Birinchi liniya eslatmalari",
@@ -1510,7 +1702,74 @@
     "staffReset": {
       "subject": "Smartup Hub ga kirish tiklandi",
       "text": "Assalomu alaykum!\n\nPortal administratori Smartup Hub dagi parolingiz va kirishning ikkinchi omilini tikladi. Barcha sessiyalaringiz yakunlandi.\n\nHavolani oching, yangi parol o'rnating va ikkinchi omilni qayta ulang:\n{url}\n\nHavola {hours} soat amal qiladi va bir marta ishlaydi. Agar siz tiklashni so'ramagan bo'lsangiz, administratorga xabar bering."
-    }
+    },
+    "layout": {
+      "greeting": "Assalomu alaykum!",
+      "open": "Murojaatni ochish",
+      "replyAbove": "Ushbu xatga javob yozing, javob murojaatga qo'shiladi",
+      "signature": "Smartup qo'llab-quvvatlash xizmati",
+      "support": "Smartup qo'llab-quvvatlash xizmati: {address}",
+      "settings": "Bildirishnomalarni sozlash",
+      "contacts": "+998 71 203-03-05, smartup24.com"
+    },
+    "ticketCreated": {
+      "heading": "SUP-{number} murojaati yaratildi",
+      "text": "«{title}» murojaatingizni oldik. Javob xat orqali keladi va portalda ham ko'rinadi.",
+      "viaEmail": "«{title}» xatingizni oldik va SUP-{number} murojaatini yaratdik. Uni to'ldirish uchun ushbu xatga javob yozing."
+    },
+    "ticketReply": {
+      "heading": "SUP-{number} murojaati bo'yicha javob"
+    },
+    "ticketStatus": {
+      "heading": "SUP-{number} murojaati bo'yicha yangilik",
+      "waiting_customer": "SUP-{number} «{title}» murojaati bo'yicha javobingizni kutyapmiz. Ushbu xatga yoki portalda javob yozing.",
+      "in_development": "SUP-{number} «{title}» murojaati dasturchilarga topshirildi. Yangilik bo'lganda xabar beramiz.",
+      "closed": "SUP-{number} «{title}» murojaati yopildi. Savol qolgan bo'lsa, bizga yozing.",
+      "autoClosed": "SUP-{number} «{title}» murojaati yopildi: javob olmadik. Savol qolgan bo'lsa, bizga yozing.",
+      "merged": "SUP-{number} murojaati SUP-{into} murojaati bilan birlashtirildi. Yozishmalar o'sha yerda davom etadi."
+    },
+    "ticketResolved": {
+      "heading": "SUP-{number} murojaati hal qilindi",
+      "text": "«{title}» savolini hal qilingan deb hisoblaymiz. Iltimos, javobni baholang: bu bir daqiqa oladi. Agar biror narsa noto'g'ri bo'lsa, ushbu xatga javob yozing.",
+      "button": "Javobni baholash"
+    },
+    "waitingReminder": {
+      "heading": "Javobingizni kutyapmiz",
+      "text": "SUP-{number} «{title}» murojaati bo'yicha javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi."
+    },
+    "unidentifiedAck": {
+      "subject": "Xatingiz qabul qilindi",
+      "heading": "Xatingiz qabul qilindi",
+      "text": "Xatingizni oldik. Murojaat raqami: SUP-{number}. Qo'llab-quvvatlash xodimi sizga pochta orqali javob beradi."
+    },
+    "staffMention": {
+      "heading": "Sizni qaydda eslatishdi",
+      "text": "{author} SUP-{number} «{title}» murojaatiga yozilgan qaydda sizni eslatmoqda."
+    },
+    "staffBreach": {
+      "heading": "Muddat o'tib ketdi",
+      "first_response": "SUP-{number} «{title}» murojaati bo'yicha birinchi javob muddati o'tib ketdi.",
+      "resolution": "SUP-{number} «{title}» murojaati bo'yicha hal qilish muddati o'tib ketdi."
+    },
+    "staffUpdateDue": {
+      "heading": "Mijozga yozish vaqti keldi",
+      "text": "Ertaga «Dasturchilarda» holatidagi SUP-{number} «{title}» murojaati bo'yicha muntazam xabar berish muddati tugaydi. Mijozga bugungi holatni yozing."
+    },
+    "holidaysReminder": {
+      "subject": "{year} yil bayram kunlari",
+      "text": "{year} yil uchun bayram kunlari ro'yxati to'ldirilmagan. Usiz muddatlarni hisoblashda bayramlar ish kuni hisoblanadi.",
+      "button": "Bayramlarni to'ldirish"
+    },
+    "oncallP1": {
+      "subject": "Shoshilinch P1 murojaati",
+      "text": "{orgName} tashkilotidan yangi shoshilinch P1 murojaati: SUP-{number} «{title}».",
+      "button": "Murojaatni ochish"
+    },
+    "inboundTest": {
+      "subject": "Smartup Hub xatlarni qabul qilishni tekshirish {token}",
+      "text": "Bu Smartup Hub portalining tekshiruv xati. Agar u portalga yetib kelgan bo'lsa, {address} manzilidagi xatlarni qabul qilish ishlayapti. Unga javob berish shart emas."
+    },
+    "noSubject": "Mavzusiz xat"
   },
   "bot": {
     "linked": "Tayyor: Telegram {org} tashkilotidagi {name} hisobiga bog'landi. Smartupga kirish imkoni bo'lmasa, Smartup Hub tizimiga shu yerdan kirish mumkin. Agar bog'lagan siz bo'lmasangiz, «Uzish» tugmasini bosing.",
@@ -1528,7 +1787,8 @@
     "buttonUnlink": "Uzish",
     "loginLink": "Smartup Hub tizimiga kirish havolasi. U {minutes} daqiqa amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang.",
     "loginTooOften": "Kirish havolalari juda ko'p. {minutes} daqiqadan keyin qayta urinib ko'ring.",
-    "loginNoAccess": "Bu hisobning hozir portalga kirish huquqi yo'q. Kompaniyangiz administratoriga murojaat qiling."
+    "loginNoAccess": "Bu hisobning hozir portalga kirish huquqi yo'q. Kompaniyangiz administratoriga murojaat qiling.",
+    "oncallTest": "Smartup Hub tekshiruv xabari: navbatchilar chati ulandi, shoshilinch murojaatlar haqidagi xabarlar shu yerga keladi."
   },
   "dev": {
     "title": "Komponentlar vitrinasi",

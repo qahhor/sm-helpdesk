@@ -7,6 +7,7 @@ import { ATTACHABLE_SCAN_STATUSES, DEVELOPMENT_ROLES, type PresenceMode, PRESENC
 import { attachments, mentions, replyDrafts, ticketEvents, ticketMessages, ticketPresence, tickets } from '../schema';
 import { findMentions } from '../util';
 import { assertCanWrite, changeAssigneeTx, changeStatusTx, lockAgentTicket, markPickedUpTx } from './agent-actions';
+import { notifyTicketTx } from './notify';
 
 // Модуль hdt, слой core: ответ клиенту и внутренняя заметка сотрудника, черновик, присутствие
 // (FR-AG-03, FR-AG-12, FR-AG-21, FR-SLA-04, UX-A-05..07; план M3, задача 8, решения 6 и 10).
@@ -106,7 +107,10 @@ export async function postStaffMessageTx(
     }
     if (input.internal) {
       const mentioned = findMentions(input.body, people.mentionable).filter((userId) => userId !== actor.userId);
-      if (mentioned.length > 0) await tx.insert(mentions).values(mentioned.map((userId) => ({ messageId: message.messageId, userId })));
+      if (mentioned.length > 0) {
+        await tx.insert(mentions).values(mentioned.map((userId) => ({ messageId: message.messageId, userId })));
+        await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'mention', actorUserId: actor.userId, mentioned, authorName: people.myName });
+      }
     } else {
       await tx
         .update(tickets)
@@ -118,6 +122,8 @@ export async function postStaffMessageTx(
       const target: TicketStatus | null = input.waitForClient ? 'waiting_customer' : ticket.status === 'new' ? 'in_progress' : null;
       if (target && target !== ticket.status) await changeStatusTx(tx, actor, ticket, target);
       await markPickedUpTx(tx, actor, ticket);
+      // Одно письмо об ответе, даже если тем же действием поставлено "Ждём вашего ответа" (решение 6).
+      await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'staff_reply', actorUserId: actor.userId, messageId: message.messageId });
     }
     await tx.delete(replyDrafts).where(and(eq(replyDrafts.ticketId, ticket.ticketId), eq(replyDrafts.userId, actor.userId)));
     return { ok: true, ticketId: ticket.ticketId };

@@ -1,10 +1,10 @@
 import 'server-only';
 import { type ClientContext, namesOf, otherOrganizationActors } from '@/modules/hdu/api';
-import { consumeRateLimit, rateKey, readSetting } from '@/modules/hdc/api';
+import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule, loadSlaConfig } from '@/modules/hdr/api';
 import { refreshSlaAfterClient } from './api/jobs';
-import { confirmTx, rateTx, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
+import { confirmTx, rateTx, reopenDays, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
 import { createTicketTx, listTicketRows, readTicket, ticketExists } from './core/tickets';
 import { HdtError } from './error';
 import { createTicketInput, listTicketsInput, numberInput, parseInput, rateInput, reopenInput, replyInput, visibilityInput } from './input';
@@ -15,8 +15,6 @@ import {
   type EventKind,
   INLINE_IMAGE_TYPES,
   MAX_FILES_PER_MESSAGE,
-  REOPEN_DAYS_DEFAULT,
-  REOPEN_DAYS_SETTING,
   type RejectReason,
   type ScanStatus,
   TICKET_PAGE_SIZE,
@@ -27,6 +25,7 @@ import {
   type Visibility,
 } from './pref';
 import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from './util';
+import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeStaffUpload, completeUpload, handleUploadRequest, presignStaffUpload, presignUpload } from './api/uploads';
@@ -41,7 +40,17 @@ export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type Pre
 // Скачивание вложений (задача 8).
 export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest, staffAttachmentRedirect } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
-export { type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
+export { applyGuestMerges, type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
+export { readTimings, saveTimings, type Timings, TIMINGS_DEFAULT } from './api/timings';
+export {
+  bindTicket,
+  inviteSender,
+  listUnidentified,
+  markNotClient,
+  markSpam,
+  type UnidentifiedItem,
+  unidentifiedCount,
+} from './api/unidentified';
 export {
   nextInQueue,
   listThanks,
@@ -115,6 +124,8 @@ export async function createTicket(ctx: ClientContext, input: unknown): Promise<
     attachmentIds: [...new Set(data.attachmentIds)],
   });
   await refreshSlaAfterClient(ticketId);
+  // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации.
+  await wakeOutbox();
   return { number };
 }
 
@@ -236,11 +247,7 @@ export async function findTicketInOtherOrganizations(ctx: ClientContext, numberR
   return null;
 }
 
-/** Срок повторного открытия, дней: настройка tickets.reopen_days, иначе 14 (FR-TK-12). */
-export async function reopenDays(): Promise<number> {
-  const value = await readSetting(REOPEN_DAYS_SETTING);
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 365 ? value : REOPEN_DAYS_DEFAULT;
-}
+export { reopenDays };
 
 /** Чей ход (FR-TK-17, UX-C-05): клиента, когда ждём его ответа или подтверждения решения. */
 export function turnOf(status: TicketStatus): TicketView['turn'] {

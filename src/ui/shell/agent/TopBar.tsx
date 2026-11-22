@@ -15,7 +15,7 @@ import { type NavGroupView, SectionsMenu } from './SectionsMenu';
  * логотип для тёмного фона, пять групп разделов, справа язык, тема и меню пользователя.
  * Пункты с ролями видны только своим ролям; без роли (витрина компонентов) только общие пункты.
  */
-export async function TopBar({ userMenu, role }: { userMenu?: ReactNode; role: StaffRole | null }) {
+export async function TopBar({ userMenu, bell, role }: { userMenu?: ReactNode; bell?: ReactNode; role: StaffRole | null }) {
   const t = await getTranslations();
   const groups: NavGroupView[] = AGENT_NAV_GROUPS.map((group) => ({
     key: group.key,
@@ -49,6 +49,7 @@ export async function TopBar({ userMenu, role }: { userMenu?: ReactNode; role: S
             system: t('common.theme.system'),
           }}
         />
+        {bell}
         {userMenu}
       </div>
     </header>

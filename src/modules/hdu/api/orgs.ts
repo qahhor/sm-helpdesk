@@ -11,7 +11,9 @@ import {
   setActiveOrganization,
   updateOrgSettings,
 } from '../core/orgs';
+import { addOrgDomainTx, listOrgDomainsTx, removeOrgDomainTx } from '../core/domains';
 import { HduError } from '../error';
+import { PUBLIC_MAIL_DOMAINS } from '../pref';
 import { parseInput, uuidInput } from '../input';
 import { requireHumanStaff } from './scope';
 import { isSyntheticEmail } from '../util';
@@ -156,4 +158,37 @@ export async function otherOrganizationActors(ctx: ClientContext): Promise<{ org
   return orgs
     .filter((org) => org.orgId !== ctx.actor.orgId)
     .map((org) => ({ orgId: org.orgId, name: org.name, actor: { ...ctx.actor, orgId: org.orgId, orgRole: org.role } }));
+}
+
+// --- Домены почты организации (FR-EM-06, план M4, задача 12) ---
+
+const DOMAIN_MANAGERS = new Set(['care', 'admin']);
+const domainInput = z.object({
+  orgId: uuidInput,
+  domain: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/)
+    .refine((domain) => !PUBLIC_MAIL_DOMAINS.has(domain)),
+});
+
+/** Домены организации: видят все сотрудники-люди. */
+export async function listOrgDomains(ctx: StaffContext, orgId: unknown): Promise<string[]> {
+  requireHumanStaff(ctx);
+  return listOrgDomainsTx(ctx.actor, parseInput(uuidInput, orgId));
+}
+
+/** Домен почты организации: Customer Care и администратор. Домен общей почтовой службы не принимается. */
+export async function addOrgDomain(ctx: StaffContext, input: unknown): Promise<void> {
+  if (!DOMAIN_MANAGERS.has(ctx.actor.staffRole)) throw new HduError('forbidden');
+  const { orgId, domain } = parseInput(domainInput, input);
+  if (!(await getOrgRow(ctx.actor, orgId))) throw new HduError('not_found');
+  await addOrgDomainTx(ctx.actor, orgId, domain);
+}
+
+export async function removeOrgDomain(ctx: StaffContext, input: unknown): Promise<void> {
+  if (!DOMAIN_MANAGERS.has(ctx.actor.staffRole)) throw new HduError('forbidden');
+  const { orgId, domain } = parseInput(domainInput.extend({ domain: z.string().trim().toLowerCase().max(253) }), input);
+  await removeOrgDomainTx(ctx.actor, orgId, domain);
 }

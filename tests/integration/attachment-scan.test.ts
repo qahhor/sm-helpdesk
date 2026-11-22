@@ -47,7 +47,7 @@ const row = (id: string) =>
 async function upload(member: { userId: string }, fileName: string, mime: string, bytes: Uint8Array): Promise<string> {
   const ctx = await clientCtx(member);
   const { attachmentId } = await presignUpload(ctx, { fileName, size: bytes.byteLength, mime });
-  storage.put(`quarantine/${attachmentId}`, bytes);
+  storage.seed(`quarantine/${attachmentId}`, bytes);
   expect(await completeUpload(ctx, attachmentId)).toEqual({ status: 'pending' });
   return attachmentId;
 }
@@ -83,11 +83,11 @@ test('файл, положенный по ссылке повторно посл
   const id = await upload(f.aUser, 'shot.png', 'image/png', PNG);
   expect(await scanAttachment(SYSTEM, id)).toBe('clean');
   // Ссылка ещё жива: тот же файл положили второй раз и снова сообщили о завершении.
-  storage.put(`quarantine/${id}`, PNG);
+  storage.seed(`quarantine/${id}`, PNG);
   expect(await completeUpload(ctx, id)).toEqual({ status: 'clean' });
   expect(storage.has(`quarantine/${id}`)).toBe(false);
   // И повторная задача проверки тоже убирает остаток, перенесённый файл не трогает.
-  storage.put(`quarantine/${id}`, PNG);
+  storage.seed(`quarantine/${id}`, PNG);
   expect(await scanAttachment(SYSTEM, id)).toBe('clean');
   expect(storage.has(`quarantine/${id}`)).toBe(false);
   expect(storage.has(`files/${f.orgA.orgId}/${id}`)).toBe(true);
@@ -150,7 +150,7 @@ test('файл подменили во время проверки: перено
   const swapped = text(EICAR);
   setScannerForTests({
     scan: async (stream) => {
-      storage.put(`quarantine/${id}`, swapped);
+      storage.seed(`quarantine/${id}`, swapped);
       return createStubScanner().scan(stream);
     },
   });
@@ -163,7 +163,7 @@ test('файл подменили во время проверки: перено
   expect(storage.has(`files/${f.orgA.orgId}/${id}`)).toBe(false);
   // Файл другого размера после чтения тоже не становится чистым.
   const resized = await upload(f.aUser, 'журнал.txt', 'text/plain', text('b'.repeat(40)));
-  storage.put(`quarantine/${resized}`, text('b'.repeat(41)));
+  storage.seed(`quarantine/${resized}`, text('b'.repeat(41)));
   expect(await scanAttachment(SYSTEM, resized)).toBe('rejected');
 });
 

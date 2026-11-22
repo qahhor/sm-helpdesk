@@ -4,6 +4,10 @@ import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import { bossOptions, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
 import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
+import { cleanupNotifications } from '@/modules/hdn/api/notifications';
+import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
+import { dispatchOutbox } from '@/modules/hdn/api/outbox';
+import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
@@ -13,14 +17,16 @@ import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок и задача обращений раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений и отправка очереди писем раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
+  { name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
 
 const scanJob = z.object({ attachmentId: z.uuid() }).strict();
+const inboundJob = z.object({ inboundId: z.uuid() }).strict();
 const actor = (job: string): SystemActor => ({ type: 'system', job });
 
 /**
@@ -71,24 +77,39 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
       throw error;
     }
   });
+  await boss.work('email.inbound', polling, async ([job]) => {
+    // В задаче только идентификатор письма: сведения о нём в базе, текст и файлы у почтового сервиса.
+    const { inboundId } = inboundJob.parse(job?.data);
+    await intakeEmail(actor('email.inbound'), inboundId);
+  });
   await boss.work('attachment.sweep', polling, async () => {
     const { requeued, removed, failed } = await sweepAttachments(actor('attachment.sweep'));
     if (requeued > 0 || removed > 0 || failed > 0)
       console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}, проверка не прошла за сутки ${failed}`);
   });
   await boss.work('tickets.minute', polling, async () => {
-    const { breached, unsnoozed, closed, refreshed, presenceRemoved } = await ticketsMinute(actor('tickets.minute'));
-    if (breached + unsnoozed + closed + refreshed > 0)
-      console.info(`Обращения: нарушено сроков ${breached}, вернулось отложенных ${unsnoozed}, закрыто автоматически ${closed}, досчитано сроков ${refreshed}`);
+    const { breached, unsnoozed, closed, refreshed, presenceRemoved, reminded } = await ticketsMinute(actor('tickets.minute'));
+    if (breached + unsnoozed + closed + refreshed + reminded > 0)
+      console.info(
+        `Обращения: нарушено сроков ${breached}, вернулось отложенных ${unsnoozed}, напомнили клиентам ${reminded}, закрыто автоматически ${closed}, досчитано сроков ${refreshed}`,
+      );
     void presenceRemoved;
+    // Письма, разбор которых не встал в очередь или исчерпал повторы, ставятся снова (итоговая проверка M4).
+    const requeued = await requeueStaleInbound(actor('email.sweep'));
+    if (requeued > 0) console.info(`Входящие письма: снова на разборе ${requeued}`);
+  });
+  await boss.work('outbox.dispatch', polling, async () => {
+    const { sent, failed, skipped } = await dispatchOutbox(actor('outbox.dispatch'), new Date());
+    if (sent + failed + skipped > 0) console.info(`Очередь писем: отправлено ${sent}, не отправлено ${failed}, без адреса ${skipped}`);
   });
   await boss.work('maintenance.cleanup', polling, async () => {
     const system = actor('maintenance.cleanup');
     const limits = await cleanupRateLimits();
     const updates = await cleanupTelegramUpdates(system);
     const { sessions, verifications, links } = await cleanupAuthRows(system);
+    const notices = await cleanupNotifications(system, new Date());
     console.info(
-      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}`,
+      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, прочитанные уведомления ${notices}`,
     );
   });
   if (opts.schedules !== false) for (const s of SCHEDULES) await boss.schedule(s.name, s.cron, null, { tz: s.tz });

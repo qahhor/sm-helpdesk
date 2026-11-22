@@ -53,6 +53,18 @@ export const AUDIT_ACTIONS = [
   'ticket.line_transferred',
   'ticket.line_returned',
   'ticket.merged',
+  // Письма из "Неопознанных" (план M4, задача 11)
+  'ticket.bound',
+  'sender.blocked',
+  'guest.merge_recorded',
+  'guest.merged',
+  'ticket.author_moved',
+  // Настройки почты и уведомлений (план M4, задача 12)
+  'settings.changed',
+  'settings.oncall_changed',
+  'sender.unblocked',
+  'org.domain_added',
+  'org.domain_removed',
   // Памятки первой линии и шаблоны ответов (веха M3).
   'playbook.saved',
   'template.saved',
@@ -119,6 +131,12 @@ export const RATE_RULES = {
   /** Действия с обращением (подтвердить, открыть заново, оценить, видимость, подписка): общий предел на
    * пользователя, 60 в час. Каждое действие пишет событие и запись журнала (вторая проверка M2). */
   ticketActionPerUser: { limit: 60, windowSec: 3600 },
+  /** Новые обращения письмом: 10 в час на адрес отправителя, как создание обращения (решение 18 вехи M4). */
+  emailTicketPerSender: { limit: 10, windowSec: 3600 },
+  /** Подтверждение неопознанному отправителю: не чаще раза в час на адрес (FR-EM-07, решение 18 вехи M4). */
+  unidentifiedAckPerSender: { limit: 1, windowSec: 3600 },
+  /** Письма "на проверку" в обращение: 20 в час на адрес отправителя (итоговая проверка M4). */
+  emailReviewPerSender: { limit: 20, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

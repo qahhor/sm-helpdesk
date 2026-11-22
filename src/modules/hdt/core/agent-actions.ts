@@ -16,6 +16,7 @@ import {
 } from '../pref';
 import { lineTransfers, ticketEvents, tickets } from '../schema';
 import { refreshSla } from './sla';
+import { notifyTicketTx, oncallP1Tx } from './notify';
 
 // Модуль hdt, слой core: действия сотрудника с обращением (FR-AG-02, 04, 09, 13, FR-SLA-03, раздел 7.2;
 // план M3, задача 7). Каждое действие одной транзакцией: строка обращения блокируется, меняется фиксированный
@@ -161,6 +162,7 @@ export async function setStatusTx(actor: StaffActor, number: number, to: TicketS
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
     await changeStatusTx(tx, actor, ticket, to, opts);
+    await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: to === 'resolved' ? 'resolved' : 'status', actorUserId: actor.userId, to });
   });
 }
 
@@ -172,6 +174,8 @@ export async function setPriorityTx(actor: StaffActor, number: number, priority:
     await tx.update(tickets).set({ priority, priorityConfirmed: true }).where(eq(tickets.ticketId, ticket.ticketId));
     await recordChange(tx, actor, ticket, { kind: 'priority', payload: { from: ticket.priority, to: priority, reason }, audit: 'ticket.priority_changed' });
     await refreshSla(tx, ticket.ticketId, new Date());
+    // Поднятие до P1 до первого ответа: дежурным одно сообщение (FR-SLA-07).
+    await oncallP1Tx(tx, ticket.ticketId);
   });
 }
 

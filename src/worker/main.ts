@@ -4,6 +4,7 @@ import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import { bossOptions, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
 import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
+import { dispatchOutbox } from '@/modules/hdn/api/outbox';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
@@ -13,10 +14,11 @@ import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок и задача обращений раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений и отправка очереди писем раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
+  { name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
 
@@ -81,6 +83,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     if (breached + unsnoozed + closed + refreshed > 0)
       console.info(`Обращения: нарушено сроков ${breached}, вернулось отложенных ${unsnoozed}, закрыто автоматически ${closed}, досчитано сроков ${refreshed}`);
     void presenceRemoved;
+  });
+  await boss.work('outbox.dispatch', polling, async () => {
+    const { sent, failed, skipped } = await dispatchOutbox(actor('outbox.dispatch'), new Date());
+    if (sent + failed + skipped > 0) console.info(`Очередь писем: отправлено ${sent}, не отправлено ${failed}, без адреса ${skipped}`);
   });
   await boss.work('maintenance.cleanup', polling, async () => {
     const system = actor('maintenance.cleanup');

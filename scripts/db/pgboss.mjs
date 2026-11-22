@@ -16,6 +16,8 @@ export const QUEUES = {
   'maintenance.cleanup': { policy: 'short', retryLimit: 3, retryDelay: 600, expireInSeconds: 1800 },
   // Задача раз в минуту (план M3, задача 13): не больше одной ждущей, без повторов, следующая минута догонит.
   'tickets.minute': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
+  // Отправка очереди писем (веха M4, решение 1): раз в минуту и после действия, повторы ведёт сама очередь писем.
+  'outbox.dispatch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
 };
 
 const GRANTS_FILE = resolve(import.meta.dirname, '../../drizzle/0012_pgboss_grants.sql');

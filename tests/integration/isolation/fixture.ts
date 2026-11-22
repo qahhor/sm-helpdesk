@@ -148,6 +148,12 @@ export async function seedTwoOrgs(): Promise<Fixture> {
   await attachment(orgA.orgId, tickets.aOrg.ticketId, aAdmin.userId, 'pending');
   await attachment(orgA.orgId, tickets.aOrg.ticketId, l1.userId, 'clean', true);
   await attachment(orgB.orgId, tickets.bOrg.ticketId, bUser.userId, 'clean');
+  // Очередь исходящих (веха M4): уже отправленное письмо, его не берёт отправка в тестах очереди.
+  await pools.root.query(
+    `insert into hdn_outbox (ticket_id, channel, recipient_kind, recipient_user_id, recipient, template, payload, status, attempts, external_id)
+     values ($1, 'email', 'user', $2, 'fixture@acme.test', 'ticket_created', $3, 'sent', 1, $4)`,
+    [tickets.aOrg.ticketId, aUser.userId, JSON.stringify({ template: 'ticket_created', number: tickets.aOrg.number, title: tickets.aOrg.title, url: '/tickets', viaEmail: false }), `fixture-${code}`],
+  );
 
   return { server: { serverId: server, code }, orgA, orgB, aUser, aAdmin, bUser, bAdmin, care, l1, adminStaff, tickets };
 }

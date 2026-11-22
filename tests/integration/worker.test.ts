@@ -96,6 +96,12 @@ test('задача проверки доходит до scanAttachment и не �
   }
 });
 
+test('отправка очереди писем раз в минуту в расписании и очередь outbox.dispatch создана (веха M4, задача 3)', () => {
+  expect(SCHEDULES).toContainEqual({ name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' });
+  expect(JOB_NAMES).toContain('outbox.dispatch');
+  expect(QUEUES).toHaveProperty('outbox.dispatch');
+});
+
 test('задача обращений раз в минуту в расписании и выполняется фоновым процессом (план M3, задача 13)', async () => {
   expect(SCHEDULES).toContainEqual({ name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' });
   const f = await seedTwoOrgs();
@@ -271,6 +277,7 @@ test('собранный worker.mjs запускается без каталог
   expect((await pools.root.query(`select name, cron, timezone from pgboss.schedule order by name`)).rows).toEqual([
     { name: 'attachment.sweep', cron: '* * * * *', timezone: 'UTC' },
     { name: 'maintenance.cleanup', cron: '0 3 * * *', timezone: 'Asia/Tashkent' },
+    { name: 'outbox.dispatch', cron: '* * * * *', timezone: 'UTC' },
     { name: 'tickets.minute', cron: '* * * * *', timezone: 'UTC' },
   ]);
   child.kill('SIGTERM');

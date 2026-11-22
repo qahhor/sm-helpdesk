@@ -27,6 +27,8 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdc_rate_limits: { client: 'none', app: IUD },
   hdc_settings: { client: 'none', app: IUD },
   // Уведомления
+  // Очередь исходящих (веха M4): ставит действие, отправляет система, клиент не видит.
+  hdn_outbox: { client: 'none', app: IU },
   hdn_telegram_updates: { client: 'none', app: ['insert', 'delete'] },
   // Справочники
   hdr_business_calendars: { client: 'all', app: IU },

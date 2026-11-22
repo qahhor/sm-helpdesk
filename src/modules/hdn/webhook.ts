@@ -1,6 +1,6 @@
 import 'server-only';
 import { problemResponse, readLimited } from '@/modules/hdc/api';
-import { forgetUpdate, recordUpdate } from './core';
+import { forgetUpdate, recordUpdate } from './core/telegram-updates';
 import { getTelegramBot } from './telegram';
 import { type TelegramUpdate, telegramUpdate } from './telegram-update';
 

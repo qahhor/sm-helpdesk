@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SystemActor } from '@/db/with-actor';
-import { cleanupTelegramUpdates as cleanupCore } from '../core';
+import { cleanupTelegramUpdates as cleanupCore } from '../core/telegram-updates';
 
 // Обслуживание из команды консоли hub (проверка main, Q8). Только актор system.
 

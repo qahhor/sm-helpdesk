@@ -116,3 +116,8 @@ export async function isBlocked(tx: Tx, address: string): Promise<boolean> {
   const rows = await tx.select({ address: blockedSenders.address }).from(blockedSenders).where(eq(blockedSenders.address, address.toLowerCase())).limit(1);
   return rows.length > 0;
 }
+
+/** Адрес в список отклонённых как спам (решение 14) в транзакции действия сотрудника. Повтор ничего не меняет. */
+export async function blockSenderTx(tx: Tx, address: string, staffUserId: string): Promise<void> {
+  await tx.insert(blockedSenders).values({ address: address.toLowerCase(), blockedBy: staffUserId }).onConflictDoNothing();
+}

@@ -22,12 +22,14 @@ import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { Link } from '@/i18n/navigation';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
+import { Button } from '@/ui/components/button';
 import { Card, CardContent } from '@/ui/components/card';
 import { Markdown } from '@/ui/components/markdown';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { cn } from '@/ui/cn';
 import { acceptOf, STATUS_TONE } from '@/ui/ticket-status';
+import { inviteSenderAction } from './actions';
 import { Composer } from './Composer';
 import { MergeDialog } from './MergeDialog';
 import { PresenceBar } from './PresenceBar';
@@ -47,7 +49,7 @@ function safeDecode(value: string): string | null {
   }
 }
 
-const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created'] as const;
+const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited'] as const;
 
 type Search = { done?: string; error?: string; queue?: string; sort?: string };
 
@@ -177,6 +179,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
               {entry.isInternal && <StatusLabel tone="orange">{t('ticket.note')}</StatusLabel>}
               <span className="font-semibold text-foreground">{entry.authorName ?? t(`ticket.authors.${entry.authorType}`)}</span>, {when(entry.createdOn)}
               {entry.isNew && <StatusLabel tone="blue">{t('ticket.new')}</StatusLabel>}
+              {entry.undelivered && <StatusLabel tone="danger">{t('ticket.undelivered')}</StatusLabel>}
             </p>
             <Markdown text={entry.body} />
             {files(entry.attachments)}
@@ -211,7 +214,21 @@ export default async function AgentTicketPage({ params, searchParams }: { params
             {!ticket.priorityConfirmed && <span className="text-muted-foreground">{t('ticket.priorityUnconfirmed')}</span>}
             <span className="text-muted-foreground">{t(`ticket.lines.${ticket.line}`)}</span>
             {ticket.snoozedUntil && <span className="text-muted-foreground">{t('ticket.snoozed', { time: when(ticket.snoozedUntil) })}</span>}
+            {ticket.senderUnconfirmed && <StatusLabel tone="orange">{t('ticket.senderUnconfirmed')}</StatusLabel>}
           </div>
+          {ticket.guestSender && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              {ticket.senderUnconfirmed && <span className="text-secondary-foreground">{t('ticket.senderUnconfirmedHint')}</span>}
+              {canWrite && (
+                <form action={inviteSenderAction}>
+                  <input type="hidden" name="number" value={ticket.number} />
+                  <Button type="submit" variant="secondary" size="small">
+                    {t('ticket.inviteSender')}
+                  </Button>
+                </form>
+              )}
+            </div>
+          )}
           {done && <Alert tone="success">{t(`ticket.controls.done.${done}`)}</Alert>}
           {error && (
             <Alert tone="danger">

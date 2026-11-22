@@ -1,9 +1,12 @@
 import 'server-only';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import type { Tx } from '@/db/client';
+import { withActor } from '@/db/with-actor';
+import { writeAudit } from '@/modules/hdc/api';
 import { withIdentity } from '@/db/with-identity';
 import { authUser } from '../auth-schema';
 import { SERVICE_ORG_ID, SERVICE_ORG_NAME } from '../pref';
-import { memberships, organizations, orgEmailDomains } from '../schema';
+import { guestMerges, memberships, organizations, orgEmailDomains } from '../schema';
 import { signInMemberships } from './access';
 import { syntheticEmail } from '../util';
 
@@ -85,4 +88,79 @@ export async function orgByEmailDomainTx(domain: string): Promise<string | null>
       .limit(1),
   );
   return rows[0]?.orgId ?? null;
+}
+
+/** Гости среди пользователей: адрес из письма и имя (очередь "Неопознанные", решение 12). Не гость: нет в ответе. */
+export async function guestSendersTx(userIds: string[]): Promise<Map<string, { address: string; name: string }>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .selectDistinct({ userId: authUser.id, address: authUser.claimedEmail, name: authUser.name })
+      .from(authUser)
+      .innerJoin(memberships, and(eq(memberships.userId, authUser.id), eq(memberships.source, 'guest')))
+      .where(and(inArray(authUser.id, userIds), eq(authUser.emailVerified, false))),
+  );
+  return new Map(rows.filter((r) => r.address).map((r) => [r.userId, { address: r.address as string, name: r.name }]));
+}
+
+/** Членство guest в организации клиента при привязке обращения (решение 13). Только у гостя, повтор ничего не меняет. */
+export async function addGuestMembershipTx(guestUserId: string, orgId: string): Promise<void> {
+  await withIdentity(SYSTEM, async (tx) => {
+    const guest = await tx.select({ id: authUser.id }).from(authUser).where(and(eq(authUser.id, guestUserId), eq(authUser.emailVerified, false))).limit(1);
+    if (guest.length === 0) return;
+    await tx.insert(memberships).values({ orgId, userId: guestUserId, role: 'client_user', source: 'guest' }).onConflictDoNothing();
+  });
+}
+
+/** Подсказка организации по домену адреса (FR-EM-06): при привязке сотрудник видит, чей это домен. */
+export async function domainHintTx(domain: string): Promise<{ orgId: string; name: string } | null> {
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ orgId: organizations.orgId, name: organizations.name })
+      .from(orgEmailDomains)
+      .innerJoin(organizations, and(eq(organizations.orgId, orgEmailDomains.orgId), eq(organizations.state, 'active'), eq(organizations.kind, 'client')))
+      .where(eq(orgEmailDomains.domain, domain))
+      .limit(1),
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Слияние гостя с пользователем, который доказал владение адресом (решение 13): принял приглашение или подтвердил
+ * адрес. В транзакции принятия или подтверждения. Повтор ничего не меняет.
+ */
+export async function recordGuestMergesTx(tx: Tx, address: string, userId: string): Promise<number> {
+  const guests = await tx
+    .selectDistinct({ id: authUser.id })
+    .from(authUser)
+    .innerJoin(memberships, and(eq(memberships.userId, authUser.id), eq(memberships.source, 'guest')))
+    .where(and(eq(authUser.claimedEmail, address), eq(authUser.emailVerified, false), ne(authUser.id, userId)));
+  for (const guest of guests) {
+    await tx.insert(guestMerges).values({ guestUserId: guest.id, userId }).onConflictDoNothing();
+    await writeAudit(tx, { action: 'guest.merge_recorded', objectType: 'user', objectId: guest.id, diff: { userId } });
+  }
+  return guests.length;
+}
+
+/** Ждущие слияния для задачи раз в минуту, старые первыми. */
+export async function pendingGuestMergesTx(limit: number): Promise<{ mergeId: string; guestUserId: string; userId: string }[]> {
+  return withActor({ type: 'system', job: 'identity.guest-merge' }, (tx) =>
+    tx
+      .select({ mergeId: guestMerges.mergeId, guestUserId: guestMerges.guestUserId, userId: guestMerges.userId })
+      .from(guestMerges)
+      .where(isNull(guestMerges.appliedOn))
+      .orderBy(asc(guestMerges.createdOn))
+      .limit(limit),
+  );
+}
+
+/** Слияние применено: гость больше нигде не участник (его членства passive), отметка применения. */
+export async function finishGuestMergeTx(mergeId: string, guestUserId: string): Promise<void> {
+  await withIdentity(SYSTEM, async (tx) => {
+    await tx.update(memberships).set({ state: 'passive' }).where(and(eq(memberships.userId, guestUserId), eq(memberships.state, 'active')));
+    await writeAudit(tx, { action: 'guest.merged', objectType: 'user', objectId: guestUserId, diff: { mergeId } });
+  });
+  await withActor({ type: 'system', job: 'identity.guest-merge' }, (tx) =>
+    tx.update(guestMerges).set({ appliedOn: sql`now()` }).where(eq(guestMerges.mergeId, mergeId)),
+  );
 }

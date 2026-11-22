@@ -819,7 +819,8 @@
             "snoozed": "Ticket snoozed",
             "line_transferred": "Transferred to the second line",
             "line_returned": "Returned to the first line",
-            "merged": "Tickets merged"
+            "merged": "Tickets merged",
+            "bound": "Email linked to an organization"
           },
           "attachment": {
             "infected": "Infected file found"
@@ -837,6 +838,13 @@
           },
           "template": {
             "saved": "Reply template saved"
+          },
+          "sender": {
+            "blocked": "Address marked as spam"
+          },
+          "guest": {
+            "merge_recorded": "Email sender proved the address",
+            "merged": "Guest requests handed over to the user"
           }
         },
         "words": {
@@ -1043,6 +1051,43 @@
         "label": "Ticket next to the list",
         "empty": "Choose a ticket with the up and down arrows: it opens here.",
         "open": "Open in full"
+      },
+      "unidentified": {
+        "link": "Unidentified ({count})",
+        "title": "Unidentified",
+        "intro": "Emails from addresses the portal does not recognize. Link an email to a client organization, and the sender gets an invitation. Until then the sender received only the request number.",
+        "listLabel": "Emails without an organization",
+        "emptyTitle": "No unidentified emails",
+        "emptyText": "Emails from addresses that do not belong to portal clients appear here.",
+        "from": "From: {address}",
+        "name": "Name in the email: {name}",
+        "received": "Received: {time}",
+        "choose": "Choose an email in the list to link it.",
+        "onlyNumber": "Until linking, the sender received only the request number.",
+        "hint": "The address domain belongs to {name}.",
+        "bindHint": "Link to {name}",
+        "orgSearch": "Organization: name or tax ID",
+        "find": "Find",
+        "notFound": "No organization found.",
+        "results": "Organizations found",
+        "bind": "Link and invite",
+        "notClient": "Not a client",
+        "spam": "Spam",
+        "readOnly": "Your role allows viewing the list only.",
+        "open": "Open the request",
+        "done": {
+          "bound": "The email is linked, and the sender got an invitation.",
+          "boundNoInvite": "The email is linked, but the invitation was not sent. Retry it with \"Invite the sender\" in the request.",
+          "notClient": "The request is closed without an email to the sender.",
+          "spam": "The request is closed and the address is marked as spam: its next emails will not become requests."
+        },
+        "errors": {
+          "forbidden": "Your role does not allow this action.",
+          "not_found": "The email or the organization was not found.",
+          "transition_refused": "This email was already handled. Refresh the page.",
+          "invalid_input": "Check the chosen organization.",
+          "other": "That did not work. Try again."
+        }
       }
     },
     "ticket": {
@@ -1081,7 +1126,8 @@
         "rule": "A rule fired",
         "transferred": "{actor}: transferred to the second line. Reason: {reason}. Checked: {checked}. Needed: {needed}",
         "returned": "{actor}: returned to the first line. {explanation}",
-        "mergedFrom": "{actor}: merged {number} into this ticket"
+        "mergedFrom": "{actor}: merged {number} into this ticket",
+        "bound": "{actor}: linked to the client organization"
       },
       "dueKinds": {
         "first_response": "first response",
@@ -1169,7 +1215,8 @@
           "transferred": "Ticket transferred to the second line",
           "returned": "Ticket returned to the first line",
           "merged": "Ticket closed as a duplicate",
-          "created": "Ticket created"
+          "created": "Ticket created",
+          "invited": "The invitation was sent to the sender"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -1268,7 +1315,11 @@
         "submit": "Merge"
       },
       "mergedInto": "Merged with {number}",
-      "emailReview": "Email under review: it came from {address}, and this address is not confirmed as the client address. Nothing was shown or sent to the client. If the email is from the client, reply in the request."
+      "emailReview": "Email under review: it came from {address}, and this address is not confirmed as the client address. Nothing was shown or sent to the client. If the email is from the client, reply in the request.",
+      "senderUnconfirmed": "Sender not confirmed",
+      "senderUnconfirmedHint": "The email came from an organization address, but the person is not a portal member yet. Only staff see this request.",
+      "inviteSender": "Invite the sender",
+      "undelivered": "Email not delivered"
     },
     "playbooks": {
       "title": "First-line playbooks",

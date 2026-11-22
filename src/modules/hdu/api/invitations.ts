@@ -6,7 +6,10 @@ import { LOCALES } from '@/i18n/locales';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { clientIp, consumeRateLimit, rateKey } from '@/modules/hdc/api';
 import { invitationMail, queueMail } from '@/modules/hdn/api';
-import { acceptInvitationTx, createInvitation, findPendingInvitation, listOrgInvitations, revokeOrgInvitation } from '../core/invitations';
+import { acceptInvitationTx, createGuestInvitation, createInvitation, findPendingInvitation, listOrgInvitations, revokeOrgInvitation } from '../core/invitations';
+import { guestSendersTx } from '../core/guests';
+import { getOrgRow } from '../core/orgs';
+import type { StaffContext } from './session';
 import { findActiveOrgName } from '../core/members';
 import { createTrustedSession } from '../core/trusted';
 import { HduError } from '../error';
@@ -48,6 +51,30 @@ export async function inviteMember(scope: OrgScope, input: unknown): Promise<{ i
   const url = new URL(`/${locale}/invite`, getEnv().HUB_URL);
   url.searchParams.set('token', token);
   queueMail({ to: email, kind: 'invitation', ...invitationMail(locale, { url: url.toString(), orgName, inviterName: s.actorName }) });
+  return { invitationId };
+}
+
+/** Кто приглашает отправителя письма: роли, которые ведут обращения (решение 13 вехи M4). */
+const GUEST_INVITERS = new Set(['agent_l1', 'agent_l2', 'care', 'admin']);
+const guestInviteInput = z.object({ guestUserId: uuidInput, orgId: uuidInput });
+
+/**
+ * Приглашение отправителю письма после привязки обращения: на адрес из письма, в организацию клиента, с отметкой
+ * гостя. Предел приглашений в организацию общий с обычными. Письмо на русском: язык гостя неизвестен.
+ */
+export async function inviteGuest(ctx: StaffContext, input: unknown): Promise<{ invitationId: string }> {
+  if (!GUEST_INVITERS.has(ctx.actor.staffRole)) throw new HduError('forbidden');
+  const { guestUserId, orgId } = parseInput(guestInviteInput, input);
+  const org = await getOrgRow(ctx.actor, orgId);
+  if (!org || org.state !== 'active') throw new HduError('not_found');
+  const guest = (await guestSendersTx([guestUserId])).get(guestUserId);
+  if (!guest) throw new HduError('not_found');
+  const limit = await consumeRateLimit(rateKey('invitations:org', orgId), RATE_RULES.invitationsPerOrg);
+  if (!limit.allowed) throw new HduError('rate_limited', { retryAfterSec: limit.retryAfterSec });
+  const { invitationId, token } = await createGuestInvitation(ctx.actor.userId, { orgId, email: guest.address, guestUserId });
+  const url = new URL('/ru/invite', getEnv().HUB_URL);
+  url.searchParams.set('token', token);
+  queueMail({ to: guest.address, kind: 'invitation', ...invitationMail('ru', { url: url.toString(), orgName: org.name, inviterName: ctx.user.name }) });
   return { invitationId };
 }
 

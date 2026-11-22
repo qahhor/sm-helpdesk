@@ -4,6 +4,7 @@ import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
 import type { Priority, Queue, TicketStatus } from '../pref';
 import { savedFilters, type SavedQuery, ticketMessages, tickets } from '../schema';
+import { SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
 import { QUEUE_KEYS, type QueueKey, type QueueSort } from './agent-queue-keys';
 
 // Модуль hdt, слой core: очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18; план M3, задача 5).
@@ -40,9 +41,10 @@ const notSnoozed = or(isNull(tickets.snoozedUntil), lt(tickets.snoozedUntil, sql
 /** Условие очереди: что в неё входит (FR-AG-01). */
 function queueWhere(queue: QueueKey, me: string): SQL | undefined {
   switch (queue) {
-    // Новые первой линии: переданное на вторую ждёт её в своей очереди (решение 0031, пункт 15).
+    // Новые первой линии: переданное на вторую ждёт её в своей очереди (решение 0031, пункт 15). Письма с неизвестных
+    // адресов ждут привязки в "Неопознанных" (решение 12 вехи M4) и в "Новые" не попадают.
     case 'new':
-      return and(eq(tickets.status, 'new'), eq(tickets.queue, 'l1'), notSnoozed);
+      return and(eq(tickets.status, 'new'), eq(tickets.queue, 'l1'), ne(tickets.orgId, SERVICE_ORG_ID), notSnoozed);
     case 'mine':
       return and(eq(tickets.assigneeId, me), ne(tickets.status, 'closed'));
     case 'l2':

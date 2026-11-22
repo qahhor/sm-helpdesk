@@ -37,6 +37,8 @@ export type MinuteResult = {
   presenceRemoved: number;
   reminded: number;
   updateDue: number;
+  /** Гостей, чьи обращения перешли пользователю (шаг слоя api, решение 13 вехи M4). */
+  guestsMerged?: number;
 };
 
 const SETTLED: TicketStatus[] = ['resolved', 'closed'];

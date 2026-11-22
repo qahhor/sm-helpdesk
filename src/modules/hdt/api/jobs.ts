@@ -6,6 +6,8 @@ import { needsSlaRefreshTx, refreshSla, type SlaState } from '../core/sla';
 import { attachmentIdInput, parseInput } from '../input';
 import { type ScanStatus, SWEEP_BATCH } from '../pref';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
+import { finishGuestMerge, pendingGuestMerges } from '@/modules/hdu/api/guests';
+import { moveGuestTx } from '../core/unidentified';
 
 export { isHdtError } from '../error';
 
@@ -64,7 +66,32 @@ export type { MinuteResult } from '../core/housekeeping';
 export async function ticketsMinute(actor: SystemActor, now: Date = new Date()): Promise<MinuteResult> {
   assertSystem(actor);
   const result = await ticketsMinuteTx(actor, now);
+  result.guestsMerged = await applyGuestMerges(actor);
   // Письма автозакрытия, напоминаний, нарушений и праздников уже в очереди: отправка будится после фиксации.
   await wakeOutbox();
   return result;
+}
+
+// --- Переход гостя к пользователю (план M4, задача 11, решение 13) ---
+
+/** Слияний за один шаг задачи. */
+const MERGE_BATCH = 50;
+
+/**
+ * Применяет ждущие слияния: обращения, сообщения, вложения и подписки гостя переходят пользователю, гостевые членства
+ * становятся passive. Сбой одного слияния не останавливает остальные: оно повторится следующим шагом.
+ */
+export async function applyGuestMerges(actor: SystemActor): Promise<number> {
+  assertSystem(actor);
+  let applied = 0;
+  for (const merge of await pendingGuestMerges(MERGE_BATCH)) {
+    try {
+      await moveGuestTx(actor, merge.guestUserId, merge.userId);
+      await finishGuestMerge(merge.mergeId, merge.guestUserId);
+      applied++;
+    } catch (error) {
+      console.error(`Слияние гостя ${merge.mergeId} не применено: ${error instanceof Error ? error.message : 'ошибка'}`);
+    }
+  }
+  return applied;
 }

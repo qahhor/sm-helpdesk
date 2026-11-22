@@ -41,6 +41,7 @@ export {
   acceptInvitation,
   describeInvitation,
   type InvitationView,
+  inviteGuest,
   inviteMember,
   listInvitations,
   revokeInvitation,

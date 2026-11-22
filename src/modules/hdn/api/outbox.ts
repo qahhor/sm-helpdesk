@@ -11,5 +11,6 @@ export {
   type OncallSender,
   type OutboxItem,
   recordDelivery,
+  undeliveredMessages,
   wakeOutbox,
 } from '../core/outbox';

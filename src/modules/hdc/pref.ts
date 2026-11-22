@@ -53,6 +53,11 @@ export const AUDIT_ACTIONS = [
   'ticket.line_transferred',
   'ticket.line_returned',
   'ticket.merged',
+  // Письма из "Неопознанных" (план M4, задача 11)
+  'ticket.bound',
+  'sender.blocked',
+  'guest.merge_recorded',
+  'guest.merged',
   // Памятки первой линии и шаблоны ответов (веха M3).
   'playbook.saved',
   'template.saved',

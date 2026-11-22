@@ -61,7 +61,7 @@ async function people(tx: Tx, ticketId: string, ticket: TicketInfo, actorUserId:
 }
 
 /** Письмо и уведомление каждому: автору всегда, коллеге по его настройке. */
-async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: string[], kind: NotificationKind, mail: Mail): Promise<void> {
+async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: string[], kind: NotificationKind, mail: Mail, messageId?: string): Promise<void> {
   for (const userId of recipients) {
     await notifyTx(tx, { userId, kind, ticketId, payload: { number: ticket.number, title: ticket.title } });
     const own = userId === ticket.authorId;
@@ -72,6 +72,8 @@ async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: st
       template: mail.template,
       payload: mail,
       ticketId,
+      // Письмо об ответе связано с сообщением: недоставку видно на нём в рабочем месте (решение 21).
+      ...(messageId ? { messageId } : {}),
       locale: ticket.locale as 'ru' | 'uz' | 'en',
       ...(own ? {} : { settingsPath: CLIENT_SETTINGS_PATH }),
     });
@@ -148,7 +150,7 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
           .limit(1)
       )[0];
       if (!message) return;
-      return tell(tx, e.ticketId, ticket, await people(tx, e.ticketId, ticket, e.actorUserId), 'ticket_reply', { template: 'ticket_reply', ...ref, body: message.body });
+      return tell(tx, e.ticketId, ticket, await people(tx, e.ticketId, ticket, e.actorUserId), 'ticket_reply', { template: 'ticket_reply', ...ref, body: message.body }, e.messageId);
     }
     case 'status':
       if (!e.to || !STATUS_MAILS.has(e.to)) return;

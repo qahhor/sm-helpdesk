@@ -1,6 +1,17 @@
 import 'server-only';
 import * as z from 'zod';
-import { ensureGuestTx, ensureServiceOrgTx, findVerifiedUserTx, orgByEmailDomainTx, senderOrgTx } from '../core/guests';
+import {
+  addGuestMembershipTx,
+  domainHintTx,
+  ensureGuestTx,
+  ensureServiceOrgTx,
+  finishGuestMergeTx,
+  findVerifiedUserTx,
+  guestSendersTx,
+  orgByEmailDomainTx,
+  pendingGuestMergesTx,
+  senderOrgTx,
+} from '../core/guests';
 
 // Модуль hdu, слой api: гости из писем, служебная организация, опознание отправителя по адресу и домену
 // (решения 11, 12, 15 вехи M4). Узкий файл: его берёт разбор писем в фоновом процессе.
@@ -37,4 +48,29 @@ export async function senderOrg(userId: string, lastOrgId: string | null): Promi
   if (!user.success) return null;
   const last = lastOrgId === null ? null : z.uuid().safeParse(lastOrgId);
   return senderOrgTx(user.data, last?.success ? last.data : null);
+}
+
+const uuids = z.array(z.uuid()).max(200);
+
+/** Гости среди пользователей: адрес из письма и имя. */
+export async function guestSenders(userIds: string[]): Promise<Map<string, { address: string; name: string }>> {
+  return guestSendersTx(uuids.parse([...new Set(userIds)]));
+}
+
+export async function addGuestMembership(guestUserId: string, orgId: string): Promise<void> {
+  await addGuestMembershipTx(z.uuid().parse(guestUserId), z.uuid().parse(orgId));
+}
+
+/** Организация клиента по домену адреса отправителя или null. */
+export async function domainHint(emailAddress: string): Promise<{ orgId: string; name: string } | null> {
+  const parsed = domain.safeParse(emailAddress.split('@')[1] ?? '');
+  return parsed.success ? domainHintTx(parsed.data) : null;
+}
+
+export async function pendingGuestMerges(limit: number): Promise<{ mergeId: string; guestUserId: string; userId: string }[]> {
+  return pendingGuestMergesTx(z.number().int().min(1).max(500).parse(limit));
+}
+
+export async function finishGuestMerge(mergeId: string, guestUserId: string): Promise<void> {
+  await finishGuestMergeTx(z.uuid().parse(mergeId), z.uuid().parse(guestUserId));
 }

@@ -819,7 +819,8 @@
             "snoozed": "Murojaat qoldirildi",
             "line_transferred": "Ikkinchi liniyaga o'tkazildi",
             "line_returned": "Birinchi liniyaga qaytarildi",
-            "merged": "Murojaatlar birlashtirildi"
+            "merged": "Murojaatlar birlashtirildi",
+            "bound": "Xat tashkilotga bog'landi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi"
@@ -837,6 +838,13 @@
           },
           "template": {
             "saved": "Javob shabloni saqlandi"
+          },
+          "sender": {
+            "blocked": "Manzil spam deb belgilandi"
+          },
+          "guest": {
+            "merge_recorded": "Xat yuboruvchisi manzilini tasdiqladi",
+            "merged": "Mehmon murojaatlari foydalanuvchiga o'tkazildi"
           }
         },
         "words": {
@@ -1043,6 +1051,43 @@
         "label": "Ro'yxat yonidagi murojaat",
         "empty": "Murojaatni yuqoriga va pastga strelkalar bilan tanlang: u shu yerda ochiladi.",
         "open": "To'liq ochish"
+      },
+      "unidentified": {
+        "link": "Aniqlanmaganlar ({count})",
+        "title": "Aniqlanmaganlar",
+        "intro": "Portal tanimagan manzillardan kelgan xatlar. Xatni mijoz tashkilotiga bog'lang, yuboruvchi taklif oladi. Bog'lashdan oldin u faqat murojaat raqamini olgan.",
+        "listLabel": "Tashkilotsiz xatlar",
+        "emptyTitle": "Aniqlanmagan xatlar yo'q",
+        "emptyText": "Bu yerda portal mijozlariga tegishli bo'lmagan manzillardan kelgan xatlar paydo bo'ladi.",
+        "from": "Kimdan: {address}",
+        "name": "Xatdagi ism: {name}",
+        "received": "Keldi: {time}",
+        "choose": "Bog'lash uchun ro'yxatdan xatni tanlang.",
+        "onlyNumber": "Bog'lashdan oldin yuboruvchi faqat murojaat raqamini olgan.",
+        "hint": "Manzil domeni {name} tashkilotiga tegishli.",
+        "bindHint": "{name} ga bog'lash",
+        "orgSearch": "Tashkilot: nomi yoki STIR",
+        "find": "Topish",
+        "notFound": "Tashkilot topilmadi.",
+        "results": "Topilgan tashkilotlar",
+        "bind": "Bog'lash va taklif qilish",
+        "notClient": "Bu mijoz emas",
+        "spam": "Spam",
+        "readOnly": "Rolingiz faqat ro'yxatni ko'rishga ruxsat beradi.",
+        "open": "Murojaatni ochish",
+        "done": {
+          "bound": "Xat bog'landi, yuboruvchiga taklif ketdi.",
+          "boundNoInvite": "Xat bog'landi, lekin taklif yuborilmadi. Murojaatdagi \"Yuboruvchini taklif qilish\" tugmasi bilan takrorlang.",
+          "notClient": "Murojaat yuboruvchiga xatsiz yopildi.",
+          "spam": "Murojaat yopildi, manzil spamga qo'shildi: undan keladigan keyingi xatlar murojaat bo'lmaydi."
+        },
+        "errors": {
+          "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
+          "not_found": "Xat yoki tashkilot topilmadi.",
+          "transition_refused": "Bu xat allaqachon ko'rib chiqilgan. Sahifani yangilang.",
+          "invalid_input": "Tanlangan tashkilotni tekshiring.",
+          "other": "Bo'lmadi. Yana urinib ko'ring."
+        }
       }
     },
     "ticket": {
@@ -1081,7 +1126,8 @@
         "rule": "Qoida ishladi",
         "transferred": "{actor}: ikkinchi liniyaga o'tkazildi. Sabab: {reason}. Tekshirildi: {checked}. Kerak: {needed}",
         "returned": "{actor}: birinchi liniyaga qaytarildi. {explanation}",
-        "mergedFrom": "{actor}: {number} qo'shildi"
+        "mergedFrom": "{actor}: {number} qo'shildi",
+        "bound": "{actor}: mijoz tashkilotiga bog'landi"
       },
       "dueKinds": {
         "first_response": "birinchi javob",
@@ -1169,7 +1215,8 @@
           "transferred": "Murojaat ikkinchi liniyaga o'tkazildi",
           "returned": "Murojaat birinchi liniyaga qaytarildi",
           "merged": "Murojaat takroriy sifatida yopildi",
-          "created": "Murojaat yaratildi"
+          "created": "Murojaat yaratildi",
+          "invited": "Yuboruvchiga taklif yuborildi"
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -1268,7 +1315,11 @@
         "submit": "Birlashtirish"
       },
       "mergedInto": "{number} bilan birlashtirildi",
-      "emailReview": "Xat tekshiruvda: u {address} manzilidan keldi, bu manzil mijoz manzili sifatida tasdiqlanmagan. Mijozga hech narsa ko'rsatilmadi va yuborilmadi. Xat mijozdan bo'lsa, unga murojaatda javob bering."
+      "emailReview": "Xat tekshiruvda: u {address} manzilidan keldi, bu manzil mijoz manzili sifatida tasdiqlanmagan. Mijozga hech narsa ko'rsatilmadi va yuborilmadi. Xat mijozdan bo'lsa, unga murojaatda javob bering.",
+      "senderUnconfirmed": "Yuboruvchi tasdiqlanmagan",
+      "senderUnconfirmedHint": "Xat tashkilot manzilidan keldi, lekin u odam hali portal ishtirokchisi emas. Murojaatni faqat xodimlar ko'radi.",
+      "inviteSender": "Yuboruvchini taklif qilish",
+      "undelivered": "Xat yetkazilmadi"
     },
     "playbooks": {
       "title": "Birinchi liniya eslatmalari",

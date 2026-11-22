@@ -40,7 +40,16 @@ export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type Pre
 // Скачивание вложений (задача 8).
 export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest, staffAttachmentRedirect } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
-export { type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
+export { applyGuestMerges, type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
+export {
+  bindTicket,
+  inviteSender,
+  listUnidentified,
+  markNotClient,
+  markSpam,
+  type UnidentifiedItem,
+  unidentifiedCount,
+} from './api/unidentified';
 export {
   nextInQueue,
   listThanks,

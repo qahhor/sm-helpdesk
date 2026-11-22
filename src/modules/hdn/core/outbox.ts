@@ -2,7 +2,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { type SystemActor, withActor } from '@/db/with-actor';
+import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import type { Locale } from '@/i18n/locales';
 import { enqueue } from '@/modules/hdc/api';
@@ -220,3 +220,18 @@ export async function recordDelivery(actor: SystemActor, event: DeliveryEvent): 
   });
 }
 
+
+/**
+ * Сообщения сотрудника, письмо о которых не доставлено (решение 21 вехи M4): отметка "Письмо не доставлено" в рабочем
+ * месте. Читает сотрудник под своим актором: строки очереди клиенту не видны.
+ */
+export async function undeliveredMessages(actor: StaffActor, messageIds: string[]): Promise<Set<string>> {
+  if (messageIds.length === 0) return new Set();
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .selectDistinct({ messageId: outbox.messageId })
+      .from(outbox)
+      .where(and(inArray(outbox.messageId, messageIds.slice(0, 500)), eq(outbox.status, 'failed'), eq(outbox.channel, 'email'))),
+  );
+  return new Set(rows.map((r) => r.messageId).filter((id): id is string => id !== null));
+}

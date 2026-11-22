@@ -1,5 +1,7 @@
 import 'server-only';
 import { findOrgIds, findUserIds, listAssignableStaff, namesOf, type OrgSummary, orgSummaries, type StaffContext, verifiedEmails } from '@/modules/hdu/api';
+import { guestSenders, SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
+import { undeliveredMessages } from '@/modules/hdn/api/outbox';
 import { isActiveModule } from '@/modules/hdr/api';
 import { loadSlaConfig } from '@/modules/hdr/api';
 import { calendarFor, type SlaPhase, slaPhase } from '../core/sla';
@@ -137,6 +139,8 @@ export type AgentTimelineEntry =
       createdOn: Date;
       attachments: AgentFileView[];
       isNew: boolean;
+      /** Письмо клиенту об этом ответе не доставлено (решение 21 вехи M4). */
+      undelivered: boolean;
     }
   | { type: 'event'; id: string; kind: EventKind; payload: Record<string, unknown>; actorName: string | null; isInternal: boolean; createdOn: Date; isNew: boolean };
 
@@ -157,6 +161,10 @@ export type AgentTicketView = {
   moduleId: string | null;
   createdOn: Date;
   author: { id: string; name: string | null; email: string | null };
+  /** Письмо с адреса организации без подтверждения отправителя (решение 15 вехи M4). */
+  senderUnconfirmed: boolean;
+  /** Автор пока гость из письма: его можно пригласить в организацию обращения (решение 13 вехи M4). */
+  guestSender: { address: string } | null;
   assignee: { id: string; name: string | null } | null;
   org: OrgSummary | null;
   sla: { firstResponseDueOn: Date | null; resolutionDueOn: Date | null; firstRespondedOn: Date | null; pausedSince: Date | null; phase: SlaPhase; minutesLeft: number | null };
@@ -188,12 +196,18 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
   const people = [ticket.authorId, ticket.assigneeId, ...found.messages.map((m) => m.authorId), ...found.events.map((e) => e.actorId)].filter(
     (id): id is string => id !== null,
   );
-  const [names, orgs, emails, config] = await Promise.all([
+  const [names, orgs, emails, config, guests, undelivered] = await Promise.all([
     namesOf(ctx.actor, people),
     orgSummaries(ctx, [ticket.orgId]),
     verifiedEmails(ctx, [ticket.authorId]),
     loadSlaConfig(ctx.actor),
+    guestSenders([ticket.authorId]),
+    undeliveredMessages(
+      ctx.actor,
+      found.messages.filter((m) => m.authorType === 'staff' && !m.isInternal).map((m) => m.messageId),
+    ),
   ]);
+  const guest = guests.get(ticket.authorId);
   const isNew = (at: Date) => seenOn !== null && at.getTime() > seenOn.getTime();
   const fileView = (a: (typeof found.attachments)[number]): AgentFileView => ({
     attachmentId: a.attachmentId,
@@ -222,6 +236,7 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
         createdOn: m.createdOn,
         attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),
         isNew: isNew(m.createdOn),
+        undelivered: undelivered.has(m.messageId),
       }),
     ),
     ...found.events
@@ -255,7 +270,9 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
     locale: ticket.locale,
     moduleId: ticket.moduleId,
     createdOn: ticket.createdOn,
-    author: { id: ticket.authorId, name: names.get(ticket.authorId) ?? null, email: emails.get(ticket.authorId) ?? null },
+    author: { id: ticket.authorId, name: names.get(ticket.authorId) ?? null, email: emails.get(ticket.authorId) ?? guest?.address ?? null },
+    senderUnconfirmed: ticket.senderUnconfirmed,
+    guestSender: guest && ticket.orgId !== SERVICE_ORG_ID ? { address: guest.address } : null,
     assignee: ticket.assigneeId ? { id: ticket.assigneeId, name: names.get(ticket.assigneeId) ?? null } : null,
     org: orgs.get(ticket.orgId) ?? null,
     sla: {

@@ -7,6 +7,7 @@ import { authUser } from '../auth-schema';
 import { EMAIL_TOKEN_TTL_SEC } from '../pref';
 import { emailTokens, memberships } from '../schema';
 import { signInMemberships } from './access';
+import { recordGuestMergesTx } from './guests';
 import { newToken } from '../tokens';
 
 // Модуль hdu, слой core: адрес email клиента (FR-ID-06, FR-ID-07, решение 0016).
@@ -91,6 +92,8 @@ export async function confirmEmailToken(tokenHash: string, userId: string, ip?: 
         .set({ email: row.email, emailVerified: true, claimedEmail: null, updatedAt: sql`now()` })
         .where(eq(authUser.id, row.userId));
       await writeAudit(tx, { action: 'user.email_confirmed', objectType: 'user', objectId: row.userId });
+      // Адрес подтверждён: обращения гостя, писавшего с этого адреса, перейдут пользователю (решение 13 вехи M4).
+      await recordGuestMergesTx(tx, row.email, row.userId);
       return 'ok';
     });
   } catch (error) {

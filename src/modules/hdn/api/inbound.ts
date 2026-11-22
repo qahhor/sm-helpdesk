@@ -11,6 +11,7 @@ import { getEmailProvider, type InboundAttachment, type InboundContent, parseMai
 export { classifyAuto } from '../inbound/classify';
 export { cleanSubject, emailToText, SUBJECT_MAX } from '../inbound/email-text';
 export {
+  blockSenderTx,
   findThreadTicket,
   type InboundRow,
   isBlocked,

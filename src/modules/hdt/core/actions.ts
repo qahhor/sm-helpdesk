@@ -2,9 +2,9 @@ import 'server-only';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
-import { writeAudit } from '@/modules/hdc/api';
+import { readSetting, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
-import { ATTACHABLE_SCAN_STATUSES, canTransition, type CsatReason, type TicketStatus, type Visibility } from '../pref';
+import { ATTACHABLE_SCAN_STATUSES, canTransition, type CsatReason, REOPEN_DAYS_DEFAULT, REOPEN_DAYS_SETTING, type TicketStatus, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { isThanks } from './thanks';
 import { notifyTicketTx } from './notify';
@@ -108,6 +108,12 @@ export async function replyTx(actor: ClientActor, number: number, body: string, 
     await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'client_reply', actorUserId: actor.userId });
     return ticket.ticketId;
   });
+}
+
+/** Срок повторного открытия, дней: настройка tickets.reopen_days, иначе 14 (FR-TK-12). */
+export async function reopenDays(): Promise<number> {
+  const value = await readSetting(REOPEN_DAYS_SETTING);
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 365 ? value : REOPEN_DAYS_DEFAULT;
 }
 
 /** "Решение подошло": resolved → closed (FR-TK-10). */

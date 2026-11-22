@@ -1,9 +1,9 @@
 import 'server-only';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { withIdentity } from '@/db/with-identity';
 import type { Locale } from '@/i18n/locales';
 import { authUser } from '../auth-schema';
-import { memberships, organizations, staff } from '../schema';
+import { memberships, organizations, servers, staff } from '../schema';
 
 // Модуль hdu, слой core: куда отправить письмо пользователю (решение 2 вехи M4). Адрес берётся в момент отправки:
 // сменённый или обезличенный адрес писем не получает. Письмо уходит только на подтверждённый адрес; у гостя
@@ -64,4 +64,31 @@ export async function adminIdsTx(): Promise<string[]> {
 export async function organizationNameTx(orgId: string): Promise<string | null> {
   const rows = await withIdentity(SYSTEM, (tx) => tx.select({ name: organizations.name }).from(organizations).where(eq(organizations.orgId, orgId)).limit(1));
   return rows[0]?.name ?? null;
+}
+
+/**
+ * Роль, с которой ответ из письма публикуется от имени пользователя (решение 16 вехи M4): членство действующее,
+ * организация действующая, пользователь не сотрудник. Обычному участнику нужен и действующий сервер Smartup, как при
+ * входе (signInMembership); гость входа не имеет, у него сервера нет, его ответ принимается по членству guest.
+ */
+export async function replyRoleTx(userId: string, orgId: string): Promise<'client_user' | 'client_admin' | null> {
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ role: memberships.role })
+      .from(memberships)
+      .innerJoin(organizations, eq(organizations.orgId, memberships.orgId))
+      .leftJoin(servers, eq(servers.serverId, organizations.serverId))
+      .where(
+        and(
+          eq(memberships.userId, userId),
+          eq(memberships.orgId, orgId),
+          eq(memberships.state, 'active'),
+          eq(organizations.state, 'active'),
+          or(eq(memberships.source, 'guest'), eq(servers.state, 'active')),
+          sql`not exists (select 1 from ${staff} where ${staff.userId} = ${memberships.userId})`,
+        ),
+      )
+      .limit(1),
+  );
+  return rows[0]?.role ?? null;
 }

@@ -86,7 +86,7 @@ test('задача проверки доходит до scanAttachment и не �
   try {
     const ctx = await clientCtx(f.aUser);
     const { attachmentId } = await presignUpload(ctx, { fileName: 'Секретный отчёт клиента.png', size: PNG.byteLength, mime: 'image/png' });
-    storage.put(`quarantine/${attachmentId}`, PNG);
+    storage.seed(`quarantine/${attachmentId}`, PNG);
     expect(await completeUpload(ctx, attachmentId)).toEqual({ status: 'pending' });
     await waitFor(async () => (await statusOf(attachmentId)) === 'clean');
     const stored = await pools.root.query(`select data from pgboss.job where name = 'attachment.scan'`);
@@ -149,7 +149,7 @@ test('файл pending старше двух минут без задачи сн
   const ctx = await clientCtx(f.aUser);
   const presign = async (withObject: boolean) => {
     const { attachmentId } = await presignUpload(ctx, { fileName: 'shot.png', size: PNG.byteLength, mime: 'image/png' });
-    if (withObject) storage.put(`quarantine/${attachmentId}`, PNG);
+    if (withObject) storage.seed(`quarantine/${attachmentId}`, PNG);
     return attachmentId;
   };
   const stale = await presign(true);
@@ -173,7 +173,7 @@ test('проверка, которая не проходит больше сут
   setJobQueueForTests(jobs);
   const ctx = await clientCtx(f.aUser);
   const { attachmentId } = await presignUpload(ctx, { fileName: 'archive.zip', size: PNG.byteLength, mime: 'application/zip' });
-  storage.put(`quarantine/${attachmentId}`, PNG);
+  storage.seed(`quarantine/${attachmentId}`, PNG);
   // Файл уже прикреплён к обращению: обход загрузок его не удалит, а проверка всё время срывается.
   await createTicket(ctx, { description: 'С архивом', type: 'bug', impact: 'minor', locale: 'ru', attachmentIds: [attachmentId] });
   // Создание обращения будит отправку письма с номером (веха M4): здесь важны только задачи проверки файла.
@@ -236,7 +236,7 @@ test('неприкреплённая загрузка старше суток у
   const ctx = await clientCtx(f.aUser);
   const upload = async () => {
     const { attachmentId } = await presignUpload(ctx, { fileName: 'shot.png', size: PNG.byteLength, mime: 'image/png' });
-    storage.put(`quarantine/${attachmentId}`, PNG);
+    storage.seed(`quarantine/${attachmentId}`, PNG);
     return attachmentId;
   };
   const old = await upload();

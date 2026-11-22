@@ -96,7 +96,7 @@ test('загрузка завершена: размер не совпал с з�
   const f = await seedTwoOrgs();
   const ctx = await clientCtx(f.aUser);
   const short = await presignUpload(ctx, { fileName: 'shot.png', size: 2048, mime: 'image/png' });
-  storage.put(`quarantine/${short.attachmentId}`, new Uint8Array(1000));
+  storage.seed(`quarantine/${short.attachmentId}`, new Uint8Array(1000));
   expect(await completeUpload(ctx, short.attachmentId)).toEqual({ status: 'rejected' });
   expect((await row(short.attachmentId)).scan_status).toBe('rejected');
   expect(storage.has(`quarantine/${short.attachmentId}`)).toBe(false);
@@ -114,7 +114,7 @@ test('загрузка завершена: размер не совпал с з�
   });
   // Размер совпал: файл остаётся в карантине, ставится задача проверки.
   const good = await presignUpload(ctx, { fileName: 'shot.png', size: 2048, mime: 'image/png' });
-  storage.put(`quarantine/${good.attachmentId}`, new Uint8Array(2048));
+  storage.seed(`quarantine/${good.attachmentId}`, new Uint8Array(2048));
   expect(await completeUpload(ctx, good.attachmentId)).toEqual({ status: 'pending' });
   expect(storage.has(`quarantine/${good.attachmentId}`)).toBe(true);
   expect(jobs.sent).toEqual([{ name: 'attachment.scan', data: { attachmentId: good.attachmentId } }]);
@@ -127,7 +127,7 @@ test('завершение загрузки смотрит только в ка�
   const upload = await presignUpload(ctx, { fileName: 'shot.png', size: 2048, mime: 'image/png' });
   // Строку испортили в обход портала (суперпользователь): ключ указывает на чужой проверенный файл.
   const victim = `files/${f.orgA.orgId}/0192d2a4-0000-7000-8000-00000000beef`;
-  storage.put(victim, new Uint8Array(10));
+  storage.seed(victim, new Uint8Array(10));
   await pools.root.query(`update hdt_attachments set storage_key = $2 where attachment_id = $1`, [upload.attachmentId, victim]);
   expect(await completeUpload(ctx, upload.attachmentId)).toEqual({ status: 'rejected' });
   expect(storage.has(victim)).toBe(true);
@@ -142,7 +142,7 @@ test('очередь недоступна: загрузка завершаетс
   console.error = (...args: unknown[]) => void errors.push(args.join(' '));
   try {
     const { attachmentId } = await presignUpload(ctx, { fileName: 'shot.png', size: 4, mime: 'image/png' });
-    storage.put(`quarantine/${attachmentId}`, new Uint8Array(4));
+    storage.seed(`quarantine/${attachmentId}`, new Uint8Array(4));
     expect(await completeUpload(ctx, attachmentId)).toEqual({ status: 'pending' });
     expect(errors.join('\n')).toMatch(/attachment\.scan/);
     expect(errors.join('\n')).not.toMatch(/shot\.png/);
@@ -170,7 +170,7 @@ test('форма, открытая дольше суток: файл уже уд
 test('чужую загрузку завершить нельзя, неприкреплённая видна только загрузившему', async () => {
   const f = await seedTwoOrgs();
   const mine = await presignUpload(await clientCtx(f.aUser), { fileName: 'shot.png', size: 4, mime: 'image/png' });
-  storage.put(`quarantine/${mine.attachmentId}`, new Uint8Array(4));
+  storage.seed(`quarantine/${mine.attachmentId}`, new Uint8Array(4));
   for (const member of [f.aAdmin, f.bUser])
     await expect(completeUpload(await clientCtx(member), mine.attachmentId)).rejects.toMatchObject({ code: 'not_found' });
   await expect(completeUpload(await clientCtx(f.aUser), 'не идентификатор')).rejects.toMatchObject({ code: 'invalid_input' });
@@ -187,7 +187,7 @@ test('завершение загрузки ограничено по часто
   const f = await seedTwoOrgs();
   const ctx = await clientCtx(f.aUser);
   const { attachmentId } = await presignUpload(ctx, { fileName: 'shot.png', size: 4, mime: 'image/png' });
-  storage.put(`quarantine/${attachmentId}`, new Uint8Array(4));
+  storage.seed(`quarantine/${attachmentId}`, new Uint8Array(4));
   for (let i = 0; i < RATE_RULES.uploadCompletePerUser.limit; i++) await completeUpload(ctx, attachmentId);
   await expect(completeUpload(ctx, attachmentId)).rejects.toMatchObject({ code: 'rate_limited' });
   expect(RATE_RULES.uploadCompletePerUser.limit).toBeGreaterThanOrEqual(2 * RATE_RULES.uploadPresignPerUser.limit);
@@ -201,7 +201,7 @@ test('сотрудник загружает файл, файл проверяе�
   expect(url).toContain(`quarantine/${attachmentId}`);
   // Организация берётся из обращения, загрузивший из сессии; до ответа файл ни к чему не прикреплён.
   expect(await row(attachmentId)).toMatchObject({ org_id: f.orgA.orgId, ticket_id: null, uploader_id: f.l1.userId, scan_status: 'pending', storage_key: `quarantine/${attachmentId}` });
-  storage.put(`quarantine/${attachmentId}`, new Uint8Array(12));
+  storage.seed(`quarantine/${attachmentId}`, new Uint8Array(12));
   expect(await completeStaffUpload(l1, attachmentId)).toEqual({ status: 'pending' });
   expect(jobs.sent).toEqual([{ name: 'attachment.scan', data: { attachmentId } }]);
   // Те же ограничения, что у клиента: тип, размер, чужая загрузка, неизвестное обращение, роль product.
@@ -212,6 +212,6 @@ test('сотрудник загружает файл, файл проверяе�
   await expect(presignStaffUpload(product, { number: t.number, fileName: 'a.txt', size: 10 })).rejects.toMatchObject({ code: 'forbidden' });
   // Размер не совпал: отклонено, как у клиента.
   const short = await presignStaffUpload(l1, { number: t.number, fileName: 'shot.png', size: 2048, mime: 'image/png' });
-  storage.put(`quarantine/${short.attachmentId}`, new Uint8Array(10));
+  storage.seed(`quarantine/${short.attachmentId}`, new Uint8Array(10));
   expect(await completeStaffUpload(l1, short.attachmentId)).toEqual({ status: 'rejected' });
 });

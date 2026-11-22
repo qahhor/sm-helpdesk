@@ -119,6 +119,9 @@ export function createLocalStorage(opts: LocalOptions): LocalStorage {
     async remove(key) {
       await rm(pathOf(key), { force: true });
     },
+    async put(key, body) {
+      await this.write(key, body);
+    },
     async write(key, bytes) {
       const target = pathOf(key);
       await mkdir(dirname(target), { recursive: true });

@@ -6,6 +6,7 @@ import { bossOptions, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQue
 import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { dispatchOutbox } from '@/modules/hdn/api/outbox';
+import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
@@ -24,6 +25,7 @@ export const SCHEDULES = [
 ] as const;
 
 const scanJob = z.object({ attachmentId: z.uuid() }).strict();
+const inboundJob = z.object({ inboundId: z.uuid() }).strict();
 const actor = (job: string): SystemActor => ({ type: 'system', job });
 
 /**
@@ -73,6 +75,11 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
       if (isHdtError(error) && error.code === 'not_found') return;
       throw error;
     }
+  });
+  await boss.work('email.inbound', polling, async ([job]) => {
+    // В задаче только идентификатор письма: сведения о нём в базе, текст и файлы у почтового сервиса.
+    const { inboundId } = inboundJob.parse(job?.data);
+    await intakeEmail(actor('email.inbound'), inboundId);
   });
   await boss.work('attachment.sweep', polling, async () => {
     const { requeued, removed, failed } = await sweepAttachments(actor('attachment.sweep'));

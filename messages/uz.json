@@ -1267,7 +1267,8 @@
         "into": "Asosiy murojaat raqami",
         "submit": "Birlashtirish"
       },
-      "mergedInto": "{number} bilan birlashtirildi"
+      "mergedInto": "{number} bilan birlashtirildi",
+      "emailReview": "Xat tekshiruvda: u {address} manzilidan keldi, bu manzil mijoz manzili sifatida tasdiqlanmagan. Mijozga hech narsa ko'rsatilmadi va yuborilmadi. Xat mijozdan bo'lsa, unga murojaatda javob bering."
     },
     "playbooks": {
       "title": "Birinchi liniya eslatmalari",

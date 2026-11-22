@@ -1267,7 +1267,8 @@
         "into": "Main ticket number",
         "submit": "Merge"
       },
-      "mergedInto": "Merged with {number}"
+      "mergedInto": "Merged with {number}",
+      "emailReview": "Email under review: it came from {address}, and this address is not confirmed as the client address. Nothing was shown or sent to the client. If the email is from the client, reply in the request."
     },
     "playbooks": {
       "title": "First-line playbooks",

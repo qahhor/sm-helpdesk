@@ -13,9 +13,14 @@ export class MemoryStorage implements Storage {
   readonly presigned: { key: string; mime: string; size: number }[] = [];
 
   /** Файл, который "загрузил браузер". */
-  put(key: string, bytes: Uint8Array): void {
+  seed(key: string, bytes: Uint8Array): void {
     this.objects.set(assertKey(key), bytes);
     this.versions.set(key, ++this.version);
+  }
+
+  async put(key: string, body: Uint8Array, contentType: string): Promise<void> {
+    this.seed(key, body);
+    this.contentTypes.set(key, contentType);
   }
 
   has(key: string): boolean {
@@ -41,7 +46,7 @@ export class MemoryStorage implements Storage {
     const bytes = this.objects.get(fromKey);
     if (!bytes) throw new Error('хранилище: объекта нет');
     if (ifMatch !== undefined && ifMatch !== String(this.versions.get(fromKey))) throw new Error('хранилище: объект изменился после чтения');
-    this.put(toKey, bytes);
+    this.seed(toKey, bytes);
     this.contentTypes.set(toKey, contentType);
     this.objects.delete(fromKey);
     this.versions.delete(fromKey);

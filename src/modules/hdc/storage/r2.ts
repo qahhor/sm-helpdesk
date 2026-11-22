@@ -34,9 +34,10 @@ export function createR2Storage(opts: R2Options): Storage {
       allHeaders: signQuery,
     }).sign();
 
-  async function call(method: string, key: string, headers: Record<string, string> = {}): Promise<Response> {
+  async function call(method: string, key: string, headers: Record<string, string> = {}, body?: Uint8Array): Promise<Response> {
     const signed = await sign(method, urlOf(key), headers, false);
-    return send(signed.url, { method, headers: signed.headers });
+    // Копия в собственном ArrayBuffer: тело fetch не принимает представление общей памяти.
+    return send(signed.url, { method, headers: signed.headers, ...(body ? { body: new Uint8Array(body) } : {}) });
   }
 
   async function fail(op: string, response: Response): Promise<never> {
@@ -94,6 +95,12 @@ export function createR2Storage(opts: R2Options): Storage {
         throw new Error('хранилище R2: ответ без ETag');
       }
       return { body: response.body, etag };
+    },
+
+    async put(key, body, contentType) {
+      const response = await call('PUT', key, { 'Content-Type': contentType, 'Content-Length': String(body.byteLength) }, body);
+      if (!response.ok) return fail('PUT', response);
+      await response.body?.cancel().catch(() => {});
     },
 
     async remove(key) {

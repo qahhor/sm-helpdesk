@@ -139,3 +139,19 @@ test('без метки ETag чтение отказывает: перенос �
   await make(fetchImpl).move('quarantine/x', 'files/o/x', { contentType: 'text/plain', ifMatch: '' });
   expect(headers[0]).toBe('');
 });
+
+test('запись файла порталом: подписанный PUT с типом и размером, ошибка бакета бросает исключение', async () => {
+  const fetchImpl = vi.fn(async () => new Response(null, { status: 200 }));
+  await make(fetchImpl as unknown as typeof fetch).put('quarantine/0192-a', new Uint8Array([1, 2, 3]), 'image/png');
+  const [url, init] = fetchImpl.mock.calls[0] as unknown as [URL | string, RequestInit];
+  expect(String(url)).toBe('https://acct.r2.cloudflarestorage.com/hub/quarantine/0192-a');
+  expect(init.method).toBe('PUT');
+  const headers = new Headers(init.headers);
+  expect(headers.get('content-type')).toBe('image/png');
+  expect(headers.get('content-length')).toBe('3');
+  expect(headers.get('authorization')).toMatch(/^AWS4-HMAC-SHA256 Credential=AKID\//);
+  expect(init.body).toEqual(new Uint8Array([1, 2, 3]));
+  const failing = vi.fn(async () => new Response('denied', { status: 403 }));
+  await expect(make(failing as unknown as typeof fetch).put('quarantine/0192-a', new Uint8Array([1]), 'image/png')).rejects.toThrow('PUT ответило 403');
+  await expect(make().put('../etc/passwd', new Uint8Array([1]), 'text/plain')).rejects.toThrow('недопустимый ключ');
+});

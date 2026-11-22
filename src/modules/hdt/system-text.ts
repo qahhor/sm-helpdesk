@@ -16,3 +16,11 @@ export function systemText(locale: string, key: SystemTextKey): string {
   const lang: Locale = locale === 'uz' || locale === 'en' ? locale : 'ru';
   return createTranslator({ locale: lang, messages: MESSAGES[lang], namespace: 'client.tickets.system' })(key);
 }
+
+export type StaffSystemTextKey = 'emailReview';
+
+/** Внутренняя заметка системы для сотрудника (пространство agent.ticket) на языке обращения. */
+export function staffSystemText(locale: string, key: StaffSystemTextKey, values: Record<string, string>): string {
+  const lang: Locale = locale === 'uz' || locale === 'en' ? locale : 'ru';
+  return createTranslator({ locale: lang, messages: MESSAGES[lang], namespace: 'agent.ticket' })(key, values);
+}

@@ -1,6 +1,6 @@
 import 'server-only';
 import * as z from 'zod';
-import { adminIdsTx, lineLeadsTx, type MailRecipient, mailRecipientTx, organizationNameTx } from '../core/recipients';
+import { adminIdsTx, lineLeadsTx, type MailRecipient, mailRecipientTx, organizationNameTx, replyRoleTx } from '../core/recipients';
 
 // Модуль hdu, слой api: адрес для письма пользователю (решение 2 вехи M4), руководители линии, администраторы
 // и название организации для уведомлений (решения 7 и 8). Узкий файл: его берёт фоновый
@@ -24,4 +24,11 @@ export function adminIds(): Promise<string[]> {
 export async function organizationName(orgId: string): Promise<string | null> {
   const id = z.uuid().safeParse(orgId);
   return id.success ? organizationNameTx(id.data) : null;
+}
+
+/** Роль пользователя для ответа из письма в обращение этой организации или null (решение 16 вехи M4). */
+export async function replyRole(userId: string, orgId: string): Promise<'client_user' | 'client_admin' | null> {
+  const user = z.uuid().safeParse(userId);
+  const org = z.uuid().safeParse(orgId);
+  return user.success && org.success ? replyRoleTx(user.data, org.data) : null;
 }

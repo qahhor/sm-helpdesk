@@ -1,5 +1,5 @@
 import 'server-only';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { parseMailbox, type ReceivedEvent } from '../provider';
@@ -40,6 +40,28 @@ export async function recordInbound(actor: SystemActor, event: ReceivedEvent): P
     if (!existing[0]) throw new Error('входящее письмо: строка не найдена');
     return { inboundId: existing[0].inboundId, created: false };
   });
+}
+
+/** Письмо с блокировкой строки: два разбора одного письма идут друг за другом, второй видит отметку разбора. */
+export async function lockInboundTx(tx: Tx, inboundId: string): Promise<InboundRow | null> {
+  const rows = await tx.select().from(emailInbound).where(eq(emailInbound.inboundId, inboundId)).limit(1).for('update');
+  return rows[0] ?? null;
+}
+
+/**
+ * То же письмо (Message-ID), уже разобранное под другой строкой: письмо пришло на два адреса поддержки, и сервис
+ * прислал два события. Блокировка по Message-ID до конца транзакции: два таких разбора идут друг за другом.
+ */
+export async function processedTwinTx(tx: Tx, row: InboundRow): Promise<{ classification: InboundClass; ticketId: string | null } | null> {
+  if (!row.messageId) return null;
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`inbound-message:${row.messageId}`}))`);
+  const rows = await tx
+    .select({ classification: emailInbound.classification, ticketId: emailInbound.ticketId })
+    .from(emailInbound)
+    .where(and(eq(emailInbound.messageId, row.messageId), ne(emailInbound.inboundId, row.inboundId), isNotNull(emailInbound.processedOn)))
+    .limit(1);
+  const twin = rows[0];
+  return twin ? { classification: twin.classification ?? 'ignored', ticketId: twin.ticketId } : null;
 }
 
 export async function loadInbound(actor: SystemActor, inboundId: string): Promise<InboundRow | null> {

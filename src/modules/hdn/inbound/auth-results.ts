@@ -21,3 +21,16 @@ export function dmarcAligned(headers: [string, string][], fromAddress: string, a
   }
   return false;
 }
+
+let override: string | null | undefined;
+
+/** Тесты задают идентификатор сервиса приёма (null: не задан, undefined: из окружения). */
+export function setInboundAuthservForTests(value: string | null | undefined): void {
+  override = value;
+}
+
+/** Идентификатор сервиса приёма из окружения или из теста. */
+export function inboundAuthservOf(env: { INBOUND_AUTHSERV_ID?: string }): string | undefined {
+  if (override !== undefined) return override ?? undefined;
+  return env.INBOUND_AUTHSERV_ID;
+}

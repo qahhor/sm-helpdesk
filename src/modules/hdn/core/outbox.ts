@@ -133,7 +133,7 @@ export async function dispatchOutbox(
   actor: SystemActor,
   now: Date,
   provider?: EmailProvider,
-  oncall: OncallSender | null = null,
+  oncall?: OncallSender | null,
 ): Promise<{ sent: number; failed: number; skipped: number }> {
   const claimed = await withActor(actor, async (tx) => {
     const rows = await tx
@@ -153,10 +153,12 @@ export async function dispatchOutbox(
   const result = { sent: 0, failed: 0, skipped: 0 };
   if (claimed.length === 0) return result;
   const email = provider ?? (await getEmailProvider());
+  // Бот и чат дежурных берутся из настроек в момент отправки (решение 8), только если в пачке есть такие строки.
+  const telegram = oncall !== undefined ? oncall : claimed.some((r) => r.channel === 'telegram') ? await (await import('./oncall')).oncallSender() : null;
   for (const row of claimed) {
     let outcome: Outcome;
     try {
-      outcome = await deliver(row, email, oncall);
+      outcome = await deliver(row, email, telegram);
     } catch (error) {
       outcome = { kind: 'error', error: errorCode(error) };
     }

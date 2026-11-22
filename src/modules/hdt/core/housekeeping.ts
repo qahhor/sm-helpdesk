@@ -3,6 +3,9 @@ import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql 
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { readSetting, writeAudit } from '@/modules/hdc/api';
+import { notifyTx } from '@/modules/hdn/api/notifications';
+import { enqueueTx } from '@/modules/hdn/api/outbox';
+import { adminIds, lineLeads } from '@/modules/hdu/api/recipients';
 import { readSlaConfig } from '@/modules/hdr/api';
 import {
   AUTOCLOSE_RESOLVED_SETTING,
@@ -12,6 +15,7 @@ import {
   DAY_SETTINGS_DEFAULT,
   SWEEP_BATCH,
   type TicketStatus,
+  UPDATE_DUE_SETTING,
   WAITING_REMINDER_SETTING,
 } from '../pref';
 import { ticketEvents, ticketMessages, ticketPresence, tickets } from '../schema';
@@ -25,7 +29,15 @@ import { needsSlaRefreshTx, refreshSla } from './sla';
 // одни строки. Условия от момента now, отметки однократные: повторный запуск ничего не дублирует, отставший процесс
 // догоняет всё сразу.
 
-export type MinuteResult = { breached: number; unsnoozed: number; closed: number; refreshed: number; presenceRemoved: number; reminded: number };
+export type MinuteResult = {
+  breached: number;
+  unsnoozed: number;
+  closed: number;
+  refreshed: number;
+  presenceRemoved: number;
+  reminded: number;
+  updateDue: number;
+};
 
 const SETTLED: TicketStatus[] = ['resolved', 'closed'];
 const DAY_MS = 86_400_000;
@@ -49,9 +61,10 @@ async function refreshStale(actor: SystemActor, now: Date): Promise<number> {
 
 /** Нарушение срока отмечается один раз колонкой и внутренним событием "срок нарушен" (решение 8). */
 async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
+  const leads = { l1: await lineLeads('l1'), l2: await lineLeads('l2') };
   return withActor(actor, async (tx) => {
     const first = await tx
-      .select({ ticketId: tickets.ticketId, orgId: tickets.orgId })
+      .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, queue: tickets.queue })
       .from(tickets)
       .where(
         and(
@@ -66,7 +79,7 @@ async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
       .for('update', { skipLocked: true });
     // На паузе срок решения не нарушается: при выходе из паузы он сдвинется.
     const resolution = await tx
-      .select({ ticketId: tickets.ticketId, orgId: tickets.orgId })
+      .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, queue: tickets.queue })
       .from(tickets)
       .where(and(isNull(tickets.resolutionBreachedOn), lt(tickets.resolutionDueOn, now), isNull(tickets.slaPausedOn), notInArray(tickets.status, SETTLED)))
       .orderBy(asc(tickets.resolutionDueOn))
@@ -81,6 +94,13 @@ async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
       ...resolution.map((t) => ({ ...t, kind: 'resolution' })),
     ].map((t) => ({ orgId: t.orgId, ticketId: t.ticketId, kind: 'due' as const, actorType: 'system' as const, payload: { kind: t.kind }, isInternal: true }));
     if (events.length > 0) await tx.insert(ticketEvents).values(events);
+    // Руководителям линии обращения (FR-SLA-06, решение 7 вехи M4): одно уведомление на нарушение.
+    for (const [list, breach] of [
+      [first, 'first_response'],
+      [resolution, 'resolution'],
+    ] as const)
+      for (const t of list)
+        await notifyTicketTx(tx, { ticketId: t.ticketId, kind: 'sla_breach', actorUserId: null, breach, leads: t.queue === 'l1' ? leads.l1 : leads.l2 });
     return events.length;
   });
 }
@@ -99,6 +119,7 @@ async function returnSnoozed(actor: SystemActor, now: Date): Promise<number> {
     await tx.insert(ticketEvents).values(
       due.map((t) => ({ orgId: t.orgId, ticketId: t.ticketId, kind: 'snooze' as const, actorType: 'system' as const, payload: { until: null, returned: true }, isInternal: true })),
     );
+    for (const t of due) await notifyTicketTx(tx, { ticketId: t.ticketId, kind: 'snooze_returned', actorUserId: null });
     return due.length;
   });
 }
@@ -195,6 +216,71 @@ async function remindWaiting(actor: SystemActor, now: Date): Promise<number> {
   });
 }
 
+/**
+ * Регулярное обновление (FR-SLA-09): клиент получает сообщение сотрудника по обращению "В разработке" не реже
+ * раза в N рабочих дней (настройка, по умолчанию 5). За рабочий день до срока исполнитель получает напоминание,
+ * одно за период. Начало периода: последний публичный ответ сотрудника или переход в "В разработке".
+ */
+async function remindUpdates(actor: SystemActor, now: Date): Promise<number> {
+  const days = await daySetting(UPDATE_DUE_SETTING);
+  return withActor(actor, async (tx) => {
+    const calendar = (await readSlaConfig(tx)).calendar;
+    const result = await tx.execute<{ ticket_id: string; since: Date | string; reminded: Date | string | null }>(sql`
+      select t.ticket_id, t.update_reminded_on as reminded, greatest(
+        coalesce((select max(m.created_on) from hdt_ticket_messages m
+                   where m.ticket_id = t.ticket_id and m.author_type = 'staff' and not m.is_internal), t.created_on),
+        coalesce((select max(e.created_on) from hdt_ticket_events e
+                   where e.ticket_id = t.ticket_id and e.kind = 'status' and e.payload ->> 'to' = 'in_development'), t.created_on)
+      ) as since
+        from hdt_tickets t
+       where t.status = 'in_development' and t.assignee_id is not null
+       order by t.ticket_id
+       limit ${SWEEP_BATCH}
+         for update of t skip locked`);
+    let reminded = 0;
+    for (const row of result.rows) {
+      const since = new Date(row.since);
+      if (row.reminded && new Date(row.reminded).getTime() >= since.getTime()) continue;
+      if (addWorkingDays(since, Math.max(days - 1, 0), calendar).getTime() > now.getTime()) continue;
+      await tx.update(tickets).set({ updateRemindedOn: now }).where(eq(tickets.ticketId, row.ticket_id));
+      await notifyTicketTx(tx, { ticketId: row.ticket_id, kind: 'update_due', actorUserId: null });
+      reminded++;
+    }
+    return reminded;
+  });
+}
+
+/**
+ * Праздники следующего года (FR-SLA-12): с 1 декабря по Ташкенту, если список следующего года пуст, администраторам
+ * уведомление и письмо. Одно напоминание на год: уже отправленное видно по уведомлению с этим годом.
+ */
+export async function holidaysReminderTx(actor: SystemActor, now: Date): Promise<number> {
+  const local = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent', year: 'numeric', month: '2-digit' }).formatToParts(now);
+  const year = Number(local.find((p) => p.type === 'year')?.value);
+  const month = Number(local.find((p) => p.type === 'month')?.value);
+  if (month !== 12) return 0;
+  const next = year + 1;
+  const admins = await adminIds();
+  if (admins.length === 0) return 0;
+  return withActor(actor, async (tx) => {
+    const calendar = (await readSlaConfig(tx)).calendar;
+    if (calendar.holidays.some((day) => day.startsWith(`${next}-`))) return 0;
+    const sent = await tx.execute(sql`select 1 from hdn_notifications where kind = 'holidays_reminder' and payload ->> 'year' = ${String(next)} limit 1`);
+    if (sent.rows.length > 0) return 0;
+    for (const userId of admins) {
+      await notifyTx(tx, { userId, kind: 'holidays_reminder', payload: { year: next } });
+      await enqueueTx(tx, {
+        channel: 'email',
+        recipient: { kind: 'user', userId },
+        template: 'holidays_reminder',
+        payload: { template: 'holidays_reminder', year: next, url: '/agent/settings/sla' },
+        locale: 'ru',
+      });
+    }
+    return admins.length;
+  });
+}
+
 /** Отметки присутствия с истёкшим сроком (10.5: строки старше минуты удаляет фоновая задача). */
 async function removePresence(actor: SystemActor, now: Date): Promise<number> {
   return withActor(actor, async (tx) => {
@@ -221,7 +307,9 @@ export async function ticketsMinuteTx(actor: SystemActor, now: Date): Promise<Mi
   const breached = await step('breaches', () => markBreaches(actor, now));
   const unsnoozed = await step('snoozed', () => returnSnoozed(actor, now));
   const reminded = await step('reminder', () => remindWaiting(actor, now));
+  const updateDue = await step('update-due', () => remindUpdates(actor, now));
+  await step('holidays', () => holidaysReminderTx(actor, now));
   const closed = await step('auto-close', () => autoClose(actor, now));
   const presenceRemoved = await step('presence', () => removePresence(actor, now));
-  return { breached, unsnoozed, closed, refreshed, presenceRemoved, reminded };
+  return { breached, unsnoozed, closed, refreshed, presenceRemoved, reminded, updateDue };
 }

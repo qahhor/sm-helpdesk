@@ -107,7 +107,10 @@ export async function postStaffMessageTx(
     }
     if (input.internal) {
       const mentioned = findMentions(input.body, people.mentionable).filter((userId) => userId !== actor.userId);
-      if (mentioned.length > 0) await tx.insert(mentions).values(mentioned.map((userId) => ({ messageId: message.messageId, userId })));
+      if (mentioned.length > 0) {
+        await tx.insert(mentions).values(mentioned.map((userId) => ({ messageId: message.messageId, userId })));
+        await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'mention', actorUserId: actor.userId, mentioned, authorName: people.myName });
+      }
     } else {
       await tx
         .update(tickets)

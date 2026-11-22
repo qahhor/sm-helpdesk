@@ -83,3 +83,10 @@ export const notificationPrefs = pgTable(
   },
   (table) => [primaryKey({ name: 'hdn_notification_prefs_pk', columns: [table.userId, table.kind] })],
 );
+
+/** Секреты каналов, заданные администратором (решение 8 вехи M4): токен отдельного бота дежурных. */
+export const channelSecrets = pgTable('hdn_channel_secrets', {
+  code: text('code').$type<'oncall_telegram_bot'>().primaryKey(),
+  sealed: text('sealed').notNull(),
+  ...stampColumns,
+});

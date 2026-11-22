@@ -33,6 +33,8 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Изменение у hub_app только колонки read_on (GRANT UPDATE (read_on)): права на таблицу целиком нет.
   hdn_notifications: { client: 'own-user', app: ['insert', 'delete'] },
   hdn_notification_prefs: { client: 'own-user', app: IU },
+  // Токен отдельного бота дежурных (веха M4): читает только система.
+  hdn_channel_secrets: { client: 'none', app: IU },
   hdn_telegram_updates: { client: 'none', app: ['insert', 'delete'] },
   // Справочники
   hdr_business_calendars: { client: 'all', app: IU },

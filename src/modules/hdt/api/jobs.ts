@@ -64,6 +64,7 @@ export type { MinuteResult } from '../core/housekeeping';
 export async function ticketsMinute(actor: SystemActor, now: Date = new Date()): Promise<MinuteResult> {
   assertSystem(actor);
   const result = await ticketsMinuteTx(actor, now);
-  if (result.closed + result.reminded > 0) await wakeOutbox();
+  // Письма автозакрытия, напоминаний, нарушений и праздников уже в очереди: отправка будится после фиксации.
+  await wakeOutbox();
   return result;
 }

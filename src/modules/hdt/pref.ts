@@ -215,7 +215,14 @@ export const MAX_SNOOZE_DAYS = 365;
 export const WAITING_REMINDER_SETTING = 'notify.waiting_reminder_days';
 export const AUTOCLOSE_RESOLVED_SETTING = 'tickets.autoclose_resolved_days';
 export const AUTOCLOSE_WAITING_SETTING = 'tickets.autoclose_waiting_days';
-export const DAY_SETTINGS_DEFAULT = { [WAITING_REMINDER_SETTING]: 3, [AUTOCLOSE_RESOLVED_SETTING]: 5, [AUTOCLOSE_WAITING_SETTING]: 7 } as const;
+/** Регулярное обновление клиента по обращению "В разработке" (FR-SLA-09): не реже раза в столько рабочих дней. */
+export const UPDATE_DUE_SETTING = 'sla.update_interval_days';
+export const DAY_SETTINGS_DEFAULT = {
+  [WAITING_REMINDER_SETTING]: 3,
+  [AUTOCLOSE_RESOLVED_SETTING]: 5,
+  [AUTOCLOSE_WAITING_SETTING]: 7,
+  [UPDATE_DUE_SETTING]: 5,
+} as const;
 /** Допустимые значения сроков в рабочих днях. */
 export const DAY_SETTING_MIN = 1;
 export const DAY_SETTING_MAX = 30;

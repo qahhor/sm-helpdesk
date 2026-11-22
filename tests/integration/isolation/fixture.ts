@@ -169,5 +169,8 @@ export async function seedTwoOrgs(): Promise<Fixture> {
     await pools.root.query(`insert into hdn_notification_prefs (user_id, kind, email_enabled) values ($1, 'watched_tickets', true)`, [user.userId]);
   }
 
+  // Токен бота дежурных (веха M4): строка одна на базу.
+  await pools.root.query(`insert into hdn_channel_secrets (code, sealed) values ('oncall_telegram_bot', $1) on conflict (code) do nothing`, [SEALED]);
+
   return { server: { serverId: server, code }, orgA, orgB, aUser, aAdmin, bUser, bAdmin, care, l1, adminStaff, tickets };
 }

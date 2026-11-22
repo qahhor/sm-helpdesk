@@ -75,6 +75,8 @@ export const tickets = pgTable('hdt_tickets', {
   resolutionBreachedOn: moment('resolution_breached_on'),
   clientWaitingSince: moment('client_waiting_since'),
   resolvedVersion: text('resolved_version'),
+  // Миграция 0033 (веха M4): напоминание клиенту в "Ждём вашего ответа".
+  waitingRemindedOn: moment('waiting_reminded_on'),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {

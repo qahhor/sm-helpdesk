@@ -6,6 +6,7 @@ import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, type Impact, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { refreshSla } from './sla';
+import { notifyTicketTx } from './notify';
 
 // Модуль hdt, слой core: обращения. Операции с данными внутри withActor под ролью hub_app.
 // Организация и автор берутся из актора; политики RLS и триггер t_hdt_tickets_client_guard страхуют.
@@ -73,6 +74,7 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
     await tx.insert(ticketWatchers).values({ orgId: actor.orgId, ticketId: row.ticketId, userId: actor.userId, source: 'author' });
     await tx.insert(ticketEvents).values({ orgId: actor.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: actor.userId });
     await writeAudit(tx, { action: 'ticket.created', objectType: 'ticket', objectId: row.ticketId, orgId: actor.orgId, diff: { type: input.type, priority } });
+    await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: null });
     return row;
   });
 }
@@ -132,6 +134,7 @@ export async function createTicketForClientTx(
       diff: { type: input.type, priority, source: 'staff', authorId: input.authorId },
     });
     await refreshSla(tx, row.ticketId, new Date());
+    await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: actor.userId });
     return row;
   });
 }

@@ -23,6 +23,7 @@ import { type AuthorType, type EventKind, type Impact, INLINE_IMAGE_TYPES, type 
 import { workingMinutesBetween } from '../sla';
 import { parseNumber, parseSearch, rejectReasonOf } from '../util';
 import * as z from 'zod';
+import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Модуль hdt, слой api: рабочее место сотрудника (план M3). Контекст сотрудника строит requireStaffActor:
 // клиент и посетитель сюда не попадают. Читают все роли сотрудников, пишут все, кроме product (миграция 0021).
@@ -318,6 +319,7 @@ export async function setStatus(ctx: StaffContext, input: unknown): Promise<void
   assertCanWrite(ctx.actor);
   const data = parseInput(statusInput, input);
   await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version });
+  await wakeOutbox();
 }
 
 /** Приоритет с причиной (FR-SLA-03). Пустая причина: reason_required. */

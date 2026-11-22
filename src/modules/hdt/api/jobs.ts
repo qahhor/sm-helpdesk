@@ -5,6 +5,7 @@ import { type MinuteResult, ticketsMinuteTx } from '../core/housekeeping';
 import { needsSlaRefreshTx, refreshSla, type SlaState } from '../core/sla';
 import { attachmentIdInput, parseInput } from '../input';
 import { type ScanStatus, SWEEP_BATCH } from '../pref';
+import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 export { isHdtError } from '../error';
 
@@ -60,7 +61,9 @@ export async function refreshSlaAfterClient(ticketId: string): Promise<void> {
 export type { MinuteResult } from '../core/housekeeping';
 
 /** Нарушения сроков, отложенные, автозакрытие, досчёт сроков, присутствие (расписание tickets.minute). */
-export function ticketsMinute(actor: SystemActor, now: Date = new Date()): Promise<MinuteResult> {
+export async function ticketsMinute(actor: SystemActor, now: Date = new Date()): Promise<MinuteResult> {
   assertSystem(actor);
-  return ticketsMinuteTx(actor, now);
+  const result = await ticketsMinuteTx(actor, now);
+  if (result.closed + result.reminded > 0) await wakeOutbox();
+  return result;
 }

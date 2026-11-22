@@ -176,6 +176,8 @@ test('проверка, которая не проходит больше сут
   storage.put(`quarantine/${attachmentId}`, PNG);
   // Файл уже прикреплён к обращению: обход загрузок его не удалит, а проверка всё время срывается.
   await createTicket(ctx, { description: 'С архивом', type: 'bug', impact: 'minor', locale: 'ru', attachmentIds: [attachmentId] });
+  // Создание обращения будит отправку письма с номером (веха M4): здесь важны только задачи проверки файла.
+  jobs.sent.length = 0;
   await age(attachmentId, '25 hours');
   const errors: string[] = [];
   const original = console.error;

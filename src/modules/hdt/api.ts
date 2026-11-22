@@ -27,6 +27,7 @@ import {
   type Visibility,
 } from './pref';
 import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from './util';
+import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
 export { completeStaffUpload, completeUpload, handleUploadRequest, presignStaffUpload, presignUpload } from './api/uploads';
@@ -115,6 +116,8 @@ export async function createTicket(ctx: ClientContext, input: unknown): Promise<
     attachmentIds: [...new Set(data.attachmentIds)],
   });
   await refreshSlaAfterClient(ticketId);
+  // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации.
+  await wakeOutbox();
   return { number };
 }
 

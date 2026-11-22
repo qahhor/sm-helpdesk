@@ -16,6 +16,7 @@ import {
 } from '../pref';
 import { lineTransfers, ticketEvents, tickets } from '../schema';
 import { refreshSla } from './sla';
+import { notifyTicketTx } from './notify';
 
 // Модуль hdt, слой core: действия сотрудника с обращением (FR-AG-02, 04, 09, 13, FR-SLA-03, раздел 7.2;
 // план M3, задача 7). Каждое действие одной транзакцией: строка обращения блокируется, меняется фиксированный
@@ -161,6 +162,7 @@ export async function setStatusTx(actor: StaffActor, number: number, to: TicketS
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
     await changeStatusTx(tx, actor, ticket, to, opts);
+    await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: to === 'resolved' ? 'resolved' : 'status', actorUserId: actor.userId, to });
   });
 }
 

@@ -7,6 +7,7 @@ import { HdtError } from '../error';
 import { ticketEvents, tickets } from '../schema';
 import { assertCanWrite } from './agent-actions';
 import { refreshSla } from './sla';
+import { notifyTicketTx } from './notify';
 
 // Модуль hdt, слой core: объединение дублей (FR-AG-07; план M3, задача 11, решение 4). Дубль закрывается из любого
 // открытого статуса: единственное исключение из таблицы 7.2. Объединение только внутри одной организации и к конечному
@@ -71,6 +72,7 @@ export async function mergeTx(actor: StaffActor, number: number, intoNumber: num
     await writeAudit(tx, { action: 'ticket.merged', objectType: 'ticket', objectId: dup.ticketId, orgId: dup.orgId, diff: { into: main.number } });
     await writeAudit(tx, { action: 'ticket.merged', objectType: 'ticket', objectId: main.ticketId, orgId: main.orgId, diff: { from: dup.number } });
     await refreshSla(tx, dup.ticketId, new Date());
+    await notifyTicketTx(tx, { ticketId: dup.ticketId, kind: 'merged', actorUserId: actor.userId, mergedInto: main.number });
     return main.number;
   });
 }

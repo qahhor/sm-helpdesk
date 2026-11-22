@@ -80,9 +80,11 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
       console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}, проверка не прошла за сутки ${failed}`);
   });
   await boss.work('tickets.minute', polling, async () => {
-    const { breached, unsnoozed, closed, refreshed, presenceRemoved } = await ticketsMinute(actor('tickets.minute'));
-    if (breached + unsnoozed + closed + refreshed > 0)
-      console.info(`Обращения: нарушено сроков ${breached}, вернулось отложенных ${unsnoozed}, закрыто автоматически ${closed}, досчитано сроков ${refreshed}`);
+    const { breached, unsnoozed, closed, refreshed, presenceRemoved, reminded } = await ticketsMinute(actor('tickets.minute'));
+    if (breached + unsnoozed + closed + refreshed + reminded > 0)
+      console.info(
+        `Обращения: нарушено сроков ${breached}, вернулось отложенных ${unsnoozed}, напомнили клиентам ${reminded}, закрыто автоматически ${closed}, досчитано сроков ${refreshed}`,
+      );
     void presenceRemoved;
   });
   await boss.work('outbox.dispatch', polling, async () => {

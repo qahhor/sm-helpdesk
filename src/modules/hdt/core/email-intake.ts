@@ -28,6 +28,7 @@ import {
   senderAligned,
   signedReplyOf,
 } from '@/modules/hdn/api/inbound';
+import { isInboundTestSubject } from '@/modules/hdn/api/mail-settings';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 import { ensureGuest, findVerifiedUser, orgByEmailDomain, SERVICE_ORG_ID, senderOrg } from '@/modules/hdu/api/guests';
 import { mailRecipient, replyRole } from '@/modules/hdu/api/recipients';
@@ -345,6 +346,8 @@ export async function intakeEmailTx(actor: SystemActor, inboundId: string): Prom
   const { content, attachments: files } = await fetchInbound(row.rawRef);
   const letter: Letter = { row, headers: content.headers, aligned: senderAligned(content.headers, row.fromAddress), text: emailToText(content), files };
 
+  // Проверочное письмо адреса поддержки (FR-EM-13) пришло через переадресацию: экран настроек покажет "получено".
+  if (isInboundTestSubject(row.subject)) return finish(actor, letter, 'ignored');
   // Список отклонённых (решение 14), затем автоответ и недоставка (решение 17): сохраняются без обращения и ответа.
   if (await withActor(actor, (tx) => isBlocked(tx, row.fromAddress))) return finish(actor, letter, 'spam');
   const auto = classifyAuto(letter.headers, row.fromAddress, row.subject);

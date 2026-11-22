@@ -58,6 +58,12 @@ export const AUDIT_ACTIONS = [
   'sender.blocked',
   'guest.merge_recorded',
   'guest.merged',
+  // Настройки почты и уведомлений (план M4, задача 12)
+  'settings.changed',
+  'settings.oncall_changed',
+  'sender.unblocked',
+  'org.domain_added',
+  'org.domain_removed',
   // Памятки первой линии и шаблоны ответов (веха M3).
   'playbook.saved',
   'template.saved',

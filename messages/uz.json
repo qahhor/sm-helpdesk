@@ -304,8 +304,8 @@
         "merged": "Murojaat boshqasi bilan birlashtirildi: asosiy murojaatda davom etamiz."
       },
       "system": {
-        "autoCloseResolved": "Murojaatni yopdik: yechim 5 ish kuni davomida tasdiqlanmadi. Savol qaytsa, murojaatni qayta oching.",
-        "autoCloseWaiting": "Murojaatni yopdik: 7 ish kuni davomida javobingiz bo'lmadi. Savol qolgan bo'lsa, murojaatni qayta oching."
+        "autoCloseResolved": "Murojaatni yopdik: yechim {days} ish kuni davomida tasdiqlanmadi. Savol qaytsa, murojaatni qayta oching.",
+        "autoCloseWaiting": "Murojaatni yopdik: {days} ish kuni davomida javobingiz bo'lmadi. Savol qolgan bo'lsa, murojaatni qayta oching."
       }
     },
     "ideas": {
@@ -395,6 +395,9 @@
           "unavailable": "Telegram hozir javob bermayapti. Botni bir necha daqiqadan keyin bog'lab ko'ring."
         }
       }
+    },
+    "footer": {
+      "support": "Qo'llab-quvvatlash: <address></address>"
     }
   },
   "agent": {
@@ -522,7 +525,24 @@
       "ai": "AI orqali ko'rib chiqish",
       "aiOn": "yoqilgan",
       "aiOff": "o'chirilgan",
-      "auditLink": "Tashkilot audit jurnali"
+      "auditLink": "Tashkilot audit jurnali",
+      "domains": {
+        "title": "Pochta domenlari",
+        "intro": "Shu domendan kelgan va DMARC tekshiruvidan o'tgan xat \"Yuboruvchi tasdiqlanmagan\" belgisi bilan shu tashkilot murojaati bo'ladi.",
+        "empty": "Domenlar yo'q.",
+        "label": "Domen, masalan company.uz",
+        "add": "Domen qo'shish",
+        "remove": "Olib tashlash",
+        "errors": {
+          "invalid_input": "Tashkilot domeni kerak. Umumiy pochta xizmatlari domenlari (gmail.com, mail.ru va shunga o'xshash) qabul qilinmaydi.",
+          "domain_taken": "Bu domen boshqa tashkilotda yozilgan.",
+          "forbidden": "Domenlarni Customer Care va administrator o'zgartiradi."
+        },
+        "done": {
+          "added": "Domen qo'shildi.",
+          "removed": "Domen olib tashlandi."
+        }
+      }
     },
     "settings": {
       "title": "Sozlamalar",
@@ -549,6 +569,10 @@
         "templates": {
           "title": "Javob shablonlari",
           "text": "Uch tildagi javob tayyorlamalari, javob maydonida \"/\" dan keyin kod bilan chaqiriladi."
+        },
+        "mail": {
+          "title": "Bildirishnomalar va pochta",
+          "text": "Qo'llab-quvvatlash manzillari va qabulni tekshirish, navbatchilar va ularning boti, eslatma va avtomatik yopish muddatlari, spam."
         }
       },
       "servers": {
@@ -784,7 +808,9 @@
           },
           "org": {
             "provisioned": "Tashkilot yaratildi",
-            "updated": "Tashkilot sozlamalari o'zgartirildi"
+            "updated": "Tashkilot sozlamalari o'zgartirildi",
+            "domain_added": "Tashkilot pochta domeni qo'shildi",
+            "domain_removed": "Tashkilot pochta domeni olib tashlandi"
           },
           "member": {
             "joined": "Ishtirokchi qo'shildi",
@@ -840,11 +866,16 @@
             "saved": "Javob shabloni saqlandi"
           },
           "sender": {
-            "blocked": "Manzil spam deb belgilandi"
+            "blocked": "Manzil spam deb belgilandi",
+            "unblocked": "Manzil spamdan olib tashlandi"
           },
           "guest": {
             "merge_recorded": "Xat yuboruvchisi manzilini tasdiqladi",
             "merged": "Mehmon murojaatlari foydalanuvchiga o'tkazildi"
+          },
+          "settings": {
+            "changed": "Sozlama o'zgartirildi",
+            "oncall_changed": "Navbatchilar sozlamalari o'zgartirildi"
           }
         },
         "words": {
@@ -908,7 +939,7 @@
         "to": "{day}: tugashi",
         "holidaysTitle": "Bayram kunlari",
         "holidaysYear": "{year}-yil bayramlari",
-        "holidaysHint": "Sanalar YYYY-OO-KK ko'rinishida, har biri yangi qatorda. Bayram kuni butunlay ishlanmaydi.",
+        "holidaysHint": "YYYY-OO-KK yoki KK.OO.YYYY sanalar, qator, vergul yoki nuqtali vergul orqali. Sanadan keyin bayram nomini qoldirish mumkin. Bayram kuni to'liq dam olish kuni.",
         "holidaysMissing": "{year}-yil bayramlari hali kiritilmagan. Ularsiz bu kunlar ish kuni hisoblanadi.",
         "appliesToNew": "Yangi qiymatlar yangi hisoblarga amal qiladi. Ochiq murojaatlar muddatlari ularning keyingi hodisasida o'zgaradi: ustuvorlik, holat yoki javob.",
         "save": "Saqlash",
@@ -919,7 +950,8 @@
         },
         "errors": {
           "forbidden": "Muddatlarni faqat administrator o'zgartira oladi",
-          "invalid_input": "Qiymatlarni tekshiring: daqiqa va kunlar noldan katta, ish kuni oxiri boshlanishidan keyin, bayram sanalari shu yilga tegishli va takrorlanmagan"
+          "invalid_input": "Qiymatlarni tekshiring: daqiqa va kunlar noldan katta, ish kuni oxiri boshlanishidan keyin, bayram sanalari shu yilga tegishli va takrorlanmagan",
+          "holidaysLine": "{line}-qator: bu yerda shu yil sanasi yo'q. Hech narsa saqlanmadi, qatorni tuzating."
         },
         "days7": {
           "0": "Yakshanba",
@@ -954,6 +986,77 @@
           "forbidden": "Shablonlarni portal administratori yuritadi.",
           "invalid_input": "Kod, nom va rus tilidagi matnni tekshiring.",
           "shortcut_taken": "Bu kod boshqa shablonda bor."
+        }
+      },
+      "mail": {
+        "title": "Bildirishnomalar va pochta",
+        "support": {
+          "title": "Qo'llab-quvvatlash manzillari",
+          "intro": "Bu manzillarning istalganiga kelgan xat murojaat bo'ladi. Belgilangan manzilni mijozlar portal pastida va xatlarda ko'radi.",
+          "shown": "Mijozlarga ko'rsatish",
+          "remove": "Olib tashlash",
+          "add": "Yangi qo'llab-quvvatlash manzili",
+          "save": "Manzillarni saqlash",
+          "empty": "Hozircha manzil yo'q. Birinchisini qo'shing: u ko'rsatiladigan bo'ladi.",
+          "test": "Qabulni tekshirish",
+          "status": {
+            "never": "Qabul tekshirilmagan",
+            "waiting": "Xat yuborildi, portalda kutilmoqda",
+            "received": "Xat olindi"
+          },
+          "hintTitle": "Pochtada nimani sozlash kerak",
+          "hintMx": "{domain} domenining Resend maʼlumotlari bo'yicha MX yozuvi: mijozlar javoblari shunga keladi.",
+          "hintSend": "Xat yuborish domenining SPF, DKIM va DMARC yozuvlari.",
+          "hintForward": "Har bir qo'llab-quvvatlash manzilini {intake} qabul manziliga yo'naltirish.",
+          "hintOff": "Xat qabul domeni berilmagan (REPLY_DOMAIN): portalga xatlar kelmaydi."
+        },
+        "oncall": {
+          "title": "Navbatchilar",
+          "intro": "Birinchi javobsiz P1 haqidagi xabarlar shu yerga ketadi: manzillarga xat va Telegram chatiga xabar.",
+          "emails": "Navbatchilar manzillari",
+          "emailsHint": "Har bir manzil yangi qatorda.",
+          "chat": "Telegram chati raqami",
+          "chatHint": "-1001234567890 ko'rinishidagi son yoki @smartup_duty ko'rinishidagi kanal nomi.",
+          "bot": "Kim yuboradi",
+          "botMain": "Portalning asosiy boti",
+          "botMainName": "Portalning asosiy boti ({name})",
+          "botOwn": "Alohida bot",
+          "token": "Alohida bot tokeni",
+          "tokenSaved": "Token saqlangan. Almashtirish uchun yangisini kiriting.",
+          "tokenHint": "@BotFather tokeni. Saqlangandan keyin u ko'rsatilmaydi.",
+          "save": "Saqlash",
+          "test": "Tekshiruv xabarini yuborish"
+        },
+        "timings": {
+          "title": "Eslatma va avtomatik yopish muddatlari",
+          "intro": "Ish kunlarida, 1 dan 30 gacha.",
+          "waitingReminderDays": "Mijozga savolimizni eslatish muddati",
+          "autocloseResolvedDays": "Tasdiqlanmagan hal qilinganni yopish muddati",
+          "autocloseWaitingDays": "Mijoz javobini kutayotganni yopish muddati",
+          "updateIntervalDays": "\"Ishlab chiqishda\" bo'yicha mijozga yangilik kamida har",
+          "default": "Standart bo'yicha {days}",
+          "save": "Muddatlarni saqlash"
+        },
+        "blocked": {
+          "title": "Spam deb rad etilganlar",
+          "intro": "Bu manzillardan kelgan xatlar murojaatsiz va javobsiz saqlanadi.",
+          "empty": "Ro'yxat bo'sh.",
+          "remove": "Spamdan olib tashlash",
+          "since": "{time} dan"
+        },
+        "done": {
+          "support": "Qo'llab-quvvatlash manzillari saqlandi.",
+          "test": "Tekshiruv xati yuborildi. Bir daqiqadan keyin sahifani yangilang.",
+          "oncall": "Navbatchilar sozlamalari saqlandi.",
+          "oncallTest": "Tekshiruv xabari navbatchilar chatiga yuborildi.",
+          "timings": "Muddatlar saqlandi.",
+          "unblocked": "Manzil spamdan olib tashlandi."
+        },
+        "errors": {
+          "forbidden": "Bu sozlamalarni faqat administrator o'zgartira oladi.",
+          "invalid_input": "Qiymatlarni tekshiring: pochta manzillari, bitta ko'rsatiladigan manzil, chat raqami, bot tokeni, 1 dan 30 gacha muddatlar.",
+          "oncallTest": "Xabar yuborilmadi: chat raqami va botni tekshiring.",
+          "other": "Bo'lmadi. Yana urinib ko'ring."
         }
       }
     },
@@ -1681,7 +1784,8 @@
     "buttonUnlink": "Uzish",
     "loginLink": "Smartup Hub tizimiga kirish havolasi. U {minutes} daqiqa amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang.",
     "loginTooOften": "Kirish havolalari juda ko'p. {minutes} daqiqadan keyin qayta urinib ko'ring.",
-    "loginNoAccess": "Bu hisobning hozir portalga kirish huquqi yo'q. Kompaniyangiz administratoriga murojaat qiling."
+    "loginNoAccess": "Bu hisobning hozir portalga kirish huquqi yo'q. Kompaniyangiz administratoriga murojaat qiling.",
+    "oncallTest": "Smartup Hub tekshiruv xabari: navbatchilar chati ulandi, shoshilinch murojaatlar haqidagi xabarlar shu yerga keladi."
   },
   "dev": {
     "title": "Komponentlar vitrinasi",

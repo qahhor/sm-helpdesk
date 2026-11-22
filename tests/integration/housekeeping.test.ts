@@ -135,3 +135,14 @@ test('благодарность не открывает решённое и в�
   expect((await row(t.ticketId)).status).toBe('in_progress');
   expect((await listThanks(staffCtx(f.l1), {})).items).toHaveLength(1);
 });
+
+test('срок автозакрытия из настроек: текст клиенту называет заданное число рабочих дней', async () => {
+  const f = await seedTwoOrgs();
+  await pools.root.query(`insert into hdc_settings (code, value) values ('tickets.autoclose_resolved_days', '3') on conflict (code) do update set value = '3'`);
+  const start = new Date('2026-11-02T05:00:00Z');
+  const t = f.tickets.aOrg;
+  await setState(t.ticketId, `status = 'resolved', resolved_on = $2, resolution_type = 'solved'`, [start]);
+  await ticketsMinute(SYSTEM, new Date(addWorkingDays(start, 3, TASHKENT_DEFAULT).getTime() + MINUTE));
+  expect((await row(t.ticketId)).status).toBe('closed');
+  expect(await systemMessages(t.ticketId)).toEqual([{ body: expect.stringContaining('3 рабочих дня'), is_internal: false }]);
+});

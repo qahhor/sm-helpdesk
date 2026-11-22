@@ -127,10 +127,17 @@ async function returnSnoozed(actor: SystemActor, now: Date): Promise<number> {
 }
 
 /** Закрыть системой: статус, событие, сообщение клиенту на языке обращения, журнал, сроки. */
-async function closeBySystem(tx: Tx, t: { ticketId: string; orgId: string; locale: string }, from: 'resolved' | 'waiting_customer', text: SystemTextKey, now: Date) {
+async function closeBySystem(
+  tx: Tx,
+  t: { ticketId: string; orgId: string; locale: string },
+  from: 'resolved' | 'waiting_customer',
+  text: SystemTextKey,
+  days: number,
+  now: Date,
+) {
   await tx.update(tickets).set({ status: 'closed', closedOn: sql`now()` }).where(eq(tickets.ticketId, t.ticketId));
   await tx.insert(ticketEvents).values({ orgId: t.orgId, ticketId: t.ticketId, kind: 'status', actorType: 'system', payload: { from, to: 'closed' } });
-  await tx.insert(ticketMessages).values({ orgId: t.orgId, ticketId: t.ticketId, authorType: 'system', body: systemText(t.locale, text) });
+  await tx.insert(ticketMessages).values({ orgId: t.orgId, ticketId: t.ticketId, authorType: 'system', body: systemText(t.locale, text, { days }) });
   await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: t.ticketId, orgId: t.orgId, diff: { from, to: 'closed', auto: true } });
   await refreshSla(tx, t.ticketId, now);
   await notifyTicketTx(tx, { ticketId: t.ticketId, kind: 'auto_closed', actorUserId: null });
@@ -170,12 +177,12 @@ async function autoClose(actor: SystemActor, now: Date): Promise<number> {
     let closed = 0;
     for (const t of resolved)
       if (t.since && addWorkingDays(t.since, resolvedDays, calendar).getTime() <= now.getTime()) {
-        await closeBySystem(tx, t, 'resolved', 'autoCloseResolved', now);
+        await closeBySystem(tx, t, 'resolved', 'autoCloseResolved', resolvedDays, now);
         closed++;
       }
     for (const t of waiting)
       if (t.since && addWorkingDays(t.since, waitingDays, calendar).getTime() <= now.getTime()) {
-        await closeBySystem(tx, t, 'waiting_customer', 'autoCloseWaiting', now);
+        await closeBySystem(tx, t, 'waiting_customer', 'autoCloseWaiting', waitingDays, now);
         closed++;
       }
     return closed;

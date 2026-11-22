@@ -62,6 +62,12 @@ export async function saveOncallBotToken(staff: StaffActor, token: string): Prom
   );
 }
 
+/** Сохранён ли токен отдельного бота (экран настроек показывает "токен сохранён", а не сам токен). */
+export async function oncallTokenSaved(): Promise<boolean> {
+  const rows = await withActor(SYSTEM, (tx) => tx.select({ code: channelSecrets.code }).from(channelSecrets).where(eq(channelSecrets.code, SECRET_CODE)).limit(1));
+  return rows.length > 0;
+}
+
 /** Бот дежурных: отправляет текст в чат. */
 export type OncallBot = { send(chatId: string, text: string): Promise<void> };
 let factoryOverride: ((token: string) => OncallBot) | null = null;

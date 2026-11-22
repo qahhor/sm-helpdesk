@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { signOutAction } from '@/app/[locale]/session-actions';
 import { getPolicyVersion } from '@/modules/hdc/api';
+import { shownSupportAddress } from '@/modules/hdn/api/mail-settings';
 import { unreadCount } from '@/modules/hdn/api/notifications';
 import { listMyOrganizations, needsPolicyNotice, policyNoticePath, requireClientActor } from '@/modules/hdu/api';
 import { ClientShell } from '@/ui/shell/client/ClientShell';
@@ -24,6 +25,7 @@ export default async function PortalLayout({ children }: LayoutProps<'/[locale]'
   const orgs = client.orgCount > 1 ? await listMyOrganizations(client.user.id) : [];
   return (
     <ClientShell
+      support={await shownSupportAddress()}
       bell={<NotificationBell href="/notifications" initialCount={await unreadCount(client.actor)} labels={await bellLabels()} refresh={clientUnreadAction} />}
       org={
         <OrgSwitcher

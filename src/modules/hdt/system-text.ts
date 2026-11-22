@@ -11,10 +11,10 @@ const MESSAGES = { ru, uz, en } as const;
 
 export type SystemTextKey = 'autoCloseResolved' | 'autoCloseWaiting';
 
-/** Текст на языке обращения; неизвестный язык: русский. */
-export function systemText(locale: string, key: SystemTextKey): string {
+/** Текст на языке обращения; неизвестный язык: русский. days: срок автозакрытия из настроек (решение 24 вехи M4). */
+export function systemText(locale: string, key: SystemTextKey, values: { days: number }): string {
   const lang: Locale = locale === 'uz' || locale === 'en' ? locale : 'ru';
-  return createTranslator({ locale: lang, messages: MESSAGES[lang], namespace: 'client.tickets.system' })(key);
+  return createTranslator({ locale: lang, messages: MESSAGES[lang], namespace: 'client.tickets.system' })(key, values);
 }
 
 export type StaffSystemTextKey = 'emailReview';

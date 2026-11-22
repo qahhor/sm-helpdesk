@@ -87,7 +87,7 @@ export async function saveHolidays(ctx: StaffContext, input: unknown): Promise<v
 // --- Памятки первой линии (план M3, задача 9) ---
 
 export { type Playbook, PLAYBOOK_KEEPERS } from './core/playbooks';
-export { playbookItems } from './util';
+export { parseHolidays, playbookItems } from './util';
 
 /** Памятка "что проверить до передачи" для модуля и типа обращения, иначе общая для типа (FR-LINE-10). */
 export function getPlaybook(actor: Actor, input: { moduleId: string | null; type: string }): Promise<Playbook | null> {

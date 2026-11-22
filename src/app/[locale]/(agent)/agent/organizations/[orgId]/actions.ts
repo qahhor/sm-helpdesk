@@ -4,10 +4,12 @@ import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { z } from 'zod';
 import {
+  addOrgDomain,
   changeMemberRole,
   inviteMember,
   isHduError,
   requireStaffActor,
+  removeOrgDomain,
   revokeInvitation,
   setMemberState,
   type StaffContext,
@@ -17,7 +19,7 @@ import {
 // Действия карточки организации в рабочем месте. Организацию сотрудник называет сам (из адреса страницы),
 // права проверяет модуль: care и admin, смена роли со свежим входом.
 
-async function run(formData: FormData, action: (staff: StaffContext, orgId: string) => Promise<void>, done: string): Promise<never> {
+async function run(formData: FormData, action: (staff: StaffContext, orgId: string) => Promise<void>, done: string, extra = ''): Promise<never> {
   const staff = await requireStaffActor();
   const locale = await getLocale();
   const orgId = z.uuid().safeParse(formData.get('orgId'));
@@ -27,9 +29,9 @@ async function run(formData: FormData, action: (staff: StaffContext, orgId: stri
     await action(staff, orgId.data);
   } catch (error) {
     if (!isHduError(error)) throw error;
-    redirect(`${page}?error=${error.code}`);
+    redirect(`${page}?error=${error.code}${extra}`);
   }
-  redirect(`${page}?done=${done}`);
+  redirect(`${page}?done=${done}${extra}`);
 }
 
 /** Смена роли участника (FR-ID-13): только care и admin, вход не старше 15 минут. */
@@ -68,4 +70,13 @@ export async function updateOrgSettingsAction(formData: FormData): Promise<void>
     (staff, orgId) => updateOrganization(staff, { orgId, category: category === '' ? null : category, isAiEnabled: formData.get('isAiEnabled') === 'on' }),
     'settingsSaved',
   );
+}
+
+/** Домен почты организации (FR-EM-06): только care и admin, домены общих почтовых служб не принимаются. */
+export async function addDomainAction(formData: FormData): Promise<void> {
+  await run(formData, (staff, orgId) => addOrgDomain(staff, { orgId, domain: formData.get('domain') }), 'domainAdded', '&domain=1');
+}
+
+export async function removeDomainAction(formData: FormData): Promise<void> {
+  await run(formData, (staff, orgId) => removeOrgDomain(staff, { orgId, domain: formData.get('domain') }), 'domainRemoved', '&domain=1');
 }

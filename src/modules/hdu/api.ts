@@ -24,9 +24,12 @@ export {
   switchOrganizationOfRequest,
 } from './api/actor';
 export {
+  addOrgDomain,
   type ClientContext,
   getOrganization,
   listMyOrganizations,
+  listOrgDomains,
+  removeOrgDomain,
   type MyOrganization,
   type OrgRow,
   otherOrganizationActors,

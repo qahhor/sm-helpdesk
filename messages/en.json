@@ -1610,7 +1610,8 @@
     "inboundTest": {
       "subject": "Smartup Hub mail intake check {token}",
       "text": "This is a check email from the Smartup Hub portal. If it has reached the portal, mail intake for {address} works. There is no need to reply."
-    }
+    },
+    "noSubject": "Email without a subject"
   },
   "bot": {
     "linked": "Done: Telegram is linked to the account {name} in the organization {org}. You can sign in to Smartup Hub here when Smartup is not available. If you did not link it, press \"Unlink\".",

@@ -1610,7 +1610,8 @@
     "inboundTest": {
       "subject": "Smartup Hub xatlarni qabul qilishni tekshirish {token}",
       "text": "Bu Smartup Hub portalining tekshiruv xati. Agar u portalga yetib kelgan bo'lsa, {address} manzilidagi xatlarni qabul qilish ishlayapti. Unga javob berish shart emas."
-    }
+    },
+    "noSubject": "Mavzusiz xat"
   },
   "bot": {
     "linked": "Tayyor: Telegram {org} tashkilotidagi {name} hisobiga bog'landi. Smartupga kirish imkoni bo'lmasa, Smartup Hub tizimiga shu yerdan kirish mumkin. Agar bog'lagan siz bo'lmasangiz, «Uzish» tugmasini bosing.",

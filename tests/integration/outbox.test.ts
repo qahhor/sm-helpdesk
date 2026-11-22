@@ -2,7 +2,8 @@ import { afterEach, beforeEach, expect, test } from 'vitest';
 import { withActor } from '@/db/with-actor';
 import { dispatchOutbox, enqueueTx, OUTBOX_RETRY_MINUTES, type OutboxItem, recordDelivery } from '@/modules/hdn/api/outbox';
 import { MailError } from '@/modules/hdn/resend';
-import { createMemoryEmailProvider, type MemoryEmailProvider } from '@/modules/hdn/testing';
+import { replyAddress } from '@/modules/hdn/inbound/reply-address';
+import { createMemoryEmailProvider, type MemoryEmailProvider, setReplyConfigForTests } from '@/modules/hdn/testing';
 import { asActor, pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
@@ -129,4 +130,29 @@ test('клиент не видит строк очереди и не стави�
   await expect(withActor(f.aUser.actor, (tx) => enqueueTx(tx, { ...reply(), ticketId: undefined }))).rejects.toThrow();
   // Сотрудник читает, но не меняет строки: отправку ведёт система.
   await expect(asActor(pools.app, f.l1.actor, (c) => c.query(`update hdn_outbox set status = 'sent'`).then((r) => r.rowCount))).resolves.toBe(0);
+});
+
+test('письмо клиенту об обращении несёт подписанный адрес ответа, письмо дежурным нет', async () => {
+  const cfg = { domain: 'reply.example.test', secret: 'reply-secret-of-at-least-32-chars!!' };
+  setReplyConfigForTests(cfg);
+  try {
+    await withActor(f.l1.actor, (tx) => enqueueTx(tx, reply()));
+    await pools.root.query(`insert into hdc_settings (code, value) values ('notify.oncall_emails', '["duty@example.uz"]')`);
+    await withActor(f.l1.actor, (tx) =>
+      enqueueTx(tx, {
+        channel: 'email',
+        recipient: { kind: 'oncall' },
+        template: 'oncall_p1',
+        payload: { template: 'oncall_p1', number: f.tickets.aOrg.number, title: 't', url: '/agent/tickets/SUP-1', orgName: 'ACME' },
+        ticketId: f.tickets.aOrg.ticketId,
+      }),
+    );
+    await dispatchOutbox(SYSTEM, new Date(), provider);
+    const toClient = provider.sent.find((s) => s.message.to === 'a-user@example.uz');
+    expect(toClient?.message.replyTo).toBe(replyAddress(f.tickets.aOrg.number, f.aUser.userId, cfg));
+    expect(toClient?.message.headers?.['Message-ID']).toMatch(/@reply\.example\.test>$/);
+    expect(provider.sent.find((s) => s.message.to === 'duty@example.uz')?.message.replyTo).toBeUndefined();
+  } finally {
+    setReplyConfigForTests(undefined);
+  }
 });

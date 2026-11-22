@@ -7,6 +7,7 @@ import { getEnv } from '@/env';
 import type { Locale } from '@/i18n/locales';
 import { enqueue } from '@/modules/hdc/api';
 import { mailRecipient } from '@/modules/hdu/api/recipients';
+import { replyAddress, replyConfigOf } from '../inbound/reply-address';
 import { type MailData, type MailPayload, type MailTemplate, renderMail } from '../mail/render';
 import { type DeliveryEvent, type EmailProvider, getEmailProvider } from '../provider';
 import { MailError } from '../resend';
@@ -25,6 +26,8 @@ export const OUTBOX_MAX_ATTEMPTS = OUTBOX_RETRY_MINUTES.length + 1;
 const LEASE_MS = 5 * 60_000;
 const BATCH = 50;
 const MINUTE = 60_000;
+/** Письма клиенту об обращении: на них отвечают, ответ попадает в обращение. */
+const CLIENT_REPLY_TEMPLATES = new Set(['ticket_created', 'ticket_reply', 'ticket_status', 'ticket_resolved', 'waiting_reminder', 'unidentified_ack']);
 
 export type OutboxItem = {
   channel: 'email' | 'telegram';
@@ -98,7 +101,14 @@ async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender |
   } else targets = (await oncallEmails()).map((address) => ({ address, locale: row.locale ?? 'ru' }));
   if (targets.length === 0) return { kind: 'skipped' };
   const supportAddress = await shownSupportAddress();
-  const domain = env.REPLY_DOMAIN ?? env.HUB_DOMAIN;
+  const reply = replyConfigOf(env);
+  const domain = reply?.domain ?? env.HUB_DOMAIN;
+  // Ответ на письмо об обращении попадает в обращение: адрес подписан для пары обращение и получатель (FR-NT-06).
+  const number = typeof row.payload.number === 'number' ? row.payload.number : null;
+  const replyTo =
+    reply && number && row.ticketId && row.recipientKind === 'user' && row.recipientUserId && CLIENT_REPLY_TEMPLATES.has(row.template)
+      ? replyAddress(number, row.recipientUserId, reply)
+      : undefined;
   let externalId = '';
   for (const [index, target] of targets.entries()) {
     const data = {
@@ -115,6 +125,7 @@ async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender |
         subject: mail.subject,
         html: mail.html,
         text: mail.text,
+        ...(replyTo ? { replyTo } : {}),
         headers: {
           // Наши письма не ждут автоответов (решение 17), у письма свой Message-ID для цепочки (решение 20).
           'Auto-Submitted': 'auto-generated',

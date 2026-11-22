@@ -7,6 +7,7 @@ import { verifyAndParse } from './provider';
 // Не слой api: страницы и другие модули их не видят (правило линтера), их берут только тесты (проверка main, Q15).
 
 export { MemoryMailer, setMailerForTests } from './mailer';
+export { setReplyConfigForTests } from './inbound/reply-address';
 export { setEmailProviderForTests } from './provider';
 export { MemoryTelegramBot, setTelegramBotForTests } from './telegram';
 

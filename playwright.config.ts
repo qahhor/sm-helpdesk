@@ -64,6 +64,8 @@ const APP_ENV = {
   RESEND_WEBHOOK_SECRET: E2E_WEBHOOK_SECRET,
   REPLY_DOMAIN: 'reply.e2e.test',
   REPLY_HMAC_SECRET: 'e2e-reply-hmac-secret-0123456789abcdef',
+  // Заголовок Authentication-Results, которому верит разбор писем (решение 11 вехи M4): его вписывают тесты.
+  INBOUND_AUTHSERV_ID: 'e2e.inbound.test',
 };
 
 export default defineConfig({

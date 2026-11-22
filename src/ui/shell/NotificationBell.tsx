@@ -4,9 +4,7 @@ import { Bell } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { ICON_TRIGGER } from '@/ui/menu-trigger';
-
-/** Больше этого числа счётчик показывает "99+". */
-const MAX_SHOWN = 99;
+import { bellText } from './bell-text';
 
 /**
  * Колокольчик в шапке (FR-NT-03, решение 5 вехи M4): счётчик непрочитанных уведомлений, ссылка на список.
@@ -38,16 +36,16 @@ export function NotificationBell({
       active = false;
     };
   }, [pathname, refresh]);
-  const label = count === 0 ? labels.none : labels.some.replace('{count}', String(count));
+  const { label, badge } = bellText(count, labels);
   return (
     <Link href={href} aria-label={label} title={label} data-unread={count} className={`${ICON_TRIGGER} relative`}>
       <Bell className="size-5" aria-hidden />
-      {count > 0 && (
+      {badge && (
         <span
           aria-hidden
           className="absolute end-1 top-1 inline-flex min-w-5 items-center justify-center rounded-chip bg-primary px-1 text-xs font-bold text-primary-foreground"
         >
-          {count > MAX_SHOWN ? `${MAX_SHOWN}+` : count}
+          {badge}
         </span>
       )}
     </Link>

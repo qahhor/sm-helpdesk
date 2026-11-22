@@ -286,7 +286,7 @@ test('обращение за клиента: организация, участ
   const description = `Звонок клиента ${Date.now()}: не печатаются накладные`;
   await page.goto('/ru/agent/queues');
   await page.getByRole('link', { name: 'Обращение за клиента' }).click();
-  await main(page).getByLabel('Организация: название или ИНН').fill('ACME');
+  await main(page).getByLabel('Организация: название или ИНН').fill('ACME Trade');
   await main(page).getByRole('button', { name: 'Найти' }).click();
   await main(page).getByRole('link', { name: 'ACME Trade' }).click();
   const author = main(page).getByLabel('От чьего имени');
@@ -379,7 +379,9 @@ test('цикл S3 с клавиатуры без мыши', async ({ page, brows
   await client.getByLabel('Ответ', { exact: true }).fill('Вот снимок');
   await resetLimits();
   await client.getByRole('button', { name: 'Отправить', exact: true }).click();
-  await expect(client.getByRole('main')).toContainText('Вот снимок');
+  // Ждём ответа сервера: текст в поле черновика ещё не значит, что ответ сохранён, а закрытие окна прервало бы запрос.
+  await expect(client.getByRole('main').getByText('Ответ отправлен')).toBeVisible();
+  await expect(client.getByRole('main').locator('article').filter({ hasText: 'Вот снимок' })).toBeVisible();
   await clientContext.close();
   await page.reload();
   await expect(main(page).getByText('В работе', { exact: true }).first()).toBeVisible();

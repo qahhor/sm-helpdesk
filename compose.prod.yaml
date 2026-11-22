@@ -1,5 +1,5 @@
 # Развёртывание портала по разделам 13.3 и 13.4 ТЗ: веха M1 (проверка main, C2), фоновый процесс и ClamAV
-# в вехе M2 (решение 0028). TEI добавится в своей вехе. Порядок первого запуска: docs/runbooks/staging-after-m1.md.
+# в вехе M2 (решение 0028). TEI добавится в своей вехе. Настройка и первый запуск по шагам: docs/runbooks/launch.md.
 #
 #   docker compose -f compose.prod.yaml run --rm bootstrap   # один раз: роли и база
 #   docker compose -f compose.prod.yaml run --rm migrate     # при каждой выкладке

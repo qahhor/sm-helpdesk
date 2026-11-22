@@ -158,7 +158,7 @@ const schema = z
     if (value.HUB_DOMAIN !== host)
       ctx.addIssue({ code: 'custom', path: ['HUB_DOMAIN'], message: 'не совпадает с именем узла из HUB_URL' });
     // Первое значение x-forwarded-for за Cloudflare и Caddy это адрес узла Cloudflare или значение, которое прислал
-    // сам посетитель. На настоящем адресе источник адреса посетителя выбирается явно (docs/runbooks/staging-after-m1.md).
+    // сам посетитель. На настоящем адресе источник адреса посетителя выбирается явно (docs/runbooks/launch.md, раздел 8).
     if (value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host) && !value.CLIENT_IP_HEADER)
       ctx.addIssue({ code: 'custom', path: ['CLIENT_IP_HEADER'], message: 'не задан: за Cloudflare задайте cf-connecting-ip' });
     if (value.BETTER_AUTH_SECRET === value.ENCRYPTION_KEY)

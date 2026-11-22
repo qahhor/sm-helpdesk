@@ -29,4 +29,9 @@ test('сотруднику предлагаются только его пере
   expect(allowedStaffTransitions('in_progress', 'agent_l2')).toEqual(['waiting_customer', 'in_development', 'resolved']);
   expect(allowedStaffTransitions('closed', 'care')).toEqual(['in_progress']);
   expect(allowedStaffTransitions('in_progress', 'product')).toEqual([]);
+  // Закрывает сотрудник только решённое (решение 5 плана M3): из ожидания клиента закрывает задача.
+  expect(allowedStaffTransitions('waiting_customer', 'agent_l1')).toEqual(['in_progress', 'resolved']);
+  expect(allowedStaffTransitions('resolved', 'agent_l1')).toEqual(['closed', 'in_progress']);
+  // Объединённое закрыто навсегда (решение 4).
+  expect(allowedStaffTransitions('closed', 'care', { merged: true })).toEqual([]);
 });

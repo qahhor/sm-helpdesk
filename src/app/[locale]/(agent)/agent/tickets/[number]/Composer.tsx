@@ -72,6 +72,7 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
   const ready = useSyncExternalStore(noop, () => true, () => false);
   const [saved, setSaved] = useState<'idle' | 'saved'>('idle');
   const saving = useRef<{ body: string; internal: boolean } | null>(null);
+  const timer = useRef<number | undefined>(undefined);
   const extra = useMemo(() => ({ number }), [number]);
   const field = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -130,13 +131,13 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
     }
     setSaved('idle');
     saving.current = { body, internal };
-    const timer = window.setTimeout(() => {
+    timer.current = window.setTimeout(() => {
       saving.current = null;
       saveDraftAction({ number, body, internal })
         .then((result) => result.ok && setSaved('saved'))
         .catch(() => undefined);
     }, DRAFT_DELAY_MS);
-    return () => window.clearTimeout(timer);
+    return () => window.clearTimeout(timer.current);
   }, [number, body, internal]);
 
   // Уход со страницы: несохранённый черновик уходит сразу.
@@ -193,6 +194,11 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
     <form
       ref={formRef}
       action={action}
+      // Отправка отменяет отложенное сохранение черновика: иначе оно вернуло бы уже отправленный текст (FR-AG-21).
+      onSubmit={() => {
+        window.clearTimeout(timer.current);
+        saving.current = null;
+      }}
       aria-label={labels.form}
       className={cn('flex flex-col gap-3 rounded-card border p-4', internal ? 'border-warning bg-warning-bg' : 'border-border bg-card')}
       data-mode={internal ? 'note' : 'reply'}

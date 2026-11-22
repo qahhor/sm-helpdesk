@@ -33,3 +33,19 @@ test.each([
 ])('%s -> %s', (text, expected) => {
   expect(isThanks(text)).toBe(expected);
 });
+
+// Итоговая проверка M3: отрицание и "проблема осталась" это сомнение, обращение открывается заново.
+test.each([
+  ['Спасибо, не решилось', false],
+  ['Спасибо, всё равно падает', false],
+  ['Спасибо, проблема осталась', false],
+  ['Спасибо, нет', false],
+  ['Rahmat, hali ishlamaydi', false],
+  ["Rahmat, bo'lmadi", false],
+  ['Rahmat, yechim emas', false],
+  ['Thanks, it does not work', false],
+  ['Thanks, no luck', false],
+  ['Спасибо, всё отлично', true],
+])('сомнение: %s -> %s', (text, expected) => {
+  expect(isThanks(text)).toBe(expected);
+});

@@ -55,11 +55,15 @@ export const STAFF_WRITE_ROLES = ['agent_l1', 'agent_l2', 'care', 'admin'] as co
 export const DEVELOPMENT_ROLES = ['agent_l2', 'care', 'admin'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
-/** Переходы, которые сотрудник с этой ролью может сделать из статуса: таблица 7.2 за вычетом чужих прав. */
-export function allowedStaffTransitions(from: TicketStatus, role: string): TicketStatus[] {
-  if (!(STAFF_WRITE_ROLES as readonly string[]).includes(role)) return [];
+/**
+ * Переходы, которые сотрудник с этой ролью может сделать из статуса: таблица 7.2 за вычетом чужих прав.
+ * Закрывает сотрудник только решённое (решение 5 плана M3): "Ждём вашего ответа" закрывает задача по молчанию.
+ * Объединённое обращение закрыто навсегда (решение 4).
+ */
+export function allowedStaffTransitions(from: TicketStatus, role: string, opts: { merged?: boolean } = {}): TicketStatus[] {
+  if (opts.merged || !(STAFF_WRITE_ROLES as readonly string[]).includes(role)) return [];
   const development = (DEVELOPMENT_ROLES as readonly string[]).includes(role);
-  return TRANSITIONS[from].filter((to) => to !== 'in_development' || development);
+  return TRANSITIONS[from].filter((to) => (to !== 'in_development' || development) && (to !== 'closed' || from === 'resolved'));
 }
 
 export const WATCHER_SOURCES = ['author', 'manual', 'staff'] as const;

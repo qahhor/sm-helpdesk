@@ -22,8 +22,13 @@ const DOUBT_WORDS = new Set([
   'но', 'однако', 'ещё', 'еще', 'опять', 'снова', 'ошибка', 'ошибку',
   'lekin', 'ammo', 'yana', 'xato', 'ishlamayapti', 'ishlamadi', 'лекин', 'аммо', 'яна', 'хато', 'ишламаяпти', 'ишламади',
   'but', 'still', 'again', 'error', 'fails', 'failed', "doesn't", 'not',
+  // Отрицание и "проблема осталась" (итоговая проверка M3): благодарность за попытку, а не за решение.
+  'не', 'нет', 'проблема', 'проблемы', 'осталась', 'остался', 'осталось', 'падает', 'вылетает',
+  'no', 'problem', 'issue', 'emas', "yo'q", 'yoq', 'hali', 'muammo', 'эмас', 'йўқ', 'ҳали', 'муаммо',
 ]);
-const DOUBT_PHRASES = ['не работает', 'не помогло', 'не получилось', 'не грузится'];
+const DOUBT_PHRASES = ['не работает', 'не помогло', 'не получилось', 'не грузится', 'все равно', 'всё равно'];
+/** Узбекское отрицание глагола: ishlamadi, ishlamaydi, bo'lmadi, ishlamayapti и то же кириллицей. */
+const UZ_NEGATIVE = /(madi|maydi|mayapti|mayman|мади|майди|маяпти|майман)$/;
 
 const normalize = (text: string) =>
   text
@@ -41,5 +46,6 @@ export function isThanks(text: string): boolean {
   // Узбекская частица вопроса -mi: "ishlaydimi", "bo'ladimi".
   if (words.some((word) => word.length > 4 && (word.endsWith('mi') || word.endsWith('ми')))) return false;
   if (DOUBT_PHRASES.some((phrase) => value.includes(phrase))) return false;
+  if (words.some((word) => UZ_NEGATIVE.test(word))) return false;
   return words.some((word) => THANKS_STEMS.some((stem) => word.startsWith(stem))) || THANKS_PHRASES.some((phrase) => value.includes(phrase));
 }

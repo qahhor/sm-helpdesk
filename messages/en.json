@@ -1172,7 +1172,8 @@
           "not_found": "Ticket not found.",
           "transition_refused": "This status cannot be set now. Send without the checkbox.",
           "file_unavailable": "One of the files can no longer be attached. Remove it and send again.",
-          "other": "Could not send. The text is saved, try again."
+          "other": "Could not send. The text is saved, try again.",
+          "merged": "The ticket is merged into the main one: reply to the client there. You can still leave a note here."
         },
         "changed": {
           "title": "The ticket changed while you were writing. The reply was not sent.",

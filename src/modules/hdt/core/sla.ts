@@ -1,9 +1,9 @@
 import 'server-only';
-import { and, asc, desc, eq, gte, isNotNull, isNull, lte, ne, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import type { SlaConfig } from '@/modules/hdr/api';
 import { readSlaConfig } from '@/modules/hdr/api';
-import type { Priority } from '../pref';
+import type { Priority, TicketStatus } from '../pref';
 import { addWorkingDays, addWorkingMinutes, type Calendar, workingMinutesBetween } from '../sla';
 import { ticketEvents, tickets } from '../schema';
 
@@ -29,17 +29,29 @@ export function dueDates(createdOn: Date, priority: Priority, pausedMinutes: num
   };
 }
 
-/** Момент события статуса: последний вход в to не позже now или первый выход из from не раньше since. */
-async function statusMoment(tx: Tx, ticketId: string, opts: { to: string; notAfter: Date } | { from: string; since: Date }): Promise<Date | null> {
-  const where =
-    'to' in opts
-      ? and(eq(ticketEvents.ticketId, ticketId), eq(ticketEvents.kind, 'status'), sql`${ticketEvents.payload}->>'to' = ${opts.to}`, lte(ticketEvents.createdOn, opts.notAfter))
-      : and(eq(ticketEvents.ticketId, ticketId), eq(ticketEvents.kind, 'status'), sql`${ticketEvents.payload}->>'from' = ${opts.from}`, gte(ticketEvents.createdOn, opts.since));
+/**
+ * Статусы, в которых срок решения стоит: ход клиента. "Ждём вашего ответа" (FR-SLA-05), а также "Решено" и
+ * "Закрыто": открытое снова обращение продолжает срок с того места, где его решили (итоговая проверка M3).
+ */
+export const PAUSED_STATUSES: readonly TicketStatus[] = ['waiting_customer', 'resolved', 'closed'];
+const PAUSED_SQL = sql`(${sql.join(PAUSED_STATUSES.map((status) => sql`${status}`), sql`, `)})`;
+
+/** Момент события статуса: последний вход в паузу не позже now или первый выход из паузы не раньше since. */
+async function statusMoment(tx: Tx, ticketId: string, opts: { enter: true; notAfter: Date } | { enter: false; since: Date }): Promise<Date | null> {
+  const where = opts.enter
+    ? and(eq(ticketEvents.ticketId, ticketId), eq(ticketEvents.kind, 'status'), sql`${ticketEvents.payload}->>'to' in ${PAUSED_SQL}`, lte(ticketEvents.createdOn, opts.notAfter))
+    : and(
+        eq(ticketEvents.ticketId, ticketId),
+        eq(ticketEvents.kind, 'status'),
+        sql`${ticketEvents.payload}->>'from' in ${PAUSED_SQL}`,
+        sql`${ticketEvents.payload}->>'to' not in ${PAUSED_SQL}`,
+        gte(ticketEvents.createdOn, opts.since),
+      );
   const [row] = await tx
     .select({ at: ticketEvents.createdOn })
     .from(ticketEvents)
     .where(where)
-    .orderBy('to' in opts ? desc(ticketEvents.createdOn) : asc(ticketEvents.createdOn))
+    .orderBy(opts.enter ? desc(ticketEvents.createdOn) : asc(ticketEvents.createdOn))
     .limit(1);
   return row?.at ?? null;
 }
@@ -64,10 +76,11 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date): Promise<S
   const cal = calendarFor(config, t.priority);
   let pausedOn = t.pausedOn;
   let pausedMinutes = t.pausedMinutes;
-  if (t.status === 'waiting_customer' && !pausedOn) {
-    pausedOn = (await statusMoment(tx, ticketId, { to: 'waiting_customer', notAfter: now })) ?? now;
-  } else if (t.status !== 'waiting_customer' && pausedOn) {
-    const resumed = (await statusMoment(tx, ticketId, { from: 'waiting_customer', since: pausedOn })) ?? now;
+  const paused = PAUSED_STATUSES.includes(t.status);
+  if (paused && !pausedOn) {
+    pausedOn = (await statusMoment(tx, ticketId, { enter: true, notAfter: now })) ?? now;
+  } else if (!paused && pausedOn) {
+    const resumed = (await statusMoment(tx, ticketId, { enter: false, since: pausedOn })) ?? now;
     pausedMinutes += workingMinutesBetween(pausedOn, resumed, cal);
     pausedOn = null;
   }
@@ -92,8 +105,8 @@ export async function needsSlaRefreshTx(tx: Tx, limit: number): Promise<string[]
     .where(
       or(
         and(notInArray(tickets.status, ['resolved', 'closed']), or(isNull(tickets.firstResponseDueOn), isNull(tickets.resolutionDueOn))),
-        and(ne(tickets.status, 'waiting_customer'), isNotNull(tickets.slaPausedOn)),
-        and(eq(tickets.status, 'waiting_customer'), isNull(tickets.slaPausedOn)),
+        and(notInArray(tickets.status, [...PAUSED_STATUSES]), isNotNull(tickets.slaPausedOn)),
+        and(inArray(tickets.status, [...PAUSED_STATUSES]), isNull(tickets.slaPausedOn)),
       ),
     )
     .orderBy(asc(tickets.createdOn))

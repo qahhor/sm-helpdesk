@@ -40,8 +40,9 @@ const notSnoozed = or(isNull(tickets.snoozedUntil), lt(tickets.snoozedUntil, sql
 /** Условие очереди: что в неё входит (FR-AG-01). */
 function queueWhere(queue: QueueKey, me: string): SQL | undefined {
   switch (queue) {
+    // Новые первой линии: переданное на вторую ждёт её в своей очереди (решение 0031, пункт 15).
     case 'new':
-      return and(eq(tickets.status, 'new'), notSnoozed);
+      return and(eq(tickets.status, 'new'), eq(tickets.queue, 'l1'), notSnoozed);
     case 'mine':
       return and(eq(tickets.assigneeId, me), ne(tickets.status, 'closed'));
     case 'l2':

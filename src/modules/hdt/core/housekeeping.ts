@@ -148,11 +148,24 @@ async function removePresence(actor: SystemActor, now: Date): Promise<number> {
   });
 }
 
+/**
+ * Шаг своей транзакцией: сбой одного шага (испорченный календарь, взаимная блокировка) пишется в журнал процесса
+ * и не останавливает остальные. Следующая минута повторит его (итоговая проверка M3).
+ */
+async function step(name: string, run: () => Promise<number>): Promise<number> {
+  try {
+    return await run();
+  } catch (error) {
+    console.error(`tickets.minute: шаг ${name} не выполнен: ${error instanceof Error ? error.message : String(error)}`);
+    return 0;
+  }
+}
+
 export async function ticketsMinuteTx(actor: SystemActor, now: Date): Promise<MinuteResult> {
-  const refreshed = await refreshStale(actor, now);
-  const breached = await markBreaches(actor, now);
-  const unsnoozed = await returnSnoozed(actor, now);
-  const closed = await autoClose(actor, now);
-  const presenceRemoved = await removePresence(actor, now);
+  const refreshed = await step('refresh', () => refreshStale(actor, now));
+  const breached = await step('breaches', () => markBreaches(actor, now));
+  const unsnoozed = await step('snoozed', () => returnSnoozed(actor, now));
+  const closed = await step('auto-close', () => autoClose(actor, now));
+  const presenceRemoved = await step('presence', () => removePresence(actor, now));
   return { breached, unsnoozed, closed, refreshed, presenceRemoved };
 }

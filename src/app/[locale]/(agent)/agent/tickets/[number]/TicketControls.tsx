@@ -27,13 +27,15 @@ export async function TicketControls({ ticket, me, role, staff, modules }: Props
   const tt = await getTranslations('agent.ticket');
   if (role === 'product') return null;
   const hidden = <input type="hidden" name="number" value={ticket.number} />;
-  const transitions = allowedStaffTransitions(ticket.status, role);
+  const transitions = allowedStaffTransitions(ticket.status, role, { merged: ticket.mergedInto !== null });
+  // Обращение на второй линии берёт вторая линия (решение 0031, пункт 15).
+  const canTake = ticket.assignee?.id !== me && (ticket.line === 'l1' || ['agent_l2', 'care', 'admin'].includes(role));
 
   return (
     <Card>
       <CardContent className="flex flex-col gap-4 pt-6 text-sm">
         <h2 className="text-xs font-medium text-secondary-foreground">{t('title')}</h2>
-        {ticket.assignee?.id !== me && (
+        {canTake && (
           <form action={takeAction}>
             {hidden}
             <Button type="submit" className="w-full">

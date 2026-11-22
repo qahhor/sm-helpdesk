@@ -1,5 +1,5 @@
 import 'server-only';
-import { type AnyColumn, and, count, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { type AnyColumn, and, count, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
@@ -79,6 +79,8 @@ export async function postStaffMessageTx(
   assertCanWrite(actor);
   return withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, input.number);
+    // В объединённом клиенту не отвечают: он продолжает в основном (решение 4). Заметка остаётся можно.
+    if (ticket.mergedIntoId && !input.internal) throw new HdtError('merged');
     const changed = await changesSinceTx(tx, ticket.ticketId, input.seenVersion, actor.userId);
     if (hasChanges(changed)) return { ok: false, changed, version: await latestEntryTx(tx, ticket.ticketId) };
     const [message] = await tx
@@ -133,7 +135,14 @@ export async function saveDraftTx(actor: StaffActor, number: number, body: strin
   assertCanWrite(actor);
   await withActor(actor, async (tx) => {
     const ticketId = await ticketIdOf(tx, number);
-    if (body.length === 0) {
+    // Отложенное сохранение опоздало и принесло уже отправленный текст: черновик не воскрешается (FR-AG-21).
+    const [last] = await tx
+      .select({ body: ticketMessages.body })
+      .from(ticketMessages)
+      .where(and(eq(ticketMessages.ticketId, ticketId), eq(ticketMessages.authorId, actor.userId)))
+      .orderBy(desc(ticketMessages.createdOn))
+      .limit(1);
+    if (body.length === 0 || last?.body === body) {
       await tx.delete(replyDrafts).where(and(eq(replyDrafts.ticketId, ticketId), eq(replyDrafts.userId, actor.userId)));
       return;
     }

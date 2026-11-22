@@ -32,6 +32,7 @@ export type LockedTicket = {
   assigneeId: string | null;
   queue: string;
   snoozedUntil: Date | null;
+  mergedIntoId: string | null;
 };
 
 /** Роли, которые ведут обращения: product только читает (ТЗ 5.2, миграция 0021). */
@@ -53,6 +54,7 @@ export async function lockAgentTicket(tx: Tx, number: number): Promise<LockedTic
       assigneeId: tickets.assigneeId,
       queue: tickets.queue,
       snoozedUntil: tickets.snoozedUntil,
+      mergedIntoId: tickets.mergedIntoId,
     })
     .from(tickets)
     .where(eq(tickets.number, number))
@@ -89,7 +91,9 @@ export async function changeStatusTx(
   to: TicketStatus,
   opts: { resolution?: ResolutionType; version?: string } = {},
 ): Promise<void> {
-  if (!canTransition(ticket.status, to)) throw new HdtError('transition_refused');
+  // Объединённое закрыто навсегда (решение 4); закрывает сотрудник только решённое (решение 5).
+  if (ticket.mergedIntoId) throw new HdtError('merged');
+  if (!canTransition(ticket.status, to) || (to === 'closed' && ticket.status !== 'resolved')) throw new HdtError('transition_refused');
   if (to === 'in_development' && !(DEVELOPMENT_ROLES as readonly string[]).includes(actor.staffRole)) throw new HdtError('forbidden');
   if (to === 'resolved' && (!opts.resolution || (opts.resolution === 'fixed_in_version' && !opts.version))) throw new HdtError('resolution_required');
   await tx
@@ -134,6 +138,8 @@ export async function takeTx(actor: StaffActor, number: number, myName: string):
   assertCanWrite(actor);
   return withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
+    // Обращение на второй линии берёт вторая линия (решение 0031, пункт 15): иначе она не смогла бы его взять.
+    if (ticket.queue !== 'l1' && !(DEVELOPMENT_ROLES as readonly string[]).includes(actor.staffRole)) throw new HdtError('forbidden');
     if (ticket.assigneeId && ticket.assigneeId !== actor.userId) throw new HdtError('already_taken', { holderId: ticket.assigneeId });
     await changeAssigneeTx(tx, actor, ticket, actor.userId, myName);
     if (ticket.status === 'new') await changeStatusTx(tx, actor, ticket, 'in_progress');

@@ -225,8 +225,11 @@ export default async function AgentTicketPage({ params, searchParams }: { params
             number={ticket.number}
             me={staff.user.id}
             canWrite={canWrite}
-            canTake={ticket.assignee?.id !== staff.user.id}
-            transitions={allowedStaffTransitions(ticket.status, staff.actor.staffRole).map((to) => ({ to, label: statusName(to) }))}
+            canTake={ticket.assignee?.id !== staff.user.id && (ticket.line === 'l1' || (DEVELOPMENT_ROLES as readonly string[]).includes(staff.actor.staffRole))}
+            transitions={allowedStaffTransitions(ticket.status, staff.actor.staffRole, { merged: ticket.mergedInto !== null }).map((to) => ({
+              to,
+              label: statusName(to),
+            }))}
             templates={templates.map((template) => ({ shortcut: template.shortcut, title: template.title, ...renderTemplate(template, ticket.locale) }))}
             labels={{
               group: t('keys.commands.group'),
@@ -278,7 +281,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
                 busy: tc('files.busy'),
                 draftSaved: t('ticket.composer.draftSaved'),
                 errors: Object.fromEntries(
-                  ['invalid_input', 'forbidden', 'not_found', 'transition_refused', 'file_unavailable', 'other'].map((code) => [code, t(`ticket.composer.errors.${code}`)]),
+                  ['invalid_input', 'forbidden', 'not_found', 'transition_refused', 'file_unavailable', 'merged', 'other'].map((code) => [code, t(`ticket.composer.errors.${code}`)]),
                 ),
                 changed: {
                   title: t('ticket.composer.changed.title'),

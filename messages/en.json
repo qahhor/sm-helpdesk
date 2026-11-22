@@ -1510,6 +1510,71 @@
     "staffReset": {
       "subject": "Your Smartup Hub access was reset",
       "text": "Hello!\n\nThe portal administrator reset your password and second sign-in factor in Smartup Hub. All your sessions have been ended.\n\nOpen the link, set a new password and connect the second factor again:\n{url}\n\nThe link works for {hours} hours and only once. If you did not ask for a reset, tell the administrator."
+    },
+    "layout": {
+      "greeting": "Hello,",
+      "open": "Open the request",
+      "replyAbove": "Reply to this email and your reply will be added to the request",
+      "signature": "Smartup support",
+      "support": "Smartup support: {address}",
+      "settings": "Notification settings",
+      "contacts": "+998 71 203-03-05, smartup24.com"
+    },
+    "ticketCreated": {
+      "heading": "Request SUP-{number} created",
+      "text": "We have received your request \"{title}\". You will get the answer by email and in the portal.",
+      "viaEmail": "We have received your email \"{title}\" and created request SUP-{number}. To add details, reply to this email."
+    },
+    "ticketReply": {
+      "heading": "Answer on request SUP-{number}"
+    },
+    "ticketStatus": {
+      "heading": "News on request SUP-{number}",
+      "waiting_customer": "We are waiting for your reply on request SUP-{number} \"{title}\". Reply to this email or in the portal.",
+      "in_development": "Request SUP-{number} \"{title}\" has been passed to development. We will write when there is news.",
+      "closed": "Request SUP-{number} \"{title}\" is closed. If the question remains, write to us.",
+      "autoClosed": "Request SUP-{number} \"{title}\" is closed because we did not get a reply. If the question remains, write to us.",
+      "merged": "Request SUP-{number} has been merged with request SUP-{into}. The conversation continues there."
+    },
+    "ticketResolved": {
+      "heading": "Request SUP-{number} resolved",
+      "text": "We consider the question \"{title}\" resolved. Please rate the answer: it takes a minute. If something is wrong, reply to this email.",
+      "button": "Rate the answer"
+    },
+    "waitingReminder": {
+      "heading": "Waiting for your reply",
+      "text": "We are waiting for your reply on request SUP-{number} \"{title}\". Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
+    },
+    "unidentifiedAck": {
+      "heading": "Your email has been received",
+      "text": "We have received your email \"{title}\". Request number: SUP-{number}. A support specialist will answer you by email."
+    },
+    "staffMention": {
+      "heading": "You were mentioned in a note",
+      "text": "{author} mentions you in a note on request SUP-{number} \"{title}\"."
+    },
+    "staffBreach": {
+      "heading": "Deadline missed",
+      "first_response": "The first response deadline for request SUP-{number} \"{title}\" has been missed.",
+      "resolution": "The resolution deadline for request SUP-{number} \"{title}\" has been missed."
+    },
+    "staffUpdateDue": {
+      "heading": "Time to update the client",
+      "text": "Tomorrow the regular update deadline expires for request SUP-{number} \"{title}\" in development. Write to the client what is known today."
+    },
+    "holidaysReminder": {
+      "subject": "Holidays for {year}",
+      "text": "The list of holidays for {year} is empty. Without it holidays count as working days when deadlines are calculated.",
+      "button": "Fill in the holidays"
+    },
+    "oncallP1": {
+      "subject": "Urgent P1 request",
+      "text": "New urgent P1 request from {orgName}: SUP-{number} \"{title}\".",
+      "button": "Open the request"
+    },
+    "inboundTest": {
+      "subject": "Smartup Hub mail intake check {token}",
+      "text": "This is a check email from the Smartup Hub portal. If it has reached the portal, mail intake for {address} works. There is no need to reply."
     }
   },
   "bot": {

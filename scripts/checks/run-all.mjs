@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { checkContrast } from './contrast.mjs';
 import { findDashes, isDashCheckedFile } from './dashes.mjs';
 import { missingInEnvExample } from './env-example.mjs';
+import { mailTokensDrift } from './mail-tokens.mjs';
 import { checkCompleteness, checkIcu, checkWords } from './messages.mjs';
 import { findForbiddenApis } from './forbidden-apis.mjs';
 import { findMissingServerOnly } from './server-only.mjs';
@@ -88,6 +89,12 @@ const extraChecks = [
       }
       return problems.map((p) => `messages/${p.locale}.json ${p.key} ${p.problem}`);
     },
+  },
+  {
+    // цвета и размеры писем совпадают с токенами портала (решение 4 вехи M4)
+    name: 'mail-tokens',
+    run: () =>
+      mailTokensDrift(readFileSync(resolve(root, 'src/ui/tokens.css'), 'utf8'), readFileSync(resolve(root, 'src/modules/hdn/mail/mail-tokens.json'), 'utf8')),
   },
   {
     // каждая переменная схемы src/env.ts описана в .env.example

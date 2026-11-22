@@ -1510,6 +1510,71 @@
     "staffReset": {
       "subject": "Smartup Hub ga kirish tiklandi",
       "text": "Assalomu alaykum!\n\nPortal administratori Smartup Hub dagi parolingiz va kirishning ikkinchi omilini tikladi. Barcha sessiyalaringiz yakunlandi.\n\nHavolani oching, yangi parol o'rnating va ikkinchi omilni qayta ulang:\n{url}\n\nHavola {hours} soat amal qiladi va bir marta ishlaydi. Agar siz tiklashni so'ramagan bo'lsangiz, administratorga xabar bering."
+    },
+    "layout": {
+      "greeting": "Assalomu alaykum!",
+      "open": "Murojaatni ochish",
+      "replyAbove": "Ushbu xatga javob yozing, javob murojaatga qo'shiladi",
+      "signature": "Smartup qo'llab-quvvatlash xizmati",
+      "support": "Smartup qo'llab-quvvatlash xizmati: {address}",
+      "settings": "Bildirishnomalarni sozlash",
+      "contacts": "+998 71 203-03-05, smartup24.com"
+    },
+    "ticketCreated": {
+      "heading": "SUP-{number} murojaati yaratildi",
+      "text": "«{title}» murojaatingizni oldik. Javob xat orqali keladi va portalda ham ko'rinadi.",
+      "viaEmail": "«{title}» xatingizni oldik va SUP-{number} murojaatini yaratdik. Uni to'ldirish uchun ushbu xatga javob yozing."
+    },
+    "ticketReply": {
+      "heading": "SUP-{number} murojaati bo'yicha javob"
+    },
+    "ticketStatus": {
+      "heading": "SUP-{number} murojaati bo'yicha yangilik",
+      "waiting_customer": "SUP-{number} «{title}» murojaati bo'yicha javobingizni kutyapmiz. Ushbu xatga yoki portalda javob yozing.",
+      "in_development": "SUP-{number} «{title}» murojaati dasturchilarga topshirildi. Yangilik bo'lganda xabar beramiz.",
+      "closed": "SUP-{number} «{title}» murojaati yopildi. Savol qolgan bo'lsa, bizga yozing.",
+      "autoClosed": "SUP-{number} «{title}» murojaati yopildi: javob olmadik. Savol qolgan bo'lsa, bizga yozing.",
+      "merged": "SUP-{number} murojaati SUP-{into} murojaati bilan birlashtirildi. Yozishmalar o'sha yerda davom etadi."
+    },
+    "ticketResolved": {
+      "heading": "SUP-{number} murojaati hal qilindi",
+      "text": "«{title}» savolini hal qilingan deb hisoblaymiz. Iltimos, javobni baholang: bu bir daqiqa oladi. Agar biror narsa noto'g'ri bo'lsa, ushbu xatga javob yozing.",
+      "button": "Javobni baholash"
+    },
+    "waitingReminder": {
+      "heading": "Javobingizni kutyapmiz",
+      "text": "SUP-{number} «{title}» murojaati bo'yicha javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi."
+    },
+    "unidentifiedAck": {
+      "heading": "Xatingiz qabul qilindi",
+      "text": "«{title}» xatingizni oldik. Murojaat raqami: SUP-{number}. Qo'llab-quvvatlash xodimi sizga pochta orqali javob beradi."
+    },
+    "staffMention": {
+      "heading": "Sizni qaydda eslatishdi",
+      "text": "{author} SUP-{number} «{title}» murojaatiga yozilgan qaydda sizni eslatmoqda."
+    },
+    "staffBreach": {
+      "heading": "Muddat o'tib ketdi",
+      "first_response": "SUP-{number} «{title}» murojaati bo'yicha birinchi javob muddati o'tib ketdi.",
+      "resolution": "SUP-{number} «{title}» murojaati bo'yicha hal qilish muddati o'tib ketdi."
+    },
+    "staffUpdateDue": {
+      "heading": "Mijozga yozish vaqti keldi",
+      "text": "Ertaga «Dasturchilarda» holatidagi SUP-{number} «{title}» murojaati bo'yicha muntazam xabar berish muddati tugaydi. Mijozga bugungi holatni yozing."
+    },
+    "holidaysReminder": {
+      "subject": "{year} yil bayram kunlari",
+      "text": "{year} yil uchun bayram kunlari ro'yxati to'ldirilmagan. Usiz muddatlarni hisoblashda bayramlar ish kuni hisoblanadi.",
+      "button": "Bayramlarni to'ldirish"
+    },
+    "oncallP1": {
+      "subject": "Shoshilinch P1 murojaati",
+      "text": "{orgName} tashkilotidan yangi shoshilinch P1 murojaati: SUP-{number} «{title}».",
+      "button": "Murojaatni ochish"
+    },
+    "inboundTest": {
+      "subject": "Smartup Hub xatlarni qabul qilishni tekshirish {token}",
+      "text": "Bu Smartup Hub portalining tekshiruv xati. Agar u portalga yetib kelgan bo'lsa, {address} manzilidagi xatlarni qabul qilish ishlayapti. Unga javob berish shart emas."
     }
   },
   "bot": {

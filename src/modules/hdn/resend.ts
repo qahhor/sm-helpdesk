@@ -52,7 +52,7 @@ export function createResendMailer(cfg: Config): Mailer {
         // Один ключ на письмо во всех повторах: сервис не отправит одно письмо дважды.
         'Idempotency-Key': idempotencyKey,
       },
-      body: JSON.stringify({ from: cfg.from, to: [message.to], subject: message.subject, text: message.text }),
+      body: JSON.stringify({ from: cfg.from, to: [message.to], subject: message.subject, text: message.text, ...(message.html && { html: message.html }) }),
       signal: controller.signal,
     })
       .then((response) => response.status)

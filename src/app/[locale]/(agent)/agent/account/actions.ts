@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
+import { savePrefs } from '@/modules/hdn/api/notifications';
 import { isHduError, nextRequest, requireStaffActor, revokeMySessionOfRequest, revokeOtherSessionsOfRequest, signOut } from '@/modules/hdu/api';
 
 /** Завершение сессии сотрудника на другом устройстве. Пишется в журнал аудита. Текущая: это выход. */
@@ -27,4 +28,11 @@ export async function revokeOtherStaffSessionsAction(): Promise<void> {
   await requireStaffActor();
   await revokeOtherSessionsOfRequest();
   redirect(`/${await getLocale()}/agent/account?session=others`);
+}
+
+/** Письма сотруднику (решение 7 вехи M4): об упоминаниях и о нарушениях сроков. Уведомления в портале приходят всегда. */
+export async function saveStaffPrefsAction(formData: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await savePrefs(staff.actor, { staffMention: formData.get('staffMention') === 'on', staffBreach: formData.get('staffBreach') === 'on' });
+  redirect(`/${await getLocale()}/agent/account?prefs=saved`);
 }

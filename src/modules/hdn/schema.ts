@@ -1,9 +1,9 @@
 import { sql } from 'drizzle-orm';
-import { bigint, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
 
 // Модуль hdn: уведомления. Таблицы и политики RLS создают миграции drizzle/0006_hdu_contacts.sql (события
-// Telegram) и drizzle/0031_outbox.sql (очередь исходящих). Здесь только описание колонок для запросов.
+// Telegram), drizzle/0031_outbox.sql (очередь исходящих) и drizzle/0032_notifications.sql (уведомления в портале). Здесь только описание колонок для запросов.
 
 const moment = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -38,3 +38,48 @@ export const outbox = pgTable('hdn_outbox', {
   lastError: text('last_error'),
   ...stampColumns,
 });
+
+export const NOTIFICATION_KINDS = [
+  'ticket_created',
+  'ticket_reply',
+  'ticket_status',
+  'ticket_resolved',
+  'waiting_reminder',
+  'client_replied',
+  'mention',
+  'sla_breach',
+  'snooze_returned',
+  'update_due',
+  'holidays_reminder',
+] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+
+/** Уведомления в портале (10.5 "notifications", решение 5 вехи M4). */
+export const notifications = pgTable('hdn_notifications', {
+  orgId: uuid('org_id'),
+  notificationId: uuid('notification_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  userId: uuid('user_id').notNull(),
+  ticketId: uuid('ticket_id'),
+  kind: text('kind').$type<NotificationKind>().notNull(),
+  payload: jsonb('payload').$type<Record<string, string | number>>().notNull().default({}),
+  readOn: moment('read_on'),
+  ...stampColumns,
+});
+
+export const PREF_KINDS = ['watched_tickets', 'staff_mention', 'staff_breach'] as const;
+export type PrefKind = (typeof PREF_KINDS)[number];
+
+/** Какие письма получать (10.5 "notification_prefs", FR-NT-04). */
+export const notificationPrefs = pgTable(
+  'hdn_notification_prefs',
+  {
+    userId: uuid('user_id').notNull(),
+    kind: text('kind').$type<PrefKind>().notNull(),
+    emailEnabled: boolean('email_enabled').notNull().default(true),
+    telegramEnabled: boolean('telegram_enabled').notNull().default(true),
+    ...stampColumns,
+  },
+  (table) => [primaryKey({ name: 'hdn_notification_prefs_pk', columns: [table.userId, table.kind] })],
+);

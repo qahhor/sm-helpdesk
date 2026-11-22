@@ -155,5 +155,19 @@ export async function seedTwoOrgs(): Promise<Fixture> {
     [tickets.aOrg.ticketId, aUser.userId, JSON.stringify({ template: 'ticket_created', number: tickets.aOrg.number, title: tickets.aOrg.title, url: '/tickets', viaEmail: false }), `fixture-${code}`],
   );
 
+  // Уведомления и настройки писем (веха M4): у пользователей обеих организаций.
+  for (const [orgId, user, t] of [
+    [orgA.orgId, aUser, tickets.aOrg],
+    [orgB.orgId, bUser, tickets.bOrg],
+  ] as const) {
+    await pools.root.query(`insert into hdn_notifications (org_id, user_id, ticket_id, kind, payload) values ($1, $2, $3, 'ticket_reply', $4)`, [
+      orgId,
+      user.userId,
+      t.ticketId,
+      JSON.stringify({ number: t.number }),
+    ]);
+    await pools.root.query(`insert into hdn_notification_prefs (user_id, kind, email_enabled) values ($1, 'watched_tickets', true)`, [user.userId]);
+  }
+
   return { server: { serverId: server, code }, orgA, orgB, aUser, aAdmin, bUser, bAdmin, care, l1, adminStaff, tickets };
 }

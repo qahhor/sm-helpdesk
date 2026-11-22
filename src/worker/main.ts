@@ -4,6 +4,7 @@ import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import { bossOptions, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
 import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
+import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { dispatchOutbox } from '@/modules/hdn/api/outbox';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
@@ -93,8 +94,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const limits = await cleanupRateLimits();
     const updates = await cleanupTelegramUpdates(system);
     const { sessions, verifications, links } = await cleanupAuthRows(system);
+    const notices = await cleanupNotifications(system, new Date());
     console.info(
-      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}`,
+      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, прочитанные уведомления ${notices}`,
     );
   });
   if (opts.schedules !== false) for (const s of SCHEDULES) await boss.schedule(s.name, s.cron, null, { tz: s.tz });

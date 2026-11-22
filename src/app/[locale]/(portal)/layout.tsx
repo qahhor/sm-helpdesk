@@ -2,10 +2,14 @@ import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { signOutAction } from '@/app/[locale]/session-actions';
 import { getPolicyVersion } from '@/modules/hdc/api';
+import { unreadCount } from '@/modules/hdn/api/notifications';
 import { listMyOrganizations, needsPolicyNotice, policyNoticePath, requireClientActor } from '@/modules/hdu/api';
 import { ClientShell } from '@/ui/shell/client/ClientShell';
 import { OrgSwitcher } from '@/ui/shell/client/OrgSwitcher';
+import { NotificationBell } from '@/ui/shell/NotificationBell';
 import { UserMenu } from '@/ui/shell/UserMenu';
+import { bellLabels } from '../notifications-view';
+import { clientUnreadAction } from './notifications/actions';
 import { switchOrganizationAction } from './actions';
 
 // Все страницы кабинета клиента идут в общей оболочке и только для участника организации (FR-ID-05).
@@ -20,6 +24,7 @@ export default async function PortalLayout({ children }: LayoutProps<'/[locale]'
   const orgs = client.orgCount > 1 ? await listMyOrganizations(client.user.id) : [];
   return (
     <ClientShell
+      bell={<NotificationBell href="/notifications" initialCount={await unreadCount(client.actor)} labels={await bellLabels()} refresh={clientUnreadAction} />}
       org={
         <OrgSwitcher
           current={{ id: client.org.id, name: client.org.name }}

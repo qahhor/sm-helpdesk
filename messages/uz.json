@@ -60,6 +60,41 @@
       "privacy": "Ma'lumotlarni qayta ishlash siyosati",
       "version": "{date} tahriri",
       "translationMissing": "Sizning tilingizga tarjima hozircha yo'q, rus tilidagi matn ko'rsatildi."
+    },
+    "notifications": {
+      "title": "Bildirishnomalar",
+      "bellNone": "Bildirishnomalar, yangilari yo'q",
+      "bellSome": "Bildirishnomalar, yangilari: {count}",
+      "empty": "Hozircha bildirishnomalar yo'q",
+      "emptyText": "Bu yerda murojaatlar bo'yicha javoblar va yangiliklar paydo bo'ladi.",
+      "markAll": "Hammasini o'qilgan deb belgilash",
+      "unread": "Yangi",
+      "more": "Yana ko'rsatish",
+      "notFound": "Bildirishnoma topilmadi",
+      "kinds": {
+        "ticket_created": "SUP-{number} murojaati yaratildi",
+        "ticket_reply": "SUP-{number} murojaati bo'yicha javob",
+        "ticket_status": "SUP-{number} murojaati bo'yicha yangilik",
+        "ticket_resolved": "SUP-{number} murojaati hal qilindi",
+        "waiting_reminder": "SUP-{number} murojaati bo'yicha javobingizni kutyapmiz",
+        "client_replied": "Mijoz SUP-{number} murojaatida javob yozdi",
+        "mention": "SUP-{number} murojaatidagi qaydda sizni eslatishdi",
+        "sla_breach": "SUP-{number} murojaati bo'yicha muddat o'tib ketdi",
+        "snooze_returned": "Kechiktirilgan SUP-{number} murojaati qaytdi",
+        "update_due": "Ertaga SUP-{number} murojaati bo'yicha mijozga xabar berish muddati",
+        "holidays_reminder": "{year} yil bayram kunlarini to'ldiring"
+      },
+      "settings": {
+        "title": "Xatlar",
+        "intro": "Portaldagi bildirishnomalar doim keladi. Bu yerda qaysi xatlarni olishni tanlash mumkin.",
+        "own": "O'z murojaatlarim haqida",
+        "ownHint": "Bu xatlarni o'chirib bo'lmaydi: ularda qo'llab-quvvatlash javoblari bor.",
+        "watched": "Men obuna bo'lgan hamkasblar murojaatlari haqida",
+        "mention": "Qaydlarda eslatishlar haqida",
+        "breach": "Muddatlar o'tib ketishi haqida",
+        "save": "Saqlash",
+        "saved": "Saqlandi"
+      }
     }
   },
   "client": {

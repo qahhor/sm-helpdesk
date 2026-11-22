@@ -14,9 +14,10 @@ import { TopNav } from './TopNav';
  * Оболочка кабинета клиента: сначала телефон (ТЗ 8.1).
  * Шапка 52 px как в Smartup Web. До 600 px навигация в нижней панели, от 600 px в строке под шапкой.
  * data-zone="client" включает размеры зоны клиента: текст 16 px, цель нажатия не меньше 44 px.
- * Активную организацию (org) и меню пользователя (userMenu) строит раскладка кабинета из проверенной сессии.
+ * Активную организацию (org), колокольчик уведомлений (bell) и меню пользователя (userMenu) строит раскладка кабинета
+ * из проверенной сессии.
  */
-export async function ClientShell({ children, org, userMenu }: { children: ReactNode; org?: ReactNode; userMenu?: ReactNode }) {
+export async function ClientShell({ children, org, userMenu, bell }: { children: ReactNode; org?: ReactNode; userMenu?: ReactNode; bell?: ReactNode }) {
   const t = await getTranslations();
   const items: ClientNavItem[] = CLIENT_NAV.map(({ key, href }) => ({ key, href, label: t(`client.nav.${key}`) }));
   const navLabel = t('client.nav.label');
@@ -49,6 +50,7 @@ export async function ClientShell({ children, org, userMenu }: { children: React
               system: t('common.theme.system'),
             }}
           />
+          {bell}
           {userMenu}
         </div>
       </header>

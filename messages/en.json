@@ -60,6 +60,41 @@
       "privacy": "Data processing policy",
       "version": "Version of {date}",
       "translationMissing": "There is no translation into your language yet, the Russian text is shown."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "bellNone": "Notifications, nothing new",
+      "bellSome": "Notifications, new: {count}",
+      "empty": "No notifications yet",
+      "emptyText": "Answers and news on your requests will appear here.",
+      "markAll": "Mark all as read",
+      "unread": "New",
+      "more": "Show more",
+      "notFound": "Notification not found",
+      "kinds": {
+        "ticket_created": "Request SUP-{number} created",
+        "ticket_reply": "Answer on request SUP-{number}",
+        "ticket_status": "News on request SUP-{number}",
+        "ticket_resolved": "Request SUP-{number} resolved",
+        "waiting_reminder": "Waiting for your reply on request SUP-{number}",
+        "client_replied": "The client replied on request SUP-{number}",
+        "mention": "You were mentioned in a note on request SUP-{number}",
+        "sla_breach": "Deadline missed on request SUP-{number}",
+        "snooze_returned": "Snoozed request SUP-{number} is back",
+        "update_due": "Client update due tomorrow on request SUP-{number}",
+        "holidays_reminder": "Fill in the holidays for {year}"
+      },
+      "settings": {
+        "title": "Emails",
+        "intro": "Notifications in the portal always arrive. Here you choose which emails to get.",
+        "own": "About my requests",
+        "ownHint": "These emails cannot be turned off: they carry the support answers.",
+        "watched": "About colleagues’ requests I follow",
+        "mention": "About mentions in notes",
+        "breach": "About missed deadlines",
+        "save": "Save",
+        "saved": "Saved"
+      }
     }
   },
   "client": {

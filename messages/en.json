@@ -1367,7 +1367,8 @@
           "password_mismatch": "The passwords do not match.",
           "link_invalid": "The link has been used or has expired. Ask an administrator to send a new one.",
           "email_taken": "This address belongs to another account. Contact an administrator.",
-          "invalid_input": "Check the name and the password."
+          "invalid_input": "Check the name and the password.",
+          "rate_limited": "Too many attempts from your address. Wait 10 minutes and try again."
         }
       }
     },
@@ -1479,7 +1480,8 @@
       "text": "Press the button to sign in.",
       "submit": "Sign in",
       "invalid": "This link no longer works. A link from the bot works once and for 10 minutes. Request a new one in the bot."
-    }
+    },
+    "tooOften": "Too many attempts from your address. Wait 10 minutes and press the button again."
   },
   "mail": {
     "loginLink": {

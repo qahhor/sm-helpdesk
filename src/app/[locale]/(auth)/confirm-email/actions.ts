@@ -14,6 +14,6 @@ export async function confirmEmailAction(formData: FormData): Promise<void> {
   const result = await confirmEmailOfRequest({ token });
   if (result.ok) redirect(`/${locale}/confirm-email?done=1`);
   // Без входа токен остаётся в адресе: после входа человек вернётся на эту же страницу и нажмёт кнопку.
-  const keep = result.code === 'sign_in_required' && typeof token === 'string' ? `&token=${encodeURIComponent(token)}` : '';
+  const keep = (result.code === 'sign_in_required' || result.code === 'rate_limited') && typeof token === 'string' ? `&token=${encodeURIComponent(token)}` : '';
   redirect(`/${locale}/confirm-email?error=${result.code}${keep}`);
 }

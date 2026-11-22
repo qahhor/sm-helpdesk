@@ -36,3 +36,25 @@ test('встроенный скрипт темы в списке исключе�
     findForbiddenApis('src/ui/theme/ThemeScript.tsx', '<script dangerouslySetInnerHTML={{ __html: s }} />'),
   ).toEqual([]);
 });
+
+// Защита от SQL-инъекций (ТЗ 14.3, V2 ASVS): в базу уходят только параметры. Склейка текста запроса запрещена.
+test.each([
+  ['await tx.execute(sql.raw(`select * from t where id = ${id}`));', 'raw-sql'],
+  ["const q = sql.raw('drop table ' + name);", 'raw-sql'],
+  ['await client.query(`select * from t where name = ${name}`);', 'raw-sql'],
+  ["await pool.query('select * from t where name = ' + name);", 'raw-sql'],
+  ['await tx.execute(`select 1 from t where id = ${id}`);', 'raw-sql'],
+  ["await db.execute('delete from t where id = ' + id);", 'raw-sql'],
+])('склейку SQL находит: %s', (text, rule) => {
+  expect(findForbiddenApis('src/modules/x/core/y.ts', text).map((v) => v.rule)).toEqual([rule]);
+});
+
+test('параметры SQL разрешены', () => {
+  const text = [
+    'await tx.execute(sql`select * from t where id = ${id}`);',
+    "await client.query('select * from t where id = $1', [id]);",
+    'await client.query(`select 1 from pg_roles where rolname = current_user`);',
+    "tx.select().from(t).where(eq(t.id, id));",
+  ].join('\n');
+  expect(findForbiddenApis('src/modules/x/core/y.ts', text)).toEqual([]);
+});

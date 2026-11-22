@@ -1,9 +1,10 @@
 // Запреты ТЗ для кода в src:
 // - данные арендаторов не кешируются (раздел 9.4, правило 6): нет `use cache`, `unstable_cache`,
 //   функций кеша из next/cache, статических настроек сегмента и кеша у fetch;
-// - нет вставки разметки строкой и встроенных стилей (раздел 14, политика CSP).
+// - нет вставки разметки строкой и встроенных стилей (раздел 14, политика CSP);
+// - нет склейки текста SQL: значения идут в базу только параметрами (защита от SQL-инъекций, ТЗ 14.3).
 
-/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style'} ForbiddenRule */
+/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql'} ForbiddenRule */
 
 // Единственный файл, где разрешена вставка разметки: скрипт темы до первой отрисовки.
 const INNER_HTML_ALLOWED = new Set(['src/ui/theme/ThemeScript.tsx']);
@@ -22,6 +23,10 @@ const RULES = [
   { rule: 'cache-api', test: /\bnext\s*:\s*\{[^}]*\brevalidate\s*:(?!\s*(?:0\b|false\b))/ },
   { rule: 'inner-html', test: /\bdangerouslySetInnerHTML\b/ },
   { rule: 'inline-style', test: /\bstyle=\{/ },
+  // Склейка SQL: sql.raw, текст запроса со вставкой ${...} или через +. Параметры ($1, sql`...${x}`) разрешены.
+  { rule: 'raw-sql', test: /\bsql\.raw\s*\(/ },
+  { rule: 'raw-sql', test: /\.(?:query|execute)\s*(?:<[^>]*>)?\(\s*`[^`]*\$\{/ },
+  { rule: 'raw-sql', test: /\.(?:query|execute)\s*(?:<[^>]*>)?\(\s*(['"])[^'"]*\1\s*\+/ },
 ];
 
 /**

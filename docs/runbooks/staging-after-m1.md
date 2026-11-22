@@ -18,7 +18,7 @@
 | `MAIL_TRANSPORT` | `resend` | `console` и `file` только на localhost |
 | `RESEND_API_KEY` | ключ Resend | Секрет |
 | `MAIL_FROM` | `Smartup Hub <hub@домен>` | Домен отправителя проверен в Resend: записи SPF и DKIM, которые показывает Resend, добавлены в DNS |
-| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` | ключи Cloudflare Turnstile для домена staging | Задаются парой. Без них проверка "не робот" выключена |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET` | ключи Cloudflare Turnstile для домена staging | Задаются парой. В production на настоящем адресе обязательны: без них портал не запускается (решение 0033) |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | токен бота от BotFather и `openssl rand -hex 32` | Задаются парой. Без них бот выключен. Секрет вебхука: только латинские буквы, цифры, `_` и `-` (так требует Telegram), поэтому hex, а не base64 |
 | `TELEGRAM_API_URL` | не задавать | Другой адрес допускается только на localhost |
 | `CLIENT_IP_HEADER` | `cf-connecting-ip` | Обязателен в production. Откуда брать адрес посетителя для счётчиков и журнала (решение 0020). Сетевой экран пропускает на 443 только адреса Cloudflare, иначе заголовок можно подделать |
@@ -62,6 +62,16 @@ ClamAV: служба `clamav` в `compose.prod.yaml` (образ `clamav/clamav:
 | `secrets/pg_superuser` | Пароль суперпользователя PostgreSQL |
 
 Переменные оболочки для `docker compose`: `HUB_IMAGE` (образ портала с тегом) и `HUB_DOMAIN`.
+
+## 1б. Cloudflare перед порталом: защита от ботов и частых запросов
+
+Первый уровень защиты от перебора и потока запросов стоит на стороне Cloudflare, до портала (решение 0033). Настраивается в панели Cloudflare для домена портала:
+
+1. **Turnstile.** Виджет для домена портала в режиме Managed, ключи в `TURNSTILE_SITE_KEY` и `TURNSTILE_SECRET`.
+2. **WAF, управляемые правила.** Включить управляемый набор правил Cloudflare (Security, WAF, Managed rules): он отсекает типовые попытки SQL-инъекций и XSS до портала.
+3. **Ограничение частоты.** Правило Security, WAF, Rate limiting rules на адреса входа: путь содержит `/login`, `/staff/login`, `/invite`, `/confirm-email` или начинается с `/api/auth/`. С одного адреса больше 30 запросов за 10 секунд: блокировать на 10 секунд. Если тариф даёт одно правило, оно ставится именно сюда. Пределы портала (раздел 6 решения 0033) действуют и без этого правила.
+4. **Режим борьбы с ботами (Bot Fight Mode)** включать только после проверки, что проходят вебхук Telegram (`/api/webhooks/telegram`) и возврат входа через Smartup (`/api/auth/...`): эти запросы присылают серверы, а не браузеры. После включения: `hub telegram:info` без ошибок доставки и вход клиента через Smartup.
+5. **SSL/TLS Full (strict)** и заголовок `cf-connecting-ip` уже требуются памяткой (`CLIENT_IP_HEADER=cf-connecting-ip`): по нему считаются пределы портала.
 
 ## 1a. Первый запуск
 

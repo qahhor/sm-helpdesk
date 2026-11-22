@@ -11,6 +11,7 @@ import { firstParam } from '@/lib/search-params';
 export default async function LoginLinkPage({ searchParams }: PageProps<'/[locale]/login/link'>) {
   const params = await searchParams;
   const t = await getTranslations('auth.link');
+  const tAuth = await getTranslations('auth');
   const token = firstParam(params.token);
   const invalid = firstParam(params.error) === 'link_invalid' || !token;
 
@@ -29,6 +30,8 @@ export default async function LoginLinkPage({ searchParams }: PageProps<'/[local
             </Link>
           </>
         ) : (
+          <>
+            {firstParam(params.error) === 'rate_limited' && <Alert tone="danger">{tAuth('tooOften')}</Alert>}
           <form action={completeLoginLinkAction}>
             <input type="hidden" name="token" value={token} />
             <input type="hidden" name="next" value={firstParam(params.next) ?? ''} />
@@ -36,6 +39,7 @@ export default async function LoginLinkPage({ searchParams }: PageProps<'/[local
               {t('page.submit')}
             </Button>
           </form>
+          </>
         )}
       </CardContent>
     </Card>

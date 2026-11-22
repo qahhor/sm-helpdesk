@@ -197,6 +197,9 @@ const schema = z
     // Локальное хранилище отдаёт файлы обработчиком портала и работает только на localhost.
     if (value.FILE_STORAGE !== 'r2' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({ code: 'custom', path: ['FILE_STORAGE'], message: 'на настоящем адресе в production задайте r2' });
+    // Проверка "не робот" на формах входа (защита от перебора, ТЗ 14.5): без ключей она выключена, на настоящем адресе нельзя.
+    if (!value.TURNSTILE_SITE_KEY && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SITE_KEY'], message: 'не задан: на настоящем адресе в production формы входа защищает Cloudflare Turnstile' });
     if (!value.CLAMAV_HOST && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({ code: 'custom', path: ['CLAMAV_HOST'], message: 'не задан: на настоящем адресе в production файлы проверяет ClamAV' });
     if (value.HUB_SHOWCASE === '1' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))

@@ -1367,7 +1367,8 @@
           "password_mismatch": "Parollar mos kelmadi.",
           "link_invalid": "Havola ishlatilgan yoki muddati tugagan. Administratordan yangisini yuborishni so'rang.",
           "email_taken": "Bu manzil boshqa hisobga biriktirilgan. Administratorga murojaat qiling.",
-          "invalid_input": "Ism va parolni tekshiring."
+          "invalid_input": "Ism va parolni tekshiring.",
+          "rate_limited": "Manzilingizdan urinishlar juda ko'p. 10 daqiqa kuting va qayta urinib ko'ring."
         }
       }
     },
@@ -1479,7 +1480,8 @@
       "text": "Kirish uchun tugmani bosing.",
       "submit": "Kirish",
       "invalid": "Havola endi amal qilmaydi. Botdagi havola bir marta ishlaydi va 10 daqiqa amal qiladi. Botdan yangisini so'rang."
-    }
+    },
+    "tooOften": "Manzilingizdan urinishlar juda ko'p. 10 daqiqa kuting va tugmani qayta bosing."
   },
   "mail": {
     "loginLink": {

@@ -1,0 +1,16 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "id": "2a0c9ce0-3112-4728-976e-47ddcd16a318",
+      "filename": "screen.png",
+      "content_type": "image/png",
+      "content_disposition": "inline",
+      "content_id": "img1",
+      "size": 4096,
+      "download_url": "https://inbound-cdn.example.test/attachments/2a0c9ce0?signature=abc",
+      "expires_at": "2026-11-22T11:15:29.000Z"
+    }
+  ]
+}

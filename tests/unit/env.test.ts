@@ -134,6 +134,9 @@ const prod = {
   TURNSTILE_SITE_KEY: '0x4AAAAAAA-site',
   TURNSTILE_SECRET: '0x4AAAAAAA-secret',
 };
+/** Секрет вебхука Resend в формате Svix (решение 10 вехи M4). */
+const WEBHOOK = `whsec_${Buffer.alloc(24, 3).toString('base64')}`;
+
 const problems = (env: Record<string, string | undefined>) => {
   try {
     parseEnv(env);
@@ -190,10 +193,10 @@ test('отправка через Resend требует ключ и адрес �
     problems({ ...prod, MAIL_TRANSPORT: 'resend' })
       .map((x) => x.name)
       .sort(),
-  ).toEqual(['MAIL_FROM', 'RESEND_API_KEY']);
-  expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'не адрес' }).map((x) => x.name)).toEqual(['MAIL_FROM']);
-  expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'Smartup Hub <hub@mail.smartup24.com>' })).toEqual([]);
-  expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'hub@mail.smartup24.com' })).toEqual([]);
+  ).toEqual(['MAIL_FROM', 'RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET']);
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'не адрес', RESEND_WEBHOOK_SECRET: WEBHOOK }).map((x) => x.name)).toEqual(['MAIL_FROM']);
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'Smartup Hub <hub@mail.smartup24.com>', RESEND_WEBHOOK_SECRET: WEBHOOK })).toEqual([]);
+  expect(problems({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'hub@mail.smartup24.com', RESEND_WEBHOOK_SECRET: WEBHOOK })).toEqual([]);
   // Письма в журнал и в файлы по-прежнему только на машине разработчика.
   expect(problems({ ...prod, MAIL_TRANSPORT: 'console' }).map((x) => x.name)).toEqual(['MAIL_TRANSPORT']);
 });
@@ -260,4 +263,40 @@ test('проверка "не робот": на настоящем адресе �
       .TURNSTILE_SECRET,
   ).toBeUndefined();
   expect(parseEnv(ok).TURNSTILE_SECRET).toBeUndefined();
+});
+
+test('REPLY_HMAC_SECRET короче 32 знаков или равный BETTER_AUTH_SECRET отклоняется', () => {
+  const reply = { REPLY_DOMAIN: 'reply.smartup24.com', REPLY_HMAC_SECRET: 'reply-secret-of-at-least-32-chars!!' };
+  expect(problems({ ...prod, ...reply })).toEqual([]);
+  const short = problems({ ...prod, ...reply, REPLY_HMAC_SECRET: 'short' });
+  expect(short.map((x) => x.name)).toEqual(['REPLY_HMAC_SECRET']);
+  expect(JSON.stringify(short)).not.toContain('short');
+  expect(problems({ ...prod, ...reply, REPLY_HMAC_SECRET: prod.BETTER_AUTH_SECRET }).map((x) => x.name)).toEqual(['REPLY_HMAC_SECRET']);
+  expect(problems({ ...prod, ...reply, REPLY_HMAC_SECRET: prod.ENCRYPTION_KEY }).map((x) => x.name)).toEqual(['REPLY_HMAC_SECRET']);
+});
+
+test('адрес приёма ответов: домен без схемы, задаётся вместе с секретом подписи', () => {
+  const secret = 'reply-secret-of-at-least-32-chars!!';
+  expect(problems({ ...prod, REPLY_DOMAIN: 'https://reply.smartup24.com', REPLY_HMAC_SECRET: secret }).map((x) => x.name)).toEqual(['REPLY_DOMAIN']);
+  expect(problems({ ...prod, REPLY_DOMAIN: 'reply.smartup24.com' }).map((x) => x.name)).toEqual(['REPLY_HMAC_SECRET']);
+  expect(problems({ ...prod, REPLY_HMAC_SECRET: secret }).map((x) => x.name)).toEqual(['REPLY_DOMAIN']);
+  // Без домена приёма письма уходят без адреса ответа, приём выключен.
+  expect(parseEnv(ok).REPLY_DOMAIN).toBeUndefined();
+});
+
+test('resend на настоящем адресе без RESEND_WEBHOOK_SECRET не запускается', () => {
+  const resend = { ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'hub@mail.smartup24.com' };
+  expect(problems(resend).map((x) => x.name)).toEqual(['RESEND_WEBHOOK_SECRET']);
+  const wrong = problems({ ...resend, RESEND_WEBHOOK_SECRET: 'plain-secret-value' });
+  expect(wrong.map((x) => x.name)).toEqual(['RESEND_WEBHOOK_SECRET']);
+  expect(JSON.stringify(wrong)).not.toContain('plain-secret-value');
+  expect(problems({ ...resend, RESEND_WEBHOOK_SECRET: WEBHOOK })).toEqual([]);
+  // На машине разработчика секрет вебхука можно не задавать.
+  expect(parseEnv({ ...ok, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'hub@mail.smartup24.com', HUB_URL: 'http://localhost:3000', HUB_DOMAIN: 'localhost' }).RESEND_WEBHOOK_SECRET).toBeUndefined();
+});
+
+test('идентификатор сервиса проверки почты: имя узла, необязателен', () => {
+  expect(parseEnv({ ...ok, INBOUND_AUTHSERV_ID: 'amazonses.com' }).INBOUND_AUTHSERV_ID).toBe('amazonses.com');
+  expect(problems({ ...ok, INBOUND_AUTHSERV_ID: 'two words' }).map((x) => x.name)).toEqual(['INBOUND_AUTHSERV_ID']);
+  expect(parseEnv(ok).INBOUND_AUTHSERV_ID).toBeUndefined();
 });

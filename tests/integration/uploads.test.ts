@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { MemoryJobQueue, MemoryStorage, setJobQueueForTests, setStorageForTests } from '@/modules/hdc/testing';
-import { completeUpload, createTicket, presignUpload, replyToTicket } from '@/modules/hdt/api';
+import { completeStaffUpload, completeUpload, createTicket, presignStaffUpload, presignUpload, replyToTicket } from '@/modules/hdt/api';
 import { MAX_FILE_BYTES, MAX_VIDEO_BYTES } from '@/modules/hdt/pref';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { clientCtx } from './helpers/auth';
+import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
 import { pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
 
@@ -191,4 +191,27 @@ test('завершение загрузки ограничено по часто
   for (let i = 0; i < RATE_RULES.uploadCompletePerUser.limit; i++) await completeUpload(ctx, attachmentId);
   await expect(completeUpload(ctx, attachmentId)).rejects.toMatchObject({ code: 'rate_limited' });
   expect(RATE_RULES.uploadCompletePerUser.limit).toBeGreaterThanOrEqual(2 * RATE_RULES.uploadPresignPerUser.limit);
+});
+
+test('сотрудник загружает файл, файл проверяется антивирусом как у клиента', async () => {
+  const f = await seedTwoOrgs();
+  const l1 = staffCtx(f.l1);
+  const t = f.tickets.aOrg;
+  const { attachmentId, url } = await presignStaffUpload(l1, { number: t.number, fileName: 'выгрузка.csv', size: 12, mime: 'text/csv' });
+  expect(url).toContain(`quarantine/${attachmentId}`);
+  // Организация берётся из обращения, загрузивший из сессии; до ответа файл ни к чему не прикреплён.
+  expect(await row(attachmentId)).toMatchObject({ org_id: f.orgA.orgId, ticket_id: null, uploader_id: f.l1.userId, scan_status: 'pending', storage_key: `quarantine/${attachmentId}` });
+  storage.put(`quarantine/${attachmentId}`, new Uint8Array(12));
+  expect(await completeStaffUpload(l1, attachmentId)).toEqual({ status: 'pending' });
+  expect(jobs.sent).toEqual([{ name: 'attachment.scan', data: { attachmentId } }]);
+  // Те же ограничения, что у клиента: тип, размер, чужая загрузка, неизвестное обращение, роль product.
+  await expect(presignStaffUpload(l1, { number: t.number, fileName: 'page.html', size: 10 })).rejects.toMatchObject({ code: 'file_not_allowed' });
+  await expect(presignStaffUpload(l1, { number: 999_999, fileName: 'a.txt', size: 10 })).rejects.toMatchObject({ code: 'not_found' });
+  await expect(completeStaffUpload(staffCtx(f.care), attachmentId)).rejects.toMatchObject({ code: 'not_found' });
+  const product = staffCtx(await staffWithRole('product'));
+  await expect(presignStaffUpload(product, { number: t.number, fileName: 'a.txt', size: 10 })).rejects.toMatchObject({ code: 'forbidden' });
+  // Размер не совпал: отклонено, как у клиента.
+  const short = await presignStaffUpload(l1, { number: t.number, fileName: 'shot.png', size: 2048, mime: 'image/png' });
+  storage.put(`quarantine/${short.attachmentId}`, new Uint8Array(10));
+  expect(await completeStaffUpload(l1, short.attachmentId)).toEqual({ status: 'rejected' });
 });

@@ -1,11 +1,12 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
-import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
+import type { Tx } from '@/db/client';
+import { type ClientActor, type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { enqueue, getScanner, getStorage, SNIFF_BYTES, sniffFileType, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ENCRYPTED_OFFICE_SIGNATURE, type ScanStatus, SWEEP_BATCH } from '../pref';
-import { attachments } from '../schema';
+import { attachments, tickets } from '../schema';
 import { fileKey, isEncryptedOffice, quarantineKey, rejectReasonOf, typeMatches } from '../util';
 
 // Модуль hdt, слой core: загрузки в карантин (раздел 11.11, решение 0027). Строка создаётся до загрузки,
@@ -15,22 +16,37 @@ export type NewUpload = { fileName: string; mime: string; size: number };
 /** Своя загрузка. Ключа хранилища нет намеренно: до проверки файл лежит в карантине, ключ берётся из идентификатора. */
 export type UploadRecord = { attachmentId: string; size: number; scanStatus: ScanStatus };
 
+async function insertUpload(tx: Tx, orgId: string, uploaderId: string, upload: NewUpload): Promise<string> {
+  const result = await tx.execute<{ attachment_id: string }>(sql`
+    insert into hdt_attachments (attachment_id, org_id, uploader_id, storage_key, file_name, mime, size, scan_status)
+    select id, ${orgId}::uuid, ${uploaderId}::uuid, 'quarantine/' || id, ${upload.fileName}, ${upload.mime}, ${upload.size}, 'pending'
+      from (select uuidv7() as id) as generated
+    returning attachment_id`);
+  const id = result.rows[0]?.attachment_id;
+  if (!id) throw new Error('hdt: загрузка не создана');
+  return id;
+}
+
 /** Строка неприкреплённой загрузки со статусом pending и ключом quarantine/{attachment_id}. */
 export async function createUploadTx(actor: ClientActor, upload: NewUpload): Promise<string> {
+  return withActor(actor, (tx) => insertUpload(tx, actor.orgId, actor.userId, upload));
+}
+
+/**
+ * Загрузка сотрудника (план M3, задачи 8 и 12): организация из обращения или, для нового обращения за клиента,
+ * уже проверенная слоем api организация. Загрузивший из сессии.
+ */
+export async function createStaffUploadTx(actor: StaffActor, target: { number: number } | { orgId: string }, upload: NewUpload): Promise<string> {
   return withActor(actor, async (tx) => {
-    const result = await tx.execute<{ attachment_id: string }>(sql`
-      insert into hdt_attachments (attachment_id, org_id, uploader_id, storage_key, file_name, mime, size, scan_status)
-      select id, ${actor.orgId}::uuid, ${actor.userId}::uuid, 'quarantine/' || id, ${upload.fileName}, ${upload.mime}, ${upload.size}, 'pending'
-        from (select uuidv7() as id) as generated
-      returning attachment_id`);
-    const id = result.rows[0]?.attachment_id;
-    if (!id) throw new Error('hdt: загрузка не создана');
-    return id;
+    if ('orgId' in target) return insertUpload(tx, target.orgId, actor.userId, upload);
+    const [ticket] = await tx.select({ orgId: tickets.orgId }).from(tickets).where(eq(tickets.number, target.number)).limit(1);
+    if (!ticket) throw new HdtError('not_found');
+    return insertUpload(tx, ticket.orgId, actor.userId, upload);
   });
 }
 
 /** Своя загрузка актора или null: чужую политики RLS и условие на загрузившего не отдают. */
-export async function findOwnUpload(actor: ClientActor, attachmentId: string): Promise<UploadRecord | null> {
+export async function findOwnUpload(actor: ClientActor | StaffActor, attachmentId: string): Promise<UploadRecord | null> {
   return withActor(actor, async (tx) => {
     const [row] = await tx
       .select({ attachmentId: attachments.attachmentId, size: attachments.size, scanStatus: attachments.scanStatus })
@@ -68,7 +84,7 @@ export async function findDownloadable(
  * Отклоняет загрузку, файл которой не пришёл или не совпал по размеру. Состояние проверки клиент менять не может
  * (триггер t_hdt_attachments_client_guard), поэтому меняет фоновая роль, и только строку этого загрузившего в pending.
  */
-export async function rejectUploadTx(actor: ClientActor, attachmentId: string): Promise<void> {
+export async function rejectUploadTx(actor: ClientActor | StaffActor, attachmentId: string): Promise<void> {
   const system: SystemActor = { type: 'system', job: 'uploads.complete', ip: actor.ip ?? null };
   await withActor(system, (tx) =>
     tx

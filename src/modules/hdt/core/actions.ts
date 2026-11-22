@@ -6,6 +6,7 @@ import { writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, canTransition, type CsatReason, type TicketStatus, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
+import { isThanks } from './thanks';
 
 // Модуль hdt, слой core: действия клиента над обращением (FR-TK-08..12). Каждое действие одной
 // транзакцией: обращение блокируется (одновременное второе нажатие видит уже новый статус), меняется
@@ -19,6 +20,7 @@ type Locked = {
   visibility: Visibility;
   closedOn: Date | null;
   csatScore: number | null;
+  mergedIntoId: string | null;
 };
 
 /** Видимое актору обращение по номеру с блокировкой строки. Невидимое и несуществующее: not_found. */
@@ -33,6 +35,7 @@ async function lockTicket(tx: Tx, number: number): Promise<Locked> {
         visibility: tickets.visibility,
         closedOn: tickets.closedOn,
         csatScore: tickets.csatScore,
+        mergedIntoId: tickets.mergedIntoId,
       })
       .from(tickets)
       .where(eq(tickets.number, number))
@@ -58,11 +61,11 @@ async function changeStatus(tx: Tx, actor: ClientActor, ticket: Locked, to: Tick
 }
 
 /** Сообщение клиента с прикреплением его загрузок. Чужая или уже прикреплённая загрузка: invalid_input. */
-async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body: string, attachmentIds: string[] = []): Promise<void> {
+async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body: string, attachmentIds: string[] = [], isThanks = false): Promise<void> {
   const message = (
     await tx
       .insert(ticketMessages)
-      .values({ orgId: ticket.orgId, ticketId: ticket.ticketId, authorId: actor.userId, authorType: 'client', body })
+      .values({ orgId: ticket.orgId, ticketId: ticket.ticketId, authorId: actor.userId, authorType: 'client', body, isThanks })
       .returning({ messageId: ticketMessages.messageId })
   )[0] as { messageId: string };
   if (attachmentIds.length > 0) {
@@ -83,17 +86,24 @@ async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body
 }
 
 /**
- * Ответ клиента (FR-TK-08). "Ждём вашего ответа" и "Решено" переходят в "В работе" (решение 0026, пункт 4:
- * определение благодарности придёт в M3). В закрытое обращение ответить нельзя: его открывают заново.
+ * Ответ клиента (FR-TK-08). "Ждём вашего ответа" и "Решено" переходят в "В работе", кроме благодарности на
+ * решённое (FR-TK-14, решение 0026, пункт 4). В закрытое обращение ответить нельзя: его открывают заново.
  */
-export async function replyTx(actor: ClientActor, number: number, body: string, attachmentIds: string[]): Promise<void> {
-  await withActor(actor, async (tx) => {
+export async function replyTx(actor: ClientActor, number: number, body: string, attachmentIds: string[]): Promise<string> {
+  return withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
     if (ticket.status === 'closed') throw new HdtError('transition_refused');
+    // Благодарность на решённое (FR-TK-14, решение 15): сообщение сохраняется, обращение остаётся решённым и не
+    // считается ждущим ответа. Файл в сообщении это уже не просто "спасибо": открывается заново.
+    if (ticket.status === 'resolved' && attachmentIds.length === 0 && isThanks(body)) {
+      await addClientMessage(tx, actor, ticket, body, [], true);
+      return ticket.ticketId;
+    }
     await addClientMessage(tx, actor, ticket, body, attachmentIds);
     if (ticket.status === 'waiting_customer' || ticket.status === 'resolved')
       await changeStatus(tx, actor, ticket, 'in_progress', { lastClientMessageOn: new Date() });
     else await tx.update(tickets).set({ lastClientMessageOn: new Date() }).where(eq(tickets.ticketId, ticket.ticketId));
+    return ticket.ticketId;
   });
 }
 
@@ -109,15 +119,18 @@ export async function confirmTx(actor: ClientActor, number: number): Promise<voi
 }
 
 /** Открыть заново: решённое всегда, закрытое в пределах срока (FR-TK-12). Необязательный текст становится сообщением. */
-export async function reopenTx(actor: ClientActor, number: number, reopenDays: number, body?: string): Promise<void> {
-  await withActor(actor, async (tx) => {
+export async function reopenTx(actor: ClientActor, number: number, reopenDays: number, body?: string): Promise<string> {
+  return withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, number);
+    // Объединённое закрыто навсегда: клиент продолжает в основном (решение 4 плана M3).
+    if (ticket.mergedIntoId) throw new HdtError('merged');
     if (ticket.status === 'closed') {
       const expired = !ticket.closedOn || Date.now() - ticket.closedOn.getTime() > reopenDays * 86_400_000;
       if (expired) throw new HdtError('reopen_expired');
     } else if (ticket.status !== 'resolved') throw new HdtError('transition_refused');
     if (body) await addClientMessage(tx, actor, ticket, body);
     await changeStatus(tx, actor, ticket, 'in_progress', body ? { lastClientMessageOn: new Date() } : {});
+    return ticket.ticketId;
   });
 }
 

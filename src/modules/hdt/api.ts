@@ -2,7 +2,8 @@ import 'server-only';
 import { type ClientContext, namesOf, otherOrganizationActors } from '@/modules/hdu/api';
 import { consumeRateLimit, rateKey, readSetting } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { isActiveModule } from '@/modules/hdr/api';
+import { isActiveModule, loadSlaConfig } from '@/modules/hdr/api';
+import { refreshSlaAfterClient } from './api/jobs';
 import { confirmTx, rateTx, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
 import { createTicketTx, listTicketRows, readTicket, ticketExists } from './core/tickets';
 import { HdtError } from './error';
@@ -28,12 +29,51 @@ import {
 import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from './util';
 
 // Загрузка файлов (задача 5): ссылки в карантин и завершение загрузки.
-export { completeUpload, handleUploadRequest, presignUpload } from './api/uploads';
+export { completeStaffUpload, completeUpload, handleUploadRequest, presignStaffUpload, presignUpload } from './api/uploads';
+// Обращение от имени клиента (план M3, задача 12).
+export { createTicketForClient } from './api/staff-create';
+// Объединение дублей и массовые действия (план M3, задача 11).
+export { bulkAction, type BulkResult, mergeTicket } from './api/bulk';
+// Передача между линиями (план M3, задача 9).
+export { returnToL1, transferToL2 } from './api/lines';
+// Ответ, заметка, черновик и присутствие сотрудника (план M3, задача 8).
+export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type PresenceEntry, saveDraft, touchPresence } from './api/agent-messages';
 // Скачивание вложений (задача 8).
-export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest } from './api/attachments';
+export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest, staffAttachmentRedirect } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
-export { scanAttachment, sweepAttachments } from './api/jobs';
+export { type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
+export {
+  nextInQueue,
+  listThanks,
+  type ThanksRow,
+  deleteFilter,
+  listFilters,
+  assignTicket,
+  getAgentTicket,
+  type AgentFileView,
+  type AgentTicketView,
+  type AgentTimelineEntry,
+  listQueue,
+  markTicketRead,
+  QUEUE_KEYS,
+  QUEUE_PAGE_SIZE,
+  QUEUE_SORTS,
+  type QueueKey,
+  queueCounts,
+  type QueueRow,
+  type QueueSort,
+  type SavedFilter,
+  saveFilter,
+  setPriority,
+  setStatus,
+  setTicketModule,
+  setTicketType,
+  snoozeTicket,
+  takeTicket,
+} from './api/agent';
 export { SWEEP_BATCH } from './pref';
+// Расчёт момента "отложить до" для формы рабочего места (UX-A-11).
+export { type SnoozePreset, snoozeTarget, zonedToDate } from './sla';
 
 // Модуль hdt (обращения), слой api: точки входа для страниц, обработчиков и других модулей.
 // Каждая функция принимает проверенный контекст клиента и разбирает вход схемой (ТЗ 9.4, правило 7).
@@ -41,8 +81,21 @@ export { SWEEP_BATCH } from './pref';
 export { HDT_ERROR_CODES, type HdtErrorCode, HdtError, isHdtError } from './error';
 export { formatNumber, parseNumber } from './util';
 // Значения для форм и фильтров кабинета: страницы берут модуль только через api.
-export { CSAT_REASONS, IMPACTS, MAX_FILES_PER_MESSAGE, TICKET_STATUSES, TICKET_TYPES, VISIBILITIES } from './pref';
-export type { CsatReason, Impact, ScanStatus, TicketStatus, TicketType, Visibility } from './pref';
+export {
+  allowedStaffTransitions,
+  CSAT_REASONS,
+  DEVELOPMENT_ROLES,
+  IMPACTS,
+  MAX_FILES_PER_MESSAGE,
+  PRIORITIES,
+  RESOLUTION_TYPES,
+  TICKET_STATUSES,
+  TICKET_TYPES,
+  TRANSFER_REASONS,
+  TRANSFERABLE_STATUSES,
+  VISIBILITIES,
+} from './pref';
+export type { CsatReason, Impact, Priority, ResolutionType, ScanStatus, TicketStatus, TicketType, Visibility } from './pref';
 /** Расширения разрешённых файлов (FR-TK-13) для поля выбора файла. */
 export const ALLOWED_FILE_EXTENSIONS: readonly string[] = Object.keys(ALLOWED_FILES);
 
@@ -56,11 +109,12 @@ export async function createTicket(ctx: ClientContext, input: unknown): Promise<
   if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
   const limit = await consumeRateLimit(rateKey('ticket-create:user', ctx.actor.userId), RATE_RULES.ticketCreatePerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
-  const { number } = await createTicketTx(ctx.actor, {
+  const { number, ticketId } = await createTicketTx(ctx.actor, {
     ...data,
     title: data.title ?? titleFromDescription(data.description),
     attachmentIds: [...new Set(data.attachmentIds)],
   });
+  await refreshSlaAfterClient(ticketId);
   return { number };
 }
 
@@ -143,13 +197,30 @@ export type TicketView = {
   isMine: boolean;
   watching: boolean;
   relatedNumber: number | null;
+  /** Обращение объединено с основным (решение 4 плана M3): номер, только если основное видно клиенту. */
+  mergedInto: { number: number } | null;
+  merged: boolean;
+  /** Обращение завёл сотрудник по звонку клиента (FR-AG-08). */
+  createdByStaff: boolean;
   csat: { score: number; reason: CsatReason | null; comment: string | null } | null;
   attachments: AttachmentView[];
   messages: MessageView[];
   events: EventView[];
   turn: 'client' | 'support' | 'none';
+  /** Срок, который поддержка обещает клиенту сейчас (FR-SLA-08): первый ответ или решение. На ходу клиента пусто. */
+  nextReply: { kind: 'first_response' | 'resolution'; at: Date; timeZone: string } | null;
   can: TicketActions;
 };
+
+/** Срок следующего ответа для клиента: до первого ответа сам первый ответ, после него срок решения. */
+function nextReplyOf(
+  ticket: { status: TicketStatus; firstRespondedOn: Date | null; firstResponseDueOn: Date | null; resolutionDueOn: Date | null },
+  timeZone: string,
+): TicketView['nextReply'] {
+  if (turnOf(ticket.status) !== 'support') return null;
+  if (!ticket.firstRespondedOn) return ticket.firstResponseDueOn ? { kind: 'first_response', at: ticket.firstResponseDueOn, timeZone } : null;
+  return ticket.resolutionDueOn ? { kind: 'resolution', at: ticket.resolutionDueOn, timeZone } : null;
+}
 
 /**
  * Обращение по номеру в другой организации пользователя (UX-C-06): ссылка из письма могла вести туда, а активна
@@ -188,7 +259,9 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
   const found = await readTicket(ctx.actor, number);
   if (!found) return null;
   const { ticket } = found;
-  const names = await namesOf(ctx.actor, [ticket.authorId, ...found.messages.map((m) => m.authorId).filter((id): id is string => id !== null)]);
+  // Имена только людей клиента: ответ сотрудника подписан "Поддержка Smartup", имя сотрудника клиенту не уходит (FR-LINE-07).
+  const clientAuthors = found.messages.filter((m) => m.authorType === 'client' && m.authorId !== null).map((m) => m.authorId as string);
+  const names = await namesOf(ctx.actor, [ticket.authorId, ...clientAuthors]);
   const me = ctx.actor.userId;
   const fileView = (a: (typeof found.attachments)[number]): AttachmentView => ({
     attachmentId: a.attachmentId,
@@ -217,12 +290,15 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
     isMine,
     watching: found.watching,
     relatedNumber: found.relatedNumber,
+    mergedInto: found.mergedIntoNumber !== null ? { number: found.mergedIntoNumber } : null,
+    merged: ticket.mergedIntoId !== null,
+    createdByStaff: ticket.source === 'staff',
     csat: ticket.csatScore !== null ? { score: ticket.csatScore, reason: ticket.csatReason, comment: ticket.csatComment } : null,
     attachments: found.attachments.filter((a) => a.messageId === null).map(fileView),
     messages: found.messages.map((m) => ({
       messageId: m.messageId,
       authorType: m.authorType,
-      authorName: m.authorId ? (names.get(m.authorId) ?? null) : null,
+      authorName: m.authorType === 'client' && m.authorId ? (names.get(m.authorId) ?? null) : null,
       isMine: m.authorId === me,
       body: m.body,
       createdOn: m.createdOn,
@@ -230,12 +306,14 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
     })),
     events: found.events.map((e) => ({ kind: e.kind, actorType: e.actorType, payload: e.payload, createdOn: e.createdOn })),
     turn: turnOf(ticket.status),
+    // Часовой пояс календаря поддержки: срок показывается в нём, а не в поясе сервера.
+    nextReply: turnOf(ticket.status) === 'support' ? nextReplyOf(ticket, (await loadSlaConfig(ctx.actor)).calendar.timeZone) : null,
     can: {
       reply: ticket.status !== 'closed',
       // Решение 0026, пункт 21: подтверждают автор и администратор клиента, открыть снова может любой, кто видит,
       // оценивает только автор.
       confirm: ticket.status === 'resolved' && (isMine || ctx.actor.orgRole === 'client_admin'),
-      reopen: ticket.status === 'resolved' || (ticket.status === 'closed' && withinReopen(ticket.closedOn, days)),
+      reopen: ticket.mergedIntoId === null && (ticket.status === 'resolved' || (ticket.status === 'closed' && withinReopen(ticket.closedOn, days))),
       rate: ticket.status === 'closed' && ticket.csatScore === null && isMine,
       changeVisibility: isMine || ctx.actor.orgRole === 'client_admin',
       watch: ticket.visibility === 'org' && !isMine,
@@ -252,7 +330,7 @@ export async function replyToTicket(ctx: ClientContext, input: unknown): Promise
   if (ids.length > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
   const limit = await consumeRateLimit(rateKey('ticket-reply:user', ctx.actor.userId), RATE_RULES.ticketReplyPerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
-  await replyTx(ctx.actor, data.number, data.body, ids);
+  await refreshSlaAfterClient(await replyTx(ctx.actor, data.number, data.body, ids));
 }
 
 /** Общий предел действий с обращением на пользователя (вторая проверка M2): каждое пишет событие и журнал. */
@@ -272,7 +350,7 @@ export async function confirmResolution(ctx: ClientContext, number: unknown): Pr
 export async function reopenTicket(ctx: ClientContext, input: unknown): Promise<void> {
   const data = parseInput(reopenInput, input);
   await consumeAction(ctx);
-  await reopenTx(ctx.actor, data.number, await reopenDays(), data.body);
+  await refreshSlaAfterClient(await reopenTx(ctx.actor, data.number, await reopenDays(), data.body));
 }
 
 /** Оценка закрытого обращения (FR-TK-11). */

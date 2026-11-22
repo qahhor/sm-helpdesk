@@ -44,6 +44,22 @@ export const AUDIT_ACTIONS = [
   'attachment.infected',
   // Загрузка справочника модулей командой hub modules:import.
   'modules.imported',
+  // Действия сотрудника с обращением (веха M3). Текста обращения в журнале нет.
+  'ticket.assigned',
+  'ticket.priority_changed',
+  'ticket.type_changed',
+  'ticket.module_changed',
+  'ticket.snoozed',
+  'ticket.line_transferred',
+  'ticket.line_returned',
+  'ticket.merged',
+  // Памятки первой линии и шаблоны ответов (веха M3).
+  'playbook.saved',
+  'template.saved',
+  // Сроки SLA и рабочий календарь (веха M3).
+  'sla.policy_changed',
+  'sla.calendar_changed',
+  'sla.holidays_changed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -61,6 +77,14 @@ export const RATE_RULES = {
   loginLinkPerIp: { limit: 20, windowSec: 3600 },
   /** Попытка входа сотрудника: 10 в 15 минут на учётную запись, затем блокировка на 15 минут. */
   staffLoginPerAccount: { limit: 10, windowSec: 900 },
+  /**
+   * Попытка входа сотрудника: 100 в 15 минут с одного адреса по любым учётным записям (подбор паролей по многим
+   * адресам). С запасом на смену, которая входит утром из офиса с одним внешним адресом; главная защита: Turnstile
+   * и 10 попыток на учётную запись.
+   */
+  staffLoginPerIp: { limit: 100, windowSec: 900 },
+  /** Одноразовые ссылки и токены (вход по ссылке, вход из бота, приглашения, подтверждение адреса): 30 в 10 минут с адреса. */
+  tokenRedeemPerIp: { limit: 30, windowSec: 600 },
   /** Коды при подключении второго фактора: библиотека на этом пути попытки не считает (проверка main, S1). */
   staffEnrollCodePerUser: { limit: 10, windowSec: 900 },
   /** Принятый код второго фактора: один раз за 120 секунд, дольше его срока с соседними шагами (проверка main, S11). */
@@ -99,3 +123,22 @@ export const RATE_RULES = {
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */
 export const POLICY_VERSION_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Невидимые знаки в тексте пользователя (проверка на AI-инъекции, решение 0030). Сотрудник должен видеть то же,
+ * что получит модель: знаки блока "теги" Юникода модель читает как обычные буквы, а на экране их нет ("ASCII
+ * smuggling"). Вырезаются форматирующие знаки, кроме соединителей нулевой ширины (из них состоят эмодзи),
+ * дополнительные селекторы вариантов и управляющие знаки, кроме табуляции и переводов строк.
+ */
+const INVISIBLE_TEXT = /(?![\u200C\u200D])\p{Cf}|[\u{E0100}-\u{E01EF}]|(?![\t\n\r])\p{Cc}/gu;
+
+/** Текст пользователя без невидимых знаков: для обращений, ответов и комментариев до проверки длины. */
+export function cleanUserText(value: string): string {
+  return (
+    value
+      .replace(/[\u2028\u2029]/gu, '\n')
+      .replace(INVISIBLE_TEXT, '')
+      // Соединитель законен по одному между знаками: цепочки из них несут скрытые биты.
+      .replace(/[\u200C\u200D]{2,}/gu, (run) => run.charAt(0))
+  );
+}

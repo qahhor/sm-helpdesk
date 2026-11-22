@@ -1,4 +1,5 @@
 import 'server-only';
+import { redeemAllowed } from './redeem-limit';
 import { isAPIError } from 'better-auth/api';
 import { z } from 'zod';
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/locales';
@@ -57,9 +58,10 @@ const completeInput = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{16,128}
 export async function completeLoginLink(
   input: unknown,
   request: RequestInfo,
-): Promise<{ ok: true; next: string } | { ok: false; code: 'link_invalid' }> {
+): Promise<{ ok: true; next: string } | { ok: false; code: 'link_invalid' | 'rate_limited' }> {
   const raw = (typeof input === 'object' && input !== null ? input : {}) as Record<string, unknown>;
   const locale = localeOf(raw.locale);
+  if (!(await redeemAllowed(clientIp(request.headers))).ok) return { ok: false, code: 'rate_limited' };
   const parsed = completeInput.safeParse(raw);
   if (!parsed.success) return { ok: false, code: 'link_invalid' };
   const auth = await getAuth();

@@ -8,6 +8,28 @@ async function seedEverything() {
   const f = await seedTwoOrgs();
   await pools.root.query(`insert into hdr_product_modules (code, name) values ('orders', '{"ru": "Заказы"}')`);
   await pools.root.query(`insert into hdc_settings (code, value) values ('ai.enabled', 'true')`);
+  await pools.root.query(`insert into hdr_business_calendars (code, timezone, week_hours) values ('default', 'Asia/Tashkent', '{"0": null}')`);
+  await pools.root.query(`insert into hdt_saved_filters (owner_id, name, query) values ($1, 'Мои', '{"queue": "mine"}')`, [f.l1.userId]);
+  await pools.root.query(`insert into hdt_ticket_reads (ticket_id, user_id, seen_on) values ($1, $2, now())`, [f.tickets.aOrg.ticketId, f.l1.userId]);
+  await pools.root.query(
+    `insert into hdt_ticket_line_transfers (ticket_id, from_line, to_line, reason_code, checked, needed, by_user, pickup_due_on)
+     values ($1, 'l1', 'l2', 'other', 'Проверено', 'Нужно', $2, now())`,
+    [f.tickets.aOrg.ticketId, f.l1.userId],
+  );
+  await pools.root.query(`insert into hdr_reply_templates (shortcut, title, body) values ('greet', 'Приветствие', '{"ru": "Здравствуйте"}')`);
+  await pools.root.query(`insert into hdr_l1_playbooks (ticket_type, body, owner_id) values ('bug', '- Версия', $1)`, [f.care.userId]);
+  await pools.root.query(`insert into hdt_reply_drafts (ticket_id, user_id, body) values ($1, $2, 'Черновик')`, [f.tickets.aOrg.ticketId, f.l1.userId]);
+  await pools.root.query(`insert into hdt_ticket_presence (ticket_id, user_id, mode, expires_on) values ($1, $2, 'viewing', now() + interval '1 minute')`, [
+    f.tickets.aOrg.ticketId,
+    f.l1.userId,
+  ]);
+  await pools.root.query(
+    `insert into hdt_mentions (message_id, user_id) select message_id, $2 from hdt_ticket_messages where ticket_id = $1 and is_internal limit 1`,
+    [f.tickets.aOrg.ticketId, f.care.userId],
+  );
+  await pools.root.query(
+    `insert into hdr_sla_policies (priority, first_response_minutes, resolution_minutes, calendar_id) select 'p1', 15, 180, calendar_id from hdr_business_calendars`,
+  );
   await pools.root.query(
     `insert into hdc_audit_log (org_id, actor_type, action, object_type) values ($1, 'system', 'org.provisioned', 'organization')`,
     [f.orgA.orgId],

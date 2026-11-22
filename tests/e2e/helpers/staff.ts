@@ -60,6 +60,9 @@ export async function dropSession(page: Page): Promise<void> {
 /** Вход сотрудника через страницу входа: пароль, затем код из приложения. */
 export async function signInStaff(page: Page, staff: E2eStaff, opts: { startAt?: string } = {}): Promise<void> {
   // Параллельный тест мог войти тем же сотрудником тем же кодом между снятием отметки и отправкой: вход заново.
+  // Все входы набора идут с одного адреса: счётчик попыток с адреса (100 за 15 минут) снимается перед входом,
+  // как отметки принятых кодов. Сам предел проверяют тесты с базой (brute-force.test.ts).
+  await dbRows(`delete from hdc_rate_limits where code like 'staff-login:ip:%'`);
   for (let attempt = 1; ; attempt++) {
     await page.goto(opts.startAt ?? '/ru/staff/login');
     // Прошлая попытка на самом деле прошла, только переход занял дольше ожидания: вошедшего сотрудника

@@ -1,6 +1,7 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import type { StaffRole } from '@/modules/hdu/pref';
+import { AgentHotkeys } from '@/ui/agent/AgentHotkeys';
 import { AgentRoot } from './AgentRoot';
 import { TopBar } from './TopBar';
 
@@ -20,6 +21,21 @@ export async function AgentShell({
   role?: StaffRole | null;
 }) {
   const t = await getTranslations('common');
+  const ta = await getTranslations('agent');
+  const writer = role !== null && role !== 'product';
+  // Разделы для палитры команд (UX-A-02): только существующие экраны и только доступные роли.
+  const sections = role
+    ? [
+        { label: ta('queues.title'), href: '/agent/queues' },
+        { label: ta('queues.names.mine'), href: '/agent/queues?queue=mine' },
+        { label: ta('queues.names.new'), href: '/agent/queues?queue=new' },
+        { label: ta('queues.thanks.title'), href: '/agent/queues/thanks' },
+        { label: ta('playbooks.title'), href: '/agent/playbooks' },
+        ...(writer ? [{ label: ta('newTicket.title'), href: '/agent/tickets/new' }] : []),
+        ...(role === 'admin' ? [{ label: ta('settings.title'), href: '/agent/settings' }] : []),
+      ]
+    : [];
+  const actionKeys = ['palette.open', 'help.open', 'reply.focus', 'note.focus', 'form.complete', 'reply.sendNext', 'ticket.take', 'ticket.snooze', 'list.next', 'list.prev', 'table.refresh'];
   return (
     <AgentRoot>
       <a
@@ -29,6 +45,23 @@ export async function AgentShell({
         {t('skipToContent')}
       </a>
       <TopBar userMenu={userMenu} role={role} />
+      {role && (
+        <AgentHotkeys
+          locale={await getLocale()}
+          sections={sections}
+          labels={{
+            title: ta('keys.palette.title'),
+            search: ta('keys.palette.search'),
+            empty: ta('keys.palette.empty'),
+            close: ta('keys.palette.close'),
+            list: ta('keys.palette.list'),
+            openTicket: ta.raw('keys.palette.openTicket') as string,
+            sectionsGroup: ta('keys.palette.sections'),
+            helpTitle: ta('keys.help.title'),
+            actions: Object.fromEntries(actionKeys.map((key) => [key, ta(`keys.actions.${key.replace('.', '_')}`)])),
+          }}
+        />
+      )}
       <main id="main" className="mx-auto flex w-full max-w-dashboard flex-1 flex-col gap-4 px-4 py-4 laptop:px-6">
         {children}
       </main>

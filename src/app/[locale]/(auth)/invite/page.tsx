@@ -16,7 +16,9 @@ export default async function InvitePage({ searchParams }: PageProps<'/[locale]/
   const t = await getTranslations('auth.invite');
   const token = firstParam(params.token);
   const error = firstParam(params.error);
-  const invitation = token && (!error || error === 'sign_in_required' || error === 'wrong_account') ? await describeInvitation(token) : null;
+  const invitation =
+    token && (!error || error === 'sign_in_required' || error === 'wrong_account' || error === 'rate_limited') ? await describeInvitation(token) : null;
+  const tAuth = await getTranslations('auth');
   const locale = await getLocale();
 
   if (!invitation)
@@ -38,6 +40,7 @@ export default async function InvitePage({ searchParams }: PageProps<'/[locale]/
         <p className="text-secondary-foreground wrap-anywhere">{t('text', { email: invitation.email })}</p>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {error === 'rate_limited' && <Alert tone="danger">{tAuth('tooOften')}</Alert>}
         {!invitation.needsName && <p className="text-sm text-secondary-foreground">{t('existingAccount')}</p>}
         {error === 'sign_in_required' && (
           <>

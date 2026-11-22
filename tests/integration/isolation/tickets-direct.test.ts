@@ -218,7 +218,7 @@ test('клиент не создаёт обращение с чужим прио
   ).rejects.toThrow(/нельзя/);
   for (const [columns, values] of [
     ['snoozed_until', "now() + interval '1 day'"],
-    ['sla_paused_seconds', '600'],
+    ['sla_paused_minutes', '600'],
     ['sla_paused_on', 'now()'],
     ['first_responded_on', 'now()'],
     ['resolution_type', "'solved'"],

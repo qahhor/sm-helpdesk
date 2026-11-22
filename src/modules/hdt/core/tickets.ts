@@ -1,10 +1,11 @@
 import 'server-only';
 import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
-import { type ClientActor, withActor } from '@/db/with-actor';
+import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
-import { ATTACHABLE_SCAN_STATUSES, type Impact, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
+import { ATTACHABLE_SCAN_STATUSES, type Impact, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
+import { refreshSla } from './sla';
 
 // Модуль hdt, слой core: обращения. Операции с данными внутри withActor под ролью hub_app.
 // Организация и автор берутся из актора; политики RLS и триггер t_hdt_tickets_client_guard страхуют.
@@ -72,6 +73,65 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
     await tx.insert(ticketWatchers).values({ orgId: actor.orgId, ticketId: row.ticketId, userId: actor.userId, source: 'author' });
     await tx.insert(ticketEvents).values({ orgId: actor.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: actor.userId });
     await writeAudit(tx, { action: 'ticket.created', objectType: 'ticket', objectId: row.ticketId, orgId: actor.orgId, diff: { type: input.type, priority } });
+    return row;
+  });
+}
+
+/**
+ * Обращение от имени клиента (FR-AG-08): организация и автор выбраны сотрудником и уже проверены слоем api
+ * (действующий участник организации). Источник staff, автор подписан, событие создания от сотрудника, журнал,
+ * сроки от момента создания. Приоритет, выбранный сотрудником, сразу подтверждён.
+ */
+export async function createTicketForClientTx(
+  actor: StaffActor,
+  input: Omit<NewTicket, 'relatedNumber'> & { orgId: string; authorId: string; priority?: Priority },
+): Promise<{ ticketId: string; number: number }> {
+  return withActor(actor, async (tx) => {
+    const priority = input.priority ?? PRIORITY_BY_IMPACT[input.impact];
+    const [row] = await tx
+      .insert(tickets)
+      .values({
+        orgId: input.orgId,
+        authorId: input.authorId,
+        type: input.type,
+        impact: input.impact,
+        priority,
+        priorityConfirmed: input.priority !== undefined,
+        visibility: input.visibility,
+        title: input.title,
+        description: input.description,
+        locale: input.locale,
+        moduleId: input.moduleId ?? null,
+        source: 'staff',
+      })
+      .returning({ ticketId: tickets.ticketId, number: tickets.number });
+    if (!row) throw new Error('hdt: обращение не создано');
+    if (input.attachmentIds.length > 0) {
+      const attached = await tx
+        .update(attachments)
+        .set({ ticketId: row.ticketId })
+        .where(
+          and(
+            inArray(attachments.attachmentId, input.attachmentIds),
+            eq(attachments.uploaderId, actor.userId),
+            eq(attachments.orgId, input.orgId),
+            isNull(attachments.ticketId),
+            inArray(attachments.scanStatus, ATTACHABLE_SCAN_STATUSES),
+          ),
+        )
+        .returning({ attachmentId: attachments.attachmentId });
+      if (attached.length !== new Set(input.attachmentIds).size) throw new HdtError('file_unavailable');
+    }
+    await tx.insert(ticketWatchers).values({ orgId: input.orgId, ticketId: row.ticketId, userId: input.authorId, source: 'author' });
+    await tx.insert(ticketEvents).values({ orgId: input.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'staff', actorId: actor.userId });
+    await writeAudit(tx, {
+      action: 'ticket.created',
+      objectType: 'ticket',
+      objectId: row.ticketId,
+      orgId: input.orgId,
+      diff: { type: input.type, priority, source: 'staff', authorId: input.authorId },
+    });
+    await refreshSla(tx, row.ticketId, new Date());
     return row;
   });
 }
@@ -157,7 +217,7 @@ export type AttachmentRecord = Pick<
 export async function readTicket(
   actor: ClientActor,
   number: number,
-): Promise<{ ticket: TicketRecord; messages: MessageRecord[]; events: EventRecord[]; attachments: AttachmentRecord[]; watching: boolean; relatedNumber: number | null } | null> {
+): Promise<{ ticket: TicketRecord; messages: MessageRecord[]; events: EventRecord[]; attachments: AttachmentRecord[]; watching: boolean; relatedNumber: number | null; mergedIntoNumber: number | null } | null> {
   return withActor(actor, async (tx) => {
     const ticket = (await tx.select().from(tickets).where(eq(tickets.number, number)).limit(1))[0];
     if (!ticket) return null;
@@ -198,6 +258,10 @@ export async function readTicket(
     const relatedNumber = ticket.relatedTicketId
       ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.relatedTicketId)).limit(1))[0]?.number ?? null)
       : null;
-    return { ticket, messages, events, attachments: files, watching, relatedNumber };
+    // Номер основного только если основное видно этому клиенту (решение 4 плана M3): запрос идёт под его политикой.
+    const mergedIntoNumber = ticket.mergedIntoId
+      ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.mergedIntoId)).limit(1))[0]?.number ?? null)
+      : null;
+    return { ticket, messages, events, attachments: files, watching, relatedNumber, mergedIntoNumber };
   });
 }

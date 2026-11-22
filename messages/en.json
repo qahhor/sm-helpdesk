@@ -173,7 +173,9 @@
           "created": "Request created",
           "status": "Status: {from} > {to}",
           "visibility": "Visibility changed",
-          "rated": "Rating given"
+          "rated": "Rating given",
+          "mergedInto": "Merged with {number}",
+          "merged": "Merged with another request"
         },
         "files": "Files",
         "scan": {
@@ -229,7 +231,16 @@
         "otherOrg": {
           "text": "Request {number} belongs to {org}. Switch to it to open the request.",
           "switch": "Switch to {org}"
-        }
+        },
+        "nextReply": {
+          "first_response": "We will reply by: {when}",
+          "resolution": "Resolution target: {when}",
+          "today": "today, {time}",
+          "tomorrow": "tomorrow, {time}"
+        },
+        "mergedLink": "This request was merged with {number}. We will continue there.",
+        "mergedHidden": "This request was merged with another request on the same topic.",
+        "createdByStaff": "A support agent created this request after your call or message."
       },
       "files": {
         "add": "File or screenshot",
@@ -254,7 +265,12 @@
         "file_too_large": "The file is larger than 25 MB, video larger than 50 MB",
         "upload": "The file did not upload. Try again",
         "reason": "Choose what went wrong",
-        "file_unavailable": "One of the files is no longer available or failed the check. Remove it and attach it again"
+        "file_unavailable": "One of the files is no longer available or failed the check. Remove it and attach it again",
+        "merged": "This request was merged with another one: we will continue in the main request."
+      },
+      "system": {
+        "autoCloseResolved": "We closed this request: the solution was not confirmed for 5 working days. If the issue returns, reopen the request.",
+        "autoCloseWaiting": "We closed this request: there was no reply from you for 7 working days. If the issue remains, reopen the request."
       }
     },
     "ideas": {
@@ -375,8 +391,10 @@
     "breadcrumbs": "Path",
     "home": {
       "title": "Workspace",
-      "emptyTitle": "No queues yet",
-      "emptyText": "Workspace sections open as they become ready. Request queues come first."
+      "emptyTitle": "Start with the queues",
+      "emptyText": "Client tickets are gathered in queues by reply deadline.",
+      "openQueues": "Open queues",
+      "openPlaybooks": "First-line playbooks"
     },
     "orgs": {
       "title": "Organizations",
@@ -488,6 +506,14 @@
         "audit": {
           "title": "Audit log",
           "text": "Who did what and when with rights and settings. Entries cannot be changed or deleted."
+        },
+        "sla": {
+          "title": "Targets and working hours",
+          "text": "First response and resolution targets by priority, working hours and holidays."
+        },
+        "templates": {
+          "title": "Reply templates",
+          "text": "Reply snippets in three languages, called by a code after \"/\" in the reply field."
         }
       },
       "servers": {
@@ -694,7 +720,11 @@
           "organization": "Organization",
           "ticket": "Ticket",
           "attachment": "Attachment",
-          "module": "Product modules"
+          "module": "Product modules",
+          "sla_policy": "SLA targets",
+          "business_calendar": "Working calendar",
+          "playbook": "First-line playbook",
+          "reply_template": "Reply template"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -746,13 +776,32 @@
           "ticket": {
             "created": "Ticket created",
             "status_changed": "Ticket status changed",
-            "visibility_changed": "Ticket visibility changed"
+            "visibility_changed": "Ticket visibility changed",
+            "assigned": "Assignee set",
+            "priority_changed": "Priority changed",
+            "type_changed": "Ticket type changed",
+            "module_changed": "Ticket module changed",
+            "snoozed": "Ticket snoozed",
+            "line_transferred": "Transferred to the second line",
+            "line_returned": "Returned to the first line",
+            "merged": "Tickets merged"
           },
           "attachment": {
             "infected": "Infected file found"
           },
           "modules": {
             "imported": "Module catalog imported"
+          },
+          "sla": {
+            "policy_changed": "SLA targets changed",
+            "calendar_changed": "Support working hours changed",
+            "holidays_changed": "Holidays changed"
+          },
+          "playbook": {
+            "saved": "First-line playbook saved"
+          },
+          "template": {
+            "saved": "Reply template saved"
           }
         },
         "words": {
@@ -795,6 +844,483 @@
           "isAiEnabled": "AI assistant handling",
           "version": "Version"
         }
+      },
+      "sla": {
+        "title": "Targets and working hours",
+        "intro": "First response and resolution targets by priority, support working hours and holidays. Targets count only working time unless round-the-clock counting is chosen for a priority.",
+        "policiesTitle": "Targets by priority",
+        "firstResponse": "First response, minutes",
+        "resolution": "Resolution",
+        "resolutionKind": "Resolution unit",
+        "minutes": "minutes",
+        "days": "working days",
+        "clock": "Counting",
+        "clockBusiness": "Working hours",
+        "clock24x7": "Round the clock",
+        "firstResponseHint": "60 minutes is 1 hour, 480 minutes is 8 hours. A target in working days falls at the same time of day; outside that day’s hours it moves to the end of the working day.",
+        "calendarTitle": "Working hours",
+        "timeZone": "Time zone",
+        "week": "Weekly schedule",
+        "from": "{day}: start",
+        "to": "{day}: end",
+        "holidaysTitle": "Holidays",
+        "holidaysYear": "Holidays of {year}",
+        "holidaysHint": "Dates as YYYY-MM-DD, one per line. A holiday is a non-working day.",
+        "holidaysMissing": "Holidays of {year} are not filled in yet. Without them these days count as working days.",
+        "appliesToNew": "New values apply to new calculations. Targets of open tickets change at their next event: priority, status or reply.",
+        "save": "Save",
+        "done": {
+          "policy": "Targets saved",
+          "calendar": "Working hours saved",
+          "holidays": "Holidays saved"
+        },
+        "errors": {
+          "forbidden": "Only an administrator can change targets",
+          "invalid_input": "Check the values: minutes and days above zero, the end of a working day after its start, holiday dates of this year without repeats"
+        },
+        "days7": {
+          "0": "Sunday",
+          "1": "Monday",
+          "2": "Tuesday",
+          "3": "Wednesday",
+          "4": "Thursday",
+          "5": "Friday",
+          "6": "Saturday"
+        }
+      },
+      "templates": {
+        "title": "Reply templates",
+        "intro": "The agent types \"/\" and the code in the reply field and inserts the snippet in the ticket language. Without a translation the Russian text is inserted.",
+        "shortcut": "Code after \"/\"",
+        "shortcutHint": "Latin letters, digits and hyphens, up to 40 characters. For example: greet.",
+        "name": "Name",
+        "body": {
+          "ru": "Text in Russian",
+          "uz": "Text in Uzbek",
+          "en": "Text in English"
+        },
+        "module": "Module",
+        "anyModule": "All modules",
+        "enabled": "Show in the \"/\" list",
+        "save": "Save template",
+        "create": "Add template",
+        "newTitle": "New template",
+        "disabled": "off",
+        "saved": "Template saved",
+        "errors": {
+          "forbidden": "Templates are kept by the portal administrator.",
+          "invalid_input": "Check the code, name and Russian text.",
+          "shortcut_taken": "Another template already has this code."
+        }
+      }
+    },
+    "queues": {
+      "title": "Queues",
+      "listLabel": "Queues",
+      "savedTitle": "My lists",
+      "shared": "shared",
+      "delete": "Delete",
+      "deleteFilter": "Delete list \"{name}\"",
+      "names": {
+        "new": "New",
+        "mine": "Mine",
+        "l2": "Second line",
+        "waiting": "Waiting for client",
+        "development": "In development",
+        "breached": "Overdue",
+        "all": "All"
+      },
+      "search": "Search",
+      "searchHint": "Number, text, organization, TIN, author",
+      "sort": "Sort",
+      "show": "Show",
+      "sorts": {
+        "sla": "Nearest deadline",
+        "client_waiting": "Client waiting longest",
+        "updated": "Last change"
+      },
+      "emptyTitle": "Nothing here",
+      "emptyText": "There are no tickets in this queue right now.",
+      "emptySearch": "Nothing matches this search. Check the number or the text.",
+      "columns": {
+        "number": "No.",
+        "title": "Subject",
+        "client": "Client",
+        "priority": "Pr",
+        "sla": "Due",
+        "assignee": "Assignee"
+      },
+      "statuses": {
+        "new": "New",
+        "in_progress": "In progress",
+        "waiting_customer": "Waiting for client",
+        "in_development": "In development",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "lineL2": "second line",
+      "snoozed": "snoozed until {time}",
+      "unassigned": "unassigned",
+      "sla": {
+        "minutes": "{value} min",
+        "hours": "{value} h",
+        "breached": "overdue",
+        "none": "no deadline",
+        "paused": "paused"
+      },
+      "prev": "Back",
+      "next": "Next",
+      "saveTitle": "Save as a list",
+      "filterName": "List name",
+      "shareFilter": "Shared with all staff",
+      "saveFilter": "Save",
+      "done": {
+        "filterSaved": "List saved",
+        "queue_done": "No more tickets in the queue"
+      },
+      "errors": {
+        "filterInvalid": "Name the list: 1 to 80 characters."
+      },
+      "bulk": {
+        "title": "Actions with selected",
+        "action": "Action",
+        "actions": {
+          "assign": "Assign",
+          "queue_l2": "Transfer to the second line",
+          "queue_l1": "Return to the first line",
+          "duplicate": "Close as duplicate"
+        },
+        "submit": "Apply to selected",
+        "done": "Done: {count}",
+        "refused": "{number}: {reason}",
+        "invalid": "Select tickets and fill in the action fields.",
+        "select": "Select {number}",
+        "selectColumn": "Select"
+      },
+      "thanks": {
+        "link": "Did not reopen the ticket",
+        "title": "Did not reopen the ticket",
+        "intro": "Client replies to resolved tickets recognized as thanks: the ticket stayed resolved. Check that no new question hides behind the \"thank you\".",
+        "emptyTitle": "No such replies",
+        "emptyText": "Client thanks that did not reopen a ticket will appear here."
+      },
+      "preview": {
+        "label": "Ticket next to the list",
+        "empty": "Choose a ticket with the up and down arrows: it opens here.",
+        "open": "Open in full"
+      }
+    },
+    "ticket": {
+      "files": "Files",
+      "preview": "Open",
+      "internalFile": "note file",
+      "system": "System",
+      "client": "Client",
+      "note": "Note",
+      "new": "new",
+      "scan": {
+        "pending": "being checked",
+        "infected": "failed the virus check",
+        "rejected": "not accepted"
+      },
+      "authors": {
+        "client": "Client",
+        "staff": "Staff member",
+        "system": "System",
+        "ai": "Tez · AI assistant",
+        "agent": "AI employee"
+      },
+      "events": {
+        "status": "{actor}: status {from} > {to}",
+        "priority": "{actor}: priority {from} > {to}. Reason: {reason}",
+        "assignee": "{actor}: assignee {to}",
+        "unassigned": "{actor}: assignee removed",
+        "queue": "{actor}: {to}",
+        "due": "Deadline missed: {kind}",
+        "type": "{actor}: type changed",
+        "module": "{actor}: module changed",
+        "snooze": "{actor}: snoozed",
+        "merge": "{actor}: merged",
+        "visibility": "{actor}: visibility changed",
+        "rated": "{actor}: rated",
+        "rule": "A rule fired",
+        "transferred": "{actor}: transferred to the second line. Reason: {reason}. Checked: {checked}. Needed: {needed}",
+        "returned": "{actor}: returned to the first line. {explanation}",
+        "mergedFrom": "{actor}: merged {number} into this ticket"
+      },
+      "dueKinds": {
+        "first_response": "first response",
+        "resolution": "resolution"
+      },
+      "lines": {
+        "l1": "First line",
+        "l2": "Second line",
+        "care": "Customer Care"
+      },
+      "types": {
+        "bug": "Bug",
+        "question": "Question",
+        "service_request": "Service request"
+      },
+      "sources": {
+        "portal": "portal",
+        "widget_web": "widget",
+        "widget_mobile": "mobile app",
+        "email": "email",
+        "staff": "created by staff"
+      },
+      "priorityUnconfirmed": "priority not confirmed",
+      "snoozed": "snoozed until {time}",
+      "lastVisit": "Your last visit: {time}. Everything new since then is marked.",
+      "details": "Ticket details",
+      "clientTitle": "CLIENT",
+      "inn": "TIN {inn}",
+      "server": "Server: {server}",
+      "category": "Category: {category}",
+      "slaTitle": "DEADLINES",
+      "firstResponse": "First response: {time}",
+      "resolution": "Resolution: {time}",
+      "done": "given {time}",
+      "paused": "paused, waiting for the client",
+      "noDeadline": "not set",
+      "workTitle": "WORK",
+      "assignee": "Assignee: {name}",
+      "source": "Source: {source}",
+      "controls": {
+        "title": "ACTIONS",
+        "take": "Take it",
+        "assignee": "Assignee",
+        "apply": "Apply",
+        "status": "Status",
+        "resolution": "Outcome",
+        "resolutionHint": "Choose if resolved",
+        "version": "Version with the fix",
+        "changeStatus": "Change status",
+        "priority": "Priority",
+        "reason": "Reason",
+        "changePriority": "Change priority",
+        "confirmPriority": "Confirm priority",
+        "type": "Type",
+        "module": "Module",
+        "noModule": "Not set",
+        "snooze": "Snooze",
+        "snoozeUntil": "Snooze until date and time",
+        "snoozeApply": "Snooze",
+        "unsnooze": "Back to queue",
+        "someone": "another agent",
+        "snoozePresets": {
+          "hour": "For an hour",
+          "tomorrow": "Until tomorrow",
+          "monday": "Until Monday"
+        },
+        "resolutions": {
+          "solved": "Solved",
+          "workaround": "Workaround",
+          "not_reproducible": "Not reproducible",
+          "duplicate": "Duplicate",
+          "by_design": "By design",
+          "fixed_in_version": "Fixed in version"
+        },
+        "done": {
+          "taken": "The ticket is yours",
+          "assigned": "Assignee saved",
+          "status": "Status changed",
+          "priority": "Priority saved",
+          "type": "Type saved",
+          "module": "Module saved",
+          "snoozed": "Snooze saved",
+          "sent": "Reply sent",
+          "noted": "Note saved",
+          "transferred": "Ticket transferred to the second line",
+          "returned": "Ticket returned to the first line",
+          "merged": "Ticket closed as a duplicate",
+          "created": "Ticket created"
+        },
+        "errors": {
+          "forbidden": "Your role does not allow this action.",
+          "transition_refused": "This change is not possible now. Refresh the page: the ticket may have changed.",
+          "already_taken": "{holder} has already taken this ticket.",
+          "reason_required": "Write the reason for the priority change.",
+          "resolution_required": "Choose the outcome. For \"Fixed in version\", enter the version number.",
+          "invalid_input": "Check the data you entered.",
+          "not_found": "Ticket not found.",
+          "rate_limited": "Too many actions in a row. Wait a minute.",
+          "other": "That did not work. Try again.",
+          "merge_refused": "Cannot merge: it is the same ticket or a ticket of another organization.",
+          "merged": "The ticket is already merged."
+        }
+      },
+      "presence": {
+        "viewing": "{name} has this ticket open",
+        "typing": "{name} is typing a reply"
+      },
+      "composer": {
+        "form": "Reply to the ticket",
+        "mode": "Where to write",
+        "modeReply": "Reply to client",
+        "modeNote": "Internal note",
+        "replyField": "Reply text",
+        "noteField": "Note text",
+        "noteHint": "Only staff see the note. Mention a colleague: @Name.",
+        "waitForClient": "Waiting for the client",
+        "send": "Send",
+        "saveNote": "Save note",
+        "draftSaved": "Draft saved",
+        "errors": {
+          "invalid_input": "Write the text: 1 to 20,000 characters.",
+          "forbidden": "Your role does not allow replying.",
+          "not_found": "Ticket not found.",
+          "transition_refused": "This status cannot be set now. Send without the checkbox.",
+          "file_unavailable": "One of the files can no longer be attached. Remove it and send again.",
+          "other": "Could not send. The text is saved, try again.",
+          "merged": "The ticket is merged into the main one: reply to the client there. You can still leave a note here."
+        },
+        "changed": {
+          "title": "The ticket changed while you were writing. The reply was not sent.",
+          "messages": "new messages: {count}",
+          "status": "status changed",
+          "assignee": "assignee changed",
+          "show": "Show changes",
+          "sendAnyway": "Send anyway"
+        },
+        "templates": {
+          "open": "Template",
+          "list": "Reply templates",
+          "empty": "No template with this code",
+          "fallback": "The template was inserted in Russian: there is no translation for the ticket language."
+        },
+        "sendNext": "Send and next"
+      },
+      "line": "Line: {line}",
+      "pickupDue": "Pick up by: {time}",
+      "transfer": {
+        "open": "Transfer to the second line",
+        "title": "Transfer to the second line",
+        "reason": "Reason",
+        "reasonHint": "Choose a reason",
+        "playbook": "First-line playbook for \"{scope}\":",
+        "noPlaybook": "There is no playbook for this module and type yet.",
+        "playbooksLink": "All playbooks",
+        "anyModule": "All modules",
+        "checked": "What was already checked",
+        "needed": "What the second line needs to do",
+        "deadlineReply": "The client deadline does not change: reply by {time}.",
+        "deadlineResolution": "The client deadline does not change: resolution by {time}.",
+        "deadlineNone": "The client deadline does not change.",
+        "cancel": "Cancel",
+        "submit": "Transfer to second",
+        "close": "Close",
+        "reasons": {
+          "needs_client_data": "Needs access to client data",
+          "suspected_bug": "Looks like a product bug",
+          "client_configuration": "Needs configuration at the client",
+          "data_fix": "Data needs fixing",
+          "not_in_playbook": "Not in the first-line playbook",
+          "other": "Other"
+        }
+      },
+      "return": {
+        "open": "Return to the first line",
+        "title": "Return to the first line",
+        "explanation": "Explanation for the first line",
+        "submit": "Return"
+      },
+      "merge": {
+        "open": "Merge into main",
+        "title": "Merge duplicates",
+        "text": "This ticket will be closed as a duplicate with a link to the main one. The client will see where the work continues.",
+        "into": "Main ticket number",
+        "submit": "Merge"
+      },
+      "mergedInto": "Merged with {number}"
+    },
+    "playbooks": {
+      "title": "First-line playbooks",
+      "intro": "What to check before handing over to the second line, by module and ticket type. The agent sees the playbook in the transfer window.",
+      "anyModule": "All modules",
+      "emptyTitle": "No playbooks yet",
+      "emptyText": "The second line will add the first playbook here.",
+      "owner": "Kept by {name}, changed {time}",
+      "editTitle": "Add or change a playbook",
+      "editHint": "One item per line. A playbook for the same module and type is replaced.",
+      "module": "Module",
+      "type": "Ticket type",
+      "body": "Playbook items",
+      "save": "Save playbook",
+      "saved": "Playbook saved",
+      "errors": {
+        "forbidden": "Playbooks are kept by the second line, Customer Care and the administrator.",
+        "invalid_input": "Write at least one item."
+      }
+    },
+    "newTicket": {
+      "open": "Ticket for a client",
+      "title": "Ticket for a client",
+      "intro": "After a call, find the client organization and create a ticket on behalf of a member. The client will see that staff created it.",
+      "orgSearch": "Organization: name or TIN",
+      "find": "Find",
+      "notFound": "No organizations found.",
+      "orgResults": "Organizations found",
+      "changeOrg": "Another organization",
+      "noMembers": "The organization has no active members.",
+      "author": "On behalf of",
+      "type": "Type",
+      "impact": "Impact on work",
+      "priority": "Priority",
+      "priorityByImpact": "By impact, confirm later",
+      "subject": "Subject",
+      "subjectHint": "Optional: the subject is taken from the start of the description.",
+      "description": "What happened",
+      "module": "Module",
+      "moduleNone": "Not set",
+      "visibility": "Who can see it",
+      "locale": "Language of replies to the client",
+      "submit": "Create ticket",
+      "locales": {
+        "ru": "Russian",
+        "uz": "Uzbek",
+        "en": "English"
+      },
+      "errors": {
+        "invalid_input": "Check the member and the description: the member must be an active member of the organization.",
+        "forbidden": "Your role does not allow creating tickets.",
+        "too_many_files": "No more than 10 files.",
+        "file_unavailable": "One of the files can no longer be attached. Remove it and send again."
+      }
+    },
+    "keys": {
+      "palette": {
+        "title": "Command palette",
+        "search": "Command or ticket number",
+        "empty": "Nothing found",
+        "close": "Close",
+        "list": "Commands",
+        "openTicket": "Open {number}",
+        "sections": "Section"
+      },
+      "help": {
+        "title": "Workspace keys"
+      },
+      "actions": {
+        "palette_open": "Command palette",
+        "help_open": "This help",
+        "reply_focus": "Reply to client",
+        "note_focus": "Internal note",
+        "form_complete": "Send",
+        "reply_sendNext": "Send and next",
+        "ticket_take": "Take it",
+        "ticket_snooze": "Snooze",
+        "list_next": "Next ticket",
+        "list_prev": "Previous ticket",
+        "table_refresh": "Refresh list"
+      },
+      "commands": {
+        "take": "Take it",
+        "assignMe": "Assign to me",
+        "status": "Status: {status}",
+        "template": "Template /{code}: {title}",
+        "group": "Ticket",
+        "templates": "Templates"
       }
     }
   },
@@ -841,7 +1367,8 @@
           "password_mismatch": "The passwords do not match.",
           "link_invalid": "The link has been used or has expired. Ask an administrator to send a new one.",
           "email_taken": "This address belongs to another account. Contact an administrator.",
-          "invalid_input": "Check the name and the password."
+          "invalid_input": "Check the name and the password.",
+          "rate_limited": "Too many attempts from your address. Wait 10 minutes and try again."
         }
       }
     },
@@ -953,7 +1480,8 @@
       "text": "Press the button to sign in.",
       "submit": "Sign in",
       "invalid": "This link no longer works. A link from the bot works once and for 10 minutes. Request a new one in the bot."
-    }
+    },
+    "tooOften": "Too many attempts from your address. Wait 10 minutes and press the button again."
   },
   "mail": {
     "loginLink": {

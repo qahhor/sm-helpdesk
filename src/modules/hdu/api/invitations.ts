@@ -1,4 +1,5 @@
 import 'server-only';
+import { redeemAllowed } from './redeem-limit';
 import { z } from 'zod';
 import { getEnv } from '@/env';
 import { LOCALES } from '@/i18n/locales';
@@ -95,7 +96,8 @@ const acceptInput = z.object({ token: tokenInput, name: z.unknown().optional() }
 export async function acceptInvitation(
   input: unknown,
   request: RequestInfo,
-): Promise<{ ok: true } | { ok: false; code: 'link_invalid' | 'email_taken' | 'sign_in_required' | 'wrong_account' }> {
+): Promise<{ ok: true } | { ok: false; code: 'link_invalid' | 'email_taken' | 'sign_in_required' | 'wrong_account' | 'rate_limited' }> {
+  if (!(await redeemAllowed(clientIp(request.headers))).ok) return { ok: false, code: 'rate_limited' };
   const parsed = acceptInput.safeParse(input);
   if (!parsed.success) return { ok: false, code: 'link_invalid' };
   const tokenHash = hashToken(parsed.data.token);

@@ -1,16 +1,17 @@
 import 'server-only';
+import { redeemAllowed } from './redeem-limit';
 import { hashPassword } from 'better-auth/crypto';
 import { encode as encodeQr } from 'uqr';
 import * as z from 'zod';
 import { withIdentity } from '@/db/with-identity';
-import { clientIp, consumeRateLimit, rateKey, resetRateLimit, writeAudit } from '@/modules/hdc/api';
+import { clientIp, consumeRateLimit, ipRateKey, rateKey, resetRateLimit, writeAudit } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { cookieValue } from '@/lib/cookies';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
 import { revokeOtherOwnSessions, revokeSessionById } from '../core/sessions';
 import { acceptStaffInvitationTx, findPendingStaffUserId, findStaff, findStaffByEmail, findStaffInvitation } from '../core/staff';
-import type { HduErrorCode } from '../error';
+import { HduError, type HduErrorCode } from '../error';
 import { emailInput, nameInput, parseInput, passwordInput, tokenInput, totpCodeInput } from '../input';
 import { AUTH_COOKIE_PREFIX } from '../pref';
 import { hashToken } from '../tokens';
@@ -84,7 +85,9 @@ export async function describeStaffInvitation(token: unknown): Promise<{ email: 
 }
 
 /** Сотрудник задаёт пароль по ссылке приглашения. После этого он входит и подключает второй фактор. */
-export async function acceptStaffInvitation(input: unknown): Promise<void> {
+export async function acceptStaffInvitation(input: unknown, request?: { headers: Headers }): Promise<void> {
+  const redeem = await redeemAllowed(request ? clientIp(request.headers) : null);
+  if (!redeem.ok) throw new HduError('rate_limited', { retryAfterSec: redeem.retryAfterSec });
   const data = parseInput(acceptInput, input);
   await acceptStaffInvitationTx({
     tokenHash: hashToken(data.token),
@@ -125,6 +128,9 @@ export async function signInStaff(input: unknown, request: RequestInfo): Promise
   const botToken = (input as { botToken?: unknown }).botToken;
   if (check.enabled && (await check.verify(botToken, clientIp(request.headers))) === 'failed') return { step: 'error', code: 'bot_check' };
 
+  // Подбор паролей по многим учётным записям с одного адреса: предел на адрес раньше предела на учётную запись.
+  const byIp = await consumeRateLimit(ipRateKey('staff-login:ip', request.headers), RATE_RULES.staffLoginPerIp);
+  if (!byIp.allowed) return { step: 'error', code: 'rate_limited', retryAfterSec: byIp.retryAfterSec };
   const limit = await consumeRateLimit(accountKey(email), RATE_RULES.staffLoginPerAccount);
   if (!limit.allowed) {
     await recordFailedSignIn(email, 'rate_limited', request);

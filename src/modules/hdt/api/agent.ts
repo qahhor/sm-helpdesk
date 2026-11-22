@@ -1,0 +1,385 @@
+import 'server-only';
+import { findOrgIds, findUserIds, listAssignableStaff, namesOf, type OrgSummary, orgSummaries, type StaffContext, verifiedEmails } from '@/modules/hdu/api';
+import { isActiveModule } from '@/modules/hdr/api';
+import { loadSlaConfig } from '@/modules/hdr/api';
+import { calendarFor, type SlaPhase, slaPhase } from '../core/sla';
+import {
+  deleteFilterTx,
+  listFiltersTx,
+  type QueueKey,
+  type QueueSearch,
+  queueCountsTx,
+  queueRowsTx,
+  type SavedFilter,
+  saveFilterTx,
+  THANKS_PAGE_SIZE,
+  thanksRowsTx,
+} from '../core/agent-queues';
+import { markReadTx, readAgentTicketTx } from '../core/agent-ticket';
+import { assertCanWrite, assignTx, setModuleTx, setPriorityTx, setStatusTx, setTypeTx, snoozeTx, takeTx } from '../core/agent-actions';
+import { HdtError, isHdtError } from '../error';
+import { assignInput, moduleInput, numberInput, parseInput, priorityInput, queueInput, savedFilterInput, snoozeInput, statusInput, thanksInput, typeInput, nextInput } from '../input';
+import { type AuthorType, type EventKind, type Impact, INLINE_IMAGE_TYPES, type Priority, type Queue, type ScanStatus, type TicketSource, type TicketStatus, type TicketType, type Visibility } from '../pref';
+import { workingMinutesBetween } from '../sla';
+import { parseNumber, parseSearch, rejectReasonOf } from '../util';
+import * as z from 'zod';
+
+// Модуль hdt, слой api: рабочее место сотрудника (план M3). Контекст сотрудника строит requireStaffActor:
+// клиент и посетитель сюда не попадают. Читают все роли сотрудников, пишут все, кроме product (миграция 0021).
+
+export const QUEUE_PAGE_SIZE = 50;
+
+export type QueueRow = {
+  number: number;
+  title: string;
+  status: TicketStatus;
+  priority: Priority;
+  orgName: string;
+  assigneeName: string | null;
+  line: Queue;
+  dueOn: Date | null;
+  slaPhase: SlaPhase;
+  /** Рабочих минут до срока; у нарушенного 0. */
+  minutesLeft: number | null;
+  snoozedUntil: Date | null;
+  clientWaitingSince: Date | null;
+};
+
+/** Строка поиска: номер и текст как у клиента, плюс организации по названию и ИНН и авторы по имени и адресу. */
+async function searchOf(ctx: StaffContext, q: string | undefined): Promise<QueueSearch | undefined> {
+  if (!q) return undefined;
+  const parsed = parseSearch(q);
+  const [orgIds, authorIds] = parsed.text ? await Promise.all([findOrgIds(ctx, parsed.text), findUserIds(ctx, parsed.text)]) : [[], []];
+  return { number: parsed.number, text: parsed.text, orgIds, authorIds };
+}
+
+/** Очередь (FR-AG-01), по умолчанию по ближайшему сроку; поиск (FR-AG-10); по 50 строк. */
+export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ items: QueueRow[]; hasMore: boolean }> {
+  const data = parseInput(queueInput, input ?? {});
+  const rows = await queueRowsTx(ctx.actor, {
+    queue: data.queue,
+    sort: data.sort,
+    search: await searchOf(ctx, data.q),
+    offset: (data.page - 1) * QUEUE_PAGE_SIZE,
+    limit: QUEUE_PAGE_SIZE + 1,
+  });
+  const page = rows.slice(0, QUEUE_PAGE_SIZE);
+  const [config, orgs, names] = await Promise.all([
+    loadSlaConfig(ctx.actor),
+    orgSummaries(ctx, page.map((row) => row.orgId)),
+    namesOf(ctx.actor, page.map((row) => row.assigneeId).filter((id): id is string => id !== null)),
+  ]);
+  const now = new Date();
+  return {
+    items: page.map((row) => {
+      const cal = calendarFor(config, row.priority);
+      return {
+        number: row.number,
+        title: row.title,
+        status: row.status,
+        priority: row.priority,
+        orgName: orgs.get(row.orgId)?.name ?? '',
+        assigneeName: row.assigneeId ? (names.get(row.assigneeId) ?? null) : null,
+        line: row.queue,
+        dueOn: row.dueOn,
+        slaPhase: row.status === 'waiting_customer' || row.status === 'resolved' || row.status === 'closed' ? 'calm' : slaPhase(row.dueOn, row.createdOn, now, cal),
+        minutesLeft: row.dueOn ? workingMinutesBetween(now, row.dueOn, cal) : null,
+        snoozedUntil: row.snoozedUntil && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil : null,
+        clientWaitingSince: row.clientWaitingSince,
+      };
+    }),
+    hasMore: rows.length > QUEUE_PAGE_SIZE,
+  };
+}
+
+export function queueCounts(ctx: StaffContext): Promise<Record<QueueKey, number>> {
+  return queueCountsTx(ctx.actor);
+}
+
+export function listFilters(ctx: StaffContext): Promise<SavedFilter[]> {
+  return listFiltersTx(ctx.actor);
+}
+
+export async function saveFilter(ctx: StaffContext, input: unknown): Promise<string> {
+  const data = parseInput(savedFilterInput, input);
+  return saveFilterTx(ctx.actor, data);
+}
+
+export async function deleteFilter(ctx: StaffContext, filterId: unknown): Promise<void> {
+  await deleteFilterTx(ctx.actor, parseInput(z.uuid(), filterId));
+}
+
+// --- Обращение у сотрудника (план M3, задача 6) ---
+
+export type AgentFileView = {
+  attachmentId: string;
+  fileName: string;
+  mime: string;
+  size: number;
+  scanStatus: ScanStatus;
+  rejectReason: ReturnType<typeof rejectReasonOf>;
+  isInternal: boolean;
+  /** Чистый файл: можно открыть и скачать. */
+  canOpen: boolean;
+  /** Картинка или PDF: открывается в окне просмотра (UX-A-14). */
+  canPreview: boolean;
+};
+
+export type AgentTimelineEntry =
+  | {
+      type: 'message';
+      id: string;
+      authorType: AuthorType;
+      authorName: string | null;
+      isInternal: boolean;
+      body: string;
+      createdOn: Date;
+      attachments: AgentFileView[];
+      isNew: boolean;
+    }
+  | { type: 'event'; id: string; kind: EventKind; payload: Record<string, unknown>; actorName: string | null; isInternal: boolean; createdOn: Date; isNew: boolean };
+
+export type AgentTicketView = {
+  ticketId: string;
+  number: number;
+  title: string;
+  description: string;
+  status: TicketStatus;
+  type: TicketType;
+  impact: Impact;
+  priority: Priority;
+  priorityConfirmed: boolean;
+  visibility: Visibility;
+  line: Queue;
+  source: TicketSource;
+  locale: string;
+  moduleId: string | null;
+  createdOn: Date;
+  author: { id: string; name: string | null; email: string | null };
+  assignee: { id: string; name: string | null } | null;
+  org: OrgSummary | null;
+  sla: { firstResponseDueOn: Date | null; resolutionDueOn: Date | null; firstRespondedOn: Date | null; pausedSince: Date | null; phase: SlaPhase; minutesLeft: number | null };
+  context: unknown;
+  resolutionType: string | null;
+  resolvedVersion: string | null;
+  snoozedUntil: Date | null;
+  /** Открытая передача на вторую линию (FR-LINE-06): срок "взять в работу", пока вторая линия не взялась. */
+  pickup: { dueOn: Date } | null;
+  /** Дубль объединён с основным (решение 4 плана M3). */
+  mergedInto: { number: number } | null;
+  /** Прошлый визит этого сотрудника (UX-A-15): всё, что позже, отмечено как новое. */
+  changedSince: Date | null;
+  /** Время последней записи переписки и истории, которую видит агент: по нему ответ узнаёт об изменениях других (FR-AG-12). */
+  version: string;
+  attachments: AgentFileView[];
+  timeline: AgentTimelineEntry[];
+};
+
+const PREVIEW_TYPES: readonly string[] = [...INLINE_IMAGE_TYPES, 'application/pdf'];
+
+/** Обращение по номеру (SUP-1042 или 1042) глазами сотрудника. Нет такого: null. */
+export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Promise<AgentTicketView | null> {
+  const number = typeof numberRaw === 'string' ? parseNumber(numberRaw) : typeof numberRaw === 'number' ? numberRaw : null;
+  if (number === null) return null;
+  const found = await readAgentTicketTx(ctx.actor, number);
+  if (!found) return null;
+  const { ticket, seenOn } = found;
+  const people = [ticket.authorId, ticket.assigneeId, ...found.messages.map((m) => m.authorId), ...found.events.map((e) => e.actorId)].filter(
+    (id): id is string => id !== null,
+  );
+  const [names, orgs, emails, config] = await Promise.all([
+    namesOf(ctx.actor, people),
+    orgSummaries(ctx, [ticket.orgId]),
+    verifiedEmails(ctx, [ticket.authorId]),
+    loadSlaConfig(ctx.actor),
+  ]);
+  const isNew = (at: Date) => seenOn !== null && at.getTime() > seenOn.getTime();
+  const fileView = (a: (typeof found.attachments)[number]): AgentFileView => ({
+    attachmentId: a.attachmentId,
+    fileName: a.fileName,
+    mime: a.mime,
+    size: a.size,
+    scanStatus: a.scanStatus,
+    rejectReason: a.scanStatus === 'rejected' ? rejectReasonOf(a.scanSignature) : null,
+    isInternal: a.isInternal,
+    canOpen: a.scanStatus === 'clean',
+    canPreview: a.scanStatus === 'clean' && PREVIEW_TYPES.includes(a.mime),
+  });
+  const cal = calendarFor(config, ticket.priority);
+  const now = new Date();
+  const dueOn = ticket.firstRespondedOn ? ticket.resolutionDueOn : ticket.firstResponseDueOn;
+  const settled = ticket.status === 'waiting_customer' || ticket.status === 'resolved' || ticket.status === 'closed';
+  const timeline: AgentTimelineEntry[] = [
+    ...found.messages.map(
+      (m): AgentTimelineEntry => ({
+        type: 'message',
+        id: m.messageId,
+        authorType: m.authorType,
+        authorName: m.authorId ? (names.get(m.authorId) ?? null) : null,
+        isInternal: m.isInternal,
+        body: m.body,
+        createdOn: m.createdOn,
+        attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),
+        isNew: isNew(m.createdOn),
+      }),
+    ),
+    ...found.events
+      .filter((e) => e.kind !== 'created')
+      .map(
+        (e): AgentTimelineEntry => ({
+          type: 'event',
+          id: e.eventId,
+          kind: e.kind,
+          payload: (e.payload ?? {}) as Record<string, unknown>,
+          actorName: e.actorId ? (names.get(e.actorId) ?? null) : null,
+          isInternal: e.isInternal,
+          createdOn: e.createdOn,
+          isNew: isNew(e.createdOn),
+        }),
+      ),
+  ].sort((a, b) => a.createdOn.getTime() - b.createdOn.getTime());
+  return {
+    ticketId: ticket.ticketId,
+    number: ticket.number,
+    title: ticket.title,
+    description: ticket.description,
+    status: ticket.status,
+    type: ticket.type,
+    impact: ticket.impact,
+    priority: ticket.priority,
+    priorityConfirmed: ticket.priorityConfirmed,
+    visibility: ticket.visibility,
+    line: ticket.queue,
+    source: ticket.source,
+    locale: ticket.locale,
+    moduleId: ticket.moduleId,
+    createdOn: ticket.createdOn,
+    author: { id: ticket.authorId, name: names.get(ticket.authorId) ?? null, email: emails.get(ticket.authorId) ?? null },
+    assignee: ticket.assigneeId ? { id: ticket.assigneeId, name: names.get(ticket.assigneeId) ?? null } : null,
+    org: orgs.get(ticket.orgId) ?? null,
+    sla: {
+      firstResponseDueOn: ticket.firstResponseDueOn,
+      resolutionDueOn: ticket.resolutionDueOn,
+      firstRespondedOn: ticket.firstRespondedOn,
+      pausedSince: ticket.slaPausedOn,
+      phase: settled ? 'calm' : slaPhase(dueOn, ticket.createdOn, now, cal),
+      minutesLeft: dueOn ? workingMinutesBetween(now, dueOn, cal) : null,
+    },
+    context: ticket.context,
+    resolutionType: ticket.resolutionType,
+    resolvedVersion: ticket.resolvedVersion,
+    snoozedUntil: ticket.snoozedUntil && ticket.snoozedUntil.getTime() > now.getTime() ? ticket.snoozedUntil : null,
+    mergedInto: found.mergedIntoNumber !== null ? { number: found.mergedIntoNumber } : null,
+    pickup:
+      found.transfer && found.transfer.toLine !== 'l1' && !found.transfer.pickedUpOn && found.transfer.pickupDueOn && ticket.queue !== 'l1'
+        ? { dueOn: found.transfer.pickupDueOn }
+        : null,
+    changedSince: seenOn,
+    // Последнее, что агент видит на странице: по нему ответ узнаёт об изменениях других (FR-AG-12).
+    version: new Date(Math.max(ticket.createdOn.getTime(), ...found.messages.map((m) => m.createdOn.getTime()), ...found.events.map((e) => e.createdOn.getTime()))).toISOString(),
+    attachments: found.attachments.filter((a) => a.messageId === null).map(fileView),
+    timeline,
+  };
+}
+
+/** Отметка "просмотрено" (UX-A-15). */
+export async function markTicketRead(ctx: StaffContext, ticketId: unknown): Promise<void> {
+  await markReadTx(ctx.actor, parseInput(z.uuid(), ticketId));
+}
+
+// --- Действия сотрудника (план M3, задача 7) ---
+
+/** "Взять себе" (FR-AG-02). Уже взял другой: already_taken с его именем. */
+export async function takeTicket(ctx: StaffContext, number: unknown): Promise<void> {
+  const parsed = parseInput(numberInput, number);
+  try {
+    await takeTx(ctx.actor, parsed, ctx.user.name);
+  } catch (error) {
+    if (isHdtError(error) && error.code === 'already_taken' && error.holderId) {
+      const name = (await namesOf(ctx.actor, [error.holderId])).get(error.holderId);
+      throw new HdtError('already_taken', { holderId: error.holderId, holderName: name });
+    }
+    throw error;
+  }
+}
+
+/** Назначить коллегу или снять исполнителя (FR-AG-02). Исполнитель только из сотрудников, которые ведут обращения. */
+export async function assignTicket(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(assignInput, input);
+  if (data.assigneeId === null) return assignTx(ctx.actor, data.number, null);
+  const assignee = (await listAssignableStaff(ctx)).find((s) => s.userId === data.assigneeId);
+  if (!assignee) throw new HdtError('invalid_input');
+  await assignTx(ctx.actor, data.number, { id: assignee.userId, name: assignee.name });
+}
+
+/** Статус по таблице 7.2; "Решено" с итогом (FR-AG-09). */
+export async function setStatus(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(statusInput, input);
+  await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version });
+}
+
+/** Приоритет с причиной (FR-SLA-03). Пустая причина: reason_required. */
+export async function setPriority(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(priorityInput, input);
+  if (!data.reason) throw new HdtError('reason_required');
+  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason);
+}
+
+export async function setTicketType(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(typeInput, input);
+  await setTypeTx(ctx.actor, data.number, data.type);
+}
+
+/** Модуль из справочника; отключённый и неизвестный отклоняются. */
+export async function setTicketModule(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(moduleInput, input);
+  if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
+  await setModuleTx(ctx.actor, data.number, data.moduleId);
+}
+
+/** Отложить до момента в будущем, не дальше года (FR-AG-13, UX-A-11); null снимает. */
+export async function snoozeTicket(ctx: StaffContext, input: unknown): Promise<void> {
+  assertCanWrite(ctx.actor);
+  const data = parseInput(snoozeInput, input);
+  await snoozeTx(ctx.actor, data.number, data.until);
+}
+
+export type { SavedFilter } from '../core/agent-queues';
+export { QUEUE_KEYS, QUEUE_SORTS, type QueueKey, type QueueSort } from '../core/agent-queue-keys';
+
+// --- Благодарности, не открывшие обращение (FR-TK-14; план M3, задача 13) ---
+
+export type ThanksRow = { number: number; orgName: string; body: string; createdOn: Date };
+
+/** Список "Не открыли обращение": благодарности на решённые обращения, новые первыми. */
+export async function listThanks(ctx: StaffContext, input: unknown): Promise<{ items: ThanksRow[]; hasMore: boolean }> {
+  const page = parseInput(thanksInput, input ?? {}).page;
+  const rows = await thanksRowsTx(ctx.actor, page);
+  const shown = rows.slice(0, THANKS_PAGE_SIZE);
+  const orgs = await orgSummaries(ctx, [...new Set(shown.map((row) => row.orgId))]);
+  return {
+    items: shown.map((row) => ({ number: row.number, orgName: orgs.get(row.orgId)?.name ?? '', body: row.body, createdOn: row.createdOn })),
+    hasMore: rows.length > THANKS_PAGE_SIZE,
+  };
+}
+
+// --- Следующее обращение очереди (FR-AG-17, UX-A-04; план M3, задача 14) ---
+
+const NEXT_SCAN = 200;
+
+/**
+ * Следующее обращение той же очереди и сортировки после afterNumber. Если текущего в очереди уже нет (ответ увёл его
+ * из "Новых"), берётся первое другое. Нет такого: null.
+ */
+export async function nextInQueue(ctx: StaffContext, input: unknown): Promise<number | null> {
+  const data = parseInput(nextInput, input);
+  const rows = await queueRowsTx(ctx.actor, { queue: data.queue, sort: data.sort, offset: 0, limit: NEXT_SCAN });
+  const index = rows.findIndex((row) => row.number === data.afterNumber);
+  const next = index >= 0 ? rows[index + 1] : rows.find((row) => row.number !== data.afterNumber);
+  return next?.number ?? null;
+}

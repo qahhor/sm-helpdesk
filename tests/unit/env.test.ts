@@ -130,6 +130,9 @@ const prod = {
   R2_SECRET_ACCESS_KEY: 'key-secret',
   // Веха M2: антивирус ClamAV в соседнем контейнере.
   CLAMAV_HOST: 'clamav',
+  // Проверка "не робот" на настоящем адресе в production обязательна (защита от перебора).
+  TURNSTILE_SITE_KEY: '0x4AAAAAAA-site',
+  TURNSTILE_SECRET: '0x4AAAAAAA-secret',
 };
 const problems = (env: Record<string, string | undefined>) => {
   try {
@@ -248,4 +251,13 @@ test('антивирус: CLAMAV_PORT по умолчанию 3310, на нас�
   expect(() => parseEnv({ ...ok, CLAMAV_HOST: 'clam av' })).toThrowError(/CLAMAV_HOST/);
   expect(problems({ ...prod, CLAMAV_HOST: undefined }).map((p) => p.name)).toEqual(['CLAMAV_HOST']);
   expect(parseEnv({ ...prod, CLAMAV_HOST: undefined, FILE_STORAGE: 'local', HUB_URL: 'http://localhost:3100', HUB_DOMAIN: 'localhost' }).CLAMAV_HOST).toBeUndefined();
+});
+
+test('проверка "не робот": на настоящем адресе в production ключи Turnstile обязательны, локально нет', () => {
+  expect(problems({ ...prod, TURNSTILE_SITE_KEY: undefined, TURNSTILE_SECRET: undefined }).map((p) => p.name)).toEqual(['TURNSTILE_SITE_KEY']);
+  expect(
+    parseEnv({ ...prod, TURNSTILE_SITE_KEY: undefined, TURNSTILE_SECRET: undefined, FILE_STORAGE: 'local', CLAMAV_HOST: undefined, HUB_URL: 'http://localhost:3100', HUB_DOMAIN: 'localhost' })
+      .TURNSTILE_SECRET,
+  ).toBeUndefined();
+  expect(parseEnv(ok).TURNSTILE_SECRET).toBeUndefined();
 });

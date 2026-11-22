@@ -1,4 +1,5 @@
 import 'server-only';
+import { redeemAllowed } from './redeem-limit';
 import { z } from 'zod';
 import { getEnv } from '@/env';
 import { LOCALES } from '@/i18n/locales';
@@ -46,7 +47,8 @@ export async function confirmEmail(
   input: unknown,
   session: SessionData | null,
   ip?: string | null,
-): Promise<{ ok: true } | { ok: false; code: 'link_invalid' | 'email_taken' | 'sign_in_required' | 'wrong_account' }> {
+): Promise<{ ok: true } | { ok: false; code: 'link_invalid' | 'email_taken' | 'sign_in_required' | 'wrong_account' | 'rate_limited' }> {
+  if (!(await redeemAllowed(ip ?? null)).ok) return { ok: false, code: 'rate_limited' };
   const parsed = z.object({ token: tokenInput }).safeParse(input);
   if (!parsed.success) return { ok: false, code: 'link_invalid' };
   if (!session) return { ok: false, code: 'sign_in_required' };

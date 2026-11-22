@@ -1,4 +1,5 @@
 import 'server-only';
+import { redeemAllowed } from './redeem-limit';
 import { getEnv } from '@/env';
 import { isLocale, type Locale } from '@/i18n/locales';
 import { resolveLocale } from '@/i18n/resolve-locale';
@@ -215,9 +216,10 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
 export async function completeTelegramLogin(
   input: unknown,
   request: RequestInfo,
-): Promise<{ ok: true; next: string } | { ok: false; code: 'link_invalid' }> {
+): Promise<{ ok: true; next: string } | { ok: false; code: 'link_invalid' | 'rate_limited' }> {
   const raw = (typeof input === 'object' && input !== null ? input : {}) as Record<string, unknown>;
   const locale: Locale = typeof raw.locale === 'string' && isLocale(raw.locale) ? raw.locale : 'ru';
+  if (!(await redeemAllowed(clientIp(request.headers))).ok) return { ok: false, code: 'rate_limited' };
   const token = tokenInput.safeParse(raw.token);
   if (!token.success) return { ok: false, code: 'link_invalid' };
   const userId = await consumeLoginCode(hashToken(token.data), clientIp(request.headers));

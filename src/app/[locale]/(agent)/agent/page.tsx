@@ -1,10 +1,12 @@
 import { getTranslations } from 'next-intl/server';
 import { requireStaffActor } from '@/modules/hdu/api';
+import { Link } from '@/i18n/navigation';
+import { buttonVariants } from '@/ui/components/button';
 import { Card } from '@/ui/components/card';
 import { EmptyState } from '@/ui/components/EmptyState';
 import { PageHeader } from '@/ui/components/PageHeader';
 
-// Главная рабочего места. Очереди обращений появляются в вехе M3.
+// Главная рабочего места: работа начинается с очередей (веха M3).
 export default async function AgentHomePage() {
   await requireStaffActor();
   const t = await getTranslations('agent');
@@ -16,7 +18,20 @@ export default async function AgentHomePage() {
         breadcrumbsLabel={t('breadcrumbs')}
       />
       <Card>
-        <EmptyState title={t('home.emptyTitle')} text={t('home.emptyText')} />
+        <EmptyState
+          title={t('home.emptyTitle')}
+          text={t('home.emptyText')}
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link href="/agent/queues" className={buttonVariants()}>
+                {t('home.openQueues')}
+              </Link>
+              <Link href="/agent/playbooks" className={buttonVariants({ variant: 'secondary' })}>
+                {t('home.openPlaybooks')}
+              </Link>
+            </div>
+          }
+        />
       </Card>
     </>
   );

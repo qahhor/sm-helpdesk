@@ -21,7 +21,9 @@ export default async function ConfirmEmailPage({ searchParams }: PageProps<'/[lo
   const back = token ? `/${locale}/confirm-email?token=${encodeURIComponent(token)}` : `/${locale}/settings`;
   // Без входа подтверждать некому: сразу предлагается войти и вернуться по этой же ссылке.
   const needsSignIn = Boolean(token) && !done && !name && (!error || error === 'sign_in_required');
-  const canConfirm = Boolean(token) && !done && !error && Boolean(name);
+  const tooOften = error === 'rate_limited';
+  const canConfirm = Boolean(token) && !done && (!error || tooOften) && Boolean(name);
+  const tAuth = await getTranslations('auth');
 
   return (
     <Card>
@@ -47,7 +49,8 @@ export default async function ConfirmEmailPage({ searchParams }: PageProps<'/[lo
             </a>
           </>
         )}
-        {!done && !needsSignIn && error !== 'sign_in_required' && (error || !token) && (
+        {tooOften && <Alert tone="danger">{tAuth('tooOften')}</Alert>}
+        {!done && !needsSignIn && !tooOften && error !== 'sign_in_required' && (error || !token) && (
           <>
             <Alert tone="danger">{t(error === 'email_taken' ? 'taken' : error === 'wrong_account' ? 'wrongAccount' : 'invalid')}</Alert>
             <Link href="/settings" className={buttonVariants({ variant: 'secondary' })}>

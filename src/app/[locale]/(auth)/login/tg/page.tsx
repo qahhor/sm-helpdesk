@@ -10,6 +10,7 @@ import { firstParam } from '@/lib/search-params';
 export default async function TelegramLoginPage({ searchParams }: PageProps<'/[locale]/login/tg'>) {
   const params = await searchParams;
   const t = await getTranslations('auth.telegram');
+  const tAuth = await getTranslations('auth');
   const token = firstParam(params.token);
   const invalid = firstParam(params.error) === 'link_invalid' || !token;
 
@@ -23,12 +24,15 @@ export default async function TelegramLoginPage({ searchParams }: PageProps<'/[l
         {invalid ? (
           <Alert tone="danger">{t('invalid')}</Alert>
         ) : (
+          <>
+            {firstParam(params.error) === 'rate_limited' && <Alert tone="danger">{tAuth('tooOften')}</Alert>}
           <form action={completeTelegramLoginAction}>
             <input type="hidden" name="token" value={token} />
             <Button type="submit" className="w-full">
               {t('submit')}
             </Button>
           </form>
+          </>
         )}
       </CardContent>
     </Card>

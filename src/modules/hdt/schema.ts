@@ -7,6 +7,7 @@ import type {
   EventKind,
   Impact,
   Priority,
+  PresenceMode,
   Queue,
   ScanStatus,
   TicketSource,
@@ -53,7 +54,7 @@ export const tickets = pgTable('hdt_tickets', {
   firstRespondedOn: moment('first_responded_on'),
   resolvedOn: moment('resolved_on'),
   slaPausedOn: moment('sla_paused_on'),
-  slaPausedSeconds: integer('sla_paused_seconds').notNull().default(0),
+  slaPausedMinutes: integer('sla_paused_minutes').notNull().default(0),
   resolutionType: text('resolution_type'),
   solutionId: uuid('solution_id'),
   mergedIntoId: uuid('merged_into_id'),
@@ -69,6 +70,11 @@ export const tickets = pgTable('hdt_tickets', {
   csatComment: text('csat_comment'),
   closedOn: moment('closed_on'),
   ...stampColumns,
+  // Миграция 0020 добавила колонки в конец таблицы.
+  firstResponseBreachedOn: moment('first_response_breached_on'),
+  resolutionBreachedOn: moment('resolution_breached_on'),
+  clientWaitingSince: moment('client_waiting_since'),
+  resolvedVersion: text('resolved_version'),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {
@@ -84,6 +90,8 @@ export const ticketMessages = pgTable('hdt_ticket_messages', {
   source: text('source').$type<TicketSource>().notNull().default('portal'),
   emailMessageId: text('email_message_id'),
   ...stampColumns,
+  // Колонка добавлена миграцией 0029 и стоит в конце таблицы.
+  isThanks: boolean('is_thanks').notNull().default(false),
 });
 
 export const ticketEvents = pgTable('hdt_ticket_events', {
@@ -128,5 +136,68 @@ export const attachments = pgTable('hdt_attachments', {
   scanSignature: text('scan_signature'),
   detectedType: text('detected_type'),
   isInternal: boolean('is_internal').notNull().default(false),
+  ...stampColumns,
+});
+
+/** Условия сохранённого списка рабочего места. */
+export type SavedQuery = { queue: string; sort?: string; q?: string };
+
+export const savedFilters = pgTable('hdt_saved_filters', {
+  filterId: uuid('filter_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ownerId: uuid('owner_id').notNull(),
+  name: text('name').notNull(),
+  query: jsonb('query').$type<SavedQuery>().notNull(),
+  isShared: boolean('is_shared').notNull().default(false),
+  ...stampColumns,
+});
+
+export const ticketReads = pgTable('hdt_ticket_reads', {
+  ticketId: uuid('ticket_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  seenOn: moment('seen_on').notNull(),
+  ...stampColumns,
+});
+
+export const replyDrafts = pgTable('hdt_reply_drafts', {
+  ticketId: uuid('ticket_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  body: text('body').notNull(),
+  isInternal: boolean('is_internal').notNull().default(false),
+  ...stampColumns,
+});
+
+export const ticketPresence = pgTable('hdt_ticket_presence', {
+  ticketId: uuid('ticket_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  mode: text('mode').$type<PresenceMode>().notNull(),
+  expiresOn: moment('expires_on').notNull(),
+  ...stampColumns,
+});
+
+export const mentions = pgTable('hdt_mentions', {
+  messageId: uuid('message_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  readOn: moment('read_on'),
+  ...stampColumns,
+});
+
+export const lineTransfers = pgTable('hdt_ticket_line_transfers', {
+  transferId: uuid('transfer_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ticketId: uuid('ticket_id').notNull(),
+  fromLine: text('from_line').$type<Queue>().notNull(),
+  toLine: text('to_line').$type<Queue>().notNull(),
+  reasonCode: text('reason_code'),
+  checked: text('checked'),
+  needed: text('needed'),
+  explanation: text('explanation'),
+  checklist: jsonb('checklist').$type<string[]>().notNull().default([]),
+  byUser: uuid('by_user').notNull(),
+  pickupDueOn: moment('pickup_due_on'),
+  pickedUpOn: moment('picked_up_on'),
+  pickedUpBy: uuid('picked_up_by'),
   ...stampColumns,
 });

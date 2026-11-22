@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { acceptStaffInvitation, isHduError } from '@/modules/hdu/api';
+import { acceptStaffInvitation, isHduError, nextRequest } from '@/modules/hdu/api';
 
 export type StaffSetupState = { error?: string };
 
@@ -16,11 +16,12 @@ export async function staffSetupAction(_previous: StaffSetupState, formData: For
   if (password !== formData.get('passwordRepeat')) return { error: t('password_mismatch') };
 
   try {
-    await acceptStaffInvitation({ token: formData.get('token'), name: formData.get('name'), password });
+    await acceptStaffInvitation({ token: formData.get('token'), name: formData.get('name'), password }, await nextRequest());
   } catch (error) {
     if (!isHduError(error)) throw error;
     if (error.code === 'link_invalid') return { error: t('link_invalid') };
     if (error.code === 'email_taken') return { error: t('email_taken') };
+    if (error.code === 'rate_limited') return { error: t('rate_limited') };
     return { error: t('invalid_input') };
   }
   redirect(`/${await getLocale()}/staff/login?setup=1`);

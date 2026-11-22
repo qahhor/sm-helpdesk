@@ -46,8 +46,25 @@ export type TicketSource = (typeof TICKET_SOURCES)[number];
 export const AUTHOR_TYPES = ['client', 'staff', 'system', 'ai', 'agent'] as const;
 export type AuthorType = (typeof AUTHOR_TYPES)[number];
 
-export const EVENT_KINDS = ['created', 'status', 'visibility', 'rated', 'priority', 'assignee', 'queue', 'due', 'rule', 'merge'] as const;
+export const EVENT_KINDS = ['created', 'status', 'visibility', 'rated', 'priority', 'assignee', 'queue', 'due', 'rule', 'merge', 'type', 'module', 'snooze'] as const;
+/** События, которые клиент может видеть. Остальные база принимает только внутренними (миграция 0021). */
+export const CLIENT_VISIBLE_EVENT_KINDS: readonly EventKind[] = ['created', 'status', 'visibility', 'rated', 'merge'];
+/** Кто из сотрудников ведёт обращения: product только читает (ТЗ 5.2). */
+export const STAFF_WRITE_ROLES = ['agent_l1', 'agent_l2', 'care', 'admin'] as const;
+/** Кто ставит "В разработке" и возвращает обращение на первую линию (ТЗ 5.2, FR-LINE-04). */
+export const DEVELOPMENT_ROLES = ['agent_l2', 'care', 'admin'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
+
+/**
+ * Переходы, которые сотрудник с этой ролью может сделать из статуса: таблица 7.2 за вычетом чужих прав.
+ * Закрывает сотрудник только решённое (решение 5 плана M3): "Ждём вашего ответа" закрывает задача по молчанию.
+ * Объединённое обращение закрыто навсегда (решение 4).
+ */
+export function allowedStaffTransitions(from: TicketStatus, role: string, opts: { merged?: boolean } = {}): TicketStatus[] {
+  if (opts.merged || !(STAFF_WRITE_ROLES as readonly string[]).includes(role)) return [];
+  const development = (DEVELOPMENT_ROLES as readonly string[]).includes(role);
+  return TRANSITIONS[from].filter((to) => (to !== 'in_development' || development) && (to !== 'closed' || from === 'resolved'));
+}
 
 export const WATCHER_SOURCES = ['author', 'manual', 'staff'] as const;
 export type WatcherSource = (typeof WATCHER_SOURCES)[number];
@@ -169,3 +186,24 @@ export const INLINE_IMAGE_TYPES: readonly string[] = ['image/png', 'image/jpeg',
 
 /** Сколько строк берёт один проход обхода загрузок: остальное возьмёт следующий через минуту. */
 export const SWEEP_BATCH = 200;
+
+/** Итог при решении (FR-AG-09): решено, обходной путь, не воспроизводится, дубль, работает как задумано, исправлено в версии. */
+/** Присутствие на странице обращения (FR-AG-12): открыл или печатает. Отметка раз в 10 секунд, живёт 60 (решение 10). */
+export const PRESENCE_MODES = ['viewing', 'typing'] as const;
+export type PresenceMode = (typeof PRESENCE_MODES)[number];
+export const PRESENCE_TTL_SEC = 60;
+export const PRESENCE_TOUCH_SEC = 10;
+
+/** Причины передачи на вторую линию (FR-LINE-03, решение 3 плана M3, подтверждено владельцем). */
+export const TRANSFER_REASONS = ['needs_client_data', 'suspected_bug', 'client_configuration', 'data_fix', 'not_in_playbook', 'other'] as const;
+export type TransferReason = (typeof TRANSFER_REASONS)[number];
+/** Срок "взять в работу" для второй линии по приоритету, рабочих минут (FR-LINE-06): {"p1": 30}. Нет: срок первого ответа. */
+export const PICKUP_SETTING = 'lines.pickup_minutes';
+/** Из каких статусов первая линия передаёт обращение на вторую. */
+export const TRANSFERABLE_STATUSES: readonly TicketStatus[] = ['new', 'in_progress', 'waiting_customer'];
+
+export const RESOLUTION_TYPES = ['solved', 'workaround', 'not_reproducible', 'duplicate', 'by_design', 'fixed_in_version'] as const;
+export type ResolutionType = (typeof RESOLUTION_TYPES)[number];
+
+/** Дальше этого обращение не откладывается: отложение не заменяет закрытие. */
+export const MAX_SNOOZE_DAYS = 365;

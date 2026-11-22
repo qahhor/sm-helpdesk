@@ -158,7 +158,7 @@ const schema = z
     if (value.HUB_DOMAIN !== host)
       ctx.addIssue({ code: 'custom', path: ['HUB_DOMAIN'], message: 'не совпадает с именем узла из HUB_URL' });
     // Первое значение x-forwarded-for за Cloudflare и Caddy это адрес узла Cloudflare или значение, которое прислал
-    // сам посетитель. На настоящем адресе источник адреса посетителя выбирается явно (docs/runbooks/staging-after-m1.md).
+    // сам посетитель. На настоящем адресе источник адреса посетителя выбирается явно (docs/runbooks/launch.md, раздел 8).
     if (value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host) && !value.CLIENT_IP_HEADER)
       ctx.addIssue({ code: 'custom', path: ['CLIENT_IP_HEADER'], message: 'не задан: за Cloudflare задайте cf-connecting-ip' });
     if (value.BETTER_AUTH_SECRET === value.ENCRYPTION_KEY)
@@ -197,6 +197,9 @@ const schema = z
     // Локальное хранилище отдаёт файлы обработчиком портала и работает только на localhost.
     if (value.FILE_STORAGE !== 'r2' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({ code: 'custom', path: ['FILE_STORAGE'], message: 'на настоящем адресе в production задайте r2' });
+    // Проверка "не робот" на формах входа (защита от перебора, ТЗ 14.5): без ключей она выключена, на настоящем адресе нельзя.
+    if (!value.TURNSTILE_SITE_KEY && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SITE_KEY'], message: 'не задан: на настоящем адресе в production формы входа защищает Cloudflare Turnstile' });
     if (!value.CLAMAV_HOST && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({ code: 'custom', path: ['CLAMAV_HOST'], message: 'не задан: на настоящем адресе в production файлы проверяет ClamAV' });
     if (value.HUB_SHOWCASE === '1' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))

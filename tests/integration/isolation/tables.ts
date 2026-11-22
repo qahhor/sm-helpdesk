@@ -29,7 +29,11 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Уведомления
   hdn_telegram_updates: { client: 'none', app: ['insert', 'delete'] },
   // Справочники
+  hdr_business_calendars: { client: 'all', app: IU },
+  hdr_l1_playbooks: { client: 'none', app: IUD },
   hdr_product_modules: { client: 'all', app: IUD },
+  hdr_reply_templates: { client: 'none', app: IU },
+  hdr_sla_policies: { client: 'all', app: IU },
   // Идентичность: меняет только hub_auth, удаляет только отвязка контакта.
   hdu_contact_identities: { client: 'own-user', auth: IUD },
   // Ссылки и коды удаляет только ночная очистка системой (решение 0023, дополнение M2).
@@ -45,7 +49,13 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdu_user_profiles: { client: 'org-people' },
   // Обращения (веха M2): клиент читает свою организацию, личные обращения коллег видит только администратор
   // клиента (это проверяет tickets-direct.test.ts). Удалить обращение, сообщение и событие не может никто.
+  hdt_mentions: { client: 'none', app: IU },
+  hdt_reply_drafts: { client: 'none', app: IUD },
+  hdt_saved_filters: { client: 'none', app: IUD },
   hdt_tickets: { client: 'own-org', app: IU },
+  hdt_ticket_line_transfers: { client: 'none', app: IU },
+  hdt_ticket_presence: { client: 'none', app: IUD },
+  hdt_ticket_reads: { client: 'none', app: IU },
   hdt_ticket_messages: { client: 'own-org', app: ['insert'] },
   hdt_ticket_events: { client: 'own-org', app: ['insert'] },
   hdt_ticket_watchers: { client: 'own-user', app: ['insert', 'delete'] },

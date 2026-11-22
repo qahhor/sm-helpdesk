@@ -16,7 +16,7 @@ export async function acceptInvitationAction(formData: FormData): Promise<void> 
   if (result.ok) redirect(`/${locale}`);
   // Токен остаётся в адресе только для просьбы войти или выйти из чужой учётной записи: человек вернётся на эту страницу.
   const keep =
-    (result.code === 'sign_in_required' || result.code === 'wrong_account') && typeof token === 'string' ? `&token=${encodeURIComponent(token)}` : '';
+    (result.code === 'sign_in_required' || result.code === 'wrong_account' || result.code === 'rate_limited') && typeof token === 'string' ? `&token=${encodeURIComponent(token)}` : '';
   redirect(`/${locale}/invite?error=${result.code}${keep}`);
 }
 

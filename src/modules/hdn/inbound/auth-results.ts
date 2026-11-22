@@ -9,11 +9,16 @@ export function dmarcAligned(headers: [string, string][], fromAddress: string, a
   if (!authservId) return false;
   const domain = parseMailbox(fromAddress)?.address.split('@')[1];
   if (!domain) return false;
-  const top = headers.find(([name]) => name.toLowerCase() === 'authentication-results')?.[1];
+  const results = headers.filter(([name]) => name.toLowerCase() === 'authentication-results').map(([, value]) => value);
+  const top = results[0];
   if (!top) return false;
-  const [serv = '', ...results] = top.split(';');
+  // Второй заголовок с нашим идентификатором мог вписать отправитель, а порядок дублей в ответе API не гарантирован:
+  // два таких заголовка считаются подделкой (итоговая проверка M4).
+  const ours = results.filter((value) => (value.split(';')[0] ?? '').trim().split(/\s+/)[0]?.toLowerCase() === authservId.toLowerCase());
+  if (ours.length > 1) return false;
+  const [serv = '', ...parts] = top.split(';');
   if (serv.trim().split(/\s+/)[0]?.toLowerCase() !== authservId.toLowerCase()) return false;
-  for (const part of results) {
+  for (const part of parts) {
     const result = /\bdmarc\s*=\s*([a-z]+)/i.exec(part);
     if (!result) continue;
     const headerFrom = /\bheader\.from\s*=\s*([^\s;]+)/i.exec(part)?.[1]?.toLowerCase();

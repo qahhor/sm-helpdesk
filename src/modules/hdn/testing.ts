@@ -23,6 +23,8 @@ export type MemoryEmailProvider = EmailProvider & {
   signedRequest(event: unknown): { body: string; headers: Headers };
   /** Следующие отправки падают с этой ошибкой, пока не вызван failSends(null). */
   failSends(error: Error | null): void;
+  /** Список вложений этого письма отвечает ошибкой (сбой сервиса). */
+  failAttachmentList(emailId: string): void;
 };
 
 export function createMemoryEmailProvider(secret = MEMORY_WEBHOOK_SECRET): MemoryEmailProvider {
@@ -30,6 +32,7 @@ export function createMemoryEmailProvider(secret = MEMORY_WEBHOOK_SECRET): Memor
   const contents = new Map<string, InboundContent>();
   const attachments = new Map<string, InboundAttachment[]>();
   const files = new Map<string, Uint8Array>();
+  const brokenLists = new Set<string>();
   let failure: Error | null = null;
   return {
     sent,
@@ -47,6 +50,7 @@ export function createMemoryEmailProvider(secret = MEMORY_WEBHOOK_SECRET): Memor
       return content;
     },
     async listInboundAttachments(emailId) {
+      if (brokenLists.has(emailId)) throw new Error('заглушка почты: список вложений недоступен');
       return attachments.get(emailId) ?? [];
     },
     async download(url, maxBytes) {
@@ -75,6 +79,9 @@ export function createMemoryEmailProvider(secret = MEMORY_WEBHOOK_SECRET): Memor
     },
     failSends(error) {
       failure = error;
+    },
+    failAttachmentList(emailId) {
+      brokenLists.add(emailId);
     },
   };
 }

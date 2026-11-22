@@ -51,7 +51,14 @@ export async function ensureGuestTx(address: string, displayName: string | null,
       if (!created) throw new Error('гость не создан');
       userId = created.id;
     }
-    await tx.insert(memberships).values({ orgId, userId, role: 'client_user', source: 'guest' }).onConflictDoNothing();
+    const joined = await tx
+      .insert(memberships)
+      .values({ orgId, userId, role: 'client_user', source: 'guest' })
+      .onConflictDoNothing()
+      .returning({ userId: memberships.userId });
+    // Гостевое членство даёт видимость своих личных обращений организации: в журнал (итоговая проверка M4, I10).
+    if (joined.length > 0)
+      await writeAudit(tx, { action: 'member.joined', objectType: 'membership', objectId: userId, orgId, diff: { role: 'client_user', source: 'guest' } });
     return { userId };
   });
 }
@@ -108,7 +115,13 @@ export async function addGuestMembershipTx(guestUserId: string, orgId: string): 
   await withIdentity(SYSTEM, async (tx) => {
     const guest = await tx.select({ id: authUser.id }).from(authUser).where(and(eq(authUser.id, guestUserId), eq(authUser.emailVerified, false))).limit(1);
     if (guest.length === 0) return;
-    await tx.insert(memberships).values({ orgId, userId: guestUserId, role: 'client_user', source: 'guest' }).onConflictDoNothing();
+    const joined = await tx
+      .insert(memberships)
+      .values({ orgId, userId: guestUserId, role: 'client_user', source: 'guest' })
+      .onConflictDoNothing()
+      .returning({ userId: memberships.userId });
+    if (joined.length > 0)
+      await writeAudit(tx, { action: 'member.joined', objectType: 'membership', objectId: guestUserId, orgId, diff: { role: 'client_user', source: 'guest' } });
   });
 }
 
@@ -135,11 +148,35 @@ export async function recordGuestMergesTx(tx: Tx, address: string, userId: strin
     .from(authUser)
     .innerJoin(memberships, and(eq(memberships.userId, authUser.id), eq(memberships.source, 'guest')))
     .where(and(eq(authUser.claimedEmail, address), eq(authUser.emailVerified, false), ne(authUser.id, userId)));
-  for (const guest of guests) {
-    await tx.insert(guestMerges).values({ guestUserId: guest.id, userId }).onConflictDoNothing();
-    await writeAudit(tx, { action: 'guest.merge_recorded', objectType: 'user', objectId: guest.id, diff: { userId } });
-  }
+  for (const guest of guests) await upsertMergeTx(tx, guest.id, userId);
   return guests.length;
+}
+
+/**
+ * Слияние гостя, которого назвало принятое приглашение (решение 13): только он, а не любой гость с этим адресом.
+ * Иначе принятие постороннего приглашения забирало бы обращения из писем, подделанных под этот адрес (итоговая
+ * проверка M4, замечание I5).
+ */
+export async function recordGuestMergeTx(tx: Tx, guestUserId: string, userId: string): Promise<boolean> {
+  if (guestUserId === userId) return false;
+  const guest = await tx
+    .select({ id: authUser.id })
+    .from(authUser)
+    .innerJoin(memberships, and(eq(memberships.userId, authUser.id), eq(memberships.source, 'guest')))
+    .where(and(eq(authUser.id, guestUserId), eq(authUser.emailVerified, false)))
+    .limit(1);
+  if (guest.length === 0) return false;
+  await upsertMergeTx(tx, guestUserId, userId);
+  return true;
+}
+
+/** Запись слияния. Уже записанная пара применяется заново: письмо, пришедшее от гостя после перехода, тоже перейдёт. */
+async function upsertMergeTx(tx: Tx, guestUserId: string, userId: string): Promise<void> {
+  await tx
+    .insert(guestMerges)
+    .values({ guestUserId, userId })
+    .onConflictDoUpdate({ target: [guestMerges.guestUserId, guestMerges.userId], set: { appliedOn: null } });
+  await writeAudit(tx, { action: 'guest.merge_recorded', objectType: 'user', objectId: guestUserId, diff: { userId } });
 }
 
 /** Ждущие слияния для задачи раз в минуту, старые первыми. */

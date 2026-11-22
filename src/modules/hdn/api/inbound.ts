@@ -1,5 +1,7 @@
 import 'server-only';
+import type { SystemActor } from '@/db/with-actor';
 import { env } from '@/env';
+import { enqueue } from '@/modules/hdc/api';
 import { supportAddresses } from '../core/mail-settings';
 import { dmarcAligned, inboundAuthservOf } from '../inbound/auth-results';
 import { parseReplyAddress, type ReplyConfig, replyConfigOf } from '../inbound/reply-address';
@@ -22,6 +24,7 @@ export {
   processedTwinTx,
   recordThreadTx,
 } from '../core/inbound';
+import { staleInboundIds } from '../core/inbound';
 export type { InboundClass } from '../schema';
 export type { InboundAttachment, InboundContent };
 export { parseMailbox };
@@ -61,11 +64,28 @@ export function senderAligned(headers: [string, string][], fromAddress: string):
   return dmarcAligned(headers, fromAddress, inboundAuthservOf(env));
 }
 
-/** Текст, заголовки и список вложений письма у почтового сервиса. */
+/**
+ * Текст, заголовки и список вложений письма у почтового сервиса. Сбой списка вложений письмо не губит: оно разбирается
+ * без файлов, сбой пишется в журнал процесса (итоговая проверка M4).
+ */
 export async function fetchInbound(emailId: string): Promise<{ content: InboundContent; attachments: InboundAttachment[] }> {
   const provider = await getEmailProvider();
-  const [content, attachments] = await Promise.all([provider.fetchInbound(emailId), provider.listInboundAttachments(emailId)]);
+  const content = await provider.fetchInbound(emailId);
+  let attachments: InboundAttachment[] = [];
+  try {
+    attachments = await provider.listInboundAttachments(emailId);
+  } catch (error) {
+    console.error(`Список вложений письма не получен: ${error instanceof Error ? error.message : 'ошибка'}`);
+  }
   return { content, attachments };
+}
+
+/** Неразобранные письма старше 10 минут снова в очередь разбора (шаг задачи раз в минуту). Возвращает их число. */
+export async function requeueStaleInbound(actor: SystemActor, now: Date = new Date()): Promise<number> {
+  if (actor.type !== 'system') throw new Error('Повторный разбор писем выполняет только система');
+  const ids = await staleInboundIds(actor, now, 50);
+  for (const inboundId of ids) await enqueue('email.inbound', { inboundId });
+  return ids.length;
 }
 
 /** Файл вложения, не больше maxBytes. */

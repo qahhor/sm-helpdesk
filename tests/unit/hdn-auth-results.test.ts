@@ -31,3 +31,11 @@ test('dmarc=pass с совпадением домена: true; pass для др�
   // Имя заголовка в другом регистре.
   expect(dmarcAligned([['authentication-results', pass[1]]], 'ivan@example.uz', OURS)).toBe(true);
 });
+
+test('два заголовка с нашим authserv-id: не опознан, даже если верхний говорит pass (итоговая проверка M4, I12)', () => {
+  // Сервис приёма вписывает свой заголовок сверху; второй такой же ниже мог вписать отправитель. Порядок дублей в
+  // ответе API не гарантирован, поэтому два заголовка с нашим идентификатором считаются подделкой.
+  const headers = [ar(`${OURS}; dmarc=pass header.from=client.uz`), ar(`${OURS}; dmarc=pass header.from=client.uz`)];
+  expect(dmarcAligned(headers, 'boss@client.uz', OURS)).toBe(false);
+  expect(dmarcAligned([ar(`${OURS}; dmarc=pass header.from=client.uz`), ar('other.example; dmarc=pass header.from=client.uz')], 'boss@client.uz', OURS)).toBe(true);
+});

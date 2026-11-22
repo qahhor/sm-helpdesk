@@ -60,7 +60,17 @@ const EXTENSION_OF: Readonly<Record<string, string>> = Object.fromEntries(Object
 
 type Ticket = { ticketId: string; number: number; orgId: string; status: TicketStatus; closedOn: Date | null; locale: string; mergedIntoId: string | null };
 type File = { fileName: string; mime: string; data: Uint8Array };
-type Letter = { row: InboundRow; headers: [string, string][]; aligned: boolean; text: string; files: InboundAttachment[] };
+/** text: без цитаты прошлых писем (ответ в обращение); fullText: с цитатой и пересланным (новое обращение). */
+/** owner: подтверждённый пользователь с адресом отправителя, если письмо прошло DMARC (решение 11). */
+type Letter = {
+  row: InboundRow;
+  headers: [string, string][];
+  aligned: boolean;
+  owner: { userId: string; lastOrgId: string | null } | null;
+  text: string;
+  fullText: string;
+  files: InboundAttachment[];
+};
 
 const cut = (text: string, max: number) => {
   const chars = Array.from(text);
@@ -242,7 +252,12 @@ async function intoTicket(actor: SystemActor, letter: Letter, ticket: Ticket, us
   if (ticket.status === 'closed' && (!ticket.closedOn || Date.now() - ticket.closedOn.getTime() > (await reopenDays()) * 86_400_000))
     return newTicket(actor, letter);
   const client = userId ? await publisher(letter, userId, ticket) : null;
-  return client ? publishReply(actor, letter, ticket, client) : reviewNote(actor, letter, ticket);
+  if (client) return publishReply(actor, letter, ticket, client);
+  // Заметки на проверку ограничены: подписанный адрес виден в пересланном письме, адрес участника подделывается
+  // (итоговая проверка M4, замечание I11).
+  const limit = await consumeRateLimit(rateKey('email-review:sender', letter.row.fromAddress), RATE_RULES.emailReviewPerSender);
+  if (!limit.allowed) return finish(actor, letter, 'rate_limited', ticket.ticketId);
+  return reviewNote(actor, letter, ticket);
 }
 
 type Sender = { orgId: string; userId: string; visibility: Visibility; senderUnconfirmed: boolean; identified: boolean; locale: 'ru' | 'uz' | 'en' };
@@ -255,7 +270,7 @@ type Sender = { orgId: string; userId: string; visibility: Visibility; senderUnc
 async function identifySender(letter: Letter): Promise<Sender> {
   const { row, aligned } = letter;
   if (aligned) {
-    const user = await findVerifiedUser(row.fromAddress);
+    const user = letter.owner;
     const orgId = user ? await senderOrg(user.userId, user.lastOrgId) : null;
     if (user && orgId)
       return { orgId, userId: user.userId, visibility: 'org', senderUnconfirmed: false, identified: true, locale: (await mailRecipient(user.userId))?.locale ?? 'ru' };
@@ -286,7 +301,9 @@ async function colleaguesInCopy(addresses: string[], orgId: string, authorId: st
  */
 async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundClass> {
   const { row } = letter;
-  const limit = await consumeRateLimit(rateKey('email-ticket:sender', row.fromAddress), RATE_RULES.emailTicketPerSender);
+  // Предел для подтверждённого клиента с DMARC свой: подделки под его адрес не исчерпывают его (замечание I7).
+  const limitKey = letter.owner ? rateKey('email-ticket:user', letter.owner.userId) : rateKey('email-ticket:sender', row.fromAddress);
+  const limit = await consumeRateLimit(limitKey, RATE_RULES.emailTicketPerSender);
   if (!limit.allowed) return finish(actor, letter, 'rate_limited');
   const sender = await identifySender(letter);
   // Наблюдатели только у обращения организации: личное коллеги не видят (решение 17 плана M2).
@@ -302,7 +319,8 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
       orgId: sender.orgId,
       authorId: sender.userId,
       title,
-      body: cut(letter.text, BODY_MAX) || title,
+      // Пересланное письмо и есть суть нового обращения: цитата не отрезается (итоговая проверка M4).
+      body: cut(letter.fullText, BODY_MAX) || title,
       locale: sender.locale,
       visibility: sender.visibility,
       senderUnconfirmed: sender.senderUnconfirmed,
@@ -344,12 +362,23 @@ export async function intakeEmailTx(actor: SystemActor, inboundId: string): Prom
   const cfg = replyConfig();
   if (!cfg) return finish(actor, { row }, 'ignored');
   const { content, attachments: files } = await fetchInbound(row.rawRef);
-  const letter: Letter = { row, headers: content.headers, aligned: senderAligned(content.headers, row.fromAddress), text: emailToText(content), files };
+  const aligned = senderAligned(content.headers, row.fromAddress);
+  const letter: Letter = {
+    row,
+    headers: content.headers,
+    aligned,
+    owner: aligned ? await findVerifiedUser(row.fromAddress) : null,
+    text: emailToText(content),
+    fullText: emailToText(content, { keepQuote: true }),
+    files,
+  };
 
   // Проверочное письмо адреса поддержки (FR-EM-13) пришло через переадресацию: экран настроек покажет "получено".
   if (isInboundTestSubject(row.subject)) return finish(actor, letter, 'ignored');
   // Список отклонённых (решение 14), затем автоответ и недоставка (решение 17): сохраняются без обращения и ответа.
-  if (await withActor(actor, (tx) => isBlocked(tx, row.fromAddress))) return finish(actor, letter, 'spam');
+  // Письмо подтверждённого клиента с DMARC список не задевает: адрес могли отметить спамом по подделке под него
+  // (итоговая проверка M4, замечание I7).
+  if (!letter.owner && (await withActor(actor, (tx) => isBlocked(tx, row.fromAddress)))) return finish(actor, letter, 'spam');
   const auto = classifyAuto(letter.headers, row.fromAddress, row.subject);
   if (auto) return finish(actor, letter, auto);
 

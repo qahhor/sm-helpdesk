@@ -1,6 +1,7 @@
 import 'server-only';
 import * as z from 'zod';
-import { domainHint, guestSenders, SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
+import { domainHint, findVerifiedUser, guestSenders, SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
+import { mailRecipient } from '@/modules/hdu/api/recipients';
 import { addGuestMembership } from '@/modules/hdu/api/guests';
 import { getOrganization, inviteGuest, isHduError, type StaffContext } from '@/modules/hdu/api';
 import { assertCanWrite } from '../core/agent-actions';
@@ -19,6 +20,8 @@ export type UnidentifiedItem = {
   createdOn: Date;
   /** Организация клиента по домену адреса (hdu_org_email_domains). */
   hint: { orgId: string; name: string } | null;
+  /** Адрес принадлежит подтверждённому пользователю портала, а письмо пришло без DMARC: возможна подделка. */
+  addressOwned: boolean;
 };
 
 const listInput = z.object({ page: z.coerce.number().int().min(1).max(1000).default(1) });
@@ -32,13 +35,16 @@ export async function listUnidentified(ctx: StaffContext, input: unknown = {}): 
   const items = await Promise.all(
     shown.map(async (row) => {
       const sender = senders.get(row.authorId);
+      // Автор уже не гость (его обращения перешли пользователю): адрес для писем этого пользователя.
+      const fromAddress = sender?.address ?? (await mailRecipient(row.authorId))?.address ?? null;
       return {
         number: row.number,
         title: row.title,
-        fromAddress: sender?.address ?? null,
+        fromAddress,
         fromName: sender?.name ?? null,
         createdOn: row.createdOn,
-        hint: sender ? await domainHint(sender.address) : null,
+        hint: fromAddress ? await domainHint(fromAddress) : null,
+        addressOwned: sender ? (await findVerifiedUser(sender.address)) !== null : false,
       };
     }),
   );

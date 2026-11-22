@@ -234,22 +234,31 @@ async function remindUpdates(actor: SystemActor, now: Date): Promise<number> {
   const days = await daySetting(UPDATE_DUE_SETTING);
   return withActor(actor, async (tx) => {
     const calendar = (await readSlaConfig(tx)).calendar;
+    // Отбор в базе: только обращения, у которых напоминания за этот период ещё не было и которые по календарным дням
+    // уже могут быть близки к сроку (рабочих дней не меньше календарных). Иначе первые 200 строк проверялись бы
+    // каждую минуту, а остальные не доходили бы до проверки (итоговая проверка M4, замечание I9).
+    const earliest = new Date(now.getTime() - Math.max(days - 1, 0) * DAY_MS);
     const result = await tx.execute<{ ticket_id: string; since: Date | string; reminded: Date | string | null }>(sql`
-      select t.ticket_id, t.update_reminded_on as reminded, greatest(
-        coalesce((select max(m.created_on) from hdt_ticket_messages m
-                   where m.ticket_id = t.ticket_id and m.author_type = 'staff' and not m.is_internal), t.created_on),
-        coalesce((select max(e.created_on) from hdt_ticket_events e
-                   where e.ticket_id = t.ticket_id and e.kind = 'status' and e.payload ->> 'to' = 'in_development'), t.created_on)
-      ) as since
-        from hdt_tickets t
-       where t.status = 'in_development' and t.assignee_id is not null
-       order by t.ticket_id
-       limit ${SWEEP_BATCH}
-         for update of t skip locked`);
+      select c.ticket_id, c.reminded, c.since
+        from (select t.ticket_id, t.update_reminded_on as reminded, greatest(
+                coalesce((select max(m.created_on) from hdt_ticket_messages m
+                           where m.ticket_id = t.ticket_id and m.author_type = 'staff' and not m.is_internal), t.created_on),
+                coalesce((select max(e.created_on) from hdt_ticket_events e
+                           where e.ticket_id = t.ticket_id and e.kind = 'status' and e.payload ->> 'to' = 'in_development'), t.created_on)
+              ) as since
+                from hdt_tickets t
+               where t.status = 'in_development' and t.assignee_id is not null) c
+       where c.since <= ${earliest.toISOString()}::timestamptz
+         and (c.reminded is null or c.reminded < c.since)
+       order by c.since
+       limit ${SWEEP_BATCH}`);
     let reminded = 0;
     for (const row of result.rows) {
       const since = new Date(row.since);
       if (row.reminded && new Date(row.reminded).getTime() >= since.getTime()) continue;
+      // Строка блокируется перед отметкой: два параллельных запуска не напомнят дважды.
+      const locked = await tx.execute(sql`select 1 from hdt_tickets where ticket_id = ${row.ticket_id} and status = 'in_development' and (update_reminded_on is null or update_reminded_on < ${since.toISOString()}::timestamptz) for update skip locked`);
+      if (locked.rows.length === 0) continue;
       if (addWorkingDays(since, Math.max(days - 1, 0), calendar).getTime() > now.getTime()) continue;
       await tx.update(tickets).set({ updateRemindedOn: now }).where(eq(tickets.ticketId, row.ticket_id));
       await notifyTicketTx(tx, { ticketId: row.ticket_id, kind: 'update_due', actorUserId: null });

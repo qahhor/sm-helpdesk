@@ -2,6 +2,7 @@ import { getFormatter, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import type { UnidentifiedItem } from '@/modules/hdt/api';
 import type { OrgRow } from '@/modules/hdu/api';
+import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
 import { Card, CardContent } from '@/ui/components/card';
 import { Input } from '@/ui/components/input';
@@ -43,6 +44,7 @@ export async function BindPanel({ item, q, found, canWrite }: Props) {
           <p className="text-muted-foreground">{t('received', { time: format.dateTime(item.createdOn, { dateStyle: 'medium', timeStyle: 'short' }) })}</p>
         </div>
         <p className="text-sm text-secondary-foreground">{t('onlyNumber')}</p>
+        {item.addressOwned && <Alert tone="info">{t('addressOwned')}</Alert>}
         {item.hint && (
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span>{t('hint', { name: item.hint.name })}</span>

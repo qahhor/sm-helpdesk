@@ -101,7 +101,15 @@ export async function ticketAuthorTx(actor: StaffActor, number: number): Promise
  */
 export async function moveGuestTx(actor: SystemActor, guestUserId: string, userId: string): Promise<void> {
   await withActor(actor, async (tx) => {
-    await tx.update(tickets).set({ authorId: userId }).where(eq(tickets.authorId, guestUserId));
+    // Обращения из писем без проверки DMARC: отметка "Отправитель не подтверждён" остаётся и после перехода, сотрудник
+    // видит, что текст пришёл не подтверждённым письмом (итоговая проверка M4, замечание I5).
+    const moved = await tx
+      .update(tickets)
+      .set({ authorId: userId, senderUnconfirmed: true })
+      .where(eq(tickets.authorId, guestUserId))
+      .returning({ ticketId: tickets.ticketId, orgId: tickets.orgId });
+    for (const ticket of moved)
+      await writeAudit(tx, { action: 'ticket.author_moved', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: { from: guestUserId, to: userId } });
     await tx.update(ticketMessages).set({ authorId: userId }).where(eq(ticketMessages.authorId, guestUserId));
     await tx.update(attachments).set({ uploaderId: userId }).where(eq(attachments.uploaderId, guestUserId));
     // Подписки неизменяемы (у роли портала нет права UPDATE): подписка гостя удаляется, у пользователя появляется своя.

@@ -846,7 +846,8 @@
             "line_transferred": "Transferred to the second line",
             "line_returned": "Returned to the first line",
             "merged": "Tickets merged",
-            "bound": "Email linked to an organization"
+            "bound": "Email linked to an organization",
+            "author_moved": "Request author changed on guest hand-over"
           },
           "attachment": {
             "infected": "Infected file found"
@@ -1190,7 +1191,8 @@
           "transition_refused": "This email was already handled. Refresh the page.",
           "invalid_input": "Check the chosen organization.",
           "other": "That did not work. Try again."
-        }
+        },
+        "addressOwned": "This address belongs to a portal client, but the email did not pass the DMARC check: it may be forged. Do not mark it as spam or link it until you confirm with the client."
       }
     },
     "ticket": {
@@ -1736,8 +1738,9 @@
       "text": "We are waiting for your reply on request SUP-{number} \"{title}\". Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
     },
     "unidentifiedAck": {
+      "subject": "Your email has been received",
       "heading": "Your email has been received",
-      "text": "We have received your email \"{title}\". Request number: SUP-{number}. A support specialist will answer you by email."
+      "text": "We have received your email. Request number: SUP-{number}. A support specialist will answer you by email."
     },
     "staffMention": {
       "heading": "You were mentioned in a note",

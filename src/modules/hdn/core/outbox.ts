@@ -12,6 +12,7 @@ import { type MailData, type MailPayload, type MailTemplate, renderMail } from '
 import { type DeliveryEvent, type EmailProvider, getEmailProvider } from '../provider';
 import { MailError } from '../resend';
 import { outbox } from '../schema';
+import { recordThreadTx } from './inbound';
 import { oncallEmails, shownSupportAddress } from './mail-settings';
 
 // Модуль hdn, слой core: очередь исходящих (FR-NT-09, решения 1-3 вехи M4).
@@ -71,7 +72,8 @@ export async function wakeOutbox(): Promise<void> {
 }
 
 type Row = typeof outbox.$inferSelect;
-type Outcome = { kind: 'sent'; externalId: string; recipient: string } | { kind: 'skipped' } | { kind: 'error'; error: string };
+/** messageId: наш Message-ID первого письма строки, для цепочки ответов (решение 20). */
+type Outcome = { kind: 'sent'; externalId: string; recipient: string; messageId?: string } | { kind: 'skipped' } | { kind: 'error'; error: string };
 
 /** Код ошибки без адреса, темы и текста письма (проверка main, Q16). */
 function errorCode(error: unknown): string {
@@ -137,7 +139,7 @@ async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender |
     );
     if (index === 0) externalId = result.providerId;
   }
-  return { kind: 'sent', externalId, recipient: targets.map((t) => t.address).join(', ').slice(0, 320) };
+  return { kind: 'sent', externalId, recipient: targets.map((t) => t.address).join(', ').slice(0, 320), messageId: `<${row.outboxId}@${domain}>` };
 }
 
 export async function dispatchOutbox(
@@ -180,6 +182,8 @@ export async function dispatchOutbox(
           .update(outbox)
           .set({ status: 'sent', externalId: outcome.externalId, recipient: outcome.recipient, sentOn: now, lastError: null })
           .where(eq(outbox.outboxId, row.outboxId));
+        // Ответ на наше письмо без адреса ответа найдёт обращение по In-Reply-To (решение 20, итоговая проверка M4).
+        if (row.ticketId && outcome.messageId) await recordThreadTx(tx, { ticketId: row.ticketId, messageId: outcome.messageId, direction: 'out' });
       } else if (outcome.kind === 'skipped') {
         result.skipped++;
         await tx.update(outbox).set({ status: 'skipped' }).where(eq(outbox.outboxId, row.outboxId));

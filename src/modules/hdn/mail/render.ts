@@ -136,11 +136,12 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
         signature: false,
       };
     case 'unidentified_ack':
-      // Неопознанный отправитель получает только номер (FR-EM-05): без ссылок на портал и решения.
+      // Неопознанный отправитель получает только номер (FR-EM-05): без ссылок на портал и решения. Тема его письма не
+      // повторяется: адрес мог быть подделан, и письмо Smartup с подписью DKIM не должно нести чужой текст (угроза T32).
       return {
-        subject: ticketSubject(payload.number, payload.title),
+        subject: `[SUP-${payload.number}] ${t('unidentifiedAck.subject')}`,
         heading: t('unidentifiedAck.heading'),
-        text: t('unidentifiedAck.text', { number: payload.number, title: noLinks(payload.title, TITLE_MAX) }),
+        text: t('unidentifiedAck.text', { number: payload.number }),
         button: null,
         reply: true,
         signature: true,

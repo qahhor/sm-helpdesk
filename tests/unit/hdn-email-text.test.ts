@@ -64,3 +64,14 @@ test('Re:, Fwd:, RE[2]: снимаются, тема обрезается до 2
   expect(cleanSubject('', 'en')).toBe('Email without a subject');
   expect(cleanSubject('Тема​с⁦невидимыми', 'ru')).toBe('Темасневидимыми');
 });
+
+test('новое обращение сохраняет пересланное и цитату: keepQuote (итоговая проверка M4, I2)', () => {
+  const text = 'Посмотрите ниже\n\n---------- Forwarded message ---------\nFrom: Supplier <s@vendor.uz>\nDate: Mon\nSubject: Error\n\nОшибка 500 при выгрузке остатков';
+  expect(emailToText({ html: null, text })).toBe('Посмотрите ниже');
+  expect(emailToText({ html: null, text }, { keepQuote: true })).toContain('Ошибка 500 при выгрузке остатков');
+  const html = '<div>Посмотрите ниже</div><div class="gmail_quote">Ошибка 500 при выгрузке</div><div style="display:none">скрыто</div>';
+  expect(emailToText({ html, text: null })).toBe('Посмотрите ниже');
+  const kept = emailToText({ html, text: null }, { keepQuote: true });
+  expect(kept).toContain('Ошибка 500 при выгрузке');
+  expect(kept).not.toContain('скрыто');
+});

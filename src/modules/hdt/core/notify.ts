@@ -3,8 +3,8 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { emailAllowed, type NotificationKind, notifyTx, type PrefKind } from '@/modules/hdn/api/notifications';
 import { enqueueTx } from '@/modules/hdn/api/outbox';
-import { organizationName } from '@/modules/hdu/api/recipients';
-import type { TicketStatus } from '../pref';
+import { organizationName, replyRole } from '@/modules/hdu/api/recipients';
+import type { TicketStatus, Visibility } from '../pref';
 import { ticketMessages, tickets, ticketWatchers } from '../schema';
 
 // Модуль hdt, слой core: кто получает письмо и уведомление по событию обращения (FR-NT-01, FR-NT-04, FR-NT-10;
@@ -52,7 +52,7 @@ const STATUS_MAILS = new Set<TicketStatus>(['waiting_customer', 'in_development'
 const CLIENT_SETTINGS_PATH = '/settings';
 const STAFF_SETTINGS_PATH = '/agent/account';
 
-type TicketInfo = { number: number; title: string; locale: string; authorId: string; assigneeId: string | null };
+type TicketInfo = { number: number; title: string; locale: string; authorId: string; assigneeId: string | null; orgId: string; visibility: Visibility };
 type Mail = Parameters<typeof enqueueTx>[1]['payload'];
 
 async function people(tx: Tx, ticketId: string, ticket: TicketInfo, actorUserId: string | null): Promise<string[]> {
@@ -60,9 +60,21 @@ async function people(tx: Tx, ticketId: string, ticket: TicketInfo, actorUserId:
   return [...new Set([ticket.authorId, ...watchers.map((w) => w.userId)])].filter((userId) => userId !== actorUserId);
 }
 
-/** Письмо и уведомление каждому: автору всегда, коллеге по его настройке. */
+/**
+ * Видит ли клиент обращение сейчас: действующее членство в организации обращения, и для коллеги видимость
+ * "организация" или роль администратора клиента. Отключённый участник и подписчик, оставшийся у личного обращения,
+ * ни уведомления, ни письма не получают (итоговая проверка M4, замечание I8).
+ */
+async function stillSees(ticket: TicketInfo, userId: string): Promise<boolean> {
+  const role = await replyRole(userId, ticket.orgId);
+  if (!role) return false;
+  return userId === ticket.authorId || ticket.visibility === 'org' || role === 'client_admin';
+}
+
+/** Письмо и уведомление каждому: автору всегда, коллеге по его настройке; только тем, кто видит обращение. */
 async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: string[], kind: NotificationKind, mail: Mail, messageId?: string): Promise<void> {
   for (const userId of recipients) {
+    if (!(await stillSees(ticket, userId))) continue;
     await notifyTx(tx, { userId, kind, ticketId, payload: { number: ticket.number, title: ticket.title } });
     const own = userId === ticket.authorId;
     if (!own && !(await emailAllowed(tx, userId, 'watched_tickets'))) continue;
@@ -112,7 +124,15 @@ async function tellStaff(
 export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
   const ticket = (
     await tx
-      .select({ number: tickets.number, title: tickets.title, locale: tickets.locale, authorId: tickets.authorId, assigneeId: tickets.assigneeId })
+      .select({
+        number: tickets.number,
+        title: tickets.title,
+        locale: tickets.locale,
+        authorId: tickets.authorId,
+        assigneeId: tickets.assigneeId,
+        orgId: tickets.orgId,
+        visibility: tickets.visibility,
+      })
       .from(tickets)
       .where(eq(tickets.ticketId, e.ticketId))
       .limit(1)

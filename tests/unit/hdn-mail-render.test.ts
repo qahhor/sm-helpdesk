@@ -126,3 +126,16 @@ test('письмо входа по ссылке (M1) получает HTML в о
   expect(mail.html).toContain('href="https://hub.example.test/ru/login/link?token=abc&amp;x=1"');
   expect(mail.html).toContain('https://hub.example.test/brand/logo/smartup-logo-light-bg.png');
 });
+
+test('подтверждение неопознанному: в теме и тексте только номер, без темы письма отправителя (угроза T32, итоговая проверка M4, I4)', async () => {
+  const common = { hubUrl: 'https://hub.example.test', supportAddress: 'support@smartup24.com' };
+  const bait = 'Доступ заблокирован, звоните +998 90 123 45 67';
+  for (const locale of LOCALES) {
+    const ack = await renderMail('unidentified_ack', locale, { template: 'unidentified_ack', number: 1061, title: bait, ...common } as MailData);
+    expect(ack.subject).toMatch(/^\[SUP-1061\] /);
+    for (const part of [ack.subject, ack.text, ack.html]) {
+      expect(part).not.toContain('123 45 67');
+      expect(part).not.toContain('заблокирован');
+    }
+  }
+});

@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { parseMailbox, type ReceivedEvent } from '../provider';
@@ -97,6 +97,8 @@ export async function markInbound(
 
 /** Message-ID письма обращения: ответ со ссылкой на него относится к обращению (FR-EM-02). Повтор не дублирует. */
 export async function recordThreadTx(tx: Tx, row: { ticketId: string; messageId: string; inReplyTo?: string | null; direction: 'in' | 'out' }): Promise<void> {
+  // Слишком короткий идентификатор (например, "<>") цепочку не связывает, а ограничение таблицы его не примет.
+  if (row.messageId.trim().length < 3) return;
   await tx
     .insert(emailThreads)
     .values({ ticketId: row.ticketId, messageId: row.messageId.slice(0, 998), inReplyTo: row.inReplyTo?.slice(0, 998) ?? null, direction: row.direction })
@@ -120,4 +122,31 @@ export async function isBlocked(tx: Tx, address: string): Promise<boolean> {
 /** Адрес в список отклонённых как спам (решение 14) в транзакции действия сотрудника. Повтор ничего не меняет. */
 export async function blockSenderTx(tx: Tx, address: string, staffUserId: string): Promise<void> {
   await tx.insert(blockedSenders).values({ address: address.toLowerCase(), blockedBy: staffUserId }).onConflictDoNothing();
+}
+
+/** Сколько последних суток досматривать: старше этого письмо считается безнадёжным и ждёт экрана очереди писем (M8). */
+const REQUEUE_DAYS = 3;
+/** Через сколько минут неразобранное письмо ставится снова. */
+const REQUEUE_AFTER_MIN = 10;
+
+/**
+ * Неразобранные письма (задача не встала в очередь или повторы кончились при сбое почтового сервиса): идентификаторы
+ * для повторной постановки (итоговая проверка M4). Старше трёх суток не берутся.
+ */
+export async function staleInboundIds(actor: SystemActor, now: Date, limit: number): Promise<string[]> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .select({ inboundId: emailInbound.inboundId })
+      .from(emailInbound)
+      .where(
+        and(
+          isNull(emailInbound.processedOn),
+          lt(emailInbound.createdOn, new Date(now.getTime() - REQUEUE_AFTER_MIN * 60_000)),
+          gt(emailInbound.createdOn, new Date(now.getTime() - REQUEUE_DAYS * 86_400_000)),
+        ),
+      )
+      .orderBy(asc(emailInbound.createdOn))
+      .limit(limit),
+  );
+  return rows.map((row) => row.inboundId);
 }

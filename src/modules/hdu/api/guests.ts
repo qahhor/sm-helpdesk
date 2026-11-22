@@ -18,7 +18,16 @@ import {
 
 export { SERVICE_ORG_ID } from '../pref';
 
-const address = z.email().max(320).transform((value) => value.toLowerCase());
+/**
+ * Адрес отправителя письма: всё, что принял разбор заголовка From (parseMailbox), в том числе домены в punycode
+ * (.рф) и редкие знаки местной части. Строже, чем там, проверять нельзя: письмо иначе терялось бы (итоговая проверка M4).
+ */
+const address = z
+  .string()
+  .trim()
+  .max(320)
+  .regex(/^[^\s@<>()",;:\\]+@[^\s@<>()",;:\\]+\.[^\s@<>()",;:\\]+$/u)
+  .transform((value) => value.toLowerCase());
 const domain = z
   .string()
   .trim()

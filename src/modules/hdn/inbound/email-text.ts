@@ -44,8 +44,8 @@ function quoteBlock(el: Element): boolean {
   return el.tagName === 'blockquote' && (attr(el, 'type') ?? '').toLowerCase() === 'cite';
 }
 
-/** Текст HTML без скрытого и без цитаты. */
-function htmlToText(html: string): string {
+/** Текст HTML без скрытого; без цитаты, если keepQuote ложь. */
+function htmlToText(html: string, keepQuote = false): string {
   const out: string[] = [];
   let stopped = false;
   const newline = () => {
@@ -62,11 +62,11 @@ function htmlToText(html: string): string {
       return;
     }
     const el = node as Element;
-    if (CUT_IDS.has((attr(el, 'id') ?? '').toLowerCase())) {
+    if (!keepQuote && CUT_IDS.has((attr(el, 'id') ?? '').toLowerCase())) {
       stopped = true;
       return;
     }
-    if (SKIPPED.has(el.tagName) || hidden(el) || quoteBlock(el)) return;
+    if (SKIPPED.has(el.tagName) || hidden(el) || (!keepQuote && quoteBlock(el))) return;
     if (el.tagName === 'br') {
       out.push('\n');
       return;
@@ -129,10 +129,15 @@ export function stripQuote(text: string): string {
   return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-/** Письмо в текст: текстовая часть или HTML без скрытого, без цитаты, без невидимых знаков. */
-export function emailToText(content: { html: string | null; text: string | null }): string {
-  const source = content.text?.trim() ? content.text : content.html?.trim() ? htmlToText(content.html) : '';
-  return cleanUserText(stripQuote(cleanUserText(source))).trim();
+/**
+ * Письмо в текст: текстовая часть или HTML без скрытого, без невидимых знаков. Цитата прошлых писем отрезается у ответа
+ * в обращение; у нового обращения (keepQuote) остаётся: пересланное письмо и есть суть обращения (итоговая проверка M4).
+ */
+export function emailToText(content: { html: string | null; text: string | null }, opts: { keepQuote?: boolean } = {}): string {
+  const keep = opts.keepQuote ?? false;
+  const source = content.text?.trim() ? content.text : content.html?.trim() ? htmlToText(content.html, keep) : '';
+  const text = cleanUserText(source);
+  return (keep ? text : cleanUserText(stripQuote(text))).replace(/\n{3,}/g, '\n\n').trim();
 }
 
 const NO_SUBJECT = { ru: ru.mail.noSubject, uz: uz.mail.noSubject, en: en.mail.noSubject } as const;

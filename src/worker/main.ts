@@ -5,6 +5,7 @@ import { getEnv } from '@/env';
 import { bossOptions, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
 import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
+import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { dispatchOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
@@ -93,6 +94,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
         `Обращения: нарушено сроков ${breached}, вернулось отложенных ${unsnoozed}, напомнили клиентам ${reminded}, закрыто автоматически ${closed}, досчитано сроков ${refreshed}`,
       );
     void presenceRemoved;
+    // Письма, разбор которых не встал в очередь или исчерпал повторы, ставятся снова (итоговая проверка M4).
+    const requeued = await requeueStaleInbound(actor('email.sweep'));
+    if (requeued > 0) console.info(`Входящие письма: снова на разборе ${requeued}`);
   });
   await boss.work('outbox.dispatch', polling, async () => {
     const { sent, failed, skipped } = await dispatchOutbox(actor('outbox.dispatch'), new Date());

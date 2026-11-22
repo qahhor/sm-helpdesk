@@ -58,7 +58,13 @@ export function inboundPerTest(): InboundBox {
 }
 
 /** Письмо приходит вебхуком, затем его разбирает задача email.inbound. */
-export async function deliver(box: InboundBox, letter: Letter): Promise<{ inboundId: string; result: string }> {
+export async function deliver(box: InboundBox, letter: Letter & { brokenAttachments?: boolean }): Promise<{ inboundId: string; result: string }> {
+  const { inboundId } = await receive(box, letter);
+  return { inboundId, result: await intakeEmail(SYSTEM, inboundId) };
+}
+
+/** Письмо приходит вебхуком, разбор не запускается. emailId: идентификатор письма у почтового сервиса. */
+export async function receive(box: InboundBox, letter: Letter & { brokenAttachments?: boolean }): Promise<{ inboundId: string; emailId: string }> {
   const emailId = randomUUID();
   const from = letter.from ?? 'Anvar <a-user@example.uz>';
   const domain = (from.match(/@([^>]+)/)?.[1] ?? '').toLowerCase();
@@ -78,6 +84,7 @@ export async function deliver(box: InboundBox, letter: Letter): Promise<{ inboun
       data: a.data,
     })),
   );
+  if (letter.brokenAttachments) box.provider.failAttachmentList(emailId);
   const signed = box.provider.signedRequest({
     type: 'email.received',
     created_at: new Date().toISOString(),
@@ -93,7 +100,7 @@ export async function deliver(box: InboundBox, letter: Letter): Promise<{ inboun
   const response = await handleEmailWebhook(new Request('http://localhost:3000/api/webhooks/email', { method: 'POST', body: signed.body, headers: signed.headers }));
   expect(response.status).toBe(200);
   const inboundId = (await pools.root.query(`select inbound_id from hdn_email_inbound where provider_id = $1`, [emailId])).rows[0].inbound_id as string;
-  return { inboundId, result: await intakeEmail(SYSTEM, inboundId) };
+  return { inboundId, emailId };
 }
 
 export const ticketCount = () => pools.root.query(`select count(*)::int as n from hdt_tickets`).then((r) => r.rows[0].n as number);

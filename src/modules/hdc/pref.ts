@@ -58,6 +58,7 @@ export const AUDIT_ACTIONS = [
   'sender.blocked',
   'guest.merge_recorded',
   'guest.merged',
+  'ticket.author_moved',
   // Настройки почты и уведомлений (план M4, задача 12)
   'settings.changed',
   'settings.oncall_changed',
@@ -134,6 +135,8 @@ export const RATE_RULES = {
   emailTicketPerSender: { limit: 10, windowSec: 3600 },
   /** Подтверждение неопознанному отправителю: не чаще раза в час на адрес (FR-EM-07, решение 18 вехи M4). */
   unidentifiedAckPerSender: { limit: 1, windowSec: 3600 },
+  /** Письма "на проверку" в обращение: 20 в час на адрес отправителя (итоговая проверка M4). */
+  emailReviewPerSender: { limit: 20, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

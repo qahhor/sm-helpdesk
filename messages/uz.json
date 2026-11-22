@@ -846,7 +846,8 @@
             "line_transferred": "Ikkinchi liniyaga o'tkazildi",
             "line_returned": "Birinchi liniyaga qaytarildi",
             "merged": "Murojaatlar birlashtirildi",
-            "bound": "Xat tashkilotga bog'landi"
+            "bound": "Xat tashkilotga bog'landi",
+            "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi"
@@ -1190,7 +1191,8 @@
           "transition_refused": "Bu xat allaqachon ko'rib chiqilgan. Sahifani yangilang.",
           "invalid_input": "Tanlangan tashkilotni tekshiring.",
           "other": "Bo'lmadi. Yana urinib ko'ring."
-        }
+        },
+        "addressOwned": "Bu manzil portal mijoziga tegishli, lekin xat DMARC tekshiruvidan o'tmadi: uni soxtalashtirgan bo'lishlari mumkin. Mijozdan aniqlamaguncha uni spam deb belgilamang va bog'lamang."
       }
     },
     "ticket": {
@@ -1736,8 +1738,9 @@
       "text": "SUP-{number} «{title}» murojaati bo'yicha javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi."
     },
     "unidentifiedAck": {
+      "subject": "Xatingiz qabul qilindi",
       "heading": "Xatingiz qabul qilindi",
-      "text": "«{title}» xatingizni oldik. Murojaat raqami: SUP-{number}. Qo'llab-quvvatlash xodimi sizga pochta orqali javob beradi."
+      "text": "Xatingizni oldik. Murojaat raqami: SUP-{number}. Qo'llab-quvvatlash xodimi sizga pochta orqali javob beradi."
     },
     "staffMention": {
       "heading": "Sizni qaydda eslatishdi",

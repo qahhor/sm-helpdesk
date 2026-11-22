@@ -9,7 +9,7 @@ import { type ClientRole, INVITATION_TTL_SEC, INVITATIONS_LIST_LIMIT, type Membe
 import { invitations, memberships, organizations, staff } from '../schema';
 import { newToken } from '../tokens';
 import { signInMemberships } from './access';
-import { recordGuestMergesTx } from './guests';
+import { recordGuestMergeTx } from './guests';
 
 // Модуль hdu, слой core: приглашения в организацию клиента (FR-ID-08). Токен хранится хешем.
 // Создание и отзыв идут от имени приглашающего: политики базы пускают администратора клиента
@@ -194,6 +194,7 @@ export async function acceptInvitationTx(tokenHash: string, name: string, sessio
           email: invitations.email,
           role: invitations.role,
           invitedBy: invitations.invitedBy,
+          guestUserId: invitations.guestUserId,
         })
         .from(invitations)
         .innerJoin(organizations, and(eq(organizations.orgId, invitations.orgId), eq(organizations.state, 'active')))
@@ -270,8 +271,9 @@ export async function acceptInvitationTx(tokenHash: string, name: string, sessio
       await writeAudit(tx, { action: 'invitation.accepted', objectType: 'invitation', objectId: invitation.invitationId, orgId });
     }
     await tx.update(authUser).set({ lastOrgId: orgId, updatedAt: sql`now()` }).where(eq(authUser.id, user.id));
-    // Ссылка доказала владение адресом: обращения гостя с этим адресом перейдут пользователю (решение 13 вехи M4).
-    await recordGuestMergesTx(tx, invitation.email, user.id);
+    // Ссылка доказала владение адресом: обращения гостя, которому привязка послала это приглашение, перейдут
+    // пользователю (решение 13 вехи M4). Другие приглашения на тот же адрес гостей не трогают (итоговая проверка M4).
+    if (invitation.guestUserId) await recordGuestMergeTx(tx, invitation.guestUserId, user.id);
     return { userId: user.id, orgId, created, signIn: created || trusted };
   });
 }

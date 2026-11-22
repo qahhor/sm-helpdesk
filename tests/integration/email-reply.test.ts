@@ -1,100 +1,30 @@
-import { randomUUID } from 'node:crypto';
-import { afterEach, beforeEach, expect, test } from 'vitest';
-import { createStubScanner } from '@/modules/hdc/antivirus/stub';
-import { MemoryJobQueue, MemoryStorage, setJobQueueForTests, setScannerForTests, setStorageForTests } from '@/modules/hdc/testing';
-import { handleEmailWebhook } from '@/modules/hdn/api/webhook-email';
+import { beforeEach, expect, test } from 'vitest';
 import { replyAddress } from '@/modules/hdn/inbound/reply-address';
-import { createMemoryEmailProvider, type MemoryEmailProvider, setEmailProviderForTests, setInboundAuthservForTests, setReplyConfigForTests } from '@/modules/hdn/testing';
 import { scanAttachment } from '@/modules/hdt/api/jobs';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { asActor, pools } from './helpers/db';
+import { deliver as deliverTo, inboundPerTest, type Letter, REPLY, SYSTEM, ticketCount } from './helpers/inbound';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
 // Ответ на письмо попадает в то же обращение (FR-NT-05..08, FR-EM-02, FR-EM-08; раздел 11.8; решения 16 и 20 вехи M4).
 
-const SYSTEM = { type: 'system', job: 'email.inbound' } as const;
-const REPLY = { domain: 'reply.example.test', secret: 'reply-secret-of-at-least-32-chars!!' };
-const AUTHSERV = 'inbound.example.test';
 const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...new Array(24).fill(1)]);
 
-let provider: MemoryEmailProvider;
-let storage: MemoryStorage;
-let jobs: MemoryJobQueue;
+const box = inboundPerTest();
 let f: Fixture;
 
 beforeEach(async () => {
-  provider = createMemoryEmailProvider();
-  setEmailProviderForTests(provider);
-  setReplyConfigForTests(REPLY);
-  setInboundAuthservForTests(AUTHSERV);
-  storage = new MemoryStorage();
-  setStorageForTests(storage);
-  setScannerForTests(createStubScanner());
-  jobs = new MemoryJobQueue();
-  setJobQueueForTests(jobs);
   f = await seedTwoOrgs();
   await pools.root.query(`update auth."user" set email = 'a-user@example.uz', "emailVerified" = true where id = $1`, [f.aUser.userId]);
 });
-afterEach(() => {
-  setEmailProviderForTests(null);
-  setReplyConfigForTests(undefined);
-  setInboundAuthservForTests(undefined);
-  setStorageForTests(null);
-  setScannerForTests(null);
-  setJobQueueForTests(null);
-});
 
-type Letter = {
-  from?: string;
-  to?: string[];
-  subject?: string;
-  text?: string;
-  html?: string | null;
-  messageId?: string;
-  headers?: [string, string][];
-  dmarc?: 'pass' | 'fail' | null;
-  attachments?: { filename: string; contentType: string; data: Uint8Array; inline?: boolean }[];
-};
-
-/** Письмо приходит вебхуком, затем его разбирает задача email.inbound. */
-async function deliver(letter: Letter): Promise<{ inboundId: string; result: string }> {
-  const emailId = randomUUID();
-  const from = letter.from ?? 'Anvar <a-user@example.uz>';
-  const domain = (from.match(/@([^>]+)/)?.[1] ?? '').toLowerCase();
-  const auth: [string, string][] =
-    letter.dmarc === null ? [] : [['Authentication-Results', `${AUTHSERV}; dmarc=${letter.dmarc ?? 'pass'} header.from=${domain}`]];
-  provider.inbound(
-    emailId,
-    { html: letter.html ?? null, text: letter.text ?? 'Спасибо, заработало', headers: [...auth, ...(letter.headers ?? [])] },
-    (letter.attachments ?? []).map((a, i) => ({
-      id: `att-${i}`,
-      filename: a.filename,
-      contentType: a.contentType,
-      size: a.data.byteLength,
-      contentId: a.inline ? `cid-${i}` : null,
-      disposition: a.inline ? 'inline' : 'attachment',
-      downloadUrl: `https://inbound.test/${emailId}/${i}`,
-      data: a.data,
-    })),
-  );
-  const signed = provider.signedRequest({
-    type: 'email.received',
-    created_at: new Date().toISOString(),
-    data: { email_id: emailId, from, to: letter.to ?? ['support@reply.example.test'], cc: [], subject: letter.subject ?? 'Re: письмо', message_id: letter.messageId ?? `<${emailId}@mail.example.uz>` },
-  });
-  const response = await handleEmailWebhook(new Request('http://localhost:3000/api/webhooks/email', { method: 'POST', body: signed.body, headers: signed.headers }));
-  expect(response.status).toBe(200);
-  const inboundId = (await pools.root.query(`select inbound_id from hdn_email_inbound where provider_id = $1`, [emailId])).rows[0].inbound_id as string;
-  return { inboundId, result: await intakeEmail(SYSTEM, inboundId) };
-}
-
+const deliver = (letter: Letter) => deliverTo(box, letter);
 const signedTo = (number: number, userId: string) => replyAddress(number, userId, REPLY);
 const messages = (ticketId: string) =>
   pools.root
     .query(`select author_id, author_type, body, is_internal, source, email_message_id, is_thanks from hdt_ticket_messages where ticket_id = $1 and source = 'email' or (ticket_id = $1 and author_type = 'system' and is_internal) order by created_on`, [ticketId])
     .then((r) => r.rows);
-const ticketCount = () => pools.root.query(`select count(*)::int as n from hdt_tickets`).then((r) => r.rows[0].n as number);
 
 test('ответ на подписанный адрес: сообщение клиента в том же обращении, цитата отрезана', async () => {
   const t = f.tickets.aOrg;
@@ -202,7 +132,7 @@ test('вложение с вирусом: заражено, ссылки нет;
     ['screen.png', 'pending'],
   ]);
   expect(rows.every((r) => r.message_id)).toBe(true);
-  expect(jobs.sent.filter((j) => j.name === 'attachment.scan').map((j) => j.data.attachmentId).sort()).toEqual(rows.map((r) => r.attachment_id).sort());
+  expect(box.jobs.sent.filter((j) => j.name === 'attachment.scan').map((j) => j.data.attachmentId).sort()).toEqual(rows.map((r) => r.attachment_id).sort());
   for (const row of rows) await scanAttachment({ type: 'system', job: 'attachment.scan' }, row.attachment_id);
   const after = (await pools.root.query(`select file_name, scan_status from hdt_attachments where ticket_id = $1 and uploader_id = $2 and message_id is not null order by file_name`, [t.ticketId, f.aUser.userId])).rows;
   expect(after).toEqual([

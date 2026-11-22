@@ -1,6 +1,6 @@
 import 'server-only';
 import * as z from 'zod';
-import { ensureGuestTx, ensureServiceOrgTx, findVerifiedUserTx, orgByEmailDomainTx } from '../core/guests';
+import { ensureGuestTx, ensureServiceOrgTx, findVerifiedUserTx, orgByEmailDomainTx, senderOrgTx } from '../core/guests';
 
 // Модуль hdu, слой api: гости из писем, служебная организация, опознание отправителя по адресу и домену
 // (решения 11, 12, 15 вехи M4). Узкий файл: его берёт разбор писем в фоновом процессе.
@@ -30,4 +30,11 @@ export async function findVerifiedUser(email: string): Promise<{ userId: string;
 export async function orgByEmailDomain(value: string): Promise<string | null> {
   const parsed = domain.safeParse(value);
   return parsed.success ? orgByEmailDomainTx(parsed.data) : null;
+}
+
+export async function senderOrg(userId: string, lastOrgId: string | null): Promise<string | null> {
+  const user = z.uuid().safeParse(userId);
+  if (!user.success) return null;
+  const last = lastOrgId === null ? null : z.uuid().safeParse(lastOrgId);
+  return senderOrgTx(user.data, last?.success ? last.data : null);
 }

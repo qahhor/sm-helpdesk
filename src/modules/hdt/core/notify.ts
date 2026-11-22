@@ -26,6 +26,7 @@ export type TicketNotice = {
     | 'auto_closed'
     | 'waiting_reminder'
     | 'client_reply'
+    | 'unidentified_ack'
     | 'mention'
     | 'sla_breach'
     | 'snooze_returned'
@@ -121,6 +122,17 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
     case 'created':
       // Подтверждение с номером получает автор, даже если обращение за него создал сотрудник (FR-NT-01).
       return tell(tx, e.ticketId, ticket, [ticket.authorId], 'ticket_created', { template: 'ticket_created', ...ref, viaEmail: e.viaEmail ?? false });
+    case 'unidentified_ack':
+      // Неопознанному отправителю только номер (FR-EM-05): без уведомления в портале, войти он не может.
+      await enqueueTx(tx, {
+        channel: 'email',
+        recipient: { kind: 'user', userId: ticket.authorId },
+        template: 'unidentified_ack',
+        payload: { template: 'unidentified_ack', number: ticket.number, title: ticket.title },
+        ticketId: e.ticketId,
+        locale: ticket.locale as 'ru' | 'uz' | 'en',
+      });
+      return;
     case 'client_reply':
       // Ответ клиента: исполнителю уведомление в портале, без письма (решение 7).
       if (ticket.assigneeId && ticket.assigneeId !== e.actorUserId)

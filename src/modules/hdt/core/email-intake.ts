@@ -2,7 +2,8 @@ import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
-import { enqueue, getStorage, writeAudit } from '@/modules/hdc/api';
+import { consumeRateLimit, enqueue, getStorage, rateKey, writeAudit } from '@/modules/hdc/api';
+import { RATE_RULES } from '@/modules/hdc/pref';
 import {
   classifyAuto,
   cleanSubject,
@@ -28,9 +29,9 @@ import {
   signedReplyOf,
 } from '@/modules/hdn/api/inbound';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
-import { ensureGuest, SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
+import { ensureGuest, findVerifiedUser, orgByEmailDomain, SERVICE_ORG_ID, senderOrg } from '@/modules/hdu/api/guests';
 import { mailRecipient, replyRole } from '@/modules/hdu/api/recipients';
-import { ALLOWED_FILES, MAX_FILES_PER_MESSAGE, type TicketStatus } from '../pref';
+import { ALLOWED_FILES, MAX_FILES_PER_MESSAGE, type TicketStatus, type Visibility } from '../pref';
 import { ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { staffSystemText } from '../system-text';
 import { fileTypeOf, maxBytesFor, quarantineKey } from '../util';
@@ -50,6 +51,8 @@ import { createEmailTicketTx, ticketExists } from './tickets';
 const BODY_MAX = 20_000;
 /** Сколько участников обращения сверять с адресом отправителя. */
 const PARTICIPANTS_MAX = 50;
+/** Сколько адресов копии сверять с участниками организации (FR-EM-09). */
+const CC_MAX = 20;
 const TAG = /\[SUP-(\d{1,9})\]/i;
 const FILE_NAME_FORBIDDEN = /[\p{Cc}\u2028\u2029/\\]|(?![\u200C\u200D])\p{Cf}/gu;
 const EXTENSION_OF: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(ALLOWED_FILES).map(([ext, mime]) => [mime, ext]).reverse());
@@ -241,30 +244,73 @@ async function intoTicket(actor: SystemActor, letter: Letter, ticket: Ticket, us
   return client ? publishReply(actor, letter, ticket, client) : reviewNote(actor, letter, ticket);
 }
 
+type Sender = { orgId: string; userId: string; visibility: Visibility; senderUnconfirmed: boolean; identified: boolean; locale: 'ru' | 'uz' | 'en' };
+
 /**
- * Новое обращение из письма (FR-EM-01, решения 12 и 19). Отправитель пока становится гостем служебной организации
- * "Неопознанные"; опознание по адресу и домену добавляет задача 10.
+ * Отправитель нового обращения (FR-EM-03, FR-EM-06, решения 11, 12, 15). Подтверждённый пользователь с DMARC:
+ * обращение в его организации от его имени. Домен организации с DMARC: гость в этой организации, личное, отметка
+ * "отправитель не подтверждён". Иначе гость служебной организации "Неопознанные". Без DMARC адрес ничего не доказывает.
+ */
+async function identifySender(letter: Letter): Promise<Sender> {
+  const { row, aligned } = letter;
+  if (aligned) {
+    const user = await findVerifiedUser(row.fromAddress);
+    const orgId = user ? await senderOrg(user.userId, user.lastOrgId) : null;
+    if (user && orgId)
+      return { orgId, userId: user.userId, visibility: 'org', senderUnconfirmed: false, identified: true, locale: (await mailRecipient(user.userId))?.locale ?? 'ru' };
+    const domainOrg = await orgByEmailDomain(row.fromAddress.split('@')[1] ?? '');
+    if (domainOrg) {
+      const { userId } = await ensureGuest(row.fromAddress, row.fromName, domainOrg);
+      return { orgId: domainOrg, userId, visibility: 'private', senderUnconfirmed: true, identified: false, locale: 'ru' };
+    }
+  }
+  const { userId } = await ensureGuest(row.fromAddress, row.fromName, SERVICE_ORG_ID);
+  return { orgId: SERVICE_ORG_ID, userId, visibility: 'private', senderUnconfirmed: false, identified: false, locale: 'ru' };
+}
+
+/** Подтверждённые пользователи из копии, у которых действующее членство в организации обращения (FR-EM-09). */
+async function colleaguesInCopy(addresses: string[], orgId: string, authorId: string): Promise<string[]> {
+  const ids: string[] = [];
+  for (const address of addresses.slice(0, CC_MAX)) {
+    const user = await findVerifiedUser(address);
+    if (!user || user.userId === authorId || ids.includes(user.userId)) continue;
+    if (await replyRole(user.userId, orgId)) ids.push(user.userId);
+  }
+  return ids;
+}
+
+/**
+ * Новое обращение из письма (FR-EM-01, FR-EM-05, FR-EM-07, решения 18 и 19). Сверх 10 в час с адреса: rate_limited
+ * без обращения. Опознанному письмо "создано" с номером и ссылкой, неопознанному только номер, не чаще раза в час.
  */
 async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundClass> {
   const { row } = letter;
-  const locale = 'ru';
-  const { userId } = await ensureGuest(row.fromAddress, row.fromName, SERVICE_ORG_ID);
+  const limit = await consumeRateLimit(rateKey('email-ticket:sender', row.fromAddress), RATE_RULES.emailTicketPerSender);
+  if (!limit.allowed) return finish(actor, letter, 'rate_limited');
+  const sender = await identifySender(letter);
+  // Наблюдатели только у обращения организации: личное коллеги не видят (решение 17 плана M2).
+  const watchers = sender.identified ? await colleaguesInCopy(row.ccAddresses, sender.orgId, sender.userId) : [];
+  const ack = !sender.identified && (await consumeRateLimit(rateKey('email-ack:sender', row.fromAddress), RATE_RULES.unidentifiedAckPerSender)).allowed;
   const files = await downloadFiles(letter.files);
-  const title = cleanSubject(row.subject, locale);
+  const title = cleanSubject(row.subject, sender.locale);
   const queued: string[] = [];
   const result = await withActor(actor, async (tx) => {
     const done = await alreadyDone(tx, row);
     if (done) return done;
     const created = await createEmailTicketTx(tx, {
-      orgId: SERVICE_ORG_ID,
-      authorId: userId,
+      orgId: sender.orgId,
+      authorId: sender.userId,
       title,
       body: cut(letter.text, BODY_MAX) || title,
-      locale,
-      visibility: 'private',
-      senderUnconfirmed: false,
+      locale: sender.locale,
+      visibility: sender.visibility,
+      senderUnconfirmed: sender.senderUnconfirmed,
     });
-    queued.push(...(await attachFilesTx(tx, { orgId: SERVICE_ORG_ID, ticketId: created.ticketId, messageId: null, uploaderId: userId }, files)));
+    for (const userId of watchers)
+      await tx.insert(ticketWatchers).values({ orgId: sender.orgId, ticketId: created.ticketId, userId, source: 'manual' }).onConflictDoNothing();
+    queued.push(...(await attachFilesTx(tx, { orgId: sender.orgId, ticketId: created.ticketId, messageId: null, uploaderId: sender.userId }, files)));
+    if (sender.identified) await notifyTicketTx(tx, { ticketId: created.ticketId, kind: 'created', actorUserId: null, viaEmail: true });
+    else if (ack) await notifyTicketTx(tx, { ticketId: created.ticketId, kind: 'unidentified_ack', actorUserId: null });
     if (row.messageId) await recordThreadTx(tx, { ticketId: created.ticketId, messageId: row.messageId, inReplyTo: inReplyToOf(letter.headers), direction: 'in' });
     await markInboundTx(tx, row.inboundId, { classification: 'new', ticketId: created.ticketId, headers: letter.headers, dmarcAligned: letter.aligned });
     return 'new' as const;

@@ -1,9 +1,10 @@
 import 'server-only';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { withIdentity } from '@/db/with-identity';
 import { authUser } from '../auth-schema';
 import { SERVICE_ORG_ID, SERVICE_ORG_NAME } from '../pref';
 import { memberships, organizations, orgEmailDomains } from '../schema';
+import { signInMemberships } from './access';
 import { syntheticEmail } from '../util';
 
 // Модуль hdu, слой core: служебная организация "Неопознанные" и гости из писем с неизвестных адресов
@@ -62,6 +63,15 @@ export async function findVerifiedUserTx(address: string): Promise<{ userId: str
       .limit(1),
   );
   return rows[0] ?? null;
+}
+
+/**
+ * Организация обращения из письма опознанного пользователя (FR-EM-03): последняя, в которой он работал, если членство
+ * там даёт вход; иначе самая ранняя такая. Нет членства, дающего вход (сотрудник, отключённый сервер): null.
+ */
+export async function senderOrgTx(userId: string, lastOrgId: string | null): Promise<string | null> {
+  const rows = await withIdentity(SYSTEM, (tx) => signInMemberships(tx, eq(memberships.userId, userId)).orderBy(asc(memberships.createdOn)));
+  return rows.find((row) => row.orgId === lastOrgId)?.orgId ?? rows[0]?.orgId ?? null;
 }
 
 /** Организация клиента по домену почты (FR-EM-06): только действующая. */

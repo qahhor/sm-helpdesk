@@ -6,7 +6,7 @@ import { env } from '@/env';
 // В задачах только идентификаторы, без текстов клиентов. Задачи идемпотентны: повтор безопасен.
 // Схему и очереди создаёт скрипт миграций (scripts/db/pgboss.mjs): у hub_app нет прав на объекты схемы.
 
-export const JOB_NAMES = ['attachment.scan', 'attachment.sweep', 'maintenance.cleanup', 'outbox.dispatch', 'tickets.minute'] as const;
+export const JOB_NAMES = ['attachment.scan', 'attachment.sweep', 'email.inbound', 'maintenance.cleanup', 'outbox.dispatch', 'tickets.minute'] as const;
 export type JobName = (typeof JOB_NAMES)[number];
 export type JobData = Record<string, string | number | boolean | null>;
 
@@ -38,7 +38,8 @@ export function bossOptions(connectionString: string, role: 'sender' | 'worker')
 export function createPgBossQueue(boss: PgBoss): JobQueue {
   return {
     async send(name, data) {
-      const key = typeof data.attachmentId === 'string' ? data.attachmentId : undefined;
+      // Одна задача на файл или на входящее письмо (политика exclusive).
+      const key = typeof data.attachmentId === 'string' ? data.attachmentId : typeof data.inboundId === 'string' ? data.inboundId : undefined;
       await boss.send(name, data, key ? { singletonKey: key } : {});
     },
   };

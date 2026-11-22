@@ -18,6 +18,8 @@ export const QUEUES = {
   'tickets.minute': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Отправка очереди писем (веха M4, решение 1): раз в минуту и после действия, повторы ведёт сама очередь писем.
   'outbox.dispatch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
+  // Разбор входящего письма (веха M4, решение 10): одна задача на письмо, повторы при сбое сервиса почты.
+  'email.inbound': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
 };
 
 const GRANTS_FILE = resolve(import.meta.dirname, '../../drizzle/0012_pgboss_grants.sql');

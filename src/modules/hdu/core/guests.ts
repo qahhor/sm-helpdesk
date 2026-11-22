@@ -1,0 +1,78 @@
+import 'server-only';
+import { and, eq, sql } from 'drizzle-orm';
+import { withIdentity } from '@/db/with-identity';
+import { authUser } from '../auth-schema';
+import { SERVICE_ORG_ID, SERVICE_ORG_NAME } from '../pref';
+import { memberships, organizations, orgEmailDomains } from '../schema';
+import { syntheticEmail } from '../util';
+
+// Модуль hdu, слой core: служебная организация "Неопознанные" и гости из писем с неизвестных адресов
+// (раздел 10.1, решения 12 и 15 вехи M4). Гость: учётная запись с искусственным адресом для входа, адрес из письма
+// лежит в claimedEmail, членство guest. Войти гость не может: искусственный адрес не получает ссылок, членство
+// guest не даёт входа (signInMemberships).
+
+const SYSTEM = { type: 'system', job: 'identity.guest' } as const;
+/** Предел имени гостя из поля From, знаков. */
+const NAME_MAX = 100;
+
+/** Служебная организация есть всегда, когда она нужна. Повтор ничего не меняет. */
+export async function ensureServiceOrgTx(): Promise<void> {
+  await withIdentity(SYSTEM, (tx) =>
+    tx.insert(organizations).values({ orgId: SERVICE_ORG_ID, name: SERVICE_ORG_NAME, kind: 'service' }).onConflictDoNothing({ target: organizations.orgId }),
+  );
+}
+
+/**
+ * Гость по адресу из письма: один на адрес. Имя из поля From или начало адреса. Членство guest в указанной
+ * организации (служебной или организации клиента по домену) создаётся, если его нет.
+ */
+export async function ensureGuestTx(address: string, displayName: string | null, orgId: string): Promise<{ userId: string }> {
+  if (orgId === SERVICE_ORG_ID) await ensureServiceOrgTx();
+  return withIdentity(SYSTEM, async (tx) => {
+    // Один гость на адрес: параллельные письма с одного адреса не создают двух гостей.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`guest:${address}`}))`);
+    const existing = await tx
+      .select({ userId: authUser.id })
+      .from(authUser)
+      .innerJoin(memberships, and(eq(memberships.userId, authUser.id), eq(memberships.source, 'guest')))
+      .where(and(eq(authUser.claimedEmail, address), eq(authUser.emailVerified, false)))
+      .limit(1);
+    let userId = existing[0]?.userId;
+    if (!userId) {
+      const name = (displayName ?? '').trim().slice(0, NAME_MAX) || (address.split('@')[0] ?? address);
+      const [created] = await tx
+        .insert(authUser)
+        .values({ name, email: syntheticEmail(), emailVerified: false, claimedEmail: address })
+        .returning({ id: authUser.id });
+      if (!created) throw new Error('гость не создан');
+      userId = created.id;
+    }
+    await tx.insert(memberships).values({ orgId, userId, role: 'client_user', source: 'guest' }).onConflictDoNothing();
+    return { userId };
+  });
+}
+
+/** Подтверждённый пользователь по адресу (FR-EM-03): для опознания отправителя письма. */
+export async function findVerifiedUserTx(address: string): Promise<{ userId: string; lastOrgId: string | null } | null> {
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ userId: authUser.id, lastOrgId: authUser.lastOrgId })
+      .from(authUser)
+      .where(and(eq(authUser.email, address), eq(authUser.emailVerified, true)))
+      .limit(1),
+  );
+  return rows[0] ?? null;
+}
+
+/** Организация клиента по домену почты (FR-EM-06): только действующая. */
+export async function orgByEmailDomainTx(domain: string): Promise<string | null> {
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ orgId: orgEmailDomains.orgId })
+      .from(orgEmailDomains)
+      .innerJoin(organizations, and(eq(organizations.orgId, orgEmailDomains.orgId), eq(organizations.state, 'active'), eq(organizations.kind, 'client')))
+      .where(eq(orgEmailDomains.domain, domain))
+      .limit(1),
+  );
+  return rows[0]?.orgId ?? null;
+}

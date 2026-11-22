@@ -90,3 +90,47 @@ export const channelSecrets = pgTable('hdn_channel_secrets', {
   sealed: text('sealed').notNull(),
   ...stampColumns,
 });
+
+export const INBOUND_CLASSES = ['new', 'reply', 'auto', 'bounce', 'spam', 'review', 'rate_limited', 'ignored'] as const;
+export type InboundClass = (typeof INBOUND_CLASSES)[number];
+
+/** Входящие письма (10.5 "email_inbound", решение 10 вехи M4). */
+export const emailInbound = pgTable('hdn_email_inbound', {
+  inboundId: uuid('inbound_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ticketId: uuid('ticket_id'),
+  providerId: text('provider_id').notNull(),
+  fromAddress: text('from_address').notNull(),
+  fromName: text('from_name'),
+  toAddresses: text('to_addresses').array().notNull().default(sql`'{}'`),
+  ccAddresses: text('cc_addresses').array().notNull().default(sql`'{}'`),
+  subject: text('subject').notNull().default(''),
+  messageId: text('message_id'),
+  headers: jsonb('headers').$type<[string, string][]>(),
+  authResult: jsonb('auth_result').$type<{ dmarcAligned: boolean }>(),
+  classification: text('classification').$type<InboundClass>(),
+  rawRef: text('raw_ref').notNull(),
+  receivedOn: moment('received_on').notNull(),
+  processedOn: moment('processed_on'),
+  ...stampColumns,
+});
+
+/** Цепочки писем (10.5 "email_threads", решение 20 вехи M4). */
+export const emailThreads = pgTable('hdn_email_threads', {
+  threadId: uuid('thread_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ticketId: uuid('ticket_id').notNull(),
+  messageId: text('message_id').notNull(),
+  inReplyTo: text('in_reply_to'),
+  direction: text('direction').$type<'in' | 'out'>().notNull(),
+  ...stampColumns,
+});
+
+/** Отклонённые как спам (решение 14 вехи M4). */
+export const blockedSenders = pgTable('hdn_blocked_senders', {
+  address: text('address').primaryKey(),
+  blockedBy: uuid('blocked_by').notNull(),
+  ...stampColumns,
+});

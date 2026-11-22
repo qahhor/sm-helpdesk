@@ -169,6 +169,16 @@ export async function seedTwoOrgs(): Promise<Fixture> {
     await pools.root.query(`insert into hdn_notification_prefs (user_id, kind, email_enabled) values ($1, 'watched_tickets', true)`, [user.userId]);
   }
 
+  // Приём писем (веха M4): входящее письмо, цепочка, отклонённый адрес, домен организации, слияние гостя.
+  await pools.root.query(
+    `insert into hdn_email_inbound (ticket_id, provider_id, from_address, raw_ref, received_on, classification)
+     values ($1, $2, 'author-a@acme.test', $2, now(), 'reply')`,
+    [tickets.aOrg.ticketId, `fixture-${code}`],
+  );
+  await pools.root.query(`insert into hdn_email_threads (ticket_id, message_id, direction) values ($1, $2, 'out')`, [tickets.aOrg.ticketId, `<fixture-${code}@reply.test>`]);
+  await pools.root.query(`insert into hdn_blocked_senders (address, blocked_by) values ($1, $2)`, [`spam-${code}@spam.test`, l1.userId]);
+  await pools.root.query(`insert into hdu_org_email_domains (org_id, domain, added_by) values ($1, $2, $3)`, [orgA.orgId, `${code}.acme.test`, care.userId]);
+  await pools.root.query(`insert into hdu_guest_merges (guest_user_id, user_id) values ($1, $2)`, [bUser.userId, aUser.userId]);
   // Токен бота дежурных (веха M4): строка одна на базу.
   await pools.root.query(`insert into hdn_channel_secrets (code, sealed) values ('oncall_telegram_bot', $1) on conflict (code) do nothing`, [SEALED]);
 

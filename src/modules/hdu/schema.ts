@@ -45,14 +45,16 @@ export const organizations = pgTable('hdu_organizations', {
   orgId: uuid('org_id')
     .primaryKey()
     .default(sql`uuidv7()`),
-  serverId: uuid('server_id').notNull(),
-  externalCompanyId: text('external_company_id').notNull(),
+  // У служебной организации "Неопознанные" сервера нет (миграция 0035).
+  serverId: uuid('server_id'),
+  externalCompanyId: text('external_company_id'),
   name: text('name').notNull(),
   inn: text('inn'),
   category: text('category').$type<'A' | 'B' | 'C' | 'D'>(),
   isAiEnabled: boolean('is_ai_enabled').notNull().default(true),
   state: text('state').$type<RecordState>().notNull().default('active'),
   ...stampColumns,
+  kind: text('kind').$type<'client' | 'service'>().notNull().default('client'),
 });
 
 /** Кто в какой организации состоит. */
@@ -95,6 +97,8 @@ export const invitations = pgTable('hdu_invitations', {
   acceptedOn: moment('accepted_on'),
   revokedOn: moment('revoked_on'),
   ...stampColumns,
+  /** Гость из письма: при принятии его обращения переходят принявшему (миграция 0035, решение 13 вехи M4). */
+  guestUserId: uuid('guest_user_id'),
 });
 
 /** Одноразовые ссылки подтверждения адреса. */
@@ -166,3 +170,26 @@ export type Organization = typeof organizations.$inferSelect;
 export type Membership = typeof memberships.$inferSelect;
 export type StaffRow = typeof staff.$inferSelect;
 export type Invitation = typeof invitations.$inferSelect;
+
+/** Гость стал пользователем (решение 13 вехи M4): обращения гостя переходят пользователю задачей раз в минуту. */
+export const guestMerges = pgTable('hdu_guest_merges', {
+  mergeId: uuid('merge_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  guestUserId: uuid('guest_user_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  appliedOn: moment('applied_on'),
+  ...stampColumns,
+});
+
+/** Домены почты организаций (FR-EM-06). */
+export const orgEmailDomains = pgTable(
+  'hdu_org_email_domains',
+  {
+    orgId: uuid('org_id').notNull(),
+    domain: text('domain').notNull(),
+    addedBy: uuid('added_by').notNull(),
+    ...stampColumns,
+  },
+  (table) => [primaryKey({ name: 'hdu_org_email_domains_pk', columns: [table.orgId, table.domain] })],
+);

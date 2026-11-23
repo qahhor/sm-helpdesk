@@ -51,7 +51,7 @@ export default async function NewTicketForClientPage({ searchParams }: { searchP
                 </div>
                 <Button type="submit">{t('newTicket.find')}</Button>
               </form>
-              {found && found.items.length === 0 && <p className="text-sm text-muted-foreground">{t('newTicket.notFound')}</p>}
+              {found && found.items.length === 0 && <p className="text-sm text-muted-foreground">{t(found.searchTooShort ? 'orgs.searchTooShort' : 'newTicket.notFound')}</p>}
               {found && found.items.length > 0 && (
                 <ul className="flex flex-col gap-1" aria-label={t('newTicket.orgResults')}>
                   {found.items.map((item) => (

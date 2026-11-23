@@ -51,7 +51,7 @@ export default async function OrganizationsPage({ searchParams }: PageProps<'/[l
         <Alert tone="danger">{t('orgs.invalid')}</Alert>
       ) : result.items.length === 0 ? (
         <Card>
-          <EmptyState title={t('orgs.emptyTitle')} text={t('orgs.emptyText')} />
+          <EmptyState title={t('orgs.emptyTitle')} text={t(result.searchTooShort ? 'orgs.searchTooShort' : 'orgs.emptyText')} />
         </Card>
       ) : (
         <Card className="overflow-x-auto">

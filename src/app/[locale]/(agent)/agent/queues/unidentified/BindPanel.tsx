@@ -12,7 +12,7 @@ import { bindAction, notClientAction, spamAction } from './actions';
 // Панель привязки письма (экран по образцу 8.12): от кого, имя из письма, подсказка по домену, поиск организации по
 // названию и ИНН, кнопки "Привязать и пригласить", "Это не клиент", "Спам". Роль product видит панель без кнопок.
 
-type Props = { item: UnidentifiedItem; q: string; found: OrgRow[] | null; canWrite: boolean };
+type Props = { item: UnidentifiedItem; q: string; found: OrgRow[] | null; tooShort: boolean; canWrite: boolean };
 
 function BindButton({ number, orgId, label }: { number: number; orgId: string; label: string }) {
   return (
@@ -26,8 +26,9 @@ function BindButton({ number, orgId, label }: { number: number; orgId: string; l
   );
 }
 
-export async function BindPanel({ item, q, found, canWrite }: Props) {
+export async function BindPanel({ item, q, found, tooShort, canWrite }: Props) {
   const t = await getTranslations('agent.queues.unidentified');
+  const ta = await getTranslations('agent');
   const format = await getFormatter();
   return (
     <Card>
@@ -63,7 +64,7 @@ export async function BindPanel({ item, q, found, canWrite }: Props) {
                 {t('find')}
               </Button>
             </form>
-            {found && found.length === 0 && <p className="text-sm text-muted-foreground">{t('notFound')}</p>}
+            {found && found.length === 0 && <p className="text-sm text-muted-foreground">{tooShort ? ta('orgs.searchTooShort') : t('notFound')}</p>}
             {found && found.length > 0 && (
               <ul className="flex flex-col gap-2" aria-label={t('results')}>
                 {found.map((org) => (

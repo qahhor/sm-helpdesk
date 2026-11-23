@@ -192,6 +192,7 @@
         "find": "Qidirish",
         "more": "Yana ko'rsatish",
         "nothing": "Hech narsa topilmadi. Qidiruv shartlarini o'zgartiring.",
+        "tooShort": "Kamida 3 ta belgi kiriting: bir-ikki belgi bo'yicha qidiruv ishlamaydi. Murojaat raqamini to'liq kiritish mumkin.",
         "private": "Shaxsiy"
       },
       "page": {
@@ -465,6 +466,7 @@
       "none": "Yo'q",
       "emptyTitle": "Tashkilotlar topilmadi",
       "emptyText": "So'rovni o'zgartiring: qidiruv nomi, STIR va kompaniya identifikatori bo'yicha ishlaydi.",
+      "searchTooShort": "Nom, STIR yoki kompaniya identifikatoridan kamida 3 ta belgi kiriting.",
       "invalid": "So'rov juda uzun: 100 belgidan oshmasin.",
       "pages": "Sahifalar",
       "prev": "Orqaga",
@@ -1125,6 +1127,7 @@
       "emptyTitle": "Bu yerda bo'sh",
       "emptyText": "Bu navbatda hozir murojaat yo'q.",
       "emptySearch": "Bu so'rov bo'yicha hech narsa topilmadi. Raqam yoki matnni tekshiring.",
+      "searchTooShort": "Kamida 3 ta belgi kiriting: bir-ikki belgi bo'yicha qidiruv ishlamaydi. Murojaat raqamini to'liq kiritish mumkin.",
       "columns": {
         "number": "№",
         "title": "Mavzu",

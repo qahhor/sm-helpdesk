@@ -85,6 +85,15 @@ export const AUDIT_ACTIONS = [
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
+/**
+ * Наименьшая длина текста в поиске (аудит 23.11.2026, находка P9). Запрос короче совпадает почти со всем и не может
+ * идти по триграммному индексу. Номер обращения ищется при любой длине.
+ */
+export const SEARCH_MIN_CHARS = 3;
+
+/** Достаточно ли текста для поиска: считаются знаки, а не единицы UTF-16. */
+export const searchable = (text: string): boolean => [...text.trim()].length >= SEARCH_MIN_CHARS;
+
 export type RateRule = { limit: number; windowSec: number };
 
 /**

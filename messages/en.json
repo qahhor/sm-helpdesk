@@ -192,6 +192,7 @@
         "find": "Search",
         "more": "Show more",
         "nothing": "Nothing found. Change the search conditions.",
+        "tooShort": "Enter at least 3 characters: one or two are not enough to search. A request number can be entered in full.",
         "private": "Private"
       },
       "page": {
@@ -465,6 +466,7 @@
       "none": "None",
       "emptyTitle": "No organizations found",
       "emptyText": "Change the query: search works by name, tax ID and company ID.",
+      "searchTooShort": "Enter at least 3 characters of the name, tax ID or company identifier.",
       "invalid": "The query is too long: 100 characters at most.",
       "pages": "Pages",
       "prev": "Back",
@@ -1125,6 +1127,7 @@
       "emptyTitle": "Nothing here",
       "emptyText": "There are no tickets in this queue right now.",
       "emptySearch": "Nothing matches this search. Check the number or the text.",
+      "searchTooShort": "Enter at least 3 characters: one or two are not enough to search. A ticket number can be entered in full.",
       "columns": {
         "number": "No.",
         "title": "Subject",

@@ -169,7 +169,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
 
           {list.items.length === 0 ? (
             <Card>
-              <EmptyState title={t('queues.emptyTitle')} text={q ? t('queues.emptySearch') : t('queues.emptyText')} />
+              <EmptyState title={t('queues.emptyTitle')} text={list.searchTooShort ? t('queues.searchTooShort') : q ? t('queues.emptySearch') : t('queues.emptyText')} />
             </Card>
           ) : (
             <>

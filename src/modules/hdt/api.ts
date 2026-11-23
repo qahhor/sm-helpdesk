@@ -156,9 +156,11 @@ function decodeCursor(cursor: string): { modifiedOn: string; ticketId: string } 
  * Обращения клиента: организации (видимые ему) или только свои, с фильтром по статусу и типу и поиском по
  * номеру или тексту темы и описания. По 20 строк, новые изменения первыми, курсор на следующую страницу.
  */
-export async function listTickets(ctx: ClientContext, input: unknown): Promise<{ items: TicketRow[]; nextCursor: string | null }> {
+export async function listTickets(ctx: ClientContext, input: unknown): Promise<{ items: TicketRow[]; nextCursor: string | null; searchTooShort: boolean }> {
   const data = parseInput(listTicketsInput, input);
-  const search = data.q !== undefined ? parseSearch(data.q) : {};
+  const search = data.q !== undefined ? parseSearch(data.q) : { tooShort: false };
+  // Текст короче трёх знаков не ищется: список пуст, страница просит уточнить запрос (аудит 23.11.2026, находка P9).
+  if (search.tooShort) return { items: [], nextCursor: null, searchTooShort: true };
   const rows = await listTicketRows(ctx.actor, {
     mineOnly: data.scope === 'mine',
     status: data.status,
@@ -181,6 +183,7 @@ export async function listTickets(ctx: ClientContext, input: unknown): Promise<{
       modifiedOn: row.modifiedOn,
     })),
     nextCursor: rows.length > TICKET_PAGE_SIZE && last ? encodeCursor(last) : null,
+    searchTooShort: false,
   };
 }
 

@@ -27,7 +27,8 @@ export default async function UnidentifiedPage({ searchParams }: { searchParams:
   const selected = items.find((item) => String(item.number) === params.number) ?? null;
   const canWrite = staff.actor.staffRole !== 'product';
   const q = params.q?.trim().slice(0, 100) ?? '';
-  const found = selected && canWrite && q ? (await searchOrganizations(staff, { query: q })).items : null;
+  const search = selected && canWrite && q ? await searchOrganizations(staff, { query: q }) : null;
+  const found = search?.items ?? null;
   const done = DONE.find((code) => code === params.done);
   const error = params.error ? (ERRORS.find((code) => code === params.error) ?? 'other') : null;
 
@@ -83,7 +84,7 @@ export default async function UnidentifiedPage({ searchParams }: { searchParams:
               </CardContent>
             </Card>
             {selected ? (
-              <BindPanel item={selected} q={q} found={found} canWrite={canWrite} />
+              <BindPanel item={selected} q={q} found={found} tooShort={search?.searchTooShort ?? false} canWrite={canWrite} />
             ) : (
               <Card>
                 <CardContent className="pt-6 text-sm text-secondary-foreground">{t('queues.unidentified.choose')}</CardContent>

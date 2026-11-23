@@ -19,8 +19,9 @@ const FILE_NAME = /^\d{4}_[a-z0-9_]+\.sql$/;
 // CREATE INDEX CONCURRENTLY нет, но внутри транзакции он не выполняется. Вне транзакции нет отката, поэтому в таком
 // файле допускаются только команды, которые безопасно повторить после сбоя.
 const NO_TRANSACTION = '-- hub:no-transaction';
-const CONCURRENT_CREATE = /^CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\s+IF\s+NOT\s+EXISTS\s+([a-z_][a-z0-9_]*)\s+ON\s/i;
-const CONCURRENT_DROP = /^DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS\s+([a-z_][a-z0-9_]*)$/i;
+// Таблица может быть в схеме auth (таблицы библиотеки входа): индекс живёт в схеме своей таблицы.
+const CONCURRENT_CREATE = /^CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\s+IF\s+NOT\s+EXISTS\s+([a-z_][a-z0-9_]*)\s+ON\s+(?:([a-z_][a-z0-9_]*)\.)?/i;
+const CONCURRENT_DROP = /^DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS\s+(?:([a-z_][a-z0-9_]*)\.)?([a-z_][a-z0-9_]*)$/i;
 
 /** @param {string} sql */
 const runsOutsideTransaction = (sql) => sql.split('\n', 1)[0]?.trim() === NO_TRANSACTION;
@@ -29,7 +30,7 @@ const runsOutsideTransaction = (sql) => sql.split('\n', 1)[0]?.trim() === NO_TRA
  * Команды файла без транзакции. Любая другая команда: ошибка до выполнения.
  * @param {string} name
  * @param {string} sql
- * @returns {{ text: string; index: string; creates: boolean }[]}
+ * @returns {{ text: string; index: string; schema: string; creates: boolean }[]}
  */
 function concurrentStatements(name, sql) {
   const body = sql
@@ -43,31 +44,32 @@ function concurrentStatements(name, sql) {
   const parsed = statements.map((text) => {
     const create = CONCURRENT_CREATE.exec(text);
     const drop = create ? null : CONCURRENT_DROP.exec(text);
-    const index = create?.[1] ?? drop?.[1];
-    return index ? { text, index, creates: Boolean(create) } : null;
+    const index = create?.[1] ?? drop?.[2];
+    const schema = (create?.[2] ?? drop?.[1] ?? 'public').toLowerCase();
+    return index ? { text, index, schema, creates: Boolean(create) } : null;
   });
   if (parsed.length === 0 || parsed.some((statement) => statement === null))
     throw new Error(
       `Миграция ${name}: вне транзакции допускаются только CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS и DROP INDEX CONCURRENTLY IF EXISTS`,
     );
-  return /** @type {{ text: string; index: string; creates: boolean }[]} */ (parsed);
+  return /** @type {{ text: string; index: string; schema: string; creates: boolean }[]} */ (parsed);
 }
 
 /**
  * Выполняет файл без транзакции. Построение, оборванное сбоем, оставляет недействительный индекс с тем же именем:
  * IF NOT EXISTS его пропустил бы, поэтому такой индекс сначала удаляется.
  * @param {import('pg').Client} client
- * @param {{ text: string; index: string; creates: boolean }[]} statements
+ * @param {{ text: string; index: string; schema: string; creates: boolean }[]} statements
  */
 async function runOutsideTransaction(client, statements) {
   for (const statement of statements) {
     if (statement.creates) {
       const invalid = await client.query(
         `select 1 from pg_index i join pg_class c on c.oid = i.indexrelid join pg_namespace n on n.oid = c.relnamespace
-          where c.relname = $1 and n.nspname = current_schema() and not i.indisvalid`,
-        [statement.index],
+          where c.relname = $1 and n.nspname = $2 and not i.indisvalid`,
+        [statement.index, statement.schema],
       );
-      if (invalid.rowCount) await client.query(`DROP INDEX CONCURRENTLY IF EXISTS ${statement.index}`);
+      if (invalid.rowCount) await client.query(`DROP INDEX CONCURRENTLY IF EXISTS ${statement.schema}.${statement.index}`);
     }
     await client.query(statement.text);
   }
@@ -115,7 +117,7 @@ export async function migrate(opts = {}) {
       if (!files.includes(name)) throw new Error(`Миграция ${name} применена к базе, но файла в каталоге нет`);
 
     // Файлы без транзакции проверяются до первой команды: откатить их нельзя.
-    /** @type {Map<string, { sql: string; statements: { text: string; index: string; creates: boolean }[] | null }>} */
+    /** @type {Map<string, { sql: string; statements: { text: string; index: string; schema: string; creates: boolean }[] | null }>} */
     const loaded = new Map();
     for (const name of files) {
       const sql = await readFile(resolve(dir, name), 'utf8');
@@ -124,7 +126,7 @@ export async function migrate(opts = {}) {
 
     let applied = 0;
     for (const name of files) {
-      const { sql, statements } = /** @type {{ sql: string; statements: { text: string; index: string; creates: boolean }[] | null }} */ (loaded.get(name));
+      const { sql, statements } = /** @type {{ sql: string; statements: { text: string; index: string; schema: string; creates: boolean }[] | null }} */ (loaded.get(name));
       const sum = checksum(sql);
       if (done.has(name)) {
         if (done.get(name) !== sum)

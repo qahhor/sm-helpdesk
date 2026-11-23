@@ -50,20 +50,24 @@ export type QueueRow = {
 };
 
 /** Строка поиска: номер и текст как у клиента, плюс организации по названию и ИНН и авторы по имени и адресу. */
-async function searchOf(ctx: StaffContext, q: string | undefined): Promise<QueueSearch | undefined> {
+async function searchOf(ctx: StaffContext, q: string | undefined): Promise<QueueSearch | 'too_short' | undefined> {
   if (!q) return undefined;
   const parsed = parseSearch(q);
+  // Текст короче трёх знаков не ищется (аудит 23.11.2026, находка P9): ни по обращениям, ни по организациям и людям.
+  if (parsed.tooShort) return 'too_short';
   const [orgIds, authorIds] = parsed.text ? await Promise.all([findOrgIds(ctx, parsed.text), findUserIds(ctx, parsed.text)]) : [[], []];
   return { number: parsed.number, text: parsed.text, orgIds, authorIds };
 }
 
 /** Очередь (FR-AG-01), по умолчанию по ближайшему сроку; поиск (FR-AG-10); по 50 строк. */
-export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ items: QueueRow[]; hasMore: boolean }> {
+export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ items: QueueRow[]; hasMore: boolean; searchTooShort: boolean }> {
   const data = parseInput(queueInput, input ?? {});
+  const search = await searchOf(ctx, data.q);
+  if (search === 'too_short') return { items: [], hasMore: false, searchTooShort: true };
   const rows = await queueRowsTx(ctx.actor, {
     queue: data.queue,
     sort: data.sort,
-    search: await searchOf(ctx, data.q),
+    search,
     offset: (data.page - 1) * QUEUE_PAGE_SIZE,
     limit: QUEUE_PAGE_SIZE + 1,
   });
@@ -93,6 +97,7 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
       };
     }),
     hasMore: rows.length > QUEUE_PAGE_SIZE,
+    searchTooShort: false,
   };
 }
 

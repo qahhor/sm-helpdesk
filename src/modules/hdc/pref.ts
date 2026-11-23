@@ -67,6 +67,8 @@ export const AUDIT_ACTIONS = [
   'org.domain_removed',
   // Каналы уведомлений (план M4b, задача 1)
   'notify.channels_changed',
+  // Замена ключа шифрования (волна 1, задача 7)
+  'secrets.resealed',
   // Памятки первой линии и шаблоны ответов (веха M3).
   'playbook.saved',
   'template.saved',

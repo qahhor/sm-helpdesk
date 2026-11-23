@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import type { SystemActor } from '@/db/with-actor';
-import { addServer, checkServer, disableServer, listServers, type ServerIssue } from '@/modules/hdu/api/servers';
+import { addServer, checkServer, disableServer, listServers, resealServerSecrets, type ServerIssue } from '@/modules/hdu/api/servers';
 import { adminActorByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
-import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
+import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { cleanupRateLimits } from '@/modules/hdc/api';
 import { importModules } from '@/modules/hdr/api/import';
@@ -68,6 +68,11 @@ const HELP = `Использование: hub <команда> [ключи]
       Удалить просроченные служебные строки: счётчики частоты, номера событий Telegram, сессии
       и одноразовые значения входа. Запускать раз в сутки, пока нет фоновых задач (решение 0023).
 
+  secrets:reseal
+      Замена ключа шифрования: перешифровать сохранённые секреты (серверы Smartup, бот дежурных) ключом
+      из ENCRYPTION_KEY. Прежний ключ на время замены задаётся в ENCRYPTION_KEY_PREVIOUS.
+      Код завершения 1, если какой-то секрет не открылся ни одним ключом.
+
   --help
       Эта справка.`;
 
@@ -98,6 +103,7 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'telegram:set-webhook': { options: {}, required: [] },
   'telegram:info': { options: {}, required: [] },
   'maintenance:cleanup': { options: {}, required: [] },
+  'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
 };
 
@@ -133,6 +139,9 @@ const ISSUE_TEXT: Record<ServerIssue, string> = {
   no_jwks: 'Нет адреса ключей или ключи не отдаются.',
   no_pkce_s256: 'Сервер не поддерживает PKCE S256.',
 };
+
+/** Названия секретов каналов для вывода команды. */
+const CHANNEL_SECRET_NAMES: Record<string, string> = { oncall_telegram_bot: 'бот дежурных' };
 
 function linkLines(env: CliIo['env'], result: { token: string; expiresOn: Date }): string[] {
   return [
@@ -253,6 +262,19 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
           `Удалено просроченных строк: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, отправленные письма очереди ${sentMail}, разобранные входящие письма ${letters}.`,
         );
         return 0;
+      }
+      case 'secrets:reseal': {
+        const serverSecrets = await resealServerSecrets(ACTOR);
+        const channelSecrets = await resealChannelSecrets(ACTOR);
+        io.out(`Перешифровано текущим ключом: серверы Smartup ${serverSecrets.resealed}, токены ботов ${channelSecrets.resealed}.`);
+        const failed = [...serverSecrets.failed.map((code) => `сервер ${code}`), ...channelSecrets.failed.map((code) => CHANNEL_SECRET_NAMES[code] ?? code)];
+        if (failed.length === 0) {
+          io.out('Прежний ключ больше не нужен: уберите ENCRYPTION_KEY_PREVIOUS из окружения и перезапустите портал.');
+          return 0;
+        }
+        io.err(`Не открываются ни текущим, ни прежним ключом: ${failed.join(', ')}.`);
+        io.err('Проверьте ENCRYPTION_KEY_PREVIOUS или задайте эти секреты заново: server:add для сервера, экран настроек для бота.');
+        return 1;
       }
       case 'modules:import': {
         // Сначала администратор: от чужого имени файл даже не читается.

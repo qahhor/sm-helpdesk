@@ -893,6 +893,9 @@
           },
           "notify": {
             "channels_changed": "Bildirishnoma kanallari o'zgartirildi"
+          },
+          "secrets": {
+            "resealed": "Maxfiy qiymatlar yangi kalit bilan qayta shifrlandi"
           }
         },
         "words": {

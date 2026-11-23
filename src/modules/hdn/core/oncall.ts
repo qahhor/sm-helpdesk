@@ -1,9 +1,9 @@
 import 'server-only';
 import { eq } from 'drizzle-orm';
 import * as z from 'zod';
-import { type StaffActor, withActor } from '@/db/with-actor';
+import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
-import { readSetting } from '@/modules/hdc/api';
+import { readSetting, writeAudit } from '@/modules/hdc/api';
 import { getSecretBox } from '@/security/secret-box';
 import { channelSecrets } from '../schema';
 import { createTelegramBot } from '../telegram';
@@ -60,6 +60,36 @@ export async function saveOncallBotToken(staff: StaffActor, token: string): Prom
       .values({ code: SECRET_CODE, sealed })
       .onConflictDoUpdate({ target: channelSecrets.code, set: { sealed } }),
   );
+}
+
+/** Место хранения секрета канала по его коду. Новый секрет канала добавляется сюда. */
+const SECRET_CONTEXTS: Record<string, string> = { [SECRET_CODE]: SECRET_CONTEXT };
+
+/**
+ * Замена ключа шифрования (находка S6 аудита 23.11.2026): секреты каналов перешифровываются текущим ключом.
+ * Секрет, который не открывается ни одним ключом, не трогается, его код возвращается в failed.
+ */
+export async function resealChannelSecrets(actor: SystemActor): Promise<{ resealed: number; failed: string[] }> {
+  const box = getSecretBox();
+  return withActor(actor, async (tx) => {
+    const rows = await tx.select({ code: channelSecrets.code, sealed: channelSecrets.sealed }).from(channelSecrets);
+    let resealed = 0;
+    const failed: string[] = [];
+    for (const row of rows) {
+      const context = SECRET_CONTEXTS[row.code];
+      try {
+        if (!context) throw new Error('неизвестный секрет канала');
+        if (!box.needsReseal(row.sealed, context)) continue;
+        await tx.update(channelSecrets).set({ sealed: box.reseal(row.sealed, context) }).where(eq(channelSecrets.code, row.code));
+        resealed += 1;
+      } catch {
+        failed.push(row.code);
+      }
+    }
+    if (resealed > 0 || failed.length > 0)
+      await writeAudit(tx, { action: 'secrets.resealed', objectType: 'channel_secret', diff: { resealed, failed: failed.length } });
+    return { resealed, failed };
+  });
 }
 
 /** Сохранён ли токен отдельного бота (экран настроек показывает "токен сохранён", а не сам токен). */

@@ -109,6 +109,13 @@ const schema = z
     DATABASE_URL_AUTH: databaseUrl('hub_auth'),
     BETTER_AUTH_SECRET: sessionSecret,
     ENCRYPTION_KEY: encryptionKey,
+    // Прежний ключ шифрования на время замены ключа (аудит 23.11.2026, находка S6): им открываются значения,
+    // зашифрованные до замены. После команды hub secrets:reseal переменную убирают.
+    ENCRYPTION_KEY_PREVIOUS: z
+      .string()
+      .trim()
+      .refine((value) => /^[A-Za-z0-9+/]{43}=$/.test(value) && Buffer.from(value, 'base64').length === 32, { error: 'ожидается 32 байта в base64' })
+      .optional(),
     // Письма со ссылками входа: none, console и file для разработки, resend для настоящей отправки (решение 0018).
     MAIL_TRANSPORT: z.enum(['none', 'console', 'file', 'resend'], { error: 'ожидается none, console, file или resend' }).default('none'),
     MAIL_FILE_DIR: z.string().trim().min(1, { error: 'не задана' }).optional(),
@@ -131,6 +138,8 @@ const schema = z
       .regex(/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/, { error: 'ожидается домен строчными буквами без схемы, например reply.smartup24.com' })
       .optional(),
     REPLY_HMAC_SECRET: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
+    // Прежний ключ подписи адресов ответа на время замены: ответы на уже отправленные письма продолжают приниматься.
+    REPLY_HMAC_SECRET_PREVIOUS: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
     // Чей заголовок Authentication-Results учитывать (решение 11 вехи M4). Не задан: отправитель письма не опознаётся.
     INBOUND_AUTHSERV_ID: z
       .string()
@@ -182,6 +191,10 @@ const schema = z
     // сам посетитель. На настоящем адресе источник адреса посетителя выбирается явно (docs/runbooks/launch.md, раздел 8).
     if (value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host) && !value.CLIENT_IP_HEADER)
       ctx.addIssue({ code: 'custom', path: ['CLIENT_IP_HEADER'], message: 'не задан: за Cloudflare задайте cf-connecting-ip' });
+    if (value.ENCRYPTION_KEY_PREVIOUS && value.ENCRYPTION_KEY_PREVIOUS === value.ENCRYPTION_KEY)
+      ctx.addIssue({ code: 'custom', path: ['ENCRYPTION_KEY_PREVIOUS'], message: 'совпадает с ENCRYPTION_KEY: прежний ключ должен отличаться от текущего' });
+    if (value.REPLY_HMAC_SECRET_PREVIOUS && !value.REPLY_HMAC_SECRET)
+      ctx.addIssue({ code: 'custom', path: ['REPLY_HMAC_SECRET_PREVIOUS'], message: 'задан без REPLY_HMAC_SECRET' });
     if (value.BETTER_AUTH_SECRET === value.ENCRYPTION_KEY)
       ctx.addIssue({
         code: 'custom',

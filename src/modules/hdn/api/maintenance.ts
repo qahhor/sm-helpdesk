@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SystemActor } from '@/db/with-actor';
 import { cleanupInboundTx } from '../core/inbound';
+import { resealChannelSecrets as resealCore } from '../core/oncall';
 import { cleanupOutboxTx } from '../core/outbox';
 import { cleanupTelegramUpdates as cleanupCore } from '../core/telegram-updates';
 
@@ -21,4 +22,10 @@ export function cleanupOutbox(actor: SystemActor, now: Date = new Date()): Promi
 export function cleanupInbound(actor: SystemActor, now: Date = new Date()): Promise<number> {
   if (actor.type !== 'system') throw new Error('Очистку выполняет только система');
   return cleanupInboundTx(actor, now);
+}
+
+/** Замена ключа шифрования: секреты каналов (токен бота дежурных) перешифровываются текущим ключом. */
+export function resealChannelSecrets(actor: SystemActor): Promise<{ resealed: number; failed: string[] }> {
+  if (actor.type !== 'system') throw new Error('Перешифрование выполняет только система');
+  return resealCore(actor);
 }

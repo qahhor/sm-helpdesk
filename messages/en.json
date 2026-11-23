@@ -893,6 +893,9 @@
           },
           "notify": {
             "channels_changed": "Notification channels changed"
+          },
+          "secrets": {
+            "resealed": "Secrets re-encrypted with the new key"
           }
         },
         "words": {

@@ -13,6 +13,8 @@ services:
     ports: ['80:80', '443:443']
     environment:
       HUB_DOMAIN: ${HUB_DOMAIN:?задайте HUB_DOMAIN}
+      # Копии портала, на которые Caddy делит запросы (решение 0039). Две копии: "web:3000 web2:3000" и профиль replica.
+      HUB_UPSTREAMS: ${HUB_UPSTREAMS:-web:3000}
       # Кому Caddy отвечает (план W0, задача 6): по умолчанию только адресам Cloudflare, список с cloudflare.com/ips
       # на 23.11.2026. Остальным 403: заголовок CF-Connecting-IP нельзя подделать запросом в обход Cloudflare.
       # Staging без Cloudflare: TRUSTED_PROXIES="0.0.0.0/0 ::/0" в .env.
@@ -28,7 +30,7 @@ services:
       - caddy_data:/data
     depends_on: [web]
 
-  web:
+  web: &web
     image: ${HUB_IMAGE:?задайте HUB_IMAGE, например ghcr.io/<org>/smartup-hub:<тег>}
     restart: unless-stopped
     command: ['node', 'server.js']
@@ -52,6 +54,13 @@ services:
       interval: 15s
       timeout: 3s
       retries: 3
+
+  # Вторая копия портала (аудит 23.11.2026, находка O6): те же настройки, запускается профилем replica:
+  #   HUB_UPSTREAMS="web:3000 web2:3000" DB_POOL_MAX=6 в .env, затем hubc --profile replica up -d
+  # Выкладка без простоя: копии перезапускаются по одной, Caddy шлёт запросы готовой.
+  web2:
+    <<: *web
+    profiles: ['replica']
 
   # Фоновый процесс (решение 0028): задачи pg-boss под ролью hub_app, ограничения те же, что у портала.
   worker:

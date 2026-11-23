@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool, type PoolClient } from 'pg';
 import { env } from '@/env';
 import type { AppDb } from './client';
+import { poolMaxOf } from './pool-size';
 
 // Подключение к базе под ролью hub_auth: таблицы библиотеки входа (схема auth) и таблицы идентичности hdu_*.
 // Этим подключением пользуются только библиотека входа и модуль hdu (правило линтера, ТЗ 10.3).
@@ -15,7 +16,7 @@ function createAuthPool(): Pool {
   const pool = new Pool({
     connectionString: env.DATABASE_URL_AUTH,
     application_name: 'hub-auth',
-    max: 10,
+    max: poolMaxOf(env.DB_POOL_MAX),
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
     keepAlive: true,

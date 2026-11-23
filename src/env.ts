@@ -167,6 +167,9 @@ const schema = z
     TELEGRAM_API_URL: z.url({ error: 'ожидается адрес' }).default('https://api.telegram.org'),
     HUB_SHOWCASE: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error'], { error: 'ожидается debug, info, warn или error' }).default('info'),
+    // Размер каждого из двух пулов соединений процесса (роль приложения и роль входа). При двух копиях портала
+    // уменьшается, чтобы сумма не заняла больше 60% предела базы (src/db/pool-size.ts, решение 0039).
+    DB_POOL_MAX: z.coerce.number({ error: 'ожидается целое число от 2 до 50' }).int({ error: 'ожидается целое число от 2 до 50' }).min(2, { error: 'ожидается целое число от 2 до 50' }).max(50, { error: 'ожидается целое число от 2 до 50' }).optional(),
     // Формат журнала: строки JSON для сбора и поиска (по умолчанию в production) или текст для окна разработчика.
     LOG_FORMAT: z.enum(['json', 'text'], { error: 'ожидается json или text' }).optional(),
     // Заголовок, из которого берётся адрес посетителя для счётчиков частоты и журнала аудита (итоговая проверка M1).

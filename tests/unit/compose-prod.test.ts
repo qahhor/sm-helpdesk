@@ -4,7 +4,8 @@ import { parse } from 'yaml';
 
 // Развёртывание по разделам 13.3 и 13.4 ТЗ: Caddy, портал, задачи базы и PostgreSQL (веха M1, проверка main, C2),
 // фоновый процесс и ClamAV (веха M2, решение 0028). TEI добавится в своей вехе.
-const compose = parse(readFileSync('compose.prod.yaml', 'utf8'));
+// merge: вторая копия портала описана ссылкой на первую (ключ <<), как это читает docker compose.
+const compose = parse(readFileSync('compose.prod.yaml', 'utf8'), { merge: true });
 const caddyfile = readFileSync('Caddyfile', 'utf8');
 const services = compose.services as Record<string, Record<string, unknown>>;
 
@@ -44,7 +45,7 @@ test('миграции и начальная настройка базы зап�
 });
 
 test('Caddy по разделу 13.4: сжатие, предел тела, заголовки, без Server, проксирование на портал', () => {
-  for (const part of ['{$HUB_DOMAIN} {', 'encode zstd gzip', 'max_size 2MB', 'Strict-Transport-Security "max-age=31536000; includeSubDomains"', '-Server', 'reverse_proxy web:3000'])
+  for (const part of ['{$HUB_DOMAIN} {', 'encode zstd gzip', 'max_size 2MB', 'Strict-Transport-Security "max-age=31536000; includeSubDomains"', '-Server', 'reverse_proxy {$HUB_UPSTREAMS:web:3000}'])
     expect(caddyfile).toContain(part);
 });
 
@@ -179,4 +180,40 @@ test('памятка запуска закрепляет образ портал
   const launch = readFileSync('docs/runbooks/launch.md', 'utf8');
   expect(launch).toContain("docker image inspect --format '{{.Id}}' smartup-hub:<версия>");
   expect(launch).toMatch(/export HUB_IMAGE=sha256:<идентификатор>/);
+});
+
+// Запуск в двух копиях (аудит 23.11.2026, находка O6; план W2, задача 12).
+
+test('Caddy проксирует на список адресов портала, проверяет готовность и повторяет запрос на другой копии', () => {
+  expect(caddyfile).toMatch(/reverse_proxy \{\$HUB_UPSTREAMS:web:3000\} \{/);
+  expect(caddyfile).toContain('health_uri /api/ready');
+  expect(caddyfile).toMatch(/health_interval \d+s/);
+  // Копия, которая не отвечает, снимается; запрос за это время уходит на другую.
+  expect(caddyfile).toMatch(/lb_try_duration \d+s/);
+  expect(caddyfile).toMatch(/fail_duration \d+s/);
+  expect((services.caddy?.environment as Record<string, string>).HUB_UPSTREAMS).toBe('${HUB_UPSTREAMS:-web:3000}');
+});
+
+test('вторая копия портала описана теми же настройками и запускается только по своему профилю', () => {
+  const web = services.web as Record<string, unknown>;
+  const web2 = services.web2 as Record<string, unknown>;
+  expect(web2.profiles).toEqual(['replica']);
+  for (const key of ['image', 'command', 'env_file', 'user', 'read_only', 'mem_limit', 'stop_grace_period', 'tmpfs', 'cap_drop', 'security_opt', 'networks', 'healthcheck', 'restart'])
+    expect(web2[key], key).toEqual(web[key]);
+  expect(web2.ports).toBeUndefined();
+});
+
+test('соединения с базой при двух копиях портала укладываются в 60% предела', async () => {
+  const { connectionsFor } = await import('@/db/pool-size');
+  const pg = services.postgres as { command: string[] };
+  const max = Number(pg.command.find((part) => part.startsWith('max_connections='))?.split('=')[1]);
+  expect(max).toBe(100);
+  // Одна копия с настройками по умолчанию: портал и фоновый процесс.
+  expect(connectionsFor({ webReplicas: 1, workers: 1, poolMax: 10 })).toBeLessThanOrEqual(max * 0.6);
+  // Две копии с настройками по умолчанию не укладываются: в памятке запуска для двух копий задан DB_POOL_MAX=6.
+  expect(connectionsFor({ webReplicas: 2, workers: 1, poolMax: 10 })).toBeGreaterThan(max * 0.6);
+  expect(connectionsFor({ webReplicas: 2, workers: 1, poolMax: 6 })).toBeLessThanOrEqual(max * 0.6);
+  const launch = readFileSync('docs/runbooks/launch.md', 'utf8');
+  expect(launch).toContain('DB_POOL_MAX=6');
+  expect(launch).toContain('HUB_UPSTREAMS="web:3000 web2:3000"');
 });

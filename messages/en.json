@@ -88,12 +88,23 @@
         "title": "Emails",
         "intro": "Notifications in the portal always arrive. Here you choose which emails to get.",
         "own": "About my requests",
-        "ownHint": "These emails cannot be turned off: they carry the support answers.",
         "watched": "About colleagues’ requests I follow",
         "mention": "About mentions in notes",
         "breach": "About missed deadlines",
         "save": "Save",
-        "saved": "Saved"
+        "saved": "Saved",
+        "client": {
+          "title": "Notifications",
+          "intro": "Notifications in the portal always arrive. Choose where else to send them.",
+          "kind": "About",
+          "email": "Email",
+          "telegram": "Telegram",
+          "ownRule": "Emails about your requests can be turned off when Telegram is on: at least one way stays.",
+          "telegramMissing": "Telegram is not linked. Messages there start after you link it.",
+          "telegramLink": "Link Telegram",
+          "needTelegram": "Emails about your requests turn off only when Telegram is linked and turned on in this row.",
+          "ownFallback": "Emails about your requests arrive again: Telegram is not working right now."
+        }
       }
     }
   },
@@ -383,7 +394,7 @@
       },
       "channels": {
         "title": "Telegram",
-        "intro": "Link Telegram to sign in to the portal through the bot when Smartup is not available.",
+        "intro": "Link Telegram to get request notifications there and to sign in to the portal through the bot when Smartup is not available.",
         "link": "Link Telegram",
         "linked": "The account {account} is linked since {date}.",
         "unlink": "Unlink",

@@ -64,12 +64,12 @@ test('заметка сотрудника писем и уведомлений �
 test('наблюдатель с выключенными письмами получает только уведомление в портале', async () => {
   const t = f.tickets.aOrg;
   await pools.root.query(`insert into hdt_ticket_watchers (org_id, ticket_id, user_id, source) values ($1, $2, $3, 'manual')`, [f.orgA.orgId, t.ticketId, f.aAdmin.userId]);
-  await savePrefs(f.aAdmin.actor, { watchedTickets: false });
+  await savePrefs(f.aAdmin.actor, { own: { email: true, telegram: true }, watched: { email: false, telegram: true } });
   await reply(t.number, 'Исправили настройку печати.');
   expect((await mails(t.ticketId)).map((m) => m.recipient_user_id)).toEqual([f.aUser.userId]);
   expect((await notices(t.ticketId)).map((n) => n.user_id).sort()).toEqual([f.aUser.userId, f.aAdmin.userId].sort());
   // Включённые письма наблюдателю отключаются ссылкой из письма.
-  await savePrefs(f.aAdmin.actor, { watchedTickets: true });
+  await savePrefs(f.aAdmin.actor, { own: { email: true, telegram: true }, watched: { email: true, telegram: true } });
   await reply(t.number, 'И ещё одно.');
   const watcherMail = (await mails(t.ticketId)).find((m) => m.recipient_user_id === f.aAdmin.userId);
   expect(watcherMail?.settings_path).toBe('/settings');

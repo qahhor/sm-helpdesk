@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { savePrefs } from '@/modules/hdn/api/notifications';
+import { isHdnError, savePrefs } from '@/modules/hdn/api/notifications';
 import { isHduError, nextRequest, requestEmailConfirmation, requireClientActor, revokeMySessionOfRequest, revokeOtherSessionsOfRequest, signOut, unlinkTelegram } from '@/modules/hdu/api';
 
 /** Раздел "Email для входа": письмо со ссылкой подтверждения адреса (FR-ID-07). */
@@ -44,9 +44,22 @@ export async function unlinkTelegramAction(): Promise<void> {
   redirect(`/${await getLocale()}/settings?telegram=unlinked`);
 }
 
-/** Какие письма получать (FR-NT-04): письма о своих обращениях не выключаются, поэтому их в форме нет. */
+/**
+ * Каналы уведомлений (FR-NT-04, FR-NT-14; решение 3 вехи M4b). Почту о своих обращениях сервер выключает,
+ * только если Telegram привязан и включён: иначе форма показывает, что нужно сделать.
+ */
 export async function saveClientPrefsAction(formData: FormData): Promise<void> {
+  const locale = await getLocale();
   const client = await requireClientActor();
-  await savePrefs(client.actor, { watchedTickets: formData.get('watchedTickets') === 'on' });
-  redirect(`/${await getLocale()}/settings?prefs=saved`);
+  const on = (name: string) => formData.get(name) === 'on';
+  try {
+    await savePrefs(client.actor, {
+      own: { email: on('ownEmail'), telegram: on('ownTelegram') },
+      watched: { email: on('watchedEmail'), telegram: on('watchedTelegram') },
+    });
+  } catch (error) {
+    if (!isHdnError(error)) throw error;
+    redirect(`/${locale}/settings?prefs=need_telegram`);
+  }
+  redirect(`/${locale}/settings?prefs=saved`);
 }

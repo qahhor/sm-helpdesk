@@ -4,9 +4,14 @@ import { and, desc, eq, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
+import { writeAudit } from '@/modules/hdc/api';
+import { telegramLinked } from '@/modules/hdu/api/recipients';
+import { HdnError } from '../error';
 import { type NotificationKind, notificationPrefs, notifications, type PrefKind } from '../schema';
+import { getTelegramBot } from '../telegram';
 
-// Модуль hdn, слой core: уведомления в портале (FR-NT-03, решение 5 вехи M4) и настройки писем (FR-NT-04).
+// Модуль hdn, слой core: уведомления в портале (FR-NT-03, решение 5 вехи M4) и каналы уведомлений (FR-NT-04,
+// FR-NT-14; решения 3 и 4 вехи M4b).
 
 export type PersonActor = ClientActor | StaffActor;
 
@@ -113,30 +118,81 @@ export async function emailAllowed(tx: Tx, userId: string, pref: PrefKind): Prom
   return row?.enabled ?? true;
 }
 
-// Письма о своих обращениях выключить нельзя (FR-NT-04): в схеме такого поля нет, лишнее поле отклоняется.
-const clientPrefs = z.object({ watchedTickets: z.boolean() }).strict();
+export type Channels = { email: boolean; telegram: boolean };
+
+const channel = z.object({ email: z.boolean(), telegram: z.boolean() }).strict();
+// Клиент: о своих обращениях и об обращениях коллег, почта и Telegram (решение 3 вехи M4b). Портал всегда.
+const clientPrefs = z.object({ own: channel, watched: channel }).strict();
 const staffPrefs = z.object({ staffMention: z.boolean(), staffBreach: z.boolean() }).strict();
 export type ClientPrefs = z.infer<typeof clientPrefs>;
 export type StaffPrefs = z.infer<typeof staffPrefs>;
 
-const KIND_OF = { watchedTickets: 'watched_tickets', staffMention: 'staff_mention', staffBreach: 'staff_breach' } as const;
+async function prefChannels(tx: Tx, userId: string, kind: PrefKind): Promise<Channels> {
+  const row = (
+    await tx
+      .select({ email: notificationPrefs.emailEnabled, telegram: notificationPrefs.telegramEnabled })
+      .from(notificationPrefs)
+      .where(and(eq(notificationPrefs.userId, userId), eq(notificationPrefs.kind, kind)))
+      .limit(1)
+  )[0];
+  return row ?? { email: true, telegram: true };
+}
 
+/** Действует ли Telegram у пользователя: бот портала включён, привязка есть и бот не заблокирован. */
+async function telegramActive(userId: string): Promise<boolean> {
+  return getTelegramBot().enabled && (await telegramLinked(userId));
+}
+
+/**
+ * Куда уведомлять клиента о событии обращения (решения 3 и 4 вехи M4b). Telegram только при действующей
+ * привязке. О своих обращениях хотя бы один внешний канал: если Telegram не действует, письмо идёт, даже когда
+ * почта выключена в настройке (отвязал Telegram или заблокировал бота).
+ */
+export async function channelsFor(tx: Tx, userId: string, scope: 'own' | 'watched'): Promise<Channels> {
+  const pref = await prefChannels(tx, userId, scope === 'own' ? 'own_tickets' : 'watched_tickets');
+  const telegram = pref.telegram && (await telegramActive(userId));
+  return { email: pref.email || (scope === 'own' && !telegram), telegram };
+}
+
+const STAFF_KIND = { staffMention: 'staff_mention', staffBreach: 'staff_breach' } as const;
+
+async function readPrefsIn(tx: Tx, actor: PersonActor): Promise<ClientPrefs | StaffPrefs> {
+  if (actor.type === 'client') {
+    return { own: await prefChannels(tx, actor.userId, 'own_tickets'), watched: await prefChannels(tx, actor.userId, 'watched_tickets') };
+  }
+  return { staffMention: (await prefChannels(tx, actor.userId, 'staff_mention')).email, staffBreach: (await prefChannels(tx, actor.userId, 'staff_breach')).email };
+}
+
+async function upsertPref(tx: Tx, userId: string, kind: PrefKind, value: Channels | boolean): Promise<void> {
+  const set = typeof value === 'boolean' ? { emailEnabled: value } : { emailEnabled: value.email, telegramEnabled: value.telegram };
+  await tx
+    .insert(notificationPrefs)
+    .values({ userId, kind, ...set })
+    .onConflictDoUpdate({ target: [notificationPrefs.userId, notificationPrefs.kind], set });
+}
+
+/**
+ * Сохранить свои настройки. Клиент выключает почту о своих обращениях, только если Telegram включён и действует
+ * (решение 3 вехи M4b). Изменение пишется в журнал аудита без идентификатора Telegram.
+ */
 export async function savePrefsTx(actor: PersonActor, input: unknown): Promise<void> {
-  const values = actor.type === 'client' ? clientPrefs.parse(input) : staffPrefs.parse(input);
+  const parsed = actor.type === 'client' ? clientPrefs.safeParse(input) : staffPrefs.safeParse(input);
+  if (!parsed.success) throw new HdnError('invalid_input');
+  const values = parsed.data;
+  if ('own' in values && !values.own.email && !(values.own.telegram && (await telegramActive(actor.userId)))) throw new HdnError('invalid_input');
   await withActor(actor, async (tx) => {
-    for (const [key, enabled] of Object.entries(values) as [keyof typeof KIND_OF, boolean][]) {
-      await tx
-        .insert(notificationPrefs)
-        .values({ userId: actor.userId, kind: KIND_OF[key], emailEnabled: enabled })
-        .onConflictDoUpdate({ target: [notificationPrefs.userId, notificationPrefs.kind], set: { emailEnabled: enabled } });
+    const before = await readPrefsIn(tx, actor);
+    if (JSON.stringify(before) === JSON.stringify(values)) return;
+    if ('own' in values) {
+      await upsertPref(tx, actor.userId, 'own_tickets', values.own);
+      await upsertPref(tx, actor.userId, 'watched_tickets', values.watched);
+    } else {
+      for (const key of ['staffMention', 'staffBreach'] as const) await upsertPref(tx, actor.userId, STAFF_KIND[key], values[key]);
     }
+    await writeAudit(tx, { action: 'notify.channels_changed', objectType: 'user', objectId: actor.userId, diff: values });
   });
 }
 
 export async function readPrefsTx(actor: PersonActor): Promise<ClientPrefs | StaffPrefs> {
-  const rows = await withActor(actor, (tx) =>
-    tx.select({ kind: notificationPrefs.kind, enabled: notificationPrefs.emailEnabled }).from(notificationPrefs).where(eq(notificationPrefs.userId, actor.userId)),
-  );
-  const of = (kind: PrefKind) => rows.find((r) => r.kind === kind)?.enabled ?? true;
-  return actor.type === 'client' ? { watchedTickets: of('watched_tickets') } : { staffMention: of('staff_mention'), staffBreach: of('staff_breach') };
+  return withActor(actor, (tx) => readPrefsIn(tx, actor));
 }

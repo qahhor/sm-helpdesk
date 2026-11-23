@@ -88,12 +88,23 @@
         "title": "Xatlar",
         "intro": "Portaldagi bildirishnomalar doim keladi. Bu yerda qaysi xatlarni olishni tanlash mumkin.",
         "own": "O'z murojaatlarim haqida",
-        "ownHint": "Bu xatlarni o'chirib bo'lmaydi: ularda qo'llab-quvvatlash javoblari bor.",
         "watched": "Men obuna bo'lgan hamkasblar murojaatlari haqida",
         "mention": "Qaydlarda eslatishlar haqida",
         "breach": "Muddatlar o'tib ketishi haqida",
         "save": "Saqlash",
-        "saved": "Saqlandi"
+        "saved": "Saqlandi",
+        "client": {
+          "title": "Bildirishnomalar",
+          "intro": "Portalda bildirishnomalar doim keladi. Ularni yana qayerga yuborishni tanlang.",
+          "kind": "Nima haqida",
+          "email": "Pochta",
+          "telegram": "Telegram",
+          "ownRule": "O'z murojaatlaringiz haqidagi xatlarni Telegram yoqilgan bo'lsa o'chirish mumkin: kamida bitta usul qoladi.",
+          "telegramMissing": "Telegram bog'lanmagan. Undagi xabarlar bog'langandan keyin kela boshlaydi.",
+          "telegramLink": "Telegramni bog'lash",
+          "needTelegram": "O'z murojaatlaringiz haqidagi xatlar faqat Telegram bog'langan va shu qatorda yoqilgan bo'lsa o'chadi.",
+          "ownFallback": "O'z murojaatlaringiz haqidagi xatlar yana kelmoqda: Telegram hozir ishlamayapti."
+        }
       }
     }
   },
@@ -383,7 +394,7 @@
       },
       "channels": {
         "title": "Telegram",
-        "intro": "Smartupga kirish imkoni bo'lmaganda portalga bot orqali kirish uchun Telegramni bog'lang.",
+        "intro": "Murojaatlar haqidagi bildirishnomalarni olish va Smartupga kirish imkoni bo'lmaganda portalga bot orqali kirish uchun Telegramni bog'lang.",
         "link": "Telegramni bog'lash",
         "linked": "{account} akkaunti {date} dan bog'langan.",
         "unlink": "Uzish",

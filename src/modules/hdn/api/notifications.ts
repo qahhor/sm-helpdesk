@@ -15,12 +15,14 @@ import {
   unreadCountTx,
 } from '../core/notifications';
 
-// Модуль hdn, слой api: уведомления в портале и настройки писем (FR-NT-03, FR-NT-04, решение 5 вехи M4).
+// Модуль hdn, слой api: уведомления в портале и каналы уведомлений (FR-NT-03, FR-NT-04, FR-NT-14; решение 5 вехи M4,
+// решения 3 и 4 вехи M4b).
 // Актор только из проверенной сессии: страницы передают его из requireClientActor и requireStaffActor.
 
-export { emailAllowed, notifyTx, type NotificationRow, type PersonActor } from '../core/notifications';
+export { type Channels, channelsFor, emailAllowed, notifyTx, type NotificationRow, type PersonActor } from '../core/notifications';
 export { type NotificationKind, type PrefKind } from '../schema';
 export type { ClientPrefs, StaffPrefs };
+export { isHdnError } from '../error';
 
 const ids = z.array(z.uuid()).max(100);
 

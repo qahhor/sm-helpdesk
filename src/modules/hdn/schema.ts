@@ -68,10 +68,10 @@ export const notifications = pgTable('hdn_notifications', {
   ...stampColumns,
 });
 
-export const PREF_KINDS = ['watched_tickets', 'staff_mention', 'staff_breach'] as const;
+export const PREF_KINDS = ['own_tickets', 'watched_tickets', 'staff_mention', 'staff_breach'] as const;
 export type PrefKind = (typeof PREF_KINDS)[number];
 
-/** Какие письма получать (10.5 "notification_prefs", FR-NT-04). */
+/** Какие письма и сообщения Telegram получать (10.5 "notification_prefs", FR-NT-04, FR-NT-14). */
 export const notificationPrefs = pgTable(
   'hdn_notification_prefs',
   {

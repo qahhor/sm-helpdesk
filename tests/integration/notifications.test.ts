@@ -15,6 +15,7 @@ import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
 // Уведомления в портале (FR-NT-03, решение 5 вехи M4) и настройки писем (FR-NT-04).
 
+const WATCHED_OFF = { own: { email: true, telegram: true }, watched: { email: false, telegram: true } };
 let f: Fixture;
 beforeEach(async () => {
   f = await seedTwoOrgs();
@@ -63,21 +64,21 @@ test('клиент не ставит уведомление по чужому о
   await expect(withActor(f.aUser.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'holidays_reminder', payload: { year: 2027 } }))).rejects.toThrow();
 });
 
-test('письма о своих обращениях выключить нельзя: попытка отклоняется схемой', async () => {
-  await expect(savePrefs(f.aUser.actor, { ownTickets: false, watchedTickets: true })).rejects.toThrow();
+test('настройки клиента и сотрудника: каждому свой вид, без привязки Telegram почту о своих обращениях не выключить', async () => {
+  await expect(savePrefs(f.aUser.actor, { own: { email: false, telegram: true }, watched: { email: true, telegram: true } })).rejects.toThrow();
   await expect(savePrefs(f.aUser.actor, { watchedTickets: 'нет' })).rejects.toThrow();
   // Клиенту недоступны настройки сотрудника и наоборот.
   await expect(savePrefs(f.aUser.actor, { staffMention: false })).rejects.toThrow();
   await expect(savePrefs(f.l1.actor, { watchedTickets: false })).rejects.toThrow();
-  await savePrefs(f.aUser.actor, { watchedTickets: false });
-  expect(await readPrefs(f.aUser.actor)).toEqual({ watchedTickets: false });
+  await savePrefs(f.aUser.actor, WATCHED_OFF);
+  expect(await readPrefs(f.aUser.actor)).toEqual(WATCHED_OFF);
   await savePrefs(f.l1.actor, { staffMention: false, staffBreach: true });
   expect(await readPrefs(f.l1.actor)).toEqual({ staffMention: false, staffBreach: true });
 });
 
 test('нет строки настройки: письмо разрешено', async () => {
   expect(await withActor(f.l1.actor, (tx) => emailAllowed(tx, f.aUser.userId, 'watched_tickets'))).toBe(true);
-  await savePrefs(f.aUser.actor, { watchedTickets: false });
+  await savePrefs(f.aUser.actor, WATCHED_OFF);
   expect(await withActor(f.l1.actor, (tx) => emailAllowed(tx, f.aUser.userId, 'watched_tickets'))).toBe(false);
   expect(await withActor({ type: 'system', job: 'test' }, (tx) => emailAllowed(tx, f.aUser.userId, 'watched_tickets'))).toBe(false);
   // Настройки клиента не видны другому клиенту напрямую в базе.

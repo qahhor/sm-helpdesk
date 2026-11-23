@@ -33,7 +33,6 @@ export default async function AccountPage({ searchParams }: PageProps<'/[locale]
       <NotificationPrefsForm
         title={t('common.notifications.settings.title')}
         intro={t('common.notifications.settings.intro')}
-        locked={null}
         options={[
           { name: 'staffMention', label: t('common.notifications.settings.mention'), checked: prefs.staffMention },
           { name: 'staffBreach', label: t('common.notifications.settings.breach'), checked: prefs.staffBreach },

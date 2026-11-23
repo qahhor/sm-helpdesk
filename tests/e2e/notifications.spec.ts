@@ -54,16 +54,21 @@ test('колокольчик показывает уведомление об о
   await expect(page.getByText('Новое', { exact: true })).toHaveCount(0);
 });
 
-test('настройки писем: о своих обращениях не выключаются, об обращениях коллег переключаются', async ({ page }) => {
+test('каналы уведомлений: без Telegram почту о своих обращениях не выключить, об обращениях коллег переключается', async ({ page }) => {
   await freshClient(page);
   await page.goto('/ru/settings');
-  const own = page.getByRole('checkbox', { name: 'О своих обращениях' });
-  await expect(own).toBeChecked();
-  await expect(own).toBeDisabled();
-  const watched = page.getByRole('checkbox', { name: 'Об обращениях коллег, на которые я подписан' });
-  await expect(watched).toBeChecked();
-  await watched.uncheck();
+  const ownEmail = () => page.getByRole('checkbox', { name: 'О своих обращениях Почта' });
+  const watchedEmail = () => page.getByRole('checkbox', { name: 'Об обращениях коллег, на которые я подписан Почта' });
+  await expect(ownEmail()).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'О своих обращениях Telegram' })).toBeChecked();
+  await expect(page.getByText('Telegram не привязан.')).toBeVisible();
+  await watchedEmail().uncheck();
   await page.getByRole('button', { name: 'Сохранить' }).click();
   await expect(page.getByText('Сохранено')).toBeVisible();
-  await expect(page.getByRole('checkbox', { name: 'Об обращениях коллег, на которые я подписан' })).not.toBeChecked();
+  await expect(watchedEmail()).not.toBeChecked();
+  // Без привязки Telegram почту о своих обращениях выключить нельзя: сервер отказывает и объясняет почему.
+  await ownEmail().uncheck();
+  await page.getByRole('button', { name: 'Сохранить' }).click();
+  await expect(page.getByRole('alert')).toContainText('Письма о своих обращениях выключаются, только если Telegram привязан');
+  await expect(ownEmail()).toBeChecked();
 });

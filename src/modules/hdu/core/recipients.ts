@@ -3,7 +3,7 @@ import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { withIdentity } from '@/db/with-identity';
 import type { Locale } from '@/i18n/locales';
 import { authUser } from '../auth-schema';
-import { memberships, organizations, servers, staff } from '../schema';
+import { contactIdentities, memberships, organizations, servers, staff } from '../schema';
 
 // Модуль hdu, слой core: куда отправить письмо пользователю (решение 2 вехи M4). Адрес берётся в момент отправки:
 // сменённый или обезличенный адрес писем не получает. Письмо уходит только на подтверждённый адрес; у гостя
@@ -91,4 +91,21 @@ export async function replyRoleTx(userId: string, orgId: string): Promise<'clien
       .limit(1),
   );
   return rows[0]?.role ?? null;
+}
+
+/**
+ * Действующая привязка Telegram: чат и язык пользователя (план M4b, решения 1 и 5). Берётся в момент отправки.
+ * Нет привязки или человек заблокировал бота: null.
+ */
+export async function telegramChatTx(userId: string): Promise<{ chatId: string; locale: Locale | null } | null> {
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ chatId: contactIdentities.externalId, locale: authUser.locale })
+      .from(contactIdentities)
+      .innerJoin(authUser, eq(authUser.id, contactIdentities.userId))
+      .where(and(eq(contactIdentities.userId, userId), eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.isBlocked, false)))
+      .limit(1),
+  );
+  const row = rows[0];
+  return row ? { chatId: row.chatId, locale: row.locale ?? null } : null;
 }

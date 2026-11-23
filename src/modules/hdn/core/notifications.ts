@@ -4,8 +4,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
-import { writeAudit } from '@/modules/hdc/api';
-import { telegramLinked, telegramLinkedMany } from '@/modules/hdu/api/recipients';
+import { contacts, writeAudit } from '@/modules/hdc/api';
 import { HdnError } from '../error';
 import { type NotificationKind, notificationPrefs, notifications, type PrefKind } from '../schema';
 import { getTelegramBot } from '../telegram';
@@ -142,7 +141,7 @@ async function prefChannels(tx: Tx, userId: string, kind: PrefKind): Promise<Cha
 
 /** Действует ли Telegram у пользователя: бот портала включён, привязка есть и бот не заблокирован. */
 async function telegramActive(userId: string): Promise<boolean> {
-  return getTelegramBot().enabled && (await telegramLinked(userId));
+  return getTelegramBot().enabled && (await contacts().telegramLinked(userId));
 }
 
 /**
@@ -167,7 +166,7 @@ export async function channelsForMany(tx: Tx, userIds: string[], own: string | n
     .select({ userId: notificationPrefs.userId, kind: notificationPrefs.kind, email: notificationPrefs.emailEnabled, telegram: notificationPrefs.telegramEnabled })
     .from(notificationPrefs)
     .where(and(inArray(notificationPrefs.userId, userIds), inArray(notificationPrefs.kind, ['own_tickets', 'watched_tickets'])));
-  const linked = getTelegramBot().enabled ? await telegramLinkedMany(userIds) : new Set<string>();
+  const linked = getTelegramBot().enabled ? await contacts().telegramLinkedMany(userIds) : new Set<string>();
   for (const userId of userIds) {
     const scope = userId === own ? 'own' : 'watched';
     const pref = rows.find((row) => row.userId === userId && row.kind === (scope === 'own' ? 'own_tickets' : 'watched_tickets')) ?? { email: true, telegram: true };

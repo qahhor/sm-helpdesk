@@ -27,6 +27,9 @@ export { AUDIT_ACTIONS, type AuditAction } from './pref';
 export { claimOpsAlert, failedJobsSince, failedStaffSignIns, noteStaffSignInFailure, OPS_ALERT_EVERY_MS } from './ops-alerts';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';
+// Общие понятия для модулей ниже hdu (аудит 23.11.2026, находка A1): справочник контактов и контекст сотрудника.
+export { type ContactDirectory, contacts, type MailContact, registerContactDirectory, type TelegramContact } from './contacts';
+export { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './staff-session';
 
 /**
  * Отвечает ли база за отведённое время по обоим подключениям: приложения (hub_app)

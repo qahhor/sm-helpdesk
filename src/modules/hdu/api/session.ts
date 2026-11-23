@@ -1,5 +1,5 @@
 import 'server-only';
-import type { StaffActor } from '@/db/with-actor';
+import type { StaffContext } from '@/modules/hdc/api';
 import { revokeSessionById } from '../core/sessions';
 import { findStaff } from '../core/staff';
 import { STAFF_SESSION_TTL_SEC } from '../pref';
@@ -8,14 +8,8 @@ import type { SessionData } from './request';
 // Кто перед нами: построение актора из проверенной сессии (ТЗ 11.1).
 // Функции этого файла не зависят от Next.js: их вызывают и страницы (через api/actor.ts), и тесты.
 
-export type StaffContext = {
-  actor: StaffActor;
-  user: { id: string; name: string; email: string };
-  /** Руководитель своей линии. Прав на данные сверх роли не даёт. */
-  isLead: boolean;
-  /** Когда сотрудник вошёл: по этому времени считается свежий вход. */
-  sessionCreatedAt: Date;
-};
+// Контекст сотрудника и свежесть входа объявлены в общем модуле: их принимают и модули ниже hdu.
+export { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from '@/modules/hdc/api';
 
 export type StaffDenial = { denied: 'no_session' | 'not_staff' | 'no_second_factor' | 'expired' };
 
@@ -42,10 +36,4 @@ export async function resolveStaff(session: SessionData | null, now: Date): Prom
   };
 }
 
-/** Вход свежий: сессия создана не более maxAgeSec секунд назад (ТЗ 14.3, решение 0014). */
-export function isFresh(ctx: StaffContext, now: Date, maxAgeSec: number): boolean {
-  return now.getTime() - ctx.sessionCreatedAt.getTime() <= maxAgeSec * 1000;
-}
 
-/** Срок свежего входа для действий администратора: 15 минут. */
-export const FRESH_SIGN_IN_SEC = 15 * 60;

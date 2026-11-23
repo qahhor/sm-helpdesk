@@ -36,6 +36,21 @@ const moduleBoundary = (name) => ({
   allowTypeImports: true,
 });
 
+// Слои модулей (аудит 23.11.2026, находка A1): чей api модуль может брать. Зависимость идёт в одну сторону:
+// hdc ни от кого, hdn и hdr только от hdc, hdu ещё от hdn, hdt от всех четырёх. Общие понятия, которые нужны
+// нижним модулям от верхних (справочник контактов, контекст сотрудника), объявлены в hdc. Константы (pref)
+// слоями не ограничены: это общий словарь без обращений к базе. Типы тоже под запретом: тип тянет понятие.
+const MODULE_LAYERS = { hdc: [], hdn: ['hdc'], hdr: ['hdc'], hdu: ['hdc', 'hdn'], hdt: ['hdc', 'hdn', 'hdr', 'hdu'] };
+const LAYER_BOUNDARY =
+  'Слои модулей: зависимость идёт в одну сторону (hdc, затем hdn и hdr, затем hdu, затем hdt). Общее понятие объявляется в hdc (решение 0039)';
+const layerBoundary = (name) => {
+  const allowed = MODULE_LAYERS[name];
+  if (!allowed) return [];
+  const closed = Object.keys(MODULE_LAYERS).filter((other) => other !== name && !allowed.includes(other));
+  if (closed.length === 0) return [];
+  return [{ group: closed.flatMap((other) => [`@/modules/${other}/api`, `@/modules/${other}/api/**`]), message: LAYER_BOUNDARY }];
+};
+
 const PUBLIC_BOUNDARY = 'Открытые страницы (public) не читают сессию и не берут актора, кроме public (CLAUDE.md)';
 
 // Общие запреты для страниц, обработчиков, интерфейса и команды консоли.
@@ -90,7 +105,7 @@ const eslintConfig = defineConfig([
   ...MODULES.map((name) => ({
     files: [`src/modules/${name}/**/*.{ts,tsx}`],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [moduleBoundary(name), ...(name === 'hdu' ? [] : [AUTH_DB_PATTERN])] }],
+      'no-restricted-imports': ['error', { patterns: [moduleBoundary(name), ...layerBoundary(name), ...(name === 'hdu' ? [] : [AUTH_DB_PATTERN])] }],
     },
   })),
   // Override default ignores of eslint-config-next.

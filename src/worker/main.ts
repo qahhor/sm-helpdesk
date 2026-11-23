@@ -1,3 +1,4 @@
+import '@/wiring';
 import { PgBoss } from 'pg-boss';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';

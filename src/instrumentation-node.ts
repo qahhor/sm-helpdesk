@@ -1,3 +1,4 @@
+import './wiring';
 import { EnvError, getEnv } from './env';
 import { configureLog } from './lib/log';
 

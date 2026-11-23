@@ -5,8 +5,7 @@ import type { Tx } from '@/db/client';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import type { Locale } from '@/i18n/locales';
-import { enqueue } from '@/modules/hdc/api';
-import { mailRecipient, markTelegramBlocked, telegramChat } from '@/modules/hdu/api/recipients';
+import { type ContactDirectory, contacts, enqueue } from '@/modules/hdc/api';
 import { replyAddress, replyConfigOf } from '../inbound/reply-address';
 import { type MailData, type MailPayload, type MailTemplate, renderMail } from '../mail/render';
 import { type DeliveryEvent, type EmailProvider, getEmailProvider } from '../provider';
@@ -119,7 +118,7 @@ async function deliverTelegram(row: Row, run: RunMemo): Promise<Outcome> {
     await bot.sendMessage(chat.chatId, notice.text, { linkButton: notice.button });
   } catch (error) {
     if (!(error instanceof TelegramError) || error.status !== 403) throw error;
-    await markTelegramBlocked(chat.chatId);
+    await contacts().markTelegramBlocked(chat.chatId);
     return { kind: 'skipped' };
   }
   return { kind: 'sent', externalId: `telegram-${row.outboxId}`, recipient: 'telegram' };
@@ -146,8 +145,8 @@ function oncePerKey<T>(load: (key: string) => Promise<T>): (key: string) => Prom
  * на каждое письмо. Живёт один запуск, не дольше бюджета времени: изменение адреса или настройки подхватит следующий.
  */
 type RunMemo = {
-  mailRecipient: (userId: string) => ReturnType<typeof mailRecipient>;
-  telegramChat: (userId: string) => ReturnType<typeof telegramChat>;
+  mailRecipient: ContactDirectory['mailRecipient'];
+  telegramChat: ContactDirectory['telegramChat'];
   supportAddress: () => Promise<string | null>;
   oncallEmails: () => Promise<string[]>;
   oncall: () => Promise<OncallSender | null>;
@@ -155,8 +154,8 @@ type RunMemo = {
 
 function runMemo(oncall: OncallSender | null | undefined): RunMemo {
   return {
-    mailRecipient: oncePerKey(mailRecipient),
-    telegramChat: oncePerKey(telegramChat),
+    mailRecipient: oncePerKey((userId) => contacts().mailRecipient(userId)),
+    telegramChat: oncePerKey((userId) => contacts().telegramChat(userId)),
     supportAddress: once(shownSupportAddress),
     oncallEmails: once(oncallEmails),
     // Бот и чат дежурных берутся из настроек в момент отправки (решение 8), только если такие строки есть.

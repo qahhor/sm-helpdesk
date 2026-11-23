@@ -1,3 +1,4 @@
+import '@/wiring';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { type CliIo, runCli } from './commands';
 

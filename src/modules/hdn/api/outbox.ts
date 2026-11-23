@@ -14,3 +14,4 @@ export {
   undeliveredMessages,
   wakeOutbox,
 } from '../core/outbox';
+export { TELEGRAM_TEMPLATES } from '../core/telegram-text';

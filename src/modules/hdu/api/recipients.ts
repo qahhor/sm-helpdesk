@@ -1,6 +1,6 @@
 import 'server-only';
 import * as z from 'zod';
-import { adminIdsTx, lineLeadsTx, type MailRecipient, mailRecipientTx, organizationNameTx, replyRoleTx, telegramChatTx } from '../core/recipients';
+import { adminIdsTx, lineLeadsTx, type MailRecipient, mailRecipientTx, markTelegramBlockedTx, organizationNameTx, replyRoleTx, telegramChatTx } from '../core/recipients';
 import type { Locale } from '@/i18n/locales';
 
 // Модуль hdu, слой api: адрес для письма пользователю (решение 2 вехи M4), руководители линии, администраторы
@@ -43,4 +43,10 @@ export async function telegramChat(userId: string): Promise<{ chatId: string; lo
 /** Привязан ли Telegram и не заблокирован ли бот. */
 export async function telegramLinked(userId: string): Promise<boolean> {
   return (await telegramChat(userId)) !== null;
+}
+
+/** Telegram ответил 403 на сообщение в этот чат: бот заблокирован, уведомления в Telegram прекращаются. */
+export async function markTelegramBlocked(chatId: string): Promise<void> {
+  if (!/^-?\d{1,20}$/.test(chatId)) return;
+  await markTelegramBlockedTx(chatId);
 }

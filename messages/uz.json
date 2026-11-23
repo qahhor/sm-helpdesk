@@ -1802,7 +1802,19 @@
     "loginLink": "Smartup Hub tizimiga kirish havolasi. U {minutes} daqiqa amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang.",
     "loginTooOften": "Kirish havolalari juda ko'p. {minutes} daqiqadan keyin qayta urinib ko'ring.",
     "loginNoAccess": "Bu hisobning hozir portalga kirish huquqi yo'q. Kompaniyangiz administratoriga murojaat qiling.",
-    "oncallTest": "Smartup Hub tekshiruv xabari: navbatchilar chati ulandi, shoshilinch murojaatlar haqidagi xabarlar shu yerga keladi."
+    "oncallTest": "Smartup Hub tekshiruv xabari: navbatchilar chati ulandi, shoshilinch murojaatlar haqidagi xabarlar shu yerga keladi.",
+    "notify": {
+      "button": "Portalda ochish",
+      "created": "Murojaatingizni oldik.",
+      "reply": "Qo'llab-quvvatlashdan yangi javob.",
+      "waiting_customer": "Javobingizni kutyapmiz.",
+      "in_development": "Dasturchilarga topshirildi. Yangilik bo'lganda xabar beramiz.",
+      "closed": "Murojaat yopildi.",
+      "autoClosed": "Murojaat yopildi: javob olmadik.",
+      "merged": "SUP-{into} bilan birlashtirildi. Yozishma o'sha yerda davom etadi.",
+      "resolved": "Murojaat hal qilindi. Javobni baholang yoki murojaatni qayta oching.",
+      "reminder": "Javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi."
+    }
   },
   "dev": {
     "title": "Komponentlar vitrinasi",

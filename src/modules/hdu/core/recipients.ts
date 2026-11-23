@@ -109,3 +109,16 @@ export async function telegramChatTx(userId: string): Promise<{ chatId: string; 
   const row = rows[0];
   return row ? { chatId: row.chatId, locale: row.locale ?? null } : null;
 }
+
+/**
+ * Человек заблокировал бота: Telegram ответил 403 (план M4b, решение 5). Отправка в этот чат прекращается до новой
+ * привязки, которая заменяет строку и снимает отметку.
+ */
+export async function markTelegramBlockedTx(chatId: string): Promise<void> {
+  await withIdentity(SYSTEM, (tx) =>
+    tx
+      .update(contactIdentities)
+      .set({ isBlocked: true })
+      .where(and(eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.externalId, chatId))),
+  );
+}

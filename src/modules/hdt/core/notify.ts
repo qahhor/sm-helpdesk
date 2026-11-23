@@ -1,8 +1,8 @@
 import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { emailAllowed, type NotificationKind, notifyTx, type PrefKind } from '@/modules/hdn/api/notifications';
-import { enqueueTx } from '@/modules/hdn/api/outbox';
+import { channelsFor, emailAllowed, type NotificationKind, notifyTx, type PrefKind } from '@/modules/hdn/api/notifications';
+import { enqueueTx, TELEGRAM_TEMPLATES } from '@/modules/hdn/api/outbox';
 import { organizationName, replyRole } from '@/modules/hdu/api/recipients';
 import type { TicketStatus, Visibility } from '../pref';
 import { ticketMessages, tickets, ticketWatchers } from '../schema';
@@ -11,7 +11,8 @@ import { ticketMessages, tickets, ticketWatchers } from '../schema';
 // решение 6 вехи M4). Вызывается в транзакции действия: письмо и уведомление появляются вместе с изменением
 // или не появляются вовсе (FR-NT-09). Отправку будит слой api после фиксации (wakeOutbox).
 //
-// Автор своего обращения получает письма всегда, наблюдатели-коллеги по настройке "Об обращениях коллег".
+// Каналы клиента (решения 3 и 4 вехи M4b): о своих обращениях хотя бы один внешний канал (почта или Telegram),
+// об обращениях коллег по настройке. В Telegram уходит короткое сообщение без текста ответа (FR-NT-15).
 // Тот, кто действовал, о своём действии не уведомляется. В письмо "ответ" идёт только публичное сообщение
 // сотрудника этого обращения: внутренние заметки и чужие обращения в письма не попадают.
 
@@ -71,24 +72,33 @@ async function stillSees(ticket: TicketInfo, userId: string): Promise<boolean> {
   return userId === ticket.authorId || ticket.visibility === 'org' || role === 'client_admin';
 }
 
-/** Письмо и уведомление каждому: автору всегда, коллеге по его настройке; только тем, кто видит обращение. */
+/**
+ * Уведомление в портале каждому, кто видит обращение; письмо и сообщение в Telegram по его каналам (решения 3 и 4
+ * вехи M4b): о своих обращениях хотя бы один внешний канал, об обращениях коллег по настройке.
+ */
 async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: string[], kind: NotificationKind, mail: Mail, messageId?: string): Promise<void> {
+  const locale = ticket.locale as 'ru' | 'uz' | 'en';
   for (const userId of recipients) {
     if (!(await stillSees(ticket, userId))) continue;
     await notifyTx(tx, { userId, kind, ticketId, payload: { number: ticket.number, title: ticket.title } });
     const own = userId === ticket.authorId;
-    if (!own && !(await emailAllowed(tx, userId, 'watched_tickets'))) continue;
-    await enqueueTx(tx, {
-      channel: 'email',
-      recipient: { kind: 'user', userId },
-      template: mail.template,
-      payload: mail,
-      ticketId,
-      // Письмо об ответе связано с сообщением: недоставку видно на нём в рабочем месте (решение 21).
-      ...(messageId ? { messageId } : {}),
-      locale: ticket.locale as 'ru' | 'uz' | 'en',
-      ...(own ? {} : { settingsPath: CLIENT_SETTINGS_PATH }),
-    });
+    const channels = await channelsFor(tx, userId, own ? 'own' : 'watched');
+    if (channels.email) {
+      await enqueueTx(tx, {
+        channel: 'email',
+        recipient: { kind: 'user', userId },
+        template: mail.template,
+        payload: mail,
+        ticketId,
+        // Письмо об ответе связано с сообщением: недоставку видно на нём в рабочем месте (решение 21).
+        ...(messageId ? { messageId } : {}),
+        locale,
+        ...(own ? {} : { settingsPath: CLIENT_SETTINGS_PATH }),
+      });
+    }
+    if (channels.telegram && TELEGRAM_TEMPLATES.has(mail.template)) {
+      await enqueueTx(tx, { channel: 'telegram', recipient: { kind: 'user', userId }, template: mail.template, payload: mail, ticketId, locale });
+    }
   }
 }
 

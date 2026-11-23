@@ -1802,7 +1802,19 @@
     "loginLink": "Your sign-in link for Smartup Hub. It works for {minutes} min and only once. Do not forward it to anyone.",
     "loginTooOften": "Too many sign-in links. Try again in {minutes} min.",
     "loginNoAccess": "This account has no access to the portal right now. Contact your company administrator.",
-    "oncallTest": "Smartup Hub test message: the on-call chat is connected, urgent request alerts will arrive here."
+    "oncallTest": "Smartup Hub test message: the on-call chat is connected, urgent request alerts will arrive here.",
+    "notify": {
+      "button": "Open in the portal",
+      "created": "We have received your request.",
+      "reply": "New answer from support.",
+      "waiting_customer": "We are waiting for your reply.",
+      "in_development": "Passed to development. We will write when there is news.",
+      "closed": "The request is closed.",
+      "autoClosed": "The request is closed: we did not get a reply.",
+      "merged": "Merged into SUP-{into}. The conversation continues there.",
+      "resolved": "The request is resolved. Rate the answer or reopen the request.",
+      "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
+    }
   },
   "dev": {
     "title": "Component showcase",

@@ -6,14 +6,16 @@ import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import type { Locale } from '@/i18n/locales';
 import { enqueue } from '@/modules/hdc/api';
-import { mailRecipient } from '@/modules/hdu/api/recipients';
+import { mailRecipient, markTelegramBlocked, telegramChat } from '@/modules/hdu/api/recipients';
 import { replyAddress, replyConfigOf } from '../inbound/reply-address';
 import { type MailData, type MailPayload, type MailTemplate, renderMail } from '../mail/render';
 import { type DeliveryEvent, type EmailProvider, getEmailProvider } from '../provider';
 import { MailError } from '../resend';
 import { outbox } from '../schema';
+import { getTelegramBot, TelegramError } from '../telegram';
 import { recordThreadTx } from './inbound';
 import { oncallEmails, shownSupportAddress } from './mail-settings';
+import { isTelegramPayload, telegramNoticeText } from './telegram-text';
 
 // Модуль hdn, слой core: очередь исходящих (FR-NT-09, решения 1-3 вехи M4).
 // Строка ставится в транзакции действия (enqueueTx). Отправка в три шага: короткая транзакция захватывает пачку
@@ -51,6 +53,8 @@ export async function enqueueTx(tx: Tx, item: OutboxItem): Promise<string> {
   if (item.payload.template !== item.template) throw new Error('очередь: шаблон не совпадает с данными');
   // Идентификатор задаёт приложение: под клиентом строка очереди не читается, RETURNING ей недоступен.
   const outboxId = randomUUID();
+  // В строке Telegram текст ответа сотрудника не хранится: в сообщение он не идёт (FR-NT-15, решение 2 вехи M4b).
+  const payload = item.channel === 'telegram' && 'body' in item.payload ? { ...item.payload, body: '' } : item.payload;
   await tx.insert(outbox).values({
     outboxId,
     channel: item.channel,
@@ -59,7 +63,7 @@ export async function enqueueTx(tx: Tx, item: OutboxItem): Promise<string> {
     template: item.template,
     locale: item.locale ?? null,
     settingsPath: item.settingsPath ?? null,
-    payload: item.payload as unknown as Record<string, unknown>,
+    payload: payload as unknown as Record<string, unknown>,
     ticketId: item.ticketId ?? null,
     messageId: item.messageId ?? null,
   });
@@ -77,7 +81,7 @@ type Outcome = { kind: 'sent'; externalId: string; recipient: string; messageId?
 
 /** Код ошибки без адреса, темы и текста письма (проверка main, Q16). */
 function errorCode(error: unknown): string {
-  if (error instanceof MailError) return error.status === null ? 'нет ответа' : `код ${error.status}`;
+  if (error instanceof MailError || error instanceof TelegramError) return error.status === null ? 'нет ответа' : `код ${error.status}`;
   return error instanceof Error ? error.name : 'ошибка';
 }
 
@@ -88,8 +92,31 @@ function absolute(payload: Record<string, unknown>, hubUrl: string, locale: Loca
   return out;
 }
 
+/**
+ * Сообщение клиенту в Telegram основным ботом портала (план M4b, решения 1, 2 и 5). Чат и язык берутся в момент
+ * отправки: отвязал или заблокировал бота, строка пропускается. Ответ 403 значит, что человек заблокировал бота:
+ * привязка получает отметку, повторов нет. Остальные сбои (429, нет ответа) уходят в обычные повторы очереди.
+ */
+async function deliverTelegram(row: Row): Promise<Outcome> {
+  const bot = getTelegramBot();
+  const payload = row.payload as unknown as MailPayload;
+  if (!bot.enabled || !row.recipientUserId || !isTelegramPayload(payload)) return { kind: 'skipped' };
+  const chat = await telegramChat(row.recipientUserId);
+  if (!chat) return { kind: 'skipped' };
+  const notice = telegramNoticeText(payload, chat.locale ?? row.locale ?? 'ru', getEnv().HUB_URL);
+  try {
+    await bot.sendMessage(chat.chatId, notice.text, { linkButton: notice.button });
+  } catch (error) {
+    if (!(error instanceof TelegramError) || error.status !== 403) throw error;
+    await markTelegramBlocked(chat.chatId);
+    return { kind: 'skipped' };
+  }
+  return { kind: 'sent', externalId: `telegram-${row.outboxId}`, recipient: 'telegram' };
+}
+
 async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender | null): Promise<Outcome> {
   const env = getEnv();
+  if (row.channel === 'telegram' && row.recipientKind === 'user') return deliverTelegram(row);
   if (row.channel === 'telegram') {
     if (!oncall) return { kind: 'skipped' };
     const { oncallTelegramText } = await import('./oncall-text');

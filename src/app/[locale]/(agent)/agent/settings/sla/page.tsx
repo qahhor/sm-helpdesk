@@ -1,4 +1,4 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { loadSlaConfig, type Priority } from '@/modules/hdr/api';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -30,6 +30,7 @@ function localYearMonth(timeZone: string, now = new Date()): { year: number; mon
 export default async function SlaSettingsPage({ searchParams }: { searchParams: Promise<{ done?: string; error?: string; line?: string }> }) {
   const staff = await requireStaffActor({ roles: ['admin'] });
   const t = await getTranslations('agent');
+  const locale = await getLocale();
   const { done, error, line: lineParam } = await searchParams;
   const config = await loadSlaConfig(staff.actor);
   const nav = await settingsNav('sla');
@@ -48,7 +49,17 @@ export default async function SlaSettingsPage({ searchParams }: { searchParams: 
       <SettingsLayout {...nav}>
         {done && DONE.has(done) && <Alert tone="success">{t(`settings.sla.done.${done}`)}</Alert>}
         {error === 'holidaysLine' && <Alert tone="danger">{t('settings.sla.errors.holidaysLine', { line: Number(lineParam) || 1 })}</Alert>}
-        {error && error !== 'holidaysLine' && <Alert tone="danger">{t(error === 'forbidden' ? 'settings.sla.errors.forbidden' : 'settings.sla.errors.invalid_input')}</Alert>}
+        {error === 'stale_session' && (
+          <Alert tone="danger">
+            {t('settings.sla.errors.stale_session')}{' '}
+            <a href={`/${locale}/staff/login?reauth=1&next=${encodeURIComponent(`/${locale}/agent/settings/sla`)}`} className="font-semibold underline">
+              {t('settings.sla.reauth')}
+            </a>
+          </Alert>
+        )}
+        {error && error !== 'holidaysLine' && error !== 'stale_session' && (
+          <Alert tone="danger">{t(error === 'forbidden' ? 'settings.sla.errors.forbidden' : 'settings.sla.errors.invalid_input')}</Alert>
+        )}
         {nextYearMissing && <Alert tone="info">{t('settings.sla.holidaysMissing', { year: year + 1 })}</Alert>}
         <p className="text-secondary-foreground">{t('settings.sla.intro')}</p>
 

@@ -968,7 +968,8 @@
         "errors": {
           "forbidden": "Only an administrator can change targets",
           "invalid_input": "Check the values: minutes and days above zero, the end of a working day after its start, holiday dates of this year without repeats",
-          "holidaysLine": "Line {line}: there is no date of this year here. Nothing was saved, fix the line."
+          "holidaysLine": "Line {line}: there is no date of this year here. Nothing was saved, fix the line.",
+          "stale_session": "Changing settings needs a sign-in no older than 15 minutes."
         },
         "days7": {
           "0": "Sunday",
@@ -978,7 +979,8 @@
           "4": "Thursday",
           "5": "Friday",
           "6": "Saturday"
-        }
+        },
+        "reauth": "Sign in again"
       },
       "templates": {
         "title": "Reply templates",
@@ -1073,8 +1075,10 @@
           "forbidden": "Only the administrator can change these settings.",
           "invalid_input": "Check the values: email addresses, one shown address, chat number, bot token, periods from 1 to 30.",
           "oncallTest": "The message was not sent: check the chat number and the bot.",
-          "other": "That did not work. Try again."
-        }
+          "other": "That did not work. Try again.",
+          "stale_session": "Changing settings needs a sign-in no older than 15 minutes."
+        },
+        "reauth": "Sign in again"
       }
     },
     "queues": {

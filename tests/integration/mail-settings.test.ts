@@ -163,3 +163,12 @@ test('удаление из списка отклонённых возвраща
   expect((await listBlockedSenders(admin())).map((r) => r.address)).not.toContain('spammer@unknown.uz');
   expect((await deliver({ from: 'spammer@unknown.uz', subject: 'Теперь вопрос' })).result).toBe('new');
 });
+
+test('дежурные без чата Telegram сохраняются: только адреса почты (проверка волны 0)', async () => {
+  await saveOncall(admin(), { emails: ['duty@greenwhite.uz'], chatId: null, bot: 'main' });
+  expect(await readOncall(admin())).toMatchObject({ emails: ['duty@greenwhite.uz'], chatId: null, bot: 'main' });
+  // Чат был задан и убран.
+  await saveOncall(admin(), { emails: ['duty@greenwhite.uz'], chatId: '-100123', bot: 'main' });
+  await saveOncall(admin(), { emails: [], chatId: null, bot: 'main' });
+  expect(await readOncall(admin())).toMatchObject({ emails: [], chatId: null });
+});

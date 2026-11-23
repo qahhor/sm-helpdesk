@@ -6,6 +6,7 @@ import { withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import { readSetting, writeAudit, writeSettingTx } from '@/modules/hdc/api';
 import type { StaffContext } from '@/modules/hdu/api';
+import { FRESH_SIGN_IN_SEC, isFresh } from '@/modules/hdu/api/session';
 import { ONCALL_EMAILS_SETTING, oncallEmails, SUPPORT_ADDRESSES_SETTING, shownSupportAddress, supportAddresses } from '../core/mail-settings';
 import { BOT_TOKEN, ONCALL_BOT_SETTING, ONCALL_CHAT, ONCALL_CHAT_SETTING, oncallSender, oncallTokenSaved, saveOncallBotToken } from '../core/oncall';
 import { HdnError } from '../error';
@@ -46,6 +47,12 @@ function requireAdmin(ctx: StaffContext): void {
   if (ctx.actor.type !== 'staff' || ctx.actor.staffRole !== 'admin') throw new HdnError('forbidden');
 }
 
+/** Изменение настройки: администратор со входом не старше 15 минут (ТЗ 14.3, решение 0014; аудит 23.11.2026, S10). */
+function requireFreshAdmin(ctx: StaffContext): void {
+  requireAdmin(ctx);
+  if (!isFresh(ctx, new Date(), FRESH_SIGN_IN_SEC)) throw new HdnError('stale_session');
+}
+
 function parse<T>(schema: z.ZodType<T>, input: unknown): T {
   const parsed = schema.safeParse(input);
   if (!parsed.success) throw new HdnError('invalid_input');
@@ -56,7 +63,7 @@ function parse<T>(schema: z.ZodType<T>, input: unknown): T {
 
 /** Список адресов поддержки: ровно один показывается клиентам (подвал портала и письма). */
 export async function saveSupportAddresses(ctx: StaffContext, input: unknown): Promise<void> {
-  requireAdmin(ctx);
+  requireFreshAdmin(ctx);
   const list = parse(supportInput, input);
   await withActor(ctx.actor, (tx) => writeSettingTx(tx, SUPPORT_ADDRESSES_SETTING, list));
 }
@@ -131,7 +138,7 @@ export async function readOncall(ctx: StaffContext): Promise<OncallView> {
  * в журнале только отметка, что его заменили. Отдельный бот без токена (ни нового, ни сохранённого) не принимается.
  */
 export async function saveOncall(ctx: StaffContext, input: unknown): Promise<void> {
-  requireAdmin(ctx);
+  requireFreshAdmin(ctx);
   const data = parse(oncallInput, input);
   if (data.bot === 'own' && !data.botToken && !(await oncallTokenSaved())) throw new HdnError('invalid_input');
   if (data.botToken) await saveOncallBotToken(ctx.actor, data.botToken);
@@ -173,7 +180,7 @@ export async function listBlockedSenders(ctx: StaffContext): Promise<{ address: 
 
 /** Убрать адрес из спама: следующие письма с него снова разбираются как обычно. */
 export async function unblockSender(ctx: StaffContext, value: unknown): Promise<void> {
-  requireAdmin(ctx);
+  requireFreshAdmin(ctx);
   const target = parse(address, value);
   await withActor(ctx.actor, async (tx) => {
     const removed = await tx.delete(blockedSenders).where(eq(blockedSenders.address, target)).returning({ address: blockedSenders.address });

@@ -1,4 +1,4 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { intakeAddress, listBlockedSenders, listSupportAddresses, readOncall } from '@/modules/hdn/api/mail-settings';
 import { telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { readTimings } from '@/modules/hdt/api';
@@ -17,7 +17,7 @@ import { TimingsForm } from './TimingsForm';
 type Search = { done?: string; error?: string };
 
 const DONE = new Set(['support', 'test', 'oncall', 'oncallTest', 'timings', 'unblocked']);
-const ERRORS = new Set(['forbidden', 'invalid_input', 'oncallTest']);
+const ERRORS = new Set(['forbidden', 'invalid_input', 'oncallTest', 'stale_session']);
 
 /** Имя основного бота для подписи. Telegram недоступен или бот выключен: без имени, страница открывается. */
 async function mainBotName(): Promise<string | null> {
@@ -32,6 +32,7 @@ async function mainBotName(): Promise<string | null> {
 export default async function MailSettingsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const staff = await requireStaffActor({ roles: ['admin'] });
   const t = await getTranslations('agent');
+  const locale = await getLocale();
   const params = await searchParams;
   const [addresses, oncall, timings, senders, mainBot, nav] = await Promise.all([
     listSupportAddresses(staff),
@@ -53,7 +54,19 @@ export default async function MailSettingsPage({ searchParams }: { searchParams:
       />
       <SettingsLayout {...nav}>
         {done && <Alert tone="success">{t(`settings.mail.done.${done}`)}</Alert>}
-        {error && <Alert tone="danger">{t(`settings.mail.errors.${error}`)}</Alert>}
+        {error && (
+          <Alert tone="danger">
+            {t(`settings.mail.errors.${error}`)}
+            {error === 'stale_session' && (
+              <>
+                {' '}
+                <a href={`/${locale}/staff/login?reauth=1&next=${encodeURIComponent(`/${locale}/agent/settings/mail`)}`} className="font-semibold underline">
+                  {t('settings.mail.reauth')}
+                </a>
+              </>
+            )}
+          </Alert>
+        )}
         <SupportAddresses addresses={addresses} intake={intakeAddress()} />
         <OncallForm oncall={oncall} mainBot={mainBot} />
         <TimingsForm timings={timings} />

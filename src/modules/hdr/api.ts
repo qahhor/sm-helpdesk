@@ -2,6 +2,7 @@ import 'server-only';
 import { and, asc, eq } from 'drizzle-orm';
 import { type Actor, withActor } from '@/db/with-actor';
 import type { StaffContext } from '@/modules/hdu/api';
+import { FRESH_SIGN_IN_SEC, isFresh } from '@/modules/hdu/api/session';
 import { findPlaybookTx, listPlaybooksTx, type Playbook, PLAYBOOK_KEEPERS, savePlaybookTx } from './core/playbooks';
 import { listAllTemplatesTx, listTemplatesTx, type ReplyTemplate, saveTemplateTx } from './core/templates';
 import { loadSlaConfigTx, saveCalendarTx, saveHolidaysTx, saveSlaPolicyTx, type SlaConfig } from './core/sla-config';
@@ -52,6 +53,12 @@ function requireAdmin(ctx: StaffContext): void {
   if (ctx.actor.staffRole !== 'admin') throw new HdrError('forbidden');
 }
 
+/** Изменение настройки: администратор со входом не старше 15 минут (ТЗ 14.3, решение 0014; аудит 23.11.2026, S10). */
+function requireFreshAdmin(ctx: StaffContext): void {
+  requireAdmin(ctx);
+  if (!isFresh(ctx, new Date(), FRESH_SIGN_IN_SEC)) throw new HdrError('stale_session');
+}
+
 function parse<T>(schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false } }, input: unknown): T {
   const parsed = schema.safeParse(input);
   if (!parsed.success) throw new HdrError('invalid_input');
@@ -60,7 +67,7 @@ function parse<T>(schema: { safeParse: (value: unknown) => { success: true; data
 
 /** Сроки одного приоритета (FR-SLA-01). Новые значения действуют на новые расчёты (решение 0032). */
 export async function saveSlaPolicy(ctx: StaffContext, input: unknown): Promise<void> {
-  requireAdmin(ctx);
+  requireFreshAdmin(ctx);
   const data = parse(slaPolicyInput, input);
   await saveSlaPolicyTx(ctx.actor, data.priority, {
     firstResponseMinutes: data.firstResponseMinutes,
@@ -72,14 +79,14 @@ export async function saveSlaPolicy(ctx: StaffContext, input: unknown): Promise<
 
 /** Часовой пояс и график недели. */
 export async function saveCalendar(ctx: StaffContext, input: unknown): Promise<void> {
-  requireAdmin(ctx);
+  requireFreshAdmin(ctx);
   const data = parse(calendarInput, input);
   await saveCalendarTx(ctx.actor, data);
 }
 
 /** Праздники одного года (FR-SLA-12). */
 export async function saveHolidays(ctx: StaffContext, input: unknown): Promise<void> {
-  requireAdmin(ctx);
+  requireFreshAdmin(ctx);
   const data = parse(holidaysInput, input);
   await saveHolidaysTx(ctx.actor, data.year, data.dates);
 }

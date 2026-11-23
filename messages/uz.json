@@ -968,7 +968,8 @@
         "errors": {
           "forbidden": "Muddatlarni faqat administrator o'zgartira oladi",
           "invalid_input": "Qiymatlarni tekshiring: daqiqa va kunlar noldan katta, ish kuni oxiri boshlanishidan keyin, bayram sanalari shu yilga tegishli va takrorlanmagan",
-          "holidaysLine": "{line}-qator: bu yerda shu yil sanasi yo'q. Hech narsa saqlanmadi, qatorni tuzating."
+          "holidaysLine": "{line}-qator: bu yerda shu yil sanasi yo'q. Hech narsa saqlanmadi, qatorni tuzating.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak."
         },
         "days7": {
           "0": "Yakshanba",
@@ -978,7 +979,8 @@
           "4": "Payshanba",
           "5": "Juma",
           "6": "Shanba"
-        }
+        },
+        "reauth": "Qayta kirish"
       },
       "templates": {
         "title": "Javob shablonlari",
@@ -1073,8 +1075,10 @@
           "forbidden": "Bu sozlamalarni faqat administrator o'zgartira oladi.",
           "invalid_input": "Qiymatlarni tekshiring: pochta manzillari, bitta ko'rsatiladigan manzil, chat raqami, bot tokeni, 1 dan 30 gacha muddatlar.",
           "oncallTest": "Xabar yuborilmadi: chat raqami va botni tekshiring.",
-          "other": "Bo'lmadi. Yana urinib ko'ring."
-        }
+          "other": "Bo'lmadi. Yana urinib ko'ring.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak."
+        },
+        "reauth": "Qayta kirish"
       }
     },
     "queues": {

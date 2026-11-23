@@ -5,6 +5,8 @@ export const HDT_ERROR_CODES = [
   'invalid_input',
   'not_found',
   'forbidden',
+  // Настройку меняет только свежий вход администратора (аудит 23.11.2026, S10).
+  'stale_session',
   'rate_limited',
   // Переход статуса запрещён таблицей раздела 7.2 или обращение уже изменилось (второе нажатие).
   'transition_refused',

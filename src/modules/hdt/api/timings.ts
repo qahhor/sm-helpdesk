@@ -3,6 +3,7 @@ import * as z from 'zod';
 import { withActor } from '@/db/with-actor';
 import { readSetting, writeSettingTx } from '@/modules/hdc/api';
 import type { StaffContext } from '@/modules/hdu/api';
+import { FRESH_SIGN_IN_SEC, isFresh } from '@/modules/hdu/api/session';
 import { HdtError } from '../error';
 import { parseInput } from '../input';
 import {
@@ -42,6 +43,12 @@ function requireAdmin(ctx: StaffContext): void {
   if (ctx.actor.staffRole !== 'admin') throw new HdtError('forbidden');
 }
 
+/** Изменение настройки: администратор со входом не старше 15 минут (ТЗ 14.3, решение 0014; аудит 23.11.2026, S10). */
+function requireFreshAdmin(ctx: StaffContext): void {
+  requireAdmin(ctx);
+  if (!isFresh(ctx, new Date(), FRESH_SIGN_IN_SEC)) throw new HdtError('stale_session');
+}
+
 export async function readTimings(ctx: StaffContext): Promise<Timings> {
   requireAdmin(ctx);
   const entries = await Promise.all(
@@ -55,7 +62,7 @@ export async function readTimings(ctx: StaffContext): Promise<Timings> {
 
 /** Четыре срока одной транзакцией, каждый с записью журнала. */
 export async function saveTimings(ctx: StaffContext, input: unknown): Promise<void> {
-  requireAdmin(ctx);
+  requireFreshAdmin(ctx);
   const data = parseInput(timingsInput, input);
   await withActor(ctx.actor, async (tx) => {
     for (const key of Object.keys(CODES) as (keyof Timings)[]) await writeSettingTx(tx, CODES[key], data[key]);

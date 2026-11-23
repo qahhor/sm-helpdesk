@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { CLIENT_STATE } from './helpers/client';
-import { storageStateOf } from './helpers/staff';
+import { signInStaff, staffAccount } from './helpers/staff';
 
 // Экран "Уведомления и почта" (план M4, задача 12, решение 23): администратор задаёт адреса поддержки, показываемый
 // адрес клиенты видят в подвале кабинета.
@@ -9,13 +9,15 @@ import { storageStateOf } from './helpers/staff';
 test.beforeEach(({}, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'настройки проверяются на ноутбуке');
 });
-test.use({ storageState: storageStateOf('admin') });
+// Настройки меняет только свежий вход администратора (не старше 15 минут): тест входит сам, без сохранённой сессии.
+test.use({ storageState: { cookies: [], origins: [] } });
 
 const main = (page: Page) => page.getByRole('main');
 
 test('администратор добавляет два адреса поддержки, показываемый виден в подвале портала', async ({ page, browser }) => {
   const first = `support-${Date.now()}@greenwhite.test`;
   const second = `help-${Date.now()}@smartup24.test`;
+  await signInStaff(page, staffAccount('admin'));
   await page.goto('/ru/agent/settings');
   await main(page).getByRole('link', { name: /Уведомления и почта/ }).first().click();
   await expect(page).toHaveURL(/\/ru\/agent\/settings\/mail/);

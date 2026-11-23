@@ -25,6 +25,8 @@ export const HDU_ERROR_CODES = [
   'last_admin',
   // Домен почты уже записан у другой организации (FR-EM-06).
   'domain_taken',
+  // Пароль сотрудника из частых: Password12345, проход по клавиатуре, повтор (аудит 23.11.2026, S11).
+  'weak_password',
 ] as const;
 
 export type HduErrorCode = (typeof HDU_ERROR_CODES)[number];

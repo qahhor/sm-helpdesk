@@ -13,6 +13,7 @@ import { revokeOtherOwnSessions, revokeSessionById } from '../core/sessions';
 import { acceptStaffInvitationTx, findPendingStaffUserId, findStaff, findStaffByEmail, findStaffInvitation } from '../core/staff';
 import { HduError, type HduErrorCode } from '../error';
 import { emailInput, nameInput, parseInput, passwordInput, tokenInput, totpCodeInput } from '../input';
+import { isCommonPassword } from '../password-rules';
 import { AUTH_COOKIE_PREFIX } from '../pref';
 import { hashToken } from '../tokens';
 import { readSession, type RequestInfo } from './request';
@@ -91,6 +92,8 @@ export async function acceptStaffInvitation(input: unknown, request?: { headers:
   const redeem = await redeemAllowed(request ? clientIp(request.headers) : null);
   if (!redeem.ok) throw new HduError('rate_limited', { retryAfterSec: redeem.retryAfterSec });
   const data = parseInput(acceptInput, input);
+  // Частый пароль отклоняется до того, как приглашение потрачено: сотрудник задаёт другой по той же ссылке.
+  if (isCommonPassword(data.password)) throw new HduError('weak_password');
   await acceptStaffInvitationTx({
     tokenHash: hashToken(data.token),
     name: data.name,

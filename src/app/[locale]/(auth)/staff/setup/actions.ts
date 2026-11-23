@@ -22,6 +22,7 @@ export async function staffSetupAction(_previous: StaffSetupState, formData: For
     if (error.code === 'link_invalid') return { error: t('link_invalid') };
     if (error.code === 'email_taken') return { error: t('email_taken') };
     if (error.code === 'rate_limited') return { error: t('rate_limited') };
+    if (error.code === 'weak_password') return { error: t('weak_password') };
     return { error: t('invalid_input') };
   }
   redirect(`/${await getLocale()}/staff/login?setup=1`);

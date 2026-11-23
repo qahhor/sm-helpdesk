@@ -208,8 +208,40 @@ test('I10: гостевое членство в организации и сме
 test('I11: больше 20 писем на проверку в час с адреса сохраняются как rate_limited без заметки', async () => {
   const t = f.tickets.aOrg;
   const to = [replyAddress(t.number, f.aUser.userId, REPLY)];
-  for (let i = 0; i < 20; i++) expect((await deliver({ from: 'someone@other.uz', to, text: `Письмо ${i}` })).result).toBe('review');
+  for (let i = 0; i < 20; i++) {
+    // Предел на обращение (5 в час, аудит 23.11.2026, S12) здесь снят: проверяется предел на адрес отправителя.
+    await pools.root.query(`delete from hdc_rate_limits where code like 'email-review:ticket:%'`);
+    expect((await deliver({ from: 'someone@other.uz', to, text: `Письмо ${i}` })).result).toBe('review');
+  }
+  await pools.root.query(`delete from hdc_rate_limits where code like 'email-review:ticket:%'`);
   expect((await deliver({ from: 'someone@other.uz', to, text: 'Письмо 21' })).result).toBe('rate_limited');
   const notes = await pools.root.query(`select count(*)::int as n from hdt_ticket_messages where ticket_id = $1 and author_type = 'system' and is_internal`, [t.ticketId]);
   expect(notes.rows[0].n).toBe(20);
+});
+
+// --- Аудит 23.11.2026, находка S12: заметки "Письмо на проверке" в чужом обращении ---
+
+test('S12: в одно обращение не больше 5 заметок на проверку в час, даже с разных адресов', async () => {
+  const t = f.tickets.aOrg;
+  const to = [replyAddress(t.number, f.aUser.userId, REPLY)];
+  for (let i = 0; i < 5; i++) expect((await deliver({ from: `sender${i}@other.uz`, to, text: `Письмо ${i}` })).result).toBe('review');
+  expect((await deliver({ from: 'sender6@other.uz', to, text: 'Письмо 6' })).result).toBe('rate_limited');
+  const notes = await pools.root.query(`select count(*)::int as n from hdt_ticket_messages where ticket_id = $1 and author_type = 'system' and is_internal`, [t.ticketId]);
+  expect(notes.rows[0].n).toBe(5);
+});
+
+test('S12: ссылки из письма на проверке в заметку не попадают, узел остаётся виден', async () => {
+  const t = f.tickets.aOrg;
+  const to = [replyAddress(t.number, f.aUser.userId, REPLY)];
+  const text = 'Срочно войдите: https://hub-smartup.evil.example/login?next=1 и ещё http://203.0.113.7:8080/x, а также www.evil.example/pay. Спасибо.';
+  expect((await deliver({ from: 'someone@other.uz', to, text })).result).toBe('review');
+  const body = (await pools.root.query(`select body from hdt_ticket_messages where ticket_id = $1 and author_type = 'system' and is_internal`, [t.ticketId])).rows[0].body as string;
+  expect(body).not.toMatch(/https?:\/\//);
+  expect(body).not.toContain('www.evil.example/pay');
+  expect(body).not.toContain('/login?next=1');
+  expect(body).toContain('[ссылка убрана: hub-smartup.evil.example]');
+  expect(body).toContain('[ссылка убрана: 203.0.113.7]');
+  expect(body).toContain('[ссылка убрана: www.evil.example]');
+  expect(body).toContain('Срочно войдите:');
+  expect(body).toContain('Спасибо.');
 });

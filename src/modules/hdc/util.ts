@@ -144,3 +144,19 @@ export function isSameOriginJson(request: Request, hubUrl: string): boolean {
   const site = request.headers.get('sec-fetch-site');
   return type === 'application/json' && request.headers.get('origin') === hubUrl && (site === null || site === 'same-origin');
 }
+
+/**
+ * Переход самого человека: со страницы портала или из адресной строки. Для запросов GET, которые что-то меняют
+ * (код привязки Telegram): чужой сайт, картинка на чужой странице и предзагрузка ссылок такой запрос не выполнят
+ * (аудит 23.11.2026, находки S13 и A5). Браузер без заголовков Fetch Metadata пропускается: современный браузер
+ * шлёт их всегда, и чужой сайт не может их убрать.
+ */
+export function isOwnNavigation(headers: Headers): boolean {
+  const purpose = `${headers.get('sec-purpose') ?? ''} ${headers.get('purpose') ?? ''}`.toLowerCase();
+  if (purpose.includes('prefetch') || purpose.includes('prerender')) return false;
+  const site = headers.get('sec-fetch-site');
+  if (site === null) return true;
+  if (site !== 'same-origin' && site !== 'none') return false;
+  const mode = headers.get('sec-fetch-mode');
+  return mode === null || mode === 'navigate';
+}

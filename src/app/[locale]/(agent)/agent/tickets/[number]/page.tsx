@@ -10,7 +10,6 @@ import {
   getAgentTicket,
   HDT_ERROR_CODES,
   loadDraft,
-  markTicketRead,
   allowedStaffTransitions,
   MAX_FILES_PER_MESSAGE,
   QUEUE_KEYS,
@@ -33,6 +32,7 @@ import { inviteSenderAction } from './actions';
 import { Composer } from './Composer';
 import { MergeDialog } from './MergeDialog';
 import { PresenceBar } from './PresenceBar';
+import { SeenMark } from './SeenMark';
 import { ReturnDialog } from './ReturnDialog';
 import { TicketControls } from './TicketControls';
 import { TicketKeys } from './TicketKeys';
@@ -59,8 +59,6 @@ export default async function AgentTicketPage({ params, searchParams }: { params
   const raw = safeDecode((await params).number);
   const ticket = raw ? await getAgentTicket(staff, raw) : null;
   if (!ticket) notFound();
-  // Отметка просмотра после чтения: отметки "новое" показывают то, что было новым до этого визита.
-  await markTicketRead(staff, ticket.ticketId);
   const canWrite = staff.actor.staffRole !== 'product';
   const [assignable, modules, draft, templates] = canWrite
     ? await Promise.all([
@@ -257,6 +255,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
               template: t.raw('keys.commands.template') as string,
             }}
           />
+          <SeenMark ticketId={ticket.ticketId} />
           <PresenceBar number={ticket.number} labels={{ viewing: t.raw('ticket.presence.viewing') as string, typing: t.raw('ticket.presence.typing') as string }} />
           <Card>
             <CardContent className="flex flex-col gap-4 pt-6">

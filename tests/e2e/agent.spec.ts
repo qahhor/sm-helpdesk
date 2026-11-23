@@ -56,7 +56,8 @@ test('обращение у сотрудника открывается из о�
   await page.goto(`/ru/agent/queues?queue=all&q=SUP-${number}`);
   await main(page).getByRole('link', { name: String(number), exact: true }).click();
   // Ссылка из очереди несёт очередь и сортировку: по ним "Отправить и к следующему" (FR-AG-17).
-  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${number}\\?queue=all&sort=sla$`));
+  // Очередь "Все" по умолчанию идёт по последнему изменению: по сроку её не листают (волна 1, задача 2).
+  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${number}\\?queue=all&sort=updated$`));
   await expect(main(page).locator('article').getByText(description)).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Сведения об обращении' })).toContainText('ACME Trade');
   const axe = await new AxeBuilder({ page }).analyze();

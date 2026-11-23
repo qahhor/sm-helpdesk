@@ -9,6 +9,7 @@ import {
   type ChangeSummary,
   isHdtError,
   listPresence,
+  markTicketRead,
   mergeTicket,
   nextInQueue,
   parseNumber,
@@ -148,6 +149,19 @@ export async function saveDraftAction(input: { number: number; body: string; int
   } catch (error) {
     if (!isHdtError(error)) throw error;
     return { ok: false };
+  }
+}
+
+/**
+ * Отметка "просмотрено" (UX-A-15). Ставит страница в браузере после показа, а не чтение страницы на сервере
+ * (аудит 23.11.2026, находка A5): предзагрузка ссылки и запрос с чужой страницы обращение прочитанным не делают.
+ */
+export async function markSeenAction(ticketId: string): Promise<void> {
+  const staff = await requireStaffActor();
+  try {
+    await markTicketRead(staff, ticketId);
+  } catch (error) {
+    if (!isHdtError(error)) throw error;
   }
 }
 

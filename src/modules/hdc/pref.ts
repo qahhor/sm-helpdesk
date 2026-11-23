@@ -146,6 +146,8 @@ export const RATE_RULES = {
   unidentifiedAckPerSender: { limit: 1, windowSec: 3600 },
   /** Письма "на проверку" в обращение: 20 в час на адрес отправителя (итоговая проверка M4). */
   emailReviewPerSender: { limit: 20, windowSec: 3600 },
+  /** Письма "на проверку" в одно обращение: 5 в час с любых адресов (аудит 23.11.2026, находка S12). */
+  emailReviewPerTicket: { limit: 5, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

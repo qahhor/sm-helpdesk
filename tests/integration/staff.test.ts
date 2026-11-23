@@ -399,3 +399,17 @@ test('неверный и повторный код второго фактор�
     { object_id: staff.userId, diff: { step: 'code_reused' }, ip: '203.0.113.33' },
   ]);
 });
+
+test('частый пароль при первом входе отклоняется, приглашение остаётся действующим (аудит, S11)', async () => {
+  const { runCli } = await import('@/cli/commands');
+  const lines: string[] = [];
+  const io = { env: process.env, out: (line: string) => void lines.push(line), err: () => {}, readSecret: async () => '' };
+  expect(await runCli(['staff:create', '--email', 'weak@smartup.example', '--name', 'Слабый', '--role', 'care'], io)).toBe(0);
+  const token = (lines.find((line) => line.includes('token=')) ?? '').split('token=')[1] ?? '';
+  const { acceptStaffInvitation } = await import('@/modules/hdu/api/staff');
+  await expect(acceptStaffInvitation({ token, name: 'Слабый', password: 'Password12345' })).rejects.toMatchObject({ code: 'weak_password' });
+  await expect(acceptStaffInvitation({ token, name: 'Слабый', password: 'qwertyuiop12' })).rejects.toMatchObject({ code: 'weak_password' });
+  // Приглашение не потрачено: тот же токен принимает нормальный пароль.
+  await acceptStaffInvitation({ token, name: 'Слабый', password: 'osh-palov-2-kishi-7Q' });
+  expect((await pools.root.query(`select 1 from auth."user" where email = 'weak@smartup.example'`)).rowCount).toBe(1);
+});

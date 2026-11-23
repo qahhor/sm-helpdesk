@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, gt, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
@@ -332,4 +332,19 @@ export async function undeliveredMessages(actor: StaffActor, messageIds: string[
       .where(and(inArray(outbox.messageId, messageIds.slice(0, 500)), eq(outbox.status, 'failed'), eq(outbox.channel, 'email'))),
   );
   return new Set(rows.map((r) => r.messageId).filter((id): id is string => id !== null));
+}
+
+/** Отправленные строки очереди хранятся столько суток: в них текст письма (аудит 23.11.2026, находка P6). */
+export const OUTBOX_KEEP_DAYS = 30;
+
+/** Ночная очистка: отправленные, доставленные и пропущенные строки старше срока. Ждущие и не отправленные остаются. */
+export async function cleanupOutboxTx(actor: SystemActor, now: Date): Promise<number> {
+  const before = new Date(now.getTime() - OUTBOX_KEEP_DAYS * 86_400_000);
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .delete(outbox)
+      .where(and(inArray(outbox.status, ['sent', 'delivered', 'skipped']), lt(outbox.createdOn, before)))
+      .returning({ outboxId: outbox.outboxId }),
+  );
+  return rows.length;
 }

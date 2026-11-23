@@ -29,7 +29,7 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdc_settings: { client: 'none', app: IUD },
   // Уведомления
   // Очередь исходящих (веха M4): ставит действие, отправляет система, клиент не видит.
-  hdn_outbox: { client: 'none', app: IU },
+  hdn_outbox: { client: 'none', app: IUD },
   // Уведомления в портале и настройки писем (веха M4): только свои строки.
   // Изменение у hub_app только колонки read_on (GRANT UPDATE (read_on)): права на таблицу целиком нет.
   hdn_notifications: { client: 'own-user', app: ['insert', 'delete'] },
@@ -37,7 +37,7 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Токен отдельного бота дежурных (веха M4): читает только система.
   hdn_channel_secrets: { client: 'none', app: IU },
   // Приём писем (веха M4): пишет система, клиент не видит.
-  hdn_email_inbound: { client: 'none', app: IU },
+  hdn_email_inbound: { client: 'none', app: IUD },
   hdn_email_threads: { client: 'none', app: ['insert'] },
   hdn_blocked_senders: { client: 'none', app: ['insert', 'delete'] },
   hdn_telegram_updates: { client: 'none', app: ['insert', 'delete'] },

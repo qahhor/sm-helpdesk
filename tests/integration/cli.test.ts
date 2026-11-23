@@ -130,7 +130,7 @@ test('maintenance:cleanup удаляет только просроченные �
   );
   const { io, lines } = fakeIo();
   expect(await runCli(['maintenance:cleanup'], io)).toBe(0);
-  expect(lines).toEqual(['Удалено просроченных строк: счётчики частоты 1, события Telegram 1, сессии 1, одноразовые значения входа 1, ссылки и коды входа 0.']);
+  expect(lines).toEqual(['Удалено просроченных строк: счётчики частоты 1, события Telegram 1, сессии 1, одноразовые значения входа 1, ссылки и коды входа 0, отправленные письма очереди 0, разобранные входящие письма 0.']);
   expect((await pools.root.query(`select code from hdc_rate_limits`)).rows).toEqual([{ code: 'new:1' }]);
   expect((await pools.root.query(`select update_id from hdn_telegram_updates`)).rows).toEqual([{ update_id: '2' }]);
   expect((await pools.root.query(`select token from auth.session`)).rows).toEqual([{ token: 't-new' }]);

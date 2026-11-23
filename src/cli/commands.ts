@@ -5,7 +5,7 @@ import { addServer, checkServer, disableServer, listServers, type ServerIssue } 
 import { adminActorByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
-import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
+import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { cleanupRateLimits } from '@/modules/hdc/api';
 import { importModules } from '@/modules/hdr/api/import';
@@ -247,8 +247,10 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         const limits = await cleanupRateLimits();
         const updates = await cleanupTelegramUpdates(ACTOR);
         const { sessions, verifications, links } = await cleanupAuthRows(ACTOR);
+        const sentMail = await cleanupOutbox(ACTOR);
+        const letters = await cleanupInbound(ACTOR);
         io.out(
-          `Удалено просроченных строк: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}.`,
+          `Удалено просроченных строк: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, отправленные письма очереди ${sentMail}, разобранные входящие письма ${letters}.`,
         );
         return 0;
       }

@@ -4,7 +4,7 @@ import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import { configureLog, logEvent, timedJob } from '@/lib/log';
 import { bossOptions, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
-import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
+import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { dispatchOutbox, outboxState } from '@/modules/hdn/api/outbox';
@@ -118,8 +118,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const updates = await cleanupTelegramUpdates(system);
     const { sessions, verifications, links } = await cleanupAuthRows(system);
     const notices = await cleanupNotifications(system, new Date());
+    const sentMail = await cleanupOutbox(system);
+    const letters = await cleanupInbound(system);
     console.info(
-      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, прочитанные уведомления ${notices}`,
+      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, прочитанные уведомления ${notices}, отправленные письма очереди ${sentMail}, разобранные входящие письма ${letters}`,
     );
   }));
   if (opts.schedules !== false) for (const s of SCHEDULES) await boss.schedule(s.name, s.cron, null, { tz: s.tz });

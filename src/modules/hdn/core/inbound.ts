@@ -150,3 +150,18 @@ export async function staleInboundIds(actor: SystemActor, now: Date, limit: numb
   );
   return rows.map((row) => row.inboundId);
 }
+
+/** Разобранные входящие письма хранятся столько суток (аудит 23.11.2026, находка P6). */
+export const INBOUND_KEEP_DAYS = 90;
+
+/** Ночная очистка: разобранные письма старше срока. Неразобранные остаются: их видит сигнал дежурным. */
+export async function cleanupInboundTx(actor: SystemActor, now: Date): Promise<number> {
+  const before = new Date(now.getTime() - INBOUND_KEEP_DAYS * 86_400_000);
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .delete(emailInbound)
+      .where(and(isNotNull(emailInbound.processedOn), lt(emailInbound.createdOn, before)))
+      .returning({ inboundId: emailInbound.inboundId }),
+  );
+  return rows.length;
+}

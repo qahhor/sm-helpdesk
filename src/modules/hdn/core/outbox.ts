@@ -139,33 +139,41 @@ async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender |
       ? replyAddress(number, row.recipientUserId, reply)
       : undefined;
   let externalId = '';
+  // Ошибка одного адреса не останавливает остальные (M4, мелкое 4): строка уйдёт в повтор, уже отправленные адреса
+  // сервис не повторит по тому же ключу.
+  let failure: unknown = null;
   for (const [index, target] of targets.entries()) {
-    const data = {
-      ...absolute(row.payload, env.HUB_URL, target.locale),
-      hubUrl: env.HUB_URL,
-      supportAddress,
-      settingsUrl: row.settingsPath ? `${env.HUB_URL}/${target.locale}${row.settingsPath}` : null,
-    } as unknown as MailData;
-    const mail = await renderMail(row.template as MailTemplate, target.locale, data);
-    const key = index === 0 ? row.outboxId : `${row.outboxId}-${index}`;
-    const result = await provider.send(
-      {
-        to: target.address,
-        subject: mail.subject,
-        html: mail.html,
-        text: mail.text,
-        ...(replyTo ? { replyTo } : {}),
-        headers: {
-          // Наши письма не ждут автоответов (решение 17), у письма свой Message-ID для цепочки (решение 20).
-          'Auto-Submitted': 'auto-generated',
-          'X-Auto-Response-Suppress': 'All',
-          'Message-ID': `<${key}@${domain}>`,
+    try {
+      const data = {
+        ...absolute(row.payload, env.HUB_URL, target.locale),
+        hubUrl: env.HUB_URL,
+        supportAddress,
+        settingsUrl: row.settingsPath ? `${env.HUB_URL}/${target.locale}${row.settingsPath}` : null,
+      } as unknown as MailData;
+      const mail = await renderMail(row.template as MailTemplate, target.locale, data);
+      const key = index === 0 ? row.outboxId : `${row.outboxId}-${index}`;
+      const result = await provider.send(
+        {
+          to: target.address,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+          ...(replyTo ? { replyTo } : {}),
+          headers: {
+            // Наши письма не ждут автоответов (решение 17), у письма свой Message-ID для цепочки (решение 20).
+            'Auto-Submitted': 'auto-generated',
+            'X-Auto-Response-Suppress': 'All',
+            'Message-ID': `<${key}@${domain}>`,
+          },
         },
-      },
-      key,
-    );
-    if (index === 0) externalId = result.providerId;
+        key,
+      );
+      if (index === 0) externalId = result.providerId;
+    } catch (error) {
+      failure ??= error;
+    }
   }
+  if (failure) throw failure;
   return { kind: 'sent', externalId, recipient: targets.map((t) => t.address).join(', ').slice(0, 320), messageId: `<${row.outboxId}@${domain}>` };
 }
 
@@ -202,27 +210,31 @@ export async function dispatchOutbox(
     } catch (error) {
       outcome = { kind: 'error', error: errorCode(error) };
     }
+    // Итог пишется только в строку, которая ещё ждёт: если срок захвата истёк и строку отметил другой процесс,
+    // его запись не перетирается (M4, мелкое 2).
+    const queuedRow = and(eq(outbox.outboxId, row.outboxId), eq(outbox.status, 'queued'));
     await withActor(actor, async (tx) => {
       if (outcome.kind === 'sent') {
         result.sent++;
-        await tx
+        const marked = await tx
           .update(outbox)
           .set({ status: 'sent', externalId: outcome.externalId, recipient: outcome.recipient, sentOn: now, lastError: null })
-          .where(eq(outbox.outboxId, row.outboxId));
+          .where(queuedRow)
+          .returning({ outboxId: outbox.outboxId });
         // Ответ на наше письмо без адреса ответа найдёт обращение по In-Reply-To (решение 20, итоговая проверка M4).
-        if (row.ticketId && outcome.messageId) await recordThreadTx(tx, { ticketId: row.ticketId, messageId: outcome.messageId, direction: 'out' });
+        if (marked.length > 0 && row.ticketId && outcome.messageId) await recordThreadTx(tx, { ticketId: row.ticketId, messageId: outcome.messageId, direction: 'out' });
       } else if (outcome.kind === 'skipped') {
         result.skipped++;
-        await tx.update(outbox).set({ status: 'skipped' }).where(eq(outbox.outboxId, row.outboxId));
+        await tx.update(outbox).set({ status: 'skipped' }).where(queuedRow);
       } else if (row.attempts >= OUTBOX_MAX_ATTEMPTS) {
         result.failed++;
-        await tx.update(outbox).set({ status: 'failed', lastError: outcome.error }).where(eq(outbox.outboxId, row.outboxId));
+        await tx.update(outbox).set({ status: 'failed', lastError: outcome.error }).where(queuedRow);
       } else {
         const pause = OUTBOX_RETRY_MINUTES[row.attempts - 1] ?? OUTBOX_RETRY_MINUTES[OUTBOX_RETRY_MINUTES.length - 1];
         await tx
           .update(outbox)
           .set({ lastError: outcome.error, nextAttemptOn: new Date(now.getTime() + pause * MINUTE) })
-          .where(eq(outbox.outboxId, row.outboxId));
+          .where(queuedRow);
       }
     });
   }

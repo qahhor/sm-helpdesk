@@ -1816,7 +1816,9 @@
       "merged": "SUP-{into} bilan birlashtirildi. Yozishma o'sha yerda davom etadi.",
       "resolved": "Murojaat hal qilindi. Javobni baholang yoki murojaatni qayta oching.",
       "reminder": "Javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi."
-    }
+    },
+    "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
+    "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}"
   },
   "dev": {
     "title": "Komponentlar vitrinasi",

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
 import { parseMailbox, WebhookSignatureError } from '@/modules/hdn/provider';
-import { createResendProvider } from '@/modules/hdn/resend';
+import { createResendProvider, MailError } from '@/modules/hdn/resend';
 import { createMemoryEmailProvider } from '@/modules/hdn/testing';
 
 // Почтовый сервис вехи M4 (раздел 11.11, решения 10 и 20): отправка писем очереди, проверка подписи вебхука,
@@ -168,4 +168,19 @@ test('заглушка: подписанный запрос проходит п�
   expect(await provider.fetchInbound('e1')).toEqual({ html: null, text: 'Текст', headers: [] });
   await provider.send({ to: 'a@example.uz', subject: 's', html: 'h', text: 't' }, 'k1');
   expect(provider.sent).toEqual([{ message: { to: 'a@example.uz', subject: 's', html: 'h', text: 't' }, idempotencyKey: 'k1' }]);
+});
+
+test('чтение вложения прерывается по пределу времени: тело, которое не кончается, не держит разбор письма (M4, мелкое 13)', async () => {
+  // Заголовки пришли сразу, тело отдаёт один кусок и замолкает.
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(4));
+      },
+    });
+    return new Response(body, { status: 200 });
+  });
+  const started = Date.now();
+  await expect(make(fetch).download('https://cdn.example.test/slow', 1000)).rejects.toThrow(MailError);
+  expect(Date.now() - started).toBeLessThan(2000);
 });

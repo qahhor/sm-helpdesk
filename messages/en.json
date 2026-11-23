@@ -1816,7 +1816,9 @@
       "merged": "Merged into SUP-{into}. The conversation continues there.",
       "resolved": "The request is resolved. Rate the answer or reopen the request.",
       "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
-    }
+    },
+    "oncallP1": "P1: new urgent request SUP-{number}",
+    "oncallP1Org": "P1: new urgent request SUP-{number}, {org}"
   },
   "dev": {
     "title": "Component showcase",

@@ -1,72 +1,17 @@
-import { lookup } from 'node:dns/promises';
-import { BlockList, isIP } from 'node:net';
+import { isIP } from 'node:net';
 import { HduError } from './error';
 import { readLimited } from '@/modules/hdc/api';
+import { BlockedAddressError, createGuardedFetch, hostOf, isPrivateAddress, LOOPBACK_HOSTS, type Resolve, resolverFor, setDnsResolverForTests } from '@/security/outbound';
 
 // Адреса серверов Smartup вводит администратор, и портал потом сам ходит по ним (документ discovery,
 // ключи, обмен кода на токен). Чтобы этим нельзя было заставить портал обратиться во внутреннюю сеть
 // (угроза T16, SSRF), адрес принимается, только если он внешний: схема https, узел не служебный,
-// и ни один из адресов, в которые разрешается имя, не частный.
+// и ни один из адресов, в которые разрешается имя, не частный. Диапазоны адресов и сам запрос с проверкой
+// при соединении живут в общем сетевом слое src/security/outbound.ts.
 
-export type Resolve = (host: string) => Promise<string[]>;
-
-// Частные, локальные и служебные диапазоны. Документационные (192.0.2.0/24, 203.0.113.0/24, 2001:db8::/32)
-// не закрыты: в интернете они не встречаются, а тестам нужны.
-// Списки для IPv4 и IPv6 раздельные: BlockList проверяет адрес IPv4 и по правилам IPv6 в виде ::ffff:a.b.c.d,
-// и правило ::ffff:0:0/96 закрыло бы все адреса IPv4.
-const BLOCKED_V4 = new BlockList();
-const BLOCKED_V6 = new BlockList();
-for (const [net, prefix] of [
-  ['0.0.0.0', 8],
-  ['10.0.0.0', 8],
-  ['100.64.0.0', 10],
-  ['127.0.0.0', 8],
-  ['169.254.0.0', 16],
-  ['172.16.0.0', 12],
-  ['192.0.0.0', 24],
-  ['192.168.0.0', 16],
-  ['198.18.0.0', 15],
-  ['224.0.0.0', 4],
-  ['240.0.0.0', 4],
-] as const)
-  BLOCKED_V4.addSubnet(net, prefix, 'ipv4');
-for (const [net, prefix] of [
-  ['::', 128],
-  ['::1', 128],
-  // Любой IPv4 в записи IPv6 закрыт целиком: так не проверять его отдельно.
-  ['::ffff:0:0', 96],
-  ['64:ff9b::', 96],
-  // Тоже несут адрес IPv4 внутри: локальный NAT64, 6to4 и Teredo (итоговая проверка M1).
-  ['64:ff9b:1::', 48],
-  ['2002::', 16],
-  ['2001::', 32],
-  ['100::', 64],
-  ['fc00::', 7],
-  ['fe80::', 10],
-  ['ff00::', 8],
-] as const)
-  BLOCKED_V6.addSubnet(net, prefix, 'ipv6');
+export { isPrivateAddress, type Resolve, setDnsResolverForTests };
 
 const BLOCKED_SUFFIXES = ['.local', '.internal', '.localhost'];
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1']);
-
-export function isPrivateAddress(address: string): boolean {
-  const family = isIP(address);
-  if (family === 0) return true;
-  return family === 4 ? BLOCKED_V4.check(address, 'ipv4') : BLOCKED_V6.check(address, 'ipv6');
-}
-
-const systemResolve: Resolve = async (host) => (await lookup(host, { all: true, verbatim: true })).map((entry) => entry.address);
-
-const shared = globalThis as typeof globalThis & { __hubDnsResolve?: Resolve | null };
-
-/**
- * Подмена разрешения имён в тестах: имена вида *.example в настоящем DNS не разрешаются.
- * null возвращает системное разрешение.
- */
-export function setDnsResolverForTests(resolve: Resolve | null): void {
-  shared.__hubDnsResolve = resolve;
-}
 
 const invalid = () => new HduError('invalid_input');
 
@@ -84,7 +29,7 @@ export async function assertPublicUrl(raw: string, opts: { allowLoopback: boolea
     throw invalid();
   }
   if (url.username || url.password) throw invalid();
-  const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
+  const host = hostOf(url);
 
   if (opts.allowLoopback && LOOPBACK_HOSTS.has(host) && (url.protocol === 'http:' || url.protocol === 'https:')) return url;
   if (url.protocol !== 'https:') throw invalid();
@@ -96,7 +41,7 @@ export async function assertPublicUrl(raw: string, opts: { allowLoopback: boolea
   }
   let addresses: string[];
   try {
-    addresses = await (opts.resolve ?? shared.__hubDnsResolve ?? systemResolve)(host);
+    addresses = await resolverFor(opts.resolve)(host);
   } catch {
     throw invalid();
   }
@@ -130,9 +75,11 @@ async function readLimitedOrThrow(response: Response, maxBytes: number): Promise
 }
 
 /**
- * Загружает документ JSON с сервера Smartup. Адрес проверяется assertPublicUrl в момент запроса
- * (угроза T16), перенаправления запрещены, тело читается не дальше maxBytes, на всё отведено timeoutMs.
- * Ошибки: HduError('invalid_input') для внутреннего адреса, иначе SafeFetchError с причиной.
+ * Загружает документ JSON с сервера Smartup. Адрес проверяется дважды (угроза T16): assertPublicUrl до запроса
+ * и сетевой слой в момент соединения, тем же разрешением имени, которое получает сокет (находка S14: подмена
+ * ответа DNS между проверкой и соединением). Перенаправления запрещены, тело читается не дальше maxBytes,
+ * на всё отведено timeoutMs. Ошибки: HduError('invalid_input') для внутреннего адреса, иначе SafeFetchError.
+ * opts.fetch подменяет сетевой слой в тестах.
  */
 export async function safeFetchJson(
   url: URL,
@@ -150,12 +97,13 @@ export async function safeFetchJson(
   const load = async () => {
     let response: Response;
     try {
-      response = await (opts.fetch ?? globalThis.fetch)(url, {
+      response = await (opts.fetch ?? createGuardedFetch({ allowLoopback: opts.allowLoopback, resolve: opts.resolve }))(url, {
         redirect: 'error',
         signal: controller.signal,
         headers: { accept: 'application/json' },
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof BlockedAddressError) throw invalid();
       throw new SafeFetchError('unreachable');
     }
     // Перенаправление тоже ошибка: новый адрес не проверен.

@@ -15,6 +15,7 @@ import { listSsoServers } from '@/modules/hdu/core/servers';
 import { setDnsResolverForTests } from '@/modules/hdu/url-safety';
 import { staffCtx } from './helpers/auth';
 import { pools } from './helpers/db';
+import { spyOutbound } from './helpers/outbound';
 import { seedTwoOrgs } from './isolation/fixture';
 
 const system: SystemActor = { type: 'system', job: 'test' };
@@ -131,7 +132,7 @@ test('сервер с нерасшифровываемым секретом пр
 
 /** Ответ сервера Smartup на запрос документа discovery: объект JSON, текст или ошибка сети. */
 async function withDiscovery<T>(body: unknown, run: () => Promise<T>): Promise<T> {
-  const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+  const spy = spyOutbound().mockImplementation(async () => {
     if (body instanceof Error) throw body;
     if (typeof body === 'string') return new Response(body, { headers: { 'content-type': 'text/html' } });
     return new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
@@ -172,7 +173,7 @@ test('проверка связи называет каждую проблему
 test('документ discovery ищется по адресу сервера входа, в том числе с путём', async () => {
   await addServer(system, { ...input, code: 'realm', issuer: 'https://id.chk.example/realms/smartup/', baseUrl: 'https://realm.example' });
   const urls: string[] = [];
-  const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+  const spy = spyOutbound().mockImplementation(async (url) => {
     urls.push(String(url));
     return new Response(JSON.stringify({ ...good, issuer: 'https://id.chk.example/realms/smartup/' }));
   });
@@ -185,7 +186,7 @@ test('сервер с явными адресами проверяется по 
   const endpoints = { authorization: 'https://e.example/a', token: 'https://e.example/t', userinfo: 'https://e.example/u', jwks: 'https://e.example/j' };
   await addServer(system, { ...input, code: 'expl', issuer: 'https://e.example', baseUrl: 'https://expl.example', endpoints });
   const urls: string[] = [];
-  const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+  const spy = spyOutbound().mockImplementation(async (url) => {
     urls.push(String(url));
     return new Response(JSON.stringify({ keys: [{ kty: 'RSA' }] }));
   });

@@ -300,3 +300,10 @@ test('идентификатор сервиса проверки почты: и�
   expect(problems({ ...ok, INBOUND_AUTHSERV_ID: 'two words' }).map((x) => x.name)).toEqual(['INBOUND_AUTHSERV_ID']);
   expect(parseEnv(ok).INBOUND_AUTHSERV_ID).toBeUndefined();
 });
+
+test('узлы скачивания вложений писем: имена через запятую, адрес со схемой или путём отклоняется (аудит, S15)', () => {
+  expect(problems({ ...prod, INBOUND_DOWNLOAD_HOSTS: 'resend.com' })).toEqual([]);
+  expect(problems({ ...prod, INBOUND_DOWNLOAD_HOSTS: 'resend.com, files.example.net' })).toEqual([]);
+  for (const bad of ['https://resend.com', 'resend.com/path', 'com', '*', 'resend.com,'])
+    expect(problems({ ...prod, INBOUND_DOWNLOAD_HOSTS: bad }).map((x) => x.name), bad).toEqual(['INBOUND_DOWNLOAD_HOSTS']);
+});

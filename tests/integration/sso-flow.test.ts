@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import type { SystemActor } from '@/db/with-actor';
-import { addServer, disableServer } from '@/modules/hdu/api/servers';
+import { addServer, checkServer, disableServer } from '@/modules/hdu/api/servers';
 import { startSmartupSignIn } from '@/modules/hdu/api/sso';
 import { isSyntheticEmail } from '@/modules/hdu/util';
 import { buildTestAuth, enrolledStaffFixture, newJar } from './helpers/auth';
@@ -192,4 +192,12 @@ test('Smartup не отвечает: вход не падает ошибкой �
     clientSecret: 'mock-client-secret',
   });
   expect(await startSmartupSignIn({ locale: 'ru' }, requestWithServerCookie('down'))).toEqual({ error: 'server_unavailable' });
+});
+
+test('проверка связи идёт настоящим запросом через сетевой слой: локальный сервер входа отвечает (аудит, S14)', async () => {
+  // Без подмены запроса: документ discovery и ключи читаются с ложного сервера на localhost.
+  expect(await checkServer(system, mock.code)).toMatchObject({ ok: true, issues: [] });
+  await mock.stop();
+  expect((await checkServer(system, mock.code)).issues).toEqual(['unreachable']);
+  mock = await startMockOidc('mock', 3290);
 });

@@ -201,7 +201,12 @@ export async function getEmailProvider(): Promise<EmailProvider> {
     if (env.MAIL_TRANSPORT === 'resend') {
       const { createResendProvider } = await import('./resend');
       if (!env.RESEND_API_KEY || !env.MAIL_FROM) throw new Error('RESEND_API_KEY и MAIL_FROM обязательны, а MAIL_TRANSPORT равен resend');
-      shared.__hubEmailProvider = createResendProvider({ apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM, webhookSecret: env.RESEND_WEBHOOK_SECRET });
+      shared.__hubEmailProvider = createResendProvider({
+        apiKey: env.RESEND_API_KEY,
+        from: env.MAIL_FROM,
+        webhookSecret: env.RESEND_WEBHOOK_SECRET,
+        downloadHosts: env.INBOUND_DOWNLOAD_HOSTS?.split(',').map((host) => host.trim()),
+      });
     } else shared.__hubEmailProvider = createLocalProvider(env);
   }
   return shared.__hubEmailProvider;

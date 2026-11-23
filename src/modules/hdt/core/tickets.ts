@@ -6,6 +6,7 @@ import { writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, type Impact, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
+import { finalMainNumberTx } from './merged-into';
 import { timelineWindowTx } from './timeline';
 import { refreshSla } from './sla';
 import { notifyTicketTx, oncallP1Tx } from './notify';
@@ -325,9 +326,7 @@ export async function readTicket(
       ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.relatedTicketId)).limit(1))[0]?.number ?? null)
       : null;
     // Номер основного только если основное видно этому клиенту (решение 4 плана M3): запрос идёт под его политикой.
-    const mergedIntoNumber = ticket.mergedIntoId
-      ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.mergedIntoId)).limit(1))[0]?.number ?? null)
-      : null;
+    const mergedIntoNumber = await finalMainNumberTx(tx, ticket.mergedIntoId);
     return { ticket, messages, events, attachments: files, hasEarlier: window.hasEarlier, watching, relatedNumber, mergedIntoNumber };
   });
 }

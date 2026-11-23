@@ -89,9 +89,11 @@ async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
       .limit(SWEEP_BATCH)
       .for('update', { skipLocked: true });
     if (first.length > 0)
-      await tx.update(tickets).set({ firstResponseBreachedOn: now }).where(inArray(tickets.ticketId, first.map((t) => t.ticketId)));
+      // Время нарушения это сам срок, а не время запуска задачи (M3, мелкое 1): после простоя процесса показатели
+      // нарушений не сдвигаются на время простоя.
+      await tx.update(tickets).set({ firstResponseBreachedOn: sql`${tickets.firstResponseDueOn}` }).where(inArray(tickets.ticketId, first.map((t) => t.ticketId)));
     if (resolution.length > 0)
-      await tx.update(tickets).set({ resolutionBreachedOn: now }).where(inArray(tickets.ticketId, resolution.map((t) => t.ticketId)));
+      await tx.update(tickets).set({ resolutionBreachedOn: sql`${tickets.resolutionDueOn}` }).where(inArray(tickets.ticketId, resolution.map((t) => t.ticketId)));
     const events = [
       ...first.map((t) => ({ ...t, kind: 'first_response' })),
       ...resolution.map((t) => ({ ...t, kind: 'resolution' })),

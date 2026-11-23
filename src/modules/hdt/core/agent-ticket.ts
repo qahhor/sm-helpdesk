@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { attachments, lineTransfers, ticketEvents, ticketMessages, ticketReads, tickets } from '../schema';
+import { finalMainNumberTx } from './merged-into';
 import { type TimelineWindow, timelineWindowTx } from './timeline';
 
 // Модуль hdt, слой core: обращение глазами сотрудника (FR-AG-04, FR-AG-05, UX-A-15; план M3, задача 6).
@@ -101,9 +102,7 @@ export async function readAgentTicketTx(
       .returning({ ticketId: ticketReads.ticketId });
     if (logged.length > 0)
       await writeAudit(tx, { action: 'ticket.viewed_by_staff', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: { number: ticket.number } });
-    const mergedIntoNumber = ticket.mergedIntoId
-      ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.mergedIntoId)).limit(1))[0]?.number ?? null)
-      : null;
+    const mergedIntoNumber = await finalMainNumberTx(tx, ticket.mergedIntoId);
     return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, window, transfer: transfer ?? null, mergedIntoNumber };
   });
 }

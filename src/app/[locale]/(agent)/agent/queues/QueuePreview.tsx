@@ -34,9 +34,13 @@ export async function QueuePreview({ number, queue, sort, staff }: { number: num
               </p>
               <Markdown text={ticket.description} />
               {last && last.type === 'message' && (
-                <div className="flex flex-col gap-1 border-t border-border pt-3 text-sm">
-                  <p className="text-muted-foreground">
-                    {last.authorName ?? t(`ticket.authors.${last.authorType}`)}, {format.dateTime(last.createdOn, { dateStyle: 'medium', timeStyle: 'short' })}
+                <div className="flex flex-col gap-1 border-t border-border pt-3 text-sm" data-internal={last.isInternal ? '' : undefined}>
+                  <p className="flex flex-wrap items-center gap-2 text-muted-foreground">
+                    {/* Заметку клиент не видит: без отметки её легко принять за ответ клиенту (M3, мелкое 8). */}
+                    {last.isInternal && <StatusLabel tone="orange">{t('ticket.note')}</StatusLabel>}
+                    <span>
+                      {last.authorName ?? t(`ticket.authors.${last.authorType}`)}, {format.dateTime(last.createdOn, { dateStyle: 'medium', timeStyle: 'short' })}
+                    </span>
                   </p>
                   <Markdown text={last.body} />
                 </div>

@@ -407,6 +407,20 @@ test('на широком экране список и обращение ряд
   await expect(pane).toBeHidden();
 });
 
+test('обращение рядом со списком: последняя запись, если это заметка, помечена "Заметка" (M3, мелкое 8)', async ({ page, browser }) => {
+  const stamp = `Заметка рядом ${Date.now()}`;
+  const number = await clientTicket(browser, stamp);
+  await dbRows(
+    `insert into hdt_ticket_messages (org_id, ticket_id, author_id, author_type, body, is_internal, source)
+     select org_id, ticket_id, null, 'system', 'Только для сотрудников', true, 'email' from hdt_tickets where number = ${number}`,
+  );
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(`/ru/agent/queues?queue=all&sort=updated&q=${encodeURIComponent(stamp)}&open=${number}`);
+  const pane = page.getByRole('complementary', { name: 'Обращение рядом со списком' });
+  await expect(pane).toContainText('Только для сотрудников');
+  await expect(pane.locator('[data-internal]')).toContainText('Заметка');
+});
+
 /** Нет прокрутки вбок: содержимое помещается в окно (UX-C-12 для рабочего места). */
 const noSideScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 const seriousViolations = async (page: Page) =>

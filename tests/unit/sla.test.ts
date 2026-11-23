@@ -85,8 +85,7 @@ test('рабочее время за 200 дней не форматирует д
 });
 
 test('запоминание границ не путает часовые пояса и не ломает переход на летнее время', () => {
-  const week = TASHKENT_DEFAULT === '24x7' ? null : TASHKENT_DEFAULT.week;
-  if (!week) throw new Error('ожидается рабочий календарь');
+  const { week } = TASHKENT_DEFAULT;
   const berlin = { timeZone: 'Europe/Berlin', week, holidays: [] };
   const tashkent = { timeZone: 'Asia/Tashkent', week, holidays: [] };
   // Понедельник 30.03.2026, 08:00-20:00 местного: в Берлине уже летнее время (UTC+2), в Ташкенте UTC+5.

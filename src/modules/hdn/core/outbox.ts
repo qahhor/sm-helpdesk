@@ -188,6 +188,26 @@ async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender |
   return { kind: 'sent', externalId, recipient: targets.map((t) => t.address).join(', ').slice(0, 320), messageId: `<${row.outboxId}@${domain}>` };
 }
 
+/**
+ * Состояние очереди для наблюдения (аудит 23.11.2026, O1): сколько строк ждёт, сколько не отправлено и сколько секунд
+ * ждёт самая старая строка, срок отправки которой уже наступил. Пауза перед повтором задержкой не считается.
+ */
+export async function outboxState(actor: SystemActor, now: Date): Promise<{ queued: number; failed: number; lagSec: number }> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .select({
+        queued: sql<number>`count(*) filter (where ${outbox.status} = 'queued')::int`,
+        failed: sql<number>`count(*) filter (where ${outbox.status} = 'failed')::int`,
+        oldest: sql<string | null>`min(${outbox.nextAttemptOn}) filter (where ${outbox.status} = 'queued' and ${outbox.nextAttemptOn} <= ${now})::text`,
+      })
+      .from(outbox)
+      .where(inArray(outbox.status, ['queued', 'failed'])),
+  );
+  const row = rows[0];
+  const lagSec = row?.oldest ? Math.max(0, Math.round((now.getTime() - new Date(row.oldest).getTime()) / 1000)) : 0;
+  return { queued: row?.queued ?? 0, failed: row?.failed ?? 0, lagSec };
+}
+
 async function telegramDelivered(actor: SystemActor, outboxId: string): Promise<boolean> {
   const rows = await withActor(actor, (tx) => tx.select({ status: outbox.status }).from(outbox).where(eq(outbox.outboxId, outboxId)).limit(1));
   return rows[0]?.status === 'sent' || rows[0]?.status === 'delivered';

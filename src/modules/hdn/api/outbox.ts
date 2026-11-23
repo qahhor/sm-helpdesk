@@ -8,6 +8,7 @@ export {
   enqueueTx,
   OUTBOX_MAX_ATTEMPTS,
   OUTBOX_RETRY_MINUTES,
+  outboxState,
   type OncallSender,
   type OutboxItem,
   recordDelivery,

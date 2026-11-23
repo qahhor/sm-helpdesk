@@ -150,6 +150,8 @@ const schema = z
     TELEGRAM_API_URL: z.url({ error: 'ожидается адрес' }).default('https://api.telegram.org'),
     HUB_SHOWCASE: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error'], { error: 'ожидается debug, info, warn или error' }).default('info'),
+    // Формат журнала: строки JSON для сбора и поиска (по умолчанию в production) или текст для окна разработчика.
+    LOG_FORMAT: z.enum(['json', 'text'], { error: 'ожидается json или text' }).optional(),
     // Заголовок, из которого берётся адрес посетителя для счётчиков частоты и журнала аудита (итоговая проверка M1).
     // За Cloudflare это cf-connecting-ip. Не задан: x-forwarded-for, только для localhost.
     CLIENT_IP_HEADER: clientIpHeaderField,

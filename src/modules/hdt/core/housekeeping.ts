@@ -23,6 +23,7 @@ import { addWorkingDays } from '../sla';
 import { systemText, type SystemTextKey } from '../system-text';
 import { notifyTicketTx } from './notify';
 import { needsSlaRefreshTx, refreshSla } from './sla';
+import { logEvent } from '@/lib/log';
 
 // Модуль hdt, слой core: задача раз в минуту (решения 2, 8, 13, 14 плана M3; FR-TK-10, FR-TK-15, 10.5). Каждый шаг
 // своей транзакцией системного актора, пачками по 200 строк с FOR UPDATE SKIP LOCKED: два экземпляра задачи не берут
@@ -311,9 +312,17 @@ async function removePresence(actor: SystemActor, now: Date): Promise<number> {
  * Шаг своей транзакцией: сбой одного шага (испорченный календарь, взаимная блокировка) пишется в журнал процесса
  * и не останавливает остальные. Следующая минута повторит его (итоговая проверка M3).
  */
+/** Шаг задачи раз в минуту дольше этого порога пишется в журнал. */
+const SLOW_STEP_MS = 5000;
+
 async function step(name: string, run: () => Promise<number>): Promise<number> {
+  const startedAt = performance.now();
   try {
-    return await run();
+    const result = await run();
+    // Длительность шага: по ней видно, какой шаг замедляется с ростом базы (аудит 23.11.2026, P3 и O1).
+    const ms = Math.round(performance.now() - startedAt);
+    if (ms >= SLOW_STEP_MS) logEvent('warn', 'tickets.minute.slow_step', { step: name, ms });
+    return result;
   } catch (error) {
     console.error(`tickets.minute: шаг ${name} не выполнен: ${error instanceof Error ? error.message : String(error)}`);
     return 0;

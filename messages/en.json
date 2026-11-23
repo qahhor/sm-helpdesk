@@ -1857,7 +1857,8 @@
       "outbox_lag": "Smartup Hub: the outbox has been stuck for {minutes} min, waiting to be sent: {count}.",
       "inbound_stuck": "Smartup Hub: incoming emails not processed for more than 10 minutes: {count}.",
       "staff_signin_failures": "Smartup Hub: failed staff sign-ins in 15 minutes: {count}. Someone may be guessing a password.",
-      "infected_files": "Smartup Hub: infected files found in the last hour: {count}."
+      "infected_files": "Smartup Hub: infected files found in the last hour: {count}.",
+      "archive_failing": "Smartup Hub: the database log archive is not being saved, failed attempts: {count}. Check the archive directory and disk space."
     }
   },
   "dev": {

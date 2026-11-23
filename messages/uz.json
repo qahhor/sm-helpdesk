@@ -1857,7 +1857,8 @@
       "outbox_lag": "Smartup Hub: chiquvchi navbat {minutes} daqiqadan beri turibdi, yuborilishini kutayotganlar: {count}.",
       "inbound_stuck": "Smartup Hub: 10 daqiqadan ortiq ko'rib chiqilmagan kiruvchi xatlar: {count}.",
       "staff_signin_failures": "Smartup Hub: 15 daqiqada xodimlarning muvaffaqiyatsiz kirishlari: {count}. Parol tanlanayotgan bo'lishi mumkin.",
-      "infected_files": "Smartup Hub: bir soatda topilgan zararlangan fayllar: {count}."
+      "infected_files": "Smartup Hub: bir soatda topilgan zararlangan fayllar: {count}.",
+      "archive_failing": "Smartup Hub: baza jurnali arxivi saqlanmayapti, muvaffaqiyatsiz urinishlar: {count}. Arxiv katalogi va diskdagi joyni tekshiring."
     }
   },
   "dev": {

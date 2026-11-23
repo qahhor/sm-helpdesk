@@ -56,3 +56,29 @@ export async function failedJobsSince(actor: SystemActor, since: Date): Promise<
   const rows = await withActor(actor, (tx) => tx.execute<{ n: number }>(sql`select count(*)::int as n from pgboss.job where state = 'failed' and completed_on > ${since}`));
   return rows.rows[0]?.n ?? 0;
 }
+
+// --- Архив журнала базы (аудит 23.11.2026, находка O5; решение 0039) ---
+
+export type ArchiveState = { mode: string; failedCount: number; lastFailedOn: Date | null; lastArchivedOn: Date | null };
+
+/** Состояние архива журнала: настройка archive_mode и счётчики сервера базы. */
+export async function archiveState(actor: SystemActor): Promise<ArchiveState> {
+  const rows = await withActor(actor, (tx) =>
+    tx.execute<{ mode: string; failed_count: number; last_failed_time: Date | string | null; last_archived_time: Date | string | null }>(
+      sql`select current_setting('archive_mode') as mode, failed_count::int as failed_count, last_failed_time, last_archived_time from pg_stat_archiver`,
+    ),
+  );
+  const row = rows.rows[0];
+  const moment = (value: Date | string | null | undefined) => (value ? new Date(value) : null);
+  return { mode: row?.mode ?? 'off', failedCount: row?.failed_count ?? 0, lastFailedOn: moment(row?.last_failed_time), lastArchivedOn: moment(row?.last_archived_time) };
+}
+
+/**
+ * Архив включён, а последняя попытка сохранить сегмент журнала неудачна: каталог архива недоступен или диск полон.
+ * Пока это так, непрерывного архива нет, а журнал копится на диске базы. Давний сбой, после которого сегменты
+ * снова уходят, сигналом не считается.
+ */
+export function archiveFailing(state: ArchiveState): boolean {
+  if (state.mode === 'off' || !state.lastFailedOn) return false;
+  return !state.lastArchivedOn || state.lastFailedOn.getTime() > state.lastArchivedOn.getTime();
+}

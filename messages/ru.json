@@ -1857,7 +1857,8 @@
       "outbox_lag": "Smartup Hub: исходящие письма и сообщения не уходят {minutes} мин, ждут отправки: {count}.",
       "inbound_stuck": "Smartup Hub: входящих писем без разбора дольше 10 минут: {count}.",
       "staff_signin_failures": "Smartup Hub: неудачных входов сотрудников за 15 минут: {count}. Возможен подбор пароля.",
-      "infected_files": "Smartup Hub: за час найдено заражённых файлов: {count}."
+      "infected_files": "Smartup Hub: за час найдено заражённых файлов: {count}.",
+      "archive_failing": "Smartup Hub: архив журнала базы не сохраняется, неудачных попыток: {count}. Проверьте каталог архива и место на диске."
     }
   },
   "dev": {

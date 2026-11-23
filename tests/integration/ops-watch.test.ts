@@ -2,7 +2,8 @@ import { beforeEach, expect, test } from 'vitest';
 import { setLogSinkForTests } from '@/lib/log';
 import { noteStaffSignInFailure } from '@/modules/hdc/api';
 import { createMemoryEmailProvider, type MemoryEmailProvider } from '@/modules/hdn/testing';
-import { opsWatch } from '@/worker/ops-watch';
+import { opsAlertText } from '@/modules/hdn/api/ops';
+import { collectOpsAlerts, opsWatch } from '@/worker/ops-watch';
 import { pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
@@ -150,4 +151,29 @@ test('дежурные не настроены: сигнал не считает
     setLogSinkForTests(null);
   }
   expect(events).toContainEqual(['error', 'ops.alert_undelivered']);
+});
+
+// Сбой архива журнала базы (аудит 23.11.2026, находка O5; план W2, задача 11): непрерывный архив молча
+// перестаёт работать, когда команда архива падает (диск полон, каталог недоступен). Узнать об этом в день аварии
+// поздно, поэтому состояние архива проверяет ops.watch.
+
+test('сбой архива журнала: сигнал только когда архив включён и последняя попытка неудачна', async () => {
+  const { archiveFailing } = await import('@/modules/hdc/api');
+  const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000);
+  expect(archiveFailing({ mode: 'off', failedCount: 5, lastFailedOn: at(1), lastArchivedOn: null })).toBe(false);
+  expect(archiveFailing({ mode: 'on', failedCount: 0, lastFailedOn: null, lastArchivedOn: at(3) })).toBe(false);
+  // Сбой был, но после него сегменты снова уходят: архив работает.
+  expect(archiveFailing({ mode: 'on', failedCount: 4, lastFailedOn: at(30), lastArchivedOn: at(2) })).toBe(false);
+  expect(archiveFailing({ mode: 'on', failedCount: 4, lastFailedOn: at(1), lastArchivedOn: at(30) })).toBe(true);
+  // Ни один сегмент ещё не ушёл, а попытки падают.
+  expect(archiveFailing({ mode: 'always', failedCount: 2, lastFailedOn: at(1), lastArchivedOn: null })).toBe(true);
+});
+
+test('состояние архива читается под ролью приложения; при выключенном архиве сигнала нет', async () => {
+  const { archiveState } = await import('@/modules/hdc/api');
+  const state = await archiveState(SYSTEM);
+  expect(state.mode).toBe('off');
+  expect(state.failedCount).toBe(0);
+  expect((await collectOpsAlerts(SYSTEM, new Date())).map((alert) => alert.code)).not.toContain('archive_failing');
+  expect(opsAlertText({ code: 'archive_failing', count: 3 })).toContain('3');
 });

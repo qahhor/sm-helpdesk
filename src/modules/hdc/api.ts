@@ -24,7 +24,7 @@ export { type DetectedType, SNIFF_BYTES, sniffFileType } from './filetype';
 export { readSetting, writeSettingTx } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';
 // Сигналы дежурным о состоянии портала (ТЗ 13.8).
-export { claimOpsAlert, failedJobsSince, failedStaffSignIns, noteStaffSignInFailure, OPS_ALERT_EVERY_MS } from './ops-alerts';
+export { type ArchiveState, archiveFailing, archiveState, claimOpsAlert, failedJobsSince, failedStaffSignIns, noteStaffSignInFailure, OPS_ALERT_EVERY_MS } from './ops-alerts';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';
 // Общие понятия для модулей ниже hdu (аудит 23.11.2026, находка A1): справочник контактов и контекст сотрудника.

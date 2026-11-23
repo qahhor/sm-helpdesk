@@ -1,6 +1,6 @@
 import type { SystemActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
-import { claimOpsAlert, failedJobsSince, failedStaffSignIns } from '@/modules/hdc/api';
+import { archiveFailing, archiveState, claimOpsAlert, failedJobsSince, failedStaffSignIns } from '@/modules/hdc/api';
 import { type OpsAlert, type OpsAlertCode, outboxFailedSince, outboxState, sendOpsAlert, staleInboundCount } from '@/modules/hdn/api/ops';
 import { infectedSince } from '@/modules/hdt/api/jobs';
 
@@ -18,13 +18,14 @@ type Deps = Parameters<typeof sendOpsAlert>[2];
 
 export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<OpsAlert[]> {
   const hourAgo = new Date(now.getTime() - 60 * MINUTE);
-  const [jobs, failed, state, stuck, signIns, infected] = await Promise.all([
+  const [jobs, failed, state, stuck, signIns, infected, archive] = await Promise.all([
     failedJobsSince(actor, hourAgo),
     outboxFailedSince(actor, hourAgo),
     outboxState(actor, now),
     staleInboundCount(actor, now),
     failedStaffSignIns(actor, now),
     infectedSince(actor, hourAgo),
+    archiveState(actor),
   ]);
   const alerts: OpsAlert[] = [];
   if (jobs > 0) alerts.push({ code: 'jobs_failed', count: jobs });
@@ -33,6 +34,8 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
   if (stuck > 0) alerts.push({ code: 'inbound_stuck', count: stuck });
   if (signIns >= STAFF_SIGNIN_ALERT) alerts.push({ code: 'staff_signin_failures', count: signIns });
   if (infected > 0) alerts.push({ code: 'infected_files', count: infected });
+  // Архив журнала базы включён, а сегменты не сохраняются: восстановления на момент времени сейчас нет.
+  if (archiveFailing(archive)) alerts.push({ code: 'archive_failing', count: archive.failedCount });
   return alerts;
 }
 

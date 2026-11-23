@@ -108,11 +108,11 @@ function absolute(payload: Record<string, unknown>, hubUrl: string, locale: Loca
  * отправки: отвязал или заблокировал бота, строка пропускается. Ответ 403 значит, что человек заблокировал бота:
  * привязка получает отметку, повторов нет. Остальные сбои (429, нет ответа) уходят в обычные повторы очереди.
  */
-async function deliverTelegram(row: Row): Promise<Outcome> {
+async function deliverTelegram(row: Row, run: RunMemo): Promise<Outcome> {
   const bot = getTelegramBot();
   const payload = row.payload as unknown as MailPayload;
   if (!bot.enabled || !row.recipientUserId || !isTelegramPayload(payload)) return { kind: 'skipped' };
-  const chat = await telegramChat(row.recipientUserId);
+  const chat = await run.telegramChat(row.recipientUserId);
   if (!chat) return { kind: 'skipped' };
   const notice = telegramNoticeText(payload, chat.locale ?? row.locale ?? 'ru', getEnv().HUB_URL);
   try {
@@ -125,10 +125,50 @@ async function deliverTelegram(row: Row): Promise<Outcome> {
   return { kind: 'sent', externalId: `telegram-${row.outboxId}`, recipient: 'telegram' };
 }
 
-async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender | null): Promise<Outcome> {
+/** Одно чтение на запуск: значение запоминается вместе с ожиданием, одновременные отправки ждут один запрос. */
+function once<T>(load: () => Promise<T>): () => Promise<T> {
+  let value: Promise<T> | undefined;
+  return () => (value ??= load());
+}
+
+/** То же по ключу: адрес и чат получателя читаются один раз на запуск, сколько бы писем ему ни шло. */
+function oncePerKey<T>(load: (key: string) => Promise<T>): (key: string) => Promise<T> {
+  const values = new Map<string, Promise<T>>();
+  return (key) => {
+    let value = values.get(key);
+    if (!value) values.set(key, (value = load(key)));
+    return value;
+  };
+}
+
+/**
+ * Память одного запуска отправки (аудит 23.11.2026, находка P7): настройки и адреса получателей раньше читались
+ * на каждое письмо. Живёт один запуск, не дольше бюджета времени: изменение адреса или настройки подхватит следующий.
+ */
+type RunMemo = {
+  mailRecipient: (userId: string) => ReturnType<typeof mailRecipient>;
+  telegramChat: (userId: string) => ReturnType<typeof telegramChat>;
+  supportAddress: () => Promise<string | null>;
+  oncallEmails: () => Promise<string[]>;
+  oncall: () => Promise<OncallSender | null>;
+};
+
+function runMemo(oncall: OncallSender | null | undefined): RunMemo {
+  return {
+    mailRecipient: oncePerKey(mailRecipient),
+    telegramChat: oncePerKey(telegramChat),
+    supportAddress: once(shownSupportAddress),
+    oncallEmails: once(oncallEmails),
+    // Бот и чат дежурных берутся из настроек в момент отправки (решение 8), только если такие строки есть.
+    oncall: once(async () => (oncall !== undefined ? oncall : (await import('./oncall')).oncallSender())),
+  };
+}
+
+async function deliver(row: Row, provider: EmailProvider, run: RunMemo): Promise<Outcome> {
   const env = getEnv();
-  if (row.channel === 'telegram' && row.recipientKind === 'user') return deliverTelegram(row);
+  if (row.channel === 'telegram' && row.recipientKind === 'user') return deliverTelegram(row, run);
   if (row.channel === 'telegram') {
+    const oncall = await run.oncall();
     if (!oncall) return { kind: 'skipped' };
     const { oncallTelegramText } = await import('./oncall-text');
     await oncall.send(oncallTelegramText(row.payload, env.HUB_URL));
@@ -136,11 +176,11 @@ async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender |
   }
   let targets: { address: string; locale: Locale }[];
   if (row.recipientKind === 'user' && row.recipientUserId) {
-    const to = await mailRecipient(row.recipientUserId);
+    const to = await run.mailRecipient(row.recipientUserId);
     targets = to ? [{ address: to.address, locale: to.locale ?? row.locale ?? 'ru' }] : [];
-  } else targets = (await oncallEmails()).map((address) => ({ address, locale: row.locale ?? 'ru' }));
+  } else targets = (await run.oncallEmails()).map((address) => ({ address, locale: row.locale ?? 'ru' }));
   if (targets.length === 0) return { kind: 'skipped' };
-  const supportAddress = await shownSupportAddress();
+  const supportAddress = await run.supportAddress();
   const reply = replyConfigOf(env);
   const domain = reply?.domain ?? env.HUB_DOMAIN;
   // Ответ на письмо об обращении попадает в обращение: адрес подписан для пары обращение и получатель (FR-NT-06).
@@ -230,13 +270,65 @@ async function telegramDelivered(actor: SystemActor, outboxId: string): Promise<
   return rows[0]?.status === 'sent' || rows[0]?.status === 'delivered';
 }
 
+/** Одновременных отправок в одном запуске. Больше не нужно: почтовый сервис ограничивает частоту запросов. */
+const DISPATCH_CONCURRENCY = 4;
+/** Бюджет времени запуска: задача по расписанию идёт раз в минуту, следующий запуск не должен догнать этот. */
+const DISPATCH_BUDGET_MS = 50_000;
+
+export type DispatchOptions = { budgetMs?: number; concurrency?: number; clock?: () => number };
+
+/**
+ * Отправляет очередь: берёт пачку, шлёт несколько писем одновременно и повторяет, пока очередь не опустеет или не
+ * кончится бюджет времени (аудит 23.11.2026, находка P7: раньше одна пачка в 50 писем на запуск, 3000 в час).
+ * Строки, взятые в пачку, но не начатые до конца бюджета, возвращаются в очередь без потраченной попытки и без
+ * отсрочки: срок захвата иначе держал бы их 5 минут (M4, мелкое 2).
+ */
 export async function dispatchOutbox(
   actor: SystemActor,
   now: Date,
   provider?: EmailProvider,
   oncall?: OncallSender | null,
+  opts: DispatchOptions = {},
 ): Promise<{ sent: number; failed: number; skipped: number }> {
-  const claimed = await withActor(actor, async (tx) => {
+  const clock = opts.clock ?? Date.now;
+  const deadline = clock() + (opts.budgetMs ?? DISPATCH_BUDGET_MS);
+  const concurrency = Math.max(1, opts.concurrency ?? DISPATCH_CONCURRENCY);
+  const result = { sent: 0, failed: 0, skipped: 0 };
+  const run = runMemo(oncall);
+  let email: EmailProvider | undefined = provider;
+
+  while (clock() < deadline) {
+    const claimed = await claimBatch(actor, now);
+    if (claimed.length === 0) break;
+    email ??= await getEmailProvider();
+    const mailer = email;
+    // Общая очередь пачки: каждый из исполнителей берёт следующую строку, пока есть время.
+    const waiting = [...claimed];
+    const untouched: string[] = [];
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, waiting.length) }, async () => {
+        for (let row = waiting.shift(); row; row = waiting.shift()) {
+          if (clock() >= deadline) untouched.push(row.outboxId);
+          else await sendRow(actor, now, row, mailer, run, result);
+        }
+      }),
+    );
+    if (untouched.length > 0) {
+      await withActor(actor, (tx) =>
+        tx
+          .update(outbox)
+          .set({ attempts: sql`${outbox.attempts} - 1`, nextAttemptOn: now })
+          .where(and(inArray(outbox.outboxId, untouched), eq(outbox.status, 'queued'))),
+      );
+      break;
+    }
+  }
+  return result;
+}
+
+/** Захват пачки: строки помечаются попыткой и сроком захвата, другой запуск их не возьмёт. */
+async function claimBatch(actor: SystemActor, now: Date): Promise<Row[]> {
+  return withActor(actor, async (tx) => {
     const rows = await tx
       .select()
       .from(outbox)
@@ -251,48 +343,44 @@ export async function dispatchOutbox(
       .where(inArray(outbox.outboxId, rows.map((r) => r.outboxId)));
     return rows.map((r) => ({ ...r, attempts: r.attempts + 1 }));
   });
-  const result = { sent: 0, failed: 0, skipped: 0 };
-  if (claimed.length === 0) return result;
-  const email = provider ?? (await getEmailProvider());
-  // Бот и чат дежурных берутся из настроек в момент отправки (решение 8), только если в пачке есть такие строки.
-  const telegram = oncall !== undefined ? oncall : claimed.some((r) => r.channel === 'telegram') ? await (await import('./oncall')).oncallSender() : null;
-  for (const row of claimed) {
-    let outcome: Outcome;
-    try {
-      // Запасное письмо не нужно, если сообщение в Telegram уже ушло.
-      outcome = row.fallbackFor && (await telegramDelivered(actor, row.fallbackFor)) ? { kind: 'skipped' } : await deliver(row, email, telegram);
-    } catch (error) {
-      outcome = { kind: 'error', error: errorCode(error) };
-    }
-    // Итог пишется только в строку, которая ещё ждёт: если срок захвата истёк и строку отметил другой процесс,
-    // его запись не перетирается (M4, мелкое 2).
-    const queuedRow = and(eq(outbox.outboxId, row.outboxId), eq(outbox.status, 'queued'));
-    await withActor(actor, async (tx) => {
-      if (outcome.kind === 'sent') {
-        result.sent++;
-        const marked = await tx
-          .update(outbox)
-          .set({ status: 'sent', externalId: outcome.externalId, recipient: outcome.recipient, sentOn: now, lastError: null })
-          .where(queuedRow)
-          .returning({ outboxId: outbox.outboxId });
-        // Ответ на наше письмо без адреса ответа найдёт обращение по In-Reply-To (решение 20, итоговая проверка M4).
-        if (marked.length > 0 && row.ticketId && outcome.messageId) await recordThreadTx(tx, { ticketId: row.ticketId, messageId: outcome.messageId, direction: 'out' });
-      } else if (outcome.kind === 'skipped') {
-        result.skipped++;
-        await tx.update(outbox).set({ status: 'skipped' }).where(queuedRow);
-      } else if (row.attempts >= OUTBOX_MAX_ATTEMPTS) {
-        result.failed++;
-        await tx.update(outbox).set({ status: 'failed', lastError: outcome.error }).where(queuedRow);
-      } else {
-        const pause = OUTBOX_RETRY_MINUTES[row.attempts - 1] ?? OUTBOX_RETRY_MINUTES[OUTBOX_RETRY_MINUTES.length - 1];
-        await tx
-          .update(outbox)
-          .set({ lastError: outcome.error, nextAttemptOn: new Date(now.getTime() + pause * MINUTE) })
-          .where(queuedRow);
-      }
-    });
+}
+
+/** Отправка одной строки и запись итога. Ошибка остаётся в строке: остальные письма пачки идут дальше. */
+async function sendRow(actor: SystemActor, now: Date, row: Row, email: EmailProvider, run: RunMemo, result: { sent: number; failed: number; skipped: number }): Promise<void> {
+  let outcome: Outcome;
+  try {
+    // Запасное письмо не нужно, если сообщение в Telegram уже ушло.
+    outcome = row.fallbackFor && (await telegramDelivered(actor, row.fallbackFor)) ? { kind: 'skipped' } : await deliver(row, email, run);
+  } catch (error) {
+    outcome = { kind: 'error', error: errorCode(error) };
   }
-  return result;
+  // Итог пишется только в строку, которая ещё ждёт: если срок захвата истёк и строку отметил другой процесс,
+  // его запись не перетирается (M4, мелкое 2).
+  const queuedRow = and(eq(outbox.outboxId, row.outboxId), eq(outbox.status, 'queued'));
+  await withActor(actor, async (tx) => {
+    if (outcome.kind === 'sent') {
+      result.sent++;
+      const marked = await tx
+        .update(outbox)
+        .set({ status: 'sent', externalId: outcome.externalId, recipient: outcome.recipient, sentOn: now, lastError: null })
+        .where(queuedRow)
+        .returning({ outboxId: outbox.outboxId });
+      // Ответ на наше письмо без адреса ответа найдёт обращение по In-Reply-To (решение 20, итоговая проверка M4).
+      if (marked.length > 0 && row.ticketId && outcome.messageId) await recordThreadTx(tx, { ticketId: row.ticketId, messageId: outcome.messageId, direction: 'out' });
+    } else if (outcome.kind === 'skipped') {
+      result.skipped++;
+      await tx.update(outbox).set({ status: 'skipped' }).where(queuedRow);
+    } else if (row.attempts >= OUTBOX_MAX_ATTEMPTS) {
+      result.failed++;
+      await tx.update(outbox).set({ status: 'failed', lastError: outcome.error }).where(queuedRow);
+    } else {
+      const pause = OUTBOX_RETRY_MINUTES[row.attempts - 1] ?? OUTBOX_RETRY_MINUTES[OUTBOX_RETRY_MINUTES.length - 1];
+      await tx
+        .update(outbox)
+        .set({ lastError: outcome.error, nextAttemptOn: new Date(now.getTime() + pause * MINUTE) })
+        .where(queuedRow);
+    }
+  });
 }
 
 /** События доставки (решение 21): статус строки по идентификатору письма у сервиса. */

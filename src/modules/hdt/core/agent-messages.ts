@@ -181,6 +181,29 @@ export async function touchPresenceTx(actor: StaffActor, number: number, mode: P
   });
 }
 
+/**
+ * Отметка присутствия и список коллег одной командой (аудит 23.11.2026, находка P12): страница обращения вызывает
+ * это раз в 10 секунд на каждую открытую вкладку. Обращения с таким номером нет: отметка не создаётся, список пуст.
+ */
+export async function syncPresenceTx(actor: StaffActor, number: number, mode: PresenceMode): Promise<{ userId: string; mode: PresenceMode }[]> {
+  const result = await withActor(actor, (tx) =>
+    tx.execute<{ user_id: string; mode: PresenceMode }>(sql`
+      with ticket as (select ticket_id from hdt_tickets where number = ${number}),
+      mine as (
+        insert into hdt_ticket_presence (ticket_id, user_id, mode, expires_on)
+        select ticket_id, ${actor.userId}::uuid, ${mode}, now() + make_interval(secs => ${PRESENCE_TTL_SEC}) from ticket
+        on conflict (ticket_id, user_id) do update set mode = excluded.mode, expires_on = excluded.expires_on
+        returning ticket_id
+      )
+      select p.user_id, p.mode
+        from hdt_ticket_presence p
+        join ticket using (ticket_id)
+       where p.user_id <> ${actor.userId}::uuid and p.expires_on > now()
+       order by p.created_on`),
+  );
+  return result.rows.map((row) => ({ userId: row.user_id, mode: row.mode }));
+}
+
 /** Другие сотрудники с действующей отметкой на этом обращении. */
 export async function listPresenceTx(actor: StaffActor, number: number): Promise<{ userId: string; mode: PresenceMode }[]> {
   return withActor(actor, (tx) =>

@@ -8,7 +8,6 @@ import {
   inviteSender,
   type ChangeSummary,
   isHdtError,
-  listPresence,
   markTicketRead,
   mergeTicket,
   nextInQueue,
@@ -25,7 +24,7 @@ import {
   snoozeTarget,
   snoozeTicket,
   takeTicket,
-  touchPresence,
+  syncPresence,
   transferToL2,
   zonedToDate,
 } from '@/modules/hdt/api';
@@ -169,8 +168,7 @@ export async function markSeenAction(ticketId: string): Promise<void> {
 export async function presenceAction(input: { number: number; mode: 'viewing' | 'typing' }): Promise<PresenceEntry[]> {
   const staff = await requireStaffActor();
   try {
-    await touchPresence(staff, input);
-    return await listPresence(staff, input.number);
+    return await syncPresence(staff, input);
   } catch (error) {
     if (!isHdtError(error)) throw error;
     return [];

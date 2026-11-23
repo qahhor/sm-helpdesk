@@ -37,7 +37,7 @@ export { bulkAction, type BulkResult, mergeTicket } from './api/bulk';
 // Передача между линиями (план M3, задача 9).
 export { returnToL1, transferToL2 } from './api/lines';
 // Ответ, заметка, черновик и присутствие сотрудника (план M3, задача 8).
-export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type PresenceEntry, saveDraft, touchPresence } from './api/agent-messages';
+export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type PresenceEntry, saveDraft, syncPresence, touchPresence } from './api/agent-messages';
 // Скачивание вложений (задача 8).
 export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest, staffAttachmentRedirect } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.

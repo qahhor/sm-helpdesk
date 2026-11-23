@@ -71,6 +71,9 @@ test('серверное действие с чужого сайта откло�
   await expect.poll(() => rejected).not.toBeNull();
   expect(rejected).not.toBe(200);
   expect(await dbRows(`select 1 from hdu_invitations where email = $1`, [email])).toEqual([]);
+  // Страница шлёт на тот же адрес и другие запросы (счётчик колокольчика): перехват снимается до конца теста,
+  // иначе незавершённый запрос перехватчика роняет следующий тест (гонка, найдена прогоном волны 0).
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('страницы входа и кабинета отвечают с заголовками безопасности, кабинет без кеша', async ({ page, request }) => {

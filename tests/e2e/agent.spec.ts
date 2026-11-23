@@ -341,7 +341,9 @@ test('"Отправить и к следующему" открывает сле�
   await expect(composer).toHaveAttribute('data-ready', '');
   await composer.getByLabel('Текст ответа').fill('Готово, проверьте, пожалуйста');
   await composer.getByRole('button', { name: 'Отправить и к следующему' }).click();
-  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${first}\\?queue=mine&sort=updated$`));
+  // Переход на другое обращение той же очереди с теми же параметрами. Какое именно следующее, проверяет
+  // интеграционный тест: в "Моих" этого сотрудника параллельно работают другие браузерные тесты.
+  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-(?!${second}\\b)\\d+\\?queue=mine&sort=updated$`));
 });
 
 test('цикл S3 с клавиатуры без мыши', async ({ page, browser }) => {

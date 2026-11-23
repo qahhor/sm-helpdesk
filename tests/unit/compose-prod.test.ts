@@ -130,3 +130,52 @@ test('журнал доступа Caddy без секретных заголов
   // Переадресация может нести токен в адресе (страницы входа по ссылке возвращают ошибку в тот же адрес).
   expect(caddyfile).toMatch(/resp_headers>Location delete/);
 });
+
+// Защита контейнеров (аудит 23.11.2026, находка S9; план W1, задача 9).
+
+test('процессы портала работают без привилегий ядра и не могут их получить', () => {
+  for (const name of ['web', 'worker', 'migrate', 'bootstrap']) {
+    expect(services[name]?.cap_drop, name).toEqual(['ALL']);
+    expect(services[name]?.cap_add, name).toBeUndefined();
+    expect(services[name]?.security_opt, name).toEqual(['no-new-privileges:true']);
+  }
+});
+
+test('Caddy оставляет себе только право занять порты 80 и 443', () => {
+  expect(services.caddy?.cap_drop).toEqual(['ALL']);
+  expect(services.caddy?.cap_add).toEqual(['NET_BIND_SERVICE']);
+  expect(services.caddy?.security_opt).toEqual(['no-new-privileges:true']);
+});
+
+test('сторонние службы не получают новых привилегий, привилегированных контейнеров нет', () => {
+  for (const [name, service] of Object.entries(services)) {
+    expect(service.security_opt, name).toEqual(['no-new-privileges:true']);
+    expect(service.privileged, name).toBeUndefined();
+    expect(service.network_mode, name).toBeUndefined();
+  }
+});
+
+test('сети разделены: антивирус не достаёт до базы и портала, Caddy не достаёт до базы, у базы нет выхода наружу', () => {
+  const nets = (name: string) => [...((services[name]?.networks as string[] | undefined) ?? [])].sort();
+  expect(nets('caddy')).toEqual(['edge']);
+  expect(nets('web')).toEqual(['data', 'edge']);
+  expect(nets('worker')).toEqual(['data', 'scan']);
+  expect(nets('clamav')).toEqual(['scan']);
+  expect(nets('postgres')).toEqual(['data']);
+  expect(nets('migrate')).toEqual(['data']);
+  expect(nets('bootstrap')).toEqual(['data']);
+  // Каждая служба названа в какой-то сети: общей сети по умолчанию нет.
+  for (const [name, service] of Object.entries(services)) expect(service.networks, name).toBeDefined();
+  const networks = compose.networks as Record<string, { internal?: boolean } | null>;
+  expect(Object.keys(networks).sort()).toEqual(['data', 'edge', 'scan']);
+  expect(networks.data?.internal).toBe(true);
+  // Антивирус обновляет базы подписей из интернета, порталу и фоновому процессу нужны почта, Telegram и хранилище.
+  expect(networks.scan?.internal ?? false).toBe(false);
+  expect(networks.edge?.internal ?? false).toBe(false);
+});
+
+test('памятка запуска закрепляет образ портала по идентификатору, а не по метке', () => {
+  const launch = readFileSync('docs/runbooks/launch.md', 'utf8');
+  expect(launch).toContain("docker image inspect --format '{{.Id}}' smartup-hub:<версия>");
+  expect(launch).toMatch(/export HUB_IMAGE=sha256:<идентификатор>/);
+});

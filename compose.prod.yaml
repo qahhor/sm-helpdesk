@@ -18,6 +18,11 @@ services:
       # Staging без Cloudflare: TRUSTED_PROXIES="0.0.0.0/0 ::/0" в .env.
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32}
     mem_limit: ${CADDY_MEM_LIMIT:-256m}
+    # Привилегии ядра сброшены, кроме права занять порты ниже 1024 (аудит 23.11.2026, S9).
+    cap_drop: ['ALL']
+    cap_add: ['NET_BIND_SERVICE']
+    security_opt: ['no-new-privileges:true']
+    networks: ['edge']
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -33,6 +38,10 @@ services:
     # Пределы памяти (план W0, задача 5): утечка в одной службе не забирает память у базы. Значения под сервер
     # 8 ГБ: в сумме 6,8 ГБ, остальное системе (итоговая проверка W0, M8).
     mem_limit: ${WEB_MEM_LIMIT:-768m}
+    # Без привилегий ядра и без права их получить (аудит 23.11.2026, S9). Сети: edge к Caddy и наружу, data к базе.
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    networks: ['edge', 'data']
     stop_grace_period: 20s
     # Писать процессу можно только сюда: временные файлы и кеш Next.js (Dockerfile).
     tmpfs: ['/tmp', '/app/.next/cache']
@@ -53,6 +62,10 @@ services:
     user: '1001:1001'
     read_only: true
     mem_limit: ${WORKER_MEM_LIMIT:-768m}
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    # Сети: data к базе, scan к антивирусу и наружу (почта, Telegram, хранилище).
+    networks: ['data', 'scan']
     # Остановка очереди задач ждёт до 30 секунд: Docker не должен убить процесс раньше.
     stop_grace_period: 40s
     tmpfs: ['/tmp']
@@ -66,6 +79,10 @@ services:
     image: clamav/clamav:1.5.5@sha256:12177441d1b40cef3c47b44c4090d59d4babc4c67bedd5af0fa315e603aa6dd8
     restart: unless-stopped
     mem_limit: ${CLAMAV_MEM_LIMIT:-2g}
+    # Привилегии не сброшены: запуск образа меняет владельца баз и пользователя. Новых привилегий процесс не получит.
+    security_opt: ['no-new-privileges:true']
+    # Своя сеть с фоновым процессом: до базы и портала антивирус не достаёт. Выход наружу нужен для обновления баз.
+    networks: ['scan']
     volumes: ['clamav_db:/var/lib/clamav']
     # Образ переносит CLAMD_CONF_<параметр> в clamd.conf при каждом запуске (решение 0027, пункт 20). Зашифрованный
     # архив или документ и архив сверх пределов проверки (вложенность, число файлов, размер) получают подпись
@@ -93,6 +110,9 @@ services:
     env_file: ['.env.migrate']
     user: '1001:1001'
     read_only: true
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    networks: ['data']
     depends_on:
       postgres: { condition: service_healthy }
 
@@ -104,6 +124,9 @@ services:
     env_file: ['.env.bootstrap']
     user: '1001:1001'
     read_only: true
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    networks: ['data']
     depends_on:
       postgres: { condition: service_healthy }
 
@@ -136,6 +159,10 @@ services:
       - -c
       - log_lock_waits=on
     mem_limit: ${PG_MEM_LIMIT:-3g}
+    # Привилегии не сброшены: запуск образа меняет владельца каталога данных и пользователя. Новых привилегий процесс не получит.
+    security_opt: ['no-new-privileges:true']
+    # Только внутренняя сеть: у базы нет выхода в интернет.
+    networks: ['data']
     # Разделяемая память для параллельных запросов: по умолчанию у контейнера 64 МБ.
     shm_size: 256m
     environment:
@@ -145,6 +172,16 @@ services:
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
+
+# Три сети вместо общей (аудит 23.11.2026, S9): взлом одной службы не открывает остальные.
+#   edge: Caddy и портал. Через неё портал ходит наружу (вход Smartup, почта, Telegram, хранилище).
+#   data: портал, фоновый процесс, задачи базы и PostgreSQL. Внутренняя: выхода в интернет нет.
+#   scan: фоновый процесс и антивирус. Через неё фоновый процесс ходит наружу, антивирус обновляет базы подписей.
+networks:
+  edge: {}
+  data:
+    internal: true
+  scan: {}
 
 volumes:
   caddy_data: {}

@@ -121,6 +121,7 @@
 - [ ] Получить код нужной версии: `git clone https://github.com/qahhor/sm-helpdesk.git && cd sm-helpdesk && git checkout <тег или коммит>`.
 - [ ] Собрать образ: `docker build -t smartup-hub:<версия> .`. Если Docker Hub недоступен: `docker build --build-arg NODE_IMAGE=mirror.gcr.io/library/node:26.13.1-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc -t smartup-hub:<версия> .`
 - [ ] Если образ собран на другой машине, перенести его на сервер: `docker save smartup-hub:<версия> | ssh <сервер> docker load`.
+- [ ] Узнать идентификатор образа: `docker image inspect --format '{{.Id}}' smartup-hub:<версия>`. Ответ вида `sha256:...`. Портал запускается по идентификатору, а не по метке: метку можно незаметно переставить на другой образ, идентификатор это отпечаток содержимого (аудит 23.11.2026, находка S9). Идентификатор записать рядом с версией: он нужен для отката.
 - [ ] Записать тег образа: он нужен для отката (шаг 13).
 
 ## 8. Файлы и секреты на сервере
@@ -195,7 +196,7 @@
 - [ ] Переменные оболочки для `docker compose`. Добавить в профиль администратора, например в `~/.bashrc`:
 
   ```bash
-  export HUB_IMAGE=smartup-hub:<версия>
+  export HUB_IMAGE=sha256:<идентификатор>
   export HUB_DOMAIN=hub.smartup24.com
   alias hubc='docker compose -f /opt/smartup-hub/compose.prod.yaml'
   alias hub='docker compose -f /opt/smartup-hub/compose.prod.yaml exec web node hub.mjs'
@@ -339,10 +340,10 @@
 - [ ] Прочитать отчёт новой вехи (`docs/plans/M<n>-report.md`), раздел "Что нужно для staging": там шаги, которые появились с этой версией.
 - [ ] Собрать образ новой версии (шаг 7) и записать оба тега: прежний и новый.
 - [ ] Если в новой версии изменились `compose.prod.yaml` или `Caddyfile`, скопировать их в `/opt/smartup-hub`.
-- [ ] `export HUB_IMAGE=smartup-hub:<новая версия>`, затем миграции: `hubc run --rm migrate`.
+- [ ] Идентификатор нового образа: `docker image inspect --format '{{.Id}}' smartup-hub:<новая версия>`. Затем `export HUB_IMAGE=sha256:<идентификатор нового образа>` (и то же значение в `~/.bashrc`), затем миграции: `hubc run --rm migrate`.
 - [ ] Перезапуск: `hubc up -d web worker`.
 - [ ] Проверка: `curl -fsS https://<домен>/api/ready` возвращает `"status":"ready"`, в `hubc logs worker` есть "Фоновый процесс запущен".
-- [ ] Откат при неудаче: `export HUB_IMAGE=smartup-hub:<прежняя версия>` и `hubc up -d web worker`. Миграции пишутся совместимыми с предыдущей версией кода (ТЗ 13.6), поэтому база не откатывается.
+- [ ] Откат при неудаче: `export HUB_IMAGE=sha256:<идентификатор прежнего образа>` и `hubc up -d web worker`. Миграции пишутся совместимыми с предыдущей версией кода (ТЗ 13.6), поэтому база не откатывается.
 
 ## 14. Что известно заранее
 

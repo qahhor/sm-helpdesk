@@ -158,6 +158,15 @@ services:
       - log_parameter_max_length_on_error=0
       - -c
       - log_lock_waits=on
+      # Непрерывный архив журнала (решение 0039): готовый сегмент копируется в каталог на сервере, оттуда его шифрует
+      # и выгружает scripts/ops/wal-ship.sh. По умолчанию выключен: PG_ARCHIVE_MODE=on в .env и перезапуск базы.
+      # Сегмент закрывается не реже раза в 5 минут: столько данных можно потерять при гибели сервера.
+      - -c
+      - archive_mode=${PG_ARCHIVE_MODE:-off}
+      - -c
+      - archive_command=test ! -f /wal-archive/%f && cp %p /wal-archive/%f.tmp && mv /wal-archive/%f.tmp /wal-archive/%f
+      - -c
+      - archive_timeout=300
     mem_limit: ${PG_MEM_LIMIT:-3g}
     # Привилегии не сброшены: запуск образа меняет владельца каталога данных и пользователя. Новых привилегий процесс не получит.
     security_opt: ['no-new-privileges:true']
@@ -168,7 +177,9 @@ services:
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser
     secrets: [pg_superuser]
-    volumes: ['pg_data:/var/lib/postgresql']
+    volumes:
+      - pg_data:/var/lib/postgresql
+      - ./wal-archive:/wal-archive
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s

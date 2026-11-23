@@ -29,7 +29,8 @@ test('портал работает не от root, с файловой сист
 
 test('данные базы на томе в /var/lib/postgresql, пароль суперпользователя секретом', () => {
   const pg = services.postgres as Record<string, unknown>;
-  expect(pg.volumes).toEqual(['pg_data:/var/lib/postgresql']);
+  // Второй том: каталог сегментов журнала для непрерывного архива (решение 0039).
+  expect(pg.volumes).toEqual(['pg_data:/var/lib/postgresql', './wal-archive:/wal-archive']);
   expect(pg.environment).toEqual({ POSTGRES_PASSWORD_FILE: '/run/secrets/pg_superuser' });
 });
 

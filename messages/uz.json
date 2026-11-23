@@ -82,7 +82,8 @@
         "sla_breach": "SUP-{number} murojaati bo'yicha muddat o'tib ketdi",
         "snooze_returned": "Kechiktirilgan SUP-{number} murojaati qaytdi",
         "update_due": "Ertaga SUP-{number} murojaati bo'yicha mijozga xabar berish muddati",
-        "holidays_reminder": "{year} yil bayram kunlarini to'ldiring"
+        "holidays_reminder": "{year} yil bayram kunlarini to'ldiring",
+        "telegram_linked": "Telegram hisobi bog'landi. Agar bu siz bo'lmasangiz, uni profilda uzing."
       },
       "settings": {
         "title": "Xatlar",
@@ -404,7 +405,8 @@
           "rate_limited": "Urinishlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
           "disabled": "Telegramni bog'lash hozir mavjud emas.",
           "unavailable": "Telegram hozir javob bermayapti. Botni bir necha daqiqadan keyin bog'lab ko'ring."
-        }
+        },
+        "blocked": "Bot Telegramda bloklangan, xabarlar kelmayapti. Botni blokdan chiqaring va Telegramni qayta bog'lang."
       }
     },
     "footer": {

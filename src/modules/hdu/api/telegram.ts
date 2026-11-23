@@ -15,6 +15,7 @@ import {
   type TelegramUser,
   telegramLinkedMail,
 } from '@/modules/hdn/api';
+import { notifyTelegramLinked } from '@/modules/hdn/api/notifications';
 import { createTrustedSession } from '../core/trusted';
 import {
   consumeLinkCode,
@@ -70,10 +71,10 @@ export function telegramEnabled(): boolean {
   return getTelegramBot().enabled;
 }
 
-/** Своя привязка: как показать аккаунт и с какого времени он привязан. */
-export async function getTelegramLink(ctx: ClientContext): Promise<{ displayName: string; linkedOn: Date } | null> {
+/** Своя привязка: как показать аккаунт, с какого времени он привязан и не заблокировал ли человек бота (решение 5 вехи M4b). */
+export async function getTelegramLink(ctx: ClientContext): Promise<{ displayName: string; linkedOn: Date; blocked: boolean } | null> {
   const found = await findOwnIdentity(ctx.actor);
-  return found ? { displayName: found.displayName ?? 'Telegram', linkedOn: found.verifiedOn } : null;
+  return found ? { displayName: found.displayName ?? 'Telegram', linkedOn: found.verifiedOn, blocked: found.blocked } : null;
 }
 
 /** Отвязка кнопкой в портале. Бот подтверждает отвязку в диалоге: человек видит, что аккаунт отвязан. */
@@ -156,8 +157,9 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
     if (result === 'invalid') return reply(botText(locale, 'codeInvalid'), portalButton(locale));
     if (result === 'taken') return reply(botText(locale, 'alreadyLinked'));
     const replyLocale = result.locale ?? locale;
-    // Письмо о новой привязке на подтверждённый адрес (угроза T30): привязал не человек, он отвяжет аккаунт.
-    // Письмо ставится до ответа бота: сбой ответа его не отменит.
+    // Уведомление в портале и письмо о новой привязке на подтверждённый адрес (угроза T30, FR-NT-13): привязал
+    // не человек, он отвяжет аккаунт. Оба ставятся до ответа бота: сбой ответа их не отменит.
+    await notifyTelegramLinked(result.userId);
     if (result.email)
       queueMail({
         to: result.email,

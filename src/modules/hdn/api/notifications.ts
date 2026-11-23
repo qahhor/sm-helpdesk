@@ -1,11 +1,12 @@
 import 'server-only';
 import * as z from 'zod';
-import type { SystemActor } from '@/db/with-actor';
+import { type SystemActor, withActor } from '@/db/with-actor';
 import {
   cleanupNotificationsTx,
   type ClientPrefs,
   listNotificationsTx,
   markReadTx,
+  notifyTx,
   type NotificationRow,
   openNotificationTx,
   type PersonActor,
@@ -54,4 +55,10 @@ export async function readPrefs(actor: PersonActor): Promise<ClientPrefs | Staff
 
 export async function cleanupNotifications(actor: SystemActor, now: Date): Promise<number> {
   return cleanupNotificationsTx(actor, now);
+}
+
+/** Уведомление в портале о новой привязке Telegram (FR-NT-13, решение 6 вехи M4b): рядом с письмом о привязке. */
+export async function notifyTelegramLinked(userId: string): Promise<void> {
+  const id = z.uuid().parse(userId);
+  await withActor({ type: 'system', job: 'identity.telegram' }, (tx) => notifyTx(tx, { userId: id, kind: 'telegram_linked', payload: {} }));
 }

@@ -82,7 +82,8 @@
         "sla_breach": "Deadline missed on request SUP-{number}",
         "snooze_returned": "Snoozed request SUP-{number} is back",
         "update_due": "Client update due tomorrow on request SUP-{number}",
-        "holidays_reminder": "Fill in the holidays for {year}"
+        "holidays_reminder": "Fill in the holidays for {year}",
+        "telegram_linked": "A Telegram account was linked. If it was not you, unlink it in your profile."
       },
       "settings": {
         "title": "Emails",
@@ -404,7 +405,8 @@
           "rate_limited": "Too many attempts. Try again in an hour.",
           "disabled": "Linking Telegram is not available right now.",
           "unavailable": "Telegram is not responding right now. Try linking the bot again in a few minutes."
-        }
+        },
+        "blocked": "The bot is blocked in Telegram, messages do not arrive. Unblock the bot and link Telegram again."
       }
     },
     "footer": {

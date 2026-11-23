@@ -51,6 +51,7 @@ export const NOTIFICATION_KINDS = [
   'snooze_returned',
   'update_due',
   'holidays_reminder',
+  'telegram_linked',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

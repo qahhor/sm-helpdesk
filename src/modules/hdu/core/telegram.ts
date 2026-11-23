@@ -144,10 +144,10 @@ export async function unlinkOwn(actor: ClientActor): Promise<string | null> {
 }
 
 /** Своя привязка Telegram глазами клиента. */
-export async function findOwnIdentity(actor: ClientActor): Promise<{ displayName: string | null; verifiedOn: Date } | null> {
+export async function findOwnIdentity(actor: ClientActor): Promise<{ displayName: string | null; verifiedOn: Date; blocked: boolean } | null> {
   const rows = await withActor(actor, (tx) =>
     tx
-      .select({ displayName: contactIdentities.displayName, verifiedOn: contactIdentities.verifiedOn })
+      .select({ displayName: contactIdentities.displayName, verifiedOn: contactIdentities.verifiedOn, blocked: contactIdentities.isBlocked })
       .from(contactIdentities)
       .where(and(eq(contactIdentities.userId, actor.userId), eq(contactIdentities.kind, 'telegram')))
       .limit(1),

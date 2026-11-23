@@ -113,6 +113,7 @@ pnpm hub maintenance:cleanup
 | `docs/legal/`, `content/legal/` | Черновик политики обработки данных для юриста и утверждённые тексты для портала |
 | `docs/decisions/` | Принятые решения и их причины |
 | `docs/security/` | Проверки ASVS по вехам |
+| `docs/audit/` | Технический аудит и план оптимизации |
 | `docs/versions.md` | Версии зависимостей и лицензии |
 | `docs/i18n-review.md` | Состояние вычитки переводов |
 | `docs/design/`, `docs/brand/` | Токены, макеты Smartup Web, логотип, Тез, шрифт |

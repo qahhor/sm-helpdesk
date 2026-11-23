@@ -3,6 +3,7 @@ import { withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/audit';
 import { listAudit } from '@/modules/hdc/api';
+import { listAuditNamed } from '@/modules/hdu/api/audit-view';
 import { staffCtx } from './helpers/auth';
 import { admin, agentL1, asActor, clientA, pools, system } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
@@ -147,7 +148,8 @@ test('строка журнала называет автора и органи�
   await pools.root.query(
     `insert into hdc_audit_log (actor_type, action, object_type, object_id, created_on) values ('system', 'server.added', 'server', 'old-1', now() - interval '8 days')`,
   );
-  const { items } = await listAudit(ctx, {});
+  // Имена к строкам журнала добавляет модуль пользователей: таблицы людей и организаций его (аудит, находка A2).
+  const { items } = await listAuditNamed(ctx, {});
   expect(items.map((row) => row.objectId)).toEqual(['m-1']);
   expect(items[0]).toMatchObject({
     actorType: 'staff',

@@ -20,7 +20,7 @@ import {
 // решения 3 и 4 вехи M4b).
 // Актор только из проверенной сессии: страницы передают его из requireClientActor и requireStaffActor.
 
-export { type Channels, channelsFor, channelsForMany, emailAllowed, notifyTx, type NotificationRow, type PersonActor } from '../core/notifications';
+export { type Channels, channelsFor, channelsForMany, emailAllowed, holidaysReminderSentTx, notifyTx, type NotificationRow, type PersonActor } from '../core/notifications';
 export { type NotificationKind, type PrefKind } from '../schema';
 export type { ClientPrefs, StaffPrefs };
 export { isHdnError } from '../error';

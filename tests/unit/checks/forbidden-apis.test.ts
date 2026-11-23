@@ -66,3 +66,30 @@ test('системный актор запрещён в обработчиках
   expect(findForbiddenApis('src/modules/hdt/core/x.ts', text)).toEqual([]);
   expect(findForbiddenApis('src/worker/main.ts', text)).toEqual([]);
 });
+
+// Чужие таблицы прямым SQL (аудит 23.11.2026, находка A2; план W2, задача 9): модуль читает и пишет только свои
+// таблицы. Нужное из чужой таблицы даёт функция api модуля-владельца. Линтер импортов такую связь не видит:
+// имя таблицы стоит в тексте запроса.
+
+test('код модуля не называет таблицу другого модуля', () => {
+  const rules = (path: string, text: string) => findForbiddenApis(path, text).map((v) => v.rule);
+  expect(rules('src/modules/hdn/core/notifications.ts', 'await tx.execute(sql`select org_id from hdt_tickets where ticket_id = ${id}`);')).toEqual(['cross-module-sql']);
+  expect(rules('src/modules/hdt/core/housekeeping.ts', "sql`select 1 from hdn_notifications where kind = 'x'`")).toEqual(['cross-module-sql']);
+  expect(rules('src/modules/hdc/audit.ts', 'sql`(select p.name from hdu_user_profiles p where p.user_id::text = hdc_audit_log.actor_id)`')).toEqual(['cross-module-sql']);
+  expect(rules('src/modules/hdt/core/x.ts', 'sql`select 1 from auth."user" where id = ${id}`')).toEqual(['cross-module-sql']);
+});
+
+test('свои таблицы, комментарии, схема и код вне модулей под запрет не попадают', () => {
+  const rules = (path: string, text: string) => findForbiddenApis(path, text).map((v) => v.rule);
+  expect(rules('src/modules/hdt/core/x.ts', 'sql`select 1 from hdt_tickets t join hdt_ticket_messages m using (ticket_id)`')).toEqual([]);
+  expect(rules('src/modules/hdt/core/x.ts', '// Раньше здесь читалась таблица hdn_notifications напрямую.')).toEqual([]);
+  expect(rules('src/modules/hdt/core/x.ts', ' * Таблица hdn_outbox принадлежит модулю уведомлений.')).toEqual([]);
+  expect(rules('src/modules/hdt/core/x.ts', "const x = 1; // hdu_memberships")).toEqual([]);
+  // Таблицы библиотеки входа читает только модуль пользователей.
+  expect(rules('src/modules/hdu/core/x.ts', 'sql`select 1 from auth."user" where id = ${id}`')).toEqual([]);
+  // Имя ограничения или индекса в сообщении об ошибке своего модуля.
+  expect(rules('src/modules/hdu/core/x.ts', "if (error.constraint === 'hdu_servers_u1') return;")).toEqual([]);
+  // Тесты, миграции и проверки называют любые таблицы.
+  expect(rules('tests/integration/x.test.ts', 'pools.root.query(`select 1 from hdt_tickets`)')).toEqual([]);
+  expect(rules('src/worker/main.ts', "console.info('hdn_outbox');")).toEqual([]);
+});

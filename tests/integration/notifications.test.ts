@@ -22,7 +22,7 @@ beforeEach(async () => {
 });
 
 const notifyAUser = (kind: 'ticket_reply' | 'ticket_status' = 'ticket_reply') =>
-  withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.aUser.userId, kind, ticketId: f.tickets.aOrg.ticketId, payload: { number: f.tickets.aOrg.number, title: f.tickets.aOrg.title } }));
+  withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.aUser.userId, kind, ticketId: f.tickets.aOrg.ticketId, orgId: f.orgA.orgId, payload: { number: f.tickets.aOrg.number, title: f.tickets.aOrg.title } }));
 
 test('уведомление видит и отмечает только адресат', async () => {
   await notifyAUser();
@@ -51,7 +51,7 @@ test('счётчик непрочитанных и "Прочитать все"',
   await markRead(f.aUser.actor, 'all');
   expect(await unreadCount(f.aUser.actor)).toBe(0);
   // Чужие уведомления "Прочитать все" не трогает.
-  await withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'ticket_reply', ticketId: f.tickets.bOrg.ticketId, payload: { number: f.tickets.bOrg.number } }));
+  await withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'ticket_reply', ticketId: f.tickets.bOrg.ticketId, orgId: f.orgB.orgId, payload: { number: f.tickets.bOrg.number } }));
   const bBefore = await unreadCount(f.bUser.actor);
   await markRead(f.aUser.actor, 'all');
   expect(await unreadCount(f.bUser.actor)).toBe(bBefore);
@@ -59,7 +59,7 @@ test('счётчик непрочитанных и "Прочитать все"',
 
 test('клиент не ставит уведомление по чужому обращению', async () => {
   await expect(
-    withActor(f.aUser.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'ticket_reply', ticketId: f.tickets.bOrg.ticketId, payload: { number: 1 } })),
+    withActor(f.aUser.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'ticket_reply', ticketId: f.tickets.bOrg.ticketId, orgId: f.orgB.orgId, payload: { number: 1 } })),
   ).rejects.toThrow();
   await expect(withActor(f.aUser.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'holidays_reminder', payload: { year: 2027 } }))).rejects.toThrow();
 });
@@ -93,7 +93,7 @@ test('ночная очистка удаляет прочитанные стар
   await markRead(f.aUser.actor, 'all');
   await pools.root.query(`update hdn_notifications set read_on = now() - interval '91 days' where notification_id = $1`, [older!.notificationId]);
   // Непрочитанное старое остаётся.
-  await withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.aUser.userId, kind: 'ticket_reply', ticketId: f.tickets.aOrg.ticketId, payload: { number: 7 } }));
+  await withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.aUser.userId, kind: 'ticket_reply', ticketId: f.tickets.aOrg.ticketId, orgId: f.orgA.orgId, payload: { number: 7 } }));
   await pools.root.query(`update hdn_notifications set created_on = now() - interval '200 days' where read_on is null and user_id = $1`, [f.aUser.userId]);
   const removed = await cleanupNotifications({ type: 'system', job: 'maintenance.cleanup' }, new Date());
   expect(removed).toBeGreaterThanOrEqual(1);

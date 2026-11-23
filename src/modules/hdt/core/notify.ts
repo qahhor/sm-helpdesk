@@ -126,7 +126,7 @@ async function tellStaff(
   extra: Record<string, string> = {},
 ): Promise<void> {
   for (const userId of new Set(recipients)) {
-    await notifyTx(tx, { userId, kind, ticketId, payload: { number: ticket.number, title: ticket.title, ...extra } });
+    await notifyTx(tx, { userId, kind, ticketId, orgId: ticket.orgId, payload: { number: ticket.number, title: ticket.title, ...extra } });
     if (!mail || (pref && !(await emailAllowed(tx, userId, pref)))) continue;
     await enqueueTx(tx, {
       channel: 'email',
@@ -177,7 +177,7 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
     case 'client_reply':
       // Ответ клиента: исполнителю уведомление в портале, без письма (решение 7).
       if (ticket.assigneeId && ticket.assigneeId !== e.actorUserId)
-        await notifyTx(tx, { userId: ticket.assigneeId, kind: 'client_replied', ticketId: e.ticketId, payload: { number: ticket.number, title: ticket.title } });
+        await notifyTx(tx, { userId: ticket.assigneeId, kind: 'client_replied', ticketId: e.ticketId, orgId: ticket.orgId, payload: { number: ticket.number, title: ticket.title } });
       return;
     case 'staff_reply': {
       if (!e.messageId) throw new Error('уведомление: нет сообщения');

@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql 
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { readSetting, writeAudit } from '@/modules/hdc/api';
-import { notifyTx } from '@/modules/hdn/api/notifications';
+import { holidaysReminderSentTx, notifyTx } from '@/modules/hdn/api/notifications';
 import { enqueueTx } from '@/modules/hdn/api/outbox';
 import { adminIds, lineLeads } from '@/modules/hdu/api/recipients';
 import { readSlaConfig } from '@/modules/hdr/api';
@@ -284,8 +284,7 @@ export async function holidaysReminderTx(actor: SystemActor, now: Date): Promise
   return withActor(actor, async (tx) => {
     const calendar = (await readSlaConfig(tx)).calendar;
     if (calendar.holidays.some((day) => day.startsWith(`${next}-`))) return 0;
-    const sent = await tx.execute(sql`select 1 from hdn_notifications where kind = 'holidays_reminder' and payload ->> 'year' = ${String(next)} limit 1`);
-    if (sent.rows.length > 0) return 0;
+    if (await holidaysReminderSentTx(tx, next)) return 0;
     for (const userId of admins) {
       await notifyTx(tx, { userId, kind: 'holidays_reminder', payload: { year: next } });
       await enqueueTx(tx, {

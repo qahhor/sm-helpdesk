@@ -34,17 +34,23 @@ export type NotificationRow = {
  */
 export async function notifyTx(
   tx: Tx,
-  n: { userId: string; kind: NotificationKind; ticketId?: string; orgId?: string; payload: Record<string, string | number> },
+  n: { userId: string; kind: NotificationKind; payload: Record<string, string | number> } & ({ ticketId: string; orgId: string } | { ticketId?: undefined; orgId?: undefined }),
 ): Promise<void> {
-  // Организация обращения известна вызывающему: тогда она не читается заново для каждого получателя. Подделать её
-  // нельзя: политика вставки сверяет организацию с обращением.
-  let orgId: string | null = n.ticketId ? (n.orgId ?? null) : null;
-  if (n.ticketId && !orgId) {
-    const found = await tx.execute<{ org_id: string }>(sql`select org_id from hdt_tickets where ticket_id = ${n.ticketId}`);
-    orgId = found.rows[0]?.org_id ?? null;
-    if (!orgId) throw new Error('уведомление: обращение не найдено');
-  }
-  await tx.insert(notifications).values({ notificationId: randomUUID(), userId: n.userId, kind: n.kind, ticketId: n.ticketId ?? null, orgId, payload: n.payload });
+  // Организацию обращения передаёт вызывающий: таблица обращений принадлежит другому модулю, и читать её отсюда
+  // нельзя (аудит 23.11.2026, находка A2). Подделать организацию нельзя: политика вставки сверяет её с обращением.
+  await tx
+    .insert(notifications)
+    .values({ notificationId: randomUUID(), userId: n.userId, kind: n.kind, ticketId: n.ticketId ?? null, orgId: n.ticketId ? n.orgId : null, payload: n.payload });
+}
+
+/** Отправлено ли уже напоминание о праздниках этого года: его ставит ежемесячная проверка календаря (FR-SLA-12). */
+export async function holidaysReminderSentTx(tx: Tx, year: number): Promise<boolean> {
+  const rows = await tx
+    .select({ id: notifications.notificationId })
+    .from(notifications)
+    .where(and(eq(notifications.kind, 'holidays_reminder'), sql`${notifications.payload} ->> 'year' = ${String(year)}`))
+    .limit(1);
+  return rows.length > 0;
 }
 
 export async function unreadCountTx(actor: PersonActor): Promise<number> {

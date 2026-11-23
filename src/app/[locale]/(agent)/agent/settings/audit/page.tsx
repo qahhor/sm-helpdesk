@@ -2,8 +2,8 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { formatDateTime } from '@/i18n/format';
 import { type Locale, TIME_ZONE } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
-import { AUDIT_ACTIONS, isHdcError, listAudit } from '@/modules/hdc/api';
-import { requireStaffActor } from '@/modules/hdu/api';
+import { AUDIT_ACTIONS, isHdcError } from '@/modules/hdc/api';
+import { listAuditNamed, requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent } from '@/ui/components/card';
@@ -56,9 +56,9 @@ export default async function AuditPage({ searchParams }: PageProps<'/[locale]/a
     org: firstParam(query.org) ?? '',
   };
   const cursor = firstParam(query.cursor);
-  let page: Awaited<ReturnType<typeof listAudit>> | null = null;
+  let page: Awaited<ReturnType<typeof listAuditNamed>> | null = null;
   try {
-    page = await listAudit(staff, {
+    page = await listAuditNamed(staff, {
       from: dayBoundary(filters.from, false),
       to: dayBoundary(filters.to, true),
       action: filters.action || undefined,

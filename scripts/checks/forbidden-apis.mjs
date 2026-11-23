@@ -6,13 +6,35 @@
 // - системный актор видит все организации, поэтому в обработчиках запросов (src/app, src/ui) его нет: фоновые и
 //   служебные действия живут в модулях и фоновом процессе (аудит 23.11.2026, находка A7).
 
-/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql' | 'system-actor'} ForbiddenRule */
+// - модуль не называет таблицу другого модуля в тексте запроса: нужное даёт api модуля-владельца (аудит
+//   23.11.2026, находка A2). Линтер импортов такую связь не видит.
+
+/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql' | 'system-actor' | 'cross-module-sql'} ForbiddenRule */
 
 // Единственный файл, где разрешена вставка разметки: скрипт темы до первой отрисовки.
 const INNER_HTML_ALLOWED = new Set(['src/ui/theme/ThemeScript.tsx']);
 
 const SYSTEM_ACTOR = /\btype\s*:\s*['"]system['"]/;
 const REQUEST_CODE = /^src\/(?:app|ui)\//;
+
+// Таблицы модулей названы с приставкой модуля (docs/naming.md): hdt_tickets, hdn_outbox. Таблицы библиотеки входа
+// лежат в схеме auth, их читает только модуль пользователей (hdu).
+const MODULE_FILE = /^src\/modules\/(hd[a-z])\//;
+const TABLE_NAME = /\b(hd[a-z])_[a-z][a-z0-9_]*\b/g;
+const AUTH_TABLE = /\bauth\s*\.\s*"?[a-zA-Z]/;
+
+/**
+ * Называет ли строка кода модуля таблицу другого модуля. Комментарии не считаются.
+ * @param {string} owner
+ * @param {string} line
+ */
+function namesForeignTable(owner, line) {
+  const trimmed = line.trim();
+  if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return false;
+  const code = line.replace(/\/\/.*$/, '');
+  for (const match of code.matchAll(TABLE_NAME)) if (match[1] !== owner) return true;
+  return owner !== 'hdu' && AUTH_TABLE.test(code);
+}
 
 /** @type {{ rule: ForbiddenRule; test: RegExp }[]} */
 const RULES = [
@@ -53,6 +75,8 @@ export function findForbiddenApis(path, text) {
       found.push({ line: i + 1, rule });
     }
     if (REQUEST_CODE.test(path) && SYSTEM_ACTOR.test(lines[i])) found.push({ line: i + 1, rule: 'system-actor' });
+    const owner = MODULE_FILE.exec(path)?.[1];
+    if (owner && namesForeignTable(owner, lines[i])) found.push({ line: i + 1, rule: 'cross-module-sql' });
   }
   return found;
 }

@@ -15,7 +15,7 @@ export async function ChannelsSection({ link, status }: { link: { displayName: s
   const t = await getTranslations('client.settings.channels');
   const locale = (await getLocale()) as Locale;
   return (
-    <Card>
+    <Card id="telegram">
       <CardHeader>
         <h2 className="text-lg font-semibold">{t('title')}</h2>
         {!link && <p className="text-secondary-foreground">{t('intro')}</p>}

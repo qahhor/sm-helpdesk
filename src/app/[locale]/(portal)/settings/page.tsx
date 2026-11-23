@@ -1,4 +1,4 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
 import { type ClientPrefs, readPrefs } from '@/modules/hdn/api/notifications';
 import { getTelegramLink, mySessions, requireClientActor, telegramEnabled } from '@/modules/hdu/api';
 import { telegramLinked } from '@/modules/hdu/api/recipients';
@@ -24,7 +24,6 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
   const prefsStatus = firstParam(params.prefs);
   const botOn = telegramEnabled();
   const telegramActive = botOn && (await telegramLinked(client.actor.userId));
-  const locale = await getLocale();
   return (
     <>
       <h1 className="text-2xl font-bold">{t('client.nav.profile')}</h1>
@@ -49,7 +48,7 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
           save: t('common.notifications.settings.save'),
           saved: t('common.notifications.settings.saved'),
         }}
-        telegram={botOn ? { active: telegramActive, linkHref: `/${locale}/settings/telegram` } : null}
+        telegram={botOn ? { active: telegramActive, linkHref: '#telegram' } : null}
         status={prefsStatus === 'saved' || prefsStatus === 'need_telegram' ? prefsStatus : null}
         ownFallback={!prefs.own.email && !telegramActive}
         save={saveClientPrefsAction}

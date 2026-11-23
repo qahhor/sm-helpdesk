@@ -34,6 +34,7 @@ export function ClientChannelsForm({
   rows: ChannelRow[];
   labels: ClientChannelsLabels;
   /** null: бот портала выключен, столбца Telegram нет. */
+  /** linkHref: ссылка на раздел привязки Telegram на этой же странице. */
   telegram: { active: boolean; linkHref: string } | null;
   status: 'saved' | 'need_telegram' | null;
   /** Почта о своих обращениях выключена, но Telegram не действует: письма всё равно идут. */
@@ -112,7 +113,7 @@ export function ClientChannelsForm({
           {telegram && !telegram.active && (
             <p className="text-sm text-secondary-foreground">
               {labels.telegramMissing}{' '}
-              <a href={telegram.linkHref} target="_blank" rel="noopener" className="text-primary underline">
+              <a href={telegram.linkHref} className="text-primary underline">
                 {labels.telegramLink}
               </a>
             </p>

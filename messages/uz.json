@@ -102,7 +102,7 @@
           "telegram": "Telegram",
           "ownRule": "O'z murojaatlaringiz haqidagi xatlarni Telegram yoqilgan bo'lsa o'chirish mumkin: kamida bitta usul qoladi.",
           "telegramMissing": "Telegram bog'lanmagan. Undagi xabarlar bog'langandan keyin kela boshlaydi.",
-          "telegramLink": "Telegramni bog'lash",
+          "telegramLink": "Bog'lashga o'tish",
           "needTelegram": "O'z murojaatlaringiz haqidagi xatlar faqat Telegram bog'langan va shu qatorda yoqilgan bo'lsa o'chadi.",
           "ownFallback": "O'z murojaatlaringiz haqidagi xatlar yana kelmoqda: Telegram hozir ishlamayapti."
         }

@@ -69,6 +69,6 @@ test('каналы уведомлений: без Telegram почту о сво�
   // Без привязки Telegram почту о своих обращениях выключить нельзя: сервер отказывает и объясняет почему.
   await ownEmail().uncheck();
   await page.getByRole('button', { name: 'Сохранить' }).click();
-  await expect(page.getByRole('alert')).toContainText('Письма о своих обращениях выключаются, только если Telegram привязан');
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('Письма о своих обращениях выключаются, только если Telegram привязан');
   await expect(ownEmail()).toBeChecked();
 });

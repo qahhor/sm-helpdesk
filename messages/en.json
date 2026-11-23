@@ -102,7 +102,7 @@
           "telegram": "Telegram",
           "ownRule": "Emails about your requests can be turned off when Telegram is on: at least one way stays.",
           "telegramMissing": "Telegram is not linked. Messages there start after you link it.",
-          "telegramLink": "Link Telegram",
+          "telegramLink": "Go to linking",
           "needTelegram": "Emails about your requests turn off only when Telegram is linked and turned on in this row.",
           "ownFallback": "Emails about your requests arrive again: Telegram is not working right now."
         }

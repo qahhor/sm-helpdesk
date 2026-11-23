@@ -1789,7 +1789,11 @@
       "subject": "Smartup Hub mail intake check {token}",
       "text": "This is a check email from the Smartup Hub portal. If it has reached the portal, mail intake for {address} works. There is no need to reply."
     },
-    "noSubject": "Email without a subject"
+    "noSubject": "Email without a subject",
+    "opsAlert": {
+      "subject": "Smartup Hub: on-call alert",
+      "button": "Open the workspace"
+    }
   },
   "bot": {
     "linked": "Done: Telegram is linked to the account {name} in the organization {org}. You can sign in to Smartup Hub here when Smartup is not available. If you did not link it, press \"Unlink\".",
@@ -1822,7 +1826,15 @@
       "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
     },
     "oncallP1": "P1: new urgent request SUP-{number}",
-    "oncallP1Org": "P1: new urgent request SUP-{number}, {org}"
+    "oncallP1Org": "P1: new urgent request SUP-{number}, {org}",
+    "ops": {
+      "jobs_failed": "Smartup Hub: background jobs that failed in the last hour: {count}. Check the worker log.",
+      "outbox_failed": "Smartup Hub: emails and messages not sent in the last hour: {count}. Check the outbox.",
+      "outbox_lag": "Smartup Hub: the outbox has been stuck for {minutes} min, waiting to be sent: {count}.",
+      "inbound_stuck": "Smartup Hub: incoming emails not processed for more than 10 minutes: {count}.",
+      "staff_signin_failures": "Smartup Hub: failed staff sign-ins in 15 minutes: {count}. Someone may be guessing a password.",
+      "infected_files": "Smartup Hub: infected files found in the last hour: {count}."
+    }
   },
   "dev": {
     "title": "Component showcase",

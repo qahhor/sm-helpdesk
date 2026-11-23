@@ -1,6 +1,6 @@
 import 'server-only';
 import { type SystemActor, withActor } from '@/db/with-actor';
-import { scanAttachment as scanCore, sweepAttachments as sweepCore } from '../core/attachments';
+import { infectedSinceTx, scanAttachment as scanCore, sweepAttachments as sweepCore } from '../core/attachments';
 import { type MinuteResult, ticketsMinuteTx } from '../core/housekeeping';
 import { needsSlaRefreshTx, refreshSla, type SlaState } from '../core/sla';
 import { attachmentIdInput, parseInput } from '../input';
@@ -94,4 +94,9 @@ export async function applyGuestMerges(actor: SystemActor): Promise<number> {
     }
   }
   return applied;
+}
+
+/** Заражённые файлы, найденные с этого времени: для сигнала дежурным (ТЗ 13.8). */
+export async function infectedSince(actor: SystemActor, since: Date): Promise<number> {
+  return infectedSinceTx(actor, since);
 }

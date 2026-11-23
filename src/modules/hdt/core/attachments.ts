@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { enqueue, getScanner, getStorage, SNIFF_BYTES, sniffFileType, writeAudit } from '@/modules/hdc/api';
@@ -326,4 +326,15 @@ export async function sweepAttachments(): Promise<{ requeued: number; removed: n
     }
   }
   return { requeued, removed, failed: stuck.length };
+}
+
+/** Сколько файлов получили отметку "заражён" с этого времени. */
+export async function infectedSinceTx(actor: SystemActor, since: Date): Promise<number> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(attachments)
+      .where(and(eq(attachments.scanStatus, 'infected'), gt(attachments.modifiedOn, since))),
+  );
+  return rows[0]?.n ?? 0;
 }

@@ -1789,7 +1789,11 @@
       "subject": "Smartup Hub xatlarni qabul qilishni tekshirish {token}",
       "text": "Bu Smartup Hub portalining tekshiruv xati. Agar u portalga yetib kelgan bo'lsa, {address} manzilidagi xatlarni qabul qilish ishlayapti. Unga javob berish shart emas."
     },
-    "noSubject": "Mavzusiz xat"
+    "noSubject": "Mavzusiz xat",
+    "opsAlert": {
+      "subject": "Smartup Hub: navbatchiga signal",
+      "button": "Ish joyini ochish"
+    }
   },
   "bot": {
     "linked": "Tayyor: Telegram {org} tashkilotidagi {name} hisobiga bog'landi. Smartupga kirish imkoni bo'lmasa, Smartup Hub tizimiga shu yerdan kirish mumkin. Agar bog'lagan siz bo'lmasangiz, «Uzish» tugmasini bosing.",
@@ -1822,7 +1826,15 @@
       "reminder": "Javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi."
     },
     "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
-    "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}"
+    "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}",
+    "ops": {
+      "jobs_failed": "Smartup Hub: bir soatda bajarilmagan fon vazifalari: {count}. Fon jarayoni jurnalini ko'ring.",
+      "outbox_failed": "Smartup Hub: bir soatda yuborilmagan xat va xabarlar: {count}. Chiquvchi navbatni ko'ring.",
+      "outbox_lag": "Smartup Hub: chiquvchi navbat {minutes} daqiqadan beri turibdi, yuborilishini kutayotganlar: {count}.",
+      "inbound_stuck": "Smartup Hub: 10 daqiqadan ortiq ko'rib chiqilmagan kiruvchi xatlar: {count}.",
+      "staff_signin_failures": "Smartup Hub: 15 daqiqada xodimlarning muvaffaqiyatsiz kirishlari: {count}. Parol tanlanayotgan bo'lishi mumkin.",
+      "infected_files": "Smartup Hub: bir soatda topilgan zararlangan fayllar: {count}."
+    }
   },
   "dev": {
     "title": "Komponentlar vitrinasi",

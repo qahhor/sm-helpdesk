@@ -1,0 +1,124 @@
+import { beforeEach, expect, test } from 'vitest';
+import { noteStaffSignInFailure } from '@/modules/hdc/api';
+import { createMemoryEmailProvider, type MemoryEmailProvider } from '@/modules/hdn/testing';
+import { opsWatch } from '@/worker/ops-watch';
+import { pools } from './helpers/db';
+import { type Fixture, seedTwoOrgs } from './isolation/fixture';
+
+// Сигналы дежурным (аудит 23.11.2026, находки O2 и S4; ТЗ 13.8): упавшие задачи, очередь исходящих, письма без
+// разбора, подбор пароля сотрудника, заражённые файлы. Письмом и в чат дежурных, не чаще раза в час на вид,
+// только числа: без адресов, имён и текстов.
+
+const SYSTEM = { type: 'system', job: 'ops.watch' } as const;
+let f: Fixture;
+let mail: MemoryEmailProvider;
+let chat: string[];
+beforeEach(async () => {
+  f = await seedTwoOrgs();
+  mail = createMemoryEmailProvider();
+  chat = [];
+  await pools.root.query(`delete from hdn_outbox`);
+  await pools.root.query(`delete from hdn_email_inbound`);
+  await pools.root.query(`delete from pgboss.job where state = 'failed'`);
+  await pools.root.query(`update hdt_attachments set scan_status = 'clean' where scan_status = 'infected'`);
+  await pools.root.query(`insert into hdc_settings (code, value) values ('notify.oncall_emails', '["duty@smartup24.com"]')`);
+});
+
+const watch = (now = new Date()) => opsWatch(SYSTEM, now, { provider: mail, oncall: { send: async (text) => void chat.push(text) } });
+const failedOutbox = (n: number) =>
+  pools.root.query(
+    `insert into hdn_outbox (ticket_id, channel, recipient_kind, recipient_user_id, template, payload, status, attempts)
+     select $1, 'email', 'user', $2, 'ticket_resolved', $3, 'failed', 6 from generate_series(1, $4)`,
+    [f.tickets.aOrg.ticketId, f.aUser.userId, JSON.stringify({ template: 'ticket_resolved', number: 1, title: 'x', url: '/tickets' }), n],
+  );
+
+test('всё в порядке: сигналов нет', async () => {
+  expect(await watch()).toEqual([]);
+  expect(chat).toEqual([]);
+  expect(mail.sent).toEqual([]);
+});
+
+test('не отправленные сообщения очереди: сигнал в чат и письмом дежурным, только число', async () => {
+  await failedOutbox(3);
+  expect(await watch()).toEqual(['outbox_failed']);
+  expect(chat).toHaveLength(1);
+  expect(chat[0]).toContain('3');
+  expect(mail.sent.map((s) => s.message.to)).toEqual(['duty@smartup24.com']);
+  expect(mail.sent[0]!.message.text).toContain('3');
+  expect(mail.sent[0]!.message.subject).toContain('Smartup Hub');
+});
+
+test('один вид сигнала не чаще раза в час', async () => {
+  await failedOutbox(1);
+  const now = Date.now();
+  expect(await watch(new Date(now))).toEqual(['outbox_failed']);
+  expect(await watch(new Date(now + 10 * 60_000))).toEqual([]);
+  expect(chat).toHaveLength(1);
+  // Час прошёл: отметка последнего сигнала отодвигается назад, новый сбой даёт новый сигнал.
+  await pools.root.query(`update hdc_ops_alerts set last_sent_on = now() - interval '61 minutes'`);
+  expect(await watch(new Date(now))).toEqual(['outbox_failed']);
+  expect(chat).toHaveLength(2);
+});
+
+test('очередь стоит дольше 5 минут', async () => {
+  await pools.root.query(
+    `insert into hdn_outbox (ticket_id, channel, recipient_kind, recipient_user_id, template, payload, next_attempt_on)
+     values ($1, 'email', 'user', $2, 'ticket_resolved', $3, now() - interval '9 minutes')`,
+    [f.tickets.aOrg.ticketId, f.aUser.userId, JSON.stringify({ template: 'ticket_resolved', number: 1, title: 'x', url: '/tickets' })],
+  );
+  expect(await watch()).toEqual(['outbox_lag']);
+  expect(chat[0]).toMatch(/9|8/);
+});
+
+test('письма без разбора дольше 10 минут', async () => {
+  await pools.root.query(
+    `insert into hdn_email_inbound (provider_id, from_address, subject, message_id, raw_ref, received_on)
+     values ('stuck-1', 'x@example.uz', 'Тема', '<stuck-1@example.uz>', 'stuck-1', now())`,
+  );
+  const client = await pools.root.connect();
+  try {
+    await client.query(`set session_replication_role = replica`);
+    await client.query(`update hdn_email_inbound set created_on = now() - interval '20 minutes'`);
+    await client.query(`set session_replication_role = origin`);
+  } finally {
+    client.release();
+  }
+  expect(await watch()).toEqual(['inbound_stuck']);
+});
+
+test('20 неудачных входов сотрудников за 15 минут: сигнал только с числом', async () => {
+  await pools.root.query(`delete from hdc_rate_limits`);
+  for (let i = 0; i < 19; i++) await noteStaffSignInFailure();
+  expect(await watch()).toEqual([]);
+  await noteStaffSignInFailure();
+  expect(await watch()).toEqual(['staff_signin_failures']);
+  expect(chat[0]).toContain('20');
+  // Окно 15 минут прошло: счётчик больше не считается.
+  await pools.root.query(`update hdc_ops_alerts set last_sent_on = now() - interval '2 hours'`);
+  expect(await watch(new Date(Date.now() + 16 * 60_000))).toEqual([]);
+});
+
+test('заражённый файл за последний час', async () => {
+  await pools.root.query(`update hdt_attachments set scan_status = 'infected', scan_signature = 'Eicar-Test' where attachment_id = (select attachment_id from hdt_attachments limit 1)`);
+  expect(await watch()).toEqual(['infected_files']);
+  expect(chat[0]).not.toContain('Eicar');
+});
+
+test('упавшие фоновые задачи за час', async () => {
+  await pools.root.query(`insert into pgboss.job (name, state, completed_on) values ('email.inbound', 'failed', now())`);
+  expect(await watch()).toEqual(['jobs_failed']);
+});
+
+test('сбой чата не мешает письму, и наоборот; сигнал считается отправленным', async () => {
+  await failedOutbox(1);
+  const codes = await opsWatch(SYSTEM, new Date(), {
+    provider: mail,
+    oncall: {
+      send: async () => {
+        throw new Error('Telegram не ответил');
+      },
+    },
+  });
+  expect(codes).toEqual(['outbox_failed']);
+  expect(mail.sent).toHaveLength(1);
+});

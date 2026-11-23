@@ -25,6 +25,7 @@ const SAMPLES: { [K in MailTemplate]: Omit<Extract<MailData, { template: K }>, k
   holidays_reminder: { template: 'holidays_reminder', year: 2027, url: 'https://hub.example.test/ru/agent/settings/sla' },
   oncall_p1: { template: 'oncall_p1', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', orgName: 'ООО Клиент' },
   inbound_test: { template: 'inbound_test', address: 'support@greenwhite.uz', token: 'chk-7f3a' },
+  ops_alert: { template: 'ops_alert', text: 'Smartup Hub: за час не отправлено писем и сообщений: 3.', url: 'https://hub.example.test/ru/agent' },
 };
 
 const TICKET_TEMPLATES: MailTemplate[] = [

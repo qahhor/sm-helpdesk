@@ -26,6 +26,7 @@ export const MAIL_TEMPLATES = [
   'holidays_reminder',
   'oncall_p1',
   'inbound_test',
+  'ops_alert',
 ] as const;
 export type MailTemplate = (typeof MAIL_TEMPLATES)[number];
 
@@ -46,7 +47,9 @@ export type MailPayload =
   | ({ template: 'staff_update_due' } & TicketRef)
   | { template: 'holidays_reminder'; year: number; url: string }
   | ({ template: 'oncall_p1'; orgName: string } & TicketRef)
-  | { template: 'inbound_test'; address: string; token: string };
+  | { template: 'inbound_test'; address: string; token: string }
+  // Сигнал дежурным о состоянии портала (ТЗ 13.8): готовый текст с числами, без данных клиентов.
+  | { template: 'ops_alert'; text: string; url: string };
 
 export type MailData = MailPayload & MailCommon;
 
@@ -197,6 +200,15 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
         heading: null,
         text: t('inboundTest.text', { address: payload.address }),
         button: null,
+        reply: false,
+        signature: false,
+      };
+    case 'ops_alert':
+      return {
+        subject: t('opsAlert.subject'),
+        heading: t('opsAlert.subject'),
+        text: payload.text,
+        button: { label: t('opsAlert.button'), url: payload.url },
         reply: false,
         signature: false,
       };

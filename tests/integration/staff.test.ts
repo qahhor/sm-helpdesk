@@ -376,6 +376,9 @@ test('неудачный вход сотрудника и упор в счётч
   // Упор в счётчик пишется один раз за окно блокировки, а не на каждую попытку (итоговая проверка, замечание 3).
   const locked = (await pools.root.query(`select diff from hdc_audit_log where action = 'staff.sign_in_failed' and diff->>'step' = 'rate_limited'`)).rows;
   expect(locked).toHaveLength(1);
+  // Общий счётчик для сигнала дежурным считает каждую неудачу известной учётной записи, без её адреса (план W0, задача 4).
+  const counter = (await pools.root.query(`select hits from hdc_rate_limits where code = 'ops:staff-signin-failures'`)).rows;
+  expect(counter).toEqual([{ hits: 21 }]);
 });
 
 test('неверный и повторный код второго фактора записываются в журнал с адресом (итоговая проверка, замечание 4)', async () => {

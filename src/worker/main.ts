@@ -2,15 +2,17 @@ import { PgBoss } from 'pg-boss';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
+import { configureLog, logEvent, timedJob } from '@/lib/log';
 import { bossOptions, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
 import { cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
-import { dispatchOutbox } from '@/modules/hdn/api/outbox';
+import { dispatchOutbox, outboxState } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
+import { opsWatch } from './ops-watch';
 
 // Фоновый процесс портала (раздел 11.10, решение 0028): задачи pg-boss под ролью hub_app.
 // Собирается в один файл dist/worker.mjs (scripts/build-cli.mjs). В образе: node worker.mjs.
@@ -22,6 +24,7 @@ export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
   { name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' },
+  { name: 'ops.watch', cron: '*/5 * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
 
@@ -66,7 +69,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   setJobQueue(createPgBossQueue(boss));
   const polling = { pollingIntervalSeconds: opts.pollingIntervalSeconds ?? 2 };
 
-  await boss.work('attachment.scan', { ...polling, localConcurrency: 2 }, async ([job]) => {
+  await boss.work('attachment.scan', { ...polling, localConcurrency: 2 }, ([job]) => timedJob('attachment.scan', async () => {
     // В задаче только идентификатор вложения: остальное берётся из базы.
     const { attachmentId } = scanJob.parse(job?.data);
     try {
@@ -76,18 +79,18 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
       if (isHdtError(error) && error.code === 'not_found') return;
       throw error;
     }
-  });
-  await boss.work('email.inbound', polling, async ([job]) => {
+  }));
+  await boss.work('email.inbound', polling, ([job]) => timedJob('email.inbound', async () => {
     // В задаче только идентификатор письма: сведения о нём в базе, текст и файлы у почтового сервиса.
     const { inboundId } = inboundJob.parse(job?.data);
     await intakeEmail(actor('email.inbound'), inboundId);
-  });
-  await boss.work('attachment.sweep', polling, async () => {
+  }));
+  await boss.work('attachment.sweep', polling, () => timedJob('attachment.sweep', async () => {
     const { requeued, removed, failed } = await sweepAttachments(actor('attachment.sweep'));
     if (requeued > 0 || removed > 0 || failed > 0)
       console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}, проверка не прошла за сутки ${failed}`);
-  });
-  await boss.work('tickets.minute', polling, async () => {
+  }));
+  await boss.work('tickets.minute', polling, () => timedJob('tickets.minute', async () => {
     const { breached, unsnoozed, closed, refreshed, presenceRemoved, reminded } = await ticketsMinute(actor('tickets.minute'));
     if (breached + unsnoozed + closed + refreshed + reminded > 0)
       console.info(
@@ -97,12 +100,19 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Письма, разбор которых не встал в очередь или исчерпал повторы, ставятся снова (итоговая проверка M4).
     const requeued = await requeueStaleInbound(actor('email.sweep'));
     if (requeued > 0) console.info(`Входящие письма: снова на разборе ${requeued}`);
-  });
-  await boss.work('outbox.dispatch', polling, async () => {
+  }));
+  await boss.work('outbox.dispatch', polling, () => timedJob('outbox.dispatch', async () => {
     const { sent, failed, skipped } = await dispatchOutbox(actor('outbox.dispatch'), new Date());
     if (sent + failed + skipped > 0) console.info(`Очередь писем: отправлено ${sent}, не отправлено ${failed}, без адреса ${skipped}`);
-  });
-  await boss.work('maintenance.cleanup', polling, async () => {
+    // Состояние очереди для наблюдения: ждущие, не отправленные, задержка. Пустая очередь пишется только на debug.
+    const state = await outboxState(actor('outbox.dispatch'), new Date());
+    logEvent(state.failed > 0 || state.lagSec > 60 ? 'warn' : state.queued > 0 ? 'info' : 'debug', 'outbox.state', state);
+  }));
+  await boss.work('ops.watch', polling, () => timedJob('ops.watch', async () => {
+    const sent = await opsWatch(actor('ops.watch'));
+    if (sent.length > 0) logEvent('warn', 'ops.alerts_sent', { codes: sent });
+  }));
+  await boss.work('maintenance.cleanup', polling, () => timedJob('maintenance.cleanup', async () => {
     const system = actor('maintenance.cleanup');
     const limits = await cleanupRateLimits();
     const updates = await cleanupTelegramUpdates(system);
@@ -111,7 +121,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     console.info(
       `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, прочитанные уведомления ${notices}`,
     );
-  });
+  }));
   if (opts.schedules !== false) for (const s of SCHEDULES) await boss.schedule(s.name, s.cron, null, { tz: s.tz });
 
   return {
@@ -125,7 +135,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
 if (import.meta.main) {
   try {
     // Неверное окружение останавливает процесс сразу, как и портал (src/instrumentation.ts).
-    getEnv();
+    const env = getEnv();
+    configureLog({ level: env.LOG_LEVEL, json: (env.LOG_FORMAT ?? (process.env.NODE_ENV === 'production' ? 'json' : 'text')) === 'json' });
     const worker = await startWorker();
     console.info('Фоновый процесс запущен');
     let stopping = false;

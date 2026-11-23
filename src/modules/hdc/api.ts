@@ -23,6 +23,8 @@ export { type DetectedType, SNIFF_BYTES, sniffFileType } from './filetype';
 // Настройки портала (hdc_settings).
 export { readSetting, writeSettingTx } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';
+// Сигналы дежурным о состоянии портала (ТЗ 13.8).
+export { claimOpsAlert, failedJobsSince, failedStaffSignIns, noteStaffSignInFailure, OPS_ALERT_EVERY_MS } from './ops-alerts';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';
 

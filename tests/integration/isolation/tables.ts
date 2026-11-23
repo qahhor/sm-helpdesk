@@ -24,6 +24,7 @@ const IUD: Write[] = ['insert', 'update', 'delete'];
 export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Ядро. Журнал аудита только пополняется (решение 0019).
   hdc_audit_log: { client: 'none', app: ['insert'], auth: ['insert'] },
+  hdc_ops_alerts: { client: 'none', app: IU },
   hdc_rate_limits: { client: 'none', app: IUD },
   hdc_settings: { client: 'none', app: IUD },
   // Уведомления

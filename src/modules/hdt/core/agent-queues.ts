@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lt, ne, notInArray, or, type SQL, sql } from 'drizzle-orm';
+import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
 import type { Priority, Queue, TicketStatus } from '../pref';
@@ -126,7 +127,11 @@ const OPEN_QUEUES = ['new', 'l2', 'waiting', 'development', 'breached'] as const
  * счётчика нет: её число равно размеру базы и работе сотрудника не помогает.
  */
 export async function queueCountsTx(actor: StaffActor): Promise<Record<QueueKey, number | null>> {
-  return withActor(actor, async (tx) => {
+  return withActor(actor, (tx) => queueCountsIn(tx, actor));
+}
+
+async function queueCountsIn(tx: Tx, actor: StaffActor): Promise<Record<QueueKey, number | null>> {
+  {
     const [open] = await tx
       .select(
         Object.fromEntries(OPEN_QUEUES.map((key) => [key, sql<number>`count(*) filter (where ${queueWhere(key, actor.userId)})::int`])) as Record<
@@ -142,6 +147,22 @@ export async function queueCountsTx(actor: StaffActor): Promise<Record<QueueKey,
       .from(tickets)
       .where(queueWhere('mine', actor.userId));
     return { new: open?.new ?? 0, l2: open?.l2 ?? 0, waiting: open?.waiting ?? 0, development: open?.development ?? 0, breached: open?.breached ?? 0, mine: mine?.n ?? 0, all: null };
+  }
+}
+
+/**
+ * Боковая панель страницы очередей одной транзакцией: счётчики, сохранённые фильтры и число "Неопознанных"
+ * (аудит 23.11.2026, находка A3). Раньше это были три транзакции и три соединения пула на каждый просмотр.
+ */
+export async function queueSidebarTx(actor: StaffActor): Promise<{ counts: Record<QueueKey, number | null>; filters: SavedFilter[]; unidentified: number }> {
+  return withActor(actor, async (tx) => {
+    const counts = await queueCountsIn(tx, actor);
+    const filters = await listFiltersIn(tx, actor);
+    const [row] = await tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(tickets)
+      .where(and(eq(tickets.orgId, SERVICE_ORG_ID), ne(tickets.status, 'closed')));
+    return { counts, filters, unidentified: row?.n ?? 0 };
   });
 }
 
@@ -150,9 +171,11 @@ export async function queueCountsTx(actor: StaffActor): Promise<Record<QueueKey,
 export type SavedFilter = { filterId: string; name: string; query: SavedQuery; isShared: boolean; isMine: boolean };
 
 export async function listFiltersTx(actor: StaffActor): Promise<SavedFilter[]> {
-  const rows = await withActor(actor, (tx) =>
-    tx.select().from(savedFilters).orderBy(asc(savedFilters.name), asc(savedFilters.filterId)),
-  );
+  return withActor(actor, (tx) => listFiltersIn(tx, actor));
+}
+
+async function listFiltersIn(tx: Tx, actor: StaffActor): Promise<SavedFilter[]> {
+  const rows = await tx.select().from(savedFilters).orderBy(asc(savedFilters.name), asc(savedFilters.filterId));
   return rows.map((row) => ({ filterId: row.filterId, name: row.name, query: row.query, isShared: row.isShared, isMine: row.ownerId === actor.userId }));
 }
 

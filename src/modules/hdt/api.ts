@@ -69,6 +69,7 @@ export {
   QUEUE_SORTS,
   type QueueKey,
   queueCounts,
+  queueSidebar,
   type QueueRow,
   type QueueSort,
   type SavedFilter,

@@ -11,6 +11,7 @@ import {
   type QueueKey,
   type QueueSearch,
   queueCountsTx,
+  queueSidebarTx,
   queueRowsTx,
   type SavedFilter,
   saveFilterTx,
@@ -97,6 +98,11 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
 
 export function queueCounts(ctx: StaffContext): Promise<Record<QueueKey, number | null>> {
   return queueCountsTx(ctx.actor);
+}
+
+/** Боковая панель страницы очередей одной транзакцией: счётчики, фильтры, число "Неопознанных". */
+export function queueSidebar(ctx: StaffContext): Promise<{ counts: Record<QueueKey, number | null>; filters: SavedFilter[]; unidentified: number }> {
+  return queueSidebarTx(ctx.actor);
 }
 
 export function listFilters(ctx: StaffContext): Promise<SavedFilter[]> {

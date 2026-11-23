@@ -1,6 +1,6 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { HDT_ERROR_CODES, listFilters, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueCounts, type QueueSort, TRANSFER_REASONS, unidentifiedCount } from '@/modules/hdt/api';
+import { HDT_ERROR_CODES, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueSidebar, type QueueSort, TRANSFER_REASONS } from '@/modules/hdt/api';
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
@@ -39,13 +39,12 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   const q = params.q?.trim() ? params.q.trim().slice(0, 200) : undefined;
   const page = Math.max(1, Math.min(1000, Number(params.page) || 1));
   const canWrite = staff.actor.staffRole !== 'product';
-  const [list, counts, filters, assignable, unidentified] = await Promise.all([
+  const [list, sidebar, assignable] = await Promise.all([
     listQueue(staff, { queue, sort, q, page }),
-    queueCounts(staff),
-    listFilters(staff),
+    queueSidebar(staff),
     canWrite ? listAssignableStaff(staff) : Promise.resolve([]),
-    unidentifiedCount(staff),
   ]);
+  const { counts, filters, unidentified } = sidebar;
   const locale = await getLocale();
   const openNumber = Number(params.open) > 0 && Number.isInteger(Number(params.open)) ? Number(params.open) : null;
   const href = (next: { queue?: QueueKey; sort?: QueueSort; q?: string; page?: number }) => {

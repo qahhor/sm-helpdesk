@@ -888,6 +888,9 @@
           "settings": {
             "changed": "Изменена настройка",
             "oncall_changed": "Изменены настройки дежурных"
+          },
+          "notify": {
+            "channels_changed": "Изменены каналы уведомлений"
           }
         },
         "words": {

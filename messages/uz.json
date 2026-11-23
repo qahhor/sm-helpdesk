@@ -888,6 +888,9 @@
           "settings": {
             "changed": "Sozlama o'zgartirildi",
             "oncall_changed": "Navbatchilar sozlamalari o'zgartirildi"
+          },
+          "notify": {
+            "channels_changed": "Bildirishnoma kanallari o'zgartirildi"
           }
         },
         "words": {

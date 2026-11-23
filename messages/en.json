@@ -888,6 +888,9 @@
           "settings": {
             "changed": "Setting changed",
             "oncall_changed": "On-call settings changed"
+          },
+          "notify": {
+            "channels_changed": "Notification channels changed"
           }
         },
         "words": {

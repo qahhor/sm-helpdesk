@@ -6,7 +6,7 @@ import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, DEVELOPMENT_ROLES, type PresenceMode, PRESENCE_TTL_SEC, type TicketStatus } from '../pref';
 import { attachments, mentions, replyDrafts, ticketEvents, ticketMessages, ticketPresence, tickets } from '../schema';
 import { findMentions } from '../util';
-import { assertCanWrite, changeAssigneeTx, changeStatusTx, lockAgentTicket, markPickedUpTx } from './agent-actions';
+import { assertCanWrite, changeAssigneeTx, changeStatusTx, flushTicketTx, lockAgentTicket, markPickedUpTx, stageTicket } from './agent-actions';
 import { notifyTicketTx } from './notify';
 
 // Модуль hdt, слой core: ответ клиенту и внутренняя заметка сотрудника, черновик, присутствие
@@ -112,15 +112,14 @@ export async function postStaffMessageTx(
         await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'mention', actorUserId: actor.userId, mentioned, authorName: people.myName });
       }
     } else {
-      await tx
-        .update(tickets)
-        .set({ firstRespondedOn: sql`coalesce(${tickets.firstRespondedOn}, now())`, clientWaitingSince: null })
-        .where(eq(tickets.ticketId, ticket.ticketId));
+      stageTicket(ticket, { firstRespondedOn: sql`coalesce(${tickets.firstRespondedOn}, now())`, clientWaitingSince: null });
       // Ответ берёт новое обращение на своей линии (решение 6): ответ первой линии на переданное второй не забирает его.
       const ownLine = ticket.queue === 'l1' || (DEVELOPMENT_ROLES as readonly string[]).includes(actor.staffRole);
       if (!ticket.assigneeId && ticket.status === 'new' && ownLine) await changeAssigneeTx(tx, actor, ticket, actor.userId, people.myName);
       const target: TicketStatus | null = input.waitForClient ? 'waiting_customer' : ticket.status === 'new' ? 'in_progress' : null;
       if (target && target !== ticket.status) await changeStatusTx(tx, actor, ticket, target);
+      // Ответ, исполнитель, статус и сроки: одно обновление строки обращения (аудит 23.11.2026, находка P8).
+      await flushTicketTx(tx, ticket);
       await markPickedUpTx(tx, actor, ticket);
       // Одно письмо об ответе, даже если тем же действием поставлено "Ждём вашего ответа" (решение 6).
       await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'staff_reply', actorUserId: actor.userId, messageId: message.messageId });

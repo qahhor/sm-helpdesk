@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, asc, desc, eq, gte, isNotNull, isNull, lte, or, type SQL, sql } from 'drizzle-orm';
+import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import type { Tx } from '@/db/client';
 import type { SlaConfig } from '@/modules/hdr/api';
 import { readSlaConfig } from '@/modules/hdr/api';
@@ -56,8 +57,18 @@ async function statusMoment(tx: Tx, ticketId: string, opts: { enter: true; notAf
   return row?.at ?? null;
 }
 
-/** Пересчёт сроков в транзакции актора, который меняет обращение. Нет обращения или оно не видно актору: null. */
-export async function refreshSla(tx: Tx, ticketId: string, now: Date): Promise<SlaState | null> {
+/** Поля строки обращения, которые действие меняет вместе с пересчётом сроков. */
+export type TicketPatch = PgUpdateSetSource<typeof tickets>;
+
+/**
+ * Пересчёт сроков в транзакции актора, который меняет обращение. Нет обращения или оно не видно актору: null.
+ *
+ * set: поля, которые действие меняет тем же обновлением (статус, приоритет, исполнитель). Сроки считаются уже
+ * по новым статусу и приоритету, и строка обращения пишется один раз вместо двух (аудит 23.11.2026, находка P8).
+ * Событие смены статуса действие пишет до вызова: по его времени ставится начало паузы.
+ * Без set и без изменения сроков обновления нет вовсе.
+ */
+export async function refreshSla(tx: Tx, ticketId: string, now: Date, set: TicketPatch = {}): Promise<SlaState | null> {
   const [t] = await tx
     .select({
       createdOn: tickets.createdOn,
@@ -72,11 +83,13 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date): Promise<S
     .where(eq(tickets.ticketId, ticketId))
     .for('update');
   if (!t) return null;
+  const status = typeof set.status === 'string' ? (set.status as typeof t.status) : t.status;
+  const priority = typeof set.priority === 'string' ? (set.priority as typeof t.priority) : t.priority;
   const config = await readSlaConfig(tx);
-  const cal = calendarFor(config, t.priority);
+  const cal = calendarFor(config, priority);
   let pausedOn = t.pausedOn;
   let pausedMinutes = t.pausedMinutes;
-  const paused = PAUSED_STATUSES.includes(t.status);
+  const paused = PAUSED_STATUSES.includes(status);
   if (paused && !pausedOn) {
     pausedOn = (await statusMoment(tx, ticketId, { enter: true, notAfter: now })) ?? now;
   } else if (!paused && pausedOn) {
@@ -84,16 +97,21 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date): Promise<S
     pausedMinutes += workingMinutesBetween(pausedOn, resumed, cal);
     pausedOn = null;
   }
-  const settled = t.status === 'resolved' || t.status === 'closed';
-  const due = dueDates(t.createdOn, t.priority, pausedMinutes, config);
+  const settled = status === 'resolved' || status === 'closed';
+  const due = dueDates(t.createdOn, priority, pausedMinutes, config);
   const next = {
     firstResponseDueOn: settled && t.firstResponseDueOn ? t.firstResponseDueOn : due.firstResponseDueOn,
     resolutionDueOn: settled && t.resolutionDueOn ? t.resolutionDueOn : due.resolutionDueOn,
   };
-  await tx
-    .update(tickets)
-    .set({ ...next, slaPausedOn: pausedOn, slaPausedMinutes: pausedMinutes })
-    .where(eq(tickets.ticketId, ticketId));
+  const same = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
+  const slaChanged =
+    !same(next.firstResponseDueOn, t.firstResponseDueOn) || !same(next.resolutionDueOn, t.resolutionDueOn) || !same(pausedOn, t.pausedOn) || pausedMinutes !== t.pausedMinutes;
+  // Сроки не изменились и действию нечего писать: строка не переписывается.
+  if (slaChanged || Object.keys(set).length > 0)
+    await tx
+      .update(tickets)
+      .set({ ...set, ...(slaChanged ? { ...next, slaPausedOn: pausedOn, slaPausedMinutes: pausedMinutes } : {}) })
+      .where(eq(tickets.ticketId, ticketId));
   return { ...next, pausedSince: pausedOn };
 }
 

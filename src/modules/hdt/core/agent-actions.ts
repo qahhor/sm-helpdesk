@@ -15,7 +15,7 @@ import {
   type TicketType,
 } from '../pref';
 import { lineTransfers, ticketEvents, tickets } from '../schema';
-import { refreshSla } from './sla';
+import { refreshSla, type TicketPatch } from './sla';
 import { notifyTicketTx, oncallP1Tx } from './notify';
 
 // Модуль hdt, слой core: действия сотрудника с обращением (FR-AG-02, 04, 09, 13, FR-SLA-03, раздел 7.2;
@@ -65,6 +65,32 @@ export async function lockAgentTicket(tx: Tx, number: number): Promise<LockedTic
   return row;
 }
 
+/**
+ * Изменения строки обращения, накопленные действием. Одно действие сотрудника меняет несколько полей по очереди
+ * (первый ответ, исполнитель, статус), и раньше каждое поле писалось своим обновлением, а сроки ещё одним: четыре
+ * версии строки на один ответ (аудит 23.11.2026, находка P8). Теперь поля копятся и пишутся один раз.
+ */
+const staged = new WeakMap<LockedTicket, { set: TicketPatch; sla: boolean }>();
+
+/** Отложить изменение строки до записи в конце действия. sla: от этих полей зависят сроки (статус, приоритет). */
+export function stageTicket(ticket: LockedTicket, set: TicketPatch, opts: { sla?: boolean } = {}): void {
+  const pending = staged.get(ticket) ?? { set: {}, sla: false };
+  staged.set(ticket, { set: { ...pending.set, ...set }, sla: pending.sla || opts.sla === true });
+}
+
+/**
+ * Записать накопленное одним обновлением, вместе с пересчётом сроков, если менялись статус или приоритет.
+ * Вызывается после записи событий действия и до чтений, которым нужна новая строка (уведомления, дежурные).
+ * Нечего писать: обновления нет.
+ */
+export async function flushTicketTx(tx: Tx, ticket: LockedTicket): Promise<void> {
+  const pending = staged.get(ticket);
+  if (!pending) return;
+  staged.delete(ticket);
+  if (pending.sla) await refreshSla(tx, ticket.ticketId, new Date(), pending.set);
+  else await tx.update(tickets).set(pending.set).where(eq(tickets.ticketId, ticket.ticketId));
+}
+
 /** Событие истории и запись журнала в транзакции действия. Видимо клиенту только событие статуса. */
 export async function recordChange(
   tx: Tx,
@@ -84,7 +110,7 @@ export async function recordChange(
   await writeAudit(tx, { action: change.audit, objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: change.payload });
 }
 
-/** Переход статуса по таблице 7.2 с событием, аудитом и пересчётом сроков. */
+/** Переход статуса по таблице 7.2 с событием и аудитом. Строка и сроки пишутся в flushTicketTx. */
 export async function changeStatusTx(
   tx: Tx,
   actor: StaffActor,
@@ -97,27 +123,27 @@ export async function changeStatusTx(
   if (!canTransition(ticket.status, to) || (to === 'closed' && ticket.status !== 'resolved')) throw new HdtError('transition_refused');
   if (to === 'in_development' && !(DEVELOPMENT_ROLES as readonly string[]).includes(actor.staffRole)) throw new HdtError('forbidden');
   if (to === 'resolved' && (!opts.resolution || (opts.resolution === 'fixed_in_version' && !opts.version))) throw new HdtError('resolution_required');
-  await tx
-    .update(tickets)
-    .set({
+  stageTicket(
+    ticket,
+    {
       status: to,
       ...(to === 'resolved'
         ? { resolutionType: opts.resolution, resolvedVersion: opts.resolution === 'fixed_in_version' ? (opts.version ?? null) : null, resolvedOn: sql`now()` }
         : {}),
       ...(to === 'closed' ? { closedOn: sql`now()` } : {}),
-    })
-    .where(eq(tickets.ticketId, ticket.ticketId));
+    },
+    { sla: true },
+  );
   const payload: Record<string, unknown> = { from: ticket.status, to };
   if (to === 'resolved') payload.resolution = opts.resolution;
   await recordChange(tx, actor, ticket, { kind: 'status', payload, audit: 'ticket.status_changed' });
-  await refreshSla(tx, ticket.ticketId, new Date());
   ticket.status = to;
 }
 
 /** Исполнитель с событием и аудитом. Тот же исполнитель: ничего не меняется. */
 export async function changeAssigneeTx(tx: Tx, actor: StaffActor, ticket: LockedTicket, assigneeId: string | null, assigneeName: string | null): Promise<void> {
   if (ticket.assigneeId === assigneeId) return;
-  await tx.update(tickets).set({ assigneeId }).where(eq(tickets.ticketId, ticket.ticketId));
+  stageTicket(ticket, { assigneeId });
   await recordChange(tx, actor, ticket, { kind: 'assignee', payload: { from: ticket.assigneeId, to: assigneeId, toName: assigneeName }, audit: 'ticket.assigned' });
   ticket.assigneeId = assigneeId;
 }
@@ -144,6 +170,7 @@ export async function takeTx(actor: StaffActor, number: number, myName: string):
     if (ticket.assigneeId && ticket.assigneeId !== actor.userId) throw new HdtError('already_taken', { holderId: ticket.assigneeId });
     await changeAssigneeTx(tx, actor, ticket, actor.userId, myName);
     if (ticket.status === 'new') await changeStatusTx(tx, actor, ticket, 'in_progress');
+    await flushTicketTx(tx, ticket);
     await markPickedUpTx(tx, actor, ticket);
     return { ticketId: ticket.ticketId };
   });
@@ -154,6 +181,7 @@ export async function assignTx(actor: StaffActor, number: number, assignee: { id
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
     await changeAssigneeTx(tx, actor, ticket, assignee?.id ?? null, assignee?.name ?? null);
+    await flushTicketTx(tx, ticket);
   });
 }
 
@@ -162,6 +190,7 @@ export async function setStatusTx(actor: StaffActor, number: number, to: TicketS
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
     await changeStatusTx(tx, actor, ticket, to, opts);
+    await flushTicketTx(tx, ticket);
     await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: to === 'resolved' ? 'resolved' : 'status', actorUserId: actor.userId, to });
   });
 }
@@ -171,9 +200,9 @@ export async function setPriorityTx(actor: StaffActor, number: number, priority:
   assertCanWrite(actor);
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
-    await tx.update(tickets).set({ priority, priorityConfirmed: true }).where(eq(tickets.ticketId, ticket.ticketId));
+    stageTicket(ticket, { priority, priorityConfirmed: true }, { sla: true });
     await recordChange(tx, actor, ticket, { kind: 'priority', payload: { from: ticket.priority, to: priority, reason }, audit: 'ticket.priority_changed' });
-    await refreshSla(tx, ticket.ticketId, new Date());
+    await flushTicketTx(tx, ticket);
     // Поднятие до P1 до первого ответа: дежурным одно сообщение (FR-SLA-07).
     await oncallP1Tx(tx, ticket.ticketId);
   });

@@ -33,7 +33,9 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   const format = await getFormatter();
   const params = await searchParams;
   const queue = pick<QueueKey>(params.queue, QUEUE_KEYS, 'new');
-  const sort = pick<QueueSort>(params.sort, QUEUE_SORTS, 'sla');
+  // "Все" по умолчанию по последнему изменению: по сроку вперёд вышли бы давно закрытые обращения, а сортировка
+  // всей базы без индекса медленная (аудит 23.11.2026, находка P2).
+  const sort = pick<QueueSort>(params.sort, QUEUE_SORTS, queue === 'all' ? 'updated' : 'sla');
   const q = params.q?.trim() ? params.q.trim().slice(0, 200) : undefined;
   const page = Math.max(1, Math.min(1000, Number(params.page) || 1));
   const canWrite = staff.actor.staffRole !== 'product';
@@ -88,7 +90,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                   )}
                 >
                   <span>{t(`queues.names.${key}`)}</span>
-                  <span className="tabular-nums">{counts[key]}</span>
+                  {counts[key] !== null && <span className="tabular-nums">{counts[key]}</span>}
                 </Link>
               </li>
             ))}

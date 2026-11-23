@@ -5,7 +5,7 @@ import { HdtError } from '../error';
 import type { Priority, Queue, TicketStatus } from '../pref';
 import { savedFilters, type SavedQuery, ticketMessages, tickets } from '../schema';
 import { SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
-import { QUEUE_KEYS, type QueueKey, type QueueSort } from './agent-queue-keys';
+import type { QueueKey, QueueSort } from './agent-queue-keys';
 
 // Модуль hdt, слой core: очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18; план M3, задача 5).
 // Читает сотрудник под своим актором: политики RLS отдают ему все обращения, а условия очереди задаёт код.
@@ -118,18 +118,31 @@ export async function queueRowsTx(
   );
 }
 
-/** Счётчики очередей одним запросом. */
-export async function queueCountsTx(actor: StaffActor): Promise<Record<QueueKey, number>> {
-  const [row] = await withActor(actor, (tx) =>
-    tx
+const OPEN_QUEUES = ['new', 'l2', 'waiting', 'development', 'breached'] as const;
+
+/**
+ * Счётчики очередей (аудит 23.11.2026, находка P2). Считаются только открытые обращения (по частичному индексу) и
+ * "Мои" (по индексу исполнителя): закрытые, которых в базе большинство, не просматриваются. У очереди "Все"
+ * счётчика нет: её число равно размеру базы и работе сотрудника не помогает.
+ */
+export async function queueCountsTx(actor: StaffActor): Promise<Record<QueueKey, number | null>> {
+  return withActor(actor, async (tx) => {
+    const [open] = await tx
       .select(
-        Object.fromEntries(
-          QUEUE_KEYS.map((key) => [key, sql<number>`count(*) filter (where ${queueWhere(key, actor.userId) ?? sql`true`})::int`]),
-        ) as Record<QueueKey, SQL<number>>,
+        Object.fromEntries(OPEN_QUEUES.map((key) => [key, sql<number>`count(*) filter (where ${queueWhere(key, actor.userId)})::int`])) as Record<
+          (typeof OPEN_QUEUES)[number],
+          SQL<number>
+        >,
       )
-      .from(tickets),
-  );
-  return row as Record<QueueKey, number>;
+      .from(tickets)
+      // Условие записано текстом и совпадает с условием индексов hdt_tickets_i12 и i13.
+      .where(sql`${tickets.status} not in ('resolved', 'closed')`);
+    const [mine] = await tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(tickets)
+      .where(queueWhere('mine', actor.userId));
+    return { new: open?.new ?? 0, l2: open?.l2 ?? 0, waiting: open?.waiting ?? 0, development: open?.development ?? 0, breached: open?.breached ?? 0, mine: mine?.n ?? 0, all: null };
+  });
 }
 
 // --- Сохранённые фильтры (FR-AG-14, UX-A-09) ---

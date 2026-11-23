@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNotNull, isNull, lte, or, type SQL, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import type { SlaConfig } from '@/modules/hdr/api';
 import { readSlaConfig } from '@/modules/hdr/api';
@@ -97,21 +97,21 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date): Promise<S
   return { ...next, pausedSince: pausedOn };
 }
 
-/** Обращения, где пересчёт после действия клиента не прошёл: нет сроков или пауза не совпадает со статусом. */
+/**
+ * Обращения, где пересчёт после действия клиента не прошёл: нет сроков или пауза не совпадает со статусом.
+ *
+ * Три запроса вместо одного с "или" (аудит 23.11.2026, находка P3): каждый идёт по своему частичному индексу и не
+ * просматривает закрытые обращения. Условия записаны текстом без параметров и совпадают с условиями индексов
+ * hdt_tickets_i12 и hdt_tickets_i17: по ним планировщик выбирает индекс. Список статусов с паузой сверяет тест.
+ */
 export async function needsSlaRefreshTx(tx: Tx, limit: number): Promise<string[]> {
-  const rows = await tx
-    .select({ ticketId: tickets.ticketId })
-    .from(tickets)
-    .where(
-      or(
-        and(notInArray(tickets.status, ['resolved', 'closed']), or(isNull(tickets.firstResponseDueOn), isNull(tickets.resolutionDueOn))),
-        and(notInArray(tickets.status, [...PAUSED_STATUSES]), isNotNull(tickets.slaPausedOn)),
-        and(inArray(tickets.status, [...PAUSED_STATUSES]), isNull(tickets.slaPausedOn)),
-      ),
-    )
-    .orderBy(asc(tickets.createdOn))
-    .limit(limit);
-  return rows.map((row) => row.ticketId);
+  const pick = (where: SQL) => tx.select({ ticketId: tickets.ticketId, createdOn: tickets.createdOn }).from(tickets).where(where).orderBy(asc(tickets.createdOn)).limit(limit);
+  const open = sql`${tickets.status} not in ('resolved', 'closed')`;
+  const noDueDates = await pick(and(open, or(isNull(tickets.firstResponseDueOn), isNull(tickets.resolutionDueOn))) as SQL);
+  const pausedButActive = await pick(and(open, sql`${tickets.status} <> 'waiting_customer'`, isNotNull(tickets.slaPausedOn)) as SQL);
+  const notPausedButShould = await pick(sql`${tickets.slaPausedOn} is null and ${tickets.status} in ('waiting_customer', 'resolved', 'closed')`);
+  const rows = [...noDueDates, ...pausedButActive, ...notPausedButShould].sort((x, y) => x.createdOn.getTime() - y.createdOn.getTime());
+  return [...new Set(rows.map((row) => row.ticketId))].slice(0, limit);
 }
 
 export type SlaPhase = 'calm' | 'soon' | 'breached';

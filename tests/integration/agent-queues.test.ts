@@ -89,8 +89,10 @@ test('счётчики совпадают со списками', async () => {
   await set(f.tickets.aOrg.ticketId, `status = 'waiting_customer', assignee_id = $2`, [f.l1.userId]);
   await set(f.tickets.bOrg.ticketId, `queue = 'l2'`);
   const counts = await queueCounts(l1);
-  for (const queue of ['new', 'mine', 'l2', 'waiting', 'development', 'breached', 'all'] as const)
+  for (const queue of ['new', 'mine', 'l2', 'waiting', 'development', 'breached'] as const)
     expect(counts[queue], queue).toBe((await listQueue(l1, { queue })).items.length);
+  // У очереди "Все" счётчика нет: её число равно размеру базы (аудит 23.11.2026, находка P2).
+  expect(counts.all).toBeNull();
 });
 
 test('сохранённый фильтр: свой виден только мне, общий всем сотрудникам, клиенту ничего', async () => {

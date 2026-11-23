@@ -95,7 +95,7 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
   };
 }
 
-export function queueCounts(ctx: StaffContext): Promise<Record<QueueKey, number>> {
+export function queueCounts(ctx: StaffContext): Promise<Record<QueueKey, number | null>> {
   return queueCountsTx(ctx.actor);
 }
 

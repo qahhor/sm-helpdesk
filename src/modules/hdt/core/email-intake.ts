@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
 import { consumeRateLimit, enqueue, getStorage, rateKey, writeAudit } from '@/modules/hdc/api';
@@ -33,7 +33,7 @@ import { wakeOutbox } from '@/modules/hdn/api/outbox';
 import { ensureGuest, findVerifiedUser, orgByEmailDomain, SERVICE_ORG_ID, senderOrg } from '@/modules/hdu/api/guests';
 import { mailRecipient, replyRole } from '@/modules/hdu/api/recipients';
 import { ALLOWED_FILES, MAX_FILES_PER_MESSAGE, type TicketStatus, type Visibility } from '../pref';
-import { ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
+import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { staffSystemText } from '../system-text';
 import { untrustedNoteText } from '../untrusted-text';
 import { fileTypeOf, maxBytesFor, quarantineKey } from '../util';
@@ -152,23 +152,81 @@ async function downloadFiles(list: InboundAttachment[]): Promise<File[]> {
   return files;
 }
 
-/** Строки вложений в карантине и файлы в хранилище. Проверку антивирусом ставит вызывающий после фиксации. */
-async function attachFilesTx(tx: Tx, target: { orgId: string; ticketId: string; messageId: string | null; uploaderId: string }, files: File[]): Promise<string[]> {
-  const ids: string[] = [];
-  for (const file of files) {
-    // Ключ строится из идентификатора строки, как у загрузки из браузера (insertUpload).
-    const result = await tx.execute<{ attachment_id: string }>(sql`
-      insert into hdt_attachments (attachment_id, org_id, ticket_id, message_id, uploader_id, storage_key, file_name, mime, size, scan_status)
-      select id, ${target.orgId}::uuid, ${target.ticketId}::uuid, ${target.messageId}::uuid, ${target.uploaderId}::uuid, 'quarantine/' || id,
-             ${file.fileName}, ${file.mime}, ${file.data.byteLength}, 'pending'
-        from (select uuidv7() as id) as generated
-      returning attachment_id`);
-    const id = result.rows[0]?.attachment_id;
-    if (!id) throw new Error('hdt: вложение письма не создано');
-    await getStorage().put(quarantineKey(id), file.data, file.mime);
-    ids.push(id);
+/**
+ * Загрузки письма до транзакции разбора (аудит 23.11.2026, находка P10): строки вложений без обращения и файлы
+ * в карантине. Раньше файл клался в хранилище внутри транзакции, под блокировкой обращения и письма: медленное
+ * хранилище держало блокировку. Порядок как у загрузки из браузера: строка, файл, затем прикрепление к обращению.
+ * Сбой после загрузки оставляет строку без обращения: её вместе с файлом убирает очистка загрузок (sweepAttachments).
+ */
+async function stageFiles(actor: SystemActor, owner: { orgId: string; uploaderId: string }, files: File[]): Promise<string[]> {
+  if (files.length === 0) return [];
+  const ids = await withActor(actor, async (tx) => {
+    const created: string[] = [];
+    for (const file of files) {
+      // Ключ строится из идентификатора строки, как у загрузки из браузера (insertUpload).
+      const result = await tx.execute<{ attachment_id: string }>(sql`
+        insert into hdt_attachments (attachment_id, org_id, uploader_id, storage_key, file_name, mime, size, scan_status)
+        select id, ${owner.orgId}::uuid, ${owner.uploaderId}::uuid, 'quarantine/' || id, ${file.fileName}, ${file.mime}, ${file.data.byteLength}, 'pending'
+          from (select uuidv7() as id) as generated
+        returning attachment_id`);
+      const id = result.rows[0]?.attachment_id;
+      if (!id) throw new Error('hdt: вложение письма не создано');
+      created.push(id);
+    }
+    return created;
+  });
+  try {
+    for (const [index, file] of files.entries()) await getStorage().put(quarantineKey(ids[index] as string), file.data, file.mime);
+  } catch (error) {
+    await discardStaged(actor, ids);
+    throw error;
   }
   return ids;
+}
+
+/** Загрузки, которые не понадобились (письмо уже разобрал другой процесс, разбор упал): строки и файлы убираются. */
+async function discardStaged(actor: SystemActor, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  try {
+    const removed = await withActor(actor, (tx) =>
+      tx
+        .delete(attachments)
+        .where(and(inArray(attachments.attachmentId, ids), isNull(attachments.ticketId)))
+        .returning({ attachmentId: attachments.attachmentId }),
+    );
+    for (const row of removed) await getStorage().remove(quarantineKey(row.attachmentId));
+  } catch (error) {
+    // Остаток уберёт очистка загрузок: строка без обращения старше суток удаляется вместе с файлом.
+    console.error(`Загрузки письма не убраны сразу: ${error instanceof Error ? error.message : 'ошибка'}`);
+  }
+}
+
+/** Прикрепляет загрузки письма к обращению и сообщению в транзакции разбора. Проверку антивирусом ставит вызывающий после фиксации. */
+async function attachStagedTx(tx: Tx, target: { ticketId: string; messageId: string | null }, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const attached = await tx
+    .update(attachments)
+    .set({ ticketId: target.ticketId, messageId: target.messageId })
+    .where(and(inArray(attachments.attachmentId, ids), isNull(attachments.ticketId)))
+    .returning({ attachmentId: attachments.attachmentId });
+  if (attached.length !== ids.length) throw new Error('hdt: загрузка письма не найдена');
+  return ids;
+}
+
+/**
+ * Разбор с загрузками: если транзакция упала или письмо уже разобрано (итог не тот, которого ждал вызывающий),
+ * загрузки убираются.
+ */
+async function withStaged<T extends InboundClass>(actor: SystemActor, ids: string[], expected: T, run: () => Promise<InboundClass>): Promise<InboundClass> {
+  let result: InboundClass;
+  try {
+    result = await run();
+  } catch (error) {
+    await discardStaged(actor, ids);
+    throw error;
+  }
+  if (result !== expected) await discardStaged(actor, ids);
+  return result;
 }
 
 /**
@@ -194,7 +252,9 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
   const { row } = letter;
   if (!body) return finish(actor, letter, 'ignored', ticket.ticketId);
   const queued: string[] = [];
-  const result = await withActor(actor, async (tx) => {
+  const staged = await stageFiles(actor, { orgId: ticket.orgId, uploaderId: client.userId }, files);
+  let attached = false;
+  const result = await withStaged(actor, staged, 'reply', () => withActor(actor, async (tx) => {
     const done = await alreadyDone(tx, row);
     if (done) return done;
     const current = (await tx.select({ status: tickets.status }).from(tickets).where(eq(tickets.ticketId, ticket.ticketId)).limit(1).for('update'))[0];
@@ -206,26 +266,28 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
       .values({ orgId: ticket.orgId, ticketId: ticket.ticketId, authorId: client.userId, authorType: 'client', body, source: 'email', emailMessageId: row.messageId, isThanks: thanks })
       .returning({ messageId: ticketMessages.messageId });
     if (!message) throw new Error('hdt: сообщение письма не создано');
-    queued.push(...(await attachFilesTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, messageId: message.messageId, uploaderId: client.userId }, files)));
+    queued.push(...(await attachStagedTx(tx, { ticketId: ticket.ticketId, messageId: message.messageId }, staged)));
+    attached = true;
     if (!thanks) {
       const waiting = { lastClientMessageOn: sql`now()`, clientWaitingSince: sql`coalesce(${tickets.clientWaitingSince}, now())` };
-      if (current.status === 'waiting_customer' || current.status === 'resolved' || current.status === 'closed') {
-        await tx
-          .update(tickets)
-          .set({ status: 'in_progress', ...waiting })
-          .where(and(eq(tickets.ticketId, ticket.ticketId), eq(tickets.status, current.status)));
+      const reopens = current.status === 'waiting_customer' || current.status === 'resolved' || current.status === 'closed';
+      if (reopens) {
         const diff = { from: current.status, to: 'in_progress', source: 'email' };
         await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status', actorType: 'client', actorId: client.userId, payload: diff });
         await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff });
-      } else await tx.update(tickets).set(waiting).where(eq(tickets.ticketId, ticket.ticketId));
-      await refreshSla(tx, ticket.ticketId, new Date());
+      }
+      // Отметки ответа, статус и сроки одним обновлением строки (аудит 23.11.2026, находка P8). Строка обращения
+      // заблокирована выше, событие статуса уже записано: по его времени снимается пауза срока.
+      await refreshSla(tx, ticket.ticketId, new Date(), reopens ? { status: 'in_progress', ...waiting } : waiting);
     }
     await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'client_reply', actorUserId: client.userId });
     if (row.messageId) await recordThreadTx(tx, { ticketId: ticket.ticketId, messageId: row.messageId, inReplyTo: inReplyToOf(letter.headers), direction: 'in' });
     await markInboundTx(tx, row.inboundId, { classification: 'reply', ticketId: ticket.ticketId, headers: letter.headers, dmarcAligned: letter.aligned });
     return 'reply' as const;
-  });
-  await afterCommit(queued);
+  }));
+  // Итог "reply" мог прийти и от другого процесса, который разобрал письмо раньше: тогда наши загрузки лишние.
+  if (!attached) await discardStaged(actor, staged);
+  await afterCommit(attached ? queued : []);
   return result;
 }
 
@@ -316,7 +378,9 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
   const files = await downloadFiles(letter.files);
   const title = cleanSubject(row.subject, sender.locale);
   const queued: string[] = [];
-  const result = await withActor(actor, async (tx) => {
+  const staged = await stageFiles(actor, { orgId: sender.orgId, uploaderId: sender.userId }, files);
+  let attached = false;
+  const result = await withStaged(actor, staged, 'new', () => withActor(actor, async (tx) => {
     const done = await alreadyDone(tx, row);
     if (done) return done;
     const created = await createEmailTicketTx(tx, {
@@ -331,14 +395,16 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
     });
     for (const userId of watchers)
       await tx.insert(ticketWatchers).values({ orgId: sender.orgId, ticketId: created.ticketId, userId, source: 'manual' }).onConflictDoNothing();
-    queued.push(...(await attachFilesTx(tx, { orgId: sender.orgId, ticketId: created.ticketId, messageId: null, uploaderId: sender.userId }, files)));
+    queued.push(...(await attachStagedTx(tx, { ticketId: created.ticketId, messageId: null }, staged)));
+    attached = true;
     if (sender.identified) await notifyTicketTx(tx, { ticketId: created.ticketId, kind: 'created', actorUserId: null, viaEmail: true });
     else if (ack) await notifyTicketTx(tx, { ticketId: created.ticketId, kind: 'unidentified_ack', actorUserId: null });
     if (row.messageId) await recordThreadTx(tx, { ticketId: created.ticketId, messageId: row.messageId, inReplyTo: inReplyToOf(letter.headers), direction: 'in' });
     await markInboundTx(tx, row.inboundId, { classification: 'new', ticketId: created.ticketId, headers: letter.headers, dmarcAligned: letter.aligned });
     return 'new' as const;
-  });
-  await afterCommit(queued);
+  }));
+  if (!attached) await discardStaged(actor, staged);
+  await afterCommit(attached ? queued : []);
   return result;
 }
 

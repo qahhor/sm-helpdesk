@@ -2,12 +2,17 @@
 // - данные арендаторов не кешируются (раздел 9.4, правило 6): нет `use cache`, `unstable_cache`,
 //   функций кеша из next/cache, статических настроек сегмента и кеша у fetch;
 // - нет вставки разметки строкой и встроенных стилей (раздел 14, политика CSP);
-// - нет склейки текста SQL: значения идут в базу только параметрами (защита от SQL-инъекций, ТЗ 14.3).
+// - нет склейки текста SQL: значения идут в базу только параметрами (защита от SQL-инъекций, ТЗ 14.3);
+// - системный актор видит все организации, поэтому в обработчиках запросов (src/app, src/ui) его нет: фоновые и
+//   служебные действия живут в модулях и фоновом процессе (аудит 23.11.2026, находка A7).
 
-/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql'} ForbiddenRule */
+/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql' | 'system-actor'} ForbiddenRule */
 
 // Единственный файл, где разрешена вставка разметки: скрипт темы до первой отрисовки.
 const INNER_HTML_ALLOWED = new Set(['src/ui/theme/ThemeScript.tsx']);
+
+const SYSTEM_ACTOR = /\btype\s*:\s*['"]system['"]/;
+const REQUEST_CODE = /^src\/(?:app|ui)\//;
 
 /** @type {{ rule: ForbiddenRule; test: RegExp }[]} */
 const RULES = [
@@ -47,6 +52,7 @@ export function findForbiddenApis(path, text) {
       seen.add(rule);
       found.push({ line: i + 1, rule });
     }
+    if (REQUEST_CODE.test(path) && SYSTEM_ACTOR.test(lines[i])) found.push({ line: i + 1, rule: 'system-actor' });
   }
   return found;
 }

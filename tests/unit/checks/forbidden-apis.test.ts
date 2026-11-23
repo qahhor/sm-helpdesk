@@ -58,3 +58,11 @@ test('параметры SQL разрешены', () => {
   ].join('\n');
   expect(findForbiddenApis('src/modules/x/core/y.ts', text)).toEqual([]);
 });
+
+test('системный актор запрещён в обработчиках запросов: src/app и src/ui (аудит 23.11.2026, A7)', () => {
+  const text = "const actor = { type: 'system', job: 'x' } as const;";
+  expect(findForbiddenApis('src/app/api/x/route.ts', text).map((v) => v.rule)).toEqual(['system-actor']);
+  expect(findForbiddenApis('src/ui/x.tsx', 'withActor({ type: "system", job: "x" }, fn)').map((v) => v.rule)).toEqual(['system-actor']);
+  expect(findForbiddenApis('src/modules/hdt/core/x.ts', text)).toEqual([]);
+  expect(findForbiddenApis('src/worker/main.ts', text)).toEqual([]);
+});

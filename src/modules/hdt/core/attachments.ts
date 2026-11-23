@@ -71,6 +71,8 @@ export async function findDownloadable(
       .where(
         and(
           eq(attachments.attachmentId, attachmentId),
+          // Второй слой изоляции: вложение организации клиента (аудит 23.11.2026, S7).
+          eq(attachments.orgId, actor.orgId),
           eq(attachments.scanStatus, 'clean'),
           eq(attachments.isInternal, false),
           sql`${attachments.storageKey} like 'files/%'`,

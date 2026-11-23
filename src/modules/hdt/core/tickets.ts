@@ -12,6 +12,20 @@ import { notifyTicketTx, oncallP1Tx } from './notify';
 // Модуль hdt, слой core: обращения. Операции с данными внутри withActor под ролью hub_app.
 // Организация и автор берутся из актора; политики RLS и триггер t_hdt_tickets_client_guard страхуют.
 
+/**
+ * Второй слой изоляции (аудит 23.11.2026, находки P1 и S7): обращения организации клиента. Организация берётся из
+ * актора. Политики RLS остаются первым слоем; условие в запросе даёт планировщику индекс по организации и держит
+ * границу, если политика ослаблена ошибкой миграции.
+ */
+export function clientTicketScope(actor: ClientActor): SQL {
+  return eq(tickets.orgId, actor.orgId);
+}
+
+/** Обращение организации клиента по номеру. */
+export function clientTicketByNumber(actor: ClientActor, number: number): SQL {
+  return and(clientTicketScope(actor), eq(tickets.number, number)) as SQL;
+}
+
 export type NewTicket = {
   title: string;
   description: string;
@@ -33,7 +47,7 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
   return withActor(actor, async (tx) => {
     let relatedTicketId: string | null = null;
     if (input.relatedNumber !== undefined) {
-      const related = await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(eq(tickets.number, input.relatedNumber)).limit(1);
+      const related = await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(clientTicketByNumber(actor, input.relatedNumber)).limit(1);
       if (!related[0]) throw new HdtError('invalid_input');
       relatedTicketId = related[0].ticketId;
     }
@@ -213,7 +227,7 @@ const likeText = (text: string) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}
 
 /** Обращения, видимые актору (политики RLS), новые изменения первыми, на одну строку больше страницы. */
 export async function listTicketRows(actor: ClientActor, filters: ListFilters): Promise<ListedTicket[]> {
-  const where: SQL[] = [];
+  const where: SQL[] = [clientTicketScope(actor)];
   if (filters.mineOnly) where.push(eq(tickets.authorId, actor.userId));
   if (filters.status) where.push(eq(tickets.status, filters.status));
   if (filters.type) where.push(eq(tickets.type, filters.type));
@@ -237,7 +251,7 @@ export async function listTicketRows(actor: ClientActor, filters: ListFilters): 
         modifiedOnText: sql<string>`${tickets.modifiedOn}::text`,
       })
       .from(tickets)
-      .where(where.length > 0 ? and(...where) : undefined)
+      .where(and(...where))
       .orderBy(desc(tickets.modifiedOn), desc(tickets.ticketId))
       .limit(TICKET_PAGE_SIZE + 1),
   );
@@ -245,7 +259,7 @@ export async function listTicketRows(actor: ClientActor, filters: ListFilters): 
 
 /** Видно ли актору обращение с этим номером (политики RLS). Одна строка без сообщений и файлов. */
 export async function ticketExists(actor: ClientActor, number: number): Promise<boolean> {
-  const rows = await withActor(actor, (tx) => tx.select({ ticketId: tickets.ticketId }).from(tickets).where(eq(tickets.number, number)).limit(1));
+  const rows = await withActor(actor, (tx) => tx.select({ ticketId: tickets.ticketId }).from(tickets).where(clientTicketByNumber(actor, number)).limit(1));
   return rows.length > 0;
 }
 
@@ -266,7 +280,7 @@ export async function readTicket(
   number: number,
 ): Promise<{ ticket: TicketRecord; messages: MessageRecord[]; events: EventRecord[]; attachments: AttachmentRecord[]; watching: boolean; relatedNumber: number | null; mergedIntoNumber: number | null } | null> {
   return withActor(actor, async (tx) => {
-    const ticket = (await tx.select().from(tickets).where(eq(tickets.number, number)).limit(1))[0];
+    const ticket = (await tx.select().from(tickets).where(clientTicketByNumber(actor, number)).limit(1))[0];
     if (!ticket) return null;
     const messages = await tx
       .select({

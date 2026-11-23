@@ -82,18 +82,30 @@
         "sla_breach": "SUP-{number} murojaati bo'yicha muddat o'tib ketdi",
         "snooze_returned": "Kechiktirilgan SUP-{number} murojaati qaytdi",
         "update_due": "Ertaga SUP-{number} murojaati bo'yicha mijozga xabar berish muddati",
-        "holidays_reminder": "{year} yil bayram kunlarini to'ldiring"
+        "holidays_reminder": "{year} yil bayram kunlarini to'ldiring",
+        "telegram_linked": "Telegram hisobi bog'landi. Agar bu siz bo'lmasangiz, uni profilda uzing."
       },
       "settings": {
         "title": "Xatlar",
         "intro": "Portaldagi bildirishnomalar doim keladi. Bu yerda qaysi xatlarni olishni tanlash mumkin.",
         "own": "O'z murojaatlarim haqida",
-        "ownHint": "Bu xatlarni o'chirib bo'lmaydi: ularda qo'llab-quvvatlash javoblari bor.",
         "watched": "Men obuna bo'lgan hamkasblar murojaatlari haqida",
         "mention": "Qaydlarda eslatishlar haqida",
         "breach": "Muddatlar o'tib ketishi haqida",
         "save": "Saqlash",
-        "saved": "Saqlandi"
+        "saved": "Saqlandi",
+        "client": {
+          "title": "Bildirishnomalar",
+          "intro": "Portalda bildirishnomalar doim keladi. Ularni yana qayerga yuborishni tanlang.",
+          "kind": "Nima haqida",
+          "email": "Pochta",
+          "telegram": "Telegram",
+          "ownRule": "O'z murojaatlaringiz haqidagi xatlarni Telegram yoqilgan bo'lsa o'chirish mumkin: kamida bitta usul qoladi.",
+          "telegramMissing": "Telegram bog'lanmagan. Undagi xabarlar bog'langandan keyin kela boshlaydi.",
+          "telegramLink": "Bog'lashga o'tish",
+          "needTelegram": "O'z murojaatlaringiz haqidagi xatlar faqat Telegram bog'langan va shu qatorda yoqilgan bo'lsa o'chadi.",
+          "ownFallback": "O'z murojaatlaringiz haqidagi xatlar yana kelmoqda: Telegram hozir ishlamayapti."
+        }
       }
     }
   },
@@ -383,7 +395,7 @@
       },
       "channels": {
         "title": "Telegram",
-        "intro": "Smartupga kirish imkoni bo'lmaganda portalga bot orqali kirish uchun Telegramni bog'lang.",
+        "intro": "Murojaatlar haqidagi bildirishnomalarni olish va Smartupga kirish imkoni bo'lmaganda portalga bot orqali kirish uchun Telegramni bog'lang.",
         "link": "Telegramni bog'lash",
         "linked": "{account} akkaunti {date} dan bog'langan.",
         "unlink": "Uzish",
@@ -393,7 +405,8 @@
           "rate_limited": "Urinishlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
           "disabled": "Telegramni bog'lash hozir mavjud emas.",
           "unavailable": "Telegram hozir javob bermayapti. Botni bir necha daqiqadan keyin bog'lab ko'ring."
-        }
+        },
+        "blocked": "Bot Telegramda bloklangan, xabarlar kelmayapti. Botni blokdan chiqaring va Telegramni qayta bog'lang."
       }
     },
     "footer": {
@@ -877,6 +890,9 @@
           "settings": {
             "changed": "Sozlama o'zgartirildi",
             "oncall_changed": "Navbatchilar sozlamalari o'zgartirildi"
+          },
+          "notify": {
+            "channels_changed": "Bildirishnoma kanallari o'zgartirildi"
           }
         },
         "words": {
@@ -1788,7 +1804,21 @@
     "loginLink": "Smartup Hub tizimiga kirish havolasi. U {minutes} daqiqa amal qiladi va bir marta ishlaydi. Uni hech kimga yubormang.",
     "loginTooOften": "Kirish havolalari juda ko'p. {minutes} daqiqadan keyin qayta urinib ko'ring.",
     "loginNoAccess": "Bu hisobning hozir portalga kirish huquqi yo'q. Kompaniyangiz administratoriga murojaat qiling.",
-    "oncallTest": "Smartup Hub tekshiruv xabari: navbatchilar chati ulandi, shoshilinch murojaatlar haqidagi xabarlar shu yerga keladi."
+    "oncallTest": "Smartup Hub tekshiruv xabari: navbatchilar chati ulandi, shoshilinch murojaatlar haqidagi xabarlar shu yerga keladi.",
+    "notify": {
+      "button": "Portalda ochish",
+      "created": "Murojaatingizni oldik.",
+      "reply": "Qo'llab-quvvatlashdan yangi javob.",
+      "waiting_customer": "Javobingizni kutyapmiz.",
+      "in_development": "Dasturchilarga topshirildi. Yangilik bo'lganda xabar beramiz.",
+      "closed": "Murojaat yopildi.",
+      "autoClosed": "Murojaat yopildi: javob olmadik.",
+      "merged": "SUP-{into} bilan birlashtirildi. Yozishma o'sha yerda davom etadi.",
+      "resolved": "Murojaat hal qilindi. Javobni baholang yoki murojaatni qayta oching.",
+      "reminder": "Javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi."
+    },
+    "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
+    "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}"
   },
   "dev": {
     "title": "Komponentlar vitrinasi",

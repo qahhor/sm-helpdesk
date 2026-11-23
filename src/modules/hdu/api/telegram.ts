@@ -15,6 +15,7 @@ import {
   type TelegramUser,
   telegramLinkedMail,
 } from '@/modules/hdn/api';
+import { notifyTelegramLinked } from '@/modules/hdn/api/notifications';
 import { createTrustedSession } from '../core/trusted';
 import {
   consumeLinkCode,
@@ -22,6 +23,7 @@ import {
   createLinkCode,
   createLoginCode,
   findOwnIdentity,
+  clearTelegramBlock,
   findTelegramIdentity,
   setUserLocale,
   unlinkByExternalId,
@@ -70,10 +72,10 @@ export function telegramEnabled(): boolean {
   return getTelegramBot().enabled;
 }
 
-/** Своя привязка: как показать аккаунт и с какого времени он привязан. */
-export async function getTelegramLink(ctx: ClientContext): Promise<{ displayName: string; linkedOn: Date } | null> {
+/** Своя привязка: как показать аккаунт, с какого времени он привязан и не заблокировал ли человек бота (решение 5 вехи M4b). */
+export async function getTelegramLink(ctx: ClientContext): Promise<{ displayName: string; linkedOn: Date; blocked: boolean } | null> {
   const found = await findOwnIdentity(ctx.actor);
-  return found ? { displayName: found.displayName ?? 'Telegram', linkedOn: found.verifiedOn } : null;
+  return found ? { displayName: found.displayName ?? 'Telegram', linkedOn: found.verifiedOn, blocked: found.blocked } : null;
 }
 
 /** Отвязка кнопкой в портале. Бот подтверждает отвязку в диалоге: человек видит, что аккаунт отвязан. */
@@ -119,6 +121,9 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
   const externalId = String(from.id);
   const chatId = String(message?.chat.id ?? callback?.message?.chat.id ?? from.id);
   const identity = await findTelegramIdentity(externalId);
+  // Сообщение от аккаунта приходит, только если человек снова открыл бота: отметка блокировки снимается, вход из бота
+  // и уведомления снова работают (итоговая проверка M4b, I3; решение 0036, пункт 5).
+  if (identity?.blocked) await clearTelegramBlock(externalId);
   const locale: Locale = identity?.locale ?? resolveLocale({ acceptLanguage: from.language_code ?? null });
   // Сбой ответа не превращается в ошибку вебхука: изменения уже сохранены, а повтор события от Telegram
   // дал бы неверный ответ ("код недействителен" после привязки) и вторую ссылку входа. Человек повторит команду.
@@ -156,14 +161,21 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
     if (result === 'invalid') return reply(botText(locale, 'codeInvalid'), portalButton(locale));
     if (result === 'taken') return reply(botText(locale, 'alreadyLinked'));
     const replyLocale = result.locale ?? locale;
-    // Письмо о новой привязке на подтверждённый адрес (угроза T30): привязал не человек, он отвяжет аккаунт.
-    // Письмо ставится до ответа бота: сбой ответа его не отменит.
+    // Письмо о новой привязке на подтверждённый адрес и уведомление в портале (угроза T30, FR-NT-13): привязал
+    // не человек, он отвяжет аккаунт. Оба ставятся до ответа бота: сбой ответа их не отменит. Письмо первым; сбой
+    // уведомления не отменяет ни письмо, ни ответ бота и не становится ошибкой вебхука: повтор события ответил бы
+    // "код недействителен" уже привязанному человеку (итоговая проверка M4b, I2).
     if (result.email)
       queueMail({
         to: result.email,
         kind: 'telegram-linked',
         ...telegramLinkedMail(replyLocale, { account: displayNameOf(from as TelegramUser), url: `${getEnv().HUB_URL}/${replyLocale}/settings` }),
       });
+    try {
+      await notifyTelegramLinked(result.userId);
+    } catch (error) {
+      console.error(`Уведомление о привязке Telegram не поставлено: ${error instanceof Error ? error.message : 'ошибка'}`);
+    }
     await reply(botText(replyLocale, 'linked', { name: result.userName, org: result.orgName ?? '' }), {
       choices: [
         { text: botText(replyLocale, 'buttonSignIn'), data: 'login' },

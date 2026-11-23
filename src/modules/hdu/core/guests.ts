@@ -1,4 +1,5 @@
 import 'server-only';
+import { cleanUserText } from '@/modules/hdc/pref';
 import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { withActor } from '@/db/with-actor';
@@ -43,7 +44,8 @@ export async function ensureGuestTx(address: string, displayName: string | null,
       .limit(1);
     let userId = existing[0]?.userId;
     if (!userId) {
-      const name = (displayName ?? '').trim().slice(0, NAME_MAX) || (address.split('@')[0] ?? address);
+      // Имя из поля From без невидимых и управляющих знаков, в одну строку (M4, мелкое 13).
+      const name = cleanUserText(displayName ?? '').replace(/\s+/gu, ' ').trim().slice(0, NAME_MAX) || (address.split('@')[0] ?? address);
       const [created] = await tx
         .insert(authUser)
         .values({ name, email: syntheticEmail(), emailVerified: false, claimedEmail: address })

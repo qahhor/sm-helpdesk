@@ -167,6 +167,7 @@ export async function seedTwoOrgs(): Promise<Fixture> {
       JSON.stringify({ number: t.number }),
     ]);
     await pools.root.query(`insert into hdn_notification_prefs (user_id, kind, email_enabled) values ($1, 'watched_tickets', true)`, [user.userId]);
+    await pools.root.query(`insert into hdn_notification_prefs (user_id, kind, email_enabled, telegram_enabled) values ($1, 'own_tickets', true, true)`, [user.userId]);
   }
 
   // Приём писем (веха M4): входящее письмо, цепочка, отклонённый адрес, домен организации, слияние гостя.

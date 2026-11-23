@@ -140,16 +140,18 @@ export class MemoryTelegramBot implements TelegramBot {
   readonly sent: SentMessage[] = [];
   readonly answered: string[] = [];
   readonly webhooks: { url: string; secret: string }[] = [];
-  private failing = false;
+  /** Код ответа следующей неудачной отправки; null: Telegram не ответил. undefined: отправка удаётся. */
+  private failStatus: number | null | undefined = undefined;
 
   async getMe() {
     return { username: 'hub_test_bot' };
   }
 
   async sendMessage(chatId: string, text: string, opts: SendOptions = {}) {
-    if (this.failing) {
-      this.failing = false;
-      throw new TelegramError('sendMessage', 502);
+    if (this.failStatus !== undefined) {
+      const status = this.failStatus;
+      this.failStatus = undefined;
+      throw new TelegramError('sendMessage', status);
     }
     this.sent.push({ chatId, text, ...opts });
   }
@@ -167,8 +169,8 @@ export class MemoryTelegramBot implements TelegramBot {
   }
 
   /** Следующая отправка сообщения упадёт: проверка повторной доставки события. */
-  failNext() {
-    this.failing = true;
+  failNext(status: number | null = 502) {
+    this.failStatus = status;
   }
 }
 

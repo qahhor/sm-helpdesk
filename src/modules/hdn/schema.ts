@@ -37,6 +37,8 @@ export const outbox = pgTable('hdn_outbox', {
   externalId: text('external_id'),
   lastError: text('last_error'),
   ...stampColumns,
+  /** Строка Telegram, к которой письмо запасное (решение 0036, пункт 3). Колонка добавлена миграцией 0040, после служебных. */
+  fallbackFor: uuid('fallback_for'),
 });
 
 export const NOTIFICATION_KINDS = [
@@ -51,6 +53,7 @@ export const NOTIFICATION_KINDS = [
   'snooze_returned',
   'update_due',
   'holidays_reminder',
+  'telegram_linked',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -68,10 +71,10 @@ export const notifications = pgTable('hdn_notifications', {
   ...stampColumns,
 });
 
-export const PREF_KINDS = ['watched_tickets', 'staff_mention', 'staff_breach'] as const;
+export const PREF_KINDS = ['own_tickets', 'watched_tickets', 'staff_mention', 'staff_breach'] as const;
 export type PrefKind = (typeof PREF_KINDS)[number];
 
-/** Какие письма получать (10.5 "notification_prefs", FR-NT-04). */
+/** Какие письма и сообщения Telegram получать (10.5 "notification_prefs", FR-NT-04, FR-NT-14). */
 export const notificationPrefs = pgTable(
   'hdn_notification_prefs',
   {

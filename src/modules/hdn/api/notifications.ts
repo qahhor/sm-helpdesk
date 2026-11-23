@@ -1,11 +1,12 @@
 import 'server-only';
 import * as z from 'zod';
-import type { SystemActor } from '@/db/with-actor';
+import { type SystemActor, withActor } from '@/db/with-actor';
 import {
   cleanupNotificationsTx,
   type ClientPrefs,
   listNotificationsTx,
   markReadTx,
+  notifyTx,
   type NotificationRow,
   openNotificationTx,
   type PersonActor,
@@ -15,12 +16,14 @@ import {
   unreadCountTx,
 } from '../core/notifications';
 
-// Модуль hdn, слой api: уведомления в портале и настройки писем (FR-NT-03, FR-NT-04, решение 5 вехи M4).
+// Модуль hdn, слой api: уведомления в портале и каналы уведомлений (FR-NT-03, FR-NT-04, FR-NT-14; решение 5 вехи M4,
+// решения 3 и 4 вехи M4b).
 // Актор только из проверенной сессии: страницы передают его из requireClientActor и requireStaffActor.
 
-export { emailAllowed, notifyTx, type NotificationRow, type PersonActor } from '../core/notifications';
+export { type Channels, channelsFor, emailAllowed, notifyTx, type NotificationRow, type PersonActor } from '../core/notifications';
 export { type NotificationKind, type PrefKind } from '../schema';
 export type { ClientPrefs, StaffPrefs };
+export { isHdnError } from '../error';
 
 const ids = z.array(z.uuid()).max(100);
 
@@ -52,4 +55,10 @@ export async function readPrefs(actor: PersonActor): Promise<ClientPrefs | Staff
 
 export async function cleanupNotifications(actor: SystemActor, now: Date): Promise<number> {
   return cleanupNotificationsTx(actor, now);
+}
+
+/** Уведомление в портале о новой привязке Telegram (FR-NT-13, решение 6 вехи M4b): рядом с письмом о привязке. */
+export async function notifyTelegramLinked(userId: string): Promise<void> {
+  const id = z.uuid().parse(userId);
+  await withActor({ type: 'system', job: 'identity.telegram' }, (tx) => notifyTx(tx, { userId: id, kind: 'telegram_linked', payload: {} }));
 }

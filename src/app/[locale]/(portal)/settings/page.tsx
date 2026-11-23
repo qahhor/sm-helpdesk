@@ -1,7 +1,8 @@
 import { getTranslations } from 'next-intl/server';
 import { type ClientPrefs, readPrefs } from '@/modules/hdn/api/notifications';
 import { getTelegramLink, mySessions, requireClientActor, telegramEnabled } from '@/modules/hdu/api';
-import { NotificationPrefsForm } from '@/ui/components/NotificationPrefsForm';
+import { telegramLinked } from '@/modules/hdu/api/recipients';
+import { ClientChannelsForm } from '@/ui/components/ClientChannelsForm';
 import { Alert } from '@/ui/components/alert';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { SessionsList } from '@/ui/components/SessionsList';
@@ -11,8 +12,8 @@ import { ChannelsSection } from './ChannelsSection';
 import { EmailSection } from './EmailSection';
 import { firstParam } from '@/lib/search-params';
 
-// Профиль клиента: адрес для входа по ссылке, привязка Telegram (если бот включён), какие письма получать
-// (FR-NT-04) и сессии на устройствах.
+// Профиль клиента: адрес для входа по ссылке, привязка Telegram (если бот включён), каналы уведомлений
+// (FR-NT-04, FR-NT-14) и сессии на устройствах.
 export default async function ClientSettingsPage({ searchParams }: PageProps<'/[locale]/settings'>) {
   const client = await requireClientActor();
   const params = await searchParams;
@@ -20,20 +21,37 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
   const { items, labels } = await sessionItems(await mySessions());
   const sessionStatus = firstParam(params.session);
   const prefs = (await readPrefs(client.actor)) as ClientPrefs;
+  const prefsStatus = firstParam(params.prefs);
+  const botOn = telegramEnabled();
+  const telegramActive = botOn && (await telegramLinked(client.actor.userId));
   return (
     <>
       <h1 className="text-2xl font-bold">{t('client.nav.profile')}</h1>
       <EmailSection user={client.user} status={firstParam(params.email)} />
-      {telegramEnabled() && <ChannelsSection link={await getTelegramLink(client)} status={firstParam(params.telegram)} />}
-      <NotificationPrefsForm
-        title={t('common.notifications.settings.title')}
-        intro={t('common.notifications.settings.intro')}
-        locked={{ label: t('common.notifications.settings.own'), hint: t('common.notifications.settings.ownHint') }}
-        options={[{ name: 'watchedTickets', label: t('common.notifications.settings.watched'), checked: prefs.watchedTickets }]}
+      {botOn && <ChannelsSection link={await getTelegramLink(client)} status={firstParam(params.telegram)} />}
+      <ClientChannelsForm
+        rows={[
+          { key: 'own', label: t('common.notifications.settings.own'), ...prefs.own },
+          { key: 'watched', label: t('common.notifications.settings.watched'), ...prefs.watched },
+        ]}
+        labels={{
+          title: t('common.notifications.settings.client.title'),
+          intro: t('common.notifications.settings.client.intro'),
+          kind: t('common.notifications.settings.client.kind'),
+          email: t('common.notifications.settings.client.email'),
+          telegram: t('common.notifications.settings.client.telegram'),
+          ownRule: t('common.notifications.settings.client.ownRule'),
+          telegramMissing: t('common.notifications.settings.client.telegramMissing'),
+          telegramLink: t('common.notifications.settings.client.telegramLink'),
+          needTelegram: t('common.notifications.settings.client.needTelegram'),
+          ownFallback: t('common.notifications.settings.client.ownFallback'),
+          save: t('common.notifications.settings.save'),
+          saved: t('common.notifications.settings.saved'),
+        }}
+        telegram={botOn ? { active: telegramActive, linkHref: '#telegram' } : null}
+        status={prefsStatus === 'saved' || prefsStatus === 'need_telegram' ? prefsStatus : null}
+        ownFallback={!prefs.own.email && !telegramActive}
         save={saveClientPrefsAction}
-        saveLabel={t('common.notifications.settings.save')}
-        savedLabel={t('common.notifications.settings.saved')}
-        saved={firstParam(params.prefs) === 'saved'}
       />
       <Card>
         <CardHeader>

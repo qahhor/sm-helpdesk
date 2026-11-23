@@ -82,18 +82,30 @@
         "sla_breach": "Deadline missed on request SUP-{number}",
         "snooze_returned": "Snoozed request SUP-{number} is back",
         "update_due": "Client update due tomorrow on request SUP-{number}",
-        "holidays_reminder": "Fill in the holidays for {year}"
+        "holidays_reminder": "Fill in the holidays for {year}",
+        "telegram_linked": "A Telegram account was linked. If it was not you, unlink it in your profile."
       },
       "settings": {
         "title": "Emails",
         "intro": "Notifications in the portal always arrive. Here you choose which emails to get.",
         "own": "About my requests",
-        "ownHint": "These emails cannot be turned off: they carry the support answers.",
         "watched": "About colleagues’ requests I follow",
         "mention": "About mentions in notes",
         "breach": "About missed deadlines",
         "save": "Save",
-        "saved": "Saved"
+        "saved": "Saved",
+        "client": {
+          "title": "Notifications",
+          "intro": "Notifications in the portal always arrive. Choose where else to send them.",
+          "kind": "About",
+          "email": "Email",
+          "telegram": "Telegram",
+          "ownRule": "Emails about your requests can be turned off when Telegram is on: at least one way stays.",
+          "telegramMissing": "Telegram is not linked. Messages there start after you link it.",
+          "telegramLink": "Go to linking",
+          "needTelegram": "Emails about your requests turn off only when Telegram is linked and turned on in this row.",
+          "ownFallback": "Emails about your requests arrive again: Telegram is not working right now."
+        }
       }
     }
   },
@@ -383,7 +395,7 @@
       },
       "channels": {
         "title": "Telegram",
-        "intro": "Link Telegram to sign in to the portal through the bot when Smartup is not available.",
+        "intro": "Link Telegram to get request notifications there and to sign in to the portal through the bot when Smartup is not available.",
         "link": "Link Telegram",
         "linked": "The account {account} is linked since {date}.",
         "unlink": "Unlink",
@@ -393,7 +405,8 @@
           "rate_limited": "Too many attempts. Try again in an hour.",
           "disabled": "Linking Telegram is not available right now.",
           "unavailable": "Telegram is not responding right now. Try linking the bot again in a few minutes."
-        }
+        },
+        "blocked": "The bot is blocked in Telegram, messages do not arrive. Unblock the bot and link Telegram again."
       }
     },
     "footer": {
@@ -877,6 +890,9 @@
           "settings": {
             "changed": "Setting changed",
             "oncall_changed": "On-call settings changed"
+          },
+          "notify": {
+            "channels_changed": "Notification channels changed"
           }
         },
         "words": {
@@ -1788,7 +1804,21 @@
     "loginLink": "Your sign-in link for Smartup Hub. It works for {minutes} min and only once. Do not forward it to anyone.",
     "loginTooOften": "Too many sign-in links. Try again in {minutes} min.",
     "loginNoAccess": "This account has no access to the portal right now. Contact your company administrator.",
-    "oncallTest": "Smartup Hub test message: the on-call chat is connected, urgent request alerts will arrive here."
+    "oncallTest": "Smartup Hub test message: the on-call chat is connected, urgent request alerts will arrive here.",
+    "notify": {
+      "button": "Open in the portal",
+      "created": "We have received your request.",
+      "reply": "New answer from support.",
+      "waiting_customer": "We are waiting for your reply.",
+      "in_development": "Passed to development. We will write when there is news.",
+      "closed": "The request is closed.",
+      "autoClosed": "The request is closed: we did not get a reply.",
+      "merged": "Merged into SUP-{into}. The conversation continues there.",
+      "resolved": "The request is resolved. Rate the answer or reopen the request.",
+      "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
+    },
+    "oncallP1": "P1: new urgent request SUP-{number}",
+    "oncallP1Org": "P1: new urgent request SUP-{number}, {org}"
   },
   "dev": {
     "title": "Component showcase",

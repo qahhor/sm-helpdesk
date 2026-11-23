@@ -10,6 +10,8 @@ import { assertEmailId, type EmailProvider, headerPairs, type InboundAttachment,
 
 const ENDPOINT = 'https://api.resend.com/emails';
 const DEFAULT_TIMEOUT_MS = 5000;
+/** Скачивание вложения (до 25 МБ) получает больше времени, чем запрос к API: 12 пределов запроса, по умолчанию минута. */
+const DOWNLOAD_TIMEOUT_FACTOR = 12;
 /** Паузы перед повторами: два повтора, через 0,5 и 2 секунды. */
 const DEFAULT_PAUSES_MS = [500, 2000];
 
@@ -158,22 +160,38 @@ export function createResendProvider(cfg: ProviderConfig): EmailProvider {
     },
     async download(url, maxBytes) {
       if (!url.startsWith('https://')) throw new Error('почта: ссылка на вложение не https');
-      const response = await once(url, { method: 'GET' });
-      if (!response?.ok || !response.body) throw new MailError(response?.status ?? null);
-      const declared = Number(response.headers.get('content-length') ?? '0');
-      if (declared > maxBytes) throw new Error('почта: вложение больше предела');
+      // Предел времени на весь ответ, включая чтение тела (M4, мелкое 13): тело, которое не кончается,
+      // не держит разбор письма. По истечении чтение отменяется, вложение считается не скачанным.
+      const controller = new AbortController();
+      let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+      const timer = setTimeout(() => {
+        controller.abort();
+        void reader?.cancel().catch(() => undefined);
+      }, timeoutMs * DOWNLOAD_TIMEOUT_FACTOR);
       const chunks: Uint8Array[] = [];
       let total = 0;
-      const reader = response.body.getReader();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        total += value.byteLength;
-        if (total > maxBytes) {
-          await reader.cancel();
-          throw new Error('почта: вложение больше предела');
+      try {
+        const response = await doFetch(url, { method: 'GET', signal: controller.signal }).catch(() => null);
+        if (!response?.ok || !response.body) throw new MailError(response?.status ?? null);
+        const declared = Number(response.headers.get('content-length') ?? '0');
+        if (declared > maxBytes) throw new Error('почта: вложение больше предела');
+        reader = response.body.getReader();
+        for (;;) {
+          // Обрыв связи посреди тела: ошибка, а не обрезанный файл (итоговая проверка M4b, I4).
+          const { done, value } = await reader.read().catch(() => {
+            throw new MailError(null);
+          });
+          if (controller.signal.aborted) throw new MailError(null);
+          if (done) break;
+          total += value.byteLength;
+          if (total > maxBytes) {
+            await reader.cancel();
+            throw new Error('почта: вложение больше предела');
+          }
+          chunks.push(value);
         }
-        chunks.push(value);
+      } finally {
+        clearTimeout(timer);
       }
       const out = new Uint8Array(total);
       let offset = 0;

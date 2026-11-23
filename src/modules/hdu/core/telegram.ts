@@ -106,16 +106,26 @@ export async function consumeLinkCode(
 }
 
 /** Привязка по идентификатору Telegram: чей это аккаунт и на каком языке ему отвечать. */
-export async function findTelegramIdentity(externalId: string): Promise<{ userId: string; locale: Locale | null } | null> {
+export async function findTelegramIdentity(externalId: string): Promise<{ userId: string; locale: Locale | null; blocked: boolean } | null> {
   const rows = await withIdentity(SYSTEM, (tx) =>
     tx
-      .select({ userId: contactIdentities.userId, locale: authUser.locale })
+      .select({ userId: contactIdentities.userId, locale: authUser.locale, blocked: contactIdentities.isBlocked })
       .from(contactIdentities)
       .innerJoin(authUser, eq(authUser.id, contactIdentities.userId))
       .where(and(eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.externalId, externalId)))
       .limit(1),
   );
   return rows[0] ?? null;
+}
+
+/** Человек снова пишет боту: отметка "бот заблокирован" снимается (решение 0036, пункт 5). */
+export async function clearTelegramBlock(externalId: string): Promise<void> {
+  await withIdentity(SYSTEM, (tx) =>
+    tx
+      .update(contactIdentities)
+      .set({ isBlocked: false })
+      .where(and(eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.externalId, externalId), eq(contactIdentities.isBlocked, true))),
+  );
 }
 
 /** Отвязка командой из бота. Возвращает, была ли привязка. */
@@ -144,10 +154,10 @@ export async function unlinkOwn(actor: ClientActor): Promise<string | null> {
 }
 
 /** Своя привязка Telegram глазами клиента. */
-export async function findOwnIdentity(actor: ClientActor): Promise<{ displayName: string | null; verifiedOn: Date } | null> {
+export async function findOwnIdentity(actor: ClientActor): Promise<{ displayName: string | null; verifiedOn: Date; blocked: boolean } | null> {
   const rows = await withActor(actor, (tx) =>
     tx
-      .select({ displayName: contactIdentities.displayName, verifiedOn: contactIdentities.verifiedOn })
+      .select({ displayName: contactIdentities.displayName, verifiedOn: contactIdentities.verifiedOn, blocked: contactIdentities.isBlocked })
       .from(contactIdentities)
       .where(and(eq(contactIdentities.userId, actor.userId), eq(contactIdentities.kind, 'telegram')))
       .limit(1),

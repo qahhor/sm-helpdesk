@@ -80,18 +80,29 @@ test('шестой запрос ссылки за час ссылку не да�
   expect(tg.bot.sent.at(-1)?.text).toBe(botText('ru', 'loginTooOften', { minutes: '60' }));
 });
 
-test('непривязанный, заблокированный, лишённый членства и сотрудник ссылку не получают', async () => {
+test('непривязанный, лишённый членства и сотрудник ссылку не получают', async () => {
   const f = await seedTwoOrgs();
-  await linkTelegramFixture(f.aUser, 777001);
   await linkTelegramFixture(f.bUser, 777002);
   await linkTelegramFixture(f.care, 777003);
-  await pools.root.query(`update hdu_contact_identities set is_blocked = true where external_id = '777001'`);
   await pools.root.query(`update hdu_memberships set state = 'passive' where user_id = $1`, [f.bUser.userId]);
-  for (const from of [777001, 777002, 777003, 999999]) await handleTelegramUpdate(login(from));
+  for (const from of [777002, 777003, 999999]) await handleTelegramUpdate(login(from));
   expect(loginLinks()).toEqual([]);
   expect((await pools.root.query('select 1 from hdu_login_codes')).rowCount).toBe(0);
   expect(tg.bot.sent.find((m) => m.chatId === '999999')?.text).toBe(botText('ru', 'notLinked'));
   expect(tg.bot.sent.find((m) => m.chatId === '777002')?.text).toBe(botText('ru', 'loginNoAccess'));
+});
+
+test('заблокированный аккаунт: ссылка, выданная до блокировки, не входит; новое сообщение боту снимает отметку (решение 0036, пункт 5)', async () => {
+  await seedTwoOrgs().then((f) => linkTelegramFixture(f.aUser, 777001));
+  await handleTelegramUpdate(login());
+  const token = tokenOf(tg.bot.sent.at(-1));
+  // Уведомление получило 403: человек заблокировал бота.
+  await pools.root.query(`update hdu_contact_identities set is_blocked = true where external_id = '777001'`);
+  expect(await completeTelegramLogin({ token, locale: 'ru' }, noRequest)).toEqual({ ok: false, code: 'link_invalid' });
+  // Telegram доставляет сообщение, только если человек снова открыл бота: отметка снимается, ссылка выдаётся.
+  await handleTelegramUpdate(login());
+  expect((await pools.root.query(`select is_blocked from hdu_contact_identities where external_id = '777001'`)).rows[0].is_blocked).toBe(false);
+  expect(loginLinks().length).toBeGreaterThan(0);
 });
 
 test('гостевое членство входа не даёт', async () => {

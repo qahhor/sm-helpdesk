@@ -21,3 +21,10 @@ test('название организации, похожее на ссылку,
   const text = oncallTelegramText({ template: 'oncall_p1', number: 7, title: 'x', url: '/agent/tickets/SUP-7', orgName: 'evil.example' }, 'https://hub.example.test');
   expect(text).not.toContain('evil.example');
 });
+
+test('текст для чата дежурных на трёх языках из messages (M4, мелкое 7)', () => {
+  const payload = { template: 'oncall_p1', number: 5, title: 'x', url: '/agent/tickets/SUP-5', orgName: 'ООО Клиент' } as const;
+  expect(oncallTelegramText(payload, 'https://hub.example.test')).toBe('P1: новое срочное обращение SUP-5, ООО Клиент\nhttps://hub.example.test/ru/agent/tickets/SUP-5');
+  expect(oncallTelegramText(payload, 'https://hub.example.test', 'uz')).toBe('P1: yangi shoshilinch murojaat SUP-5, ООО Клиент\nhttps://hub.example.test/uz/agent/tickets/SUP-5');
+  expect(oncallTelegramText({ ...payload, orgName: '' }, 'https://hub.example.test', 'en')).toBe('P1: new urgent request SUP-5\nhttps://hub.example.test/en/agent/tickets/SUP-5');
+});

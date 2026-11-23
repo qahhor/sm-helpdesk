@@ -11,11 +11,12 @@ export async function clientUnreadAction(): Promise<number> {
   return unreadCount(client.actor);
 }
 
-/** Открыть уведомление: отметка прочтения и переход к обращению. */
+/** Открыть уведомление: отметка прочтения и переход к обращению; о привязке Telegram: в профиль. */
 export async function openClientNotificationAction(formData: FormData): Promise<void> {
   const client = await requireClientActor();
   const locale = await getLocale();
   const row = await openNotification(client.actor, formData.get('id'));
+  if (row?.kind === 'telegram_linked') redirect(`/${locale}/settings`);
   redirect(row?.ticketNumber ? `/${locale}/tickets/SUP-${row.ticketNumber}` : `/${locale}/notifications`);
 }
 

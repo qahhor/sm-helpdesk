@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
-import { botText, createTelegramBot } from '@/modules/hdn/api';
+import { botText, createTelegramBot, handleTelegramWebhook } from '@/modules/hdn/api';
+import { listNotifications } from '@/modules/hdn/api/notifications';
 import { MemoryTelegramBot, setTelegramBotForTests } from '@/modules/hdn/testing';
+import { markTelegramBlocked } from '@/modules/hdu/api/recipients';
 import {
   getBotLink,
   getTelegramLink,
@@ -236,4 +238,64 @@ test('страница входа не ждёт имя бота снова ср�
   setTelegramBotForTests(new MemoryTelegramBot());
   resetBotLinkForTests();
   expect(await getBotLink(1000)).toBe('https://t.me/hub_test_bot');
+});
+
+// --- Веха M4b, задача 3: уведомление о привязке (FR-NT-13) и заблокированный бот (решение 5) ---
+
+test('новая привязка: уведомление telegram_linked в портале и письмо, если есть адрес', async () => {
+  const f = await seedTwoOrgs();
+  await pools.root.query(`update auth."user" set email = 'a-user@acme.test', "emailVerified" = true where id = $1`, [f.aUser.userId]);
+  await handleTelegramUpdate(start(await linkCodeFor(f.aUser)));
+  const notices = await listNotifications(f.aUser.actor, {});
+  expect(notices.filter((n) => n.kind === 'telegram_linked').map((n) => [n.ticketNumber, n.payload])).toEqual([[null, {}]]);
+  expect(mail.mailer.sent.map((m) => m.kind)).toEqual(['telegram-linked']);
+  // Без подтверждённого адреса: только уведомление в портале.
+  await handleTelegramUpdate(start(await linkCodeFor(f.bUser), 777002));
+  expect((await listNotifications(f.bUser.actor, {})).filter((n) => n.kind === 'telegram_linked')).toHaveLength(1);
+  expect(mail.mailer.sent).toHaveLength(1);
+});
+
+test('новая привязка снимает отметку is_blocked', async () => {
+  const f = await seedTwoOrgs();
+  await handleTelegramUpdate(start(await linkCodeFor(f.aUser)));
+  await markTelegramBlocked('777001');
+  expect((await pools.root.query(`select is_blocked from hdu_contact_identities where user_id = $1`, [f.aUser.userId])).rows[0].is_blocked).toBe(true);
+  await handleTelegramUpdate(start(await linkCodeFor(f.aUser)));
+  expect((await pools.root.query(`select is_blocked from hdu_contact_identities where user_id = $1`, [f.aUser.userId])).rows[0].is_blocked).toBe(false);
+});
+
+test('раздел Telegram показывает "Бот заблокирован" для заблокированной привязки', async () => {
+  const f = await seedTwoOrgs();
+  await handleTelegramUpdate(start(await linkCodeFor(f.aUser)));
+  expect(await getTelegramLink(await clientCtx(f.aUser))).toMatchObject({ displayName: '@user777001', blocked: false });
+  await markTelegramBlocked('777001');
+  expect(await getTelegramLink(await clientCtx(f.aUser))).toMatchObject({ displayName: '@user777001', blocked: true });
+});
+
+test('повторная доставка события /start с кодом не даёт второго ответа и второго уведомления', async () => {
+  const f = await seedTwoOrgs();
+  const update = tgUpdate({ from: 777003, text: `/start ${await linkCodeFor(f.aUser)}`, updateId: 99001 });
+  const post = () =>
+    handleTelegramWebhook(
+      new Request('http://localhost:3000/api/webhooks/telegram', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': MemoryTelegramBot.SECRET },
+        body: JSON.stringify(update),
+      }),
+      handleTelegramUpdate,
+    );
+  expect((await post()).status).toBe(200);
+  expect((await post()).status).toBe(200);
+  expect(tg.bot.sent).toHaveLength(1);
+  expect((await listNotifications(f.aUser.actor, {})).filter((n) => n.kind === 'telegram_linked')).toHaveLength(1);
+});
+
+test('после разблокировки бота любое сообщение от аккаунта снимает отметку: вход из бота снова работает (итоговая проверка, I3)', async () => {
+  const f = await seedTwoOrgs();
+  await handleTelegramUpdate(start(await linkCodeFor(f.aUser)));
+  await markTelegramBlocked('777001');
+  // Сообщение из Telegram приходит, только если человек снова открыл бота: отметка снимается.
+  await handleTelegramUpdate(tgUpdate({ from: 777001, text: '/login' }));
+  expect((await pools.root.query(`select is_blocked from hdu_contact_identities where user_id = $1`, [f.aUser.userId])).rows[0].is_blocked).toBe(false);
+  expect(tg.bot.sent.at(-1)?.linkButton?.url).toMatch(/\/ru\/login\/tg\?token=/);
 });

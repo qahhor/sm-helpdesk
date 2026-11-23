@@ -65,6 +65,8 @@ export const AUDIT_ACTIONS = [
   'sender.unblocked',
   'org.domain_added',
   'org.domain_removed',
+  // Каналы уведомлений (план M4b, задача 1)
+  'notify.channels_changed',
   // Памятки первой линии и шаблоны ответов (веха M3).
   'playbook.saved',
   'template.saved',

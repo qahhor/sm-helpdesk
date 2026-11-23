@@ -52,6 +52,8 @@
 
   затем `sudo systemctl restart docker`.
 - [ ] **Сетевой экран хостинга** (Hetzner Cloud Firewall или аналог): входящие 80 и 443 только с адресов Cloudflare (списки: `https://www.cloudflare.com/ips-v4` и `https://www.cloudflare.com/ips-v6`), SSH только с доверенных адресов, остальное закрыто. Важно: экран нужен именно на стороне хостинга. Порты, которые публикует Docker, обходят правила `ufw` на самом сервере. Без экрана посетитель мог бы подделать заголовок адреса и обойти пределы частоты (решение 0020).
+- [ ] Второй слой той же защиты уже в `Caddyfile`: Caddy отвечает 403 всем адресам вне списка `TRUSTED_PROXIES` (по умолчанию адреса Cloudflare, список в `compose.prod.yaml`). Раз в квартал сверять список с `https://www.cloudflare.com/ips-v4` и `ips-v6`. Для staging без Cloudflare задать в `.env` рядом с `compose.prod.yaml`: `TRUSTED_PROXIES="0.0.0.0/0 ::/0"`. Проверка после запуска: `curl -sk -o /dev/null -w '%{http_code}' --resolve <домен>:443:<IP сервера> https://<домен>/` с адреса не из списка возвращает 403.
+- [ ] Память: значения в `compose.prod.yaml` рассчитаны на сервер 8 ГБ (база 4 ГБ, антивирус 3 ГБ, портал и фоновый процесс по 1 ГБ). Для другого сервера задать `PG_MEM_LIMIT`, `PG_SHARED_BUFFERS` (четверть памяти базы), `PG_EFFECTIVE_CACHE_SIZE`, `CLAMAV_MEM_LIMIT`, `WEB_MEM_LIMIT`, `WORKER_MEM_LIMIT`.
 
 ## 2. Cloudflare: DNS и защита
 
@@ -304,24 +306,28 @@
 
 ## 12. Резервные копии и наблюдение
 
-**Резервные копии.** До вехи M9 достаточно ночного `pg_dump` в отдельный бакет R2 (ТЗ 13.7). pgBackRest с непрерывным архивом появится в M9.
+**Резервные копии.** До вехи M9 достаточно ночной шифрованной копии `pg_dump` в отдельный бакет R2 (ТЗ 13.7). pgBackRest с непрерывным архивом появится позже: по плану аудита до первого настоящего клиента.
 
-- [ ] Ночная копия базы: скрипт `/opt/smartup-hub/backup.sh` по cron в 02:30, хранение 14 суток. Пример (выгрузка в R2 любым клиентом S3, например `rclone`, настроенным на ключ бакета копий):
+- [ ] Установить `age` и `rclone`: `sudo apt install -y age rclone`. Настроить `rclone` на ключ бакета копий (только этот бакет, без доступа к бакету файлов).
+- [ ] Пара ключей копий создаётся **не на сервере**, а на компьютере владельца: `age-keygen -o key.txt`. Закрытый ключ (`key.txt`) хранится в менеджере паролей, на сервер попадает только открытый ключ (строка `age1...`).
+- [ ] Сценарий копии: скопировать `scripts/ops/backup.sh` из репозитория в `/opt/smartup-hub/backup.sh`, права 700. Настройки в `/opt/smartup-hub/backup.env`, права 600:
 
   ```bash
-  #!/usr/bin/env bash
-  set -euo pipefail
-  file="/var/backups/hub-$(date +%F).dump"
-  docker compose -f /opt/smartup-hub/compose.prod.yaml exec -T postgres pg_dump -U postgres -Fc hub > "$file"
-  rclone copy "$file" r2-backups:hub-backups/
-  find /var/backups -name 'hub-*.dump' -mtime +14 -delete
+  BACKUP_RECIPIENT=age1...            # открытый ключ получателя копий
+  BACKUP_REMOTE=r2-backups:hub-backups
   ```
 
+- [ ] Расписание cron в 02:30: `30 2 * * * set -a; . /opt/smartup-hub/backup.env; set +a; /opt/smartup-hub/backup.sh >> /var/log/hub-backup.log 2>&1`. Копия шифруется до записи на диск, на сервере хранится 14 суток.
+- [ ] Первая копия вручную, затем восстановление по `docs/runbooks/restore.md` на staging. Результат записать в таблицу в конце `restore.md`.
+- [ ] Возраст копии: внешняя проверка читает `/var/backups/smartup-hub/last-success` и даёт сигнал, если отметка старше 26 часов.
 - [ ] Проверка восстановления раз в месяц на staging: копия считается существующей только после проверки (ТЗ 13.7). Данные production на staging после проверки удаляются.
 - [ ] Секреты (`.env`, `.env.migrate`, `secrets/pg_superuser`) сохранены зашифрованным архивом в менеджере паролей.
 
 **Наблюдение** (ТЗ 13.8):
 
+- [ ] Дежурные заданы в "Настройки", "Уведомления и почта": портал сам шлёт им сигнал письмом и в чат, если упали фоновые задачи, встала отправка писем, письма клиентов не разбираются дольше 10 минут, за 15 минут 20 неудачных входов сотрудников или найден заражённый файл. Один вид сигнала приходит не чаще раза в час.
+- [ ] Журнал служб в формате JSON: `hubc logs web worker`. События: `db.slow_tx` (транзакция дольше 250 мс), `job.failed`, `outbox.state`, `ops.alerts_sent`. Журнал доступа с временем ответа каждого запроса: `hubc logs caddy`.
+- [ ] Медленные запросы базы: `hubc logs postgres | grep duration` (запросы дольше 250 мс, без значений параметров). Самые тяжёлые за всё время: `hubc exec -T postgres psql -U postgres -d hub -c "select calls, round(mean_exec_time) as ms, left(query, 100) from pg_stat_statements order by total_exec_time desc limit 20"`.
 - [ ] Внешняя проверка доступности раз в минуту по адресу `https://<домен>/api/ready` с сигналом в Telegram-чат дежурных. Проверка работает вне сервера портала.
 - [ ] Сигнал при заполнении диска, памяти или процессора на 80% (агент мониторинга хостинга).
 - [ ] Свободное место под журналы и копии: не меньше 30% диска.

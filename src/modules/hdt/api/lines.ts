@@ -1,7 +1,7 @@
 import 'server-only';
 import { readSetting } from '@/modules/hdc/api';
 import { namesOf, type StaffContext } from '@/modules/hdu/api';
-import { returnToL1Tx, transferToL2Tx } from '../core/lines';
+import { lastL1SenderTx, returnToL1Tx, transferToL2Tx } from '../core/lines';
 import { parseInput, returnInput, transferInput } from '../input';
 import { PICKUP_SETTING } from '../pref';
 
@@ -17,5 +17,7 @@ export async function transferToL2(ctx: StaffContext, input: unknown): Promise<v
 /** Вернуть на первую линию с пояснением (FR-LINE-04). */
 export async function returnToL1(ctx: StaffContext, input: unknown): Promise<void> {
   const data = parseInput(returnInput, input);
-  await returnToL1Tx(ctx.actor, data.number, data.explanation, async (userId) => (await namesOf(ctx.actor, [userId])).get(userId) ?? null);
+  const senderId = await lastL1SenderTx(ctx.actor, data.number);
+  const sender = senderId ? { userId: senderId, name: (await namesOf(ctx.actor, [senderId])).get(senderId) ?? null } : null;
+  await returnToL1Tx(ctx.actor, data.number, data.explanation, sender);
 }

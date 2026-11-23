@@ -1,6 +1,6 @@
 import 'server-only';
 import * as z from 'zod';
-import { adminIdsTx, lineLeadsTx, type MailRecipient, mailRecipientTx, markTelegramBlockedTx, organizationNameTx, replyRoleTx, telegramChatTx } from '../core/recipients';
+import { adminIdsTx, lineLeadsTx, type MailRecipient, mailRecipientTx, markTelegramBlockedTx, organizationNameTx, replyRolesTx, replyRoleTx, telegramChatTx, telegramLinkedManyTx } from '../core/recipients';
 import type { Locale } from '@/i18n/locales';
 
 // Модуль hdu, слой api: адрес для письма пользователю (решение 2 вехи M4), руководители линии, администраторы
@@ -49,4 +49,19 @@ export async function telegramLinked(userId: string): Promise<boolean> {
 export async function markTelegramBlocked(chatId: string): Promise<void> {
   if (!/^-?\d{1,20}$/.test(chatId)) return;
   await markTelegramBlockedTx(chatId);
+}
+
+const uuids = z.array(z.uuid()).max(500);
+
+/** Роли пользователей в организации одним запросом: для уведомлений многим получателям. */
+export async function replyRoles(userIds: string[], orgId: string): Promise<Map<string, 'client_user' | 'client_admin'>> {
+  const users = uuids.safeParse(userIds);
+  const org = z.uuid().safeParse(orgId);
+  return users.success && org.success ? replyRolesTx(users.data, org.data) : new Map();
+}
+
+/** У кого из пользователей действует привязка Telegram: одним запросом. */
+export async function telegramLinkedMany(userIds: string[]): Promise<Set<string>> {
+  const users = uuids.safeParse(userIds);
+  return users.success ? telegramLinkedManyTx(users.data) : new Set();
 }

@@ -1,9 +1,9 @@
 import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { channelsFor, emailAllowed, type NotificationKind, notifyTx, type PrefKind } from '@/modules/hdn/api/notifications';
+import { channelsForMany, emailAllowed, type NotificationKind, notifyTx, type PrefKind } from '@/modules/hdn/api/notifications';
 import { enqueueTx, TELEGRAM_TEMPLATES } from '@/modules/hdn/api/outbox';
-import { organizationName, replyRole } from '@/modules/hdu/api/recipients';
+import { organizationName, replyRoles } from '@/modules/hdu/api/recipients';
 import type { TicketStatus, Visibility } from '../pref';
 import { ticketMessages, tickets, ticketWatchers } from '../schema';
 
@@ -62,14 +62,17 @@ async function people(tx: Tx, ticketId: string, ticket: TicketInfo, actorUserId:
 }
 
 /**
- * Видит ли клиент обращение сейчас: действующее членство в организации обращения, и для коллеги видимость
+ * Кто из получателей видит обращение сейчас: действующее членство в организации обращения, и для коллеги видимость
  * "организация" или роль администратора клиента. Отключённый участник и подписчик, оставшийся у личного обращения,
- * ни уведомления, ни письма не получают (итоговая проверка M4, замечание I8).
+ * ни уведомления, ни письма не получают (итоговая проверка M4, замечание I8). Роли читаются одним запросом на всех
+ * получателей (аудит 23.11.2026, находка A4).
  */
-async function stillSees(ticket: TicketInfo, userId: string): Promise<boolean> {
-  const role = await replyRole(userId, ticket.orgId);
-  if (!role) return false;
-  return userId === ticket.authorId || ticket.visibility === 'org' || role === 'client_admin';
+async function whoSees(ticket: TicketInfo, userIds: string[]): Promise<string[]> {
+  const roles = await replyRoles(userIds, ticket.orgId);
+  return userIds.filter((userId) => {
+    const role = roles.get(userId);
+    return role !== undefined && (userId === ticket.authorId || ticket.visibility === 'org' || role === 'client_admin');
+  });
 }
 
 /**
@@ -78,11 +81,12 @@ async function stillSees(ticket: TicketInfo, userId: string): Promise<boolean> {
  */
 async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: string[], kind: NotificationKind, mail: Mail, messageId?: string): Promise<void> {
   const locale = ticket.locale as 'ru' | 'uz' | 'en';
-  for (const userId of recipients) {
-    if (!(await stillSees(ticket, userId))) continue;
-    await notifyTx(tx, { userId, kind, ticketId, payload: { number: ticket.number, title: ticket.title } });
+  const seeing = await whoSees(ticket, recipients);
+  const channelsOf = await channelsForMany(tx, seeing, ticket.authorId);
+  for (const userId of seeing) {
+    await notifyTx(tx, { userId, kind, ticketId, orgId: ticket.orgId, payload: { number: ticket.number, title: ticket.title } });
     const own = userId === ticket.authorId;
-    const channels = await channelsFor(tx, userId, own ? 'own' : 'watched');
+    const channels = channelsOf.get(userId) ?? { email: true, telegram: false };
     const telegramId =
       channels.telegram && TELEGRAM_TEMPLATES.has(mail.template)
         ? await enqueueTx(tx, { channel: 'telegram', recipient: { kind: 'user', userId }, template: mail.template, payload: mail, ticketId, locale })

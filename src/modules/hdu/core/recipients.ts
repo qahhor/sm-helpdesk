@@ -122,3 +122,41 @@ export async function markTelegramBlockedTx(chatId: string): Promise<void> {
       .where(and(eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.externalId, chatId))),
   );
 }
+
+/**
+ * Роли сразу нескольких пользователей в организации: то же условие, что у replyRoleTx, одним запросом
+ * (аудит 23.11.2026, находка A4). Кого в ответе нет, тот обращения организации не видит.
+ */
+export async function replyRolesTx(userIds: string[], orgId: string): Promise<Map<string, 'client_user' | 'client_admin'>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ userId: memberships.userId, role: memberships.role })
+      .from(memberships)
+      .innerJoin(organizations, eq(organizations.orgId, memberships.orgId))
+      .leftJoin(servers, eq(servers.serverId, organizations.serverId))
+      .where(
+        and(
+          inArray(memberships.userId, userIds),
+          eq(memberships.orgId, orgId),
+          eq(memberships.state, 'active'),
+          eq(organizations.state, 'active'),
+          or(eq(memberships.source, 'guest'), eq(servers.state, 'active')),
+          sql`not exists (select 1 from ${staff} where ${staff.userId} = ${memberships.userId})`,
+        ),
+      ),
+  );
+  return new Map(rows.map((row) => [row.userId, row.role as 'client_user' | 'client_admin']));
+}
+
+/** У кого из пользователей действует привязка Telegram (есть и бот не заблокирован): одним запросом. */
+export async function telegramLinkedManyTx(userIds: string[]): Promise<Set<string>> {
+  if (userIds.length === 0) return new Set();
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ userId: contactIdentities.userId })
+      .from(contactIdentities)
+      .where(and(inArray(contactIdentities.userId, userIds), eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.isBlocked, false))),
+  );
+  return new Set(rows.map((row) => row.userId));
+}

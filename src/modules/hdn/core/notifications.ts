@@ -5,7 +5,7 @@ import * as z from 'zod';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
-import { telegramLinked } from '@/modules/hdu/api/recipients';
+import { telegramLinked, telegramLinkedMany } from '@/modules/hdu/api/recipients';
 import { HdnError } from '../error';
 import { type NotificationKind, notificationPrefs, notifications, type PrefKind } from '../schema';
 import { getTelegramBot } from '../telegram';
@@ -35,10 +35,12 @@ export type NotificationRow = {
  */
 export async function notifyTx(
   tx: Tx,
-  n: { userId: string; kind: NotificationKind; ticketId?: string; payload: Record<string, string | number> },
+  n: { userId: string; kind: NotificationKind; ticketId?: string; orgId?: string; payload: Record<string, string | number> },
 ): Promise<void> {
-  let orgId: string | null = null;
-  if (n.ticketId) {
+  // Организация обращения известна вызывающему: тогда она не читается заново для каждого получателя. Подделать её
+  // нельзя: политика вставки сверяет организацию с обращением.
+  let orgId: string | null = n.ticketId ? (n.orgId ?? null) : null;
+  if (n.ticketId && !orgId) {
     const found = await tx.execute<{ org_id: string }>(sql`select org_id from hdt_tickets where ticket_id = ${n.ticketId}`);
     orgId = found.rows[0]?.org_id ?? null;
     if (!orgId) throw new Error('уведомление: обращение не найдено');
@@ -152,6 +154,27 @@ export async function channelsFor(tx: Tx, userId: string, scope: 'own' | 'watche
   const pref = await prefChannels(tx, userId, scope === 'own' ? 'own_tickets' : 'watched_tickets');
   const telegram = pref.telegram && (await telegramActive(userId));
   return { email: pref.email || (scope === 'own' && !telegram), telegram };
+}
+
+/**
+ * Каналы сразу нескольких получателей события (аудит 23.11.2026, находка A4): настройки одним запросом, действие
+ * Telegram одним запросом. Правила те же, что у channelsFor. own: пользователь, для которого обращение своё.
+ */
+export async function channelsForMany(tx: Tx, userIds: string[], own: string | null): Promise<Map<string, Channels>> {
+  const result = new Map<string, Channels>();
+  if (userIds.length === 0) return result;
+  const rows = await tx
+    .select({ userId: notificationPrefs.userId, kind: notificationPrefs.kind, email: notificationPrefs.emailEnabled, telegram: notificationPrefs.telegramEnabled })
+    .from(notificationPrefs)
+    .where(and(inArray(notificationPrefs.userId, userIds), inArray(notificationPrefs.kind, ['own_tickets', 'watched_tickets'])));
+  const linked = getTelegramBot().enabled ? await telegramLinkedMany(userIds) : new Set<string>();
+  for (const userId of userIds) {
+    const scope = userId === own ? 'own' : 'watched';
+    const pref = rows.find((row) => row.userId === userId && row.kind === (scope === 'own' ? 'own_tickets' : 'watched_tickets')) ?? { email: true, telegram: true };
+    const telegram = pref.telegram && linked.has(userId);
+    result.set(userId, { email: pref.email || (scope === 'own' && !telegram), telegram });
+  }
+  return result;
 }
 
 const STAFF_KIND = { staffMention: 'staff_mention', staffBreach: 'staff_breach' } as const;

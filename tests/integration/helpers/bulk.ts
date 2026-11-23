@@ -111,3 +111,63 @@ export async function seedBulkInbound(count: number): Promise<void> {
   );
   await pools.root.query(`analyze hdn_email_inbound`);
 }
+
+/** Считает транзакции, которые функция открыла в пулах приложения и библиотеки входа. */
+export async function countTransactions<T>(fn: () => Promise<T>): Promise<{ result: T; app: number; auth: number }> {
+  const { getAuthPool } = await import('@/db/auth-client');
+  const counts = { app: 0, auth: 0 };
+  const restore: (() => void)[] = [];
+  for (const [name, pool] of [['app', getAppPool()], ['auth', getAuthPool()]] as const) {
+    const original = pool.connect.bind(pool);
+    (pool as unknown as { connect: unknown }).connect = async () => {
+      const client = await original();
+      const query = client.query.bind(client) as (...args: unknown[]) => unknown;
+      (client as unknown as { query: unknown }).query = (...args: unknown[]) => {
+        const first = args[0] as string | { text: string };
+        if (/^\s*begin/i.test(typeof first === 'string' ? first : first.text)) counts[name]++;
+        return query(...args);
+      };
+      const release = client.release.bind(client);
+      (client as unknown as { release: unknown }).release = (...args: unknown[]) => {
+        (client as unknown as { query: unknown }).query = query;
+        (client as unknown as { release: unknown }).release = release;
+        return (release as (...a: unknown[]) => unknown)(...args);
+      };
+      return client;
+    };
+    restore.push(() => void ((pool as unknown as { connect: unknown }).connect = original));
+  }
+  try {
+    return { result: await fn(), ...counts };
+  } finally {
+    for (const undo of restore) undo();
+  }
+}
+
+/**
+ * Сколько соединений пула приложения функция держала одновременно. Больше одного значит транзакцию внутри
+ * транзакции: при занятом пуле такая функция ждёт саму себя.
+ */
+export async function maxAppConnections<T>(fn: () => Promise<T>): Promise<{ result: T; max: number }> {
+  const pool = getAppPool();
+  const original = pool.connect.bind(pool);
+  let held = 0;
+  let max = 0;
+  (pool as unknown as { connect: unknown }).connect = async () => {
+    const client = await original();
+    held++;
+    max = Math.max(max, held);
+    const release = client.release.bind(client);
+    (client as unknown as { release: unknown }).release = (...args: unknown[]) => {
+      held--;
+      (client as unknown as { release: unknown }).release = release;
+      return (release as (...a: unknown[]) => unknown)(...args);
+    };
+    return client;
+  };
+  try {
+    return { result: await fn(), max };
+  } finally {
+    (pool as unknown as { connect: unknown }).connect = original;
+  }
+}

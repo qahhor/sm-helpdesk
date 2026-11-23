@@ -838,7 +838,8 @@
           "user": {
             "email_confirmed": "Manzil tasdiqlandi",
             "policy_acknowledged": "Siyosat tahriri qabul qilindi",
-            "signed_in_telegram": "Telegram boti orqali kirish"
+            "signed_in_telegram": "Telegram boti orqali kirish",
+            "signed_in": "Mijoz kirdi"
           },
           "session": {
             "revoked": "Sessiya yakunlandi"
@@ -860,10 +861,12 @@
             "line_returned": "Birinchi liniyaga qaytarildi",
             "merged": "Murojaatlar birlashtirildi",
             "bound": "Xat tashkilotga bog'landi",
-            "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi"
+            "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi",
+            "viewed_by_staff": "Murojaatni xodim ochdi"
           },
           "attachment": {
-            "infected": "Zararlangan fayl topildi"
+            "infected": "Zararlangan fayl topildi",
+            "downloaded_by_staff": "Faylni xodim ochdi"
           },
           "modules": {
             "imported": "Modullar ma'lumotnomasi yuklandi"
@@ -936,7 +939,16 @@
           "rate_limited": "urinishlar chegarasi oshdi",
           "category": "Mijoz toifasi",
           "isAiEnabled": "AI-yordamchi ishlovi",
-          "version": "Tahrir"
+          "version": "Tahrir",
+          "method": "Usul",
+          "email_link": "emailga yuborilgan havola",
+          "invitation": "taklif",
+          "telegram": "Telegram boti",
+          "other": "boshqa",
+          "resealed": "Qayta shifrlandi",
+          "failed": "Ochilmadi",
+          "number": "Raqam",
+          "ticketId": "Murojaat"
         }
       },
       "sla": {

@@ -838,7 +838,8 @@
           "user": {
             "email_confirmed": "Адрес подтверждён",
             "policy_acknowledged": "Принята редакция политики",
-            "signed_in_telegram": "Вход через бота Telegram"
+            "signed_in_telegram": "Вход через бота Telegram",
+            "signed_in": "Вход клиента"
           },
           "session": {
             "revoked": "Сессия завершена"
@@ -860,10 +861,12 @@
             "line_returned": "Возвращено на первую линию",
             "merged": "Обращения объединены",
             "bound": "Письмо привязано к организации",
-            "author_moved": "Изменён автор обращения при переходе гостя"
+            "author_moved": "Изменён автор обращения при переходе гостя",
+            "viewed_by_staff": "Обращение открыто сотрудником"
           },
           "attachment": {
-            "infected": "Найден заражённый файл"
+            "infected": "Найден заражённый файл",
+            "downloaded_by_staff": "Файл открыт сотрудником"
           },
           "modules": {
             "imported": "Загружен справочник модулей"
@@ -936,7 +939,16 @@
           "rate_limited": "превышен предел попыток",
           "category": "Категория клиента",
           "isAiEnabled": "Обработка AI-помощником",
-          "version": "Редакция"
+          "version": "Редакция",
+          "method": "Способ",
+          "email_link": "ссылка на email",
+          "invitation": "приглашение",
+          "telegram": "бот Telegram",
+          "other": "другой",
+          "resealed": "Перешифровано",
+          "failed": "Не открылось",
+          "number": "Номер",
+          "ticketId": "Обращение"
         }
       },
       "sla": {

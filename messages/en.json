@@ -838,7 +838,8 @@
           "user": {
             "email_confirmed": "Address confirmed",
             "policy_acknowledged": "Policy version acknowledged",
-            "signed_in_telegram": "Sign-in through the Telegram bot"
+            "signed_in_telegram": "Sign-in through the Telegram bot",
+            "signed_in": "Client signed in"
           },
           "session": {
             "revoked": "Session ended"
@@ -860,10 +861,12 @@
             "line_returned": "Returned to the first line",
             "merged": "Tickets merged",
             "bound": "Email linked to an organization",
-            "author_moved": "Request author changed on guest hand-over"
+            "author_moved": "Request author changed on guest hand-over",
+            "viewed_by_staff": "Ticket opened by staff"
           },
           "attachment": {
-            "infected": "Infected file found"
+            "infected": "Infected file found",
+            "downloaded_by_staff": "File opened by staff"
           },
           "modules": {
             "imported": "Module catalog imported"
@@ -936,7 +939,16 @@
           "rate_limited": "attempt limit reached",
           "category": "Client category",
           "isAiEnabled": "AI assistant handling",
-          "version": "Version"
+          "version": "Version",
+          "method": "Method",
+          "email_link": "email link",
+          "invitation": "invitation",
+          "telegram": "Telegram bot",
+          "other": "other",
+          "resealed": "Re-encrypted",
+          "failed": "Could not be opened",
+          "number": "Number",
+          "ticketId": "Ticket"
         }
       },
       "sla": {

@@ -163,8 +163,11 @@ export const savedFilters = pgTable('hdt_saved_filters', {
 export const ticketReads = pgTable('hdt_ticket_reads', {
   ticketId: uuid('ticket_id').notNull(),
   userId: uuid('user_id').notNull(),
-  seenOn: moment('seen_on').notNull(),
+  /** Пусто: строку создала запись о чтении в журнале аудита, отметку "просмотрено" страница ещё не поставила. */
+  seenOn: moment('seen_on'),
   ...stampColumns,
+  /** Когда открытие обращения последний раз записано в журнал аудита (не чаще раза в час). Колонка добавлена миграцией 0045, в базе она последняя. */
+  viewLoggedOn: moment('view_logged_on'),
 });
 
 export const replyDrafts = pgTable('hdt_reply_drafts', {

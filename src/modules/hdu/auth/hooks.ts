@@ -1,5 +1,7 @@
 import 'server-only';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { clientIp } from '@/modules/hdc/api';
+import { type ClientSignInMethod, noteClientSignIn, TRUSTED_SIGN_IN_WAYS } from '../core/sign-in-audit';
 import { STAFF_SESSION_TTL_SEC } from '../pref';
 import type { StaffInfo } from '../core/staff';
 
@@ -19,11 +21,41 @@ const PASSWORD_PATH = '/sign-in/email';
 const TOTP_PATH = '/two-factor/verify-totp';
 
 type SessionDraft = { userId: string; expiresAt?: Date | string } & Record<string, unknown>;
-type HookContext = { path?: string; context?: { session?: { session?: { createdAt?: Date | string }; user?: { id?: string } } | null } } | null;
+type HookContext = {
+  path?: string;
+  headers?: Headers;
+  body?: unknown;
+  context?: { session?: { session?: { createdAt?: Date | string }; user?: { id?: string } } | null };
+} | null;
 
-export function createSessionHooks(findStaff: StaffLookup) {
+export type SignInNote = (userId: string, method: ClientSignInMethod, ip: string | null) => Promise<void>;
+
+/** Способ входа клиента по пути точки входа библиотеки. Свой способ (sign-in/trusted) называет его сам в теле запроса. */
+function clientMethod(ctx: HookContext): ClientSignInMethod {
+  const path = ctx?.path ?? '';
+  if (path.startsWith('/sso/')) return 'smartup';
+  if (path.startsWith('/magic-link/')) return 'email_link';
+  const via = (ctx?.body as { via?: unknown } | undefined)?.via;
+  if (path === '/sign-in/trusted' && TRUSTED_SIGN_IN_WAYS.some((way) => way === via)) return via as ClientSignInMethod;
+  return 'other';
+}
+
+export function createSessionHooks(findStaff: StaffLookup, noteSignIn: SignInNote = noteClientSignIn) {
   return {
     create: {
+      /**
+       * Вход клиента пишется в журнал аудита (аудит 23.11.2026, находка S8): кто, каким способом, с какого адреса.
+       * Вход сотрудника пишет staff.signed_in после кода второго фактора (api/staff.ts). Сбой записи вход не отменяет:
+       * сессия уже создана, об ошибке говорит журнал процесса.
+       */
+      async after(session: SessionDraft, ctx: HookContext) {
+        try {
+          if (await findStaff(session.userId)) return;
+          await noteSignIn(session.userId, clientMethod(ctx), ctx?.headers ? clientIp(ctx.headers) : null);
+        } catch (error) {
+          console.error('Журнал аудита: вход клиента не записан', error instanceof Error ? error.message : '');
+        }
+      },
       /** Кто и каким путём может получить сессию. Возврат false отменяет создание сессии. */
       async before(session: SessionDraft, ctx: HookContext) {
         const path = ctx?.path ?? '';

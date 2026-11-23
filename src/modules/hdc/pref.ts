@@ -36,6 +36,8 @@ export const AUDIT_ACTIONS = [
   'telegram.linked',
   'telegram.unlinked',
   'user.signed_in_telegram',
+  // Вход клиента любым способом (волна 1, задача 8). Способ в описании: smartup, email_link, invitation, telegram.
+  'user.signed_in',
   // Обращения (веха M2): создание, смена статуса и видимости. Текста обращения в журнале нет.
   'ticket.created',
   'ticket.status_changed',
@@ -69,6 +71,9 @@ export const AUDIT_ACTIONS = [
   'notify.channels_changed',
   // Замена ключа шифрования (волна 1, задача 7)
   'secrets.resealed',
+  // Чтение сотрудниками (волна 1, задача 8): открытие обращения не чаще раза в час на пару, каждая выдача файла.
+  'ticket.viewed_by_staff',
+  'attachment.downloaded_by_staff',
   // Памятки первой линии и шаблоны ответов (веха M3).
   'playbook.saved',
   'template.saved',

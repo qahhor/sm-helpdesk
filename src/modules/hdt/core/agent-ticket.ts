@@ -1,10 +1,14 @@
 import 'server-only';
 import { and, asc, desc, eq, like, sql } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
+import { writeAudit } from '@/modules/hdc/api';
 import { attachments, lineTransfers, ticketEvents, ticketMessages, ticketReads, tickets } from '../schema';
 
 // Модуль hdt, слой core: обращение глазами сотрудника (FR-AG-04, FR-AG-05, UX-A-15; план M3, задача 6).
 // Сотрудник видит всё: заметки, внутренние события, файлы любого состояния (5.3). Скачать можно только чистый файл.
+
+/** Открытие обращения сотрудником пишется в журнал аудита не чаще раза в это число минут на пару сотрудник и обращение. */
+const VIEW_LOG_EVERY_MIN = 60;
 
 export type AgentTicketRecord = typeof tickets.$inferSelect;
 export type AgentMessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'isInternal' | 'createdOn'>;
@@ -80,6 +84,17 @@ export async function readAgentTicketTx(
       .select({ seenOn: ticketReads.seenOn })
       .from(ticketReads)
       .where(and(eq(ticketReads.ticketId, ticket.ticketId), eq(ticketReads.userId, actor.userId)));
+    // Чтение обращения сотрудником оставляет след в журнале аудита (аудит 23.11.2026, находка S8), не чаще раза
+    // в час на пару сотрудник и обращение. Запись идёт на сервере в транзакции чтения: от действий страницы она
+    // не зависит, её нельзя пропустить, отключив скрипты. Отметку "просмотрено" (seen_on) эта запись не трогает.
+    const due = sql`${ticketReads.viewLoggedOn} is null or ${ticketReads.viewLoggedOn} < now() - make_interval(mins => ${VIEW_LOG_EVERY_MIN})`;
+    const logged = await tx
+      .insert(ticketReads)
+      .values({ ticketId: ticket.ticketId, userId: actor.userId, viewLoggedOn: sql`now()` })
+      .onConflictDoUpdate({ target: [ticketReads.ticketId, ticketReads.userId], set: { viewLoggedOn: sql`now()` }, setWhere: due })
+      .returning({ ticketId: ticketReads.ticketId });
+    if (logged.length > 0)
+      await writeAudit(tx, { action: 'ticket.viewed_by_staff', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: { number: ticket.number } });
     const mergedIntoNumber = ticket.mergedIntoId
       ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.mergedIntoId)).limit(1))[0]?.number ?? null)
       : null;
@@ -99,12 +114,15 @@ export async function markReadTx(actor: StaffActor, ticketId: string): Promise<v
 
 /** Файл, который сотрудник может открыть: проверенный чистый и уже перенесённый из карантина. */
 export async function findStaffDownloadableTx(actor: StaffActor, attachmentId: string): Promise<{ storageKey: string; fileName: string; mime: string } | null> {
-  const [row] = await withActor(actor, (tx) =>
-    tx
-      .select({ storageKey: attachments.storageKey, fileName: attachments.fileName, mime: attachments.mime })
+  return withActor(actor, async (tx) => {
+    const [row] = await tx
+      .select({ storageKey: attachments.storageKey, fileName: attachments.fileName, mime: attachments.mime, orgId: attachments.orgId, ticketId: attachments.ticketId })
       .from(attachments)
       .where(and(eq(attachments.attachmentId, attachmentId), eq(attachments.scanStatus, 'clean'), like(attachments.storageKey, 'files/%')))
-      .limit(1),
-  );
-  return row ?? null;
+      .limit(1);
+    if (!row) return null;
+    // Каждая выданная ссылка на файл записана в журнал аудита (находка S8). Имени файла в записи нет: в нём бывают личные данные.
+    await writeAudit(tx, { action: 'attachment.downloaded_by_staff', objectType: 'attachment', objectId: attachmentId, orgId: row.orgId, diff: { ticketId: row.ticketId } });
+    return { storageKey: row.storageKey, fileName: row.fileName, mime: row.mime };
+  });
 }

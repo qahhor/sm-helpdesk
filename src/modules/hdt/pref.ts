@@ -226,3 +226,8 @@ export const DAY_SETTINGS_DEFAULT = {
 /** Допустимые значения сроков в рабочих днях. */
 export const DAY_SETTING_MIN = 1;
 export const DAY_SETTING_MAX = 30;
+
+/** История обращения читается частями (аудит 23.11.2026, находка P11): сколько записей в одной части. */
+export const TIMELINE_PAGE = 50;
+/** Больше стольких записей истории страница не показывает за один раз. */
+export const TIMELINE_MAX = 1000;

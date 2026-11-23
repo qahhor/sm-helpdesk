@@ -14,6 +14,7 @@ import {
   MAX_FILES_PER_MESSAGE,
   QUEUE_KEYS,
   QUEUE_SORTS,
+  TIMELINE_PAGE,
   TRANSFER_REASONS,
   TRANSFERABLE_STATUSES,
 } from '@/modules/hdt/api';
@@ -51,13 +52,13 @@ function safeDecode(value: string): string | null {
 
 const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited'] as const;
 
-type Search = { done?: string; error?: string; queue?: string; sort?: string };
+type Search = { done?: string; error?: string; queue?: string; sort?: string; shown?: string };
 
 export default async function AgentTicketPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<Search> }) {
   const staff = await requireStaffActor();
   const search = await searchParams;
   const raw = safeDecode((await params).number);
-  const ticket = raw ? await getAgentTicket(staff, raw) : null;
+  const ticket = raw ? await getAgentTicket(staff, raw, { shown: search.shown }) : null;
   if (!ticket) notFound();
   const canWrite = staff.actor.staffRole !== 'product';
   const [assignable, modules, draft, templates] = canWrite
@@ -259,6 +260,15 @@ export default async function AgentTicketPage({ params, searchParams }: { params
           <PresenceBar number={ticket.number} labels={{ viewing: t.raw('ticket.presence.viewing') as string, typing: t.raw('ticket.presence.typing') as string }} />
           <Card>
             <CardContent className="flex flex-col gap-4 pt-6">
+              {ticket.hasEarlier && (
+                // История читается частями (аудит 23.11.2026, находка P11): ссылка добавляет ещё 50 записей.
+                <Link
+                  href={`/agent/tickets/SUP-${ticket.number}?${new URLSearchParams({ ...(search.queue ? { queue: search.queue } : {}), ...(search.sort ? { sort: search.sort } : {}), shown: String(ticket.shown + TIMELINE_PAGE) })}`}
+                  className="self-start text-sm text-link underline-offset-2 hover:underline"
+                >
+                  {t('ticket.showEarlier')}
+                </Link>
+              )}
               {rows.map((row) => (
                 <div key={row.key}>{row.node}</div>
               ))}

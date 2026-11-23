@@ -1,8 +1,9 @@
 import 'server-only';
-import { and, asc, desc, eq, like, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { attachments, lineTransfers, ticketEvents, ticketMessages, ticketReads, tickets } from '../schema';
+import { type TimelineWindow, timelineWindowTx } from './timeline';
 
 // Модуль hdt, слой core: обращение глазами сотрудника (FR-AG-04, FR-AG-05, UX-A-15; план M3, задача 6).
 // Сотрудник видит всё: заметки, внутренние события, файлы любого состояния (5.3). Скачать можно только чистый файл.
@@ -21,19 +22,24 @@ export type AgentAttachmentRecord = Pick<
 export async function readAgentTicketTx(
   actor: StaffActor,
   number: number,
+  limit: number,
 ): Promise<{
   ticket: AgentTicketRecord;
   messages: AgentMessageRecord[];
   events: AgentEventRecord[];
   attachments: AgentAttachmentRecord[];
   seenOn: Date | null;
+  /** Окно истории: порядок записей, есть ли записи раньше, время самой новой записи всей истории. */
+  window: Pick<TimelineWindow, 'order' | 'hasEarlier' | 'latestOn'>;
   transfer: { toLine: string; pickupDueOn: Date | null; pickedUpOn: Date | null } | null;
   mergedIntoNumber: number | null;
 } | null> {
   return withActor(actor, async (tx) => {
     const [ticket] = await tx.select().from(tickets).where(eq(tickets.number, number)).limit(1);
     if (!ticket) return null;
-    const messages = await tx
+    // Последние записи истории, а не вся переписка (аудит 23.11.2026, находка P11).
+    const window = await timelineWindowTx(tx, ticket.ticketId, limit, { skipCreated: true });
+    const messages = window.messageIds.length === 0 ? [] : await tx
       .select({
         messageId: ticketMessages.messageId,
         authorId: ticketMessages.authorId,
@@ -43,9 +49,9 @@ export async function readAgentTicketTx(
         createdOn: ticketMessages.createdOn,
       })
       .from(ticketMessages)
-      .where(eq(ticketMessages.ticketId, ticket.ticketId))
+      .where(inArray(ticketMessages.messageId, window.messageIds))
       .orderBy(asc(ticketMessages.createdOn), asc(ticketMessages.messageId));
-    const events = await tx
+    const events = window.eventIds.length === 0 ? [] : await tx
       .select({
         eventId: ticketEvents.eventId,
         kind: ticketEvents.kind,
@@ -56,7 +62,7 @@ export async function readAgentTicketTx(
         createdOn: ticketEvents.createdOn,
       })
       .from(ticketEvents)
-      .where(eq(ticketEvents.ticketId, ticket.ticketId))
+      .where(inArray(ticketEvents.eventId, window.eventIds))
       .orderBy(asc(ticketEvents.createdOn), asc(ticketEvents.eventId));
     const files = await tx
       .select({
@@ -98,7 +104,7 @@ export async function readAgentTicketTx(
     const mergedIntoNumber = ticket.mergedIntoId
       ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.mergedIntoId)).limit(1))[0]?.number ?? null)
       : null;
-    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, transfer: transfer ?? null, mergedIntoNumber };
+    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, window, transfer: transfer ?? null, mergedIntoNumber };
   });
 }
 

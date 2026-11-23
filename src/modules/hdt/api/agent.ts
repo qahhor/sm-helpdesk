@@ -19,6 +19,7 @@ import {
   thanksRowsTx,
 } from '../core/agent-queues';
 import { markReadTx, readAgentTicketTx } from '../core/agent-ticket';
+import { timelineLimit } from '../core/timeline';
 import { assertCanWrite, assignTx, setModuleTx, setPriorityTx, setStatusTx, setTypeTx, snoozeTx, takeTx } from '../core/agent-actions';
 import { HdtError, isHdtError } from '../error';
 import { assignInput, moduleInput, numberInput, parseInput, priorityInput, queueInput, savedFilterInput, snoozeInput, statusInput, thanksInput, typeInput, nextInput } from '../input';
@@ -193,15 +194,19 @@ export type AgentTicketView = {
   version: string;
   attachments: AgentFileView[];
   timeline: AgentTimelineEntry[];
+  /** Сколько последних записей истории запрошено и есть ли записи раньше них. */
+  shown: number;
+  hasEarlier: boolean;
 };
 
 const PREVIEW_TYPES: readonly string[] = [...INLINE_IMAGE_TYPES, 'application/pdf'];
 
 /** Обращение по номеру (SUP-1042 или 1042) глазами сотрудника. Нет такого: null. */
-export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Promise<AgentTicketView | null> {
+export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts: { shown?: unknown } = {}): Promise<AgentTicketView | null> {
   const number = typeof numberRaw === 'string' ? parseNumber(numberRaw) : typeof numberRaw === 'number' ? numberRaw : null;
   if (number === null) return null;
-  const found = await readAgentTicketTx(ctx.actor, number);
+  const shown = timelineLimit(opts.shown);
+  const found = await readAgentTicketTx(ctx.actor, number, shown);
   if (!found) return null;
   const { ticket, seenOn } = found;
   const people = [ticket.authorId, ticket.assigneeId, ...found.messages.map((m) => m.authorId), ...found.events.map((e) => e.actorId)].filter(
@@ -251,7 +256,6 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
       }),
     ),
     ...found.events
-      .filter((e) => e.kind !== 'created')
       .map(
         (e): AgentTimelineEntry => ({
           type: 'event',
@@ -264,7 +268,8 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
           isNew: isNew(e.createdOn),
         }),
       ),
-  ].sort((a, b) => a.createdOn.getTime() - b.createdOn.getTime());
+    // Порядок задаёт база: время с микросекундами, при равном времени сообщение раньше события.
+  ].sort((a, b) => (found.window.order.get(`${a.type === 'message' ? 'm' : 'e'}:${a.id}`) ?? 0) - (found.window.order.get(`${b.type === 'message' ? 'm' : 'e'}:${b.id}`) ?? 0));
   return {
     ticketId: ticket.ticketId,
     number: ticket.number,
@@ -305,7 +310,10 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
         : null,
     changedSince: seenOn,
     // Последнее, что агент видит на странице: по нему ответ узнаёт об изменениях других (FR-AG-12).
-    version: new Date(Math.max(ticket.createdOn.getTime(), ...found.messages.map((m) => m.createdOn.getTime()), ...found.events.map((e) => e.createdOn.getTime()))).toISOString(),
+    // Считается по всей истории, а не по показанной части.
+    version: new Date(Math.max(ticket.createdOn.getTime(), found.window.latestOn?.getTime() ?? 0)).toISOString(),
+    shown,
+    hasEarlier: found.window.hasEarlier,
     attachments: found.attachments.filter((a) => a.messageId === null).map(fileView),
     timeline,
   };

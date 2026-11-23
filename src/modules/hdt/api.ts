@@ -24,6 +24,7 @@ import {
   type Priority,
   type Visibility,
 } from './pref';
+import { timelineLimit } from './core/timeline';
 import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from './util';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
@@ -105,6 +106,7 @@ export {
   RESOLUTION_TYPES,
   TICKET_STATUSES,
   TICKET_TYPES,
+  TIMELINE_PAGE,
   TRANSFER_REASONS,
   TRANSFERABLE_STATUSES,
   VISIBILITIES,
@@ -225,6 +227,9 @@ export type TicketView = {
   attachments: AttachmentView[];
   messages: MessageView[];
   events: EventView[];
+  /** Сколько последних записей истории запрошено и есть ли записи раньше них. */
+  shown: number;
+  hasEarlier: boolean;
   turn: 'client' | 'support' | 'none';
   /** Срок, который поддержка обещает клиенту сейчас (FR-SLA-08): первый ответ или решение. На ходу клиента пусто. */
   nextReply: { kind: 'first_response' | 'resolution'; at: Date; timeZone: string } | null;
@@ -268,10 +273,11 @@ export const withinReopen = (closedOn: Date | null, days: number, now: Date = ne
   closedOn !== null && now.getTime() - closedOn.getTime() <= days * 86_400_000;
 
 /** Страница обращения по номеру (SUP-1042 или 1042). Чужое, невидимое и несуществующее: пусто, без различия. */
-export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise<TicketView | null> {
+export async function getTicket(ctx: ClientContext, numberRaw: unknown, opts: { shown?: unknown } = {}): Promise<TicketView | null> {
   const number = typeof numberRaw === 'string' ? parseNumber(numberRaw) : typeof numberRaw === 'number' ? numberRaw : null;
   if (number === null) return null;
-  const found = await readTicket(ctx.actor, number);
+  const shown = timelineLimit(opts.shown);
+  const found = await readTicket(ctx.actor, number, shown);
   if (!found) return null;
   const { ticket } = found;
   // Имена только людей клиента: ответ сотрудника подписан "Поддержка Smartup", имя сотрудника клиенту не уходит (FR-LINE-07).
@@ -320,6 +326,8 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
       attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),
     })),
     events: found.events.map((e) => ({ kind: e.kind, actorType: e.actorType, payload: e.payload, createdOn: e.createdOn })),
+    shown,
+    hasEarlier: found.hasEarlier,
     turn: turnOf(ticket.status),
     // Часовой пояс календаря поддержки: срок показывается в нём, а не в поясе сервера.
     nextReply: turnOf(ticket.status) === 'support' ? nextReplyOf(ticket, (await loadSlaConfig(ctx.actor)).calendar.timeZone) : null,

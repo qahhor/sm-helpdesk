@@ -9,6 +9,7 @@ import {
   getTicket,
   MAX_FILES_PER_MESSAGE,
   parseNumber,
+  TIMELINE_PAGE,
 } from '@/modules/hdt/api';
 import { requireClientActor } from '@/modules/hdu/api';
 import { Link } from '@/i18n/navigation';
@@ -51,13 +52,14 @@ export default async function TicketPage({
   searchParams,
 }: {
   params: Promise<{ number: string }>;
-  searchParams: Promise<{ done?: string; error?: string; created?: string }>;
+  searchParams: Promise<{ done?: string; error?: string; created?: string; shown?: string }>;
 }) {
   const client = await requireClientActor();
   const raw = safeDecode((await params).number);
   // Испорченная последовательность %XX в адресе: такого обращения нет.
   if (raw === null) notFound();
-  const ticket = await getTicket(client, raw);
+  const query = await searchParams;
+  const ticket = await getTicket(client, raw, { shown: query.shown });
   const t = await getTranslations('client.tickets');
   if (!ticket) {
     // Обращение другой своей организации: подсказка и переход вместо "не найдено" (UX-C-06).
@@ -76,7 +78,7 @@ export default async function TicketPage({
       </>
     );
   }
-  const { done, error, created } = await searchParams;
+  const { done, error, created } = query;
   const format = await getFormatter();
   const now = await getNow();
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
@@ -235,6 +237,11 @@ export default async function TicketPage({
       <Card>
         <CardContent className="flex flex-col gap-5 pt-4">
           <h2 className="sr-only">{t('page.history')}</h2>
+          {ticket.hasEarlier && (
+            <Link href={`/tickets/SUP-${ticket.number}?shown=${ticket.shown + TIMELINE_PAGE}`} className="self-start text-sm text-link underline-offset-2 hover:underline">
+              {t('page.showEarlier')}
+            </Link>
+          )}
           {entries.map((entry) => (
             <div key={entry.key}>{entry.node}</div>
           ))}

@@ -8,8 +8,10 @@
 	@untrusted not remote_ip {$TRUSTED_PROXIES}
 	respond @untrusted 403
 
-	# Журнал доступа строками JSON (ТЗ 13.8): время ответа каждого запроса. Одноразовые значения из адреса
-	# (ссылки входа, код и состояние входа через Smartup) вырезаются. Cookie и Authorization Caddy вырезает сам.
+	# Журнал доступа строками JSON (ТЗ 13.8): время ответа каждого запроса. Секреты и адреса с токенами в журнал
+	# не пишутся: одноразовые значения из адреса запроса вырезаются, заголовки с секретом вебхука Telegram и подписью
+	# вебхука почты удаляются, Referer и Location удаляются целиком (в них бывает адрес страницы с ?token=).
+	# Cookie и Authorization Caddy вырезает сам.
 	log {
 		output stdout
 		format filter {
@@ -20,6 +22,10 @@
 					replace code REDACTED
 					replace state REDACTED
 				}
+				request>headers>X-Telegram-Bot-Api-Secret-Token delete
+				request>headers>Svix-Signature delete
+				request>headers>Referer delete
+				resp_headers>Location delete
 			}
 		}
 	}

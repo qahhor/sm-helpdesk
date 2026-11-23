@@ -18,7 +18,7 @@ test('поля с именами секретов вырезаются на лю
   expect(line.token).toBe('[вырезано]');
   expect(line.nested).toEqual({ clientSecret: '[вырезано]', Authorization: '[вырезано]', ok: 1 });
   expect(line.password).toBe('[вырезано]');
-  expect(line.error).toEqual({ name: 'TypeError', message: 'плохо' });
+  expect(line.error).toMatchObject({ name: 'TypeError', message: 'плохо' });
 });
 
 test('служебные поля строки нельзя перекрыть, длинный текст обрезается, строка одна', () => {
@@ -74,4 +74,22 @@ test('timedJob пишет длительность задачи: быстрая 
     ['info', 'job.done', { job: 'slow', ms: 1500 }],
     ['error', 'job.failed', { job: 'bad', ms: 5, error: new RangeError('сбой шага') }],
   ]);
+});
+
+test('итоговая проверка W0, M1: стек ошибки пишется, полезные поля не вырезаются, сбой поля не роняет журнал', () => {
+  const error = new RangeError('сбой');
+  const line = JSON.parse(formatLine('error', 'job.failed', { error, tokenId: 'tok_1', botTokenSaved: true, scanSignature: 'Eicar-Test', apiKey: 'k' }, NOW));
+  expect(line.error.stack).toContain('RangeError');
+  expect(line.tokenId).toBe('tok_1');
+  expect(line.botTokenSaved).toBe(true);
+  expect(line.scanSignature).toBe('Eicar-Test');
+  expect(line.apiKey).toBe('[вырезано]');
+  const broken = {
+    get bad(): string {
+      throw new Error('поле недоступно');
+    },
+  };
+  expect(() => formatLine('info', 'x', { broken }, NOW)).not.toThrow();
+  // Большой объект не раздувает строку.
+  expect(formatLine('info', 'x', { big: Buffer.alloc(5000) }, NOW).length).toBeLessThan(3000);
 });

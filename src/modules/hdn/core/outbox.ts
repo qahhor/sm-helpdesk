@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
@@ -188,11 +188,22 @@ async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender |
   return { kind: 'sent', externalId, recipient: targets.map((t) => t.address).join(', ').slice(0, 320), messageId: `<${row.outboxId}@${domain}>` };
 }
 
+/** Окно счёта сбоев отправки для наблюдения и сигнала дежурным. */
+export const OUTBOX_FAILED_WINDOW_MS = 60 * 60_000;
+
 /**
- * Состояние очереди для наблюдения (аудит 23.11.2026, O1): сколько строк ждёт, сколько не отправлено и сколько секунд
- * ждёт самая старая строка, срок отправки которой уже наступил. Пауза перед повтором задержкой не считается.
+ * Сбой отправки самого портала: строка исчерпала повторы и не ушла (sent_on пуст). Отказ почтового сервера у уже
+ * отправленного письма сюда не входит: его видно на обращении отметкой "Письмо не доставлено" (ТЗ 13.8).
+ */
+const dispatchFailed = (since: Date) => and(eq(outbox.status, 'failed'), isNull(outbox.sentOn), gt(outbox.modifiedOn, since));
+
+/**
+ * Состояние очереди для наблюдения (аудит 23.11.2026, O1): сколько строк ждёт, сколько не отправлено за последний час
+ * и сколько секунд ждёт самая старая строка, срок отправки которой уже наступил. Пауза перед повтором задержкой не
+ * считается; старые сбои из счёта уходят, иначе событие предупреждало бы вечно (итоговая проверка W0, I2).
  */
 export async function outboxState(actor: SystemActor, now: Date): Promise<{ queued: number; failed: number; lagSec: number }> {
+  const since = new Date(now.getTime() - OUTBOX_FAILED_WINDOW_MS);
   const rows = await withActor(actor, (tx) =>
     tx
       .select({
@@ -201,11 +212,17 @@ export async function outboxState(actor: SystemActor, now: Date): Promise<{ queu
         oldest: sql<string | null>`min(${outbox.nextAttemptOn}) filter (where ${outbox.status} = 'queued' and ${outbox.nextAttemptOn} <= ${now})::text`,
       })
       .from(outbox)
-      .where(inArray(outbox.status, ['queued', 'failed'])),
+      .where(or(eq(outbox.status, 'queued'), dispatchFailed(since))),
   );
   const row = rows[0];
   const lagSec = row?.oldest ? Math.max(0, Math.round((now.getTime() - new Date(row.oldest).getTime()) / 1000)) : 0;
   return { queued: row?.queued ?? 0, failed: row?.failed ?? 0, lagSec };
+}
+
+/** Сообщения, отправка которых исчерпала повторы, с этого времени. */
+export async function outboxFailedSince(actor: SystemActor, since: Date): Promise<number> {
+  const rows = await withActor(actor, (tx) => tx.select({ n: sql<number>`count(*)::int` }).from(outbox).where(dispatchFailed(since)));
+  return rows[0]?.n ?? 0;
 }
 
 async function telegramDelivered(actor: SystemActor, outboxId: string): Promise<boolean> {
@@ -295,7 +312,8 @@ export async function recordDelivery(actor: SystemActor, event: DeliveryEvent): 
         await tx
           .update(outbox)
           .set({ status: 'failed', lastError: `${event.status}${event.reason ? `: ${event.reason}` : ''}`.slice(0, 500) })
-          .where(byId);
+          // Повторное событие об уже не доставленном письме строку не трогает (итоговая проверка W0, I3).
+          .where(and(byId, ne(outbox.status, 'failed')));
     }
   });
 }

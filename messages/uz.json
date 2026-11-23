@@ -1004,7 +1004,8 @@
         "errors": {
           "forbidden": "Shablonlarni portal administratori yuritadi.",
           "invalid_input": "Kod, nom va rus tilidagi matnni tekshiring.",
-          "shortcut_taken": "Bu kod boshqa shablonda bor."
+          "shortcut_taken": "Bu kod boshqa shablonda bor.",
+          "stale_session": "Shablonlarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qayta kiring va takrorlang."
         }
       },
       "mail": {

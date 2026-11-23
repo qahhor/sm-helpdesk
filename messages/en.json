@@ -1004,7 +1004,8 @@
         "errors": {
           "forbidden": "Templates are kept by the portal administrator.",
           "invalid_input": "Check the code, name and Russian text.",
-          "shortcut_taken": "Another template already has this code."
+          "shortcut_taken": "Another template already has this code.",
+          "stale_session": "Changing templates needs a sign-in no older than 15 minutes. Sign in again and repeat."
         }
       },
       "mail": {

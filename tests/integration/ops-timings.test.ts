@@ -57,9 +57,14 @@ test('состояние очереди исходящих: ждущие, не �
   // Строка с будущим сроком (пауза перед повтором) задержкой не считается.
   await pools.root.query(`update hdn_outbox set next_attempt_on = $2 where outbox_id = $1`, [b, new Date(now.getTime() + 600_000)]);
   await pools.root.query(`update hdn_outbox set status = 'failed' where outbox_id = $1`, [c]);
-  const state = await outboxState(SYSTEM, now);
+  // Отказ почтового сервера у уже отправленного письма сбоем отправки не считается (итоговая проверка W0, I2 и I3).
+  const [bounced] = await withActor(SYSTEM, async (tx) => [await enqueueTx(tx, item)]);
+  await pools.root.query(`update hdn_outbox set status = 'failed', sent_on = now(), last_error = 'bounced' where outbox_id = $1`, [bounced]);
+  const state = await outboxState(SYSTEM, new Date(Date.now() + 1000));
   expect(state.queued).toBe(2);
   expect(state.failed).toBe(1);
+  // Сбой старше часа из счёта уходит: событие не предупреждает вечно.
+  expect((await outboxState(SYSTEM, new Date(Date.now() + 2 * 3_600_000))).failed).toBe(0);
   expect(state.lagSec).toBeGreaterThanOrEqual(399);
-  expect(state.lagSec).toBeLessThanOrEqual(401);
+  expect(state.lagSec).toBeLessThanOrEqual(403);
 });

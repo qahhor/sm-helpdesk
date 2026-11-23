@@ -1,6 +1,7 @@
 import { beforeEach, expect, test } from 'vitest';
 import { saveOncall, saveSupportAddresses, unblockSender } from '@/modules/hdn/api/mail-settings';
-import { saveCalendar, saveHolidays, saveSlaPolicy } from '@/modules/hdr/api';
+import { saveCalendar, saveHolidays, saveSlaPolicy, saveTemplate } from '@/modules/hdr/api';
+import { addOrgDomain, removeOrgDomain } from '@/modules/hdu/api/orgs';
 import { saveTimings } from '@/modules/hdt/api';
 import { staffCtx } from './helpers/auth';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
@@ -27,6 +28,10 @@ test('настройки с сессией старше 15 минут: stale_ses
     ['политика SLA', (ctx) => saveSlaPolicy(ctx, { priority: 'p3', firstResponseMinutes: '240', resolutionDays: '3', clock: 'business' })],
     ['календарь', (ctx) => saveCalendar(ctx, { timeZone: 'Asia/Tashkent', week: WEEK })],
     ['праздники', (ctx) => saveHolidays(ctx, { year: 2027, dates: ['2027-01-01'] })],
+    // Итоговая проверка W0, I5 и M6: шаблоны ответов и домены почты организации.
+    ['шаблон ответа', (ctx) => saveTemplate(ctx, { title: 'Свежий вход', shortcut: `fresh${Date.now() % 100000}`, body: { ru: 'Текст шаблона' } })],
+    ['домен почты', (ctx) => addOrgDomain(ctx, { orgId: f.orgB.orgId, domain: 'fresh-check.uz' })],
+    ['убрать домен', (ctx) => removeOrgDomain(ctx, { orgId: f.orgB.orgId, domain: 'fresh-check.uz' })],
   ];
   for (const [name, call] of calls) {
     await expect(call(stale), name).rejects.toMatchObject({ code: 'stale_session' });

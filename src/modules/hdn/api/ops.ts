@@ -1,7 +1,6 @@
 import 'server-only';
 import { createTranslator } from 'next-intl';
-import { and, eq, gt, sql } from 'drizzle-orm';
-import { type SystemActor, withActor } from '@/db/with-actor';
+import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import type { Locale } from '@/i18n/locales';
 import { logEvent } from '@/lib/log';
@@ -14,30 +13,18 @@ import { oncallSender } from '../core/oncall';
 import type { OncallSender } from '../core/outbox';
 import { renderMail } from '../mail/render';
 import { type EmailProvider, getEmailProvider } from '../provider';
-import { outbox } from '../schema';
 
 // Модуль hdn, слой api: сигналы дежурным о состоянии портала (ТЗ 13.8; аудит 23.11.2026, находки O2 и S4).
 // Проверки по данным модуля (очередь исходящих, входящие письма) и отправка сигнала: в чат дежурных и письмом на их
 // адреса. Сигнал уходит напрямую, мимо очереди исходящих: очередь сама может быть тем, что сломалось.
 
-export { outboxState } from '../core/outbox';
+export { outboxFailedSince, outboxState } from '../core/outbox';
 
 const MESSAGES = { ru, uz, en } as const;
 
 export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files'] as const;
 export type OpsAlertCode = (typeof OPS_ALERT_CODES)[number];
 export type OpsAlert = { code: OpsAlertCode; count: number; minutes?: number };
-
-/** Сообщения очереди, которые исчерпали повторы и не отправлены, с этого времени. */
-export async function outboxFailedSince(actor: SystemActor, since: Date): Promise<number> {
-  const rows = await withActor(actor, (tx) =>
-    tx
-      .select({ n: sql<number>`count(*)::int` })
-      .from(outbox)
-      .where(and(eq(outbox.status, 'failed'), gt(outbox.modifiedOn, since))),
-  );
-  return rows[0]?.n ?? 0;
-}
 
 /** Входящие письма, разбор которых не закончился за 10 минут (не больше 100). */
 export async function staleInboundCount(actor: SystemActor, now: Date): Promise<number> {

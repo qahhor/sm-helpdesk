@@ -182,6 +182,8 @@ export async function listOrgDomains(ctx: StaffContext, orgId: unknown): Promise
 /** Домен почты организации: Customer Care и администратор. Домен общей почтовой службы не принимается. */
 export async function addOrgDomain(ctx: StaffContext, input: unknown): Promise<void> {
   if (!DOMAIN_MANAGERS.has(ctx.actor.staffRole)) throw new HduError('forbidden');
+  // Домен решает, чьим считается письмо: меняет его только свежий вход (итоговая проверка W0, M6).
+  if (!isFresh(ctx, new Date(), FRESH_SIGN_IN_SEC)) throw new HduError('stale_session');
   const { orgId, domain } = parseInput(domainInput, input);
   if (!(await getOrgRow(ctx.actor, orgId))) throw new HduError('not_found');
   await addOrgDomainTx(ctx.actor, orgId, domain);
@@ -189,6 +191,8 @@ export async function addOrgDomain(ctx: StaffContext, input: unknown): Promise<v
 
 export async function removeOrgDomain(ctx: StaffContext, input: unknown): Promise<void> {
   if (!DOMAIN_MANAGERS.has(ctx.actor.staffRole)) throw new HduError('forbidden');
+  // Домен решает, чьим считается письмо: меняет его только свежий вход (итоговая проверка W0, M6).
+  if (!isFresh(ctx, new Date(), FRESH_SIGN_IN_SEC)) throw new HduError('stale_session');
   const { orgId, domain } = parseInput(domainInput.extend({ domain: z.string().trim().toLowerCase().max(253) }), input);
   await removeOrgDomainTx(ctx.actor, orgId, domain);
 }

@@ -54,9 +54,12 @@ function noteSlowTx(actor: Actor, startedAt: number): void {
 
 export function createWithActor(db: AppDb): WithActor {
   return async (actor, fn) => {
-    const startedAt = performance.now();
+    // Отсчёт с начала транзакции, а не с ожидания свободного соединения: иначе при занятом пуле каждая транзакция
+    // выглядела бы медленной (итоговая проверка W0, M11).
+    let startedAt: number | null = null;
     try {
       return await db.transaction(async (tx) => {
+        startedAt = performance.now();
         await tx.execute(sql`
           select set_config('app.actor_type', ${actor.type}, true),
                  set_config('app.user_id', ${'userId' in actor ? actor.userId : ''}, true),
@@ -73,7 +76,7 @@ export function createWithActor(db: AppDb): WithActor {
       if (error instanceof DrizzleQueryError && error.cause) throw error.cause;
       throw error;
     } finally {
-      noteSlowTx(actor, startedAt);
+      if (startedAt !== null) noteSlowTx(actor, startedAt);
     }
   };
 }

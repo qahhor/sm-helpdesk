@@ -1,4 +1,5 @@
 import type { SystemActor } from '@/db/with-actor';
+import { logEvent } from '@/lib/log';
 import { claimOpsAlert, failedJobsSince, failedStaffSignIns } from '@/modules/hdc/api';
 import { type OpsAlert, type OpsAlertCode, outboxFailedSince, outboxState, sendOpsAlert, staleInboundCount } from '@/modules/hdn/api/ops';
 import { infectedSince } from '@/modules/hdt/api/jobs';
@@ -35,15 +36,18 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
   return alerts;
 }
 
-/** Проверяет состояние и отправляет новые сигналы. Возвращает виды отправленных сигналов. */
+/** Проверяет состояние и отправляет новые сигналы. Возвращает виды сигналов, которые дошли хотя бы одним способом. */
 export async function opsWatch(actor: SystemActor, now: Date = new Date(), deps: Deps = {}): Promise<OpsAlertCode[]> {
   const sent: OpsAlertCode[] = [];
   for (const alert of await collectOpsAlerts(actor, now)) {
     // Право на сигнал занимается до отправки: при сбое отправки следующий сигнал этого вида уйдёт через час,
     // а не каждые 5 минут. О сбое отправки пишет журнал процесса.
     if (!(await claimOpsAlert(actor, alert.code, now))) continue;
-    await sendOpsAlert(alert, now, deps);
-    sent.push(alert.code);
+    const delivered = await sendOpsAlert(alert, now, deps);
+    if (delivered > 0) sent.push(alert.code);
+    // Никуда не ушёл (дежурные не настроены или оба способа отказали): это ошибка в журнале, а не "отправлено"
+    // (итоговая проверка W0, I4).
+    else logEvent('error', 'ops.alert_undelivered', { code: alert.code, count: alert.count });
   }
   return sent;
 }

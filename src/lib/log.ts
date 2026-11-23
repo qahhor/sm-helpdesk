@@ -5,7 +5,10 @@ import { applyLogLevel, type LogLevel } from './log-level';
 // событие, поля. Поля с именами секретов вырезаются, текст ограничен: в журнал не попадают токены и длинные тела.
 // Прежние вызовы console остаются: installJsonConsole переводит их в тот же формат с событием "log".
 
-const SECRET_KEY = /token|secret|password|authorization|cookie|api[-_]?key|signature/i;
+const SECRET_KEY = /token|secret|password|authorization|cookie|api[-_]?key|signature|sealed|dsn/i;
+/** Поля, в имени которых есть слово секрета, но значение не секрет: идентификатор, признак, имя найденного вируса. */
+const NOT_SECRET = /(?:Id|Saved|Replaced)$|^scanSignature$/;
+const KEYS_MAX = 40;
 const CUT = '[вырезано]';
 const TEXT_MAX = 2000;
 const DEPTH_MAX = 4;
@@ -19,12 +22,28 @@ type ConsoleLike = Pick<Console, 'debug' | 'info' | 'log' | 'warn' | 'error'>;
 function clean(value: unknown, depth: number): unknown {
   if (typeof value === 'string') return value.length > TEXT_MAX ? `${value.slice(0, TEXT_MAX)}...` : value;
   if (value === null || typeof value !== 'object') return typeof value === 'bigint' ? String(value) : value;
-  if (value instanceof Error) return { name: value.name, message: clean(value.message, depth) };
+  // Стек нужен дежурному, чтобы найти место сбоя; он обрезается, как любой текст.
+  if (value instanceof Error) return { name: value.name, message: clean(value.message, depth), ...(value.stack ? { stack: clean(value.stack, depth) } : {}) };
   if (value instanceof Date) return value.toISOString();
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return `[данные ${value.byteLength} байт]`;
   if (depth >= DEPTH_MAX) return '[глубже не пишется]';
   if (Array.isArray(value)) return value.slice(0, 50).map((item) => clean(item, depth + 1));
   const out: LogFields = {};
-  for (const [key, nested] of Object.entries(value)) out[key] = SECRET_KEY.test(key) ? CUT : clean(nested, depth + 1);
+  let keys: string[];
+  try {
+    keys = Object.keys(value).slice(0, KEYS_MAX);
+  } catch {
+    return '[объект не читается]';
+  }
+  for (const key of keys) {
+    try {
+      const nested = (value as LogFields)[key];
+      out[key] = SECRET_KEY.test(key) && !NOT_SECRET.test(key) ? CUT : clean(nested, depth + 1);
+    } catch {
+      // Поле, чтение которого бросает, не должно ронять запись журнала.
+      out[key] = '[поле не читается]';
+    }
+  }
   return out;
 }
 

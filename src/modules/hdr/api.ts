@@ -132,7 +132,8 @@ export function listAllTemplates(ctx: StaffContext): Promise<ReplyTemplate[]> {
 
 /** Новый шаблон или правка: только администратор (10.5). */
 export async function saveTemplate(ctx: StaffContext, input: unknown): Promise<void> {
-  requireAdmin(ctx);
+  // Текст шаблона уходит клиентам от имени поддержки: меняет его только свежий вход (итоговая проверка W0, I5).
+  requireFreshAdmin(ctx);
   const data = parse(templateInput, input);
   await saveTemplateTx(ctx.actor, data);
 }

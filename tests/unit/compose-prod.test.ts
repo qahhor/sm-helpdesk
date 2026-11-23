@@ -77,6 +77,9 @@ test('ClamAV не пропускает то, что не может провер
     CLAMD_CONF_AlertExceedsMax: 'yes',
     // Поток длиннее самого большого вложения (видео 50 МБ), иначе clamd обрывает проверку.
     CLAMD_CONF_StreamMaxLength: '60M',
+    // Обновление баз без второй копии в памяти: предел памяти контейнера 2 ГБ (итоговая проверка W0, M8).
+    // Параметр есть в этой версии clamd, образ переносит его в clamd.conf (проверено на образе).
+    CLAMD_CONF_ConcurrentDatabaseReload: 'no',
   });
 });
 
@@ -119,4 +122,11 @@ test('Caddy пускает только доверенные адреса (Cloud
 test('журнал доступа Caddy в JSON, одноразовые значения из адреса вырезаны', () => {
   expect(caddyfile).toMatch(/log \{[\s\S]*output stdout[\s\S]*format filter/);
   for (const name of ['token', 'code', 'state']) expect(caddyfile).toMatch(new RegExp(`replace ${name} REDACTED`));
+});
+
+test('журнал доступа Caddy без секретных заголовков и адресов с токенами (итоговая проверка W0, I1; ТЗ 13.8)', () => {
+  // Секрет вебхука Telegram, подпись вебхука почты и Referer (в нём адрес страницы с ?token=) в журнал не пишутся.
+  for (const header of ['X-Telegram-Bot-Api-Secret-Token', 'Referer', 'Svix-Signature']) expect(caddyfile).toMatch(new RegExp(`request>headers>${header} delete`));
+  // Переадресация может нести токен в адресе (страницы входа по ссылке возвращают ошибку в тот же адрес).
+  expect(caddyfile).toMatch(/resp_headers>Location delete/);
 });

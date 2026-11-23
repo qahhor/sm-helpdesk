@@ -1,4 +1,5 @@
 import { beforeEach, expect, test } from 'vitest';
+import { setLogSinkForTests } from '@/lib/log';
 import { noteStaffSignInFailure } from '@/modules/hdc/api';
 import { createMemoryEmailProvider, type MemoryEmailProvider } from '@/modules/hdn/testing';
 import { opsWatch } from '@/worker/ops-watch';
@@ -75,11 +76,16 @@ test('письма без разбора дольше 10 минут', async () =
     `insert into hdn_email_inbound (provider_id, from_address, subject, message_id, raw_ref, received_on)
      values ('stuck-1', 'x@example.uz', 'Тема', '<stuck-1@example.uz>', 'stuck-1', now())`,
   );
+  // Триггер служебных колонок обходится только внутри транзакции: соединение пула не остаётся без триггеров.
   const client = await pools.root.connect();
   try {
-    await client.query(`set session_replication_role = replica`);
+    await client.query('begin');
+    await client.query(`set local session_replication_role = replica`);
     await client.query(`update hdn_email_inbound set created_on = now() - interval '20 minutes'`);
-    await client.query(`set session_replication_role = origin`);
+    await client.query('commit');
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
   } finally {
     client.release();
   }
@@ -121,4 +127,27 @@ test('сбой чата не мешает письму, и наоборот; с�
   });
   expect(codes).toEqual(['outbox_failed']);
   expect(mail.sent).toHaveLength(1);
+});
+
+test('недоставка у получателя (отказ почтового сервера) дежурных не будит: это видно на обращении (итоговая проверка W0, I3)', async () => {
+  // Письмо ушло (sent_on задан), затем почтовый сервис сообщил об отказе: строка failed, но это не сбой портала.
+  await pools.root.query(
+    `insert into hdn_outbox (ticket_id, channel, recipient_kind, recipient_user_id, template, payload, status, attempts, sent_on, last_error)
+     values ($1, 'email', 'user', $2, 'ticket_resolved', $3, 'failed', 1, now(), 'bounced: mailbox does not exist')`,
+    [f.tickets.aOrg.ticketId, f.aUser.userId, JSON.stringify({ template: 'ticket_resolved', number: 1, title: 'x', url: '/tickets' })],
+  );
+  expect(await watch()).toEqual([]);
+});
+
+test('дежурные не настроены: сигнал не считается отправленным, в журнале ошибка (итоговая проверка W0, I4)', async () => {
+  await pools.root.query(`delete from hdc_settings where code = 'notify.oncall_emails'`);
+  await failedOutbox(2);
+  const events: [string, string][] = [];
+  setLogSinkForTests((level, event) => events.push([level, event]));
+  try {
+    expect(await opsWatch(SYSTEM, new Date(), { provider: mail, oncall: null })).toEqual([]);
+  } finally {
+    setLogSinkForTests(null);
+  }
+  expect(events).toContainEqual(['error', 'ops.alert_undelivered']);
 });

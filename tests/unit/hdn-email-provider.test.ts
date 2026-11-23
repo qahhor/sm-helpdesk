@@ -249,3 +249,18 @@ test('без настройки доверенным считается толь
   expect((await provider.download('https://inbound-cdn.resend.com/a', 10)).byteLength).toBe(1);
   await expect(provider.download('https://cdn.example.test/a', 10)).rejects.toThrow('узел');
 });
+
+test('отказ и слишком большое вложение не оставляют соединение открытым: запрос отменяется (итоговая проверка W1, F4)', async () => {
+  for (const reply of [
+    () => new Response(new ReadableStream({ start() {} }), { status: 500 }),
+    () => new Response(new ReadableStream({ start() {} }), { status: 200, headers: { 'content-length': '999999' } }),
+  ]) {
+    let signal: AbortSignal | undefined;
+    const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) => {
+      signal = init?.signal ?? undefined;
+      return reply();
+    });
+    await expect(make(fetch).download('https://cdn.example.test/a', 100)).rejects.toThrow();
+    expect(signal?.aborted).toBe(true);
+  }
+});

@@ -51,17 +51,32 @@ export async function markTelegramBlocked(chatId: string): Promise<void> {
   await markTelegramBlockedTx(chatId);
 }
 
-const uuids = z.array(z.uuid()).max(500);
+/** Сколько получателей читается одним запросом: список длиннее делится на части. */
+const LOOKUP_CHUNK = 500;
 
-/** Роли пользователей в организации одним запросом: для уведомлений многим получателям. */
-export async function replyRoles(userIds: string[], orgId: string): Promise<Map<string, 'client_user' | 'client_admin'>> {
-  const users = uuids.safeParse(userIds);
-  const org = z.uuid().safeParse(orgId);
-  return users.success && org.success ? replyRolesTx(users.data, org.data) : new Map();
+/**
+ * Годные идентификаторы частями. Негодный отбрасывается один: остальные получатели не должны остаться без
+ * уведомления из-за одной строки (итоговая проверка волны 1, замечание F11).
+ */
+function chunksOf(userIds: string[]): string[][] {
+  const valid = [...new Set(userIds.filter((id) => z.uuid().safeParse(id).success))];
+  const chunks: string[][] = [];
+  for (let from = 0; from < valid.length; from += LOOKUP_CHUNK) chunks.push(valid.slice(from, from + LOOKUP_CHUNK));
+  return chunks;
 }
 
-/** У кого из пользователей действует привязка Telegram: одним запросом. */
+/** Роли пользователей в организации: для уведомлений многим получателям, один запрос на 500 человек. */
+export async function replyRoles(userIds: string[], orgId: string): Promise<Map<string, 'client_user' | 'client_admin'>> {
+  const org = z.uuid().safeParse(orgId);
+  const roles = new Map<string, 'client_user' | 'client_admin'>();
+  if (!org.success) return roles;
+  for (const chunk of chunksOf(userIds)) for (const [userId, role] of await replyRolesTx(chunk, org.data)) roles.set(userId, role);
+  return roles;
+}
+
+/** У кого из пользователей действует привязка Telegram: один запрос на 500 человек. */
 export async function telegramLinkedMany(userIds: string[]): Promise<Set<string>> {
-  const users = uuids.safeParse(userIds);
-  return users.success ? telegramLinkedManyTx(users.data) : new Set();
+  const linked = new Set<string>();
+  for (const chunk of chunksOf(userIds)) for (const userId of await telegramLinkedManyTx(chunk)) linked.add(userId);
+  return linked;
 }

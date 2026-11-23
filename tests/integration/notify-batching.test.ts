@@ -64,3 +64,20 @@ test('возврат на первую линию не открывает вто
     expect(JSON.stringify(event?.payload ?? {})).toContain(f.l1.name);
   }
 });
+
+// Итоговая проверка волны 1, замечание F11: один негодный идентификатор или длинный список не должен оставить
+// без уведомления всех остальных.
+
+test('роли и привязки многих получателей: негодный идентификатор отбрасывается один, длинный список читается частями', async () => {
+  const { replyRoles, telegramLinkedMany } = await import('@/modules/hdu/api/recipients');
+  const { randomUUID } = await import('node:crypto');
+  const many = [...Array.from({ length: 700 }, () => randomUUID()), f.aUser.userId, 'не-uuid', f.aAdmin.userId];
+  const roles = await replyRoles(many, f.orgA.orgId);
+  expect(roles.get(f.aUser.userId)).toBe('client_user');
+  expect(roles.get(f.aAdmin.userId)).toBe('client_admin');
+  expect(roles.size).toBe(2);
+  await linkTelegramFixture(f.aUser, 555001);
+  expect([...(await telegramLinkedMany(many))]).toEqual([f.aUser.userId]);
+  // Негодная организация по-прежнему даёт пусто.
+  expect((await replyRoles([f.aUser.userId], 'не-uuid')).size).toBe(0);
+});

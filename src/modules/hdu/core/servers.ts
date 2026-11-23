@@ -72,13 +72,17 @@ export async function resealServerSecrets(actor: Actor): Promise<{ resealed: num
     const failed: string[] = [];
     for (const row of rows) {
       const context = secretContext(row.code);
+      // Под try только шифрование: ошибка базы не должна выглядеть как "секрет не открывается" (итоговая проверка W1, F9).
+      let next: string | null;
       try {
-        if (!box.needsReseal(row.sealed, context)) continue;
-        await tx.update(servers).set({ oauthClientSecret: box.reseal(row.sealed, context) }).where(eq(servers.code, row.code));
-        resealed += 1;
+        next = box.needsReseal(row.sealed, context) ? box.reseal(row.sealed, context) : null;
       } catch {
         failed.push(row.code);
+        continue;
       }
+      if (next === null) continue;
+      await tx.update(servers).set({ oauthClientSecret: next }).where(eq(servers.code, row.code));
+      resealed += 1;
     }
     // В журнал идут только числа: ни секрет, ни зашифрованная строка.
     if (resealed > 0 || failed.length > 0)

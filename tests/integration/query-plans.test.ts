@@ -5,6 +5,7 @@ import { clientCtx, staffCtx } from './helpers/auth';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { undeliveredMessages } from '@/modules/hdn/api/outbox';
 import { PAUSED_STATUSES } from '@/modules/hdt/core/sla';
+import { SERVICE_ORG_ID } from '@/modules/hdu/pref';
 import { ticketsMinute } from '@/modules/hdt/api/jobs';
 import { captureQueries, plansFor, seedBulkInbound, seedBulkTickets } from './helpers/bulk';
 import { pools } from './helpers/db';
@@ -65,11 +66,17 @@ test('счётчики считают открытые и "Мои", у очер�
     await pools.root.query(
       `select count(*) filter (where status = 'waiting_customer' and (snoozed_until is null or snoozed_until < now()))::int as waiting,
               count(*) filter (where status = 'in_development' and (snoozed_until is null or snoozed_until < now()))::int as development,
-              count(*) filter (where assignee_id = $1 and status <> 'closed')::int as mine
+              count(*) filter (where assignee_id = $1 and status <> 'closed')::int as mine,
+              count(*) filter (where status = 'new' and queue = 'l1' and org_id <> $2 and (snoozed_until is null or snoozed_until < now()))::int as new,
+              count(*) filter (where queue = 'l2' and status not in ('resolved', 'closed') and (snoozed_until is null or snoozed_until < now()))::int as l2
          from hdt_tickets`,
-      [f.l1.userId],
+      [f.l1.userId, SERVICE_ORG_ID],
     )
   ).rows[0];
+  expect(counts.new).toBe(expected.new);
+  expect(counts.new).toBeGreaterThan(0);
+  expect(counts.l2).toBe(expected.l2);
+  expect(counts.l2).toBeGreaterThan(0);
   expect(counts.waiting).toBe(expected.waiting);
   expect(counts.development).toBe(expected.development);
   expect(counts.mine).toBe(expected.mine);
@@ -82,7 +89,9 @@ test('задача раз в минуту и возврат неразобран
   const SYSTEM = { type: 'system', job: 'tickets.minute' } as const;
   try {
     const minute = await captureQueries(() => ticketsMinute(SYSTEM));
-    for (const plan of await plansFor(SYSTEM, minute.queries, 'hdt_tickets')) expect(plan, plan).not.toMatch(SEQ_SCAN);
+    const minutePlans = await plansFor(SYSTEM, minute.queries, 'hdt_tickets');
+    expect(minutePlans.length).toBeGreaterThan(3);
+    for (const plan of minutePlans) expect(plan, plan).not.toMatch(SEQ_SCAN);
     const inbound = await captureQueries(() => requeueStaleInbound({ type: 'system', job: 'email.sweep' }));
     const plans = await plansFor(SYSTEM, inbound.queries, 'hdn_email_inbound');
     expect(plans.length).toBeGreaterThan(0);

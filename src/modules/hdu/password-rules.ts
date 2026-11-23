@@ -1,7 +1,10 @@
 // Модуль hdu: пароль сотрудника не из частых (аудит 23.11.2026, находка S11; FR-ID-09).
 // Длины 12 знаков мало, если пароль это "Password12345": такие пароли первыми идут в словарь подбора.
-// Список встроенный, запросов в сеть нет. Проверка отклоняет пароль, который целиком складывается из частых слов,
-// кусков клавиатурных рядов, цифровых и буквенных последовательностей и повторов. Фраза из своих слов проходит.
+// Список встроенный, запросов в сеть нет. Проверка отклоняет пароль, который:
+//   - целиком складывается из частых слов, кусков клавиатурных рядов, последовательностей и повторов;
+//   - частое слово от шести букв с короткой добавкой (MyPassword123, Summer2026!!);
+//   - на две трети один ряд, последовательность или повтор (Aa123456789!).
+// Фраза из своих слов и случайный пароль с частым словом внутри проходят.
 
 /** Частые слова паролей и слова, которые первым делом попробуют для этого портала. Латиница и кириллица. */
 const COMMON_WORDS = [
@@ -12,7 +15,23 @@ const COMMON_WORDS = [
   'smartup', 'smart', 'hub', 'support', 'helpdesk', 'help', 'desk', 'portal', 'agent', 'staff', 'greenwhite', 'biruni',
   'tashkent', 'toshkent', 'uzbekistan', 'ozbekiston', 'salom', 'assalom',
   'пароль', 'привет', 'админ', 'любовь', 'смартап', 'ташкент',
+  // Месяцы, времена года и слова о работе: "Summer2026!!", "Company12345".
+  'january', 'february', 'march', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
+  'summer', 'winter', 'spring', 'autumn', 'monday', 'friday', 'sunday',
+  'company', 'office', 'manager', 'director', 'service', 'system', 'server', 'secure', 'security', 'private', 'network',
+  'yandex', 'telegram', 'windows', 'iphone', 'android', 'qazwsx', 'zaqwsx', 'wsxedc',
+  // Частые имена: имя с годом или цифрами подбирают сразу после слова password.
+  'alexander', 'alexandr', 'sergey', 'andrey', 'dmitry', 'vladimir', 'maxim', 'natasha', 'elena', 'maria',
+  'alisher', 'dilnoza', 'bobur', 'timur', 'rustam', 'jasur', 'sardor', 'shahzod', 'nodir', 'otabek', 'ulugbek', 'javlon',
+  'farrukh', 'islom', 'muhammad', 'aziz', 'kamila', 'madina', 'nigora', 'gulnora',
 ] as const;
+
+/** Слова от шести букв: такое слово с короткой добавкой даёт частый пароль (MyPassword123). */
+const LONG_WORDS = COMMON_WORDS.filter((word) => word.length >= 6);
+/** Добавка к частому слову не длиннее этого числа знаков: дальше это уже свой пароль со словом внутри. */
+const MAX_ADDITION = 8;
+/** Из них букв не больше стольких: "My", "New", "ab". */
+const MAX_EXTRA_LETTERS = 3;
 
 /** Частые пароли, которые не складываются из слов и рядов: проходы по клавиатуре наискось и чередования. */
 const COMMON_WHOLE = new Set([
@@ -78,10 +97,26 @@ function madeOfCommonParts(text: string): boolean {
   return (glue[text.length] as number) <= MAX_GLUE;
 }
 
-/** Повтор короткого куска: abcabcabcabc, 121212121212. */
+/** Повтор короткого куска: abcabcabcabc, 121212121212, шесть одинаковых значков. Считаются знаки, а не единицы UTF-16. */
 function isShortPeriod(text: string): boolean {
+  const chars = [...text];
   for (let period = 1; period <= 4; period++) {
-    if (text.length >= period * 3 && [...text].every((char, index) => char === text[index % period])) return true;
+    if (chars.length >= period * 3 && chars.every((char, index) => char === chars[index % period])) return true;
+  }
+  return false;
+}
+
+/** Частое слово от шести букв с короткой добавкой: MyPassword123, Summer2026!!, Company12345. */
+function isWordWithAddition(lower: string): boolean {
+  const letters = [...lower].filter(isLetter).join('');
+  return LONG_WORDS.some((word) => letters.includes(word) && lower.length - word.length <= MAX_ADDITION && letters.length - word.length <= MAX_EXTRA_LETTERS);
+}
+
+/** Один ряд, последовательность или повтор занимает две трети пароля и больше: Aa123456789!, aaaaaaaaaaab. */
+function isMostlyOneRun(lower: string): boolean {
+  for (let at = 0; at < lower.length; at++) {
+    const run = Math.max(walkLength(lower, at), repeatLength(lower, at));
+    if (run * 3 >= lower.length * 2) return true;
   }
   return false;
 }
@@ -92,12 +127,17 @@ function isShortPeriod(text: string): boolean {
  */
 export function isCommonPassword(password: string): boolean {
   const lower = password.normalize('NFKC').toLowerCase();
-  if (COMMON_WHOLE.has(lower) || isShortPeriod(lower)) return true;
+  if (COMMON_WHOLE.has(lower) || isShortPeriod(lower) || isMostlyOneRun(lower)) return true;
   const trimmed = lower.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
   const unleet = [...trimmed].map((char) => LEET[char] ?? char).join('');
+  // Восклицательный знак бывает и заменой буквы (adm!n), и разделителем (Passw0rd!Passw0rd!): проверяются оба чтения.
+  const unleetKeepBang = [...trimmed].map((char) => (char === '!' ? char : (LEET[char] ?? char))).join('');
   const lettersOnly = [...lower].filter(isLetter).join('');
+  // Слово с добавкой ищется в пароле целиком, без обрезки краёв: иначе добавка потерялась бы и не считалась.
+  const whole = (keepBang: boolean) => [...lower].map((char) => (keepBang && char === '!' ? char : (LEET[char] ?? char))).join('');
+  if ([lower, whole(false), whole(true)].some(isWordWithAddition)) return true;
   // Сокращённые виды считаются, только если в них осталась хотя бы половина пароля: иначе случайный пароль
   // с частым словом внутри (93847!hub2817) был бы отклонён.
   const mostOf = (part: string) => part.length * 2 >= lower.length;
-  return madeOfCommonParts(lower) || [unleet, lettersOnly].some((part) => mostOf(part) && madeOfCommonParts(part));
+  return madeOfCommonParts(lower) || [unleet, unleetKeepBang, lettersOnly].some((part) => mostOf(part) && madeOfCommonParts(part));
 }

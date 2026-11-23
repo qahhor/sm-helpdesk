@@ -33,10 +33,13 @@ for (const [net, prefix] of [
 ] as const)
   BLOCKED_V4.addSubnet(net, prefix, 'ipv4');
 for (const [net, prefix] of [
-  ['::', 128],
-  ['::1', 128],
+  // Весь диапазон ::/96: пустой адрес, петля ::1 и устаревшая запись IPv4 внутри IPv6 (::127.0.0.1).
+  ['::', 96],
   // Любой IPv4 в записи IPv6 закрыт целиком: так не проверять его отдельно.
   ['::ffff:0:0', 96],
+  // Тот же IPv4 в записи для трансляторов (::ffff:0:a.b.c.d) и устаревшие локальные адреса площадки.
+  ['::ffff:0:0:0', 96],
+  ['fec0::', 10],
   ['64:ff9b::', 96],
   // Тоже несут адрес IPv4 внутри: локальный NAT64, 6to4 и Teredo (итоговая проверка M1).
   ['64:ff9b:1::', 48],
@@ -95,6 +98,26 @@ export class BlockedAddressError extends Error {
   }
 }
 
+/**
+ * Разрешение имени для сокета с проверкой: если имя не разрешается или хотя бы один адрес внутренний, соединения нет.
+ * Сокет получает только адреса из проверенного списка. Node просит ответ списком (выбор семейства адресов)
+ * или одним адресом: отдаются оба вида.
+ */
+export function guardedLookup(resolve: Resolve): LookupFunction {
+  return (hostname, options, callback) => {
+    resolve(hostname).then(
+      (addresses) => {
+        if (addresses.length === 0 || addresses.some(isPrivateAddress)) return callback(new BlockedAddressError(), '', 0);
+        const list = addresses.map((address) => ({ address, family: isIP(address) }));
+        if (options.all) return callback(null, list);
+        const first = list[0] as { address: string; family: number };
+        return callback(null, first.address, first.family);
+      },
+      () => callback(new BlockedAddressError(), '', 0),
+    );
+  };
+}
+
 export type GuardedFetchConfig = {
   /** Портал сам работает на localhost (разработка и тесты): допускаются http и https на localhost и 127.0.0.1. */
   allowLoopback: boolean;
@@ -107,7 +130,8 @@ export type GuardedFetchConfig = {
  *   - имя узла разрешается при соединении, и если хотя бы один адрес внутренний, соединения нет (BlockedAddressError);
  *   - переадресации не выполняются: ответ 3xx возвращается как есть;
  *   - соединения не переиспользуются: каждое проверяется заново.
- * Из параметров запроса учитываются method, headers и signal. Тела запроса нет: слой только читает.
+ * Из параметров запроса учитываются method (GET или HEAD), headers и signal. Запрос с телом, с иным методом
+ * или готовым объектом Request отклоняется: слой только читает.
  */
 export function createGuardedFetch(cfg: GuardedFetchConfig): typeof fetch {
   return (input, init = {}) => {
@@ -126,19 +150,10 @@ export function createGuardedFetch(cfg: GuardedFetchConfig): typeof fetch {
       // Адрес числом: разрешения имени не будет, проверка здесь.
       if (!loopback && isIP(host) !== 0 && isPrivateAddress(host)) return reject(new BlockedAddressError());
 
-      const resolve = resolverFor(cfg.resolve);
-      const guardedLookup: LookupFunction = (hostname, options, callback) => {
-        resolve(hostname).then(
-          (addresses) => {
-            if (addresses.length === 0 || addresses.some(isPrivateAddress)) return callback(new BlockedAddressError(), '', 0);
-            const list = addresses.map((address) => ({ address, family: isIP(address) }));
-            if (options.all) return callback(null, list);
-            const first = list[0] as { address: string; family: number };
-            return callback(null, first.address, first.family);
-          },
-          () => callback(new BlockedAddressError(), '', 0),
-        );
-      };
+      // Слой только читает. Запрос с телом или иным методом ушёл бы без тела и как GET: лучше отказ, чем тихая подмена.
+      const method = (init.method ?? 'GET').toUpperCase();
+      if (input instanceof Request || init.body != null || (method !== 'GET' && method !== 'HEAD'))
+        return reject(new TypeError('Сетевой слой исходящих запросов только читает: метод GET или HEAD, без тела'));
 
       const headers: Record<string, string> = {};
       new Headers(init.headers).forEach((value, name) => {
@@ -147,7 +162,7 @@ export function createGuardedFetch(cfg: GuardedFetchConfig): typeof fetch {
       const request = (url.protocol === 'https:' ? https : http).request(
         url,
         // Локальный узел разрешает система: подмена имён в тестах его не касается.
-        { method: init.method ?? 'GET', headers, agent: false, signal: init.signal ?? undefined, ...(loopback ? {} : { lookup: guardedLookup }) },
+        { method, headers, agent: false, signal: init.signal ?? undefined, ...(loopback ? {} : { lookup: guardedLookup(resolverFor(cfg.resolve)) }) },
         (response) => {
           const status = response.statusCode ?? 0;
           const out = new Headers();

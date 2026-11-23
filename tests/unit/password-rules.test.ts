@@ -67,3 +67,45 @@ test('обычные длинные пароли и фразы проходят'
   ])
     expect(isCommonPassword(fine), fine).toBe(false);
 });
+
+// Итоговая проверка волны 1, замечание F8: правило было уже своего названия.
+
+test('частое слово с короткой добавкой отклоняется: MyPassword123, Summer2026!!, Company12345', () => {
+  for (const weak of [
+    'MyPassword123',
+    'NewPassword1!',
+    'Summer2026!!',
+    'January2026!',
+    'Company12345',
+    'Qazwsx123456',
+    'Aa123456789!',
+    'Passw0rd!Passw0rd!',
+    'aaaaaaaaaaab',
+    '😀😀😀😀😀😀',
+    'Password2026ab',
+    'Alisher123456',
+    'Dilnoza2026!!',
+    'Security12345',
+    'x111111111111',
+  ])
+    expect(isCommonPassword(weak), weak).toBe(true);
+});
+
+test('частое слово внутри длинного своего пароля его не портит', () => {
+  for (const fine of [
+    'Tashkent-83-57-12-99',
+    'summer-rain-on-my-roof-41',
+    'password-is-not-my-cat-Barsik',
+    'my-company-moved-to-Chilanzar',
+    'Aa1!Bb2@Cc3#Dd4$',
+    'january-snow-7-kittens',
+    'kW4#summer9Tz!2qLm',
+  ])
+    expect(isCommonPassword(fine), fine).toBe(false);
+});
+
+test('пароль в 128 знаков проверяется быстро', () => {
+  const started = performance.now();
+  for (const long of ['a1'.repeat(64), 'password'.repeat(16), 'qwertyuiop'.repeat(12) + 'zx!45678', 'x'.repeat(127) + 'y', '9z$K'.repeat(32)]) isCommonPassword(long);
+  expect(performance.now() - started).toBeLessThan(200);
+});

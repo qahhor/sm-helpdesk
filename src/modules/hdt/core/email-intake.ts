@@ -35,6 +35,7 @@ import { mailRecipient, replyRole } from '@/modules/hdu/api/recipients';
 import { ALLOWED_FILES, MAX_FILES_PER_MESSAGE, type TicketStatus, type Visibility } from '../pref';
 import { ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { staffSystemText } from '../system-text';
+import { untrustedNoteText } from '../untrusted-text';
 import { fileTypeOf, maxBytesFor, quarantineKey } from '../util';
 import { reopenDays } from './actions';
 import { notifyTicketTx } from './notify';
@@ -228,30 +229,11 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
   return result;
 }
 
-/** Адрес в тексте письма: со схемой (https://, ftp://, tg://) или начинающийся с www. */
-const LINK = /\b(?:[a-z][a-z0-9+.-]{1,15}:\/\/|www\.)[^\s<>"']+/giu;
-
-/**
- * Текст непроверенного письма без ссылок (аудит 23.11.2026, находка S12): отправитель не подтверждён, а заметку читает
- * сотрудник внутри настоящего обращения. Ссылка заменяется отметкой с именем узла: по узлу видно, куда она вела,
- * но скопировать и открыть её нельзя.
- */
-export function withoutLinks(text: string, locale: string): string {
-  return text.replace(LINK, (link) => {
-    try {
-      const host = new URL(/^www\./i.test(link) ? `http://${link}` : link).hostname;
-      return host ? staffSystemText(locale, 'linkRemoved', { host: host.slice(0, 120) }) : staffSystemText(locale, 'linkRemovedNoHost', {});
-    } catch {
-      return staffSystemText(locale, 'linkRemovedNoHost', {});
-    }
-  });
-}
-
 /** "Письмо на проверке" (решение 16, FR-NT-07): внутренняя заметка с адресом отправителя, клиенту ничего. */
 async function reviewNote(actor: SystemActor, letter: Letter, ticket: Ticket): Promise<InboundClass> {
   const { row } = letter;
   const note = staffSystemText(ticket.locale, 'emailReview', { address: row.fromAddress });
-  const body = cut(letter.text ? `${note}\n\n${withoutLinks(letter.text, ticket.locale)}` : note, BODY_MAX);
+  const body = cut(letter.text ? `${note}\n\n${untrustedNoteText(letter.text, ticket.locale)}` : note, BODY_MAX);
   return withActor(actor, async (tx) => {
     const done = await alreadyDone(tx, row);
     if (done) return done;

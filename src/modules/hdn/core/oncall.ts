@@ -77,14 +77,18 @@ export async function resealChannelSecrets(actor: SystemActor): Promise<{ reseal
     const failed: string[] = [];
     for (const row of rows) {
       const context = SECRET_CONTEXTS[row.code];
+      // Под try только шифрование: ошибка базы не должна выглядеть как "секрет не открывается" (итоговая проверка W1, F9).
+      let next: string | null;
       try {
         if (!context) throw new Error('неизвестный секрет канала');
-        if (!box.needsReseal(row.sealed, context)) continue;
-        await tx.update(channelSecrets).set({ sealed: box.reseal(row.sealed, context) }).where(eq(channelSecrets.code, row.code));
-        resealed += 1;
+        next = box.needsReseal(row.sealed, context) ? box.reseal(row.sealed, context) : null;
       } catch {
         failed.push(row.code);
+        continue;
       }
+      if (next === null) continue;
+      await tx.update(channelSecrets).set({ sealed: next }).where(eq(channelSecrets.code, row.code));
+      resealed += 1;
     }
     if (resealed > 0 || failed.length > 0)
       await writeAudit(tx, { action: 'secrets.resealed', objectType: 'channel_secret', diff: { resealed, failed: failed.length } });

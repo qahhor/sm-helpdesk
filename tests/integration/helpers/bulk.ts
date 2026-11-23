@@ -96,7 +96,10 @@ export async function planOf(actor: Actor, query: Captured): Promise<string> {
 /** Планы всех записанных запросов к таблице. */
 export async function plansFor(actor: Actor, queries: Captured[], table: string): Promise<string[]> {
   const plans: string[] = [];
-  for (const query of queries.filter((q) => q.text.includes(`"${table}"`) && /^\s*select/i.test(q.text))) plans.push(await planOf(actor, query));
+  // Имя таблицы в кавычках (запросы построителя) и без них (запросы текстом); чтения и изменения: план изменения
+  // EXPLAIN строит, не выполняя его (итоговая проверка волны 1, замечание F10).
+  const named = new RegExp(`(?:"${table}"|\\b${table}\\b)`);
+  for (const query of queries.filter((q) => named.test(q.text) && /^\s*(?:select|update|delete|with)\b/i.test(q.text))) plans.push(await planOf(actor, query));
   return plans;
 }
 

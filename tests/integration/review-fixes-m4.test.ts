@@ -235,7 +235,9 @@ test('S12: ссылки из письма на проверке в заметк�
   const to = [replyAddress(t.number, f.aUser.userId, REPLY)];
   const text = 'Срочно войдите: https://hub-smartup.evil.example/login?next=1 и ещё http://203.0.113.7:8080/x, а также www.evil.example/pay. Спасибо.';
   expect((await deliver({ from: 'someone@other.uz', to, text })).result).toBe('review');
-  const body = (await pools.root.query(`select body from hdt_ticket_messages where ticket_id = $1 and author_type = 'system' and is_internal`, [t.ticketId])).rows[0].body as string;
+  const stored = (await pools.root.query(`select body from hdt_ticket_messages where ticket_id = $1 and author_type = 'system' and is_internal`, [t.ticketId])).rows[0].body as string;
+  // В базе знаки разметки экранированы (итоговая проверка волны 1, F1); на экране сотрудник видит текст без них.
+  const body = stored.replace(/\\([\\`*_[\]()<>&!])/g, '$1');
   expect(body).not.toMatch(/https?:\/\//);
   expect(body).not.toContain('www.evil.example/pay');
   expect(body).not.toContain('/login?next=1');

@@ -376,6 +376,7 @@ export async function snoozeTicket(ctx: StaffContext, input: unknown): Promise<v
 
 export type { SavedFilter } from '../core/agent-queues';
 export { QUEUE_KEYS, QUEUE_SORTS, type QueueKey, type QueueSort } from '../core/agent-queue-keys';
+export { defaultQueueSort, queueHref, type QueueLocation, type QueueTarget } from '../queue-href';
 
 // --- Благодарности, не открывшие обращение (FR-TK-14; план M3, задача 13) ---
 

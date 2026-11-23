@@ -242,6 +242,9 @@ export function createResendProvider(cfg: ProviderConfig): EmailProvider {
         }
       } finally {
         clearTimeout(timer);
+        // Отказ, слишком большой файл и любая ошибка: запрос отменяется, соединение не остаётся висеть с непрочитанным
+        // телом (итоговая проверка волны 1, F4). После полного чтения отмена ничего не меняет.
+        controller.abort();
       }
       const out = new Uint8Array(total);
       let offset = 0;

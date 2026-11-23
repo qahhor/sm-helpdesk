@@ -1,6 +1,18 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { HDT_ERROR_CODES, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueSidebar, type QueueSort, TRANSFER_REASONS } from '@/modules/hdt/api';
+import {
+  defaultQueueSort,
+  HDT_ERROR_CODES,
+  listQueue,
+  QUEUE_KEYS,
+  QUEUE_SORTS,
+  queueHref,
+  type QueueKey,
+  queueSidebar,
+  type QueueSort,
+  type QueueTarget,
+  TRANSFER_REASONS,
+} from '@/modules/hdt/api';
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
@@ -35,7 +47,8 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   const queue = pick<QueueKey>(params.queue, QUEUE_KEYS, 'new');
   // "Все" по умолчанию по последнему изменению: по сроку вперёд вышли бы давно закрытые обращения, а сортировка
   // всей базы без индекса медленная (аудит 23.11.2026, находка P2).
-  const sort = pick<QueueSort>(params.sort, QUEUE_SORTS, queue === 'all' ? 'updated' : 'sla');
+  const sort = pick<QueueSort>(params.sort, QUEUE_SORTS, defaultQueueSort(queue));
+  const sortChosen = QUEUE_SORTS.some((key) => key === params.sort);
   const q = params.q?.trim() ? params.q.trim().slice(0, 200) : undefined;
   const page = Math.max(1, Math.min(1000, Number(params.page) || 1));
   const canWrite = staff.actor.staffRole !== 'product';
@@ -47,15 +60,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   const { counts, filters, unidentified } = sidebar;
   const locale = await getLocale();
   const openNumber = Number(params.open) > 0 && Number.isInteger(Number(params.open)) ? Number(params.open) : null;
-  const href = (next: { queue?: QueueKey; sort?: QueueSort; q?: string; page?: number }) => {
-    const search = new URLSearchParams();
-    search.set('queue', next.queue ?? queue);
-    if ((next.sort ?? sort) !== 'sla') search.set('sort', next.sort ?? sort);
-    const query = 'q' in next ? next.q : q;
-    if (query) search.set('q', query);
-    if (next.page && next.page > 1) search.set('page', String(next.page));
-    return `/agent/queues?${search.toString()}`;
-  };
+  const href = (next: QueueTarget) => queueHref({ queue, sort, sortChosen, q }, next);
   const slaText = (minutesLeft: number | null) => {
     const label = slaLabelKey(minutesLeft);
     return t(`queues.sla.${label.key}`, { value: label.value });

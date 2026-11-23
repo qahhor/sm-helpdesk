@@ -13,6 +13,11 @@ services:
     ports: ['80:80', '443:443']
     environment:
       HUB_DOMAIN: ${HUB_DOMAIN:?задайте HUB_DOMAIN}
+      # Кому Caddy отвечает (план W0, задача 6): по умолчанию только адресам Cloudflare, список с cloudflare.com/ips
+      # на 23.11.2026. Остальным 403: заголовок CF-Connecting-IP нельзя подделать запросом в обход Cloudflare.
+      # Staging без Cloudflare: TRUSTED_PROXIES="0.0.0.0/0 ::/0" в .env.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32}
+    mem_limit: ${CADDY_MEM_LIMIT:-256m}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -25,6 +30,9 @@ services:
     env_file: ['.env']
     user: '1001:1001'
     read_only: true
+    # Пределы памяти (план W0, задача 5): сбой одной службы не забирает память у базы. Значения под сервер 8 ГБ.
+    mem_limit: ${WEB_MEM_LIMIT:-1g}
+    stop_grace_period: 20s
     # Писать процессу можно только сюда: временные файлы и кеш Next.js (Dockerfile).
     tmpfs: ['/tmp', '/app/.next/cache']
     depends_on:
@@ -43,6 +51,9 @@ services:
     env_file: ['.env']
     user: '1001:1001'
     read_only: true
+    mem_limit: ${WORKER_MEM_LIMIT:-1g}
+    # Остановка очереди задач ждёт до 30 секунд: Docker не должен убить процесс раньше.
+    stop_grace_period: 40s
     tmpfs: ['/tmp']
     depends_on:
       postgres: { condition: service_healthy }
@@ -53,6 +64,7 @@ services:
   clamav:
     image: clamav/clamav:1.5.5@sha256:12177441d1b40cef3c47b44c4090d59d4babc4c67bedd5af0fa315e603aa6dd8
     restart: unless-stopped
+    mem_limit: ${CLAMAV_MEM_LIMIT:-3g}
     volumes: ['clamav_db:/var/lib/clamav']
     # Образ переносит CLAMD_CONF_<параметр> в clamd.conf при каждом запуске (решение 0027, пункт 20). Зашифрованный
     # архив или документ и архив сверх пределов проверки (вложенность, число файлов, размер) получают подпись
@@ -95,6 +107,33 @@ services:
     # Закреплён по digest. Том в /var/lib/postgresql: образ версии 18 хранит данные в /var/lib/postgresql/18/docker.
     image: pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782
     restart: unless-stopped
+    # Настройки под сервер 8 ГБ (план W0, задача 5; аудит 23.11.2026, O3). Статистика запросов: pg_stat_statements.
+    # Запросы дольше 250 мс пишутся в журнал без значений параметров: в значениях данные клиентов.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - max_connections=100
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-1GB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-3GB}
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - log_min_duration_statement=250
+      - -c
+      - log_parameter_max_length=0
+      - -c
+      - log_parameter_max_length_on_error=0
+      - -c
+      - log_lock_waits=on
+    mem_limit: ${PG_MEM_LIMIT:-4g}
+    # Разделяемая память для параллельных запросов: по умолчанию у контейнера 64 МБ.
+    shm_size: 256m
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser
     secrets: [pg_superuser]

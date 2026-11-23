@@ -58,3 +58,8 @@ test.each(authTables.map((t) => [getTableConfig(t).name, t] as const))(
     expect(declared).toEqual(r.rows);
   },
 );
+
+test('начальная настройка базы ставит расширение статистики запросов (план W0, задача 5)', async () => {
+  const { pools } = await import('./helpers/db');
+  expect((await pools.root.query(`select extname from pg_extension where extname = 'pg_stat_statements'`)).rows).toEqual([{ extname: 'pg_stat_statements' }]);
+});

@@ -226,7 +226,8 @@ test('S12: в одно обращение не больше 5 заметок н�
   const to = [replyAddress(t.number, f.aUser.userId, REPLY)];
   for (let i = 0; i < 5; i++) expect((await deliver({ from: `sender${i}@other.uz`, to, text: `Письмо ${i}` })).result).toBe('review');
   expect((await deliver({ from: 'sender6@other.uz', to, text: 'Письмо 6' })).result).toBe('rate_limited');
-  const notes = await pools.root.query(`select count(*)::int as n from hdt_ticket_messages where ticket_id = $1 and author_type = 'system' and is_internal`, [t.ticketId]);
+  // Заметок с текстом писем пять; шестая, сводная, текста писем не несёт (проверяется тестом ниже).
+  const notes = await pools.root.query(`select count(*)::int as n from hdt_ticket_messages where ticket_id = $1 and author_type = 'system' and is_internal and body like '%Письмо %'`, [t.ticketId]);
   expect(notes.rows[0].n).toBe(5);
 });
 
@@ -246,4 +247,17 @@ test('S12: ссылки из письма на проверке в заметк�
   expect(body).toContain('[ссылка убрана: www.evil.example]');
   expect(body).toContain('Срочно войдите:');
   expect(body).toContain('Спасибо.');
+});
+
+test('письма сверх предела на обращение: одна заметка о том, что письма придержаны (проверка волны 1)', async () => {
+  const t = f.tickets.aOrg;
+  const to = [replyAddress(t.number, f.aUser.userId, REPLY)];
+  for (let i = 0; i < 5; i++) await deliver({ from: `sender${i}@other.uz`, to, text: `Письмо ${i}` });
+  expect((await deliver({ from: 'sender6@other.uz', to, text: 'Письмо 6' })).result).toBe('rate_limited');
+  expect((await deliver({ from: 'sender7@other.uz', to, text: 'Письмо 7' })).result).toBe('rate_limited');
+  const notes = (await pools.root.query(`select body from hdt_ticket_messages where ticket_id = $1 and author_type = 'system' and is_internal order by created_on`, [t.ticketId])).rows.map((r) => r.body as string);
+  // Пять заметок с письмами и одна сводная: сотрудник видит, что письма были, и знает, где их искать.
+  expect(notes).toHaveLength(6);
+  expect(notes[5]).toContain('придержаны');
+  expect(notes[5]).not.toContain('Письмо 6');
 });

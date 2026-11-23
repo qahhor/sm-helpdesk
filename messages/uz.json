@@ -102,6 +102,7 @@
           "telegram": "Telegram",
           "ownRule": "O'z murojaatlaringiz haqidagi xatlarni Telegram yoqilgan bo'lsa o'chirish mumkin: kamida bitta usul qoladi.",
           "telegramMissing": "Telegram bog'lanmagan. Undagi xabarlar bog'langandan keyin kela boshlaydi.",
+          "telegramBlocked": "Siz Telegramda botni bloklagansiz, shuning uchun u yerga xabarlar kelmayapti. Botni oching va uni blokdan chiqaring.",
           "telegramLink": "Bog'lashga o'tish",
           "needTelegram": "O'z murojaatlaringiz haqidagi xatlar faqat Telegram bog'langan va shu qatorda yoqilgan bo'lsa o'chadi.",
           "ownFallback": "O'z murojaatlaringiz haqidagi xatlar yana kelmoqda: Telegram hozir ishlamayapti."
@@ -849,7 +850,9 @@
           },
           "telegram": {
             "linked": "Telegram bog'landi",
-            "unlinked": "Telegram uzildi"
+            "unlinked": "Telegram uzildi",
+            "bot_blocked": "Telegramda bot bloklangan",
+            "bot_unblocked": "Telegramda bot blokdan chiqarildi"
           },
           "ticket": {
             "created": "Murojaat yaratildi",
@@ -1462,6 +1465,7 @@
       },
       "mergedInto": "{number} bilan birlashtirildi",
       "emailReview": "Xat tekshiruvda: u {address} manzilidan keldi, bu manzil mijoz manzili sifatida tasdiqlanmagan. Mijozga hech narsa ko'rsatilmadi va yuborilmadi. Xat mijozdan bo'lsa, unga murojaatda javob bering.",
+      "emailHeld": "Bir soat ichida bu murojaatga tasdiqlanmagan manzillardan {limit} tadan ortiq xat keldi. Qolganlari ushlab qolindi va murojaatga tushmadi. Mijoz xatini kutayotgan bo'lsangiz, undan portalda tasdiqlangan manzildan yozishini so'rang.",
       "linkRemoved": "[havola olib tashlandi: {host}]",
       "linkRemovedNoHost": "[havola olib tashlandi]",
       "senderUnconfirmed": "Yuboruvchi tasdiqlanmagan",
@@ -1858,7 +1862,8 @@
       "inbound_stuck": "Smartup Hub: 10 daqiqadan ortiq ko'rib chiqilmagan kiruvchi xatlar: {count}.",
       "staff_signin_failures": "Smartup Hub: 15 daqiqada xodimlarning muvaffaqiyatsiz kirishlari: {count}. Parol tanlanayotgan bo'lishi mumkin.",
       "infected_files": "Smartup Hub: bir soatda topilgan zararlangan fayllar: {count}.",
-      "archive_failing": "Smartup Hub: baza jurnali arxivi saqlanmayapti, muvaffaqiyatsiz urinishlar: {count}. Arxiv katalogi va diskdagi joyni tekshiring."
+      "archive_failing": "Smartup Hub: baza jurnali arxivi saqlanmayapti, muvaffaqiyatsiz urinishlar: {count}. Arxiv katalogi va diskdagi joyni tekshiring.",
+      "inbound_held": "Smartup Hub: bir soat ichida tezlik chegarasi {count} ta kiruvchi xatni to'xtatdi. Ular murojaatlarga tushmadi. Noma'lum manzillardan xatlar oqimi bo'lishi mumkin."
     }
   },
   "dev": {

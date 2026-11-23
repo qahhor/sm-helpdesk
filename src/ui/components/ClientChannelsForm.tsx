@@ -16,6 +16,8 @@ export type ClientChannelsLabels = {
   telegram: string;
   ownRule: string;
   telegramMissing: string;
+  /** Привязка есть, но человек заблокировал бота: причина другая, и подсказка другая (M4b, мелкое 3). */
+  telegramBlocked: string;
   telegramLink: string;
   needTelegram: string;
   ownFallback: string;
@@ -35,7 +37,7 @@ export function ClientChannelsForm({
   labels: ClientChannelsLabels;
   /** null: бот портала выключен, столбца Telegram нет. */
   /** linkHref: ссылка на раздел привязки Telegram на этой же странице. */
-  telegram: { active: boolean; linkHref: string } | null;
+  telegram: { active: boolean; blocked: boolean; linkHref: string } | null;
   status: 'saved' | 'need_telegram' | null;
   /** Почта о своих обращениях выключена, но Telegram не действует: письма всё равно идут. */
   ownFallback: boolean;
@@ -112,7 +114,7 @@ export function ClientChannelsForm({
           {telegram && <p className="text-sm text-secondary-foreground">{labels.ownRule}</p>}
           {telegram && !telegram.active && (
             <p className="text-sm text-secondary-foreground">
-              {labels.telegramMissing}{' '}
+              {telegram.blocked ? labels.telegramBlocked : labels.telegramMissing}{' '}
               <a href={telegram.linkHref} className="text-primary underline">
                 {labels.telegramLink}
               </a>

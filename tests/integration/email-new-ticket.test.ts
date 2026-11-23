@@ -146,3 +146,29 @@ test('приоритет P3 без подтверждения, источник 
   // P1 письмом не бывает: сообщения дежурным нет.
   expect((await pools.root.query(`select count(*)::int as n from hdn_outbox where ticket_id = $1 and recipient_kind = 'oncall'`, [t.ticket_id])).rows[0].n).toBe(0);
 });
+
+// --- Отложенные замечания M4 (план W2, задача 13) ---
+
+test('повтор по Message-ID сверяет отправителя: чужое письмо с тем же номером разбирается само (M4, мелкое 5)', async () => {
+  const messageId = '<same-id@mail.example.uz>';
+  const first = await deliver({ from: 'first@unknown.uz', subject: 'Первое письмо', messageId });
+  expect(first.result).toBe('new');
+  // Тот же Message-ID у письма другого отправителя: это не повтор доставки, а другое письмо.
+  const other = await deliver({ from: 'second@unknown.uz', subject: 'Чужое письмо', messageId });
+  expect(other.result).toBe('new');
+  expect((await ticketOf(other.inboundId)).ticket_id).not.toBe((await ticketOf(first.inboundId)).ticket_id);
+  // Настоящий повтор доставки (тот же отправитель, второй адрес поддержки) по-прежнему не создаёт второго обращения.
+  const before = await ticketCount();
+  const twin = await deliver({ from: 'first@unknown.uz', subject: 'Первое письмо', messageId });
+  expect(twin.result).toBe('new');
+  expect(await ticketCount()).toBe(before);
+});
+
+test('общий предел на новые обращения с неизвестных адресов: 61-е за час не создаётся (M4, мелкое 9)', async () => {
+  for (let i = 0; i < 60; i++) expect((await deliver({ from: `sender${i}@unknown${i}.uz`, subject: `Письмо ${i}` })).result, String(i)).toBe('new');
+  const before = await ticketCount();
+  expect((await deliver({ from: 'sender61@unknown61.uz', subject: 'Письмо 61' })).result).toBe('rate_limited');
+  expect(await ticketCount()).toBe(before);
+  // Подтверждённого клиента общий предел не касается.
+  expect((await deliver({ subject: 'Письмо клиента' })).result).toBe('new');
+}, 120_000);

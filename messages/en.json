@@ -102,6 +102,7 @@
           "telegram": "Telegram",
           "ownRule": "Emails about your requests can be turned off when Telegram is on: at least one way stays.",
           "telegramMissing": "Telegram is not linked. Messages there start after you link it.",
+          "telegramBlocked": "You blocked the bot in Telegram, so messages do not arrive there. Open the bot and unblock it.",
           "telegramLink": "Go to linking",
           "needTelegram": "Emails about your requests turn off only when Telegram is linked and turned on in this row.",
           "ownFallback": "Emails about your requests arrive again: Telegram is not working right now."
@@ -849,7 +850,9 @@
           },
           "telegram": {
             "linked": "Telegram linked",
-            "unlinked": "Telegram unlinked"
+            "unlinked": "Telegram unlinked",
+            "bot_blocked": "Bot blocked in Telegram",
+            "bot_unblocked": "Bot unblocked in Telegram"
           },
           "ticket": {
             "created": "Ticket created",
@@ -1462,6 +1465,7 @@
       },
       "mergedInto": "Merged with {number}",
       "emailReview": "Email under review: it came from {address}, and this address is not confirmed as the client address. Nothing was shown or sent to the client. If the email is from the client, reply in the request.",
+      "emailHeld": "More than {limit} emails from unconfirmed addresses arrived for this request within an hour. The rest are held back and were not added here. If you expect an email from the client, ask them to write from an address confirmed in the portal.",
       "linkRemoved": "[link removed: {host}]",
       "linkRemovedNoHost": "[link removed]",
       "senderUnconfirmed": "Sender not confirmed",
@@ -1858,7 +1862,8 @@
       "inbound_stuck": "Smartup Hub: incoming emails not processed for more than 10 minutes: {count}.",
       "staff_signin_failures": "Smartup Hub: failed staff sign-ins in 15 minutes: {count}. Someone may be guessing a password.",
       "infected_files": "Smartup Hub: infected files found in the last hour: {count}.",
-      "archive_failing": "Smartup Hub: the database log archive is not being saved, failed attempts: {count}. Check the archive directory and disk space."
+      "archive_failing": "Smartup Hub: the database log archive is not being saved, failed attempts: {count}. Check the archive directory and disk space.",
+      "inbound_held": "Smartup Hub: the rate limit stopped {count} inbound emails within an hour. They were not added to requests. A flood from unknown addresses is possible."
     }
   },
   "dev": {

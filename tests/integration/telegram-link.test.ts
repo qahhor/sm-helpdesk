@@ -299,3 +299,24 @@ test('после разблокировки бота любое сообщени
   expect((await pools.root.query(`select is_blocked from hdu_contact_identities where user_id = $1`, [f.aUser.userId])).rows[0].is_blocked).toBe(false);
   expect(tg.bot.sent.at(-1)?.linkButton?.url).toMatch(/\/ru\/login\/tg\?token=/);
 });
+
+// --- Отложенное замечание M4b (план W2, задача 13) ---
+
+test('отметка "бот заблокирован" и её снятие пишутся в журнал аудита, по одной записи на смену состояния (M4b, мелкое 5)', async () => {
+  const f = await seedTwoOrgs();
+  await handleTelegramUpdate(start(await linkCodeFor(f.aUser)));
+  const count = async (action: string) =>
+    (await pools.root.query(`select count(*)::int as n from hdc_audit_log where action = $1 and object_id = $2`, [action, f.aUser.userId])).rows[0].n as number;
+  await markTelegramBlocked('777001');
+  // Повторный отказ Telegram состояния не меняет: второй записи нет.
+  await markTelegramBlocked('777001');
+  expect(await count('telegram.bot_blocked')).toBe(1);
+  expect(await count('telegram.bot_unblocked')).toBe(0);
+  // Чат, к которому никто не привязан: записи нет.
+  await markTelegramBlocked('999999');
+  expect((await pools.root.query(`select count(*)::int as n from hdc_audit_log where action = 'telegram.bot_blocked'`)).rows[0].n).toBe(1);
+  // Человек снова открыл бота и написал ему: отметка снята, в журнале одна запись.
+  await handleTelegramUpdate(tgUpdate({ from: 777001, text: '/login' }));
+  await handleTelegramUpdate(tgUpdate({ from: 777001, text: '/login' }));
+  expect(await count('telegram.bot_unblocked')).toBe(1);
+});

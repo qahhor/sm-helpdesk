@@ -291,6 +291,18 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
   return result;
 }
 
+/**
+ * Письма сверх предела в обращение не попадают. Чтобы сотрудник знал, что они были, ставится одна сводная внутренняя
+ * заметка без текста писем, не чаще раза в час на обращение (проверка волны 1). Уведомлений она не рассылает.
+ */
+async function heldNote(actor: SystemActor, ticket: Ticket): Promise<void> {
+  if (!(await consumeRateLimit(`email-review:held:${ticket.ticketId}`, RATE_RULES.emailReviewHeldNote)).allowed) return;
+  const body = staffSystemText(ticket.locale, 'emailHeld', { limit: String(RATE_RULES.emailReviewPerTicket.limit) });
+  await withActor(actor, (tx) =>
+    tx.insert(ticketMessages).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, authorId: null, authorType: 'system', body, isInternal: true, source: 'email' }),
+  );
+}
+
 /** "Письмо на проверке" (решение 16, FR-NT-07): внутренняя заметка с адресом отправителя, клиенту ничего. */
 async function reviewNote(actor: SystemActor, letter: Letter, ticket: Ticket): Promise<InboundClass> {
   const { row } = letter;
@@ -322,7 +334,10 @@ async function intoTicket(actor: SystemActor, letter: Letter, ticket: Ticket, us
   if (!limit.allowed) return finish(actor, letter, 'rate_limited', ticket.ticketId);
   // И на обращение: адрес отправителя в письме произвольный, предел на адрес обходится сменой адреса (находка S12).
   const perTicket = await consumeRateLimit(`email-review:ticket:${ticket.ticketId}`, RATE_RULES.emailReviewPerTicket);
-  if (!perTicket.allowed) return finish(actor, letter, 'rate_limited', ticket.ticketId);
+  if (!perTicket.allowed) {
+    await heldNote(actor, ticket);
+    return finish(actor, letter, 'rate_limited', ticket.ticketId);
+  }
   return reviewNote(actor, letter, ticket);
 }
 
@@ -333,6 +348,12 @@ type Sender = { orgId: string; userId: string; visibility: Visibility; senderUnc
  * обращение в его организации от его имени. Домен организации с DMARC: гость в этой организации, личное, отметка
  * "отправитель не подтверждён". Иначе гость служебной организации "Неопознанные". Без DMARC адрес ничего не доказывает.
  */
+/** Письмо прошло DMARC и пришло от подтверждённого пользователя или с домена организации. Записей не создаёт. */
+async function isKnownSender(letter: Letter): Promise<boolean> {
+  if (!letter.aligned) return false;
+  return letter.owner !== null || (await orgByEmailDomain(letter.row.fromAddress.split('@')[1] ?? '')) !== null;
+}
+
 async function identifySender(letter: Letter): Promise<Sender> {
   const { row, aligned } = letter;
   if (aligned) {
@@ -371,6 +392,11 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
   const limitKey = letter.owner ? rateKey('email-ticket:user', letter.owner.userId) : rateKey('email-ticket:sender', row.fromAddress);
   const limit = await consumeRateLimit(limitKey, RATE_RULES.emailTicketPerSender);
   if (!limit.allowed) return finish(actor, letter, 'rate_limited');
+  // Общий предел на письма с неизвестных адресов (M4, мелкое 9): предел на адрес обходится сменой адреса, и поток
+  // таких писем заваливал бы "Неопознанные". Клиента с DMARC и домен организации с DMARC он не касается.
+  // Проверка стоит до опознания: сверх предела не создаётся и запись гостя.
+  if (!(await isKnownSender(letter)) && !(await consumeRateLimit('email-ticket:unidentified-total', RATE_RULES.emailTicketUnidentifiedTotal)).allowed)
+    return finish(actor, letter, 'rate_limited');
   const sender = await identifySender(letter);
   // Наблюдатели только у обращения организации: личное коллеги не видят (решение 17 плана M2).
   const watchers = sender.identified ? await colleaguesInCopy(row.ccAddresses, sender.orgId, sender.userId) : [];

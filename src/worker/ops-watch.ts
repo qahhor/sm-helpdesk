@@ -1,7 +1,7 @@
 import type { SystemActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
 import { archiveFailing, archiveState, claimOpsAlert, failedJobsSince, failedStaffSignIns } from '@/modules/hdc/api';
-import { type OpsAlert, type OpsAlertCode, outboxFailedSince, outboxState, sendOpsAlert, staleInboundCount } from '@/modules/hdn/api/ops';
+import { heldInboundCount, type OpsAlert, type OpsAlertCode, outboxFailedSince, outboxState, sendOpsAlert, staleInboundCount } from '@/modules/hdn/api/ops';
 import { infectedSince } from '@/modules/hdt/api/jobs';
 
 // Задача ops.watch фонового процесса (ТЗ 13.8; аудит 23.11.2026, находки O2 и S4; план W0, задача 4).
@@ -13,12 +13,14 @@ const MINUTE = 60_000;
 export const OUTBOX_LAG_ALERT_SEC = 300;
 /** Столько неудачных входов сотрудников за 15 минут считается подбором пароля. */
 export const STAFF_SIGNIN_ALERT = 20;
+/** Столько писем за час, остановленных пределом частоты, считается потоком. Один шумный отправитель даёт меньше. */
+export const INBOUND_HELD_ALERT = 10;
 
 type Deps = Parameters<typeof sendOpsAlert>[2];
 
 export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<OpsAlert[]> {
   const hourAgo = new Date(now.getTime() - 60 * MINUTE);
-  const [jobs, failed, state, stuck, signIns, infected, archive] = await Promise.all([
+  const [jobs, failed, state, stuck, signIns, infected, archive, held] = await Promise.all([
     failedJobsSince(actor, hourAgo),
     outboxFailedSince(actor, hourAgo),
     outboxState(actor, now),
@@ -26,6 +28,7 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
     failedStaffSignIns(actor, now),
     infectedSince(actor, hourAgo),
     archiveState(actor),
+    heldInboundCount(actor, hourAgo),
   ]);
   const alerts: OpsAlert[] = [];
   if (jobs > 0) alerts.push({ code: 'jobs_failed', count: jobs });
@@ -36,6 +39,8 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
   if (infected > 0) alerts.push({ code: 'infected_files', count: infected });
   // Архив журнала базы включён, а сегменты не сохраняются: восстановления на момент времени сейчас нет.
   if (archiveFailing(archive)) alerts.push({ code: 'archive_failing', count: archive.failedCount });
+  // Предел частоты остановил много писем: в обращения они не попали, среди них могут быть письма новых клиентов.
+  if (held >= INBOUND_HELD_ALERT) alerts.push({ code: 'inbound_held', count: held });
   return alerts;
 }
 

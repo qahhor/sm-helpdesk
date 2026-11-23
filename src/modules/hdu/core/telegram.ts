@@ -120,12 +120,14 @@ export async function findTelegramIdentity(externalId: string): Promise<{ userId
 
 /** Человек снова пишет боту: отметка "бот заблокирован" снимается (решение 0036, пункт 5). */
 export async function clearTelegramBlock(externalId: string): Promise<void> {
-  await withIdentity(SYSTEM, (tx) =>
-    tx
+  await withIdentity(SYSTEM, async (tx) => {
+    const changed = await tx
       .update(contactIdentities)
       .set({ isBlocked: false })
-      .where(and(eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.externalId, externalId), eq(contactIdentities.isBlocked, true))),
-  );
+      .where(and(eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.externalId, externalId), eq(contactIdentities.isBlocked, true)))
+      .returning({ userId: contactIdentities.userId });
+    for (const row of changed) await writeAudit(tx, { action: 'telegram.bot_unblocked', objectType: 'user', objectId: row.userId });
+  });
 }
 
 /** Отвязка командой из бота. Возвращает, была ли привязка. */

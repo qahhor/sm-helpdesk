@@ -177,3 +177,23 @@ test('состояние архива читается под ролью при�
   expect((await collectOpsAlerts(SYSTEM, new Date())).map((alert) => alert.code)).not.toContain('archive_failing');
   expect(opsAlertText({ code: 'archive_failing', count: 3 })).toContain('3');
 });
+
+// --- Общий предел на письма с неизвестных адресов (план W2, задача 13; M4, мелкое 9) ---
+
+test('придержанные письма: за час сработал предел частоты на 10 и больше писем, дежурные получают число', async () => {
+  const held = (n: number, tag: string) =>
+    pools.root.query(
+      `insert into hdn_email_inbound (provider_id, from_address, subject, message_id, raw_ref, received_on, processed_on, classification)
+       select $2 || g, 'x' || g || '@example.uz', 'Тема', '<' || $2 || g || '@example.uz>', $2 || g, now(), now(), 'rate_limited' from generate_series(1, $1::int) g`,
+      [n, tag],
+    );
+  // Один шумный отправитель дежурных не будит.
+  await held(9, 'few-');
+  expect(await watch()).toEqual([]);
+  await held(1, 'more-');
+  expect(await watch()).toEqual(['inbound_held']);
+  expect(chat).toEqual([opsAlertText({ code: 'inbound_held', count: 10 })]);
+  expect(chat[0]).toContain('10');
+  // В сигнале только число: без адресов и тем.
+  expect(chat[0]).not.toContain('example.uz');
+});

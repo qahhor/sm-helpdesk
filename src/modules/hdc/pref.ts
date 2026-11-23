@@ -35,6 +35,9 @@ export const AUDIT_ACTIONS = [
   // Каналы связи
   'telegram.linked',
   'telegram.unlinked',
+  // Telegram отказал в доставке (человек заблокировал бота) и отметка снята (он снова написал боту).
+  'telegram.bot_blocked',
+  'telegram.bot_unblocked',
   'user.signed_in_telegram',
   // Вход клиента любым способом (волна 1, задача 8). Способ в описании: smartup, email_link, invitation, telegram.
   'user.signed_in',
@@ -157,6 +160,10 @@ export const RATE_RULES = {
   emailReviewPerSender: { limit: 20, windowSec: 3600 },
   /** Письма "на проверку" в одно обращение: 5 в час с любых адресов (аудит 23.11.2026, находка S12). */
   emailReviewPerTicket: { limit: 5, windowSec: 3600 },
+  /** Сводная заметка "письма придержаны" в обращении: не чаще раза в час (проверка волны 1). */
+  emailReviewHeldNote: { limit: 1, windowSec: 3600 },
+  /** Новые обращения с неизвестных адресов всего: 60 в час (M4, мелкое 9). Предел на адрес обходится сменой адреса. */
+  emailTicketUnidentifiedTotal: { limit: 60, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

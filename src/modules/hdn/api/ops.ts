@@ -7,7 +7,7 @@ import { logEvent } from '@/lib/log';
 import en from '../../../../messages/en.json';
 import ru from '../../../../messages/ru.json';
 import uz from '../../../../messages/uz.json';
-import { staleInboundIds } from '../core/inbound';
+import { heldInboundSince, staleInboundIds } from '../core/inbound';
 import { oncallEmails } from '../core/mail-settings';
 import { oncallSender } from '../core/oncall';
 import type { OncallSender } from '../core/outbox';
@@ -22,13 +22,21 @@ export { outboxFailedSince, outboxState } from '../core/outbox';
 
 const MESSAGES = { ru, uz, en } as const;
 
-export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing'] as const;
+export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing', 'inbound_held'] as const;
 export type OpsAlertCode = (typeof OPS_ALERT_CODES)[number];
 export type OpsAlert = { code: OpsAlertCode; count: number; minutes?: number };
 
 /** Входящие письма, разбор которых не закончился за 10 минут (не больше 100). */
 export async function staleInboundCount(actor: SystemActor, now: Date): Promise<number> {
   return (await staleInboundIds(actor, now, 100)).length;
+}
+
+/**
+ * Входящие письма, которые с указанного времени остановил предел частоты: письмо получено, но в обращение не попало.
+ * Так виден поток писем с неизвестных адресов, при котором общий предел придерживает и письма новых клиентов.
+ */
+export async function heldInboundCount(actor: SystemActor, since: Date): Promise<number> {
+  return heldInboundSince(actor, since);
 }
 
 /** Текст сигнала: только вид и числа. Чат дежурных служебный, по умолчанию русский. */

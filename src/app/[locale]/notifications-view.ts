@@ -29,5 +29,5 @@ export async function bellLabels() {
 /** Следующая страница списка: время последнего уведомления страницы. */
 export function moreHrefOf(path: string, rows: NotificationRow[], pageSize: number): string | null {
   const last = rows[rows.length - 1];
-  return rows.length >= pageSize && last ? `${path}?before=${encodeURIComponent(last.createdOn.toISOString())}` : null;
+  return rows.length >= pageSize && last ? `${path}?before=${encodeURIComponent(last.notificationId)}` : null;
 }

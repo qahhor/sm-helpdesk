@@ -63,12 +63,22 @@ export async function unreadCountTx(actor: PersonActor): Promise<number> {
   return rows[0]?.n ?? 0;
 }
 
-export async function listNotificationsTx(actor: PersonActor, before: Date | null): Promise<NotificationRow[]> {
+/**
+ * Страница уведомлений. before: идентификатор последней показанной строки (следующая страница начинается сразу за
+ * ней, строки с одинаковым временем не теряются; M4, мелкое 10) или время, как в прежних ссылках.
+ */
+export async function listNotificationsTx(actor: PersonActor, before: Date | { afterId: string } | null): Promise<NotificationRow[]> {
+  const cursor =
+    before === null
+      ? undefined
+      : before instanceof Date
+        ? lt(notifications.createdOn, before)
+        : sql`(${notifications.createdOn}, ${notifications.notificationId}) < (select c.created_on, c.notification_id from hdn_notifications c where c.notification_id = ${before.afterId}::uuid and c.user_id = ${actor.userId}::uuid)`;
   const rows = await withActor(actor, (tx) =>
     tx
       .select()
       .from(notifications)
-      .where(and(eq(notifications.userId, actor.userId), before ? lt(notifications.createdOn, before) : undefined))
+      .where(and(eq(notifications.userId, actor.userId), cursor))
       .orderBy(desc(notifications.createdOn), desc(notifications.notificationId))
       .limit(PAGE),
   );

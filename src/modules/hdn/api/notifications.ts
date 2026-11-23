@@ -32,8 +32,10 @@ export async function unreadCount(actor: PersonActor): Promise<number> {
 }
 
 export async function listNotifications(actor: PersonActor, input: { before?: string }): Promise<NotificationRow[]> {
-  const before = input.before ? z.iso.datetime().parse(input.before) : null;
-  return listNotificationsTx(actor, before ? new Date(before) : null);
+  if (!input.before) return listNotificationsTx(actor, null);
+  // Курсор: идентификатор последней показанной строки. Время принимается ради прежних ссылок.
+  const cursor = z.union([z.uuid(), z.iso.datetime()]).parse(input.before);
+  return listNotificationsTx(actor, z.uuid().safeParse(cursor).success ? { afterId: cursor } : new Date(cursor));
 }
 
 export async function markRead(actor: PersonActor, input: string[] | 'all'): Promise<void> {

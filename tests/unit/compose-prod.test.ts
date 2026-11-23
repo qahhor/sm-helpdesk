@@ -79,3 +79,44 @@ test('ClamAV не пропускает то, что не может провер
     CLAMD_CONF_StreamMaxLength: '60M',
   });
 });
+
+// --- План W0, задачи 5 и 6 (аудит 23.11.2026, находки O3, S3, O1) ---
+
+test('PostgreSQL настроен под сервер: статистика запросов, журнал медленных запросов без значений параметров, память', () => {
+  const command = (services.postgres?.command as string[]).join(' ');
+  for (const part of [
+    'shared_preload_libraries=pg_stat_statements',
+    'log_min_duration_statement=250',
+    // Значения параметров запроса в журнал базы не пишутся: в них данные клиентов.
+    'log_parameter_max_length=0',
+    'log_parameter_max_length_on_error=0',
+    'log_lock_waits=on',
+    'shared_buffers=${PG_SHARED_BUFFERS:-1GB}',
+    'effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-3GB}',
+    'max_connections=100',
+  ])
+    expect(command).toContain(part);
+});
+
+test('у каждой постоянной службы предел памяти: сбой одной не забирает память у базы', () => {
+  for (const name of ['caddy', 'web', 'worker', 'clamav', 'postgres']) expect(String(services[name]?.mem_limit ?? ''), name).toMatch(/^\$\{[A-Z_]+:-\d+[mg]\}$/);
+});
+
+test('фоновому процессу и порталу хватает времени завершить работу при остановке', () => {
+  expect(services.worker?.stop_grace_period).toBe('40s');
+  expect(services.web?.stop_grace_period).toBe('20s');
+});
+
+test('Caddy пускает только доверенные адреса (Cloudflare): остальным 403, список задаётся переменной', () => {
+  expect(caddyfile).toMatch(/@untrusted not remote_ip \{\$TRUSTED_PROXIES\}/);
+  expect(caddyfile).toMatch(/respond @untrusted 403/);
+  const ranges = String((services.caddy?.environment as Record<string, string>).TRUSTED_PROXIES);
+  // По умолчанию адреса Cloudflare; для staging без Cloudflare список меняют в .env.
+  for (const range of ['173.245.48.0/20', '104.16.0.0/13', '2606:4700::/32']) expect(ranges).toContain(range);
+  expect(ranges.startsWith('${TRUSTED_PROXIES:-')).toBe(true);
+});
+
+test('журнал доступа Caddy в JSON, одноразовые значения из адреса вырезаны', () => {
+  expect(caddyfile).toMatch(/log \{[\s\S]*output stdout[\s\S]*format filter/);
+  for (const name of ['token', 'code', 'state']) expect(caddyfile).toMatch(new RegExp(`replace ${name} REDACTED`));
+});

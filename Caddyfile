@@ -1,8 +1,29 @@
-# Caddy по разделу 13.4 ТЗ. Перед ним Cloudflare (Full strict), сетевой экран пускает на 80 и 443
-# только адреса Cloudflare: тогда заголовку CF-Connecting-IP можно верить (CLIENT_IP_HEADER, решение 0020).
+# Caddy по разделу 13.4 ТЗ. Перед ним Cloudflare (Full strict).
 # Content-Security-Policy ставит само приложение (src/proxy.ts): в нём одноразовый код запроса.
 
 {$HUB_DOMAIN} {
+	# Отвечаем только доверенным адресам (план W0, задача 6; аудит 23.11.2026, находка S3): по умолчанию это адреса
+	# Cloudflare из compose.prod.yaml. Запрос в обход Cloudflare получает 403, поэтому заголовку CF-Connecting-IP
+	# (CLIENT_IP_HEADER, решение 0020) можно верить и без сетевого экрана хостинга. Экран остаётся вторым слоем.
+	@untrusted not remote_ip {$TRUSTED_PROXIES}
+	respond @untrusted 403
+
+	# Журнал доступа строками JSON (ТЗ 13.8): время ответа каждого запроса. Одноразовые значения из адреса
+	# (ссылки входа, код и состояние входа через Smartup) вырезаются. Cookie и Authorization Caddy вырезает сам.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					replace token REDACTED
+					replace code REDACTED
+					replace state REDACTED
+				}
+			}
+		}
+	}
+
 	encode zstd gzip
 	# Файлы пойдут напрямую в хранилище, мимо портала.
 	request_body {

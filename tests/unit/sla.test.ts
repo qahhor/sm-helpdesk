@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { addWorkingDays, addWorkingMinutes, type Calendar, TASHKENT_DEFAULT, workingMinutesBetween } from '@/modules/hdt/sla';
 
 // Расчёт сроков по рабочему календарю (ТЗ, разделы 7.4 и 11.7; план M3, задача 1).
@@ -65,4 +65,35 @@ test('часовой пояс процесса не влияет на резул
   const utc = run();
   process.env.TZ = 'America/New_York';
   expect(run()).toEqual(utc);
+});
+
+// Приёмка волны 1: на 200 тысячах обращений страницы очередей "Мои" и "Вторая линия" тратили около 50 мс в коде
+// портала. Расчёт шёл по дням от создания обращения и на каждый день четыре раза форматировал дату.
+
+test('рабочее время за 200 дней не форматирует дату на каждый день: границы рабочих дней запоминаются', () => {
+  const from = at('2026-03-02 10:00');
+  const to = at('2026-09-18 15:30');
+  const expected = workingMinutesBetween(from, to, TASHKENT_DEFAULT);
+  const spy = vi.spyOn(Intl.DateTimeFormat.prototype, 'formatToParts');
+  try {
+    // Тот же промежуток со сдвигом на минуту: дни те же, моменты другие.
+    expect(workingMinutesBetween(new Date(from.getTime() + 60_000), to, TASHKENT_DEFAULT)).toBe(expected - 1);
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(8);
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+test('запоминание границ не путает часовые пояса и не ломает переход на летнее время', () => {
+  const week = TASHKENT_DEFAULT === '24x7' ? null : TASHKENT_DEFAULT.week;
+  if (!week) throw new Error('ожидается рабочий календарь');
+  const berlin = { timeZone: 'Europe/Berlin', week, holidays: [] };
+  const tashkent = { timeZone: 'Asia/Tashkent', week, holidays: [] };
+  // Понедельник 30.03.2026, 08:00-20:00 местного: в Берлине уже летнее время (UTC+2), в Ташкенте UTC+5.
+  const day = (cal: Calendar) => workingMinutesBetween(new Date('2026-03-29T00:00:00Z'), new Date('2026-03-31T00:00:00Z'), cal);
+  expect(day(berlin)).toBe(day(berlin));
+  expect(addWorkingMinutes(new Date('2026-03-29T00:00:00Z'), 1, berlin).toISOString()).toBe('2026-03-30T06:01:00.000Z');
+  expect(addWorkingMinutes(new Date('2026-03-29T00:00:00Z'), 1, tashkent).toISOString()).toBe('2026-03-30T03:01:00.000Z');
+  // Зимой Берлин на час позже по UTC.
+  expect(addWorkingMinutes(new Date('2026-03-22T00:00:00Z'), 1, berlin).toISOString()).toBe('2026-03-23T07:01:00.000Z');
 });

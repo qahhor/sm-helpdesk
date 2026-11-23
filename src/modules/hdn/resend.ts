@@ -177,7 +177,10 @@ export function createResendProvider(cfg: ProviderConfig): EmailProvider {
         if (declared > maxBytes) throw new Error('почта: вложение больше предела');
         reader = response.body.getReader();
         for (;;) {
-          const { done, value } = await reader.read().catch(() => ({ done: true as const, value: undefined }));
+          // Обрыв связи посреди тела: ошибка, а не обрезанный файл (итоговая проверка M4b, I4).
+          const { done, value } = await reader.read().catch(() => {
+            throw new MailError(null);
+          });
           if (controller.signal.aborted) throw new MailError(null);
           if (done) break;
           total += value.byteLength;

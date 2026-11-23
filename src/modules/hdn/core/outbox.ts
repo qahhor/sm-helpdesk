@@ -44,7 +44,15 @@ export type OutboxItem = {
   locale?: Locale;
   /** Путь настроек уведомлений для отключаемого письма ("/settings" или "/agent/account"). */
   settingsPath?: string;
+  /**
+   * Письмо запасное к строке Telegram с этим идентификатором (решение 0036, пункт 3): ждёт TELEGRAM_FALLBACK_MINUTES
+   * и уходит, только если строка Telegram не отправлена.
+   */
+  fallbackFor?: string;
 };
+
+/** Сколько минут запасное письмо ждёт сообщения в Telegram. */
+export const TELEGRAM_FALLBACK_MINUTES = 5;
 
 /** Сообщение в служебный чат дежурных (решение 8). null: чат не настроен, сообщение пропускается. */
 export type OncallSender = { send(text: string): Promise<void> };
@@ -66,6 +74,9 @@ export async function enqueueTx(tx: Tx, item: OutboxItem): Promise<string> {
     payload: payload as unknown as Record<string, unknown>,
     ticketId: item.ticketId ?? null,
     messageId: item.messageId ?? null,
+    ...(item.fallbackFor
+      ? { fallbackFor: item.fallbackFor, nextAttemptOn: sql`now() + make_interval(mins => ${TELEGRAM_FALLBACK_MINUTES})` }
+      : {}),
   });
   return outboxId;
 }
@@ -177,6 +188,11 @@ async function deliver(row: Row, provider: EmailProvider, oncall: OncallSender |
   return { kind: 'sent', externalId, recipient: targets.map((t) => t.address).join(', ').slice(0, 320), messageId: `<${row.outboxId}@${domain}>` };
 }
 
+async function telegramDelivered(actor: SystemActor, outboxId: string): Promise<boolean> {
+  const rows = await withActor(actor, (tx) => tx.select({ status: outbox.status }).from(outbox).where(eq(outbox.outboxId, outboxId)).limit(1));
+  return rows[0]?.status === 'sent' || rows[0]?.status === 'delivered';
+}
+
 export async function dispatchOutbox(
   actor: SystemActor,
   now: Date,
@@ -206,7 +222,8 @@ export async function dispatchOutbox(
   for (const row of claimed) {
     let outcome: Outcome;
     try {
-      outcome = await deliver(row, email, telegram);
+      // Запасное письмо не нужно, если сообщение в Telegram уже ушло.
+      outcome = row.fallbackFor && (await telegramDelivered(actor, row.fallbackFor)) ? { kind: 'skipped' } : await deliver(row, email, telegram);
     } catch (error) {
       outcome = { kind: 'error', error: errorCode(error) };
     }

@@ -83,7 +83,14 @@ async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: st
     await notifyTx(tx, { userId, kind, ticketId, payload: { number: ticket.number, title: ticket.title } });
     const own = userId === ticket.authorId;
     const channels = await channelsFor(tx, userId, own ? 'own' : 'watched');
-    if (channels.email) {
+    const telegramId =
+      channels.telegram && TELEGRAM_TEMPLATES.has(mail.template)
+        ? await enqueueTx(tx, { channel: 'telegram', recipient: { kind: 'user', userId }, template: mail.template, payload: mail, ticketId, locale })
+        : null;
+    // О своём обращении письмо при выключенной почте ставится запасным к сообщению в Telegram: оно уйдёт, если
+    // Telegram не доставит (бот заблокирован, сбой). Нет сообщения в Telegram: обычное письмо (решение 0036, пункт 3).
+    const fallback = own && !channels.email;
+    if (channels.email || fallback) {
       await enqueueTx(tx, {
         channel: 'email',
         recipient: { kind: 'user', userId },
@@ -94,10 +101,8 @@ async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: st
         ...(messageId ? { messageId } : {}),
         locale,
         ...(own ? {} : { settingsPath: CLIENT_SETTINGS_PATH }),
+        ...(fallback && telegramId ? { fallbackFor: telegramId } : {}),
       });
-    }
-    if (channels.telegram && TELEGRAM_TEMPLATES.has(mail.template)) {
-      await enqueueTx(tx, { channel: 'telegram', recipient: { kind: 'user', userId }, template: mail.template, payload: mail, ticketId, locale });
     }
   }
 }

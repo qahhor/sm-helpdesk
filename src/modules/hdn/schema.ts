@@ -36,6 +36,8 @@ export const outbox = pgTable('hdn_outbox', {
   sentOn: moment('sent_on'),
   externalId: text('external_id'),
   lastError: text('last_error'),
+  /** Строка Telegram, к которой письмо запасное (решение 0036, пункт 3). */
+  fallbackFor: uuid('fallback_for'),
   ...stampColumns,
 });
 

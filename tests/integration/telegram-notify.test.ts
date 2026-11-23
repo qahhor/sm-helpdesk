@@ -76,13 +76,49 @@ test('наблюдатель с выключенным Telegram для чужи�
   expect((await rows(t.ticketId)).map((r) => r.recipient_user_id)).toEqual([f.aAdmin.userId]);
 });
 
-test('почта о своих обращениях выключена: автору только Telegram', async () => {
+const verifyEmail = (userId: string, address: string) =>
+  pools.root.query(`update auth."user" set email = $2, "emailVerified" = true where id = $1`, [userId, address]);
+const fallbackRows = (ticketId: string) =>
+  pools.root
+    .query<{ status: string; fallback_for: string | null }>(`select status, fallback_for from hdn_outbox where ticket_id = $1 and channel = 'email' and fallback_for is not null`, [ticketId])
+    .then((r) => r.rows);
+
+test('почта о своих обращениях выключена и Telegram доставил: запасное письмо не уходит', async () => {
   const t = f.tickets.aOrg;
+  await verifyEmail(f.aUser.userId, 'a-user@example.uz');
   await linkTelegramFixture(f.aUser, 700003);
   await savePrefs(f.aUser.actor, { own: { email: false, telegram: true }, watched: { email: true, telegram: true } });
   await reply(t.number, 'Ответ');
-  expect(await rows(t.ticketId, 'email')).toEqual([]);
   expect((await rows(t.ticketId)).map((r) => r.recipient_user_id)).toEqual([f.aUser.userId]);
+  // Письмо ставится запасным к строке Telegram и ждёт: обычного письма нет.
+  expect(await fallbackRows(t.ticketId)).toHaveLength(1);
+  expect((await rows(t.ticketId, 'email')).length).toBe(1);
+  const now = Date.now();
+  await dispatch(new Date(now));
+  expect(tg.bot.sent).toHaveLength(1);
+  expect(mail.sent).toEqual([]);
+  await dispatch(new Date(now + 6 * 60_000));
+  expect(mail.sent).toEqual([]);
+  expect((await fallbackRows(t.ticketId))[0]!.status).toBe('skipped');
+});
+
+test('почта о своих обращениях выключена, бот заблокирован: письмо об этом же событии уходит запасным (итоговая проверка, I1)', async () => {
+  const t = f.tickets.aOrg;
+  await verifyEmail(f.aUser.userId, 'a-user@example.uz');
+  await linkTelegramFixture(f.aUser, 700012);
+  await savePrefs(f.aUser.actor, { own: { email: false, telegram: true }, watched: { email: true, telegram: true } });
+  await reply(t.number, 'Ответ после блокировки бота');
+  const now = Date.now();
+  tg.bot.failNext(403);
+  await dispatch(new Date(now));
+  expect((await rows(t.ticketId))[0]!.status).toBe('skipped');
+  expect(mail.sent).toEqual([]);
+  await dispatch(new Date(now + 6 * 60_000));
+  expect(mail.sent.map((s) => s.message.to)).toEqual(['a-user@example.uz']);
+  expect(mail.sent[0]!.message.text).toContain('Ответ после блокировки бота');
+  // Telegram недоступен дольше срока ожидания: письмо уходит тоже, сообщение в Telegram может прийти позже.
+  await reply(t.number, 'Второй ответ');
+  expect(await rows(t.ticketId, 'email').then((r) => r.filter((x) => x.status === 'queued').length)).toBe(1);
 });
 
 test('отвязал Telegram после постановки: строка skipped, сообщения нет', async () => {

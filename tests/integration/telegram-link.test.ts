@@ -289,3 +289,13 @@ test('повторная доставка события /start с кодом н
   expect(tg.bot.sent).toHaveLength(1);
   expect((await listNotifications(f.aUser.actor, {})).filter((n) => n.kind === 'telegram_linked')).toHaveLength(1);
 });
+
+test('после разблокировки бота любое сообщение от аккаунта снимает отметку: вход из бота снова работает (итоговая проверка, I3)', async () => {
+  const f = await seedTwoOrgs();
+  await handleTelegramUpdate(start(await linkCodeFor(f.aUser)));
+  await markTelegramBlocked('777001');
+  // Сообщение из Telegram приходит, только если человек снова открыл бота: отметка снимается.
+  await handleTelegramUpdate(tgUpdate({ from: 777001, text: '/login' }));
+  expect((await pools.root.query(`select is_blocked from hdu_contact_identities where user_id = $1`, [f.aUser.userId])).rows[0].is_blocked).toBe(false);
+  expect(tg.bot.sent.at(-1)?.linkButton?.url).toMatch(/\/ru\/login\/tg\?token=/);
+});

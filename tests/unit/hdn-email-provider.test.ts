@@ -184,3 +184,19 @@ test('чтение вложения прерывается по пределу �
   await expect(make(fetch).download('https://cdn.example.test/slow', 1000)).rejects.toThrow(MailError);
   expect(Date.now() - started).toBeLessThan(2000);
 });
+
+test('обрыв связи посреди тела вложения: ошибка, а не обрезанный файл (итоговая проверка M4b, I4)', async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => {
+    let sent = false;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (!sent) {
+          sent = true;
+          controller.enqueue(new Uint8Array(4));
+        } else controller.error(new Error('ECONNRESET'));
+      },
+    });
+    return new Response(body, { status: 200 });
+  });
+  await expect(make(fetch).download('https://cdn.example.test/reset', 1000)).rejects.toThrow(MailError);
+});

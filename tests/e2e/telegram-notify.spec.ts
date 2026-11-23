@@ -97,8 +97,13 @@ test('сценарий M4b: клиент без email привязывает Tel
   expect(notice?.text).toContain('Не печатается накладная');
   expect(notice?.text).not.toContain('Секретный');
   expect(notice?.reply_markup?.inline_keyboard?.flat()).toEqual([{ text: 'Открыть в портале', url: `http://localhost:3100/ru/tickets/SUP-${number}` }]);
-  // Почта о своих обращениях выключена: письма об ответе нет.
-  expect(await dbRows(`select 1 from hdn_outbox o join hdt_tickets t on t.ticket_id = o.ticket_id where t.number = $1 and o.channel = 'email'`, [number])).toEqual([]);
+  // Почта о своих обращениях выключена: обычного письма об ответе нет, есть только запасное к сообщению в Telegram.
+  expect(
+    await dbRows<{ fallback: boolean }>(
+      `select o.fallback_for is not null as fallback from hdn_outbox o join hdt_tickets t on t.ticket_id = o.ticket_id where t.number = $1 and o.channel = 'email'`,
+      [number],
+    ),
+  ).toEqual([{ fallback: true }]);
 
   // Повторная доставка события не создаёт второго ответа бота.
   const before = (await sentTo(telegramId)).length;

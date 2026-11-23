@@ -208,7 +208,7 @@
 Команды выполняются из `/opt/smartup-hub`.
 
 - [ ] База: `hubc up -d postgres`. Проверка: `hubc ps` показывает `postgres` в состоянии healthy.
-- [ ] Начальная настройка базы: `hubc run --rm bootstrap`. Создаются роли `hub_owner`, `hub_app`, `hub_auth`, база `hub`, расширения `vector` и `pg_trgm`. Повторный запуск безопасен.
+- [ ] Начальная настройка базы: `hubc run --rm bootstrap`. Создаются роли `hub_owner`, `hub_app`, `hub_auth`, база `hub`, расширения `vector`, `pg_trgm` и `pg_stat_statements` (в схеме `ops`). Повторный запуск безопасен.
 - [ ] Удалить `.env.bootstrap`: `shred -u .env.bootstrap`. Пароли уже в менеджере паролей.
 - [ ] Миграции: `hubc run --rm migrate`. В конце строка "Применено миграций: N" (при повторе "База актуальна, новых миграций нет"). Здесь же ставятся очереди фонового процесса.
 - [ ] Запуск всех служб: `hubc up -d`. Первое обновление баз ClamAV идёт до 10 минут, фоновый процесс ждёт его.
@@ -327,7 +327,7 @@
 
 - [ ] Дежурные заданы в "Настройки", "Уведомления и почта": портал сам шлёт им сигнал письмом и в чат, если упали фоновые задачи, встала отправка писем, письма клиентов не разбираются дольше 10 минут, за 15 минут 20 неудачных входов сотрудников или найден заражённый файл. Один вид сигнала приходит не чаще раза в час.
 - [ ] Журнал служб в формате JSON: `hubc logs web worker`. События: `db.slow_tx` (транзакция дольше 250 мс), `job.failed`, `outbox.state`, `ops.alerts_sent`. Журнал доступа с временем ответа каждого запроса: `hubc logs caddy`.
-- [ ] Медленные запросы базы: `hubc logs postgres | grep duration` (запросы дольше 250 мс, без значений параметров). Самые тяжёлые за всё время: `hubc exec -T postgres psql -U postgres -d hub -c "select calls, round(mean_exec_time) as ms, left(query, 100) from pg_stat_statements order by total_exec_time desc limit 20"`.
+- [ ] Медленные запросы базы: `hubc logs postgres | grep duration` (запросы дольше 250 мс, без значений параметров). Самые тяжёлые за всё время: `hubc exec -T postgres psql -U postgres -d hub -c "select calls, round(mean_exec_time) as ms, left(query, 100) from ops.pg_stat_statements order by total_exec_time desc limit 20"`.
 - [ ] Внешняя проверка доступности раз в минуту по адресу `https://<домен>/api/ready` с сигналом в Telegram-чат дежурных. Проверка работает вне сервера портала.
 - [ ] Сигнал при заполнении диска, памяти или процессора на 80% (агент мониторинга хостинга).
 - [ ] Свободное место под журналы и копии: не меньше 30% диска.

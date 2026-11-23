@@ -173,7 +173,9 @@ services:
       - -c
       - archive_mode=${PG_ARCHIVE_MODE:-off}
       - -c
-      - archive_command=test ! -f /wal-archive/%f && cp %p /wal-archive/%f.tmp && mv /wal-archive/%f.tmp /wal-archive/%f
+      # sync: сегмент и каталог записаны на диск до ответа базе. Иначе после внезапной перезагрузки база считала бы
+      # сегмент сохранённым, а в архиве лежал бы обрезанный файл под его именем.
+      - archive_command=test ! -f /wal-archive/%f && cp %p /wal-archive/%f.tmp && sync /wal-archive/%f.tmp && mv /wal-archive/%f.tmp /wal-archive/%f && sync /wal-archive
       - -c
       - archive_timeout=300
     mem_limit: ${PG_MEM_LIMIT:-3g}

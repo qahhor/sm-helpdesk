@@ -112,3 +112,29 @@ test('письмо, которое успел разобрать другой п
   const kept = `quarantine/${all[0].attachment_id}`;
   expect([...box.storage.objects.keys()].filter((key) => key.startsWith('quarantine/'))).toEqual([kept]);
 });
+
+test('хранилище отказало посреди загрузки и не дало убрать файл: строка остаётся очистке (проверка волны 2)', async () => {
+  const t = f.tickets.aOrg;
+  const { inboundId } = await receive(box, { to: [signedTo(t.number, f.aUser.userId)], text: 'Вот снимки', attachments: [file('a.png'), file('b.png')] });
+  const put = box.storage.put.bind(box.storage);
+  const remove = box.storage.remove.bind(box.storage);
+  let puts = 0;
+  box.storage.put = async (key, data, mime) => {
+    if (++puts === 2) throw new Error('хранилище недоступно');
+    return put(key, data, mime);
+  };
+  box.storage.remove = async () => {
+    throw new Error('хранилище недоступно');
+  };
+  await expect(intakeEmail(SYSTEM, inboundId)).rejects.toThrow();
+  box.storage.put = put;
+  box.storage.remove = remove;
+  // Первый файл остался в хранилище. У каждого оставшегося файла есть строка: по ней его найдёт суточная очистка.
+  const keys = [...box.storage.objects.keys()].filter((key) => key.startsWith('quarantine/'));
+  expect(keys).toHaveLength(1);
+  const rows = (await pools.root.query(`select storage_key from hdt_attachments where ticket_id is null and file_name in ('a.png', 'b.png')`)).rows.map((r) => r.storage_key as string);
+  for (const key of keys) expect(rows).toContain(key);
+  await pools.root.query(`begin; set local session_replication_role = replica; update hdt_attachments set created_on = now() - interval '2 days' where ticket_id is null; commit`);
+  await sweepAttachments({ type: 'system', job: 'attachment.sweep' });
+  expect([...box.storage.objects.keys()].filter((key) => key.startsWith('quarantine/'))).toEqual([]);
+});

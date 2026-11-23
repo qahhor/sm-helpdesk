@@ -22,7 +22,7 @@ export { outboxFailedSince, outboxState } from '../core/outbox';
 
 const MESSAGES = { ru, uz, en } as const;
 
-export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing', 'inbound_held'] as const;
+export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing', 'inbound_held', 'unidentified_flood'] as const;
 export type OpsAlertCode = (typeof OPS_ALERT_CODES)[number];
 export type OpsAlert = { code: OpsAlertCode; count: number; minutes?: number };
 
@@ -33,7 +33,7 @@ export async function staleInboundCount(actor: SystemActor, now: Date): Promise<
 
 /**
  * Входящие письма, которые с указанного времени остановил предел частоты: письмо получено, но в обращение не попало.
- * Так виден поток писем с неизвестных адресов, при котором общий предел придерживает и письма новых клиентов.
+ * Срабатывают пределы на адрес отправителя и на обращение (письма "на проверке").
  */
 export async function heldInboundCount(actor: SystemActor, since: Date): Promise<number> {
   return heldInboundSince(actor, since);

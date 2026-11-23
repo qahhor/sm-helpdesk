@@ -197,3 +197,19 @@ test('придержанные письма: за час сработал пре
   // В сигнале только число: без адресов и тем.
   expect(chat[0]).not.toContain('example.uz');
 });
+
+test('поток обращений с неизвестных адресов: 60 и больше за час, дежурные получают число (проверка волны 2)', async () => {
+  const flood = (n: number) =>
+    pools.root.query(
+      `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source, status, queue)
+       select app.service_org_id(), $1, 'question', 'minor', 'p3', 'private', 'Письмо ' || g, 'Текст', 'ru', 'email', 'new', 'l1' from generate_series(1, $2::int) g`,
+      [f.aUser.userId, n],
+    );
+  // Служебная организация "Неопознанные" заводится первым письмом с неизвестного адреса; здесь строкой.
+  await pools.root.query(`insert into hdu_organizations (org_id, name, kind) values (app.service_org_id(), 'Неопознанные', 'service') on conflict do nothing`);
+  await flood(59);
+  expect(await watch()).toEqual([]);
+  await flood(1);
+  expect(await watch()).toEqual(['unidentified_flood']);
+  expect(chat).toEqual([opsAlertText({ code: 'unidentified_flood', count: 60 })]);
+});

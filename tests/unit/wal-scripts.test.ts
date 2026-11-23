@@ -15,7 +15,7 @@ const RESTORE = join(process.cwd(), 'scripts/ops/restore-pitr.sh');
 const SEGMENT_A = '000000010000000000000003';
 const SEGMENT_B = '000000010000000000000004';
 
-function sandbox(opts: { ageFails?: boolean; rcloneFails?: boolean; emptyBase?: boolean } = {}) {
+function sandbox(opts: { ageFails?: boolean; rcloneFails?: boolean; emptyBase?: boolean; archiveOff?: boolean } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'hub-wal-'));
   const bin = join(root, 'bin');
   const wal = join(root, 'wal-archive');
@@ -33,7 +33,9 @@ function sandbox(opts: { ageFails?: boolean; rcloneFails?: boolean; emptyBase?: 
       : `echo "$@" >> "${root}/age.args"; out=""; in=""; while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift;; -r) shift;; *) in="$1";; esac; shift; done; { printf 'AGE:'; if [ -n "$in" ]; then tr 'A-Z' 'N-ZA-M' < "$in"; else tr 'A-Z' 'N-ZA-M'; fi; } > "$out"`,
   );
   stub('rclone', opts.rcloneFails ? `echo "$@" >> "${root}/rclone.args"; echo "rclone: нет связи" >&2; exit 1` : `echo "$@" >> "${root}/rclone.args"; if [ "$1" = "copy" ]; then mkdir -p "${root}/remote"; cp "$2" "${root}/remote/"; fi`);
-  stub('docker', opts.emptyBase ? 'exit 0' : `printf 'PLAIN-BASE-%.0s' {1..200}`);
+  // docker compose exec: вопрос о режиме архива (psql) или поток базовой копии (pg_basebackup).
+  const mode = opts.archiveOff ? 'off' : 'on';
+  stub('docker', `case "$*" in *archive_mode*) echo ${mode};; *) ${opts.emptyBase ? 'exit 0' : "printf 'PLAIN-BASE-%.0s' {1..200}"};; esac`);
   const env = (extra: Record<string, string> = {}) => ({
     ...process.env,
     PATH: `${bin}:${process.env.PATH}`,
@@ -129,6 +131,16 @@ test('базовая копия шифруется потоком до запи�
   expect(empty.read('rclone.args')).toBe('');
 });
 
+test('базовая копия при выключенном архиве журнала не делается: без сегментов она не восстанавливается (проверка волны 2)', () => {
+  const box = sandbox({ archiveOff: true });
+  const result = box.run(BASE);
+  expect(result.status).not.toBe(0);
+  expect(result.stderr).toContain('PG_ARCHIVE_MODE');
+  expect(box.read('rclone.args')).toBe('');
+  // Сценарий остановился до работы с каталогом копий.
+  expect(existsSync(join(box.backups, 'base'))).toBe(false);
+});
+
 test('восстановление на момент времени отказывает без нужных аргументов и не трогает непустой каталог', () => {
   const box = sandbox();
   expect(box.run(RESTORE).status).not.toBe(0);
@@ -153,6 +165,10 @@ test('архив журнала в настройках базы выключе�
   expect(setting('archive_mode')).toBe('archive_mode=${PG_ARCHIVE_MODE:-off}');
   expect(setting('archive_timeout')).toBe('archive_timeout=300');
   // Сегмент появляется в каталоге целиком: сначала под временным именем, затем переименование.
-  expect(setting('archive_command')).toBe('archive_command=test ! -f /wal-archive/%f && cp %p /wal-archive/%f.tmp && mv /wal-archive/%f.tmp /wal-archive/%f');
+  // Сегмент и каталог записываются на диск до ответа базе (sync): после внезапной перезагрузки в архиве не окажется
+  // обрезанный файл под именем готового сегмента (проверка волны 2).
+  expect(setting('archive_command')).toBe(
+    'archive_command=test ! -f /wal-archive/%f && cp %p /wal-archive/%f.tmp && sync /wal-archive/%f.tmp && mv /wal-archive/%f.tmp /wal-archive/%f && sync /wal-archive',
+  );
   expect(pg.volumes).toContain('./wal-archive:/wal-archive');
 });

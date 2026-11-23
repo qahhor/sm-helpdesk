@@ -123,7 +123,11 @@ test('листание уведомлений не теряет строки с 
   for (let page = 0; page < 5; page++) {
     const rows = await listNotifications(f.aUser.actor, before ? { before } : {});
     if (rows.length === 0) break;
-    for (const row of rows) seen.add(row.notificationId);
+    for (const row of rows) {
+      // Строка не показывается дважды: повтор на стыке страниц множество бы скрыло.
+      expect(seen.has(row.notificationId)).toBe(false);
+      seen.add(row.notificationId);
+    }
     before = rows.at(-1)?.notificationId;
   }
   // Ни одна строка пользователя не потеряна и не показана дважды (у него могут быть и уведомления из заготовки).

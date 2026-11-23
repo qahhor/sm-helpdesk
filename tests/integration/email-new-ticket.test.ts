@@ -1,7 +1,8 @@
 import { beforeEach, expect, test } from 'vitest';
 import { dispatchOutbox } from '@/modules/hdn/api/outbox';
+import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { asActor, pools } from './helpers/db';
-import { deliver as deliverTo, inboundPerTest, type Letter, ticketCount } from './helpers/inbound';
+import { deliver as deliverTo, inboundPerTest, type Letter, receive, SYSTEM, ticketCount } from './helpers/inbound';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
 // Новое обращение из письма и опознание отправителя (FR-EM-01, FR-EM-03, FR-EM-05..07, FR-EM-09, FR-EM-10;
@@ -164,11 +165,19 @@ test('повтор по Message-ID сверяет отправителя: чуж
   expect(await ticketCount()).toBe(before);
 });
 
-test('общий предел на новые обращения с неизвестных адресов: 61-е за час не создаётся (M4, мелкое 9)', async () => {
-  for (let i = 0; i < 60; i++) expect((await deliver({ from: `sender${i}@unknown${i}.uz`, subject: `Письмо ${i}` })).result, String(i)).toBe('new');
-  const before = await ticketCount();
-  expect((await deliver({ from: 'sender61@unknown61.uz', subject: 'Письмо 61' })).result).toBe('rate_limited');
-  expect(await ticketCount()).toBe(before);
-  // Подтверждённого клиента общий предел не касается.
-  expect((await deliver({ subject: 'Письмо клиента' })).result).toBe('new');
+test('поток писем с неизвестных адресов письма не теряет: 61-е за час тоже становится обращением (проверка волны 2)', async () => {
+  for (let i = 0; i < 61; i++) expect((await deliver({ from: `sender${i}@unknown${i}.uz`, subject: `Письмо ${i}` })).result, String(i)).toBe('new');
 }, 120_000);
+
+test('повтор разбора того же письма предел частоты не расходует (проверка волны 2)', async () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const { inboundId } = await receive(box, { from: 'retry@unknown.uz', subject: 'Письмо с файлом', attachments: [{ filename: 'a.png', contentType: 'image/png', data: PNG }] });
+  // Хранилище недоступно: разбор падает 12 раз подряд, как при повторах фоновой задачи. Предел на адрес 10 в час.
+  const put = box.storage.put.bind(box.storage);
+  box.storage.put = async () => {
+    throw new Error('хранилище недоступно');
+  };
+  for (let attempt = 0; attempt < 12; attempt++) await expect(intakeEmail(SYSTEM, inboundId)).rejects.toThrow();
+  box.storage.put = put;
+  expect(await intakeEmail(SYSTEM, inboundId)).toBe('new');
+});

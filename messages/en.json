@@ -1863,7 +1863,8 @@
       "staff_signin_failures": "Smartup Hub: failed staff sign-ins in 15 minutes: {count}. Someone may be guessing a password.",
       "infected_files": "Smartup Hub: infected files found in the last hour: {count}.",
       "archive_failing": "Smartup Hub: the database log archive is not being saved, failed attempts: {count}. Check the archive directory and disk space.",
-      "inbound_held": "Smartup Hub: the rate limit stopped {count} inbound emails within an hour. They were not added to requests. A flood from unknown addresses is possible."
+      "inbound_held": "Smartup Hub: the rate limit stopped {count} inbound emails within an hour. They were not added to requests: too many emails from one address or to one request.",
+      "unidentified_flood": "Smartup Hub: {count} requests were created from emails from unknown addresses within an hour. A flood is possible. Check \"Unidentified\" and the mail settings."
     }
   },
   "dev": {

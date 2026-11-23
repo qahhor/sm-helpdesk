@@ -1,4 +1,5 @@
 import { beforeEach, expect, test } from 'vitest';
+import { contacts, registerContactDirectory } from '@/modules/hdc/contacts';
 import { dispatchOutbox } from '@/modules/hdn/api/outbox';
 import type { EmailProvider } from '@/modules/hdn/provider';
 import { createMemoryEmailProvider, type MemoryEmailProvider } from '@/modules/hdn/testing';
@@ -107,4 +108,24 @@ test('сбой отдельных писем не останавливает о�
   expect(result).toEqual({ sent: 30, failed: 0, skipped: 0 });
   expect(await statuses()).toEqual({ sent: 30, queued: 10 });
   expect((await pools.root.query(`select min(attempts)::int as a, bool_and(next_attempt_on > now()) as later from hdn_outbox where status = 'queued'`)).rows[0]).toEqual({ a: 1, later: true });
+});
+
+test('сбой чтения получателя не запоминается на весь запуск: остальные письма уходят (проверка волны 2)', async () => {
+  await queue(3);
+  const real = contacts();
+  let calls = 0;
+  registerContactDirectory({
+    ...real,
+    mailRecipient: async (userId) => {
+      if (++calls === 1) throw new Error('база не ответила');
+      return real.mailRecipient(userId);
+    },
+  });
+  try {
+    // Раньше отказ запоминался вместе с ожиданием: все письма этому получателю в запуске теряли попытку.
+    expect(await dispatchOutbox(SYSTEM, new Date(), provider, null, { concurrency: 1 })).toEqual({ sent: 2, failed: 0, skipped: 0 });
+  } finally {
+    registerContactDirectory(real);
+  }
+  expect(await statuses()).toEqual({ sent: 2, queued: 1 });
 });

@@ -21,6 +21,14 @@ BASE_KEEP_DAYS="${BASE_KEEP_DAYS:-15}"
 # Копия меньше этого размера считается пустой: pg_basebackup не отдал данные.
 MIN_BYTES=1024
 
+# Копия снимается без журнала (-X none): без архива сегментов её не восстановить. При выключенном архиве сценарий
+# отказывает, а не сообщает об удачной копии, которой нельзя воспользоваться.
+mode=$(docker compose -f "$HUB_DIR/compose.prod.yaml" exec -T postgres psql -U postgres -Atc 'show archive_mode')
+if [ "$mode" != "on" ]; then
+  echo "Архив журнала базы выключен (archive_mode=${mode:-неизвестно}): базовая копия без него не восстанавливается. Включите PG_ARCHIVE_MODE=on и перезапустите базу" >&2
+  exit 1
+fi
+
 umask 077
 mkdir -p "$BACKUP_DIR/base"
 file="$BACKUP_DIR/base/base-$(date -u +%Y%m%dT%H%M%SZ).tar.age"

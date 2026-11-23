@@ -1863,7 +1863,8 @@
       "staff_signin_failures": "Smartup Hub: 15 daqiqada xodimlarning muvaffaqiyatsiz kirishlari: {count}. Parol tanlanayotgan bo'lishi mumkin.",
       "infected_files": "Smartup Hub: bir soatda topilgan zararlangan fayllar: {count}.",
       "archive_failing": "Smartup Hub: baza jurnali arxivi saqlanmayapti, muvaffaqiyatsiz urinishlar: {count}. Arxiv katalogi va diskdagi joyni tekshiring.",
-      "inbound_held": "Smartup Hub: bir soat ichida tezlik chegarasi {count} ta kiruvchi xatni to'xtatdi. Ular murojaatlarga tushmadi. Noma'lum manzillardan xatlar oqimi bo'lishi mumkin."
+      "inbound_held": "Smartup Hub: bir soat ichida tezlik chegarasi {count} ta kiruvchi xatni to'xtatdi. Ular murojaatlarga tushmadi: bitta manzildan yoki bitta murojaatga juda ko'p xat keldi.",
+      "unidentified_flood": "Smartup Hub: bir soat ichida noma'lum manzillardan kelgan xatlardan {count} ta murojaat yaratildi. Xatlar oqimi bo'lishi mumkin. \"Aniqlanmaganlar\" va pochta sozlamalarini ko'ring."
     }
   },
   "dev": {

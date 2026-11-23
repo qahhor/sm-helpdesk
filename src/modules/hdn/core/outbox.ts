@@ -127,7 +127,17 @@ async function deliverTelegram(row: Row, run: RunMemo): Promise<Outcome> {
 /** Одно чтение на запуск: значение запоминается вместе с ожиданием, одновременные отправки ждут один запрос. */
 function once<T>(load: () => Promise<T>): () => Promise<T> {
   let value: Promise<T> | undefined;
-  return () => (value ??= load());
+  return () => {
+    if (!value) {
+      const loading = load();
+      value = loading;
+      // Отказ не запоминается: иначе одно неудачное чтение провело бы через ошибку всю очередь запуска.
+      loading.catch(() => {
+        if (value === loading) value = undefined;
+      });
+    }
+    return value;
+  };
 }
 
 /** То же по ключу: адрес и чат получателя читаются один раз на запуск, сколько бы писем ему ни шло. */
@@ -135,7 +145,13 @@ function oncePerKey<T>(load: (key: string) => Promise<T>): (key: string) => Prom
   const values = new Map<string, Promise<T>>();
   return (key) => {
     let value = values.get(key);
-    if (!value) values.set(key, (value = load(key)));
+    if (!value) {
+      const loading = load(key);
+      values.set(key, (value = loading));
+      loading.catch(() => {
+        if (values.get(key) === loading) values.delete(key);
+      });
+    }
     return value;
   };
 }
@@ -301,17 +317,22 @@ export async function dispatchOutbox(
     if (claimed.length === 0) break;
     email ??= await getEmailProvider();
     const mailer = email;
-    // Общая очередь пачки: каждый из исполнителей берёт следующую строку, пока есть время.
-    const waiting = [...claimed];
     const untouched: string[] = [];
-    await Promise.all(
-      Array.from({ length: Math.min(concurrency, waiting.length) }, async () => {
-        for (let row = waiting.shift(); row; row = waiting.shift()) {
-          if (clock() >= deadline) untouched.push(row.outboxId);
-          else await sendRow(actor, now, row, mailer, run, result);
-        }
-      }),
-    );
+    // Общая очередь прохода: каждый из исполнителей берёт следующую строку, пока есть время.
+    const drain = async (waiting: Row[]) => {
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, waiting.length) }, async () => {
+          for (let row = waiting.shift(); row; row = waiting.shift()) {
+            if (clock() >= deadline) untouched.push(row.outboxId);
+            else await sendRow(actor, now, row, mailer, run, result);
+          }
+        }),
+      );
+    };
+    // Запасные письма идут вторым проходом: к этому времени итог сообщения Telegram из той же пачки уже записан,
+    // и письмо не уходит вместе с ним (итоговая проверка волны 2).
+    await drain(claimed.filter((row) => !row.fallbackFor));
+    await drain(claimed.filter((row) => row.fallbackFor));
     if (untouched.length > 0) {
       await withActor(actor, (tx) =>
         tx

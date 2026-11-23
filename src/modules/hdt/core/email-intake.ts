@@ -175,30 +175,10 @@ async function stageFiles(actor: SystemActor, owner: { orgId: string; uploaderId
     }
     return created;
   });
-  try {
-    for (const [index, file] of files.entries()) await getStorage().put(quarantineKey(ids[index] as string), file.data, file.mime);
-  } catch (error) {
-    await discardStaged(actor, ids);
-    throw error;
-  }
+  // Сбой здесь оставляет строки без обращения (и, возможно, часть файлов): их убирает суточная очистка загрузок.
+  // Убрать их сразу нельзя: политика базы разрешает удалять только неприкреплённые строки старше суток.
+  for (const [index, file] of files.entries()) await getStorage().put(quarantineKey(ids[index] as string), file.data, file.mime);
   return ids;
-}
-
-/** Загрузки, которые не понадобились (письмо уже разобрал другой процесс, разбор упал): строки и файлы убираются. */
-async function discardStaged(actor: SystemActor, ids: string[]): Promise<void> {
-  if (ids.length === 0) return;
-  try {
-    const removed = await withActor(actor, (tx) =>
-      tx
-        .delete(attachments)
-        .where(and(inArray(attachments.attachmentId, ids), isNull(attachments.ticketId)))
-        .returning({ attachmentId: attachments.attachmentId }),
-    );
-    for (const row of removed) await getStorage().remove(quarantineKey(row.attachmentId));
-  } catch (error) {
-    // Остаток уберёт очистка загрузок: строка без обращения старше суток удаляется вместе с файлом.
-    console.error(`Загрузки письма не убраны сразу: ${error instanceof Error ? error.message : 'ошибка'}`);
-  }
 }
 
 /** Прикрепляет загрузки письма к обращению и сообщению в транзакции разбора. Проверку антивирусом ставит вызывающий после фиксации. */
@@ -211,22 +191,6 @@ async function attachStagedTx(tx: Tx, target: { ticketId: string; messageId: str
     .returning({ attachmentId: attachments.attachmentId });
   if (attached.length !== ids.length) throw new Error('hdt: загрузка письма не найдена');
   return ids;
-}
-
-/**
- * Разбор с загрузками: если транзакция упала или письмо уже разобрано (итог не тот, которого ждал вызывающий),
- * загрузки убираются.
- */
-async function withStaged<T extends InboundClass>(actor: SystemActor, ids: string[], expected: T, run: () => Promise<InboundClass>): Promise<InboundClass> {
-  let result: InboundClass;
-  try {
-    result = await run();
-  } catch (error) {
-    await discardStaged(actor, ids);
-    throw error;
-  }
-  if (result !== expected) await discardStaged(actor, ids);
-  return result;
 }
 
 /**
@@ -254,7 +218,7 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
   const queued: string[] = [];
   const staged = await stageFiles(actor, { orgId: ticket.orgId, uploaderId: client.userId }, files);
   let attached = false;
-  const result = await withStaged(actor, staged, 'reply', () => withActor(actor, async (tx) => {
+  const result = await withActor(actor, async (tx) => {
     const done = await alreadyDone(tx, row);
     if (done) return done;
     const current = (await tx.select({ status: tickets.status }).from(tickets).where(eq(tickets.ticketId, ticket.ticketId)).limit(1).for('update'))[0];
@@ -284,9 +248,8 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
     if (row.messageId) await recordThreadTx(tx, { ticketId: ticket.ticketId, messageId: row.messageId, inReplyTo: inReplyToOf(letter.headers), direction: 'in' });
     await markInboundTx(tx, row.inboundId, { classification: 'reply', ticketId: ticket.ticketId, headers: letter.headers, dmarcAligned: letter.aligned });
     return 'reply' as const;
-  }));
+  });
   // Итог "reply" мог прийти и от другого процесса, который разобрал письмо раньше: тогда наши загрузки лишние.
-  if (!attached) await discardStaged(actor, staged);
   await afterCommit(attached ? queued : []);
   return result;
 }
@@ -321,6 +284,15 @@ async function reviewNote(actor: SystemActor, letter: Letter, ticket: Ticket): P
   });
 }
 
+/**
+ * Первая ли это попытка разбора письма. Пределы частоты считают письма, а не попытки: повтор фоновой задачи после
+ * сбоя (например, хранилище недоступно) предел не расходует, иначе само письмо закрылось бы как rate_limited
+ * (итоговая проверка волны 2).
+ */
+async function firstAttempt(inboundId: string): Promise<boolean> {
+  return (await consumeRateLimit(`email-intake:letter:${inboundId}`, RATE_RULES.emailLetterOnce)).allowed;
+}
+
 /** Письмо в найденное обращение: публикация от имени клиента или заметка на проверку. */
 async function intoTicket(actor: SystemActor, letter: Letter, ticket: Ticket, userId: string | null): Promise<InboundClass> {
   // Закрытое дольше срока повторного открытия не открывается (FR-TK-12): письмо становится новым обращением.
@@ -330,13 +302,15 @@ async function intoTicket(actor: SystemActor, letter: Letter, ticket: Ticket, us
   if (client) return publishReply(actor, letter, ticket, client);
   // Заметки на проверку ограничены: подписанный адрес виден в пересланном письме, адрес участника подделывается
   // (итоговая проверка M4, замечание I11).
-  const limit = await consumeRateLimit(rateKey('email-review:sender', letter.row.fromAddress), RATE_RULES.emailReviewPerSender);
-  if (!limit.allowed) return finish(actor, letter, 'rate_limited', ticket.ticketId);
-  // И на обращение: адрес отправителя в письме произвольный, предел на адрес обходится сменой адреса (находка S12).
-  const perTicket = await consumeRateLimit(`email-review:ticket:${ticket.ticketId}`, RATE_RULES.emailReviewPerTicket);
-  if (!perTicket.allowed) {
-    await heldNote(actor, ticket);
-    return finish(actor, letter, 'rate_limited', ticket.ticketId);
+  if (await firstAttempt(letter.row.inboundId)) {
+    const limit = await consumeRateLimit(rateKey('email-review:sender', letter.row.fromAddress), RATE_RULES.emailReviewPerSender);
+    if (!limit.allowed) return finish(actor, letter, 'rate_limited', ticket.ticketId);
+    // И на обращение: адрес отправителя в письме произвольный, предел на адрес обходится сменой адреса (находка S12).
+    const perTicket = await consumeRateLimit(`email-review:ticket:${ticket.ticketId}`, RATE_RULES.emailReviewPerTicket);
+    if (!perTicket.allowed) {
+      await heldNote(actor, ticket);
+      return finish(actor, letter, 'rate_limited', ticket.ticketId);
+    }
   }
   return reviewNote(actor, letter, ticket);
 }
@@ -348,12 +322,6 @@ type Sender = { orgId: string; userId: string; visibility: Visibility; senderUnc
  * обращение в его организации от его имени. Домен организации с DMARC: гость в этой организации, личное, отметка
  * "отправитель не подтверждён". Иначе гость служебной организации "Неопознанные". Без DMARC адрес ничего не доказывает.
  */
-/** Письмо прошло DMARC и пришло от подтверждённого пользователя или с домена организации. Записей не создаёт. */
-async function isKnownSender(letter: Letter): Promise<boolean> {
-  if (!letter.aligned) return false;
-  return letter.owner !== null || (await orgByEmailDomain(letter.row.fromAddress.split('@')[1] ?? '')) !== null;
-}
-
 async function identifySender(letter: Letter): Promise<Sender> {
   const { row, aligned } = letter;
   if (aligned) {
@@ -390,13 +358,7 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
   const { row } = letter;
   // Предел для подтверждённого клиента с DMARC свой: подделки под его адрес не исчерпывают его (замечание I7).
   const limitKey = letter.owner ? rateKey('email-ticket:user', letter.owner.userId) : rateKey('email-ticket:sender', row.fromAddress);
-  const limit = await consumeRateLimit(limitKey, RATE_RULES.emailTicketPerSender);
-  if (!limit.allowed) return finish(actor, letter, 'rate_limited');
-  // Общий предел на письма с неизвестных адресов (M4, мелкое 9): предел на адрес обходится сменой адреса, и поток
-  // таких писем заваливал бы "Неопознанные". Клиента с DMARC и домен организации с DMARC он не касается.
-  // Проверка стоит до опознания: сверх предела не создаётся и запись гостя.
-  if (!(await isKnownSender(letter)) && !(await consumeRateLimit('email-ticket:unidentified-total', RATE_RULES.emailTicketUnidentifiedTotal)).allowed)
-    return finish(actor, letter, 'rate_limited');
+  if ((await firstAttempt(row.inboundId)) && !(await consumeRateLimit(limitKey, RATE_RULES.emailTicketPerSender)).allowed) return finish(actor, letter, 'rate_limited');
   const sender = await identifySender(letter);
   // Наблюдатели только у обращения организации: личное коллеги не видят (решение 17 плана M2).
   const watchers = sender.identified ? await colleaguesInCopy(row.ccAddresses, sender.orgId, sender.userId) : [];
@@ -406,7 +368,7 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
   const queued: string[] = [];
   const staged = await stageFiles(actor, { orgId: sender.orgId, uploaderId: sender.userId }, files);
   let attached = false;
-  const result = await withStaged(actor, staged, 'new', () => withActor(actor, async (tx) => {
+  const result = await withActor(actor, async (tx) => {
     const done = await alreadyDone(tx, row);
     if (done) return done;
     const created = await createEmailTicketTx(tx, {
@@ -428,8 +390,7 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
     if (row.messageId) await recordThreadTx(tx, { ticketId: created.ticketId, messageId: row.messageId, inReplyTo: inReplyToOf(letter.headers), direction: 'in' });
     await markInboundTx(tx, row.inboundId, { classification: 'new', ticketId: created.ticketId, headers: letter.headers, dmarcAligned: letter.aligned });
     return 'new' as const;
-  }));
-  if (!attached) await discardStaged(actor, staged);
+  });
   await afterCommit(attached ? queued : []);
   return result;
 }

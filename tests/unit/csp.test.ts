@@ -70,3 +70,8 @@ test('адрес хранилища для политики берётся из 
   expect(csp).toContain('connect-src \'self\' https://acct.r2.cloudflarestorage.com');
   expect(csp).toContain("img-src 'self' data: blob: https://acct.r2.cloudflarestorage.com");
 });
+
+test('политика действует, а не только пишет отчёты (аудит 23.11.2026, находка S2)', async () => {
+  const { CSP_HEADER } = await import('@/security/csp');
+  expect(CSP_HEADER).toBe('Content-Security-Policy');
+});

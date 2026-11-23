@@ -73,12 +73,15 @@ export function buildCsp(opts: {
   ].join('; ');
 }
 
-/** До вехи M9 политика работает в режиме отчётов (ТЗ 14.4): нарушения видны, страница не ломается. */
-export const CSP_HEADER = 'Content-Security-Policy-Report-Only';
+/**
+ * Политика действует (ТЗ 14.4; аудит 23.11.2026, находка S2): нарушение блокируется, отчёт о нём приходит порталу.
+ * До волны 0 плана аудита она работала в режиме отчётов; браузерные тесты подтвердили, что страницы её не нарушают.
+ */
+export const CSP_HEADER = 'Content-Security-Policy';
 
 /** Заголовки, одинаковые для всех ответов. Их ставит next.config.ts. */
 export const STATIC_SECURITY_HEADERS = [
-  // Действует уже сейчас, пока полная политика работает в режиме отчётов: портал нельзя встроить
+  // Для ответов, которые не идут через прокси (обработчики /api, файлы): портал нельзя встроить
   // в чужую страницу. Для страниц виджета /embed запрет заменит список серверов Smartup (веха M4).
   { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'none'; object-src 'none'" },
   { key: 'X-Content-Type-Options', value: 'nosniff' },

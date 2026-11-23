@@ -75,13 +75,13 @@ test('серверное действие с чужого сайта откло�
 
 test('страницы входа и кабинета отвечают с заголовками безопасности, кабинет без кеша', async ({ page, request }) => {
   const login = (await request.get('/ru/login')).headers();
-  expect(login['content-security-policy-report-only']).toContain("frame-ancestors 'none'");
+  expect(login['content-security-policy']).toContain("frame-ancestors 'none'");
   expect(login['x-content-type-options']).toBe('nosniff');
   await signInAsCustom(page, { sub: uniqueSub(), name: 'Заголовки', company_id: '501', company_name: 'ACME Trade' });
   const portal = await page.request.get('/ru/settings');
   expect(portal.status()).toBe(200);
   expect(portal.headers()['cache-control']).toContain('no-store');
-  expect(portal.headers()['content-security-policy-report-only']).toContain("frame-ancestors 'none'");
+  expect(portal.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
 });
 
 test('вебхук бота без секретного заголовка отклоняется', async ({ request }) => {

@@ -2,9 +2,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { parse } from 'yaml';
 
-// Настройка CI готова, но выключена по решению владельца продукта (docs/decisions/0011).
-// GitHub запускает только файлы из .github/workflows, поэтому файл лежит рядом, в другой папке.
-const wf = parse(readFileSync('.github/workflows-disabled/ci.yml', 'utf8'));
+// Проверки GitHub Actions включены решением владельца от 24.11.2026 (решение 0041, пункт 6; до этого решение 0011).
+const wf = parse(readFileSync('.github/workflows/ci.yml', 'utf8'));
 const dockerfile = readFileSync('Dockerfile', 'utf8');
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 
@@ -19,9 +18,9 @@ test('сторонние действия закреплены по хешу', (
   expect(uses.filter((u) => !/@[0-9a-f]{40}$/.test(u))).toEqual([]);
 });
 
-test('GitHub Actions выключен: в папке .github/workflows нет ни одного файла', () => {
-  const active = existsSync('.github/workflows') ? readdirSync('.github/workflows') : [];
-  expect(active).toEqual([]);
+test('GitHub Actions включён: настройка лежит в .github/workflows, выключенной копии нет', () => {
+  expect(readdirSync('.github/workflows')).toEqual(['ci.yml']);
+  expect(existsSync('.github/workflows-disabled')).toBe(false);
 });
 
 test('у задач только право чтения репозитория', () => {
@@ -70,17 +69,32 @@ test('команда hub попадает в образ', () => {
   expect(pkg.scripts.build).toContain('scripts/build-cli.mjs');
 });
 
-test('браузерным тестам в CI заданы ключи портала и записаны ложные серверы Smartup (M1)', () => {
-  const env = wf.jobs.e2e.env as Record<string, string>;
-  expect(env.HUB_URL).toBe('http://localhost:3100');
-  expect(env.BETTER_AUTH_SECRET.length).toBeGreaterThanOrEqual(32);
-  expect(Buffer.from(env.ENCRYPTION_KEY, 'base64')).toHaveLength(32);
-  expect(env.ENCRYPTION_KEY).not.toBe(env.BETTER_AUTH_SECRET);
+test('браузерные тесты в CI готовят окружение так же, как на машине разработчика', () => {
+  // Файл .env с одноразовыми значениями создаётся до сборки; базу, роли, миграции и ложные серверы Smartup готовит
+  // tests/e2e/global-setup.ts. Отдельной базы и своих ключей у задачи нет: два способа подготовки расходились.
+  expect(wf.jobs.e2e.env).toBeUndefined();
+  expect(wf.jobs.e2e.services).toBeUndefined();
   const steps = (wf.jobs.e2e.steps as { run?: string }[]).map((step) => step.run ?? '');
-  const migrate = steps.indexOf('pnpm db:migrate');
-  const mocks = steps.indexOf('node scripts/dev-up.mjs --mocks-only');
-  expect(mocks).toBeGreaterThan(migrate);
-  expect(mocks).toBeLessThan(steps.indexOf('pnpm test:e2e'));
+  const envFile = steps.indexOf('node scripts/dev-up.mjs --env-only');
+  expect(envFile).toBeGreaterThan(-1);
+  expect(envFile).toBeLessThan(steps.indexOf('pnpm build'));
+  expect(steps.indexOf('pnpm build')).toBeLessThan(steps.indexOf('pnpm test:e2e'));
+});
+
+test('замеры бюджета и Lighthouse идут после подготовки базы разработки', () => {
+  // Оба замера открывают страницу входа, а она читает базу из .env. Браузерные тесты готовят только свою базу hub_e2e.
+  const steps = (wf.jobs.e2e.steps as { run?: string }[]).map((step) => step.run ?? '');
+  const prepare = steps.indexOf('node scripts/dev-up.mjs --prepare');
+  expect(prepare).toBeGreaterThan(-1);
+  expect(prepare).toBeLessThan(steps.indexOf('pnpm budget'));
+  expect(steps.indexOf('pnpm budget')).toBeLessThan(steps.indexOf('pnpm lighthouse'));
+});
+
+test('оценка Lighthouse считается по медиане трёх замеров с порогами ТЗ', () => {
+  const rc = JSON.parse(readFileSync('lighthouserc.json', 'utf8')).ci;
+  expect(rc.collect.numberOfRuns).toBe(3);
+  expect(rc.assert.assertions['categories:performance']).toEqual(['error', { minScore: 0.85, aggregationMethod: 'median' }]);
+  expect(rc.assert.assertions['categories:accessibility']).toEqual(['error', { minScore: 0.95, aggregationMethod: 'median' }]);
 });
 
 test('контейнер в задаче image получает все обязательные переменные окружения (итоговая проверка M1)', () => {

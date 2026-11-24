@@ -93,3 +93,29 @@ test('свои таблицы, комментарии, схема и код вн
   expect(rules('tests/integration/x.test.ts', 'pools.root.query(`select 1 from hdt_tickets`)')).toEqual([]);
   expect(rules('src/worker/main.ts', "console.info('hdn_outbox');")).toEqual([]);
 });
+
+// Шаблон поиска собирает только код (решение 0041, вопрос 19 владельца). Оператор ILIKE отмечен в базе как
+// безопасный для выполнения раньше политик RLS. Это честно, пока шаблон не может кончаться знаком экранирования:
+// такая ошибка зависела бы от содержимого невидимой строки. Поэтому файл с поиском по шаблону обязан экранировать.
+
+test('шаблон поиска собирает только src/db/contains.ts', () => {
+  const rules = (path: string, text: string) => findForbiddenApis(path, text).map((v) => v.rule);
+  const file = 'src/modules/hdt/core/x.ts';
+  expect(rules(file, 'const rows = await tx.select().from(t).where(ilike(t.title, `%${query}%`));')).toEqual(['like-pattern']);
+  expect(rules(file, 'where(like(t.title, pattern))')).toEqual(['like-pattern']);
+  // Экранирование рядом правило не снимает: помощник один, свой шаблон собирать нельзя.
+  expect(rules(file, 'const p = `%${likeEscape(q)}%`;\nwhere(ilike(t.title, p))')).toEqual(['like-pattern']);
+  // Оператор в тексте запроса: параметр, склейка, сокращённая запись.
+  expect(rules(file, 'sql`${t.title} ilike ${pattern}`')).toEqual(['like-pattern']);
+  expect(rules(file, "sql`select 1 from t where title ilike '%' || ${q} || '%'`")).toEqual(['like-pattern']);
+  expect(rules(file, 'sql`${t.title} ~~* ${pattern}`')).toEqual(['like-pattern']);
+  expect(rules(file, 'await db.query("select 1 from t where title ilike $1", [p])')).toEqual(['like-pattern']);
+  // Две проверки в строке: константа не прикрывает шаблон из переменной.
+  expect(rules(file, "and(like(a.key, 'files/%'), ilike(a.name, pattern))")).toEqual(['like-pattern']);
+  // Разрешено: общий помощник, шаблон строкой в коде, слово в комментарии, сам файл помощника.
+  expect(rules(file, 'where(containsText(t.title, query))')).toEqual([]);
+  expect(rules(file, "where(like(attachments.storageKey, 'files/%'))")).toEqual([]);
+  expect(rules(file, '// оператор ILIKE не отмечен как безопасный')).toEqual([]);
+  expect(rules(file, "sql`${attachments.storageKey} like 'files/%'`")).toEqual([]);
+  expect(rules('src/db/contains.ts', 'return ilike(column, `%${escapeLike(text)}%`);')).toEqual([]);
+});

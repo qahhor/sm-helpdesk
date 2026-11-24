@@ -70,8 +70,14 @@ test('журнал читает только администратор порт
   for (const actor of [agentL1, { ...agentL1, staffRole: 'care' as const }, clientA, system]) expect(await read(actor), actor.type).toEqual([]);
   await expect(asActor(pools.auth, admin, (c) => c.query('select 1 from hdc_audit_log'))).rejects.toThrow(/permission denied/);
   for (const pool of [pools.app, pools.auth])
-    for (const sql of [`update hdc_audit_log set action = 'x'`, 'delete from hdc_audit_log', 'truncate hdc_audit_log'])
+    for (const sql of [`update hdc_audit_log set action = 'x'`, 'truncate hdc_audit_log'])
       await expect(asActor(pool, admin, (c) => c.query(sql)), sql).rejects.toThrow(/permission denied/);
+  await expect(asActor(pools.auth, admin, (c) => c.query('delete from hdc_audit_log'))).rejects.toThrow(/permission denied/);
+  // Право удаления у роли приложения есть ради срока хранения в 3 года (решение 0041), но политика пускает только
+  // систему и только записи старше срока: свежую запись не удаляет никто, включая администратора и систему.
+  for (const actor of [admin, agentL1, clientA, system])
+    expect((await asActor(pools.app, actor, (c) => c.query('delete from hdc_audit_log'))).rowCount, actor.type).toBe(0);
+  expect((await pools.root.query(`select count(*)::int as n from hdc_audit_log where object_id = 'read-1'`)).rows[0].n).toBe(1);
 });
 
 test('запись откатывается вместе с действием', async () => {

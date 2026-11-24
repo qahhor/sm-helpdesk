@@ -5,7 +5,7 @@ import { pingDatabases, type ReadyOptions } from '@/db/ready';
 
 export { healthResponse, readyResponse } from './util';
 // Журнал аудита для экрана администратора (FR-ADM-07).
-export { AUDIT_PAGE_SIZE, type AuditRow, listAudit } from './audit';
+export { AUDIT_PAGE_SIZE, AUDIT_RETENTION_YEARS, type AuditRow, cleanupAudit, listAudit } from './audit';
 export { HdcError, isHdcError } from './error';
 // Для других модулей: запись аудита в транзакции их действия, счётчики частоты, адрес посетителя,
 // ответы обработчиков. Внутренние файлы модуля другим модулям не видны (правило линтера, проверка main, Q6).

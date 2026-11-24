@@ -16,6 +16,7 @@ import {
 } from '../pref';
 import { accountHooks, beforeHook, createSessionHooks, type StaffLookup } from './hooks';
 import { type SsoServer, toSsoProviders, trustedOriginsFor } from './sso-providers';
+import { setGuardedOrigins } from '@/security/outbound-dispatcher';
 import { hubTrusted } from './trusted';
 
 // Настройки библиотеки входа Better Auth (ТЗ 11.2, решение 0012).
@@ -62,6 +63,8 @@ function cookieOptions(https: boolean) {
 }
 
 export function buildAuthOptions(deps: AuthDeps) {
+  // Запросы библиотеки входа к этим узлам проверяют адрес в момент соединения (решение 0041, вопрос 18).
+  setGuardedOrigins(trustedOriginsFor(deps.baseUrl, deps.servers).filter((origin) => origin !== new URL(deps.baseUrl).origin));
   return {
     appName: 'Smartup Hub',
     // Таблицы библиотеки лежат в схеме auth. Транзакции нужны входу через сервер Smartup:

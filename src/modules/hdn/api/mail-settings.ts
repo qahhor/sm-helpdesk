@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
-import { desc, eq, like } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
+import { containsExact } from '@/db/contains';
 import * as z from 'zod';
 import { withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
@@ -78,7 +79,7 @@ export async function inboundTestStatus(value: string): Promise<InboundTestStatu
   const test = (await inboundTests())[value.toLowerCase()];
   if (!test) return 'never';
   const rows = await withActor(SYSTEM, (tx) =>
-    tx.select({ id: emailInbound.inboundId }).from(emailInbound).where(like(emailInbound.subject, `%${test.token}%`)).limit(1),
+    tx.select({ id: emailInbound.inboundId }).from(emailInbound).where(containsExact(emailInbound.subject, test.token)).limit(1),
   );
   return rows.length > 0 ? 'received' : 'waiting';
 }

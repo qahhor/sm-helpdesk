@@ -89,3 +89,47 @@ test('удаляет только система: сотрудник и клие
   }
   expect(await left('hdn_outbox', 'outbox_id')).toEqual([sent]);
 });
+
+// --- Журнал аудита хранится 3 года (вопрос 16, решение владельца 24.11.2026; план W4, задача 3) ---
+
+async function auditRow(ageDays: number): Promise<string> {
+  const row = await pools.root.query(
+    `insert into hdc_audit_log (actor_type, action, object_type, object_id, created_on)
+     values ('system', 'settings.changed', 'setting', 'probe-' || $1::text, now() - make_interval(days => $1::int)) returning audit_id`,
+    [ageDays],
+  );
+  return row.rows[0].audit_id as string;
+}
+const auditIds = async () => new Set((await pools.root.query(`select audit_id from hdc_audit_log where object_id like 'probe-%'`)).rows.map((r) => r.audit_id as string));
+
+test('ночная очистка удаляет записи журнала аудита старше 3 лет и не трогает остальные', async () => {
+  const { cleanupAudit } = await import('@/modules/hdc/api');
+  const old = await auditRow(3 * 365 + 2);
+  const edge = await auditRow(3 * 365 - 2);
+  const fresh = await auditRow(1);
+  expect(await cleanupAudit(SYSTEM)).toBe(1);
+  const left = await auditIds();
+  expect(left.has(old)).toBe(false);
+  expect(left.has(edge)).toBe(true);
+  expect(left.has(fresh)).toBe(true);
+  expect(await cleanupAudit(SYSTEM)).toBe(0);
+});
+
+test('журнал аудита не удаляет никто, кроме системы, и никто не удаляет записи моложе 3 лет', async () => {
+  const old = await auditRow(3 * 365 + 2);
+  const fresh = await auditRow(1);
+  // Сотрудник, администратор и клиент: удаление не проходит (нет права или политика не пускает ни одну строку).
+  for (const who of [f.adminStaff.actor, f.l1.actor, f.aAdmin.actor]) {
+    // Запрос проходит (право у роли есть), но политика не отдаёт ему ни одной строки.
+    const removed = await asActor(pools.app, who, (db) => db.query(`delete from hdc_audit_log where object_id like 'probe-%' returning audit_id`));
+    expect(removed.rows, who.type).toEqual([]);
+  }
+  // Система: свежая запись не удаляется даже прямым запросом без условия на возраст.
+  const bySystem = await asActor(pools.app, SYSTEM, (db) => db.query(`delete from hdc_audit_log where object_id like 'probe-%' returning audit_id`));
+  expect(bySystem.rows.map((r) => r.audit_id)).toEqual([old]);
+  expect((await auditIds()).has(fresh)).toBe(true);
+  // Второй замок: ограничивающая политика держит срок, какую бы разрешающую ни добавили позже.
+  const guard = await pools.root.query(`select permissive, qual from pg_policies where tablename = 'hdc_audit_log' and policyname = 'hdc_audit_log_delete_guard'`);
+  expect(guard.rows[0]?.permissive).toBe('RESTRICTIVE');
+  expect(guard.rows[0]?.qual).toContain("'3 years'");
+});

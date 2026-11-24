@@ -3,7 +3,7 @@ import { isIP } from 'node:net';
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
-import { type Actor, withActor } from '@/db/with-actor';
+import { type Actor, type SystemActor, withActor } from '@/db/with-actor';
 import { HdcError } from './error';
 import { AUDIT_ACTIONS, type AuditAction } from './pref';
 import { auditLog } from './schema';
@@ -152,4 +152,26 @@ export async function listAudit(ctx: { actor: Actor }, input: unknown): Promise<
   );
   const items = rows.slice(0, AUDIT_PAGE_SIZE).map((row) => ({ ...row, action: row.action as AuditAction, diff: row.diff ?? null }));
   return { items, nextCursor: rows.length > AUDIT_PAGE_SIZE ? (items.at(-1)?.auditId ?? null) : null };
+}
+
+/** Срок хранения журнала аудита, лет (ТЗ 14.6; решение владельца 24.11.2026). Тот же срок стоит в политике базы. */
+export const AUDIT_RETENTION_YEARS = 3;
+
+/**
+ * Ночная очистка журнала: записи старше срока хранения, пачками, чтобы не держать долгую блокировку. Возвращает число
+ * удалённых записей. Более свежую запись не удалит и ошибочный вызов: её не пускает политика базы.
+ */
+export async function cleanupAudit(actor: SystemActor, now: Date = new Date()): Promise<number> {
+  const before = new Date(now);
+  before.setUTCFullYear(before.getUTCFullYear() - AUDIT_RETENTION_YEARS);
+  let total = 0;
+  for (let batch = 0; batch < 100; batch++) {
+    const removed = await withActor(actor, (tx) =>
+      tx.execute(sql`delete from hdc_audit_log where audit_id in (select audit_id from hdc_audit_log where created_on < ${before.toISOString()}::timestamptz limit 5000)`),
+    );
+    const count = removed.rowCount ?? 0;
+    total += count;
+    if (count < 5000) break;
+  }
+  return total;
 }

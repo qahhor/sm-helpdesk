@@ -8,8 +8,9 @@
 
 // - модуль не называет таблицу другого модуля в тексте запроса: нужное даёт api модуля-владельца (аудит
 //   23.11.2026, находка A2). Линтер импортов такую связь не видит.
+// - поиск по шаблону (LIKE, ILIKE) только через src/db/contains.ts, где шаблон экранируется (решение 0041).
 
-/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql' | 'system-actor' | 'cross-module-sql'} ForbiddenRule */
+/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql' | 'system-actor' | 'cross-module-sql' | 'like-pattern'} ForbiddenRule */
 
 // Единственный файл, где разрешена вставка разметки: скрипт темы до первой отрисовки.
 const INNER_HTML_ALLOWED = new Set(['src/ui/theme/ThemeScript.tsx']);
@@ -35,6 +36,15 @@ function namesForeignTable(owner, line) {
   for (const match of code.matchAll(TABLE_NAME)) if (match[1] !== owner) return true;
   return owner !== 'hdu' && AUTH_TABLE.test(code);
 }
+
+// Поиск по шаблону собирает только src/db/contains.ts (решение 0041): вызов ilike и like построителя запросов,
+// оператор в тексте запроса (ilike, like, ~~, ~~*) в остальном коде запрещены. Шаблон, записанный в коде строкой
+// ('files/%'), от человека не приходит и допускается.
+const LIKE_HOME = 'src/db/contains.ts';
+const LIKE_CALL = /\b(?:ilike|like|notIlike|notLike)\(/;
+const LIKE_CONSTANT = /\b(?:ilike|like)\([^,()]+,\s*'[^'$]*'\)/g;
+const LIKE_RAW_CONSTANT = /\si?like\s+'[^'$]*'(?!\s*\|\|)/gi;
+const LIKE_RAW = /(?:\s(?:not\s+)?i?like\s+(?:\$|'|\(|:)|~~\*?)/i;
 
 /** @type {{ rule: ForbiddenRule; test: RegExp }[]} */
 const RULES = [
@@ -77,6 +87,11 @@ export function findForbiddenApis(path, text) {
     if (REQUEST_CODE.test(path) && SYSTEM_ACTOR.test(lines[i])) found.push({ line: i + 1, rule: 'system-actor' });
     const owner = MODULE_FILE.exec(path)?.[1];
     if (owner && namesForeignTable(owner, lines[i])) found.push({ line: i + 1, rule: 'cross-module-sql' });
+    // Шаблон поиска собирает только общий помощник: иначе экранирование легко забыть (решение 0041).
+    if (path !== LIKE_HOME && !/^\s*(\/\/|\*|\/\*)/.test(lines[i])) {
+      const code = lines[i].replace(/\/\/.*$/, '').replace(LIKE_CONSTANT, '').replace(LIKE_RAW_CONSTANT, '');
+      if (LIKE_CALL.test(code) || (/sql`|\.query\(|\.execute\(/.test(text) && LIKE_RAW.test(code))) found.push({ line: i + 1, rule: 'like-pattern' });
+    }
   }
   return found;
 }

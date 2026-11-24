@@ -21,7 +21,7 @@ export default async function ClientTicketsPage({ searchParams }: { searchParams
   const format = await getFormatter();
   const search = await searchParams;
   const filters = { scope: search.scope === 'mine' ? 'mine' : 'org', status: search.status, type: search.type, q: search.q, cursor: search.cursor };
-  let page: Awaited<ReturnType<typeof listTickets>> = { items: [], nextCursor: null, searchTooShort: false };
+  let page: Awaited<ReturnType<typeof listTickets>> = { items: [], nextCursor: null, searchTooShort: false, searchLimited: false };
   try {
     page = await listTickets(client, filters);
   } catch (error) {
@@ -82,7 +82,7 @@ export default async function ClientTicketsPage({ searchParams }: { searchParams
       <Card>
         {page.items.length === 0 ? (
           filtered ? (
-            <p className="p-4 text-muted-foreground">{t(page.searchTooShort ? 'tickets.list.tooShort' : 'tickets.list.nothing')}</p>
+            <p className="p-4 text-muted-foreground">{t(page.searchLimited ? 'tickets.list.limited' : page.searchTooShort ? 'tickets.list.tooShort' : 'tickets.list.nothing')}</p>
           ) : (
             <EmptyState withTez title={t('tickets.emptyTitle')} text={t('tickets.emptyText')} />
           )

@@ -1,6 +1,7 @@
 import 'server-only';
 import { searchable } from '@/modules/hdc/pref';
-import { and, asc, eq, ilike, inArray, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { containsText } from '@/db/contains';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { authUser } from '../auth-schema';
@@ -12,17 +13,15 @@ import { isSyntheticEmail } from '../util';
 // withIdentity под ролью hub_auth (разрешённое исключение CLAUDE.md), и только для сотрудника.
 
 const LOOKUP_LIMIT = 200;
-const likeEscape = (text: string) => text.replace(/[\\%_]/g, (char) => `\\${char}`);
 
 /** Организации по названию или ИНН. */
 export async function findOrgIdsTx(actor: StaffActor, query: string): Promise<string[]> {
   if (!searchable(query)) return [];
-  const pattern = `%${likeEscape(query)}%`;
   const rows = await withActor(actor, (tx) =>
     tx
       .select({ orgId: organizations.orgId })
       .from(organizations)
-      .where(or(ilike(organizations.name, pattern), ilike(organizations.inn, pattern)))
+      .where(or(containsText(organizations.name, query), containsText(organizations.inn, query)))
       .limit(LOOKUP_LIMIT),
   );
   return rows.map((row) => row.orgId);
@@ -31,12 +30,11 @@ export async function findOrgIdsTx(actor: StaffActor, query: string): Promise<st
 /** Люди по имени или подтверждённому адресу. Служебные адреса без почты не ищутся. */
 export async function findUserIdsTx(actor: StaffActor, query: string): Promise<string[]> {
   if (!searchable(query)) return [];
-  const pattern = `%${likeEscape(query)}%`;
   const rows = await withIdentity(actor, (tx) =>
     tx
       .select({ id: authUser.id, email: authUser.email, emailVerified: authUser.emailVerified, name: authUser.name })
       .from(authUser)
-      .where(or(ilike(authUser.name, pattern), and(eq(authUser.emailVerified, true), ilike(authUser.email, pattern))))
+      .where(or(containsText(authUser.name, query), and(eq(authUser.emailVerified, true), containsText(authUser.email, query))))
       .limit(LOOKUP_LIMIT),
   );
   return rows

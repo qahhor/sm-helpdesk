@@ -166,7 +166,13 @@ export async function migrate(opts = {}) {
     }
     // Схема очереди задач: после миграций, потому что 0012 заранее выдаёт права на её будущие объекты.
     await installPgBoss(ownerUrl);
-    return { applied };
+    // Отметку для поиска по тексту ставит начальная настройка базы под суперпользователем (решение 0041): в дамп
+    // и в обновление старшей версии PostgreSQL она не переносится. Без неё поиск правильный, но медленный: индексы
+    // по тексту не используются. Миграции её поставить не могут, поэтому говорят об этом явно.
+    const leakproof = await client.query(`select proleakproof from pg_proc where oid = 'pg_catalog.texticlike(text, text)'::regprocedure`);
+    const searchIndexed = leakproof.rows[0]?.proleakproof === true;
+    if (!searchIndexed) console.warn('Поиск по тексту идёт без индекса: запустите начальную настройку базы (bootstrap), она ставит отметку оператору ILIKE');
+    return { applied, searchIndexed };
   } finally {
     await client.query('select pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {});
     await client.end();

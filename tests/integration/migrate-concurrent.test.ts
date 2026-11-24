@@ -34,12 +34,12 @@ test('файл с отметкой выполняется вне транзак�
     '9001_w2_probe_table.sql': TABLE,
     '9002_w2_probe_index.sql': `-- hub:no-transaction\n-- Индексы пробной таблицы.\nCREATE INDEX CONCURRENTLY IF NOT EXISTS w2_probe_i1 ON w2_probe (id);\nCREATE INDEX CONCURRENTLY IF NOT EXISTS w2_probe_i2 ON w2_probe (tag) WHERE tag IS NOT NULL;\n`,
   });
-  expect(await migrate({ dir })).toEqual({ applied: 2 });
+  expect(await migrate({ dir })).toEqual({ applied: 2, searchIndexed: true });
   expect(await indexes()).toEqual([
     { indexname: 'w2_probe_i1', valid: true },
     { indexname: 'w2_probe_i2', valid: true },
   ]);
-  expect(await migrate({ dir })).toEqual({ applied: 0 });
+  expect(await migrate({ dir })).toEqual({ applied: 0, searchIndexed: true });
 });
 
 test('без отметки CREATE INDEX CONCURRENTLY по-прежнему не применяется: файл идёт в транзакции', async () => {
@@ -77,7 +77,7 @@ test('сбой посреди файла не отмечает его приме
   ]);
   // Причина устранена: повтор удаляет недействительный индекс и строит его заново.
   await pools.owner.query(`update w2_probe set tag = id::text`);
-  expect(await migrate({ dir })).toEqual({ applied: 1 });
+  expect(await migrate({ dir })).toEqual({ applied: 1, searchIndexed: true });
   expect(await indexes()).toEqual([
     { indexname: 'w2_probe_i1', valid: true },
     { indexname: 'w2_probe_i2', valid: true },

@@ -158,3 +158,15 @@ test('письмо о закрытии автору несёт пять ссыл
   const waiting = await renderMail('ticket_status', 'ru', { ...common, template: 'ticket_status', ...ticket, status: 'waiting_customer', rateUrl });
   expect(waiting.html).not.toContain('/rate?');
 });
+
+test('письмо дежурным о P1 не несёт тему обращения: только номер, организация и ссылка (решение владельца 24.11.2026)', async () => {
+  for (const locale of LOCALES) {
+    const mail = await renderMail('oncall_p1', locale, { ...common, ...SAMPLES.oncall_p1 });
+    expect(mail.subject, locale).not.toContain(ticket.title);
+    expect(mail.html, locale).not.toContain(ticket.title);
+    expect(mail.text, locale).not.toContain(ticket.title);
+    expect(mail.text, locale).toContain('SUP-1042');
+    expect(mail.text, locale).toContain('ООО Клиент');
+    expect(mail.html, locale).toContain('https://hub.example.test/ru/agent/tickets/1042');
+  }
+});

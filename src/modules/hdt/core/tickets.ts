@@ -1,5 +1,6 @@
 import 'server-only';
-import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
+import { containsText } from '@/db/contains';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
@@ -225,7 +226,6 @@ export type ListedTicket = {
 };
 
 /** Экранирует знаки шаблона LIKE: поиск идёт по тексту как он есть. */
-const likeText = (text: string) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 /** Обращения, видимые актору (политики RLS), новые изменения первыми, на одну строку больше страницы. */
 export async function listTicketRows(actor: ClientActor, filters: ListFilters): Promise<ListedTicket[]> {
@@ -236,7 +236,7 @@ export async function listTicketRows(actor: ClientActor, filters: ListFilters): 
   // Поиск: номер обращения или текст темы и описания. Цифры ищутся и как номер, и как текст (код ошибки, документ).
   const search: SQL[] = [];
   if (filters.number !== undefined) search.push(eq(tickets.number, filters.number));
-  if (filters.text) search.push(ilike(tickets.title, likeText(filters.text)), ilike(tickets.description, likeText(filters.text)));
+  if (filters.text) search.push(containsText(tickets.title, filters.text), containsText(tickets.description, filters.text));
   if (search.length > 0) where.push(or(...search) as SQL);
   if (filters.after) where.push(sql`(${tickets.modifiedOn}, ${tickets.ticketId}) < (${filters.after.modifiedOn}::timestamptz, ${filters.after.ticketId}::uuid)`);
   return withActor(actor, (tx) =>

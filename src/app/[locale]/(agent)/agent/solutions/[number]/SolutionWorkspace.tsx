@@ -1,8 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { usePathname, useRouter } from 'next/navigation';
 import { type ComponentProps, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { SolutionDoc } from '@/modules/hdk/api/doc';
+import type { SolutionReview } from '@/modules/hdk/api/editor';
 import { AUTOSAVE_INTERVAL_MS, TITLE_MAX } from '@/modules/hdk/api/constants';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
@@ -12,7 +14,8 @@ import { Select } from '@/ui/components/select';
 import { loadImageFile } from '@/ui/doc/markup';
 import type { ScreenshotLabels } from '@/ui/doc/ScreenshotMarkup';
 import type { SolutionEditorLabels } from '@/ui/doc/editor/SolutionEditor';
-import { completeFileAction, fileStatusAction, presignFileAction, saveDraftAction, saveMetaAction } from '../actions';
+import { completeFileAction, fileStatusAction, markReadAction, presignFileAction, publishAction, saveDraftAction, saveMetaAction } from '../actions';
+import { type ReviewLabels, ReviewPanel } from './ReviewPanel';
 
 // Рабочая область редактора решения (план M5, задача 3; UX-W-01..04): заголовок, модуль, флаг "только через
 // сотрудника", документ и автосохранение раз в 5 секунд с проверкой версии строки.
@@ -21,6 +24,8 @@ import { completeFileAction, fileStatusAction, presignFileAction, saveDraftActio
 // когда связь вернулась. Несохранённый текст лежит и в браузере (localStorage): перезагрузка страницы без сети его не
 // теряет. Конфликт (черновик изменили в другой вкладке): текст остаётся на странице и в браузере, сохранение
 // останавливается до перезагрузки, ничего не затирается.
+//
+// Под редактором панель готовности и находки проверки (задача 4): они обновляются после каждого сохранения.
 //
 // Редактор и окно разметки снимка грузятся отдельными файлами после показа страницы (решение 0046): первый экран
 // рабочего места укладывается в бюджет скриптов.
@@ -52,11 +57,18 @@ export type WorkspaceLabels = {
   reload: string;
   metaError: string;
   metaForbidden: string;
+  review: ReviewLabels;
 };
 
 type Version = { versionId: string; revision: string };
 type Backup = Version & { title: string; doc: SolutionDoc };
 type Status = 'saved' | 'dirty' | 'saving' | 'offline' | 'conflict' | 'error';
+
+/** Готовность после смены модуля: тот же расчёт, что у readiness() модуля, без повторного запроса. */
+function withModule(review: SolutionReview, hasModule: boolean): SolutionReview {
+  const items = { ...review.readiness.items, module: hasModule };
+  return { ...review, readiness: { ...review.readiness, items, ready: items.title && items.module && items.steps && items.textRead && !review.readiness.blocked } };
+}
 
 const POLL_MS = 1000;
 const POLL_LIMIT = 60;
@@ -111,11 +123,19 @@ function WorkspaceBody({
   meta,
   labels,
   filePath,
+  review: initialReview,
+  isMachine: initialMachine,
+  canPublish,
+  archived,
 }: {
   number: number;
   locale: string;
   initial: Backup;
   canWrite: boolean;
+  review: SolutionReview;
+  isMachine: boolean;
+  canPublish: boolean;
+  archived: boolean;
   modules: { moduleId: string; name: string }[];
   meta: {
     moduleId: string | null;
@@ -135,6 +155,10 @@ function WorkspaceBody({
   const [moduleId, setModuleId] = useState(meta.moduleId ?? '');
   const [internal, setInternal] = useState(meta.audience === 'internal');
   const [metaError, setMetaError] = useState<string | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [review, setReview] = useState(initialReview);
+  const [isMachine, setIsMachine] = useState(initialMachine);
   const [shot, setShot] = useState<{
     open: boolean;
     image: HTMLImageElement | null;
@@ -188,6 +212,7 @@ function WorkspaceBody({
         revision: response.result.revision,
       };
       setSavedAt(new Date());
+      setReview(response.result.review);
       if (editSeq.current === seq) {
         dirty.current = false;
         writeBackup(backupKey, null);
@@ -238,7 +263,7 @@ function WorkspaceBody({
         setMetaError(response.code === 'forbidden' ? labels.metaForbidden : labels.metaError);
         setModuleId(meta.moduleId ?? '');
         setInternal(meta.audience === 'internal');
-      }
+      } else setReview((current) => withModule(current, next.moduleId !== ''));
     } catch {
       setMetaError(labels.metaError);
     }
@@ -292,6 +317,41 @@ function WorkspaceBody({
   const onReady = useCallback((api: { insertImage: (image: { fileId: string; alt: string }) => void }) => {
     editorApi.current = api;
   }, []);
+
+  const showFinding = (blockId: string | null) => {
+    if (blockId === null) return document.getElementById('solution-title')?.focus();
+    const element = document.querySelector<HTMLElement>(`.doc-editor [data-id="${CSS.escape(blockId)}"]`);
+    element?.scrollIntoView({ block: 'center' });
+  };
+
+  const publish = async (confirmFindings: boolean) => {
+    const response = await publishAction({ number, locale, ...version.current, confirmFindings });
+    if (!response.ok) return 'failed' as const;
+    const outcome = response.outcome;
+    if (outcome.status === 'published') {
+      // Страница открывается заново: опубликованная версия, история и метки из базы.
+      router.replace(`${pathname}?done=published`);
+      router.refresh();
+      return 'published' as const;
+    }
+    if (outcome.status === 'not_ready') {
+      setReview({ findings: outcome.findings, readiness: outcome.readiness, filesNotClean: outcome.filesNotClean });
+      return 'not_ready' as const;
+    }
+    return 'conflict' as const;
+  };
+
+  const textRead = async () => {
+    const response = await markReadAction({ number, locale, ...version.current });
+    if (!response.ok || response.result.status !== 'read') return false;
+    version.current = { ...version.current, revision: response.result.revision };
+    setIsMachine(false);
+    setReview((current) => {
+      const items = { ...current.readiness.items, textRead: true };
+      return { ...current, readiness: { ...current.readiness, items, ready: items.title && items.module && items.steps && !current.readiness.blocked } };
+    });
+    return true;
+  };
 
   const statusText =
     status === 'saved'
@@ -386,11 +446,24 @@ function WorkspaceBody({
           insertImage={requestImage}
           onPasteImage={canWrite ? onPasteImage : undefined}
           onReady={onReady}
+          findingIds={review.findings.flatMap((finding) => (finding.blockId ? [finding.blockId] : []))}
           // Узлы ProseMirror несут атрибуты не простыми объектами: серверное действие их не передаёт. Копия через JSON
           // даёт простые данные, те же, что лягут в базу и в копию браузера.
           onChange={(doc) => changed({ doc: JSON.parse(JSON.stringify(doc)) as SolutionDoc })}
         />
       }
+      <ReviewPanel
+        review={review}
+        isMachine={isMachine}
+        canWrite={canWrite}
+        canPublish={canPublish}
+        archived={archived}
+        saved={status === 'saved'}
+        labels={labels.review}
+        onShow={showFinding}
+        onPublish={publish}
+        onTextRead={textRead}
+      />
       {/* Окно разметки грузится при первом открытии: его файл не входит в первый экран. */}
       {canWrite && shot.open && (
         <ScreenshotMarkup

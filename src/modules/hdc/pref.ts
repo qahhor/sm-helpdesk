@@ -224,6 +224,10 @@ export const RATE_RULES = {
   emailReviewHeldNote: { limit: 1, windowSec: 3600 },
   /** Отметка "письмо уже учтено в пределах частоты": повтор разбора того же письма пределы не расходует. */
   emailLetterOnce: { limit: 1, windowSec: 86_400 },
+  /** "Помогло" или "Не помогло" на странице решения (план M5, задача 4): один голос в сутки на решение и пользователя. */
+  kbFeedbackOnce: { limit: 1, windowSec: 86_400 },
+  /** Те же кнопки: 30 нажатий в час на пользователя по всем решениям. */
+  kbFeedbackPerUser: { limit: 30, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

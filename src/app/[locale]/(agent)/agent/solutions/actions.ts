@@ -8,6 +8,7 @@ import { createDraftArticle } from '@/modules/hdk/api/articles';
 import { solutionTemplate } from '@/modules/hdk/api/doc';
 import { restoreSolutionVersion, saveSolutionDraft, saveSolutionMeta, type SaveResult } from '@/modules/hdk/api/editor';
 import { isHdkError } from '@/modules/hdk/api/errors';
+import { archiveSolution, markSolutionTextRead, publishSolution, type PublishOutcome } from '@/modules/hdk/api/publish';
 import { completeSolutionFile, presignSolutionFile, type PresignedFile, solutionFileStatus } from '@/modules/hdk/api/files';
 import type { FileScanStatus } from '@/modules/hdk/pref';
 import { requireStaffActor } from '@/modules/hdu/api';
@@ -110,4 +111,31 @@ export async function completeFileAction(input: unknown): Promise<ActionResult<{
 export async function fileStatusAction(input: unknown): Promise<ActionResult<{ status: FileScanStatus }>> {
   const staff = await requireStaffActor();
   return attempt(() => solutionFileStatus(staff, input));
+}
+
+/** Публикация (задача 4): только agent_l2, care, admin; итог not_ready несёт находки и панель готовности. */
+export async function publishAction(input: unknown): Promise<ActionResult<{ outcome: PublishOutcome }>> {
+  const staff = await requireStaffActor();
+  return attempt(async () => ({ outcome: await publishSolution(staff, input) }));
+}
+
+/** "Текст прочитан" для текста модели (решение 15). */
+export async function markReadAction(input: unknown): Promise<ActionResult<{ result: Awaited<ReturnType<typeof markSolutionTextRead>> }>> {
+  const staff = await requireStaffActor();
+  return attempt(async () => ({ result: await markSolutionTextRead(staff, input) }));
+}
+
+/** Архив (решение 11): страница открывается заново с пометкой. */
+export async function archiveAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const number = String(form.get('number') ?? '');
+  const safeNumber = /^\d{1,12}$/.test(number) ? number : '';
+  try {
+    await archiveSolution(staff, { number });
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    redirect(`/${page}/agent/solutions/${safeNumber}?error=${error.code}`);
+  }
+  redirect(`/${page}/agent/solutions/${safeNumber}?done=archived`);
 }

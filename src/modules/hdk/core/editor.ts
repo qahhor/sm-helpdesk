@@ -109,7 +109,7 @@ async function nextNumberTx(tx: Tx, articleId: string, locale: Locale): Promise<
 }
 
 /** Новый черновик на языке: строка версии и ссылка на неё в строке языка (она есть у каждого языка статьи). */
-async function insertDraftTx(
+export async function insertDraftTx(
   tx: Tx,
   articleId: string,
   locale: Locale,

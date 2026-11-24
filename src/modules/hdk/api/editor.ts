@@ -3,9 +3,11 @@ import * as z from 'zod';
 import { withActor } from '@/db/with-actor';
 import { LOCALES, type Locale } from '@/i18n/locales';
 import type { StaffContext } from '@/modules/hdc/api';
-import { articleByNumberTx, currentVersion, foreignFileIdsTx, type ListRow, listArticlesTx, restoreVersionTx, saveDraftTx, updateMetaTx, versionsTx } from '../core/editor';
+import { articleByNumberTx, currentVersion, foreignFileIdsTx, type ListRow, listArticlesTx, restoreVersionTx, saveDraftTx, updateMetaTx, versionByIdTx, versionsTx } from '../core/editor';
+import { type Review, reviewTx } from '../core/publish';
 import { safeParseSolutionDoc, solutionDocSchema, type SolutionDoc } from '../doc-schema';
 import { HdkError } from '../error';
+import { readAllowedDomains } from './publish';
 import {
   ARTICLE_NUMBER_MAX,
   KB_AUDIENCES,
@@ -23,6 +25,7 @@ import {
 // проверяет то же политиками. Документ проходит закрытую схему до записи (ТЗ 18.10).
 
 export type { ListRow as SolutionListRow } from '../core/editor';
+export type { Review as SolutionReview } from '../core/publish';
 
 function parse<T>(schema: z.ZodType<T>, input: unknown): T {
   const parsed = schema.safeParse(input);
@@ -108,11 +111,14 @@ export type SolutionEditorState = {
   versions: EditorVersion[];
   canWrite: boolean;
   canPublish: boolean;
+  /** Находки FR-SOL-04 и панель готовности открытой версии (UX-W-07). */
+  review: Review;
 };
 
 /** Состояние редактора по номеру решения. Языки переводов появятся в задаче 6: пока язык оригинала. */
 export async function solutionEditorState(ctx: StaffContext, input: unknown): Promise<SolutionEditorState | null> {
   const data = parse(z.strictObject({ number, locale: locale.optional() }), input);
+  const allowedDomains = await readAllowedDomains();
   return withActor(ctx.actor, async (tx) => {
     const article = await articleByNumberTx(tx, data.number);
     if (!article) return null;
@@ -151,11 +157,12 @@ export async function solutionEditorState(ctx: StaffContext, input: unknown): Pr
       })),
       canWrite: canWriteSolutions(ctx),
       canPublish: canPublishSolutions(ctx),
+      review: await reviewTx(tx, article, { title: current.title, doc: safeDoc, isMachine: current.isMachine }, allowedDomains),
     };
   });
 }
 
-export type SaveResult = { status: 'saved'; versionId: string; revision: string } | { status: 'conflict' };
+export type SaveResult = { status: 'saved'; versionId: string; revision: string; review: Review } | { status: 'conflict' };
 
 /**
  * Автосохранение черновика (UX-W-04) с проверкой версии строки. Изменили в другой вкладке: конфликт, текст на
@@ -164,6 +171,7 @@ export type SaveResult = { status: 'saved'; versionId: string; revision: string 
 export async function saveSolutionDraft(ctx: StaffContext, input: unknown): Promise<SaveResult> {
   requireWriter(ctx);
   const data = parse(saveInput, input);
+  const allowedDomains = await readAllowedDomains();
   try {
     return await withActor(ctx.actor, async (tx) => {
       const article = await articleByNumberTx(tx, data.number);
@@ -178,7 +186,10 @@ export async function saveSolutionDraft(ctx: StaffContext, input: unknown): Prom
         doc: data.doc,
       });
       if (saved === null) throw new HdkError('not_found');
-      return saved === 'conflict' ? ({ status: 'conflict' } as const) : ({ status: 'saved', ...saved } as const);
+      if (saved === 'conflict') return { status: 'conflict' } as const;
+      // Находки и готовность по сохранённому тексту: редактор подсвечивает их после каждого сохранения.
+      const isMachine = (await versionByIdTx(tx, article.articleId, data.locale, saved.versionId))?.isMachine ?? false;
+      return { status: 'saved', ...saved, review: await reviewTx(tx, article, { title: data.title, doc: data.doc, isMachine }, allowedDomains) } as const;
     });
   } catch (error) {
     // Два первых сохранения после публикации одновременно: второе упирается в единственный черновик на язык.

@@ -12,7 +12,8 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 import { DocView } from '@/ui/doc/DocView';
 import type { SolutionEditorLabels } from '@/ui/doc/editor/SolutionEditor';
 import type { ScreenshotLabels } from '@/ui/doc/ScreenshotMarkup';
-import { restoreVersionAction } from '../actions';
+import { archiveAction, restoreVersionAction } from '../actions';
+import type { ReviewLabels } from './ReviewPanel';
 import { SolutionWorkspace, type WorkspaceLabels } from './SolutionWorkspace';
 
 // Редактор решения (план M5, задача 3; UX-W-01..05): документ с тремя блоками формы, модуль, флаг "только через
@@ -66,6 +67,7 @@ const SCREENSHOT_KEYS = [
   'canvas',
 ] as const satisfies readonly (keyof ScreenshotLabels)[];
 const ERRORS = new Set(['forbidden', 'invalid_input', 'not_found']);
+const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link'] as const;
 
 export default async function SolutionEditorPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<{ done?: string; error?: string }> }) {
   const staff = await requireStaffActor();
@@ -104,6 +106,27 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
     reload: s('save.reload'),
     metaError: s('errors.meta'),
     metaForbidden: s('errors.metaForbidden'),
+    review: {
+      title: s('review.title'),
+      items: { title: s('review.items.title'), module: s('review.items.module'), steps: s('review.items.steps'), checks: s('review.items.checks'), textRead: s('review.items.textRead') },
+      findingsTitle: s('review.findingsTitle'),
+      noFindings: s('review.noFindings'),
+      kinds: Object.fromEntries(FINDING_KINDS.map((kind) => [kind, s(`review.kinds.${kind}`)])) as ReviewLabels['kinds'],
+      inTitle: s('review.inTitle'),
+      show: s('review.show'),
+      blocking: s('review.blocking'),
+      filesNotClean: s('review.filesNotClean'),
+      machine: s('review.machine'),
+      textRead: s('review.textRead'),
+      confirm: s('review.confirm'),
+      publish: s('review.publish'),
+      publishing: s('review.publishing'),
+      republish: s('review.republish'),
+      saveFirst: s('review.saveFirst'),
+      notReady: s('review.notReady'),
+      conflict: s('review.conflict'),
+      failed: s('review.failed'),
+    },
   };
   const title = state.current.title || s('untitled');
   const published = state.publishedVersionId !== null;
@@ -129,6 +152,8 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
           <span className="text-sm text-secondary-foreground">{s('languageOf', { language: s(`locales.${state.locale}`) })}</span>
         </div>
         {done === 'restored' && <Alert tone="success">{s('versions.restored')}</Alert>}
+        {done === 'published' && <Alert tone="success">{s('review.published')}</Alert>}
+        {done === 'archived' && <Alert tone="success">{s('archive.done')}</Alert>}
         {error && ERRORS.has(error) && <Alert tone="danger">{s(`errors.${error}`)}</Alert>}
         {state.archived && <Alert tone="info">{s('archivedNotice')}</Alert>}
         {!state.canWrite && <Alert tone="info">{s('readOnly')}</Alert>}
@@ -157,6 +182,10 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
             }}
             labels={labels}
             filePath={filePath}
+            review={state.review}
+            isMachine={state.current.isMachine}
+            canPublish={state.canPublish}
+            archived={state.archived}
           />
         ) : (
           <Card className="p-4">
@@ -170,6 +199,21 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
               imageSrc={(fileId) => `${filePath}/${fileId}`}
             />
           </Card>
+        )}
+
+ {state.canPublish && published && !state.archived && (
+          <form action={archiveAction} className="flex flex-wrap items-center gap-3" data-testid="solution-archive">
+            <input type="hidden" name="number" value={state.number} />
+            <p className="text-sm text-secondary-foreground">{s('archive.hint')}</p>
+            {/* Снятие с портала необратимо для клиентов до новой публикации: отдельная отметка, браузер не отправит форму без неё. */}
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="confirm" required className="size-4 accent-primary" />
+              {s('archive.confirm')}
+            </label>
+            <Button type="submit" variant="danger" size="small">
+              {s('archive.submit')}
+            </Button>
+          </form>
         )}
 
         <section aria-labelledby="solution-versions" className="flex flex-col gap-3">

@@ -422,6 +422,37 @@
     },
     "footer": {
       "support": "Qo'llab-quvvatlash: <address></address>"
+    },
+    "solution": {
+      "module": "Modul: {module}",
+      "updated": "Yangilangan: {date}",
+      "newRequest": "Murojaat yaratish",
+      "notTranslated": "Yechim hali tilingizga tarjima qilinmagan. Matn shu tilda ko'rsatilgan: {language}.",
+      "machine": "Mashina tarjimasi.",
+      "outdated": "Tarjima asl nusxadan orqada qolishi mumkin.",
+      "original": "Asl nusxa: {language}",
+      "languages": {
+        "ru": "rus tili",
+        "uz": "o'zbek tili",
+        "en": "ingliz tili"
+      },
+      "archived": {
+        "title": "Yechim endi amal qilmaydi",
+        "text": "Bu yechim olib tashlangan. Muammo qolgan bo'lsa, murojaat yarating: yordam beramiz."
+      },
+      "view": {
+        "warning": "Diqqat",
+        "info": "Eslatma",
+        "step": "{n}-qadam"
+      },
+      "feedback": {
+        "question": "Yechim yordam berdimi?",
+        "helped": "Yordam berdi",
+        "notHelped": "Yordam bermadi",
+        "thanks": "Rahmat! Hal bo'lganidan xursandmiz.",
+        "sorry": "Afsus. Murojaat yarating: birga hal qilamiz.",
+        "failed": "Javobni yuborib bo'lmadi. Keyinroq urinib ko'ring."
+      }
     }
   },
   "agent": {
@@ -614,6 +645,10 @@
         "macros": {
           "title": "Makroslar",
           "text": "Murojaat bilan bir necha amal bir bosishda: javob shabloni, holat, teg, ijrochi."
+        },
+        "knowledge": {
+          "title": "Yechimlar",
+          "text": "Yechimlar havola qila oladigan domenlar."
         }
       },
       "servers": {
@@ -1678,6 +1713,22 @@
           "not_found": "Makros topilmadi. Ehtimol, u allaqachon o'chirilgan.",
           "too_many": "Ro'yxatda 50 ta makros bor. Keraksizini o'chiring."
         }
+      },
+      "knowledge": {
+        "title": "Yechimlar",
+        "intro": "Yechim faqat shu domenlar va ularning subdomenlariga havola qila oladi. Boshqa manzilga havola e'lon qilinmaydi, portal ichidagi havolalarga doim ruxsat bor.",
+        "label": "Ruxsat etilgan domenlar",
+        "hint": "Har birini alohida qatorda, vergul yoki bo'sh joy bilan. Manzil ham mos keladi: undan domen olinadi.",
+        "save": "Saqlash",
+        "saved": "Domenlar ro'yxati saqlandi.",
+        "empty": "Ro'yxat bo'sh: tashqi havolali yechimlar e'lon qilinmaydi.",
+        "reauth": "Qayta kirish",
+        "errors": {
+          "domain": "Bu domen emas: {value}. Hech narsa saqlanmadi.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
+          "forbidden": "Sozlamani faqat administrator o'zgartiradi.",
+          "invalid_input": "Domenlar juda ko'p: 50 tadan oshmasin."
+        }
       }
     },
     "queues": {
@@ -2562,6 +2613,49 @@
         "phone": "Telefon",
         "desktop": "Kompyuter",
         "hint": "Oxirgi saqlangan matn mijoz ko'radigan ko'rinishda."
+      },
+      "review": {
+        "title": "E'lon qilishga tayyorlik",
+        "items": {
+          "title": "Sarlavha",
+          "module": "Modul",
+          "steps": "Kamida bitta matnli qadam",
+          "checks": "Matn tekshiruvida topilma yo'q",
+          "textRead": "AI matni o'qildi"
+        },
+        "findingsTitle": "Tekshiruv topilmalari",
+        "noFindings": "Topilma yo'q.",
+        "kinds": {
+          "phone": "Telefon",
+          "email": "Email",
+          "inn": "STIR",
+          "pinfl": "JShShIR",
+          "digits": "Uzun raqam",
+          "server": "Server manzili",
+          "internal": "Ichki nom",
+          "link": "Ro'yxatdan tashqari havola"
+        },
+        "inTitle": "sarlavhada",
+        "show": "Ko'rsatish",
+        "blocking": "e'lon qilinmaydi",
+        "filesNotClean": "Matnda hali tekshirilmagan yoki tekshiruvdan o'tmagan rasm bor. Uni o'chiring yoki tekshiruvni kuting.",
+        "machine": "Matnni AI tayyorladi. E'lon qilishdan oldin uni to'liq o'qing.",
+        "textRead": "Matn o'qildi",
+        "confirm": "Topilmalarni tekshirdim: bu mijoz ma'lumotlari emas, ular bilan e'lon qilinsin",
+        "publish": "E'lon qilish",
+        "publishing": "E'lon qilinmoqda...",
+        "republish": "Arxivdan qaytarish",
+        "saveFirst": "Saqlanishini kuting: saqlangan matn e'lon qilinadi.",
+        "notReady": "Yechim hali e'lon qilishga tayyor emas: yuqoridagi bandlarni ko'ring.",
+        "conflict": "Matn boshqa oynada o'zgartirildi. Oxirgi versiyani oching.",
+        "failed": "E'lon qilib bo'lmadi. Qayta urinib ko'ring.",
+        "published": "Yechim e'lon qilindi."
+      },
+      "archive": {
+        "hint": "Olingan yechimni mijozlar ko'rmaydi, eski havola yechim endi amal qilmasligini ko'rsatadi.",
+        "confirm": "Ha, portaldan olish",
+        "submit": "Arxivga olish",
+        "done": "Yechim arxivga olindi."
       }
     }
   },

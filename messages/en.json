@@ -422,6 +422,37 @@
     },
     "footer": {
       "support": "Support: <address></address>"
+    },
+    "solution": {
+      "module": "Module: {module}",
+      "updated": "Updated {date}",
+      "newRequest": "Create a request",
+      "notTranslated": "This solution is not translated into your language yet. Shown in: {language}.",
+      "machine": "Machine translation.",
+      "outdated": "The translation may lag behind the original.",
+      "original": "Original: {language}",
+      "languages": {
+        "ru": "Russian",
+        "uz": "Uzbek",
+        "en": "English"
+      },
+      "archived": {
+        "title": "This solution no longer applies",
+        "text": "This solution was removed. If the problem remains, create a request and we will help."
+      },
+      "view": {
+        "warning": "Warning",
+        "info": "Note",
+        "step": "Step {n}"
+      },
+      "feedback": {
+        "question": "Did this solution help?",
+        "helped": "It helped",
+        "notHelped": "It did not help",
+        "thanks": "Thank you! Glad it worked.",
+        "sorry": "Sorry about that. Create a request and we will sort it out together.",
+        "failed": "Could not send your answer. Try later."
+      }
     }
   },
   "agent": {
@@ -614,6 +645,10 @@
         "macros": {
           "title": "Macros",
           "text": "Several actions on a request in one click: reply template, status, tag, assignee."
+        },
+        "knowledge": {
+          "title": "Solutions",
+          "text": "Domains that solutions may link to."
         }
       },
       "servers": {
@@ -1678,6 +1713,22 @@
           "not_found": "Macro not found. It may have been deleted already.",
           "too_many": "The list already has 50 macros. Delete one you do not need."
         }
+      },
+      "knowledge": {
+        "title": "Solutions",
+        "intro": "A solution may link only to these domains and their subdomains. A link to any other address is not published; links inside the portal are always allowed.",
+        "label": "Allowed domains",
+        "hint": "One per line, separated by commas or spaces. An address works too: its domain is taken.",
+        "save": "Save",
+        "saved": "Domain list saved.",
+        "empty": "The list is empty: solutions with external links will not be published.",
+        "reauth": "Sign in again",
+        "errors": {
+          "domain": "This is not a domain: {value}. Nothing was saved.",
+          "stale_session": "Sign in again to change settings.",
+          "forbidden": "Only an admin changes this setting.",
+          "invalid_input": "Too many domains: 50 at most."
+        }
       }
     },
     "queues": {
@@ -2562,6 +2613,49 @@
         "phone": "Phone",
         "desktop": "Computer",
         "hint": "The last saved text as the client will see it."
+      },
+      "review": {
+        "title": "Ready to publish",
+        "items": {
+          "title": "Title",
+          "module": "Module",
+          "steps": "At least one step with text",
+          "checks": "Text check without findings",
+          "textRead": "AI text read"
+        },
+        "findingsTitle": "Check findings",
+        "noFindings": "No findings.",
+        "kinds": {
+          "phone": "Phone",
+          "email": "Email",
+          "inn": "Tax ID",
+          "pinfl": "Personal ID",
+          "digits": "Long number",
+          "server": "Server address",
+          "internal": "Internal name",
+          "link": "Link outside the list"
+        },
+        "inTitle": "in the title",
+        "show": "Show",
+        "blocking": "not published",
+        "filesNotClean": "The text has an image that is not checked yet or failed the check. Remove it or wait for the check.",
+        "machine": "AI prepared this text. Read all of it before publishing.",
+        "textRead": "Text read",
+        "confirm": "I checked the findings: this is not client data, publish with them",
+        "publish": "Publish",
+        "publishing": "Publishing...",
+        "republish": "Restore from archive",
+        "saveFirst": "Wait for saving: the saved text is published.",
+        "notReady": "The solution is not ready to publish yet: see the items above.",
+        "conflict": "The text was changed in another tab. Open the latest version.",
+        "failed": "Could not publish. Try again.",
+        "published": "Solution published."
+      },
+      "archive": {
+        "hint": "Clients do not see an archived solution; the old link says it no longer applies.",
+        "confirm": "Yes, remove from the portal",
+        "submit": "Archive",
+        "done": "Solution archived."
       }
     }
   },

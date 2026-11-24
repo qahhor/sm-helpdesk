@@ -696,9 +696,10 @@ test('нет активности: обращения, молчавшие N ча
   expect(await silent(later(30))).toMatchObject({ applied: 0 });
   expect((await runs(ruleId)).map((r) => r.ticket_id)).toEqual([fresh.ticketId]);
   expect(await history(backlog.ticketId, 'rule')).toEqual([]);
-  // Пробный прогон от включения не зависит: условия подходят обоим обращениям.
+  // Пробный прогон от включения не зависит: давно молчащее обращение подходит, хотя правило его не трогает. Второе
+  // сейчас молчит около часа, меньше порога: прогон его не берёт, как не взял бы настоящий просмотр (волна 5, задача 2).
   const dry = await dryRunRule(admin, definition);
-  expect(dry.matches.map((m) => m.number)).toEqual(expect.arrayContaining([backlog.number, fresh.number]));
+  expect(dry.matches.map((m) => m.number)).toEqual([backlog.number]);
   // Новое сообщение в давно молчавшем обращении взводит правило: порог будет пройден после включения.
   await replyToTicket(await clientCtx(f.aUser), { number: backlog.number, body: 'Есть новости?' });
   expect(await silent(later(1))).toMatchObject({ applied: 0 });

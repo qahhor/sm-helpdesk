@@ -30,6 +30,7 @@ export {
   silenceOfTx,
   silentTicketsTx,
   ticketNumbersTx,
+  ticketsWithEventTx,
 } from '../core/automation';
 export type { LockedTicket } from '../core/agent-actions';
 export { isHdtError } from '../error';

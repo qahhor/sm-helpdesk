@@ -507,6 +507,9 @@ export function RuleEditor({ initial, options, labels, reauthHref, state, eventL
             <div role="status" data-dry-result className="flex flex-col gap-3 empty:hidden">
               {dry && (
                 <>
+                  <p className="text-sm text-secondary-foreground" data-dry-basis>
+                    {dry.basis}
+                  </p>
                   <p className="font-semibold">{fill(labels.dry.count, { count: dry.count })}</p>
                   {dry.count === 0 ? (
                     <p className="text-sm text-secondary-foreground">{labels.dry.none}</p>

@@ -17,7 +17,8 @@ const RULE_JSON_MAX = 100_000;
 const DRY_RUN_SHOWN = 20;
 
 export type RuleFormState = { error?: string; reauth?: boolean; issues?: Issue[] };
-export type DryRunView = { checked: number; count: number; matches: { number: number; priority: string; orgName: string; actions: string[] }[] };
+/** basis: по какому признаку отобраны обращения, готовым текстом (волна 5, задача 2). */
+export type DryRunView = { checked: number; count: number; basis: string; matches: { number: number; priority: string; orgName: string; actions: string[] }[] };
 export type DryRunState = RuleFormState & { result?: DryRunView };
 
 const text = (form: FormData, name: string) => String(form.get(name) ?? '');
@@ -60,10 +61,16 @@ export async function dryRunRuleAction(json: string): Promise<DryRunState> {
   try {
     const result = await dryRunRule(staff, ruleOf(json));
     const describe = await actionTexts();
+    const r = await getTranslations('agent.settings.rules');
+    const { basis } = result;
     return {
       result: {
         checked: result.checked,
         count: result.count,
+        basis:
+          basis.kind === 'event'
+            ? r('dry.basisEvent', { event: r(`events.${basis.event}`), window: basis.window, checked: result.checked })
+            : r('dry.basisSilent', { hours: basis.hours, window: basis.window, checked: result.checked }),
         matches: result.matches.slice(0, DRY_RUN_SHOWN).map((match) => ({ number: match.number, priority: match.priority.toUpperCase(), orgName: match.orgName, actions: describe(match.actions, 'dry.failed') })),
       },
     };

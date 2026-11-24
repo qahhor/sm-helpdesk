@@ -29,6 +29,8 @@ export type RuleRecord = {
   /** Код предустановленного правила: его нельзя удалить. */
   pcode: string | null;
   modifiedOn: Date;
+  /** Когда правило включили последний раз. Пусто: не включали или включено поставкой. */
+  enabledOn: Date | null;
 };
 
 const columns = {
@@ -44,6 +46,7 @@ const columns = {
   disabledReason: rules.disabledReason,
   pcode: rules.pcode,
   modifiedOn: rules.modifiedOn,
+  enabledOn: rules.enabledOn,
 };
 const inOrder = [asc(rules.orderNo), asc(rules.ruleId)];
 
@@ -75,10 +78,13 @@ export async function enabledRulesTx(tx: Tx, event: RuleEventKind): Promise<Rule
   return rows.map(toRecord);
 }
 
-/** Включено ли правило сейчас: перед применением к обращению по событию "нет активности". */
-export async function isRuleEnabledTx(tx: Tx, ruleId: string): Promise<boolean> {
-  const [row] = await tx.select({ isEnabled: rules.isEnabled }).from(rules).where(eq(rules.ruleId, ruleId)).limit(1);
-  return row?.isEnabled === true;
+/**
+ * Включено ли правило сейчас и с какого момента: перед применением к обращению по событию "нет активности".
+ * Читается заново под блокировкой обращения: правило могли выключить и включить, пока шёл просмотр.
+ */
+export async function ruleGateTx(tx: Tx, ruleId: string): Promise<{ isEnabled: boolean; enabledOn: Date | null }> {
+  const [row] = await tx.select({ isEnabled: rules.isEnabled, enabledOn: rules.enabledOn }).from(rules).where(eq(rules.ruleId, ruleId)).limit(1);
+  return { isEnabled: row?.isEnabled === true, enabledOn: row?.enabledOn ?? null };
 }
 
 /** Что записать в журнал о правиле: без текста заметок и слов условий, только виды. */
@@ -116,14 +122,19 @@ export async function saveRuleTx(actor: StaffActor, rule: RuleDefinition): Promi
   });
 }
 
-/** Включить или выключить. Включение снимает причину, по которой правило выключила система. Нет правила: not_found. */
+/** Включить или выключить. Включение снимает причину, по которой правило выключила система, и ставит момент включения. Нет правила: not_found. */
 export async function setRuleEnabledTx(actor: StaffActor, ruleId: string, enabled: boolean): Promise<void> {
   requireAdmin(actor);
   await withActor(actor, async (tx) => {
     const [before] = await tx.select({ name: rules.name, isEnabled: rules.isEnabled, disabledReason: rules.disabledReason }).from(rules).where(eq(rules.ruleId, ruleId)).limit(1).for('update');
     if (!before) throw new HdwError('not_found');
     if (before.isEnabled === enabled && before.disabledReason === null) return;
-    await tx.update(rules).set({ isEnabled: enabled, disabledReason: null }).where(eq(rules.ruleId, ruleId));
+    // Момент включения ставится при каждом включении и хранится при выключении: от него считается граница
+    // события "нет активности" (накопившееся до включения молчание не срабатывает).
+    await tx
+      .update(rules)
+      .set({ isEnabled: enabled, disabledReason: null, ...(enabled ? { enabledOn: sql`now()` } : {}) })
+      .where(eq(rules.ruleId, ruleId));
     await writeAudit(tx, { action: enabled ? 'rule.enabled' : 'rule.disabled', objectType: 'rule', objectId: ruleId, diff: { name: before.name } });
   });
 }

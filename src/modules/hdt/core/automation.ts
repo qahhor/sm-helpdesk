@@ -312,9 +312,10 @@ const lastHumanMessage = sql`
 /**
  * Обращения, которые молчат с момента не позже cutoff: пачка по порядку идентификаторов после after. Отбор по
  * статусам идёт в базе; условия правила проверяет модуль правил на снимках. Сообщений не было: молчание идёт от
- * создания обращения, отметка "created".
+ * создания обращения, отметка "created". notBefore: молчание началось не раньше этого момента (граница включения
+ * правила).
  */
-export async function silentTicketsTx(tx: Tx, opts: { cutoff: Date; statuses: readonly TicketStatus[]; after: string | null; limit: number }): Promise<Silence[]> {
+export async function silentTicketsTx(tx: Tx, opts: { cutoff: Date; notBefore?: Date | null; statuses: readonly TicketStatus[]; after: string | null; limit: number }): Promise<Silence[]> {
   if (opts.statuses.length === 0) return [];
   const statuses = sql.join(opts.statuses.map((status) => sql`${status}`), sql`, `);
   const result = await tx.execute<{ ticket_id: string; marker: string; since: Date | string }>(sql`
@@ -323,6 +324,7 @@ export async function silentTicketsTx(tx: Tx, opts: { cutoff: Date; statuses: re
      where t.status in (${statuses})
        and t.created_on <= ${opts.cutoff.toISOString()}::timestamptz
        and coalesce(last.created_on, t.created_on) <= ${opts.cutoff.toISOString()}::timestamptz
+       ${opts.notBefore ? sql`and coalesce(last.created_on, t.created_on) >= ${opts.notBefore.toISOString()}::timestamptz` : sql``}
        ${opts.after ? sql`and t.ticket_id > ${opts.after}::uuid` : sql``}
      order by t.ticket_id
      limit ${opts.limit}`);

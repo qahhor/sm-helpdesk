@@ -2,7 +2,7 @@ import { beforeEach, expect, test } from 'vitest';
 import { processEvents } from '@/modules/hdc/api';
 import { createTicket, getAgentTicket, getTicket, postStaffMessage, replyToTicket, setPriority } from '@/modules/hdt/api';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, runNoActivityRules, setWebhookDeliverer } from '@/modules/hdw/api/engine';
-import { deleteRule, moveRule, saveRule, setRuleEnabled } from '@/modules/hdw/api/rules';
+import { deleteRule, dryRunRule, moveRule, saveRule, setRuleEnabled } from '@/modules/hdw/api/rules';
 import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
 import { asActor, pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs, type TicketRef } from './isolation/fixture';
@@ -632,6 +632,68 @@ test('нет активности: просмотр ограничен за за
   expect(await runs(ruleId)).toHaveLength(5);
   // Круг пройден: следующий запуск начинает сначала и ничего не повторяет.
   expect(await silent(now, { batch: 2, perRun: 2 })).toMatchObject({ checked: 2, applied: 0 });
+});
+
+/** Сдвигает обращение и его сообщения в прошлое: служебные колонки защищены триггером, поэтому без триггеров. */
+async function age(ticketId: string, hours: number): Promise<void> {
+  const client = await pools.root.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local session_replication_role = replica');
+    await client.query(`update hdt_tickets set created_on = created_on - make_interval(hours => $2) where ticket_id = $1`, [ticketId, hours]);
+    await client.query(`update hdt_ticket_messages set created_on = created_on - make_interval(hours => $2) where ticket_id = $1`, [ticketId, hours]);
+    await client.query('commit');
+  } finally {
+    client.release();
+  }
+}
+const enabledOn = (ruleId: string) => pools.root.query(`select enabled_on from hdw_rules where rule_id = $1`, [ruleId]).then((r) => r.rows[0].enabled_on as Date | null);
+
+test('нет активности: обращения, молчавшие N часов до включения правила, не срабатывают; перешедшее порог после включения срабатывает один раз', async () => {
+  const backlog = f.tickets.aOrg;
+  const fresh = f.tickets.aMine;
+  // Одно обращение молчит пять часов, второе час; остальные обращения набора не подходят по условию.
+  await age(backlog.ticketId, 5);
+  await age(fresh.ticketId, 1);
+  const definition = { name: 'Молчание 2 часа', event: 'no_activity', hours: 2, conditions: { match: 'all', items: [{ field: 'text', op: 'contains_any', words: ['Отчёт А', 'Личное обращение пользователя А'] }] }, actions: [{ action: 'add_note', text: 'Два часа без сообщений' }], isStop: false };
+  const { ruleId } = await saveRule(admin, definition);
+  expect(await enabledOn(ruleId)).toBeNull();
+  await setRuleEnabled(admin, { ruleId, enabled: true });
+  const first = await enabledOn(ruleId);
+  expect(first).toBeInstanceOf(Date);
+  // Сразу после включения: накопившееся молчание не срабатывает, второе обращение ещё не дошло до порога.
+  expect(await silent(new Date())).toMatchObject({ applied: 0 });
+  expect(await runs(ruleId)).toEqual([]);
+  // Через полтора часа второе обращение молчит 2,5 часа: порог пройден после включения, срабатывание одно.
+  expect(await silent(later(1.5))).toMatchObject({ applied: 1, failed: 0 });
+  expect(await silent(later(30))).toMatchObject({ applied: 0 });
+  expect((await runs(ruleId)).map((r) => r.ticket_id)).toEqual([fresh.ticketId]);
+  expect(await history(backlog.ticketId, 'rule')).toEqual([]);
+  // Пробный прогон от включения не зависит: условия подходят обоим обращениям.
+  const dry = await dryRunRule(admin, definition);
+  expect(dry.matches.map((m) => m.number)).toEqual(expect.arrayContaining([backlog.number, fresh.number]));
+  // Новое сообщение в давно молчавшем обращении взводит правило: порог будет пройден после включения.
+  await replyToTicket(await clientCtx(f.aUser), { number: backlog.number, body: 'Есть новости?' });
+  expect(await silent(later(1))).toMatchObject({ applied: 0 });
+  expect(await silent(later(3))).toMatchObject({ applied: 1 });
+  expect((await runs(ruleId)).map((r) => r.ticket_id).sort()).toEqual([backlog.ticketId, fresh.ticketId].sort());
+});
+
+test('нет активности: выключение хранит момент включения, повторное включение ставит его заново', async () => {
+  const t = f.tickets.aOrg;
+  const ruleId = await rule({ event: 'no_activity', hours: 2, conditions: [onlyAOrg], actions: [{ action: 'add_note', text: 'Молчание' }] });
+  const first = (await enabledOn(ruleId)) as Date;
+  await setRuleEnabled(admin, { ruleId, enabled: false });
+  expect(await enabledOn(ruleId)).toEqual(first);
+  // Пока правило было выключено, обращение перешло порог: после повторного включения оно не срабатывает.
+  await age(t.ticketId, 3);
+  await setRuleEnabled(admin, { ruleId, enabled: true });
+  const second = (await enabledOn(ruleId)) as Date;
+  expect(second.getTime()).toBeGreaterThan(first.getTime());
+  expect(await silent(later(30))).toMatchObject({ applied: 0 });
+  // Правило без момента включения (поставленное миграцией) границы не имеет.
+  await pools.root.query(`update hdw_rules set enabled_on = null where rule_id = $1`, [ruleId]);
+  expect(await silent(new Date())).toMatchObject({ applied: 1 });
 });
 
 test('ночная очистка удаляет срабатывания старше 90 суток; удаление правила убирает его журнал', async () => {

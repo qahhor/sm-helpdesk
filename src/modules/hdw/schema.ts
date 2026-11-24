@@ -27,6 +27,8 @@ export const rules = pgTable('hdw_rules', {
   /** Код предустановленного правила: такое правило нельзя удалить. */
   pcode: text('pcode'),
   ...stampColumns,
+  /** Когда правило включили последний раз: граница для события no_activity. Пусто: границы нет. */
+  enabledOn: timestamp('enabled_on', { withTimezone: true }),
 });
 
 /** Срабатывания правил (FR-AUTO-09). Пишет только система. */

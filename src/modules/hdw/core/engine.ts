@@ -12,7 +12,7 @@ import { evaluate, type TicketSnapshot } from '../evaluate';
 import { LOOP_LIMIT, LOOP_WINDOW_MIN, RULE_EVENTS, type RuleEventKind, type RunResult } from '../pref';
 import { type ActionDone, ruleRuns, rules } from '../schema';
 import { executeAction, type Roster } from './actions';
-import { enabledRulesTx, isRuleEnabledTx, type RuleRecord } from './rules';
+import { enabledRulesTx, type RuleRecord, ruleGateTx } from './rules';
 import { snapshotsTx, snapshotTx } from './snapshot';
 
 // Модуль hdw, слой core: применение правил (FR-AUTO-06, 07, 09; план M8, задача 3, решения 3-5).
@@ -159,6 +159,13 @@ export function silentStatuses(rule: Pick<RuleRecord, 'conditions'>): TicketStat
   return named.length > 0 ? [...new Set(named)] : [...OPEN_STATUSES];
 }
 
+/**
+ * Граница включения: молчание должно достичь N часов не раньше включения правила, то есть начаться не раньше, чем за
+ * N часов до него. Обращения, молчавшие N часов ещё до включения, правило не трогает до нового сообщения.
+ * Правило без момента включения (включено поставкой) границы не имеет.
+ */
+const silenceFloor = (enabledOn: Date | null, hours: number): Date | null => (enabledOn ? new Date(enabledOn.getTime() - hours * HOUR_MS) : null);
+
 export type NoActivityOptions = { now?: Date; batch?: number; perRun?: number; stopped?: () => boolean; run?: RuleRun };
 
 /**
@@ -167,6 +174,7 @@ export type NoActivityOptions = { now?: Date; batch?: number; perRun?: number; s
  * которых нет срабатывания этого правила с отметкой этого молчания. Условия проверяются на снимке; подошедшее
  * обращение применяется своей транзакцией под блокировкой строки, с перепроверкой молчания. Отметка и уникальный
  * индекс hdw_rule_runs_u1 дают одно срабатывание на молчание и при двух процессах; новое сообщение взводит заново.
+ * Молчание, достигшее N часов до включения правила, не срабатывает (silenceFloor).
  */
 export async function runNoActivityTx(actor: SystemActor, opts: NoActivityOptions = {}): Promise<{ checked: number; applied: number; failed: number }> {
   if (actor.type !== 'system') throw new Error('Правила применяет только система');
@@ -179,14 +187,15 @@ export async function runNoActivityTx(actor: SystemActor, opts: NoActivityOption
   const list = await withActor(actor, (tx) => enabledRulesTx(tx, 'no_activity'));
   for (const rule of list) {
     if (!rule.isValid || rule.hours === null) continue;
-    const cutoff = new Date(now.getTime() - rule.hours * HOUR_MS);
+    const hours = rule.hours;
+    const cutoff = new Date(now.getTime() - hours * HOUR_MS);
     const statuses = silentStatuses(rule);
     let after = cursors.get(rule.ruleId) ?? null;
     let seen = 0;
     while (seen < perRun && opts.stopped?.() !== true) {
       // Чтение пачки одной транзакцией: молчащие обращения, уже отмеченные срабатывания, снимки остальных.
       const page = await withActor(actor, async (tx) => {
-        const silent = await silentTicketsTx(tx, { cutoff, statuses, after, limit: batch });
+        const silent = await silentTicketsTx(tx, { cutoff, notBefore: silenceFloor(rule.enabledOn, hours), statuses, after, limit: batch });
         if (silent.length === 0) return { size: 0, last: null, due: [] };
         const fired = await tx
           .select({ ticketId: ruleRuns.ticketId, marker: ruleRuns.marker })
@@ -209,9 +218,13 @@ export async function runNoActivityTx(actor: SystemActor, opts: NoActivityOption
           await withActor(actor, async (tx) => {
             // Занятую строку (сотрудник или второй процесс) этот запуск пропускает: её возьмёт следующая минута.
             const ticket = await lockRuleTicketTx(tx, item.ticketId, { skipLocked: true });
-            if (!ticket || !(await isRuleEnabledTx(tx, rule.ruleId))) return;
+            if (!ticket) return;
+            const gate = await ruleGateTx(tx, rule.ruleId);
+            if (!gate.isEnabled) return;
             const silence = await silenceOfTx(tx, item.ticketId);
             if (!silence || silence.marker !== item.marker || silence.since.getTime() > cutoff.getTime()) return;
+            const floor = silenceFloor(gate.enabledOn, hours);
+            if (floor && silence.since.getTime() < floor.getTime()) return;
             const [already] = await tx.select({ runId: ruleRuns.runId }).from(ruleRuns).where(and(eq(ruleRuns.ruleId, rule.ruleId), eq(ruleRuns.ticketId, item.ticketId), eq(ruleRuns.marker, item.marker))).limit(1);
             if (already) return;
             const snapshot = await snapshotTx(tx, item.ticketId, now);

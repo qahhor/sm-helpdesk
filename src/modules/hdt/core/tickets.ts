@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { containsText } from '@/db/contains';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
@@ -269,7 +269,17 @@ export async function ticketExists(actor: ClientActor, number: number): Promise<
   return rows.length > 0;
 }
 
-export type TicketRecord = typeof tickets.$inferSelect;
+/**
+ * Колонки обращения, которые читает клиент: все, кроме заметки руководителя о разборе оценки (FR-MET-07). Политики
+ * RLS закрывают строки, а не колонки, поэтому внутренние колонки запрос клиента не выбирает вовсе.
+ */
+export const STAFF_ONLY_TICKET_COLUMNS = ['csatReviewNote', 'csatReviewedBy', 'csatReviewedOn'] as const;
+type StaffOnlyColumn = (typeof STAFF_ONLY_TICKET_COLUMNS)[number];
+const allTicketColumns = getTableColumns(tickets);
+const clientTicketColumns = Object.fromEntries(
+  Object.entries(allTicketColumns).filter(([name]) => !(STAFF_ONLY_TICKET_COLUMNS as readonly string[]).includes(name)),
+) as Omit<typeof allTicketColumns, StaffOnlyColumn>;
+export type TicketRecord = Omit<typeof tickets.$inferSelect, StaffOnlyColumn>;
 export type MessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'createdOn' | 'isAuto'>;
 export type EventRecord = Pick<typeof ticketEvents.$inferSelect, 'kind' | 'actorType' | 'actorId' | 'payload' | 'createdOn'>;
 export type AttachmentRecord = Pick<
@@ -287,7 +297,7 @@ export async function readTicket(
   limit: number,
 ): Promise<{ ticket: TicketRecord; messages: MessageRecord[]; events: EventRecord[]; attachments: AttachmentRecord[]; hasEarlier: boolean; watching: boolean; relatedNumber: number | null; mergedIntoNumber: number | null } | null> {
   return withActor(actor, async (tx) => {
-    const ticket = (await tx.select().from(tickets).where(clientTicketByNumber(actor, number)).limit(1))[0];
+    const ticket = (await tx.select(clientTicketColumns).from(tickets).where(clientTicketByNumber(actor, number)).limit(1))[0];
     if (!ticket) return null;
     // Последние записи истории, а не вся переписка (аудит 23.11.2026, находка P11). Окно считается под политиками
     // клиента: внутренние заметки и события в него не входят.

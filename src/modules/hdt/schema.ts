@@ -90,6 +90,12 @@ export const tickets = pgTable('hdt_tickets', {
   firstResponseSoonOn: moment('first_response_soon_on'),
   /** Когда срок решения станет близким. Пусто: события "срок скоро" не ждём. */
   resolutionSoonOn: moment('resolution_soon_on'),
+  // Миграция 0064 (веха M8): заметка руководителя о разборе низкой оценки (FR-MET-07). Клиенту не отдаётся:
+  // запросы клиента эти три колонки не выбирают (core/tickets.ts, clientTicketColumns).
+  /** Заметка о разборе оценки 1-3. Пишут Customer Care и администратор. */
+  csatReviewNote: text('csat_review_note'),
+  csatReviewedBy: uuid('csat_reviewed_by'),
+  csatReviewedOn: moment('csat_reviewed_on'),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {

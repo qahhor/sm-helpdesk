@@ -45,6 +45,32 @@ export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAt
 export { applyGuestMerges, type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
 // Теги на обращении (план M8, задача 1).
 export { addTicketTag, removeTicketTag, tagUsage } from './api/tags';
+export {
+  BREAKDOWN_PAGE,
+  type Breakdown,
+  type BreakdownItem,
+  buildCsv,
+  canReviewCsat,
+  canSeeBreakdown,
+  CSAT_REVIEW_MAX,
+  CSV_MAX_ROWS,
+  exportFileName,
+  exportMetrics,
+  getMetrics,
+  getMetricsBreakdown,
+  type LineRow,
+  type LowRating,
+  LOW_RATINGS_LIMIT,
+  METRICS_MAX_DAYS,
+  METRICS_PRESETS,
+  METRICS_REPORTS,
+  METRICS_ROW_CAP,
+  type MetricsExport,
+  type MetricsReport,
+  type MetricsView,
+  saveCsatReview,
+  splitMinutes,
+} from './api/metrics';
 export { type PickupMinutes, readPickup, readTimings, savePickup, saveTimings, type Timings, TIMINGS_DEFAULT } from './api/timings';
 export {
   bindTicket,

@@ -828,7 +828,8 @@
           "webhook": "Vebhuk manzili",
           "webhook_secret": "Vebhuk sirlari",
           "macro": "Makros",
-          "dev_task": "Ishlab chiqish vazifasi"
+          "dev_task": "Ishlab chiqish vazifasi",
+          "metrics": "Ko'rsatkichlar"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -899,7 +900,8 @@
             "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi",
             "viewed_by_staff": "Murojaatni xodim ochdi",
             "tag_added": "Murojaatga teg qo'shildi",
-            "tag_removed": "Murojaatdan teg olib tashlandi"
+            "tag_removed": "Murojaatdan teg olib tashlandi",
+            "csat_reviewed": "Baho tahlili qaydi yozildi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi",
@@ -972,6 +974,9 @@
             "linked": "Murojaat ishlab chiqishga berildi",
             "unlinked": "Ishlab chiqish vazifasi murojaatdan uzildi",
             "status_changed": "Ishlab chiqish vazifasining holati o'zgardi"
+          },
+          "metrics": {
+            "exported": "Ko'rsatkichlar CSV ga eksport qilindi"
           }
         },
         "words": {
@@ -1823,7 +1828,8 @@
         "macro": "«{name}» makrosi ({actor}): {actions}",
         "devTaskLinked": "{actor}: ishlab chiqishga berildi, vazifa {ref}",
         "devTaskUnlinked": "{actor}: {ref} ishlab chiqish vazifasi uzildi",
-        "devTaskClosed": "{ref} ishlab chiqish vazifasi yopildi ({status}). Ijrochiga tekshirish va mijozga xabar berish haqida eslatma yuborildi"
+        "devTaskClosed": "{ref} ishlab chiqish vazifasi yopildi ({status}). Ijrochiga tekshirish va mijozga xabar berish haqida eslatma yuborildi",
+        "csat_review": "{actor}: baho tahlili qaydi yozildi"
       },
       "ruleActions": {
         "set_queue": "navbat {to}",
@@ -2214,6 +2220,167 @@
         "template": "Shablon /{code}: {title}",
         "group": "Murojaat",
         "templates": "Shablonlar"
+      }
+    },
+    "metrics": {
+      "title": "Ko'rsatkichlar",
+      "period": {
+        "label": "Davr",
+        "days7": "7 kun",
+        "days30": "30 kun",
+        "days90": "90 kun",
+        "custom": "O'z davringiz",
+        "from": "Sanadan",
+        "to": "Sanagacha",
+        "show": "Ko'rsatish",
+        "hint": "Sanalar faqat o'z davringiz uchun kerak. U 366 kundan uzun bo'lmaydi.",
+        "line": "{from} - {to}, {days, plural, other {# kun}}. Kunlar qo'llab-quvvatlash taqvimi vaqti bo'yicha hisoblanadi ({zone}).",
+        "invalid": "Davr noto'g'ri berilgan: oxirgi 30 kun ko'rsatildi. O'z davringiz ikki sanadan iborat, 366 kundan ko'p emas."
+      },
+      "definition": "Sahifadagi barcha sonlar tanlangan davrda yaratilgan murojaatlarni hisoblaydi. Oldin yaratilib, shu davrda hal qilingan murojaat o'zi yaratilgan davrda hisobga olingan.",
+      "capped": "Javob vaqti, hal qilish vaqti va liniyalar davrning birinchi {count} ta murojaati bo'yicha hisoblandi: murojaatlar ko'proq. Hammasini hisoblash uchun davrni qisqartiring.",
+      "empty": {
+        "title": "Bu davrda murojaatlar yo'q",
+        "text": "Boshqa davrni tanlang: ko'rsatkichlar shu davrda yaratilgan murojaatlar bo'yicha hisoblanadi."
+      },
+      "none": "ma'lumot yo'q",
+      "duration": "{hours} soat {minutes} daq",
+      "durationMinutes": "{minutes} daq",
+      "overview": {
+        "title": "Umumiy ko'rinish",
+        "created": "Yaratilgan",
+        "resolved": "Shundan hal qilingan",
+        "closed": "Shundan yopilgan",
+        "firstResponseSla": "Birinchi javob muddatida",
+        "resolutionSla": "Yechim muddatida",
+        "slaOf": "{total} tadan {ok} ta",
+        "slaHint": "Muddatga rioya: natijasi allaqachon ma'lum bo'lgan murojaatlar orasida buzilish belgisi yo'q murojaatlar ulushi. Birinchi javob: javob berilgan yoki muddat o'tgan. Yechim: murojaat hal qilingan yoki muddat o'tgan; mijoz javobini kutayotgan murojaatlar va birlashtirilgan nusxalar hisoblanmaydi.",
+        "firstResponseTime": "Birinchi javob vaqti",
+        "resolutionTime": "Hal qilish vaqti",
+        "average": "O'rtacha",
+        "median": "Mediana",
+        "basedOn": "{count, plural, other {# ta murojaat bo'yicha}}",
+        "timeHint": "Vaqt SLA muddatlari taqvimining ish soatlarida hisoblanadi. Hal qilish vaqtiga mijoz javobini kutish kirmaydi.",
+        "csat": "Mijozlar bahosi",
+        "csatAverage": "O'rtacha baho",
+        "csatCount": "Baholar",
+        "csatHigh": "4 va 5 baholar ulushi"
+      },
+      "sources": {
+        "title": "Murojaat manbalari",
+        "source": "Manba",
+        "count": "Murojaatlar",
+        "share": "Ulush",
+        "shareOf": "{name} manbasining ulushi",
+        "names": {
+          "portal": "Portal",
+          "widget_web": "Smartup ichidagi vidjet",
+          "widget_mobile": "Mobil ilova",
+          "email": "Pochta",
+          "staff": "Xodim tomonidan yaratilgan"
+        }
+      },
+      "lines": {
+        "title": "Qo'llab-quvvatlash liniyalari",
+        "line": "Liniya",
+        "resolved": "Liniyada hal qilingan",
+        "share": "Hal qilinganlar ulushi",
+        "shareOf": "Hal qilinganlar ulushi: {name}",
+        "averageTime": "Liniyadagi o'rtacha vaqt",
+        "returns": "Ikkinchi liniyadan birinchisiga qaytarishlar: {count}",
+        "hint": "Davrning hal qilingan murojaatlari hisoblanadi. Murojaat \"Hal qilindi\" holatiga o'tishdan oldin qaysi liniyada bo'lsa, o'sha liniyada hal qilingan: \"Ishlab chiqishda\" holati ishlab chiqish, birinchi liniya navbati birinchi liniya, ikkinchi liniya va Customer Care navbatlari ikkinchi liniya. Liniyadagi vaqt: yaratilgandan hal qilingungacha bo'lgan ish soatlari, mijozni kutish bilan birga; o'rtacha qiymat liniyada bo'lgan murojaatlar bo'yicha. Liniya murojaat tarixidan tiklanadi, shuning uchun avtomatlashtirish qoidasi bilan o'tkazish ham hisobga olingan.",
+        "names": {
+          "first": "Birinchi liniya",
+          "second": "Ikkinchi liniya",
+          "development": "Ishlab chiqish"
+        }
+      },
+      "breakdown": {
+        "orgsTitle": "Tashkilotlar bo'yicha",
+        "modulesTitle": "Modullar bo'yicha",
+        "org": "Tashkilot",
+        "module": "Modul",
+        "created": "Yaratilgan",
+        "resolved": "Hal qilingan",
+        "firstResponse": "Birinchi javob muddatida",
+        "resolution": "Yechim muddatida",
+        "csatCount": "Baholar",
+        "csatAverage": "O'rtacha baho",
+        "more": "Yana ko'rsatish",
+        "noModule": "Modulsiz",
+        "unknown": "Nomsiz",
+        "hint": "Qatorlar yaratilgan murojaatlar soni bo'yicha saralangan. Muddatlar umumiy ko'rinishdagi kabi hisoblanadi."
+      },
+      "low": {
+        "title": "Past baholar",
+        "hint": "Davrning 1 dan 3 gacha baholangan murojaatlari. Tahlil qaydini Customer Care va administrator yozadi, mijoz uni ko'rmaydi.",
+        "empty": "Bu davrda past baholar yo'q.",
+        "number": "Murojaat",
+        "score": "Baho",
+        "reason": "Mijoz sababi",
+        "org": "Tashkilot",
+        "assignee": "Ijrochi",
+        "note": "Tahlil qaydi",
+        "noReason": "Ko'rsatilmagan",
+        "noAssignee": "Tayinlanmagan",
+        "noNote": "Hali tahlil qilinmagan",
+        "noteBy": "{name}, {date}",
+        "write": "Qayd yozish",
+        "edit": "Qaydni o'zgartirish",
+        "noteLabel": "SUP-{number} murojaati tahlili qaydi",
+        "save": "Qaydni saqlash",
+        "capped": "Past baholi oxirgi {count} ta murojaat ko'rsatildi. Barcha qatorlar eksportda bor.",
+        "reasons": {
+          "slow": "Javobni uzoq kutdim",
+          "not_solved": "Muammo hal bo'lmadi",
+          "unclear": "Javob tushunarsiz",
+          "other": "Boshqa"
+        }
+      },
+      "export": {
+        "title": "CSV ga eksport",
+        "hint": "Fayl Excel da ochiladi. Murojaatlar eksportida mavzu, tavsif va yozishmalar yo'q. Har bir eksport audit jurnaliga yoziladi; soatiga 20 tadan ko'p emas.",
+        "orgs": "Tashkilotlar",
+        "modules": "Modullar",
+        "low_ratings": "Past baholar",
+        "requests": "Davr murojaatlari",
+        "truncated": "Birinchi {count} ta qator ko'rsatildi, davrda ular ko'proq. Davrni qisqartiring."
+      },
+      "csv": {
+        "columns": {
+          "org": "Tashkilot",
+          "module": "Modul",
+          "created": "Yaratilgan",
+          "resolved": "Hal qilingan",
+          "firstResponsePercent": "Birinchi javob muddatida, %",
+          "resolutionPercent": "Yechim muddatida, %",
+          "csatCount": "Baholar",
+          "csatAverage": "O'rtacha baho",
+          "number": "Raqam",
+          "assignee": "Ijrochi",
+          "score": "Baho",
+          "reason": "Mijoz sababi",
+          "comment": "Mijoz izohi",
+          "reviewNote": "Tahlil qaydi",
+          "reviewedBy": "Qayd muallifi",
+          "reviewed": "Qayd sanasi",
+          "type": "Turi",
+          "priority": "Ustuvorlik",
+          "source": "Manba",
+          "status": "Holat",
+          "firstResponseMinutes": "Birinchi javob, ish daqiqalari",
+          "resolutionMinutes": "Yechim, ish daqiqalari",
+          "firstResponseBreached": "Birinchi javob muddati buzilgan",
+          "resolutionBreached": "Yechim muddati buzilgan"
+        }
+      },
+      "done": {
+        "reviewed": "Tahlil qaydi saqlandi"
+      },
+      "errors": {
+        "forbidden": "Tahlil qaydini Customer Care va administrator yozadi.",
+        "invalid_input": "Qayd saqlanmadi: 1 dan 3 gacha baholangan murojaatga 2000 belgigacha matn kerak.",
+        "not_found": "Murojaat topilmadi."
       }
     }
   },

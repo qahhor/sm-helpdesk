@@ -120,6 +120,9 @@ export const AUDIT_ACTIONS = [
   'devtask.linked',
   'devtask.unlinked',
   'devtask.status_changed',
+  // Показатели (веха M8): выгрузка CSV и заметка руководителя о разборе низкой оценки.
+  'metrics.exported',
+  'ticket.csat_reviewed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -179,6 +182,8 @@ export const RATE_RULES = {
   cspReportPerIp: { limit: 60, windowSec: 600 },
   /** Вебхук таск-менеджера Smartup с одного адреса (веха M8): таск-менеджер один и шлёт событие на каждую смену статуса. */
   trackerWebhookPerIp: { limit: 600, windowSec: 60 },
+  /** Выгрузка показателей в CSV (веха M8, решение 16): 20 в час на сотрудника. Каждая выгрузка читает до 50 тысяч обращений. */
+  metricsExportPerUser: { limit: 20, windowSec: 3600 },
   /** Создание обращения: 10 в час на пользователя (раздел 14.5). */
   ticketCreatePerUser: { limit: 10, windowSec: 3600 },
   /** Ответы в обращениях: 60 в час на пользователя (предложение плана M2, в ТЗ предела нет). */

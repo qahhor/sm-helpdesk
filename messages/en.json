@@ -828,7 +828,8 @@
           "webhook": "Webhook address",
           "webhook_secret": "Webhook secrets",
           "macro": "Macro",
-          "dev_task": "Development task"
+          "dev_task": "Development task",
+          "metrics": "Metrics"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -899,7 +900,8 @@
             "author_moved": "Request author changed on guest hand-over",
             "viewed_by_staff": "Ticket opened by staff",
             "tag_added": "Tag added to a ticket",
-            "tag_removed": "Tag removed from a ticket"
+            "tag_removed": "Tag removed from a ticket",
+            "csat_reviewed": "Rating review note written"
           },
           "attachment": {
             "infected": "Infected file found",
@@ -972,6 +974,9 @@
             "linked": "Ticket handed over to development",
             "unlinked": "Development task unlinked from the ticket",
             "status_changed": "Development task status changed"
+          },
+          "metrics": {
+            "exported": "Metrics exported to CSV"
           }
         },
         "words": {
@@ -1823,7 +1828,8 @@
         "macro": "Macro \"{name}\" ({actor}): {actions}",
         "devTaskLinked": "{actor}: handed over to development, task {ref}",
         "devTaskUnlinked": "{actor}: development task {ref} unlinked",
-        "devTaskClosed": "Development task {ref} closed ({status}). The assignee was reminded to check and tell the client"
+        "devTaskClosed": "Development task {ref} closed ({status}). The assignee was reminded to check and tell the client",
+        "csat_review": "{actor}: wrote a rating review note"
       },
       "ruleActions": {
         "set_queue": "queue {to}",
@@ -2214,6 +2220,167 @@
         "template": "Template /{code}: {title}",
         "group": "Ticket",
         "templates": "Templates"
+      }
+    },
+    "metrics": {
+      "title": "Metrics",
+      "period": {
+        "label": "Period",
+        "days7": "7 days",
+        "days30": "30 days",
+        "days90": "90 days",
+        "custom": "Custom period",
+        "from": "From",
+        "to": "To",
+        "show": "Show",
+        "hint": "Dates are used only for a custom period. It is at most 366 days long.",
+        "line": "{from} - {to}, {days, plural, one {# day} other {# days}}. Days follow the support calendar time ({zone}).",
+        "invalid": "The period is not valid: the last 30 days are shown. A custom period is two dates, at most 366 days apart."
+      },
+      "definition": "Every number on this page counts requests created in the selected period. A request created earlier and resolved in this period belongs to the period of its creation.",
+      "capped": "Response time, resolution time and lines are computed on the first {count} requests of the period: there are more. Narrow the period to count them all.",
+      "empty": {
+        "title": "No requests in this period",
+        "text": "Choose another period: metrics count the requests created in it."
+      },
+      "none": "no data",
+      "duration": "{hours} h {minutes} min",
+      "durationMinutes": "{minutes} min",
+      "overview": {
+        "title": "Overview",
+        "created": "Created",
+        "resolved": "Resolved of them",
+        "closed": "Closed of them",
+        "firstResponseSla": "First response on time",
+        "resolutionSla": "Resolution on time",
+        "slaOf": "{ok} of {total}",
+        "slaHint": "SLA compliance: the share of requests without a breach mark among those whose outcome is already known. First response: answered or the deadline has passed. Resolution: resolved or the deadline has passed; requests waiting for the client and merged duplicates are not counted.",
+        "firstResponseTime": "Time to first response",
+        "resolutionTime": "Time to resolution",
+        "average": "Average",
+        "median": "Median",
+        "basedOn": "{count, plural, one {on # request} other {on # requests}}",
+        "timeHint": "Time is counted in working hours of the SLA calendar. Time to resolution excludes waiting for the client.",
+        "csat": "Client rating",
+        "csatAverage": "Average rating",
+        "csatCount": "Ratings",
+        "csatHigh": "Share of ratings 4 and 5"
+      },
+      "sources": {
+        "title": "Request sources",
+        "source": "Source",
+        "count": "Requests",
+        "share": "Share",
+        "shareOf": "Share of source {name}",
+        "names": {
+          "portal": "Portal",
+          "widget_web": "Widget in Smartup",
+          "widget_mobile": "Mobile app",
+          "email": "Email",
+          "staff": "Created by staff"
+        }
+      },
+      "lines": {
+        "title": "Support lines",
+        "line": "Line",
+        "resolved": "Resolved on the line",
+        "share": "Share of resolved",
+        "shareOf": "Share of resolved: {name}",
+        "averageTime": "Average time on the line",
+        "returns": "Returns from the second line to the first: {count}",
+        "hint": "Resolved requests of the period are counted. A request is resolved on the line where it was right before it became \"Resolved\": the status \"In development\" means development, the first line queue means the first line, the second line and Customer Care queues mean the second line. Time on a line: working hours from creation to resolution, including waiting for the client; the average is over the requests that were on the line. The line is rebuilt from the request history, so a move made by an automation rule is counted too.",
+        "names": {
+          "first": "First line",
+          "second": "Second line",
+          "development": "Development"
+        }
+      },
+      "breakdown": {
+        "orgsTitle": "By organization",
+        "modulesTitle": "By module",
+        "org": "Organization",
+        "module": "Module",
+        "created": "Created",
+        "resolved": "Resolved",
+        "firstResponse": "First response on time",
+        "resolution": "Resolution on time",
+        "csatCount": "Ratings",
+        "csatAverage": "Average rating",
+        "more": "Show more",
+        "noModule": "No module",
+        "unknown": "No name",
+        "hint": "Rows are sorted by the number of created requests. Deadlines are counted the same way as in the overview."
+      },
+      "low": {
+        "title": "Low ratings",
+        "hint": "Requests of the period rated 1 to 3. The review note is written by Customer Care and the administrator; the client never sees it.",
+        "empty": "No low ratings in this period.",
+        "number": "Request",
+        "score": "Rating",
+        "reason": "Client reason",
+        "org": "Organization",
+        "assignee": "Assignee",
+        "note": "Review note",
+        "noReason": "Not given",
+        "noAssignee": "Not assigned",
+        "noNote": "Not reviewed yet",
+        "noteBy": "{name}, {date}",
+        "write": "Write a note",
+        "edit": "Edit the note",
+        "noteLabel": "Review note for request SUP-{number}",
+        "save": "Save note",
+        "capped": "The latest {count} requests with a low rating are shown. The export has all rows.",
+        "reasons": {
+          "slow": "Waited too long for a reply",
+          "not_solved": "The problem is not solved",
+          "unclear": "The reply is unclear",
+          "other": "Other"
+        }
+      },
+      "export": {
+        "title": "CSV export",
+        "hint": "The file opens in Excel. The request export has no title, description or messages. Every export is written to the audit log; at most 20 exports per hour.",
+        "orgs": "Organizations",
+        "modules": "Modules",
+        "low_ratings": "Low ratings",
+        "requests": "Requests of the period",
+        "truncated": "The first {count} rows are shown, the period has more. Narrow the period."
+      },
+      "csv": {
+        "columns": {
+          "org": "Organization",
+          "module": "Module",
+          "created": "Created",
+          "resolved": "Resolved",
+          "firstResponsePercent": "First response on time, %",
+          "resolutionPercent": "Resolution on time, %",
+          "csatCount": "Ratings",
+          "csatAverage": "Average rating",
+          "number": "Number",
+          "assignee": "Assignee",
+          "score": "Rating",
+          "reason": "Client reason",
+          "comment": "Client comment",
+          "reviewNote": "Review note",
+          "reviewedBy": "Note author",
+          "reviewed": "Note date",
+          "type": "Type",
+          "priority": "Priority",
+          "source": "Source",
+          "status": "Status",
+          "firstResponseMinutes": "First response, working minutes",
+          "resolutionMinutes": "Resolution, working minutes",
+          "firstResponseBreached": "First response deadline missed",
+          "resolutionBreached": "Resolution deadline missed"
+        }
+      },
+      "done": {
+        "reviewed": "Review note saved"
+      },
+      "errors": {
+        "forbidden": "The review note is written by Customer Care and the administrator.",
+        "invalid_input": "The note is not saved: it needs a text of up to 2000 characters for a request rated 1 to 3.",
+        "not_found": "Request not found."
       }
     }
   },

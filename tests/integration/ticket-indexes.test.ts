@@ -24,10 +24,13 @@ test('лишний индекс по сроку решения убран, ин�
   // Плюс два частичных индекса момента "срок скоро" (миграция 0057, веха M8): в них только обращения, которые ждут события.
   expect(all.hdt_tickets_i23).toMatch(/\(first_response_soon_on\) WHERE \(first_response_soon_on IS NOT NULL\)/);
   expect(all.hdt_tickets_i24).toMatch(/\(resolution_soon_on\) WHERE \(resolution_soon_on IS NOT NULL\)/);
-  expect(Object.keys(all)).toHaveLength(23);
+  // Плюс индекс по дате создания для страницы показателей (миграция 0065, веха M8, решение 15): дата создания не
+  // меняется, поэтому обновлению без записи в индексы (HOT) он не мешает.
+  expect(all.hdt_tickets_i25).toMatch(/\(created_on\)$/);
+  expect(Object.keys(all)).toHaveLength(24);
 });
 
-test('обычное обращение без подписи ошибки и связей входит не больше чем в 15 индексов из 21: 13 прежних и два индекса поиска по тексту (было 17 из 20)', async () => {
+test('обычное обращение без подписи ошибки и связей входит не больше чем в 16 индексов из 22: 13 прежних, два индекса поиска по тексту и индекс даты создания для показателей (было 17 из 20)', async () => {
   const f = await seedTwoOrgs();
   // Сколько индексов получают запись при обновлении этой строки: полные и те частичные, условию которых строка отвечает.
   const partial = (await pools.root.query(`select c.relname as name, pg_get_expr(i.indpred, i.indrelid) as pred from pg_index i join pg_class c on c.oid = i.indexrelid where i.indrelid = 'hdt_tickets'::regclass`)).rows;
@@ -36,7 +39,7 @@ test('обычное обращение без подписи ошибки и с
     if (!index.pred) included += 1;
     else if ((await pools.root.query(`select 1 from hdt_tickets where ticket_id = $1 and (${index.pred})`, [f.tickets.aOrg.ticketId])).rowCount) included += 1;
   }
-  expect(included).toBeLessThanOrEqual(15);
+  expect(included).toBeLessThanOrEqual(16);
 });
 
 test('поиск дублей основного обращения и связанных идёт по частичным индексам', async () => {

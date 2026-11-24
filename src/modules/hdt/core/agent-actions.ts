@@ -122,7 +122,7 @@ export async function changeStatusTx(
   actor: StaffActor,
   ticket: LockedTicket,
   to: TicketStatus,
-  opts: { resolution?: ResolutionType; version?: string } = {},
+  opts: { resolution?: ResolutionType; version?: string; byRule?: boolean } = {},
 ): Promise<void> {
   // Объединённое закрыто навсегда (решение 4); закрывает сотрудник только решённое (решение 5).
   if (ticket.mergedIntoId) throw new HdtError('merged');
@@ -143,8 +143,9 @@ export async function changeStatusTx(
   const payload: Record<string, unknown> = { from: ticket.status, to };
   if (to === 'resolved') payload.resolution = opts.resolution;
   await recordChange(tx, actor, ticket, { kind: 'status', payload, audit: 'ticket.status_changed' });
-  // Событие для правил автоматизации в той же транзакции (FR-AUTO-02).
-  await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status_changed', payload: { from: ticket.status, to } });
+  // Событие для правил автоматизации в той же транзакции (FR-AUTO-02). Действие макроса помечает его как порождённое
+  // правилом: правила на макрос не срабатывают (FR-AUTO-07).
+  await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status_changed', payload: { from: ticket.status, to }, byRule: opts.byRule === true });
   ticket.status = to;
 }
 
@@ -198,7 +199,7 @@ export async function setStatusTx(
   actor: StaffActor,
   number: number,
   to: TicketStatus,
-  opts: { resolution?: ResolutionType; version?: string; seen?: Date },
+  opts: { resolution?: ResolutionType; version?: string; seen?: Date; byRule?: boolean },
 ): Promise<void> {
   assertCanWrite(actor);
   await withActor(actor, async (tx) => {
@@ -211,7 +212,7 @@ export async function setStatusTx(
 }
 
 /** Приоритет с причиной (FR-SLA-03): подтверждён, сроки пересчитаны от создания. Тот же приоритет: подтверждение. */
-export async function setPriorityTx(actor: StaffActor, number: number, priority: Priority, reason: string, seen?: Date): Promise<void> {
+export async function setPriorityTx(actor: StaffActor, number: number, priority: Priority, reason: string, seen?: Date, opts: { byRule?: boolean } = {}): Promise<void> {
   assertCanWrite(actor);
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
@@ -219,7 +220,8 @@ export async function setPriorityTx(actor: StaffActor, number: number, priority:
     stageTicket(ticket, { priority, priorityConfirmed: true }, { sla: true });
     await recordChange(tx, actor, ticket, { kind: 'priority', payload: { from: ticket.priority, to: priority, reason }, audit: 'ticket.priority_changed' });
     // Тот же приоритет это подтверждение, а не изменение: события для правил нет. Причина в событие не идёт: это текст сотрудника.
-    if (ticket.priority !== priority) await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'priority_changed', payload: { from: ticket.priority, to: priority } });
+    if (ticket.priority !== priority)
+      await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'priority_changed', payload: { from: ticket.priority, to: priority }, byRule: opts.byRule === true });
     await flushTicketTx(tx, ticket);
     // Поднятие до P1 до первого ответа: дежурным одно сообщение (FR-SLA-07).
     await oncallP1Tx(tx, ticket.ticketId);

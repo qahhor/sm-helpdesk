@@ -4,7 +4,7 @@ import { stampColumns } from '@/db/columns';
 import type { DeliveryKind, DeliveryStatus, DisabledReason, RuleEventKind, RunResult } from './pref';
 
 // Модуль hdw: автоматизация. Таблицы, ограничения, триггеры и политики RLS создаёт миграция
-// drizzle/0058_hdw_rules.sql и drizzle/0061_hdw_webhooks.sql. Здесь только описание колонок для запросов под ролью
+// drizzle/0058_hdw_rules.sql, drizzle/0061_hdw_webhooks.sql и drizzle/0062_hdw_macros.sql. Здесь только описание колонок для запросов под ролью
 // hub_app (withActor).
 
 /** Действие срабатывания в журнале: код, выполнено ли, код причины отказа, прежнее и новое значение. unchanged: менять было нечего. */
@@ -94,5 +94,17 @@ export const webhookDeliveries = pgTable('hdw_webhook_deliveries', {
   attempts: smallint('attempts').notNull().default(0),
   lastError: text('last_error'),
   nextAttemptOn: timestamp('next_attempt_on', { withTimezone: true }).notNull().defaultNow(),
+  ...stampColumns,
+});
+
+/** Макросы (FR-AG-15). Действия проверяет схема src/modules/hdw/macro-schema.ts. */
+export const macros = pgTable('hdw_macros', {
+  macroId: uuid('macro_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  name: text('name').notNull(),
+  actions: jsonb('actions').$type<unknown>().notNull(),
+  isEnabled: boolean('is_enabled').notNull().default(true),
+  orderNo: integer('order_no').notNull(),
   ...stampColumns,
 });

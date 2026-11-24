@@ -380,21 +380,33 @@ export async function assignTicket(ctx: StaffContext, input: unknown): Promise<v
   await assignTx(ctx.actor, data.number, { id: assignee.userId, name: assignee.name }, seen);
 }
 
+/**
+ * Действие выполняет макрос (план M8, задача 6): проверки, история и журнал те же, что у ручного действия, но событие
+ * предметной области помечается как порождённое правилом, и правила на него не срабатывают (FR-AUTO-07). Признак
+ * задаёт только серверный код макроса: из ввода страницы он не читается.
+ */
+export type StaffActionOptions = { byMacro?: boolean };
+
 /** Статус по таблице 7.2; "Решено" с итогом (FR-AG-09). */
-export async function setStatus(ctx: StaffContext, input: unknown): Promise<void> {
+export async function setStatus(ctx: StaffContext, input: unknown, opts: StaffActionOptions = {}): Promise<void> {
   assertCanWrite(ctx.actor);
   const data = parseInput(statusInput, input);
-  await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version, seen: data.seenVersion ? new Date(data.seenVersion) : undefined });
+  await setStatusTx(ctx.actor, data.number, data.to, {
+    resolution: data.resolution,
+    version: data.version,
+    seen: data.seenVersion ? new Date(data.seenVersion) : undefined,
+    byRule: opts.byMacro === true,
+  });
   await wakeOutbox();
   await wakeAutomation();
 }
 
 /** Приоритет с причиной (FR-SLA-03). Пустая причина: reason_required. */
-export async function setPriority(ctx: StaffContext, input: unknown): Promise<void> {
+export async function setPriority(ctx: StaffContext, input: unknown, opts: StaffActionOptions = {}): Promise<void> {
   assertCanWrite(ctx.actor);
   const data = parseInput(priorityInput, input);
   if (!data.reason) throw new HdtError('reason_required');
-  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason, data.seenVersion ? new Date(data.seenVersion) : undefined);
+  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason, data.seenVersion ? new Date(data.seenVersion) : undefined, { byRule: opts.byMacro === true });
   await wakeAutomation();
 }
 

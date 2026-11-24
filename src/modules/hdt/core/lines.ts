@@ -76,7 +76,13 @@ export async function lastL1SenderTx(actor: StaffActor, number: number): Promise
   return rows[0]?.byUser ?? null;
 }
 
-export async function returnToL1Tx(actor: StaffActor, number: number, explanation: string, sender: { userId: string; name: string | null } | null): Promise<void> {
+export async function returnToL1Tx(
+  actor: StaffActor,
+  number: number,
+  explanation: string,
+  sender: { userId: string; name: string | null } | null,
+  opts: { byRule?: boolean } = {},
+): Promise<void> {
   if (!(DEVELOPMENT_ROLES as readonly string[]).includes(actor.staffRole)) throw new HdtError('forbidden');
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
@@ -92,7 +98,7 @@ export async function returnToL1Tx(actor: StaffActor, number: number, explanatio
     await tx.insert(lineTransfers).values({ ticketId: ticket.ticketId, fromLine: from, toLine: 'l1', explanation, byUser: actor.userId });
     await recordChange(tx, actor, ticket, { kind: 'queue', payload: { from, to: 'l1', explanation }, audit: 'ticket.line_returned' });
     ticket.queue = 'l1';
-    if (ticket.status === 'in_development') await changeStatusTx(tx, actor, ticket, 'in_progress');
+    if (ticket.status === 'in_development') await changeStatusTx(tx, actor, ticket, 'in_progress', { byRule: opts.byRule });
     // Имя прочитано до транзакции. Если за это время обращение передавал кто-то другой, событие пишется без имени.
     if (last && last.byUser !== ticket.assigneeId) await changeAssigneeTx(tx, actor, ticket, last.byUser, sender?.userId === last.byUser ? sender.name : null);
     await flushTicketTx(tx, ticket);

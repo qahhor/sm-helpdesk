@@ -76,3 +76,15 @@ export const WEBHOOK_URL_MAX = 2000;
 export const MAX_WEBHOOKS = 50;
 /** Длина секрета подписи, байт. */
 export const WEBHOOK_SECRET_BYTES = 32;
+
+// --- Макросы (FR-AG-15, UX-A-16; план M8, задача 6) ---
+
+export const MACRO_NAME_MAX = 120;
+/** Очереди, между которыми сотрудник передаёт обращение сам: в Customer Care действия сотрудника нет. */
+export const MACRO_QUEUES = ['l1', 'l2'] as const;
+/** Действия, из которых собирается макрос: набор правил без вебхука, распределения по кругу и уведомления. */
+export const MACRO_ACTIONS = ['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'snooze', 'set_status'] as const;
+/** Макросов в списке не больше этого: меню на странице обращения остаётся обозримым. */
+export const MAX_MACROS = 50;
+/** Итог запуска макроса: все действия выполнены, часть или ни одного. */
+export type MacroResult = 'applied' | 'partial' | 'failed';

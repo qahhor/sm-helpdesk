@@ -11,8 +11,8 @@ import { PageHeader } from '@/ui/components/PageHeader';
 import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { settingsNav } from '../../sections';
-import { sendTestAction } from '../actions';
-import { DeleteWebhook } from '../DeleteWebhook';
+import { ConfirmDelete } from '../../ConfirmDelete';
+import { deleteWebhookAction, sendTestAction } from '../actions';
 import { secretLabels, webhookFormProps } from '../form-labels';
 import { RotateSecret } from '../RotateSecret';
 import { WebhookForm } from '../WebhookForm';
@@ -195,8 +195,10 @@ export default async function WebhookPage({ params, searchParams }: PageProps<'/
           </CardContent>
         </Card>
 
-        <DeleteWebhook
-          endpointId={endpoint.endpointId}
+        <ConfirmDelete
+          action={deleteWebhookAction}
+          field="endpointId"
+          value={endpoint.endpointId}
           labels={{ open: w('delete.open'), title: w('delete.title', { name: endpoint.name }), text: w('delete.text'), confirm: w('delete.confirm'), cancel: w('delete.cancel'), close: w('delete.close') }}
         />
       </SettingsLayout>

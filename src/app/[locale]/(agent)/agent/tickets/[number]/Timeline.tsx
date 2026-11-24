@@ -95,8 +95,12 @@ export async function TicketTimeline({ ticket, from }: Props) {
           if (typeof action !== 'string' || !t.has(`ticket.ruleActions.${action}`)) return [];
           if (ok !== true) return [t('ticket.ruleActionFailed', { name: t(`ticket.ruleActionNames.${action}`) })];
           if (unchanged === true) return [`${t(`ticket.ruleActionNames.${action}`)}: ${t('ticket.ruleActions.unchanged')}`];
-          return [t(`ticket.ruleActions.${action}`, { from: label(action, from), to: label(action, to) }).trim()];
+          // У макроса ответ по шаблону не отправлен, а вставлен в поле ответа: своя подпись.
+          const key = p.macro === true && t.has(`ticket.macroActions.${action}`) ? `ticket.macroActions.${action}` : `ticket.ruleActions.${action}`;
+          return [t(key, { from: label(action, from), to: label(action, to) }).trim()];
         });
+        // Запуск макроса сотрудником (FR-AG-15): та же запись, но с именем сотрудника.
+        if (p.macro === true) return t('ticket.events.macro', { actor, name: String(p.ruleName ?? ''), actions: done.join('; ') });
         return t('ticket.events.rule', { name: String(p.ruleName ?? ''), actions: done.join('; ') });
       }
       case 'due':

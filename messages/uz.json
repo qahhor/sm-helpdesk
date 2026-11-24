@@ -607,6 +607,10 @@
         "webhooks": {
           "title": "Vebhuklar",
           "text": "Portal murojaat hodisalari haqida xabar beradigan manzillar: imzo siri, sinov yuborish, yetkazishlar jurnali."
+        },
+        "macros": {
+          "title": "Makroslar",
+          "text": "Murojaat bilan bir necha amal bir bosishda: javob shabloni, holat, teg, ijrochi."
         }
       },
       "servers": {
@@ -821,7 +825,8 @@
           "tag": "Teg",
           "rule": "Avtomatlashtirish qoidasi",
           "webhook": "Vebhuk manzili",
-          "webhook_secret": "Vebhuk sirlari"
+          "webhook_secret": "Vebhuk sirlari",
+          "macro": "Makros"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -953,6 +958,13 @@
             "deleted": "Vebhuk manzili o'chirildi",
             "secret_rotated": "Vebhuk siri almashtirildi",
             "test_sent": "Vebhukka sinov yuborildi"
+          },
+          "macro": {
+            "created": "Makros yaratildi",
+            "updated": "Makros o'zgartirildi",
+            "moved": "Makroslar tartibi o'zgartirildi",
+            "deleted": "Makros o'chirildi",
+            "run": "Murojaatda makros ishga tushirildi"
           }
         },
         "words": {
@@ -1403,7 +1415,14 @@
           "webhook_failed": "vebhuk javob bermadi",
           "unknown": "sabab ko'rsatilmagan",
           "endpoint_missing": "vebhuk manzili o'chirilgan",
-          "endpoint_disabled": "vebhuk manzili o'chirib qo'yilgan"
+          "endpoint_disabled": "vebhuk manzili o'chirib qo'yilgan",
+          "forbidden": "bu amalga huquq yo'q",
+          "changed": "makros bajarilayotganda murojaat o'zgartirildi",
+          "not_found": "topilmadi",
+          "invalid_input": "qiymat qabul qilinmadi",
+          "rate_limited": "ketma-ket juda ko'p amal",
+          "resolution_required": "yechim yakuni kerak",
+          "refused": "amal rad etildi"
         },
         "runs": {
           "title": "Ishga tushishlar jurnali",
@@ -1549,6 +1568,67 @@
           "not_found": "Manzil topilmadi. Ehtimol, u allaqachon o'chirilgan.",
           "endpoint_disabled": "Manzil o'chirilgan. Sinov so'rovini yuborish uchun uni yoqing.",
           "too_many": "Ro'yxatda 50 ta manzil bor. Keraksizini o'chiring."
+        }
+      },
+      "macros": {
+        "title": "Makroslar",
+        "intro": "Makros murojaat bilan bir necha amalni bir bosishda bajaradi. Xodim uni murojaat sahifasida ishga tushiradi va makros shu xodimning huquqlari bilan ishlaydi: xodimga mumkin bo'lmagan amal bajarilmaydi. Mijozlar makroslarni ko'rmaydi.",
+        "newMacro": "Yangi makros",
+        "emptyTitle": "Hozircha makroslar yo'q",
+        "emptyText": "Birinchi makrosni yarating, masalan «Versiya va skrinshot so'rash»: shablonni qo'yish va «Mijoz javobi kutilmoqda» holatini belgilash.",
+        "listLabel": "Menyu tartibidagi makroslar",
+        "columns": {
+          "order": "№",
+          "name": "Makros",
+          "actions": "Amallar",
+          "state": "Holati",
+          "controls": "Boshqaruv"
+        },
+        "states": {
+          "enabled": "Yoqilgan",
+          "disabled": "O'chirilgan",
+          "invalid": "Tuzatish kerak"
+        },
+        "moveUp": "Yuqoriga",
+        "moveDown": "Pastga",
+        "moveUpOf": "«{name}» makrosini ko'tarish",
+        "moveDownOf": "«{name}» makrosini tushirish",
+        "open": "Ochish",
+        "openOf": "«{name}» makrosini ochish",
+        "assignMe": "Makrosni ishga tushirgan xodim",
+        "actions": {
+          "reply_template": "Shablonni javob maydoniga qo'yish",
+          "set_queue": "Liniyaga o'tkazish"
+        },
+        "invalidNote": "Makros amallari tekshiruvdan o'tmayapti. Tuzatib saqlanmaguncha makros ishga tushmaydi.",
+        "editor": {
+          "newTitle": "Yangi makros",
+          "name": "Makros nomi",
+          "nameHint": "Uni xodimlar «Makroslar» menyusida va murojaat tarixida ko'radi.",
+          "actionsTitle": "Amallar",
+          "actionsHint": "Bittadan o'ntagacha amal, tartib bilan bajariladi. Makros shablonni yubormaydi: matn javob maydoniga tushadi, xodim uni o'qib, o'zi yuboradi.",
+          "enabled": "Makros yoqilgan"
+        },
+        "delete": {
+          "open": "Makrosni o'chirish",
+          "title": "«{name}» makrosi o'chirilsinmi?",
+          "text": "Makros murojaat sahifasidagi menyudan yo'qoladi. Murojaatlar tarixidagi avvalgi ishga tushirishlar yozuvlari qoladi.",
+          "confirm": "O'chirish",
+          "cancel": "Bekor qilish",
+          "close": "Yopish"
+        },
+        "done": {
+          "created": "Makros yaratildi",
+          "saved": "Makros saqlandi",
+          "moved": "Tartib o'zgartirildi",
+          "deleted": "Makros o'chirildi"
+        },
+        "errors": {
+          "forbidden": "Makroslarni portal administratori sozlaydi.",
+          "stale_session": "Bu amal uchun yaqinda kirgan bo'lish kerak.",
+          "invalid_input": "Makros saqlanmadi. Belgilangan maydonlarni tekshiring.",
+          "not_found": "Makros topilmadi. Ehtimol, u allaqachon o'chirilgan.",
+          "too_many": "Ro'yxatda 50 ta makros bor. Keraksizini o'chiring."
         }
       }
     },
@@ -1732,7 +1812,8 @@
         "mergedFrom": "{actor}: {number} qo'shildi",
         "bound": "{actor}: mijoz tashkilotiga bog'landi",
         "tagAdded": "{actor}: {name} tegi qo'shildi",
-        "tagRemoved": "{actor}: {name} tegi olib tashlandi"
+        "tagRemoved": "{actor}: {name} tegi olib tashlandi",
+        "macro": "«{name}» makrosi ({actor}): {actions}"
       },
       "ruleActions": {
         "set_queue": "navbat {to}",
@@ -1971,6 +2052,25 @@
         "hint": "Tavsiyalardan tanlang yoki yangi nom kiriting.",
         "submit": "Qo'shish",
         "remove": "{name} tegini olib tashlash"
+      },
+      "macroActions": {
+        "reply_template": "«{to}» shabloni javob maydoniga qo'yildi"
+      },
+      "macros": {
+        "open": "Makroslar",
+        "list": "Makrosni bajarish",
+        "busy": "Bajarilmoqda...",
+        "result": "«{name}» makrosi bajarildi",
+        "done": "Bajarildi: {actions}.",
+        "template": "Shablon matni javob maydonida. Uni tekshirib, yuboring.",
+        "templateFallback": "Shablon matni javob maydonida. Murojaat tiliga tarjima yo'q: ruscha matn qo'yildi. Uni tekshirib, yuboring.",
+        "errors": {
+          "forbidden": "Makroslarni murojaatlarni yurituvchi xodim ishga tushiradi.",
+          "not_found": "Makros topilmadi yoki o'chirilgan. Sahifani yangilang.",
+          "invalid_input": "Makros ishga tushmadi. Sahifani yangilab, qayta urinib ko'ring.",
+          "other": "Makros bajarilmadi. Keyinroq qayta urinib ko'ring."
+        },
+        "resultNone": "«{name}» makrosi: birorta amal bajarilmadi"
       }
     },
     "playbooks": {

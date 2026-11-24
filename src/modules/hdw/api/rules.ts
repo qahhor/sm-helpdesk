@@ -2,11 +2,12 @@ import 'server-only';
 import * as z from 'zod';
 import { withActor } from '@/db/with-actor';
 import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from '@/modules/hdc/api';
-import { listActiveModules, listAllTemplates, listTags, type ModuleOption, type Tag, tagsByIdTx, templatesByIdTx } from '@/modules/hdr/api';
+import { listActiveModules, listAllTemplates, listTags, type ModuleOption, type Tag, tagsByIdTx } from '@/modules/hdr/api';
 import { IMPACTS, PRIORITIES, QUEUES, TICKET_SOURCES, TICKET_STATUSES, TICKET_TYPES } from '@/modules/hdt/pref';
 import { orgFactsTx, type StaffMember, staffRoster } from '@/modules/hdu/api/automation';
 import { type DryRunResult, dryRunTx } from '../core/dry-run';
-import { endpointsByIdTx, listWebhooksTx } from '../core/webhooks';
+import { missingActionRefs } from '../core/references';
+import { listWebhooksTx } from '../core/webhooks';
 import { deleteRuleTx, listRuleRunsTx, listRulesTx, moveRuleTx, readRuleTx, type RuleRecord, type RuleRunRecord, saveRuleTx, setRuleEnabledTx } from '../core/rules';
 import { HdwError } from '../error';
 import { NOTIFY_ROLES, ORG_CATEGORIES, RULE_EVENTS, RULE_STATUS_TARGETS } from '../pref';
@@ -52,12 +53,9 @@ function definitionOf(input: unknown): RuleDefinition {
   return parsed.rule;
 }
 
-const WRITER_ROLES: readonly string[] = ['agent_l1', 'agent_l2', 'care', 'admin'];
-
 /**
- * Ссылки правила, которых нет в справочниках: модули, организации, теги, шаблоны, сотрудники. Очереди, статусы и
- * роли проверяет схема. Адрес вебхука должен быть в списке администратора (FR-AUTO-10); выключенный адрес
- * допускается, действие с ним запишется невыполненным.
+ * Ссылки правила, которых нет в справочниках: модули, организации и теги условий; теги, шаблоны, сотрудники и адреса
+ * вебхуков действий (core/references.ts). Очереди, статусы и роли проверяет схема.
  */
 async function missingReferences(ctx: StaffContext, rule: RuleDefinition): Promise<RuleIssue[]> {
   const issues: RuleIssue[] = [];
@@ -71,38 +69,20 @@ async function missingReferences(ctx: StaffContext, rule: RuleDefinition): Promi
   const moduleRefs = conditionIds('module');
   const orgRefs = conditionIds('org');
   const tagRefs = conditionIds('tags');
-  const tagActions = rule.actions.flatMap((item, index) => (item.action === 'add_tag' || item.action === 'remove_tag' ? [{ index, value: item.tagId }] : []));
-  const templateActions = rule.actions.flatMap((item, index) => (item.action === 'reply_template' ? [{ index, value: item.templateId }] : []));
 
   if (moduleRefs.length > 0) {
     const modules = new Set((await listActiveModules(ctx.actor, 'ru')).map((item) => item.moduleId));
     for (const ref of moduleRefs) if (!modules.has(ref.value)) missing(`conditions.items.${ref.index}.values`);
   }
-  const webhookActions = rule.actions.flatMap((item, index) => (item.action === 'webhook' ? [{ index, value: item.endpointId }] : []));
-  if (orgRefs.length + tagRefs.length + tagActions.length + templateActions.length + webhookActions.length > 0) {
+  if (orgRefs.length + tagRefs.length > 0) {
     const found = await withActor(ctx.actor, async (tx) => ({
       orgs: await orgFactsTx(tx, orgRefs.map((ref) => ref.value)),
-      tags: await tagsByIdTx(tx, [...tagRefs, ...tagActions].map((ref) => ref.value)),
-      templates: await templatesByIdTx(tx, templateActions.map((ref) => ref.value)),
-      endpoints: await endpointsByIdTx(tx, webhookActions.map((ref) => ref.value)),
+      tags: await tagsByIdTx(tx, tagRefs.map((ref) => ref.value)),
     }));
-    for (const ref of webhookActions) if (!found.endpoints.has(ref.value)) missing(`actions.${ref.index}.endpointId`);
     for (const ref of orgRefs) if (!found.orgs.has(ref.value)) missing(`conditions.items.${ref.index}.values`);
     for (const ref of tagRefs) if (!found.tags.has(ref.value)) missing(`conditions.items.${ref.index}.values`);
-    for (const ref of tagActions) if (!found.tags.has(ref.value)) missing(`actions.${ref.index}.tagId`);
-    for (const ref of templateActions) if (!found.templates.has(ref.value)) missing(`actions.${ref.index}.templateId`);
   }
-  if (rule.actions.some((item) => item.action === 'assign' || (item.action === 'notify' && item.target.kind === 'user'))) {
-    const roster = await staffRoster();
-    for (const [index, item] of rule.actions.entries()) {
-      // Исполнителем становится только сотрудник, который ведёт обращения; уведомить можно любого действующего.
-      if (item.action === 'assign' && !roster.some((member) => member.userId === item.userId && WRITER_ROLES.includes(member.role))) missing(`actions.${index}.userId`);
-      if (item.action === 'notify' && item.target.kind === 'user') {
-        const userId = item.target.userId;
-        if (!roster.some((member) => member.userId === userId)) missing(`actions.${index}.target.userId`);
-      }
-    }
-  }
+  issues.push(...(await missingActionRefs(ctx.actor, rule.actions)));
   // Один путь называется один раз, даже если в списке значений не найдено несколько.
   return issues.filter((issue, index) => issues.findIndex((other) => other.path === issue.path) === index);
 }

@@ -10,7 +10,8 @@ import { PageHeader } from '@/ui/components/PageHeader';
 import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { settingsNav } from '../../sections';
-import { DeleteRule } from '../DeleteRule';
+import { ConfirmDelete } from '../../ConfirmDelete';
+import { deleteRuleAction } from '../actions';
 import { ruleEditorProps } from '../editor-props';
 import { RuleEditor } from '../RuleEditor';
 import { draftOf } from '../rule-draft';
@@ -129,8 +130,10 @@ export default async function RulePage({ params, searchParams }: PageProps<'/[lo
           </CardContent>
         </Card>
         {rule.pcode === null ? (
-          <DeleteRule
-            ruleId={rule.ruleId}
+          <ConfirmDelete
+            action={deleteRuleAction}
+            field="ruleId"
+            value={rule.ruleId}
             labels={{ open: r('delete.open'), title: r('delete.title', { name: rule.name }), text: r('delete.text'), confirm: r('delete.confirm'), cancel: r('delete.cancel'), close: r('delete.close') }}
           />
         ) : (

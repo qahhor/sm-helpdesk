@@ -607,6 +607,10 @@
         "webhooks": {
           "title": "Webhooks",
           "text": "Addresses the portal notifies about request events: signing secret, test delivery, delivery log."
+        },
+        "macros": {
+          "title": "Macros",
+          "text": "Several actions on a request in one click: reply template, status, tag, assignee."
         }
       },
       "servers": {
@@ -821,7 +825,8 @@
           "tag": "Tag",
           "rule": "Automation rule",
           "webhook": "Webhook address",
-          "webhook_secret": "Webhook secrets"
+          "webhook_secret": "Webhook secrets",
+          "macro": "Macro"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -953,6 +958,13 @@
             "deleted": "Webhook address deleted",
             "secret_rotated": "Webhook secret rotated",
             "test_sent": "Webhook test delivery"
+          },
+          "macro": {
+            "created": "Macro created",
+            "updated": "Macro changed",
+            "moved": "Macro order changed",
+            "deleted": "Macro deleted",
+            "run": "Macro run on a request"
           }
         },
         "words": {
@@ -1403,7 +1415,14 @@
           "webhook_failed": "the webhook did not respond",
           "unknown": "no reason given",
           "endpoint_missing": "webhook address deleted",
-          "endpoint_disabled": "webhook address is off"
+          "endpoint_disabled": "webhook address is off",
+          "forbidden": "no rights for this action",
+          "changed": "the request was changed while the macro ran",
+          "not_found": "not found",
+          "invalid_input": "value not accepted",
+          "rate_limited": "too many actions in a row",
+          "resolution_required": "a resolution is required",
+          "refused": "action refused"
         },
         "runs": {
           "title": "Run log",
@@ -1549,6 +1568,67 @@
           "not_found": "Address not found. It may have been deleted already.",
           "endpoint_disabled": "The address is off. Turn it on to send a test request.",
           "too_many": "The list already has 50 addresses. Delete one you do not need."
+        }
+      },
+      "macros": {
+        "title": "Macros",
+        "intro": "A macro performs several actions on a request in one click. A staff member runs it on the request page, and the macro acts with the rights of that staff member: an action they may not do is not performed. Clients never see macros.",
+        "newMacro": "New macro",
+        "emptyTitle": "No macros yet",
+        "emptyText": "Create the first macro, for example \"Ask for version and screenshot\": insert a template and set \"Waiting for client\".",
+        "listLabel": "Macros in menu order",
+        "columns": {
+          "order": "No.",
+          "name": "Macro",
+          "actions": "Actions",
+          "state": "State",
+          "controls": "Controls"
+        },
+        "states": {
+          "enabled": "On",
+          "disabled": "Off",
+          "invalid": "Needs fixing"
+        },
+        "moveUp": "Up",
+        "moveDown": "Down",
+        "moveUpOf": "Move macro \"{name}\" up",
+        "moveDownOf": "Move macro \"{name}\" down",
+        "open": "Open",
+        "openOf": "Open macro \"{name}\"",
+        "assignMe": "Whoever runs the macro",
+        "actions": {
+          "reply_template": "Insert a template into the reply field",
+          "set_queue": "Transfer to a line"
+        },
+        "invalidNote": "The macro actions do not pass validation. The macro will not run until it is fixed and saved.",
+        "editor": {
+          "newTitle": "New macro",
+          "name": "Macro name",
+          "nameHint": "Staff see it in the \"Macros\" menu and in the request history.",
+          "actionsTitle": "Actions",
+          "actionsHint": "One to ten actions, performed in order. A macro does not send the template: the text goes into the reply field, the staff member reads it and sends it.",
+          "enabled": "Macro is on"
+        },
+        "delete": {
+          "open": "Delete macro",
+          "title": "Delete macro \"{name}\"?",
+          "text": "The macro will disappear from the menu on the request page. Records of past runs stay in the request history.",
+          "confirm": "Delete",
+          "cancel": "Cancel",
+          "close": "Close"
+        },
+        "done": {
+          "created": "Macro created",
+          "saved": "Macro saved",
+          "moved": "Order changed",
+          "deleted": "Macro deleted"
+        },
+        "errors": {
+          "forbidden": "Macros are set up by the portal administrator.",
+          "stale_session": "This action needs a recent sign-in.",
+          "invalid_input": "The macro was not saved. Check the marked fields.",
+          "not_found": "Macro not found. It may have been deleted already.",
+          "too_many": "The list already has 50 macros. Delete one you do not need."
         }
       }
     },
@@ -1732,7 +1812,8 @@
         "mergedFrom": "{actor}: merged {number} into this ticket",
         "bound": "{actor}: linked to the client organization",
         "tagAdded": "{actor}: tag {name} added",
-        "tagRemoved": "{actor}: tag {name} removed"
+        "tagRemoved": "{actor}: tag {name} removed",
+        "macro": "Macro \"{name}\" ({actor}): {actions}"
       },
       "ruleActions": {
         "set_queue": "queue {to}",
@@ -1971,6 +2052,25 @@
         "hint": "Pick a suggestion or type a new name.",
         "submit": "Add",
         "remove": "Remove tag {name}"
+      },
+      "macroActions": {
+        "reply_template": "template \"{to}\" inserted into the reply field"
+      },
+      "macros": {
+        "open": "Macros",
+        "list": "Run a macro",
+        "busy": "Running...",
+        "result": "Macro \"{name}\" done",
+        "done": "Done: {actions}.",
+        "template": "The template text is in the reply field. Check it and send.",
+        "templateFallback": "The template text is in the reply field. There is no translation into the request language: the Russian text was inserted. Check it and send.",
+        "errors": {
+          "forbidden": "Macros are run by staff who handle requests.",
+          "not_found": "Macro not found or turned off. Reload the page.",
+          "invalid_input": "The macro did not start. Reload the page and try again.",
+          "other": "The macro was not performed. Try again later."
+        },
+        "resultNone": "Macro \"{name}\": no action was performed"
       }
     },
     "playbooks": {

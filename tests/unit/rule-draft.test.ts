@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { draftOf, EMPTY_DRAFT, issuesAt, otherIssues, payloadOf } from '@/app/[locale]/(agent)/agent/settings/rules/rule-draft';
+import { actionDrafts, actionsPayload, ASSIGN_ME, draftOf, EMPTY_DRAFT, issuesAt, otherIssues, payloadOf } from '@/app/[locale]/(agent)/agent/settings/rules/rule-draft';
 
 // Черновик правила в редакторе (план M8, задача 4): строки условий и действий хранятся в виде, удобном полям формы,
 // и превращаются в ввод схемы правила. Проверяет ввод только сервер: черновик отдаёт и неполные строки.
@@ -98,4 +98,16 @@ test('отказы схемы раскладываются по строкам, 
   expect(otherIssues(issues, 11, 1)).toEqual([{ path: 'actions', code: 'invalid' }]);
   // Строки, которой в черновике уже нет, остаются в общем списке.
   expect(otherIssues(issues, 2, 1).map((issue) => issue.path)).toEqual(['conditions.items.10.values', 'actions']);
+});
+
+test('строки действий макроса: "тот, кто запустил макрос" уходит действием assign_me и возвращается в список исполнителей', () => {
+  const rows = [
+    { key: 1, action: 'assign', value: ASSIGN_ME, text: '' },
+    { key: 2, action: 'assign', value: U1, text: '' },
+    { key: 3, action: 'reply_template', value: U2, text: '' },
+    { key: 4, action: 'set_queue', value: 'l2', text: '' },
+  ];
+  const payload = actionsPayload(rows);
+  expect(payload).toEqual([{ action: 'assign_me' }, { action: 'assign', userId: U1 }, { action: 'reply_template', templateId: U2 }, { action: 'set_queue', queue: 'l2' }]);
+  expect(actionDrafts(payload)).toEqual(rows);
 });

@@ -9,8 +9,9 @@ export type Issue = { path: string; code: IssueCode };
 /** Строка условия. values: выбранные значения списка; text: слова через запятую, число часов, оценка или вид времени. */
 export type ConditionDraft = { key: number; field: string; op: string; values: string[]; text: string };
 /**
- * Строка действия. value: очередь, сотрудник, приоритет, тег, шаблон, статус, часы или получатель уведомления
- * ("oncall", "role:<роль>", "user:<идентификатор>"); text: текст заметки.
+ * Строка действия. value: очередь, сотрудник (у макроса ещё "me": тот, кто запустил макрос), приоритет, тег, шаблон,
+ * статус, часы, адрес вебхука или получатель уведомления ("oncall", "role:<роль>", "user:<идентификатор>");
+ * text: текст заметки.
  */
 export type ActionDraft = { key: number; action: string; value: string; text: string };
 export type RuleDraft = { ruleId?: string; name: string; event: string; hours: string; match: 'all' | 'any'; conditions: ConditionDraft[]; actions: ActionDraft[]; isStop: boolean };
@@ -55,6 +56,9 @@ export const kindOf = (field: string): FieldKind => (FIELD_KINDS as Record<strin
 export const ACTION_KINDS = ['set_queue', 'assign', 'assign_round_robin', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status', 'webhook'] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
 
+/** Значение "тот, кто запустил макрос" в списке исполнителей: в макросе это действие assign_me. */
+export const ASSIGN_ME = 'me';
+
 /** Значение "модуль не указан" в списке модулей: в правиле это null. */
 export const NO_MODULE = 'none';
 
@@ -97,7 +101,7 @@ function actionOf(row: ActionDraft): Record<string, unknown> {
     case 'set_queue':
       return { action, queue: row.value };
     case 'assign':
-      return { action, userId: row.value };
+      return row.value === ASSIGN_ME ? { action: 'assign_me' } : { action, userId: row.value };
     case 'set_priority':
       return { action, priority: row.value };
     case 'add_tag':
@@ -130,6 +134,9 @@ export type RulePayload = {
   isStop: boolean;
 };
 
+/** Действия для схемы правила или макроса из строк черновика. */
+export const actionsPayload = (rows: readonly ActionDraft[]): Record<string, unknown>[] => rows.map(actionOf);
+
 /** Ввод схемы правила из черновика. Часы отдаются только у события "нет активности". */
 export function payloadOf(draft: RuleDraft): RulePayload {
   return {
@@ -155,6 +162,23 @@ type StoredRule = {
 
 const text = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
+/** Строки действий из сохранённого правила или макроса. */
+export function actionDrafts(actions: readonly Record<string, unknown>[]): ActionDraft[] {
+  return actions.map((item, index) => {
+    const target = (item.target ?? {}) as { kind?: string; role?: string; userId?: string };
+    if (item.action === 'assign_me') return { key: index + 1, action: 'assign', value: ASSIGN_ME, text: '' };
+    const value =
+      item.action === 'notify'
+        ? target.kind === 'oncall'
+          ? 'oncall'
+          : target.kind === 'role'
+            ? `role:${text(target.role)}`
+            : `user:${text(target.userId)}`
+        : text(item.queue ?? item.userId ?? item.priority ?? item.tagId ?? item.templateId ?? item.hours ?? item.status ?? item.endpointId);
+    return { key: index + 1, action: text(item.action), value, text: text(item.text) };
+  });
+}
+
 /** Черновик из сохранённого правила. */
 export function draftOf(rule: StoredRule): RuleDraft {
   return {
@@ -170,18 +194,7 @@ export function draftOf(rule: StoredRule): RuleDraft {
       values: Array.isArray(item.values) ? item.values.map((value) => (value === null ? NO_MODULE : text(value))) : [],
       text: Array.isArray(item.words) ? item.words.join(', ') : text(item.value),
     })),
-    actions: rule.actions.map((item, index) => {
-      const target = (item.target ?? {}) as { kind?: string; role?: string; userId?: string };
-      const value =
-        item.action === 'notify'
-          ? target.kind === 'oncall'
-            ? 'oncall'
-            : target.kind === 'role'
-              ? `role:${text(target.role)}`
-              : `user:${text(target.userId)}`
-          : text(item.queue ?? item.userId ?? item.priority ?? item.tagId ?? item.templateId ?? item.hours ?? item.status ?? item.endpointId);
-      return { key: index + 1, action: text(item.action), value, text: text(item.text) };
-    }),
+    actions: actionDrafts(rule.actions),
     isStop: rule.isStop,
   };
 }

@@ -72,6 +72,7 @@ async function seedEverything() {
      insert into hdw_webhook_deliveries (org_id, endpoint_id, ticket_id, kind, body) select $1, endpoint_id, $2, 'ticket_created', '{"event": "ticket_created"}' from endpoint`,
     [f.orgA.orgId, f.tickets.aOrg.ticketId, SEALED],
   );
+  await pools.root.query(`insert into hdw_macros (name, actions, order_no) values ('Запросить версию', '[{"action": "set_status", "status": "waiting_customer"}]', 1)`);
   await pools.root.query(`insert into hdu_server_checks (server_id, is_ok, issues) values ($1, false, '{timeout}')`, [f.server.serverId]);
   return f;
 }

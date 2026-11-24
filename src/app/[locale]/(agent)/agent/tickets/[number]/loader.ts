@@ -1,6 +1,7 @@
 import { getPlaybook, listActiveModules, listTags, listTemplates } from '@/modules/hdr/api';
 import { DEVELOPMENT_ROLES, getAgentTicket, HDT_ERROR_CODES, loadDraft, QUEUE_KEYS, QUEUE_SORTS, TRANSFERABLE_STATUSES } from '@/modules/hdt/api';
 import { listAssignableStaff, type StaffContext } from '@/modules/hdu/api';
+import { listRunnableMacros } from '@/modules/hdw/api';
 
 // Данные страницы обращения у сотрудника: обращение с историей, справочники для действий, права на передачу
 // между линиями, итог прошлого действия из адреса. Вынесено из страницы (аудит 23.11.2026, находка A8): загрузка
@@ -16,7 +17,7 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
   const ticket = raw ? await getAgentTicket(staff, raw, { shown: search.shown }) : null;
   if (!ticket) return null;
   const canWrite = staff.actor.staffRole !== 'product';
-  const [assignable, modules, draft, templates, knownTags] = canWrite
+  const [assignable, modules, draft, templates, knownTags, macros] = canWrite
     ? await Promise.all([
         listAssignableStaff(staff),
         listActiveModules(staff.actor, locale),
@@ -24,8 +25,10 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
         listTemplates(staff, { moduleId: ticket.moduleId }),
         // Справочник тегов: подсказки в поле постановки тега (FR-AUTO-13).
         listTags(staff),
+        // Включённые макросы для меню "Макросы" (FR-AG-15).
+        listRunnableMacros(staff),
       ])
-    : [[], [], null, [], []];
+    : [[], [], null, [], [], []];
   // Линии (FR-LINE-03, 04): передать может тот, кто ведёт обращения, с первой линии; вернуть вторая линия, care, admin.
   const canTransfer = canWrite && ticket.line === 'l1' && TRANSFERABLE_STATUSES.includes(ticket.status);
   const canReturn =
@@ -39,6 +42,7 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
     draft,
     templates,
     knownTags,
+    macros,
     canTransfer,
     canReturn,
     playbook,

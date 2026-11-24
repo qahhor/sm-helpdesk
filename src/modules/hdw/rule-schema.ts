@@ -54,19 +54,38 @@ const notifyTarget = z.discriminatedUnion('kind', [
 ]);
 export type NotifyTarget = z.infer<typeof notifyTarget>;
 
+/**
+ * Действия по одному: из них собраны действия правила и действия макроса (src/modules/hdw/macro-schema.ts). Макрос
+ * берёт тот же набор без вебхука, распределения по кругу и уведомления (UX-A-16).
+ */
+export const actionSchemas = {
+  set_queue: z.strictObject({ action: z.literal('set_queue'), queue: z.enum(QUEUES) }),
+  assign: z.strictObject({ action: z.literal('assign'), userId: z.uuid() }),
+  assign_round_robin: z.strictObject({ action: z.literal('assign_round_robin') }),
+  set_priority: z.strictObject({ action: z.literal('set_priority'), priority: z.enum(PRIORITIES) }),
+  add_tag: z.strictObject({ action: z.literal('add_tag'), tagId: z.uuid() }),
+  remove_tag: z.strictObject({ action: z.literal('remove_tag'), tagId: z.uuid() }),
+  add_note: z.strictObject({ action: z.literal('add_note'), text: z.string().overwrite(cleanUserText).trim().min(1).max(RULE_NOTE_MAX) }),
+  reply_template: z.strictObject({ action: z.literal('reply_template'), templateId: z.uuid() }),
+  notify: z.strictObject({ action: z.literal('notify'), target: notifyTarget }),
+  snooze: z.strictObject({ action: z.literal('snooze'), hours: z.number().int().min(1).max(MAX_SNOOZE_HOURS) }),
+  set_status: z.strictObject({ action: z.literal('set_status'), status: z.enum(RULE_STATUS_TARGETS) }),
+  webhook: z.strictObject({ action: z.literal('webhook'), endpointId: z.uuid() }),
+};
+
 const action = z.discriminatedUnion('action', [
-  z.strictObject({ action: z.literal('set_queue'), queue: z.enum(QUEUES) }),
-  z.strictObject({ action: z.literal('assign'), userId: z.uuid() }),
-  z.strictObject({ action: z.literal('assign_round_robin') }),
-  z.strictObject({ action: z.literal('set_priority'), priority: z.enum(PRIORITIES) }),
-  z.strictObject({ action: z.literal('add_tag'), tagId: z.uuid() }),
-  z.strictObject({ action: z.literal('remove_tag'), tagId: z.uuid() }),
-  z.strictObject({ action: z.literal('add_note'), text: z.string().overwrite(cleanUserText).trim().min(1).max(RULE_NOTE_MAX) }),
-  z.strictObject({ action: z.literal('reply_template'), templateId: z.uuid() }),
-  z.strictObject({ action: z.literal('notify'), target: notifyTarget }),
-  z.strictObject({ action: z.literal('snooze'), hours: z.number().int().min(1).max(MAX_SNOOZE_HOURS) }),
-  z.strictObject({ action: z.literal('set_status'), status: z.enum(RULE_STATUS_TARGETS) }),
-  z.strictObject({ action: z.literal('webhook'), endpointId: z.uuid() }),
+  actionSchemas.set_queue,
+  actionSchemas.assign,
+  actionSchemas.assign_round_robin,
+  actionSchemas.set_priority,
+  actionSchemas.add_tag,
+  actionSchemas.remove_tag,
+  actionSchemas.add_note,
+  actionSchemas.reply_template,
+  actionSchemas.notify,
+  actionSchemas.snooze,
+  actionSchemas.set_status,
+  actionSchemas.webhook,
 ]);
 export type RuleAction = z.infer<typeof action>;
 export type RuleActionKind = RuleAction['action'];
@@ -105,16 +124,8 @@ export type RuleDefinition = {
 
 const CODES: ReadonlySet<string> = new Set(RULE_ISSUE_CODES);
 
-/** Проверяет ввод правила. Отказ несёт путь до поля и код: текст на языке администратора подставляет страница. */
-export function parseRule(input: unknown): { ok: true; rule: RuleDefinition } | { ok: false; issues: RuleIssue[] } {
-  const parsed = ruleInput.safeParse(input);
-  if (parsed.success) {
-    const data = parsed.data;
-    return {
-      ok: true,
-      rule: { ...(data.ruleId ? { ruleId: data.ruleId } : {}), name: data.name, event: data.event as RuleDefinition['event'], hours: data.hours ?? null, conditions: data.conditions as Conditions, actions: data.actions, isStop: data.isStop },
-    };
-  }
+/** Отказы схемы с путём до поля и кодом: общий разбор для правила и макроса. */
+export function issuesOf(error: z.ZodError): RuleIssue[] {
   const issues: RuleIssue[] = [];
   const walk = (list: readonly z.core.$ZodIssue[], prefix: PropertyKey[]) => {
     for (const issue of list) {
@@ -128,6 +139,20 @@ export function parseRule(input: unknown): { ok: true; rule: RuleDefinition } | 
       issues.push({ path: path.map(String).join('.'), code: CODES.has(issue.message) ? (issue.message as RuleIssueCode) : 'invalid' });
     }
   };
-  walk(parsed.error.issues, []);
-  return { ok: false, issues };
+  walk(error.issues, []);
+  return issues;
 }
+
+/** Проверяет ввод правила. Отказ несёт путь до поля и код: текст на языке администратора подставляет страница. */
+export function parseRule(input: unknown): { ok: true; rule: RuleDefinition } | { ok: false; issues: RuleIssue[] } {
+  const parsed = ruleInput.safeParse(input);
+  if (parsed.success) {
+    const data = parsed.data;
+    return {
+      ok: true,
+      rule: { ...(data.ruleId ? { ruleId: data.ruleId } : {}), name: data.name, event: data.event as RuleDefinition['event'], hours: data.hours ?? null, conditions: data.conditions as Conditions, actions: data.actions, isStop: data.isStop },
+    };
+  }
+  return { ok: false, issues: issuesOf(parsed.error) };
+}
+

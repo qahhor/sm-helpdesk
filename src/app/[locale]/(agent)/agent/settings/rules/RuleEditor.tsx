@@ -8,30 +8,26 @@ import { Card, CardContent } from '@/ui/components/card';
 import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
 import { Select } from '@/ui/components/select';
-import { Textarea } from '@/ui/components/textarea';
+import { ActionRows, type ActionRowsLabels, type ActionRowsOptions, fill, type Option, RowIssues } from './ActionRows';
 import { type DryRunView, dryRunRuleAction, type RuleFormState, saveRuleAction, searchRuleOrgsAction } from './actions';
-import { type ActionDraft, type ConditionDraft, FIELD_OPS, type Issue, type IssueCode, issuesAt, kindOf, otherIssues, payloadOf, type RuleDraft } from './rule-draft';
+import { type ConditionDraft, FIELD_OPS, type Issue, type IssueCode, issuesAt, kindOf, otherIssues, payloadOf, type RuleDraft } from './rule-draft';
 
 // Редактор правила автоматизации (FR-AUTO-01, 08; экран "Правило автоматизации" раздела 8.12 ТЗ). Правило читается
 // как предложение: КОГДА событие, ЕСЛИ условия, ТО действия. Правило хранится в состоянии компонента и уходит на
 // сервер одной строкой JSON; проверяет его только сервер, отказ возвращается с путём до строки. Значения выбираются
 // из списков, идентификаторы руками не вводятся. Тексты приходят свойствами: каталог сообщений в браузер не идёт.
 
-export type Option = { value: string; label: string };
+export type { Option } from './ActionRows';
 
-export type RuleEditorOptions = {
+export type RuleEditorOptions = ActionRowsOptions & {
   events: Option[];
   fields: Option[];
-  actions: Option[];
   /** Значения условий по полю: списки и теги. У организаций здесь названия уже выбранных. */
   values: Record<string, Option[]>;
   workTime: Option[];
-  /** Значения действий по виду действия. */
-  actionValues: Record<string, Option[]>;
-  notify: { oncall: Option; roles: Option[]; staff: Option[] };
 };
 
-export type RuleEditorLabels = {
+export type RuleEditorLabels = ActionRowsLabels & {
   name: string;
   nameHint: string;
   when: string;
@@ -44,24 +40,16 @@ export type RuleEditorLabels = {
   matchAny: string;
   noConditions: string;
   then: string;
-  noActions: string;
   addCondition: string;
-  addAction: string;
   /** Шаблоны с {n}: номер строки. */
   conditionRow: string;
-  actionRow: string;
   removeCondition: string;
-  removeAction: string;
   field: string;
   operator: string;
-  value: string;
-  action: string;
-  pick: string;
   addValue: string;
   add: string;
   /** Шаблон с {name}. */
   removeValue: string;
-  unknown: string;
   words: string;
   hoursValue: string;
   rating: string;
@@ -75,8 +63,6 @@ export type RuleEditorLabels = {
   newDisabled: string;
   reauth: string;
   ops: Record<string, string>;
-  actionValues: Record<string, string>;
-  targets: { roles: string; staff: string };
   issues: Record<IssueCode | 'name' | 'actions' | 'conditions' | 'general', string>;
   dry: { title: string; scopeHint: string; run: string; count: string; none: string; matches: string; would: string; safe: string; more: string };
 };
@@ -91,10 +77,7 @@ type Props = {
   state: ReactNode;
 };
 
-const fill = (template: string, values: Record<string, string | number>) => template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''));
 const RATINGS = ['1', '2', '3', '4', '5'];
-/** Действия, у которых значение выбирается из списка actionValues. */
-const PICK_ACTIONS = new Set(['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'reply_template', 'set_status', 'webhook']);
 
 /** Выбранные значения метками, у каждой кнопка "убрать". */
 function Picked({ label, values, nameOf, onChange, labels }: { label: string; values: string[]; nameOf: (value: string) => string; onChange: (values: string[]) => void; labels: RuleEditorLabels }) {
@@ -242,16 +225,6 @@ function OrgPick({
   );
 }
 
-/** Ошибки строки или поля: объявляются программой экранного доступа сразу. */
-function RowIssues({ id, codes, labels, fallback }: { id: string; codes: IssueCode[]; labels: RuleEditorLabels; fallback?: 'name' }) {
-  if (codes.length === 0) return null;
-  return (
-    <p id={id} role="alert" data-issue className="text-sm text-destructive-on-bg">
-      {codes.map((code) => (code === 'invalid' && fallback ? labels.issues[fallback] : labels.issues[code])).join(' ')}
-    </p>
-  );
-}
-
 export function RuleEditor({ initial, options, labels, reauthHref, state }: Props) {
   const [draft, setDraft] = useState<RuleDraft>(initial);
   const [orgs, setOrgs] = useState<Option[]>(options.values.org ?? []);
@@ -259,8 +232,8 @@ export function RuleEditor({ initial, options, labels, reauthHref, state }: Prop
   const [dry, setDry] = useState<DryRunView | null>(null);
   const [saving, startSave] = useTransition();
   const [running, startDry] = useTransition();
-  /** Ключи строк: следующий свободный номер. Только что добавленная строка получает фокус. */
-  const nextKey = useRef(Math.max(0, ...initial.conditions.map((row) => row.key), ...initial.actions.map((row) => row.key)) + 1);
+  /** Ключи строк условий: следующий свободный номер. Только что добавленная строка получает фокус. */
+  const nextKey = useRef(Math.max(0, ...initial.conditions.map((row) => row.key)) + 1);
   const [added, setAdded] = useState<string | null>(null);
 
   const issues: readonly Issue[] = feedback.issues ?? [];
@@ -268,19 +241,12 @@ export function RuleEditor({ initial, options, labels, reauthHref, state }: Prop
   const patch = (change: Partial<RuleDraft>) => setDraft((current) => ({ ...current, ...change }));
   const patchCondition = (key: number, change: Partial<ConditionDraft>) =>
     setDraft((current) => ({ ...current, conditions: current.conditions.map((row) => (row.key === key ? { ...row, ...change } : row)) }));
-  const patchAction = (key: number, change: Partial<ActionDraft>) =>
-    setDraft((current) => ({ ...current, actions: current.actions.map((row) => (row.key === key ? { ...row, ...change } : row)) }));
   const valuesOf = (field: string): Option[] => (field === 'org' ? orgs : (options.values[field] ?? []));
 
   const addCondition = () => {
     const key = nextKey.current++;
     setAdded(`c${key}`);
     setDraft((current) => ({ ...current, conditions: [...current.conditions, { key, field: 'priority', op: 'is', values: [], text: '' }] }));
-  };
-  const addAction = () => {
-    const key = nextKey.current++;
-    setAdded(`a${key}`);
-    setDraft((current) => ({ ...current, actions: [...current.actions, { key, action: 'set_queue', value: '', text: '' }] }));
   };
   const changeField = (key: number, field: string) => {
     const kind = kindOf(field);
@@ -507,108 +473,7 @@ export function RuleEditor({ initial, options, labels, reauthHref, state }: Prop
             <h2 id="rule-then" className={heading}>
               {labels.then}
             </h2>
-            {draft.actions.length === 0 && <p className="text-sm text-muted-foreground">{labels.noActions}</p>}
-            <ol className="flex flex-col gap-2">
-              {draft.actions.map((row, index) => {
-                const rowName = fill(labels.actionRow, { n: index + 1 });
-                const codes = issuesAt(issues, `actions.${index}`);
-                const errorId = `rule-action-${row.key}-error`;
-                const describedBy = codes.length > 0 ? errorId : undefined;
-                const invalid = codes.length > 0 || undefined;
-                const valueLabel = `${rowName}: ${labels.actionValues[row.action] ?? labels.value}`;
-                const list = options.actionValues[row.action] ?? [];
-                const known = options.actions.some((option) => option.value === row.action);
-                return (
-                  <li key={row.key} data-action={index + 1} className="flex flex-col gap-2 rounded-control border border-border p-3">
-                    <div className="flex flex-wrap items-start gap-2">
-                      <span className="inline-flex h-field items-center text-sm font-semibold text-secondary-foreground" aria-hidden>
-                        {index + 1}.
-                      </span>
-                      <Select
-                        aria-label={`${rowName}: ${labels.action}`}
-                        value={row.action}
-                        autoFocus={added === `a${row.key}`}
-                        className="min-w-0 flex-1 basis-56"
-                        onChange={(event) => patchAction(row.key, { action: event.target.value, value: '', text: '' })}
-                      >
-                        {!known && <option value={row.action}>{labels.unknown}</option>}
-                        {options.actions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                      <Button variant="ghost" size="small" aria-label={fill(labels.removeAction, { n: index + 1 })} onClick={() => patch({ actions: draft.actions.filter((item) => item.key !== row.key) })}>
-                        <X className="size-4" aria-hidden />
-                      </Button>
-                    </div>
-                    {PICK_ACTIONS.has(row.action) && (
-                      <Select aria-label={valueLabel} value={row.value} aria-invalid={invalid} aria-describedby={describedBy} onChange={(event) => patchAction(row.key, { value: event.target.value })}>
-                        <option value="">{labels.pick}</option>
-                        {row.value !== '' && !list.some((option) => option.value === row.value) && <option value={row.value}>{labels.unknown}</option>}
-                        {list.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                    {row.action === 'notify' && (
-                      <Select aria-label={valueLabel} value={row.value} aria-invalid={invalid} aria-describedby={describedBy} onChange={(event) => patchAction(row.key, { value: event.target.value })}>
-                        <option value="">{labels.pick}</option>
-                        {row.value.startsWith('user:') && !options.notify.staff.some((option) => option.value === row.value) && <option value={row.value}>{labels.unknown}</option>}
-                        <option value={options.notify.oncall.value}>{options.notify.oncall.label}</option>
-                        <optgroup label={labels.targets.roles}>
-                          {options.notify.roles.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                        <optgroup label={labels.targets.staff}>
-                          {options.notify.staff.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      </Select>
-                    )}
-                    {row.action === 'snooze' && (
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min={1}
-                        max={720}
-                        aria-label={valueLabel}
-                        placeholder={labels.actionValues.snooze}
-                        value={row.value}
-                        aria-invalid={invalid}
-                        aria-describedby={describedBy}
-                        onChange={(event) => patchAction(row.key, { value: event.target.value })}
-                      />
-                    )}
-                    {row.action === 'add_note' && (
-                      <Textarea
-                        aria-label={valueLabel}
-                        placeholder={labels.actionValues.add_note}
-                        value={row.text}
-                        maxLength={2000}
-                        className="min-h-20"
-                        aria-invalid={invalid}
-                        aria-describedby={describedBy}
-                        onChange={(event) => patchAction(row.key, { text: event.target.value })}
-                      />
-                    )}
-                    <RowIssues id={errorId} codes={codes} labels={labels} />
-                  </li>
-                );
-              })}
-            </ol>
-            <Button variant="secondary" size="small" className="self-start" onClick={addAction}>
-              <Plus className="size-4" aria-hidden />
-              {labels.addAction}
-            </Button>
+            <ActionRows rows={draft.actions} options={options} labels={labels} issues={issues} onChange={(actions) => patch({ actions })} />
           </section>
 
           <label className="inline-flex min-h-control items-center gap-3 text-sm">

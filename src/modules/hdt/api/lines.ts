@@ -3,6 +3,7 @@ import { readSetting } from '@/modules/hdc/api';
 import { namesOf, type StaffContext } from '@/modules/hdu/api';
 import { lastL1SenderTx, returnToL1Tx, transferToL2Tx } from '../core/lines';
 import { parseInput, returnInput, transferInput } from '../input';
+import type { StaffActionOptions } from './agent';
 import { PICKUP_SETTING } from '../pref';
 
 // Передача между линиями на рабочем месте (план M3, задача 9). Сотрудник из проверенной сессии, вход по схеме,
@@ -14,10 +15,10 @@ export async function transferToL2(ctx: StaffContext, input: unknown): Promise<v
   await transferToL2Tx(ctx.actor, data.number, { reason: data.reason, checked: data.checked, needed: data.needed, checklist: data.checklist }, await readSetting(PICKUP_SETTING));
 }
 
-/** Вернуть на первую линию с пояснением (FR-LINE-04). */
-export async function returnToL1(ctx: StaffContext, input: unknown): Promise<void> {
+/** Вернуть на первую линию с пояснением (FR-LINE-04). opts.byMacro: действие выполняет макрос, правила на его событие не срабатывают. */
+export async function returnToL1(ctx: StaffContext, input: unknown, opts: StaffActionOptions = {}): Promise<void> {
   const data = parseInput(returnInput, input);
   const senderId = await lastL1SenderTx(ctx.actor, data.number);
   const sender = senderId ? { userId: senderId, name: (await namesOf(ctx.actor, [senderId])).get(senderId) ?? null } : null;
-  await returnToL1Tx(ctx.actor, data.number, data.explanation, sender);
+  await returnToL1Tx(ctx.actor, data.number, data.explanation, sender, { byRule: opts.byMacro === true });
 }

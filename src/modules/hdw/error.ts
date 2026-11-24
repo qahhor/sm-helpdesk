@@ -6,7 +6,7 @@ import type { RuleIssue } from './rule-schema';
 // builtin_rule: предустановленное правило нельзя удалить (решение 2 плана M8).
 // stale_session: правила меняет только свежий вход администратора (ТЗ 14.3).
 // invalid_url: адрес вебхука не https, несёт учётную запись или ведёт не на внешний узел (FR-AUTO-10).
-// endpoint_disabled: проверочная отправка на выключенный адрес. too_many: достигнут предел числа адресов.
+// endpoint_disabled: проверочная отправка на выключенный адрес. too_many: достигнут предел числа адресов или макросов.
 export const HDW_ERROR_CODES = ['forbidden', 'stale_session', 'invalid_input', 'not_found', 'builtin_rule', 'invalid_url', 'endpoint_disabled', 'too_many'] as const;
 export type HdwErrorCode = (typeof HDW_ERROR_CODES)[number];
 

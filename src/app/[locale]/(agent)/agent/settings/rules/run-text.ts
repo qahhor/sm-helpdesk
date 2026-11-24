@@ -3,11 +3,13 @@ import { getFormatter, getTranslations } from 'next-intl/server';
 import type { ActionDone } from '@/modules/hdw/api';
 
 // Что сделало (или сделало бы) действие правила, словами на языке страницы: для пробного прогона и журнала
-// срабатываний (FR-AUTO-08, 09). Те же подписи, что у записи "Правило ..." в истории обращения, и причина отказа.
+// срабатываний (FR-AUTO-08, 09) и для итога запуска макроса. Те же подписи, что у записи "Правило ..." в истории
+// обращения, и причина отказа.
 
 export type ActionTexts = (actions: readonly ActionDone[], failedKey: 'dry.failed' | 'runs.notDone') => string[];
 
-export async function actionTexts(): Promise<ActionTexts> {
+/** macro: действия выполнил макрос. У ответа по шаблону тогда своя подпись: макрос его не отправляет, а вставляет в поле ответа. */
+export async function actionTexts(opts: { macro?: boolean } = {}): Promise<ActionTexts> {
   const t = await getTranslations('agent');
   const format = await getFormatter();
   const label = (action: string, value: string | null | undefined): string => {
@@ -27,6 +29,7 @@ export async function actionTexts(): Promise<ActionTexts> {
         return [t(`settings.rules.${failedKey}`, { name, reason })];
       }
       if (item.unchanged) return [`${name}: ${t('ticket.ruleActions.unchanged')}`];
-      return [t(`ticket.ruleActions.${item.action}`, { from: label(item.action, item.from), to: label(item.action, item.to) }).trim()];
+      const key = opts.macro && t.has(`ticket.macroActions.${item.action}`) ? `ticket.macroActions.${item.action}` : `ticket.ruleActions.${item.action}`;
+      return [t(key, { from: label(item.action, item.from), to: label(item.action, item.to) }).trim()];
     });
 }

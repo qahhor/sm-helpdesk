@@ -110,6 +110,12 @@ export const AUDIT_ACTIONS = [
   'webhook.deleted',
   'webhook.secret_rotated',
   'webhook.test_sent',
+  // Макросы (веха M8): настройка администратором и запуск сотрудником на обращении.
+  'macro.created',
+  'macro.updated',
+  'macro.moved',
+  'macro.deleted',
+  'macro.run',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

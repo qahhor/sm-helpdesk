@@ -4,7 +4,7 @@ import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import { configureLog, logEvent, timedJob } from '@/lib/log';
-import { bossOptions, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
+import { bossOptions, cleanupAudit, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
@@ -123,6 +123,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const notices = await cleanupNotifications(system, new Date());
     const sentMail = await cleanupOutbox(system);
     const letters = await cleanupInbound(system);
+    // Журнал аудита хранится 3 года (ТЗ 14.6, решение владельца 24.11.2026).
+    const audit = await cleanupAudit(system);
+    if (audit > 0) console.info(`Ночная очистка: записи журнала аудита старше 3 лет ${audit}`);
     console.info(
       `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, прочитанные уведомления ${notices}, отправленные письма очереди ${sentMail}, разобранные входящие письма ${letters}`,
     );

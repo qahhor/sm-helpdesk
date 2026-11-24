@@ -23,7 +23,9 @@ const IUD: Write[] = ['insert', 'update', 'delete'];
 
 export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Ядро. Журнал аудита только пополняется (решение 0019).
-  hdc_audit_log: { client: 'none', app: ['insert'], auth: ['insert'] },
+  // Удаление: только ночная очистка под системным актором и только записи старше 3 лет (срок хранения журнала,
+  // решение владельца 24.11.2026, решение 0041). Свежую запись политика не отдаёт ни одному актору: retention.test.ts.
+  hdc_audit_log: { client: 'none', app: ['insert', 'delete'], auth: ['insert'] },
   hdc_ops_alerts: { client: 'none', app: IU },
   hdc_rate_limits: { client: 'none', app: IUD },
   hdc_settings: { client: 'none', app: IUD },

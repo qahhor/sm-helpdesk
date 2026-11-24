@@ -35,6 +35,7 @@
 | `react-markdown` | 10.1.0 | MIT |
 | `server-only` | 0.0.1 | MIT |
 | `tailwind-merge` | 3.7.0 | MIT |
+| `undici` | 8.12.4 | MIT |
 | `uqr` | 0.1.3 | MIT |
 | `zod` | 4.6.7 | MIT |
 

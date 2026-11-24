@@ -81,6 +81,9 @@ export default defineConfig({
     baseURL,
     locale: 'ru-RU',
     timezoneId: 'Asia/Tashkent',
+    // Отрисовка букв не должна зависеть от системных настроек шрифтов машины: без хинтинга и без
+    // сглаживания по субпикселям. Иначе эталонные снимки витрины расходятся между машинами (решение 0041, пункт 8).
+    launchOptions: { args: ['--font-render-hinting=none', '--disable-lcd-text'] },
   },
   projects: [
     // Сотрудники для тестов: приглашение, пароль и второй фактор через интерфейс (tests/e2e/staff.setup.ts).

@@ -599,6 +599,10 @@
         "tags": {
           "title": "Tags",
           "text": "Names and colors of ticket tags, removal of unused ones."
+        },
+        "rules": {
+          "title": "Automation rules",
+          "text": "What the portal does by itself: event, conditions and actions. Dry run and run log."
         }
       },
       "servers": {
@@ -1172,6 +1176,246 @@
           "tag_taken": "A tag with this name already exists.",
           "not_found": "Tag not found. It may have been deleted already.",
           "stale_session": "Changing tags needs a sign-in no older than 15 minutes. Sign in again and repeat."
+        }
+      },
+      "rules": {
+        "title": "Automation rules",
+        "intro": "A rule reads as a sentence: when an event happens and the conditions hold, the portal performs the actions. Rules of one event apply from top to bottom. Clients never see rules.",
+        "newRule": "New rule",
+        "emptyTitle": "No rules yet",
+        "emptyText": "Create the first rule and check it with a dry run. A new rule stays off until you turn it on.",
+        "listLabel": "Rules in the order they apply",
+        "columns": {
+          "order": "No.",
+          "name": "Rule",
+          "event": "Event",
+          "state": "State",
+          "actions": "Actions"
+        },
+        "states": {
+          "enabled": "On",
+          "disabled": "Off",
+          "loop": "Off: loop",
+          "invalid": "Needs attention"
+        },
+        "builtin": "Built-in",
+        "moveUp": "Up",
+        "moveDown": "Down",
+        "moveUpOf": "Move rule \"{name}\" up",
+        "moveDownOf": "Move rule \"{name}\" down",
+        "enable": "Turn on",
+        "disable": "Turn off",
+        "enableOf": "Turn on rule \"{name}\"",
+        "disableOf": "Turn off rule \"{name}\"",
+        "open": "Open",
+        "openOf": "Open rule \"{name}\"",
+        "done": {
+          "created": "Rule created. It is off: check it with a dry run and turn it on in the list.",
+          "saved": "Rule saved",
+          "enabled": "Rule turned on",
+          "disabled": "Rule turned off",
+          "moved": "Order changed",
+          "deleted": "Rule deleted"
+        },
+        "errors": {
+          "forbidden": "Rules are changed by the portal administrator.",
+          "stale_session": "Changing rules needs a sign-in no older than 15 minutes.",
+          "invalid_input": "Check the marked fields of the rule.",
+          "not_found": "Rule not found. It may have been deleted already.",
+          "builtin_rule": "A built-in rule cannot be deleted. You can turn it off."
+        },
+        "reauth": "Sign in again",
+        "loopNote": "Loop protection turned this rule off: it fired on one ticket more than 10 times in an hour. Check the conditions and actions and turn the rule on again.",
+        "invalidNote": "The conditions or actions of this rule are out of date, so it does not apply. Set them again and save.",
+        "events": {
+          "ticket_created": "Ticket created",
+          "client_replied": "Client replied",
+          "staff_replied": "Staff replied",
+          "status_changed": "Status changed",
+          "priority_changed": "Priority changed",
+          "rated": "Client rated the ticket",
+          "sla_soon": "SLA deadline is near",
+          "sla_breached": "SLA deadline breached",
+          "no_activity": "No activity for N hours",
+          "ai_handoff": "AI handed the ticket over"
+        },
+        "editor": {
+          "newTitle": "New rule",
+          "name": "Rule name",
+          "nameHint": "Staff see it in the ticket history.",
+          "when": "When",
+          "event": "Event",
+          "hours": "Hours without messages",
+          "hoursHint": "From 1 to 8760. The rule fires once per silence.",
+          "if": "If",
+          "match": "How many conditions must hold",
+          "matchAll": "all conditions",
+          "matchAny": "any condition",
+          "noConditions": "No conditions: the rule fires on every such event.",
+          "then": "Then",
+          "noActions": "Add at least one action.",
+          "addCondition": "Condition",
+          "addAction": "Action",
+          "conditionRow": "Condition {n}",
+          "actionRow": "Action {n}",
+          "removeCondition": "Remove condition {n}",
+          "removeAction": "Remove action {n}",
+          "field": "Field",
+          "operator": "Comparison",
+          "value": "Value",
+          "action": "What to do",
+          "pick": "Choose",
+          "addValue": "Add a value",
+          "add": "Add",
+          "removeValue": "Remove value {name}",
+          "unknown": "Deleted value",
+          "words": "Words separated by commas",
+          "hoursValue": "Hours",
+          "rating": "Rating",
+          "orgSearch": "Organization name or tax ID",
+          "orgFind": "Find",
+          "orgEmpty": "Nothing found. Enter at least three characters of the name or tax ID.",
+          "orgAdd": "Add organization {name}",
+          "stop": "Stop processing the next rules",
+          "save": "Save",
+          "newDisabled": "A new rule is saved turned off. You can turn it on in the list of rules.",
+          "webhookSoon": "Webhook calls are set up in the webhooks section."
+        },
+        "fields": {
+          "priority": "Priority",
+          "type": "Type",
+          "module": "Module",
+          "impact": "Impact on work",
+          "status": "Status",
+          "queue": "Queue",
+          "source": "Source",
+          "locale": "Language",
+          "org_category": "Client category",
+          "org": "Organization",
+          "tags": "Tags",
+          "text": "Ticket text",
+          "work_time": "Time",
+          "hours_since_client": "Hours since client message",
+          "hours_since_staff": "Hours since staff reply",
+          "rating": "Rating"
+        },
+        "ops": {
+          "is": "is",
+          "is_not": "is not",
+          "has_any": "has any of",
+          "has_all": "has all of",
+          "has_none": "has none of",
+          "contains_any": "contains any of the words",
+          "contains_none": "contains none of the words",
+          "gte": "at least",
+          "lt": "less than",
+          "lte": "at most"
+        },
+        "actions": {
+          "set_queue": "Change queue",
+          "assign": "Assign to",
+          "assign_round_robin": "Assign round-robin within the queue",
+          "set_priority": "Change priority",
+          "add_tag": "Add tag",
+          "remove_tag": "Remove tag",
+          "add_note": "Add internal note",
+          "reply_template": "Reply to client by template",
+          "notify": "Notify",
+          "snooze": "Snooze",
+          "set_status": "Change status",
+          "webhook": "Call webhook"
+        },
+        "actionValues": {
+          "set_queue": "Queue",
+          "assign": "Staff member",
+          "set_priority": "Priority",
+          "add_tag": "Tag",
+          "remove_tag": "Tag",
+          "add_note": "Note text",
+          "reply_template": "Template",
+          "notify": "Whom to notify",
+          "snooze": "For how many hours",
+          "set_status": "Status"
+        },
+        "targets": {
+          "oncall": "On-call: chat and email",
+          "roles": "Role",
+          "staff": "Staff member"
+        },
+        "workTime": {
+          "working": "working hours",
+          "off": "off hours"
+        },
+        "categoryNone": "not set",
+        "moduleNone": "not set",
+        "templateDisabled": "{title} (off)",
+        "issues": {
+          "event_not_ready": "This event is not available yet.",
+          "condition_not_ready": "This condition is not available yet.",
+          "hours_required": "Enter the number of hours from 1 to 8760.",
+          "hours_not_allowed": "Hours are set only for the \"No activity\" event.",
+          "reference_missing": "The chosen value no longer exists. Choose another one.",
+          "invalid": "Complete the row: choose a value from the list or enter a number within the allowed range.",
+          "name": "Enter a name: 1 to 120 characters.",
+          "actions": "Add at least one action, 10 at most.",
+          "conditions": "There can be 20 conditions at most.",
+          "general": "Check the rule and try again."
+        },
+        "dry": {
+          "title": "Dry run",
+          "scopeHint": "The last 100 tickets in their current state.",
+          "run": "Start dry run",
+          "count": "Would fire: {count}",
+          "none": "No ticket matched the conditions.",
+          "would": "What would be done",
+          "matches": "Matched tickets",
+          "safe": "A dry run changes nothing.",
+          "failed": "{name}: will not be done ({reason})",
+          "more": "Showing the first {shown} of {count}."
+        },
+        "details": {
+          "error": "error while running",
+          "merged": "the ticket is merged into another one",
+          "no_candidates": "no staff in the queue",
+          "tag_missing": "the tag is deleted",
+          "template_disabled": "the template is off",
+          "template_missing": "the template is missing or has no text",
+          "transition_refused": "this transition is not allowed",
+          "user_missing": "staff member not found",
+          "webhooks_not_ready": "webhooks are not set up yet",
+          "no_recipients": "no recipients",
+          "webhook_failed": "the webhook did not respond",
+          "unknown": "no reason given"
+        },
+        "runs": {
+          "title": "Run log",
+          "intro": "Runs are kept for 90 days.",
+          "empty": "The rule has not fired yet.",
+          "columns": {
+            "ticket": "Ticket",
+            "result": "Result",
+            "actions": "Actions",
+            "time": "Time"
+          },
+          "next": "Next 50 records",
+          "first": "To newest records",
+          "noTicket": "none",
+          "notDone": "{name}: not done ({reason})"
+        },
+        "results": {
+          "applied": "Done",
+          "no_match": "Conditions did not match",
+          "partial": "Partly done",
+          "failed": "Not done",
+          "skipped_loop": "Stopped by loop protection"
+        },
+        "delete": {
+          "open": "Delete rule",
+          "title": "Delete rule \"{name}\"?",
+          "text": "The rule and its run log will be deleted. Ticket history stays. This cannot be undone.",
+          "confirm": "Delete",
+          "cancel": "Cancel",
+          "close": "Close"
         }
       }
     },

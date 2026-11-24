@@ -599,6 +599,10 @@
         "tags": {
           "title": "Teglar",
           "text": "Murojaat teglarining nomlari va ranglari, keraksizlarini o'chirish."
+        },
+        "rules": {
+          "title": "Avtomatlashtirish qoidalari",
+          "text": "Portal o'zi bajaradigan ishlar: hodisa, shartlar va amallar. Sinov ishga tushirish va ishga tushishlar jurnali."
         }
       },
       "servers": {
@@ -1172,6 +1176,246 @@
           "tag_taken": "Bunday nomli teg allaqachon bor.",
           "not_found": "Teg topilmadi. Balki u allaqachon o'chirilgan.",
           "stale_session": "Teglarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qayta kiring va takrorlang."
+        }
+      },
+      "rules": {
+        "title": "Avtomatlashtirish qoidalari",
+        "intro": "Qoida gap kabi o'qiladi: hodisa yuz berganda va shartlar bajarilganda portal amallarni bajaradi. Bir hodisaning qoidalari yuqoridan pastga qo'llanadi. Mijozlar qoidalarni ko'rmaydi.",
+        "newRule": "Yangi qoida",
+        "emptyTitle": "Hozircha qoidalar yo'q",
+        "emptyText": "Birinchi qoidani yarating va uni sinov ishga tushirish bilan tekshiring. Yangi qoida siz yoqmaguningizcha o'chiq turadi.",
+        "listLabel": "Qoidalar qo'llanish tartibida",
+        "columns": {
+          "order": "№",
+          "name": "Qoida",
+          "event": "Hodisa",
+          "state": "Holati",
+          "actions": "Amallar"
+        },
+        "states": {
+          "enabled": "Yoqilgan",
+          "disabled": "O'chirilgan",
+          "loop": "O'chirilgan: takrorlanish",
+          "invalid": "E'tibor talab qiladi"
+        },
+        "builtin": "Oldindan o'rnatilgan",
+        "moveUp": "Yuqoriga",
+        "moveDown": "Pastga",
+        "moveUpOf": "«{name}» qoidasini yuqoriga ko'tarish",
+        "moveDownOf": "«{name}» qoidasini pastga tushirish",
+        "enable": "Yoqish",
+        "disable": "O'chirish",
+        "enableOf": "«{name}» qoidasini yoqish",
+        "disableOf": "«{name}» qoidasini o'chirish",
+        "open": "Ochish",
+        "openOf": "«{name}» qoidasini ochish",
+        "done": {
+          "created": "Qoida yaratildi. U o'chiq: uni sinov ishga tushirish bilan tekshiring va ro'yxatda yoqing.",
+          "saved": "Qoida saqlandi",
+          "enabled": "Qoida yoqildi",
+          "disabled": "Qoida o'chirildi",
+          "moved": "Tartib o'zgartirildi",
+          "deleted": "Qoida o'chirib tashlandi"
+        },
+        "errors": {
+          "forbidden": "Qoidalarni portal administratori o'zgartiradi.",
+          "stale_session": "Qoidalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak.",
+          "invalid_input": "Qoidaning belgilangan maydonlarini tekshiring.",
+          "not_found": "Qoida topilmadi. Balki u allaqachon o'chirilgan.",
+          "builtin_rule": "Oldindan o'rnatilgan qoidani o'chirib tashlab bo'lmaydi. Uni o'chirib qo'yish mumkin."
+        },
+        "reauth": "Qayta kirish",
+        "loopNote": "Qoidani takrorlanishdan himoya o'chirdi: u bitta murojaatda bir soatda 10 martadan ko'p ishga tushdi. Shartlar va amallarni tekshiring va qoidani qayta yoqing.",
+        "invalidNote": "Bu qoidaning shartlari yoki amallari eskirgan, shuning uchun u qo'llanmaydi. Ularni qaytadan belgilang va saqlang.",
+        "events": {
+          "ticket_created": "Murojaat yaratildi",
+          "client_replied": "Mijoz javob berdi",
+          "staff_replied": "Xodim javob berdi",
+          "status_changed": "Holat o'zgardi",
+          "priority_changed": "Ustuvorlik o'zgardi",
+          "rated": "Mijoz baho qo'ydi",
+          "sla_soon": "SLA muddati yaqinlashmoqda",
+          "sla_breached": "SLA muddati buzildi",
+          "no_activity": "N soat faollik yo'q",
+          "ai_handoff": "AI murojaatni topshirdi"
+        },
+        "editor": {
+          "newTitle": "Yangi qoida",
+          "name": "Qoida nomi",
+          "nameHint": "Uni xodimlar murojaat tarixida ko'radi.",
+          "when": "Qachon",
+          "event": "Hodisa",
+          "hours": "Xabarsiz soatlar",
+          "hoursHint": "1 dan 8760 gacha. Qoida har bir sukutda bir marta ishga tushadi.",
+          "if": "Agar",
+          "match": "Nechta shart bajarilishi kerak",
+          "matchAll": "barcha shartlar",
+          "matchAny": "istalgan shart",
+          "noConditions": "Shartlar yo'q: qoida har bir shunday hodisada ishga tushadi.",
+          "then": "Unda",
+          "noActions": "Kamida bitta amal qo'shing.",
+          "addCondition": "Shart",
+          "addAction": "Amal",
+          "conditionRow": "{n}-shart",
+          "actionRow": "{n}-amal",
+          "removeCondition": "{n}-shartni olib tashlash",
+          "removeAction": "{n}-amalni olib tashlash",
+          "field": "Maydon",
+          "operator": "Taqqoslash",
+          "value": "Qiymat",
+          "action": "Nima qilish",
+          "pick": "Tanlang",
+          "addValue": "Qiymat qo'shish",
+          "add": "Qo'shish",
+          "removeValue": "{name} qiymatini olib tashlash",
+          "unknown": "O'chirilgan qiymat",
+          "words": "So'zlar vergul bilan",
+          "hoursValue": "Soat",
+          "rating": "Baho",
+          "orgSearch": "Tashkilot nomi yoki STIR",
+          "orgFind": "Topish",
+          "orgEmpty": "Hech narsa topilmadi. Nom yoki STIRning kamida uchta belgisini kiriting.",
+          "orgAdd": "{name} tashkilotini qo'shish",
+          "stop": "Keyingi qoidalarni qayta ishlashni to'xtatish",
+          "save": "Saqlash",
+          "newDisabled": "Yangi qoida o'chiq holda saqlanadi. Uni qoidalar ro'yxatida yoqish mumkin.",
+          "webhookSoon": "Vebhuk chaqiruvi vebhuklar bo'limida sozlanadi."
+        },
+        "fields": {
+          "priority": "Ustuvorlik",
+          "type": "Turi",
+          "module": "Modul",
+          "impact": "Ishga ta'siri",
+          "status": "Holat",
+          "queue": "Navbat",
+          "source": "Manba",
+          "locale": "Til",
+          "org_category": "Mijoz toifasi",
+          "org": "Tashkilot",
+          "tags": "Teglar",
+          "text": "Murojaat matni",
+          "work_time": "Vaqt",
+          "hours_since_client": "Mijoz xabaridan beri soat",
+          "hours_since_staff": "Xodim javobidan beri soat",
+          "rating": "Baho"
+        },
+        "ops": {
+          "is": "teng",
+          "is_not": "teng emas",
+          "has_any": "istalgani bor",
+          "has_all": "barchasi bor",
+          "has_none": "hech biri yo'q",
+          "contains_any": "so'zlardan birini o'z ichiga oladi",
+          "contains_none": "so'zlarni o'z ichiga olmaydi",
+          "gte": "kamida",
+          "lt": "kichik",
+          "lte": "ko'pi bilan"
+        },
+        "actions": {
+          "set_queue": "Navbatni almashtirish",
+          "assign": "Ijrochini tayinlash",
+          "assign_round_robin": "Navbat ichida navbat bilan tayinlash",
+          "set_priority": "Ustuvorlikni almashtirish",
+          "add_tag": "Teg qo'shish",
+          "remove_tag": "Tegni olib tashlash",
+          "add_note": "Ichki izoh qo'shish",
+          "reply_template": "Mijozga shablon bo'yicha javob berish",
+          "notify": "Xabardor qilish",
+          "snooze": "Kechiktirish",
+          "set_status": "Holatni almashtirish",
+          "webhook": "Vebhukni chaqirish"
+        },
+        "actionValues": {
+          "set_queue": "Navbat",
+          "assign": "Xodim",
+          "set_priority": "Ustuvorlik",
+          "add_tag": "Teg",
+          "remove_tag": "Teg",
+          "add_note": "Izoh matni",
+          "reply_template": "Shablon",
+          "notify": "Kimni xabardor qilish",
+          "snooze": "Necha soatga",
+          "set_status": "Holat"
+        },
+        "targets": {
+          "oncall": "Navbatchilar: chat va pochta",
+          "roles": "Rol",
+          "staff": "Xodim"
+        },
+        "workTime": {
+          "working": "ish vaqti",
+          "off": "ishdan tashqari vaqt"
+        },
+        "categoryNone": "belgilanmagan",
+        "moduleNone": "ko'rsatilmagan",
+        "templateDisabled": "{title} (o'chirilgan)",
+        "issues": {
+          "event_not_ready": "Bu hodisa hozircha mavjud emas.",
+          "condition_not_ready": "Bu shart hozircha mavjud emas.",
+          "hours_required": "Soatlar sonini 1 dan 8760 gacha kiriting.",
+          "hours_not_allowed": "Soatlar faqat «Faollik yo'q» hodisasida belgilanadi.",
+          "reference_missing": "Tanlangan qiymat endi yo'q. Boshqasini tanlang.",
+          "invalid": "Qatorni to'ldiring: ro'yxatdan qiymat tanlang yoki ruxsat etilgan chegaradagi sonni kiriting.",
+          "name": "Nomni kiriting: 1 dan 120 gacha belgi.",
+          "actions": "Kamida bitta amal qo'shing, ko'pi bilan 10 ta.",
+          "conditions": "Shartlar ko'pi bilan 20 ta bo'lishi mumkin.",
+          "general": "Qoidani tekshiring va takrorlang."
+        },
+        "dry": {
+          "title": "Sinov ishga tushirish",
+          "scopeHint": "Oxirgi 100 ta murojaat hozirgi holatida.",
+          "run": "Sinovni boshlash",
+          "count": "Ishga tushgan bo'lardi: {count}",
+          "none": "Shartlarga hech bir murojaat mos kelmadi.",
+          "would": "Nima qilingan bo'lardi",
+          "matches": "Mos kelgan murojaatlar",
+          "safe": "Sinov ishga tushirish hech narsani o'zgartirmaydi.",
+          "failed": "{name}: bajarilmaydi ({reason})",
+          "more": "{count} tadan birinchi {shown} tasi ko'rsatilgan."
+        },
+        "details": {
+          "error": "bajarishda xato",
+          "merged": "murojaat boshqasi bilan birlashtirilgan",
+          "no_candidates": "navbatda xodimlar yo'q",
+          "tag_missing": "teg o'chirilgan",
+          "template_disabled": "shablon o'chirilgan",
+          "template_missing": "shablon yo'q yoki unda matn yo'q",
+          "transition_refused": "bunday o'tish taqiqlangan",
+          "user_missing": "xodim topilmadi",
+          "webhooks_not_ready": "vebhuklar hali sozlanmagan",
+          "no_recipients": "qabul qiluvchilar yo'q",
+          "webhook_failed": "vebhuk javob bermadi",
+          "unknown": "sabab ko'rsatilmagan"
+        },
+        "runs": {
+          "title": "Ishga tushishlar jurnali",
+          "intro": "Ishga tushishlar 90 kun saqlanadi.",
+          "empty": "Qoida hali ishga tushmagan.",
+          "columns": {
+            "ticket": "Murojaat",
+            "result": "Natija",
+            "actions": "Amallar",
+            "time": "Vaqt"
+          },
+          "next": "Keyingi 50 ta yozuv",
+          "first": "Yangi yozuvlarga",
+          "noTicket": "yo'q",
+          "notDone": "{name}: bajarilmadi ({reason})"
+        },
+        "results": {
+          "applied": "Bajarildi",
+          "no_match": "Shartlar mos kelmadi",
+          "partial": "Qisman bajarildi",
+          "failed": "Bajarilmadi",
+          "skipped_loop": "Takrorlanishdan himoya to'xtatdi"
+        },
+        "delete": {
+          "open": "Qoidani o'chirib tashlash",
+          "title": "«{name}» qoidasi o'chirib tashlansinmi?",
+          "text": "Qoida va uning ishga tushishlar jurnali o'chirib tashlanadi. Murojaatlar tarixi qoladi. Qoidani qaytarib bo'lmaydi.",
+          "confirm": "O'chirib tashlash",
+          "cancel": "Bekor qilish",
+          "close": "Yopish"
         }
       }
     },

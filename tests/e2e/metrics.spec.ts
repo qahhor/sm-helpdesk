@@ -48,6 +48,9 @@ test.describe('первая линия', () => {
     await expect(main(page).getByLabel('Период')).toHaveValue('30');
     const created30 = Number((await stat(page, 'created').innerText()).replace(/\D/g, ''));
     expect(created30).toBeGreaterThan(0);
+    // Рядом с созданными: завершённые за период, когда бы ни созданы (FR-MET-01).
+    await expect(main(page).locator('[data-stat="finished"]')).toContainText('Завершено за период');
+    await expect(stat(page, 'finished')).toHaveText(/^[\d\s]+$/);
     await expect(main(page).locator('[data-block="sources"] tr[data-source="portal"]')).toBeVisible();
     await expect(main(page).locator('[data-block="lines"] tbody tr')).toHaveCount(3);
     // Среза по организациям и выгрузки у первой линии нет (решение 14).

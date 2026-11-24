@@ -210,6 +210,9 @@ test('сводка сходится с ручным пересчётом на н
   const o = view.overview;
   // Создано 200. Решено: А 80, Б 40, В 20. Закрыто: А 40, Б 40; дубли Е не считаются.
   expect([o.created, o.resolved, o.closed]).toEqual([200, 140, 80]);
+  // Завершено за период, когда бы ни создано: решены в периоде А 80, Б 40, В 20 и обращение 201 (создано до периода,
+  // решено 02.11). Дубли Е закрыты объединением и не считаются; 202 решено 09.11, после периода. 141.
+  expect(o.finished).toBe(141);
   // Первый ответ: исход известен у А 80, Б 40, В 20, Г 30 и у Д 171-180; нарушен у Б 40 и Д 10. 130 из 180.
   expect(o.firstResponse).toEqual({ total: 180, ok: 130, percent: 72.2 });
   // Решение: А 80, Б 40, В 20, Г 141-160 (у 161-170 пауза, у Д срок не наступил); нарушен у Б 10 и Г 10. 140 из 160.
@@ -226,6 +229,40 @@ test('сводка сходится с ручным пересчётом на н
   expect(o.csat.count).toBe(45);
   expect(o.csat.average).toBeCloseTo(170 / 45, 6);
   expect(o.csat.highPercent).toBe(66.7);
+});
+
+test('завершено за период: по дате решения, а без решения по дате закрытия; открытое заново и дубли не считаются', async () => {
+  // Четыре обращения вне набора, все созданы задолго до периода. Времена ставятся без триггеров.
+  const make = async (title: string, set: string) => {
+    const client = await pools.root.connect();
+    try {
+      await client.query(`set session_replication_role = replica`);
+      await client.query(
+        `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source, created_on, modified_on)
+         values ($1, $2, 'question', 'minor', 'p3', 'org', $3, 'Текст', 'ru', 'portal', '2026-09-01T05:00:00Z', '2026-09-01T05:00:00Z')`,
+        [f.orgA.orgId, f.aUser.userId, title],
+      );
+      await client.query(`update hdt_tickets set ${set} where title = $1`, [title]);
+    } finally {
+      await client.query(`set session_replication_role = origin`).catch(() => undefined);
+      client.release();
+    }
+  };
+  // Закрыто без решения в периоде (автозакрытие из ожидания): считается по дате закрытия.
+  await make('F-1', `status = 'closed', closed_on = '${at('04', '06:00')}'`);
+  // Решено до периода, закрыто в периоде: завершено в день решения, в период не входит.
+  await make('F-2', `status = 'closed', resolved_on = '2026-10-30T06:00:00Z', closed_on = '${at('04', '06:00')}'`);
+  // Решено в периоде и открыто заново: сейчас не завершено.
+  await make('F-3', `status = 'in_progress', resolved_on = '${at('05', '06:00')}'`);
+  // Дубль, закрытый объединением в периоде.
+  await make('F-4', `status = 'closed', resolved_on = '${at('05', '06:00')}', closed_on = '${at('05', '06:00')}', merged_into_id = '${f.tickets.aOrg.ticketId}'`);
+  // Решено в первую и в последнюю секунду периода: обе входят; ровно в конце периода не входит.
+  await make('F-5', `status = 'resolved', resolved_on = '2026-11-01T19:00:00Z'`);
+  await make('F-6', `status = 'resolved', resolved_on = '2026-11-08T18:59:59Z'`);
+  await make('F-7', `status = 'resolved', resolved_on = '2026-11-08T19:00:00Z'`);
+  const view = await getMetrics(staffCtx(f.l1), WEEK, NOW);
+  // Созданных в периоде нет, завершённых три: F-1, F-5, F-6.
+  expect([view.overview.created, view.overview.finished]).toEqual([0, 3]);
 });
 
 test('источники: портал 120, почта 60, сотрудник 20; источников без обращений в списке нет', async () => {
@@ -310,6 +347,7 @@ test('период без обращений: нули и пустые спис�
     created: 0,
     resolved: 0,
     closed: 0,
+    finished: 0,
     firstResponse: { total: 0, ok: 0, percent: null },
     resolution: { total: 0, ok: 0, percent: null },
     firstResponseTime: { count: 0, averageMinutes: null, medianMinutes: null },
@@ -535,7 +573,9 @@ describe('50 тысяч обращений', () => {
       // Номера обращений между тестами не сбрасываются, поэтому счёт идёт по порядку строк.
       await client.query(
         `update hdt_tickets t set created_on = now() - (r.n * interval '20 minutes'), first_response_breached_on = case when r.n % 7 = 0 then now() end,
-                csat_score = case when r.n % 9 = 0 then 1 + (r.n % 5) end
+                csat_score = case when r.n % 9 = 0 then 1 + (r.n % 5) end,
+                closed_on = case when t.status = 'closed' then now() - (r.n * interval '20 minutes') + interval '2 hours' end,
+                resolved_on = case when t.status = 'resolved' then now() - (r.n * interval '20 minutes') + interval '2 hours' end
            from (select ticket_id, row_number() over (order by number) as n from hdt_tickets) r where r.ticket_id = t.ticket_id`,
       );
       await client.query(`set session_replication_role = origin`);
@@ -563,8 +603,18 @@ describe('50 тысяч обращений', () => {
       expect(plans.length, period).toBeGreaterThanOrEqual(8);
       for (const plan of plans) {
         expect(plan, plan).not.toMatch(SEQ_SCAN);
-        expect(plan, plan).toMatch(/hdt_tickets_i25/);
+        // Счётчик "завершено за период" идёт по своему индексу даты решения или закрытия (миграция 0066).
+        expect(plan, plan).toMatch(/hdt_tickets_i2[56]/);
       }
+      expect(plans.some((plan) => /hdt_tickets_i26/.test(plan)), period).toBe(true);
+      // Закрытые и решённые обращения набора завершены через два часа после создания. Число сверяется с прямым счётом
+      // под суперпользователем: статусы в наборе идут группами, поэтому доля завершённых в периоде не постоянна.
+      const direct = await pools.root.query(
+        `select count(*)::int as n from hdt_tickets where coalesce(resolved_on, closed_on) >= $1 and coalesce(resolved_on, closed_on) < $2 and status in ('resolved', 'closed') and merged_into_id is null`,
+        [result.view.period.from, result.view.period.to],
+      );
+      expect(result.view.overview.finished, period).toBe(direct.rows[0].n);
+      if (period === '90') expect(result.view.overview.finished).toBeGreaterThan(1000);
     }
 
     // Время страницы за 90 дней (около 6500 обращений периода): лучший из трёх прогонов.

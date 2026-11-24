@@ -2237,7 +2237,7 @@
         "line": "{from} - {to}, {days, plural, one {# day} other {# days}}. Days follow the support calendar time ({zone}).",
         "invalid": "The period is not valid: the last 30 days are shown. A custom period is two dates, at most 366 days apart."
       },
-      "definition": "Every number on this page counts requests created in the selected period. A request created earlier and resolved in this period belongs to the period of its creation.",
+      "definition": "The numbers on this page count requests created in the selected period. A request created earlier and resolved in this period belongs to the period of its creation. There is one exception: \"Finished in the period\" counts requests resolved or closed in the period, whenever they were created.",
       "capped": "Response time, resolution time and lines are computed on the first {count} requests of the period: there are more. Narrow the period to count them all.",
       "empty": {
         "title": "No requests in this period",
@@ -2251,6 +2251,8 @@
         "created": "Created",
         "resolved": "Resolved of them",
         "closed": "Closed of them",
+        "finished": "Finished in the period",
+        "finishedHint": "Resolved or closed in the period, whenever created",
         "firstResponseSla": "First response on time",
         "resolutionSla": "Resolution on time",
         "slaOf": "{ok} of {total}",

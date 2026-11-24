@@ -75,7 +75,8 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
   const periodQuery = period.preset === 'custom' ? `period=custom&from=${period.fromDay}&to=${period.toDay}` : `period=${period.preset}`;
   const canBreakdown = canSeeBreakdown(staff);
   const canReview = canReviewCsat(staff);
-  const empty = overview.created === 0;
+  // Пусто, когда в периоде нет ни созданных, ни завершённых обращений: завершённые считаются и без созданных.
+  const empty = overview.created === 0 && overview.finished === 0;
   const orgPages = pagesOf(firstParam(query.orgPages));
   const modulePages = pagesOf(firstParam(query.modulePages));
   const [orgs, modules] =
@@ -206,6 +207,9 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
               <Stat id="created" label={t('metrics.overview.created')} value={format.number(overview.created)} />
               <Stat id="resolved" label={t('metrics.overview.resolved')} value={format.number(overview.resolved)} />
               <Stat id="closed" label={t('metrics.overview.closed')} value={format.number(overview.closed)} />
+              <Stat id="finished" label={t('metrics.overview.finished')} value={format.number(overview.finished)}>
+                {t('metrics.overview.finishedHint')}
+              </Stat>
               <Stat id="csat" label={t('metrics.overview.csatAverage')} value={number(overview.csat.average, 2)}>
                 {t('metrics.overview.csatCount')}: {format.number(overview.csat.count)}. {t('metrics.overview.csatHigh')}: {share(overview.csat.highPercent)}
               </Stat>

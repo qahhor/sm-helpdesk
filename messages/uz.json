@@ -2237,7 +2237,7 @@
         "line": "{from} - {to}, {days, plural, other {# kun}}. Kunlar qo'llab-quvvatlash taqvimi vaqti bo'yicha hisoblanadi ({zone}).",
         "invalid": "Davr noto'g'ri berilgan: oxirgi 30 kun ko'rsatildi. O'z davringiz ikki sanadan iborat, 366 kundan ko'p emas."
       },
-      "definition": "Sahifadagi barcha sonlar tanlangan davrda yaratilgan murojaatlarni hisoblaydi. Oldin yaratilib, shu davrda hal qilingan murojaat o'zi yaratilgan davrda hisobga olingan.",
+      "definition": "Sahifadagi sonlar tanlangan davrda yaratilgan murojaatlarni hisoblaydi. Oldin yaratilib, shu davrda hal qilingan murojaat o'zi yaratilgan davrda hisobga olingan. Bitta istisno bor: «Davrda yakunlangan» qachon yaratilganidan qat'i nazar, shu davrda hal qilingan yoki yopilgan murojaatlarni hisoblaydi.",
       "capped": "Javob vaqti, hal qilish vaqti va liniyalar davrning birinchi {count} ta murojaati bo'yicha hisoblandi: murojaatlar ko'proq. Hammasini hisoblash uchun davrni qisqartiring.",
       "empty": {
         "title": "Bu davrda murojaatlar yo'q",
@@ -2251,6 +2251,8 @@
         "created": "Yaratilgan",
         "resolved": "Shundan hal qilingan",
         "closed": "Shundan yopilgan",
+        "finished": "Davrda yakunlangan",
+        "finishedHint": "Qachon yaratilganidan qat'i nazar, shu davrda hal qilingan yoki yopilgan",
         "firstResponseSla": "Birinchi javob muddatida",
         "resolutionSla": "Yechim muddatida",
         "slaOf": "{total} tadan {ok} ta",

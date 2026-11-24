@@ -12,6 +12,7 @@ import {
   type Counters,
   lineEventsTx,
   lowRatingsTx,
+  finishedTx,
   overviewTx,
   type Range,
   requestRowsTx,
@@ -70,6 +71,8 @@ export type MetricsOverview = {
   created: number;
   resolved: number;
   closed: number;
+  /** Решено или закрыто в периоде, когда бы ни создано: единственное число страницы не по дате создания. */
+  finished: number;
   firstResponse: Share;
   resolution: Share;
   firstResponseTime: Timing;
@@ -116,10 +119,11 @@ const calendarOf = (config: SlaConfig, priority: string) => calendarFor(config, 
 const resolutionMinutes = (row: { createdOn: Date; resolvedOn: Date; priority: string; pausedMinutes: number }, config: SlaConfig): number =>
   Math.max(0, workingMinutesBetween(row.createdOn, row.resolvedOn, calendarOf(config, row.priority)) - row.pausedMinutes);
 
-const overviewOf = (c: Counters, firstResponseTime: Timing, resolutionTime: Timing): MetricsOverview => ({
+const overviewOf = (c: Counters, finished: number, firstResponseTime: Timing, resolutionTime: Timing): MetricsOverview => ({
   created: c.created,
   resolved: c.resolved,
   closed: c.closed,
+  finished,
   firstResponse: share(c.firstResponseOk, c.firstResponseTotal),
   resolution: share(c.resolutionOk, c.resolutionTotal),
   firstResponseTime,
@@ -137,10 +141,11 @@ export async function getMetrics(ctx: StaffContext, input: unknown, now: Date = 
   requireStaff(ctx);
   const { period, config } = await resolvePeriod(ctx, input, now);
   const range: Range = { from: period.from, to: period.to };
-  const { counters, sources, responded, resolved, events, low } = await withActor(ctx.actor, async (tx) => {
+  const { counters, finished, sources, responded, resolved, events, low } = await withActor(ctx.actor, async (tx) => {
     const resolvedRows = await resolvedRowsTx(tx, range, METRICS_ROW_CAP + 1);
     return {
       counters: await overviewTx(tx, range, now),
+      finished: await finishedTx(tx, range),
       sources: await sourcesTx(tx, range),
       responded: await respondedRowsTx(tx, range, METRICS_ROW_CAP + 1),
       resolved: resolvedRows,
@@ -176,6 +181,7 @@ export async function getMetrics(ctx: StaffContext, input: unknown, now: Date = 
     timeZone: config.calendar.timeZone,
     overview: overviewOf(
       counters,
+      finished,
       timing(respondedRows.map((row) => workingMinutesBetween(row.createdOn, row.firstRespondedOn, calendarOf(config, row.priority)))),
       timing(resolvedRows.map((row) => resolutionMinutes(row, config))),
     ),

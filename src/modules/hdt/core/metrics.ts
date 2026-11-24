@@ -12,6 +12,8 @@ import { ticketEvents, tickets } from '../schema';
 // Определение, общее для всех блоков: "обращения периода" это обращения, СОЗДАННЫЕ в периоде. Каждый блок считается
 // одним запросом по индексу даты создания (hdt_tickets_i25), без таблиц накопления и без кеша. Обращение, созданное
 // раньше периода и решённое в нём, в показатели периода не входит: оно учтено в периоде своего создания.
+// Исключение одно: счётчик "завершено за период" (finishedTx) считает обращения, решённые или закрытые в периоде,
+// когда бы они ни были созданы: FR-MET-01 просит новые и закрытые обращения.
 //
 // Соблюдение SLA: доля обращений периода без отметки нарушения (колонки *_breached_on, их ставит задача раз в минуту)
 // среди тех, у кого исход по сроку уже известен. Первый ответ: ответ дан, либо отметка стоит, либо срок прошёл.
@@ -64,6 +66,26 @@ export async function overviewTx(tx: Tx, range: Range, now: Date): Promise<Count
   const [row] = await tx.select(counters(now)).from(tickets).where(inPeriod(range));
   if (!row) throw new Error('показатели: сводка не вернула строку');
   return row;
+}
+
+/**
+ * Момент завершения обращения: дата решения, а у закрытого без решения (автозакрытие из ожидания, закрытие клиентом)
+ * дата закрытия. Выражение совпадает с индексом hdt_tickets_i26 (миграция 0066) и записано через CASE: условие по
+ * COALESCE планировщик не берёт в индекс раньше политик RLS.
+ */
+const FINISHED_ON = sql`(case when ${tickets.resolvedOn} is not null then ${tickets.resolvedOn} else ${tickets.closedOn} end)`;
+
+/**
+ * Завершено за период (FR-MET-01): обращения, решённые или закрытые в периоде, когда бы они ни были созданы. Считается
+ * по текущему состоянию: открытое заново не завершено, объединённый дубль закрыт объединением и не считается.
+ * Отдельный запрос по частичному индексу hdt_tickets_i26.
+ */
+export async function finishedTx(tx: Tx, range: Range): Promise<number> {
+  const [row] = await tx
+    .select({ n: count() })
+    .from(tickets)
+    .where(and(sql`${FINISHED_ON} >= ${range.from.toISOString()}::timestamptz`, sql`${FINISHED_ON} < ${range.to.toISOString()}::timestamptz`, inArray(tickets.status, ['resolved', 'closed']), isNull(tickets.mergedIntoId)));
+  return row?.n ?? 0;
 }
 
 /** Источники обращений периода (FR-MET-03). */

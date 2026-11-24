@@ -79,6 +79,36 @@ async function seedEverything() {
     [f.orgA.orgId, f.tickets.aOrg.ticketId],
   );
   await pools.root.query(`insert into hdu_server_checks (server_id, is_ok, issues) values ($1, false, '{timeout}')`, [f.server.serverId]);
+  // Знания: по решению для клиентов и "только через сотрудника", чтобы проверка аудитории что-то значила.
+  for (const audience of ['clients', 'internal']) {
+    const a = (await pools.root.query(`insert into hdk_articles (audience, original_locale) values ($1, 'ru') returning article_id, number`, [audience])).rows[0];
+    const doc = { version: 1, blocks: [] };
+    const v = (
+      await pools.root.query(`insert into hdk_article_versions (article_id, locale, number, title, doc, state) values ($1, 'ru', 1, 'Решение', $2, 'published') returning version_id`, [
+        a.article_id,
+        doc,
+      ])
+    ).rows[0].version_id;
+    await pools.root.query(`insert into hdk_article_translations (article_id, locale, published_version_id, slug) values ($1, 'ru', $2, 'reshenie')`, [a.article_id, v]);
+    const p = (
+      await pools.root.query(
+        `insert into hdk_published (article_id, article_number, locale, version_id, audience, title, doc, body_text, slug, original_locale)
+         values ($1, $2, 'ru', $3, $4, 'Решение', $5, 'Текст', 'reshenie', 'ru') returning published_id`,
+        [a.article_id, a.number, v, audience, doc],
+      )
+    ).rows[0].published_id;
+    await pools.root.query(
+      `insert into hdk_search_documents (published_id, ref_id, kind, article_type, locale, title, body_text, audience) values ($1, $2, 'article', 'solution', 'ru', 'Решение', 'Текст', $3)`,
+      [p, a.article_id, audience],
+    );
+    if (audience === 'clients') {
+      await pools.root.query(`insert into hdk_article_sources (org_id, article_id, ticket_id) values ($1, $2, $3)`, [f.orgA.orgId, a.article_id, f.tickets.aOrg.ticketId]);
+      await pools.root.query(`insert into hdk_article_files (article_id, storage_key, file_name, mime, size) values ($1, 'kb/1', 'a.png', 'image/png', 10)`, [a.article_id]);
+      const sig = (await pools.root.query(`insert into hdk_error_signatures (article_id, signature) values ($1, repeat('a', 32)) returning signature_id`, [a.article_id])).rows[0].signature_id;
+      await pools.root.query(`insert into hdk_signature_orgs (org_id, signature_id) values ($1, $2)`, [f.orgA.orgId, sig]);
+    }
+  }
+  await pools.root.query(`insert into hdk_deflection_events (org_id, user_id, session_id, query_hash) values ($1, $2, uuidv7(), repeat('f', 64))`, [f.orgA.orgId, f.aUser.userId]);
   return f;
 }
 
@@ -131,7 +161,7 @@ test('клиент видит в каждой таблице ровно то, ч
     for (const actor of [f.aUser.actor, f.aAdmin.actor]) {
       // Столбец, по которому видно принадлежность. Не select *: у hub_app нет права на секретные столбцы
       // (например, хеш токена приглашения), и отказ выглядел бы как "клиент ничего не видит".
-      const column = { none: '1', all: '1', 'own-org': 'org_id', 'org-people': 'user_id', 'own-user': 'user_id' }[rule.client];
+      const column = { none: '1', all: '1', 'own-org': 'org_id', 'org-people': 'user_id', 'own-user': 'user_id', 'clients-audience': 'audience' }[rule.client];
       const rows = await rowsOrDenied(asActor(pools.app, actor, (c) => c.query(`select ${column} from ${name}`)));
       seen += rows.length;
       const label = `${name} для ${actor.orgRole}`;
@@ -140,6 +170,7 @@ test('клиент видит в каждой таблице ровно то, ч
       if (rule.client === 'own-org') expect(rows.filter((row) => row.org_id !== f.orgA.orgId), label).toEqual([]);
       if (rule.client === 'org-people') expect(rows.filter((row) => !people.has(row.user_id as string)), label).toEqual([]);
       if (rule.client === 'own-user') expect(rows.filter((row) => row.user_id !== actor.userId), label).toEqual([]);
+      if (rule.client === 'clients-audience') expect(rows.filter((row) => row.audience !== 'clients'), label).toEqual([]);
     }
     // Проверка "только своё" ничего не значит, если клиент не видит вообще ничего (проверка main, Q2).
     if (rule.client !== 'none') expect(seen, `${name}: клиент видит свои строки`).toBeGreaterThan(0);

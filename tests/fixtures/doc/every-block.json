@@ -49,7 +49,7 @@
       "attrs": { "id": "step0000001" },
       "content": [
         { "type": "paragraph", "attrs": { "id": "pstep000001" }, "content": [{ "type": "text", "text": "Откройте раздел Склад, затем Остатки" }] },
-        { "type": "image", "attrs": { "id": "img00000001", "src": "/ru/dev/editor/sample-image", "alt": "Раздел Остатки" } }
+        { "type": "image", "attrs": { "id": "img00000001", "fileId": "019ab8c0-0000-7000-8000-000000000001", "alt": "Раздел Остатки" } }
       ]
     },
     {
@@ -87,7 +87,7 @@
         }
       ]
     },
-    { "type": "image", "attrs": { "id": "img00000002", "src": "/ru/dev/editor/sample-image", "alt": "" } },
+    { "type": "image", "attrs": { "id": "img00000002", "fileId": "019ab8c0-0000-7000-8000-000000000002", "alt": "" } },
     { "type": "paragraph", "attrs": { "id": "pempty00001" } }
   ]
 }

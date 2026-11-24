@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BLOCK_ID, CALLOUT_TONES, HEADING_LEVELS, ID_NODE_TYPES, isAllowedHref, isAllowedImageSrc, MARK_TYPES, MAX_BLOCKS } from './doc-rules';
+import { BLOCK_ID, CALLOUT_TONES, FILE_ID, HEADING_LEVELS, ID_NODE_TYPES, isAllowedHref, MARK_TYPES, MAX_BLOCKS } from './doc-rules';
 
 export * from './doc-rules';
 
@@ -12,6 +12,11 @@ export * from './doc-rules';
 // Устойчивый идентификатор (attrs.id) есть у каждого блока, в том числе у абзацев внутри шагов, списков,
 // предупреждений и ячеек таблицы: на нём держатся перевод по абзацам (UX-W-06), замечания к абзацу (UX-W-14),
 // проверка качества (KB-10) и выбор блоков для ответа AI (KB-46). Идентификаторы в документе не повторяются.
+//
+// Изображение несёт не адрес, а ссылку fileId на строку hdk_article_files (план M5, решение 16). Адрес строит страница
+// по праву читателя: клиенту GET /help/a/{ref}/files/{fileId}, который отдаёт файл, только если он упомянут в видимой
+// клиенту строке hdk_published (колонка file_ids, задача 4); сотруднику адрес рабочего места (задача 3). Чужой адрес,
+// data: или путь к произвольному ресурсу портала в документ попасть не могут.
 
 const MAX_TEXT = 10_000;
 const MAX_TABLE_ROWS = 200;
@@ -49,7 +54,7 @@ const image = z.strictObject({
   type: z.literal('image'),
   attrs: z.strictObject({
     id: blockId,
-    src: z.string().refine(isAllowedImageSrc, 'адрес изображения вне портала'),
+    fileId: z.string().regex(FILE_ID, 'ссылка на файл решения'),
     alt: z.string().max(300).nullable(),
   }),
 });
@@ -122,6 +127,17 @@ export function collectBlockIds(value: unknown): string[] {
   };
   if (value && typeof value === 'object' && Array.isArray((value as { blocks?: unknown }).blocks)) (value as { blocks: unknown[] }).blocks.forEach(walk);
   return ids;
+}
+
+/** Файлы решения, на которые ссылается документ, без повторов, в порядке обхода. Пишутся в hdk_published.file_ids. */
+export function collectImageFileIds(doc: SolutionDoc): string[] {
+  const ids = new Set<string>();
+  const walk = (node: { type: string; attrs?: unknown; content?: unknown }) => {
+    if (node.type === 'image') ids.add((node as ImageNode).attrs.fileId.toLowerCase());
+    if (Array.isArray(node.content)) for (const child of node.content) if (child && typeof child === 'object') walk(child as { type: string });
+  };
+  doc.blocks.forEach(walk);
+  return [...ids];
 }
 
 export const solutionDocSchema = z

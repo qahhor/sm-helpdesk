@@ -3,10 +3,11 @@ export {
   BLOCK_ID,
   BLOCK_TYPES,
   CALLOUT_TONES,
+  FILE_ID,
   HEADING_LEVELS,
   ID_NODE_TYPES,
   isAllowedHref,
-  isAllowedImageSrc,
+  isFileId,
   MARK_TYPES,
   MAX_BLOCKS,
 } from '../doc-rules';

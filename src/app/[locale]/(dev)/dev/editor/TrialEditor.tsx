@@ -24,20 +24,21 @@ export function TrialEditor({
   initial,
   labels,
   saveLabel,
-  imageSrc,
-  imageAlt,
+  imagePath,
+  insertImage,
 }: {
   initial: SolutionDoc;
   labels: SolutionEditorLabels;
   saveLabel: string;
-  imageSrc: string;
-  imageAlt: string;
+  /** Адрес образца изображения: на странице пробы любой файл показывается им (файлов решения ещё нет). */
+  imagePath: string;
+  insertImage: { fileId: string; alt: string };
 }) {
   const router = useRouter();
   const latest = useRef<{ version: 1; blocks: unknown[] }>(initial);
   return (
     <div className="flex flex-col gap-2">
-      <SolutionEditor initial={initial} labels={labels} imageSrc={imageSrc} imageAlt={imageAlt} onChange={(doc) => (latest.current = doc)} exposeForTests />
+      <SolutionEditor initial={initial} labels={labels} imageSrc={() => imagePath} insertImage={insertImage} onChange={(doc) => (latest.current = doc)} exposeForTests />
       <div>
         <Button onClick={() => router.push(`?doc=${toBase64Url(JSON.stringify(latest.current))}`, { scroll: false })}>{saveLabel}</Button>
       </div>

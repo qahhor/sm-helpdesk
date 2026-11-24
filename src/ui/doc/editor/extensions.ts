@@ -14,7 +14,7 @@ import Text from '@tiptap/extension-text';
 import { Dropcursor, Gapcursor, UndoRedo } from '@tiptap/extensions';
 import { Plugin, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
-import { CALLOUT_TONES, HEADING_LEVELS, ID_NODE_TYPES, isAllowedHref, isAllowedImageSrc } from '@/modules/hdk/api/doc-rules';
+import { CALLOUT_TONES, HEADING_LEVELS, ID_NODE_TYPES, isAllowedHref, isFileId } from '@/modules/hdk/api/doc-rules';
 import { moveBlock } from './commands';
 import { assignMissingIds, stableIdsPlugin } from './stable-ids';
 
@@ -75,16 +75,33 @@ const SolutionHeading = Heading.extend({
   },
 }).configure({ levels: [...HEADING_LEVELS] });
 
-const SolutionImage = Image.extend({
-  addAttributes() {
-    return { src: { default: null }, alt: { default: null } };
-  },
-  parseHTML() {
-    // Изображение из буфера с чужим адресом (file://, data:, другой сайт) не вставляется: файлы решения
-    // загружаются в хранилище портала (задача 3), а в документ попадает только внутренний адрес.
-    return [{ tag: 'img[src]', getAttrs: (element) => (isAllowedImageSrc(element.getAttribute('src') ?? '') ? null : false) }];
-  },
-}).configure({ inline: false, allowBase64: false });
+/** Адрес файла решения для показа в редакторе. Строит страница (решение 16): в документе хранится только fileId. */
+export type ImageSrcResolver = (fileId: string) => string | null;
+
+function createImage(imageSrc: ImageSrcResolver | undefined) {
+  return Image.extend({
+    addAttributes() {
+      return {
+        // Ссылка на строку hdk_article_files (план M5, решение 16), адреса в документе нет.
+        fileId: {
+          default: null,
+          parseHTML: (element) => element.getAttribute('data-file-id'),
+          renderHTML: (attributes) => {
+            const fileId = typeof attributes.fileId === 'string' ? attributes.fileId : null;
+            const src = fileId ? imageSrc?.(fileId) : null;
+            return { 'data-file-id': fileId, ...(src ? { src } : {}) };
+          },
+        },
+        alt: { default: null },
+      };
+    },
+    parseHTML() {
+      // Изображение из буфера без ссылки на файл решения (file://, data:, другой сайт, любой адрес) не вставляется:
+      // файлы решения загружаются в хранилище портала (задача 3), в документ попадает только их идентификатор.
+      return [{ tag: 'img[data-file-id]', getAttrs: (element) => (isFileId(element.getAttribute('data-file-id')) ? null : false) }];
+    },
+  }).configure({ inline: false, allowBase64: false });
+}
 
 const SolutionLink = Link.extend({
   addAttributes() {
@@ -94,7 +111,7 @@ const SolutionLink = Link.extend({
   openOnClick: false,
   autolink: false,
   linkOnPaste: false,
-  // Ссылки только https, mailto и внутренние (ТЗ 18.10). Остальные при вставке теряют ссылку, текст остаётся.
+  // Ссылки только https и внутренние (план M5, задача 2). Остальные при вставке теряют ссылку, текст остаётся.
   isAllowedUri: (url) => isAllowedHref(url),
   HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: null },
 });
@@ -236,6 +253,8 @@ function createStep(view: NodeViewRenderer | undefined) {
 export type SolutionExtensionOptions = {
   /** Вид шага с ручкой перетаскивания (React). Без него шаг рисуется разметкой renderHTML: так в тестах модели. */
   stepView?: NodeViewRenderer;
+  /** Адрес файла для показа изображения. Без него изображение рисуется без адреса: так в тестах модели. */
+  imageSrc?: ImageSrcResolver;
 };
 
 export function createSolutionExtensions(options: SolutionExtensionOptions = {}): Extensions {
@@ -255,7 +274,7 @@ export function createSolutionExtensions(options: SolutionExtensionOptions = {})
     ListKeymap,
     createStep(options.stepView),
     Callout,
-    SolutionImage,
+    createImage(options.imageSrc),
     SolutionTable,
     TableRow,
     SolutionTableCell,

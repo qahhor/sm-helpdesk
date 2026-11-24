@@ -11,7 +11,9 @@ import everyBlock from '../fixtures/doc/every-block.json';
 
 const labels: DocViewLabels = { warning: 'Внимание', info: 'Заметка', step: (n) => `Шаг ${n}` };
 const doc = parseSolutionDoc(structuredClone(everyBlock));
-const html = renderToStaticMarkup(<DocView doc={doc} labels={labels} />);
+// Адрес файла решения строит страница: клиенту /help/a/{ref}/files/{id}, сотруднику свой адрес (решение 16).
+const imageSrc = (fileId: string) => `/ru/help/a/12-ostatki/files/${fileId}`;
+const html = renderToStaticMarkup(<DocView doc={doc} labels={labels} imageSrc={imageSrc} />);
 
 test('каждый вид блока рисуется своим элементом', () => {
   expect(html).toContain('<h2 id="b-h2what00001"');
@@ -33,7 +35,7 @@ test('каждый вид блока рисуется своим элемент�
 test('шаги идут нумерованным списком, изображение внутри шага', () => {
   const steps = html.match(/<ol[^>]*data-steps[^>]*>(.*?)<\/ol>/)?.[1] ?? '';
   expect(steps.match(/<li/g)).toHaveLength(2);
-  expect(steps).toMatch(/<li[^>]*data-block="step0000001".*<img[^>]*src="\/ru\/dev\/editor\/sample-image"[^>]*alt="Раздел Остатки"/);
+  expect(steps).toMatch(/<li[^>]*data-block="step0000001".*<img[^>]*src="\/ru\/help\/a\/12-ostatki\/files\/019ab8c0-0000-7000-8000-000000000001"[^>]*alt="Раздел Остатки"/);
   expect(steps).toContain('Шаг 1');
   expect(steps).toContain('Шаг 2');
 });
@@ -54,6 +56,14 @@ test('текст документа выводится как текст: раз
   expect(out).toContain('&lt;script&gt;');
 });
 
+test('без адреса файла изображение показывается заглушкой с подписью, без img', () => {
+  const out = renderToStaticMarkup(<DocView doc={doc} labels={labels} />);
+  expect(out).not.toContain('<img');
+  expect(out).toMatch(/<div[^>]*data-block="img00000001"[^>]*role="img"[^>]*aria-label="Раздел Остатки"/);
+  // Адрес, который страница не смогла построить (файл недоступен), тоже даёт заглушку.
+  expect(renderToStaticMarkup(<DocView doc={doc} labels={labels} imageSrc={() => null} />)).not.toContain('<img');
+});
+
 /** Обходит дерево элементов, вызывая компоненты-функции, и собирает все свойства. */
 function collectProps(node: ReactNode, into: Record<string, unknown>[] = []): Record<string, unknown>[] {
   if (Array.isArray(node)) node.forEach((child) => collectProps(child, into));
@@ -67,7 +77,7 @@ function collectProps(node: ReactNode, into: Record<string, unknown>[] = []): Re
 }
 
 test('в дереве отрисовки нет ни одной вставки HTML строкой', () => {
-  const props = collectProps(DocView({ doc, labels }));
+  const props = collectProps(DocView({ doc, labels, imageSrc }));
   expect(props.length).toBeGreaterThan(50);
   for (const p of props) expect(p).not.toHaveProperty('dangerouslySetInnerHTML');
 });

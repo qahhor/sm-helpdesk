@@ -6,7 +6,7 @@
 // цвета, шрифты, подчёркивание, ссылки и изображения вне списка допустимых до документа не доходят.
 // Работает в браузере (DOMParser); разметка разбирается в отдельном неактивном документе, скрипты в нём не идут.
 
-import { isAllowedImageSrc } from '@/modules/hdk/api/doc-rules';
+import { isFileId } from '@/modules/hdk/api/doc-rules';
 
 const WORD_SIGNS = /urn:schemas-microsoft-com:office|class=["']?Mso|mso-[a-z-]+:/i;
 const ORDERED_MARKER = /^\(?(?:\d{1,3}|[a-zа-я]{1,2}|[ivxlcdm]{1,5})[.)]/i;
@@ -110,8 +110,9 @@ export function cleanPastedHtml(html: string): string {
   body.querySelectorAll('p.MsoTitle').forEach((p) => rename(p, 'h2'));
   body.querySelectorAll('p.MsoSubtitle').forEach((p) => rename(p, 'h3'));
   // Рисунки из буфера Word ссылаются на временные файлы (file:///...): их не загрузить, абзац с ними пустой.
+  // В документ попадает только изображение со ссылкой на файл решения (решение 16 плана M5).
   body.querySelectorAll('img').forEach((img) => {
-    if (!isAllowedImageSrc(img.getAttribute('src') ?? '')) img.remove();
+    if (!isFileId(img.getAttribute('data-file-id'))) img.remove();
   });
   // Пустые абзацы Word (<o:p>&nbsp;</o:p>) не нужны: отступы задаёт портал.
   body.querySelectorAll('p').forEach((p) => {

@@ -32,7 +32,10 @@ export default async function EditorTrialPage({ searchParams }: PageProps<'/[loc
   const param = (await searchParams).doc;
   const t = await getTranslations('dev.editor');
   const locale = await getLocale();
-  const imageSrc = `/${locale}/dev/editor/sample-image`;
+  // Изображение в документе это ссылка на файл решения (план M5, решение 16). Файлов на странице пробы нет: любая
+  // ссылка показывается образцом. Настоящий адрес строят страницы решения (задачи 3 и 4).
+  const imagePath = `/${locale}/dev/editor/sample-image`;
+  const sampleFileId = '019ab8c0-0000-7000-8000-00000000d001';
 
   const p = (id: string, text: string) => ({ type: 'paragraph' as const, attrs: { id }, content: [{ type: 'text' as const, text }] });
   const cell = (type: 'tableCell' | 'tableHeader', id: string, text: string) => ({ type, attrs: { colspan: 1, rowspan: 1 }, content: [p(id, text)] });
@@ -42,7 +45,7 @@ export default async function EditorTrialPage({ searchParams }: PageProps<'/[loc
       { type: 'heading', attrs: { id: 'samplewhath2', level: 2 }, content: [{ type: 'text', text: t('sample.whatHeading') }] },
       p('samplewhatp1', t('sample.what')),
       { type: 'heading', attrs: { id: 'sampledoh2xx', level: 2 }, content: [{ type: 'text', text: t('sample.doHeading') }] },
-      { type: 'step', attrs: { id: 'samplestep01' }, content: [p('samplestep1p', t('sample.step1')), { type: 'image', attrs: { id: 'sampleimage1', src: imageSrc, alt: t('imageAlt') } }] },
+      { type: 'step', attrs: { id: 'samplestep01' }, content: [p('samplestep1p', t('sample.step1')), { type: 'image', attrs: { id: 'sampleimage1', fileId: sampleFileId, alt: t('imageAlt') } }] },
       { type: 'step', attrs: { id: 'samplestep02' }, content: [p('samplestep2p', t('sample.step2'))] },
       { type: 'callout', attrs: { id: 'samplecallou', tone: 'warning' }, content: [p('samplecallop', t('sample.warning'))] },
       {
@@ -100,14 +103,14 @@ export default async function EditorTrialPage({ searchParams }: PageProps<'/[loc
             {t('editorHeading')}
           </h2>
           {/* Новый документ из адреса заново создаёт редактор с этим содержимым. */}
-          <TrialEditor key={typeof param === 'string' ? param : 'sample'} initial={doc} labels={labels} saveLabel={t('save')} imageSrc={imageSrc} imageAlt={t('imageAlt')} />
+          <TrialEditor key={typeof param === 'string' ? param : 'sample'} initial={doc} labels={labels} saveLabel={t('save')} imagePath={imagePath} insertImage={{ fileId: sampleFileId, alt: t('imageAlt') }} />
         </section>
         <section aria-labelledby="trial-preview" className="flex flex-col gap-2" data-testid="doc-preview">
           <h2 id="trial-preview" className="text-lg font-semibold">
             {t('previewHeading')}
           </h2>
           <div className="rounded-card border border-border bg-card p-4">
-            <DocView doc={doc} labels={{ warning: t('view.warning'), info: t('view.info'), step: (n) => t('view.step', { n }) }} />
+            <DocView doc={doc} labels={{ warning: t('view.warning'), info: t('view.info'), step: (n) => t('view.step', { n }) }} imageSrc={() => imagePath} />
           </div>
         </section>
       </div>

@@ -19,6 +19,10 @@ import { cn } from '@/ui/cn';
 // только как текст, React его экранирует. Компонент серверный и не тянет редактор: одна и та же отрисовка
 // для предпросмотра сотрудника и для страницы клиента. Документ на вход приходит уже проверенным
 // (parseSolutionDoc из @/modules/hdk/api/doc).
+//
+// Изображение в документе это ссылка fileId на файл решения (план M5, решение 16), адрес строит страница по праву
+// читателя (imageSrc): клиенту /help/a/{ref}/files/{fileId} (задача 4), сотруднику адрес рабочего места (задача 3).
+// Без адреса изображение показывается заглушкой с подписью: документ читается и тогда, когда файл недоступен.
 
 export type DocViewLabels = {
   /** Подпись предупреждения. */
@@ -29,7 +33,10 @@ export type DocViewLabels = {
   step: (n: number) => string;
 };
 
-type Ctx = { labels: DocViewLabels };
+/** Адрес файла решения по его идентификатору; null: файл показать нельзя. */
+export type DocImageSrc = (fileId: string) => string | null;
+
+type Ctx = { labels: DocViewLabels; imageSrc?: DocImageSrc };
 
 function TextRun({ node }: { node: TextNode }) {
   let out: ReactNode = node.text;
@@ -63,10 +70,18 @@ function Paragraph({ node }: { node: ParagraphNode }) {
   );
 }
 
-function ImageBlock({ node }: { node: ImageNode }) {
+function ImageBlock({ node, ctx }: { node: ImageNode; ctx: Ctx }) {
+  const src = ctx.imageSrc?.(node.attrs.fileId) ?? null;
+  const alt = node.attrs.alt ?? '';
+  if (!src)
+    return (
+      <div data-block={node.attrs.id} role="img" aria-label={alt} className="flex min-h-row items-center justify-center self-start rounded-control border border-dashed border-border bg-card-soft p-3 text-sm text-muted-foreground">
+        {alt}
+      </div>
+    );
   return (
     // eslint-disable-next-line @next/next/no-img-element -- файл решения отдаёт портал после проверки прав, оптимизатор выключен
-    <img data-block={node.attrs.id} src={node.attrs.src} alt={node.attrs.alt ?? ''} loading="lazy" className="max-w-full self-start rounded-control border border-border" />
+    <img data-block={node.attrs.id} src={src} alt={alt} loading="lazy" className="max-w-full self-start rounded-control border border-border" />
   );
 }
 
@@ -101,7 +116,7 @@ function Steps({ steps, ctx }: { steps: StepNode[]; ctx: Ctx }) {
           </span>
           <div className="flex min-w-0 flex-col gap-2 pt-2">
             <span className="sr-only">{ctx.labels.step(index + 1)}</span>
-            {step.content.map((child) => (child.type === 'paragraph' ? <Paragraph key={child.attrs.id} node={child} /> : <ImageBlock key={child.attrs.id} node={child} />))}
+            {step.content.map((child) => (child.type === 'paragraph' ? <Paragraph key={child.attrs.id} node={child} /> : <ImageBlock key={child.attrs.id} node={child} ctx={ctx} />))}
           </div>
         </li>
       ))}
@@ -173,7 +188,7 @@ function BlockView({ block, ctx }: { block: Exclude<Block, StepNode>; ctx: Ctx }
     case 'table':
       return <Table node={block} />;
     case 'image':
-      return <ImageBlock node={block} />;
+      return <ImageBlock node={block} ctx={ctx} />;
   }
 }
 
@@ -189,8 +204,8 @@ function group(blocks: Block[]): (Exclude<Block, StepNode> | StepNode[])[] {
   return out;
 }
 
-export function DocView({ doc, labels, className }: { doc: SolutionDoc; labels: DocViewLabels; className?: string }) {
-  const ctx: Ctx = { labels };
+export function DocView({ doc, labels, imageSrc, className }: { doc: SolutionDoc; labels: DocViewLabels; imageSrc?: DocImageSrc; className?: string }) {
+  const ctx: Ctx = { labels, imageSrc };
   return (
     <div className={cn('flex flex-col gap-3 break-words [&_a]:text-link [&_a]:underline [&_code]:rounded-control [&_code]:bg-card-soft [&_code]:px-1', className)}>
       {group(doc.blocks).map((item) =>

@@ -31,7 +31,7 @@ import type { SolutionDoc } from '@/modules/hdk/api/doc';
 import { isAllowedHref } from '@/modules/hdk/api/doc-rules';
 import { cn } from '@/ui/cn';
 import { fromEditorJson, toEditorJson } from './convert';
-import { createSolutionExtensions } from './extensions';
+import { createSolutionExtensions, type ImageSrcResolver } from './extensions';
 import { cleanPastedHtml } from './word-paste';
 import './editor.css';
 
@@ -81,7 +81,7 @@ function StepView() {
 
 type Tool = { key: keyof SolutionEditorLabels; icon: LucideIcon; run: (editor: Editor) => void; active?: (editor: Editor) => boolean; enabled?: (editor: Editor) => boolean };
 
-function tools(labels: SolutionEditorLabels, imageSrc: string, imageAlt: string): Tool[][] {
+function tools(labels: SolutionEditorLabels, image: { fileId: string; alt: string }): Tool[][] {
   return [
     [
       { key: 'bold', icon: Bold, run: (e) => e.chain().focus().toggleBold().run(), active: (e) => e.isActive('bold') },
@@ -110,7 +110,7 @@ function tools(labels: SolutionEditorLabels, imageSrc: string, imageAlt: string)
       { key: 'step', icon: Footprints, run: (e) => e.chain().focus().toggleStep().run(), active: (e) => e.isActive('step') },
       { key: 'calloutWarning', icon: TriangleAlert, run: (e) => e.chain().focus().toggleCallout('warning').run(), active: (e) => e.isActive('callout', { tone: 'warning' }) },
       { key: 'calloutInfo', icon: Info, run: (e) => e.chain().focus().toggleCallout('info').run(), active: (e) => e.isActive('callout', { tone: 'info' }) },
-      { key: 'image', icon: ImagePlus, run: (e) => e.chain().focus().insertContent({ type: 'image', attrs: { src: imageSrc, alt: imageAlt } }).run() },
+      { key: 'image', icon: ImagePlus, run: (e) => e.chain().focus().insertContent({ type: 'image', attrs: { fileId: image.fileId, alt: image.alt } }).run() },
     ],
     [
       { key: 'table', icon: Table, run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run(), enabled: (e) => !e.isActive('table') },
@@ -189,18 +189,19 @@ function Toolbar({ editor, labels, groups }: { editor: Editor; labels: SolutionE
 export type SolutionEditorProps = {
   initial: SolutionDoc;
   labels: SolutionEditorLabels;
-  /** Адрес изображения для кнопки "Изображение". Загрузка файлов появится в задаче 3. */
-  imageSrc: string;
-  imageAlt: string;
+  /** Адрес файла решения для показа изображения: в документе хранится только fileId (план M5, решение 16). */
+  imageSrc: ImageSrcResolver;
+  /** Файл для кнопки "Изображение". Загрузка файлов появится в задаче 3 и заменит эту заготовку. */
+  insertImage: { fileId: string; alt: string };
   /** Документ для сохранения после каждой правки (ещё не проверен схемой). */
   onChange?: (doc: { version: 1; blocks: unknown[] }) => void;
   /** Только на странице пробы: редактор доступен браузерному тесту как window.__solutionEditor. */
   exposeForTests?: boolean;
 };
 
-export function SolutionEditor({ initial, labels, imageSrc, imageAlt, onChange, exposeForTests }: SolutionEditorProps) {
+export function SolutionEditor({ initial, labels, imageSrc, insertImage, onChange, exposeForTests }: SolutionEditorProps) {
   const editor = useEditor({
-    extensions: createSolutionExtensions({ stepView: ReactNodeViewRenderer(StepView) }),
+    extensions: createSolutionExtensions({ stepView: ReactNodeViewRenderer(StepView), imageSrc }),
     content: toEditorJson(initial),
     immediatelyRender: false,
     injectCSS: false,
@@ -222,7 +223,7 @@ export function SolutionEditor({ initial, labels, imageSrc, imageAlt, onChange, 
   if (!editor) return <div className="min-h-row rounded-card border border-border bg-card" aria-busy="true" />;
   return (
     <div className="rounded-card border border-border bg-card">
-      <Toolbar editor={editor} labels={labels} groups={tools(labels, imageSrc, imageAlt)} />
+      <Toolbar editor={editor} labels={labels} groups={tools(labels, insertImage)} />
       <EditorContent editor={editor} />
     </div>
   );

@@ -42,7 +42,7 @@ export async function devHandOverTx(tx: Tx, actor: StaffActor, ticket: LockedTic
 }
 
 /** Можно ли передать обращение в разработку прямо сейчас: проверка до обращения к таск-менеджеру, без блокировки. */
-export function assertCanHandOver(ticket: { status: TicketStatus; mergedIntoId: string | null }): void {
+function assertCanHandOver(ticket: { status: TicketStatus; mergedIntoId: string | null }): void {
   if (ticket.mergedIntoId) throw new HdtError('merged');
   if (ticket.status !== 'in_progress' && ticket.status !== 'in_development') throw new HdtError('transition_refused');
 }
@@ -106,8 +106,21 @@ export type DevTaskSource = {
   mergedIntoId: string | null;
 };
 
+/**
+ * Проверка до обращения к таск-менеджеру (режим API): роль, обращение есть, не объединено, из его статуса есть
+ * переход "В разработке". Возвращает то, что уйдёт в задачу. Строку не блокирует: окончательно всё проверяет
+ * транзакция привязки. Отказы те же, что у передачи: forbidden, not_found, merged, transition_refused.
+ */
+export async function devHandOverSourceTx(tx: Tx, actor: StaffActor, number: number): Promise<DevTaskSource> {
+  assertCanDevelop(actor);
+  const source = await devTaskSourceTx(tx, number);
+  if (!source) throw new HdtError('not_found');
+  assertCanHandOver(source);
+  return source;
+}
+
 /** Поля обращения для задачи в таск-менеджере. Нет такого: null. */
-export async function devTaskSourceTx(tx: Tx, number: number): Promise<DevTaskSource | null> {
+async function devTaskSourceTx(tx: Tx, number: number): Promise<DevTaskSource | null> {
   const [row] = await tx
     .select({
       ticketId: tickets.ticketId,

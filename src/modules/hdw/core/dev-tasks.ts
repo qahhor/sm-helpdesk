@@ -123,7 +123,8 @@ export async function devTaskOfTicketTx(tx: Tx, ticketId: string): Promise<{ tas
 /** Больше стольких "также привязаны" блок на странице обращения не показывает. */
 const OTHER_TICKETS_MAX = 50;
 
-export type StatusChange = { status: DevTaskStatus; version?: string | null; url?: string; synced?: boolean };
+/** synced: момент сверки с таск-менеджером (вебхук, опрос). У ручной смены статуса его нет. */
+export type StatusChange = { status: DevTaskStatus; version?: string | null; url?: string; synced?: Date };
 
 /**
  * Записать статус задачи, пришедший от сотрудника (ручной режим) или из таск-менеджера (вебхук, опрос). Строку задачи
@@ -143,7 +144,7 @@ export async function applyDevTaskStatusTx(tx: Tx, task: DevTask, change: Status
       status: change.status,
       version,
       url,
-      ...(change.synced ? { syncedOn: sql`now()` } : {}),
+      ...(change.synced ? { syncedOn: change.synced } : {}),
       // Напоминание одно на закрытие: строка заблокирована, отметка ставится вместе со статусом.
       closedNotifiedOn: closed ? sql`coalesce(${devTasks.closedNotifiedOn}, now())` : null,
     })

@@ -33,6 +33,7 @@ pnpm dev:up
 - Сотрудник: `pnpm hub staff:create --email you@smartup.example --name "Имя" --role admin` печатает ссылку. По ней задаётся пароль, при первом входе на `/ru/staff/login` подключается второй фактор (любое приложение с кодами).
 - Письма со ссылками входа в разработке печатаются в окне приложения (`MAIL_TRANSPORT=console`) или пишутся в каталог (`file`).
 - Бот Telegram: `pnpm dev:telegram` поднимает ложный Bot API на порту 3192, в `.env` задаются `TELEGRAM_API_URL=http://localhost:3192`, `TELEGRAM_BOT_TOKEN` и `TELEGRAM_WEBHOOK_SECRET`.
+- Таск-менеджер разработки: по умолчанию ручной режим (`DEV_TRACKER=manual`), портал никуда не обращается. Для режима API `pnpm dev:tracker` поднимает ложный таск-менеджер на порту 3194; переменные и предполагаемый договор описаны в `docs/integrations/dev-tracker.md`.
 
 ## Команды
 
@@ -52,6 +53,7 @@ pnpm dev:up
 | `pnpm hub <команда>` | Команда консоли: сотрудники и серверы Smartup (раздел ниже) |
 | `pnpm dev:oidc` | Ложные серверы Smartup для входа клиента: облако на порту 3190, выделенный сервер на 3191 (решение 0013) |
 | `pnpm dev:telegram` | Ложный Telegram Bot API на порту 3192 (решение 0018) |
+| `pnpm dev:tracker` | Ложный таск-менеджер Smartup на порту 3194 для режима `DEV_TRACKER=smartup` (`docs/integrations/dev-tracker.md`) |
 
 Перед каждым коммитом: `pnpm check`, `pnpm test` и `pnpm test:integration`.
 

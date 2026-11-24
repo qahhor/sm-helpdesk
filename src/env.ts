@@ -193,8 +193,28 @@ const schema = z
       .regex(/^[A-Za-z0-9.-]{1,253}$/, { error: 'ожидается имя узла или адрес IPv4' })
       .optional(),
     CLAMAV_PORT: z.coerce.number({ error: 'ожидается номер порта' }).int().min(1, { error: 'ожидается номер порта' }).max(65535, { error: 'ожидается номер порта' }).default(3310),
-    // Таск-менеджер разработки (ТЗ 7.9, решение 13 вехи M8): manual значит, что номер и ссылку задачи вводит сотрудник.
-    DEV_TRACKER: z.enum(['manual'], { error: 'ожидается manual' }).default('manual'),
+    // Таск-менеджер разработки (ТЗ 7.9, решение 13 вехи M8): manual значит, что номер и ссылку задачи вводит сотрудник;
+    // smartup: задачи создаёт портал через API таск-менеджера Smartup (docs/integrations/dev-tracker.md).
+    DEV_TRACKER: z.enum(['manual', 'smartup'], { error: 'ожидается manual или smartup' }).default('manual'),
+    // Адрес API, токен портала и секрет подписи вебхука: обязательны все три, когда DEV_TRACKER равен smartup.
+    DEV_TRACKER_URL: z
+      .string()
+      .trim()
+      .refine(
+        (value) => {
+          const url = toUrl(value);
+          return url !== null && (url.protocol === 'https:' || url.protocol === 'http:') && url.username === '' && url.password === '' && url.search === '' && url.hash === '';
+        },
+        { error: 'ожидается адрес API вида https://tasks.example.com/api без параметров и учётной записи' },
+      )
+      .optional(),
+    // Токен уходит заголовком Authorization: только печатные знаки ASCII без пробелов.
+    DEV_TRACKER_TOKEN: z
+      .string()
+      .trim()
+      .regex(/^[\x21-\x7e]{16,512}$/, { error: 'ожидается от 16 до 512 знаков: латинские буквы, цифры и знаки без пробелов' })
+      .optional(),
+    DEV_TRACKER_WEBHOOK_SECRET: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
   })
   .superRefine((value, ctx) => {
     const host = new URL(value.HUB_URL).hostname;
@@ -258,6 +278,18 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SITE_KEY'], message: 'не задан: на настоящем адресе в production формы входа защищает Cloudflare Turnstile' });
     if (!value.CLAMAV_HOST && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({ code: 'custom', path: ['CLAMAV_HOST'], message: 'не задан: на настоящем адресе в production файлы проверяет ClamAV' });
+    if (value.DEV_TRACKER === 'smartup')
+      for (const name of ['DEV_TRACKER_URL', 'DEV_TRACKER_TOKEN', 'DEV_TRACKER_WEBHOOK_SECRET'] as const)
+        if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а DEV_TRACKER равен smartup' });
+    // Токен портала уходит на этот адрес: только https. http нужен лишь ложному таск-менеджеру на машине разработчика.
+    // Неразборчивый адрес уже отклонён проверкой самого поля.
+    const tracker = value.DEV_TRACKER_URL ? toUrl(value.DEV_TRACKER_URL) : null;
+    if (tracker) {
+      if (tracker.protocol !== 'https:' && !(LOCAL_HOSTS.has(host) && LOCAL_HOSTS.has(tracker.hostname)))
+        ctx.addIssue({ code: 'custom', path: ['DEV_TRACKER_URL'], message: 'http допускается только для localhost и только когда портал сам работает на localhost' });
+    }
+    if (value.DEV_TRACKER_WEBHOOK_SECRET && [value.BETTER_AUTH_SECRET, value.ENCRYPTION_KEY, value.DEV_TRACKER_TOKEN].includes(value.DEV_TRACKER_WEBHOOK_SECRET))
+      ctx.addIssue({ code: 'custom', path: ['DEV_TRACKER_WEBHOOK_SECRET'], message: 'не должен совпадать с BETTER_AUTH_SECRET, ENCRYPTION_KEY и DEV_TRACKER_TOKEN' });
     if (value.HUB_SHOWCASE === '1' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({
         code: 'custom',

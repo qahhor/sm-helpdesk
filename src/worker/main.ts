@@ -13,6 +13,7 @@ import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, runNoActivityRules } from '@/modules/hdw/api/engine';
+import { syncDevTasks } from '@/modules/hdw/api/dev-task-jobs';
 import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { opsWatch } from './ops-watch';
@@ -22,13 +23,15 @@ import { opsWatch } from './ops-watch';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
   { name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' },
   { name: 'automation.process', cron: '* * * * *', tz: 'UTC' },
   { name: 'webhooks.dispatch', cron: '* * * * *', tz: 'UTC' },
+  // Опрос таск-менеджера Smartup (FR-DEV-04): раз в 15 минут; в ручном режиме задание ничего не делает.
+  { name: 'devtasks.sync', cron: '*/15 * * * *', tz: 'UTC' },
   { name: 'ops.watch', cron: '*/5 * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
@@ -153,6 +156,14 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // прекращает работу между доставками.
     const { sent, failed, retried, cancelled } = await dispatchWebhooks(actor('webhooks.dispatch'), { stopped: () => stopping });
     if (sent + failed + retried + cancelled > 0) console.info(`Вебхуки: доставлено ${sent}, ждут повтора ${retried}, не доставлено ${failed}, отменено ${cancelled}`);
+  }));
+  await boss.work('devtasks.sync', polling, () => timedJob('devtasks.sync', async () => {
+    // Статусы задач разработки из таск-менеджера Smartup (план M8, задача 8): только в режиме API. Сбой чтения одной
+    // задачи остальным не мешает; при остановке процесса опрос прекращается между задачами.
+    const { checked, updated, failed, reminded } = await syncDevTasks(actor('devtasks.sync'), { stopped: () => stopping });
+    if (checked > 0) console.info(`Задачи разработки: сверено ${checked}, изменилось ${updated}, не прочитано ${failed}, напоминаний о закрытии ${reminded}`);
+    // Письма исполнителям о закрытых задачах уже в очереди исходящих.
+    if (reminded > 0) await wakeOutbox();
   }));
   await boss.work('ops.watch', polling, () => timedJob('ops.watch', async () => {
     const sent = await opsWatch(actor('ops.watch'));

@@ -212,8 +212,11 @@ export const POST_TIMEOUT_MS = 10_000;
 /** Тело ответа приёмника порталу не нужно: читается не больше этого и отбрасывается. */
 export const POST_RESPONSE_MAX_BYTES = 4096;
 
-export type GuardedPostOptions = { body: string; headers?: Record<string, string>; timeoutMs?: number; maxResponseBytes?: number };
-export type GuardedPost = (cfg: GuardedFetchConfig, input: string | URL, opts: GuardedPostOptions) => Promise<{ status: number }>;
+/** readBody: вернуть и тело ответа (не длиннее maxResponseBytes): его ждёт вызывающий, которому нужен ответ API, а не только код. */
+export type GuardedPostOptions = { body: string; headers?: Record<string, string>; timeoutMs?: number; maxResponseBytes?: number; readBody?: boolean };
+/** body есть только при readBody и только если ответ дочитан и уложился в предел. */
+export type GuardedPostResult = { status: number; body?: string };
+export type GuardedPost = (cfg: GuardedFetchConfig, input: string | URL, opts: GuardedPostOptions) => Promise<GuardedPostResult>;
 
 /**
  * Запрос POST с телом JSON по адресу, который задал администратор. Правила те же, что у читающего запроса:
@@ -223,17 +226,19 @@ export type GuardedPost = (cfg: GuardedFetchConfig, input: string | URL, opts: G
  *   - соединение не переиспользуется;
  *   - на всё отведено timeoutMs (10 секунд), дольше: OutboundTimeoutError;
  *   - из ответа берётся только код: тело читается не дальше maxResponseBytes и отбрасывается, соединение закрывается.
+ *     С readBody тело возвращается, если оно уложилось в maxResponseBytes: ответ длиннее предела приходит без тела,
+ *     соединение рвётся так же. Срок timeoutMs тогда покрывает и чтение тела.
  * Подмена запроса в тестах (setOutboundFetchForTests) сюда не относится: её даёт вызывающий своим параметром.
  */
 export const guardedPostJson: GuardedPost = (cfg, input, opts) =>
-  new Promise<{ status: number }>((done, reject) => {
+  new Promise<GuardedPostResult>((done, reject) => {
     const target = targetOf(cfg, input);
     if (!target) return reject(new BlockedAddressError());
     const { url, loopback } = target;
     const body = Buffer.from(opts.body, 'utf8');
     const limit = Math.max(0, opts.maxResponseBytes ?? POST_RESPONSE_MAX_BYTES);
     let settled = false;
-    const finish = (result: { status: number } | Error) => {
+    const finish = (result: GuardedPostResult | Error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -251,12 +256,25 @@ export const guardedPostJson: GuardedPost = (cfg, input, opts) =>
       (response) => {
         const status = response.statusCode ?? 0;
         let read = 0;
-        // Тело не нужно: после предела соединение рвётся, приёмник не может держать его длинным ответом.
+        const pieces: Buffer[] = [];
+        // После предела соединение рвётся: приёмник не может держать его длинным ответом.
         response.on('data', (piece: Buffer) => {
           read += piece.length;
-          if (read > limit) response.destroy();
+          if (read > limit) {
+            response.destroy();
+            // Ответ длиннее предела: вызывающий получает код без тела.
+            if (opts.readBody) finish({ status });
+          } else if (opts.readBody) pieces.push(piece);
         });
-        response.on('error', () => {});
+        response.on('error', () => {
+          if (opts.readBody) finish({ status });
+        });
+        if (opts.readBody) {
+          response.on('end', () => finish({ status, body: Buffer.concat(pieces).toString('utf8') }));
+          response.on('close', () => finish({ status }));
+          return;
+        }
+        // Тело не нужно: ответ отдаётся по коду, остаток читается не дальше предела и отбрасывается.
         if (limit === 0) response.destroy();
         finish({ status });
       },

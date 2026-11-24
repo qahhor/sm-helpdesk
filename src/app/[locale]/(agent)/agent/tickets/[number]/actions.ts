@@ -32,7 +32,7 @@ import {
   zonedToDate,
 } from '@/modules/hdt/api';
 import { requireStaffActor, type StaffContext } from '@/modules/hdu/api';
-import { isHdwError, runMacro, sendToDevelopment, setDevTaskStatus, unlinkFromDevelopment } from '@/modules/hdw/api';
+import { devTrackerMode, isHdwError, runMacro, sendToDevelopment, setDevTaskStatus, unlinkFromDevelopment } from '@/modules/hdw/api';
 import { actionTexts } from '../../settings/rules/run-text';
 
 // Действия сотрудника на странице обращения (план M3, задача 7). Права, переходы и данные проверяет модуль hdt,
@@ -242,12 +242,19 @@ export async function inviteSenderAction(form: FormData): Promise<void> {
 
 // --- Передача в разработку (FR-DEV-02, 05, 06; план M8, задача 7) ---
 
-/** Передать обращение в разработку: номер, ссылка и название задачи из формы. Роль и данные проверяет модуль. */
+/**
+ * Передать обращение в разработку. Ручной режим: номер, ссылка и название задачи из формы. Режим API: задачу создаёт
+ * портал, из формы берётся только номер существующей задачи, если сотрудник его указал. Роль и данные проверяет модуль.
+ */
 export async function sendToDevAction(form: FormData): Promise<void> {
   await run(
     form,
     async (staff, number) => {
-      await sendToDevelopment(staff, { ticketNumber: number, externalId: text(form, 'externalId'), url: text(form, 'url'), title: text(form, 'title') });
+      const externalId = text(form, 'externalId');
+      await sendToDevelopment(
+        staff,
+        devTrackerMode() === 'manual' ? { ticketNumber: number, externalId, url: text(form, 'url'), title: text(form, 'title') } : { ticketNumber: number, ...(externalId ? { externalId } : {}) },
+      );
     },
     'dev_sent',
   );

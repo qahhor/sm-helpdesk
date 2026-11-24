@@ -1967,7 +1967,10 @@
           "merged": "The ticket is already merged.",
           "invalid_url": "Check the task link: the address must start with https://",
           "already_linked": "The ticket already has a development task.",
-          "task_closed": "The task with this number is already closed. Enter another task."
+          "task_closed": "The task with this number is already closed. Enter another task.",
+          "not_manual": "The status of this task comes from the task manager: it cannot be changed by hand.",
+          "task_not_found": "There is no task with this number in the task manager.",
+          "tracker_unavailable": "The task manager did not respond. The ticket was not changed: try again later."
         }
       },
       "presence": {
@@ -2116,7 +2119,12 @@
         "versionHint": "If known",
         "also": "Also linked",
         "changeStatus": "Save status",
-        "unlink": "Unlink the task"
+        "unlink": "Unlink the task",
+        "apiText": "The portal will create a task in the Smartup task manager: subject, description, type, priority, module and a link to the ticket. Attachments and the conversation are not sent. The ticket will get the status \"In development\".",
+        "existingRef": "Existing task number",
+        "existingRefHint": "Optional. Leave empty to create a new task.",
+        "submitApi": "Create the task and hand over",
+        "synced": "The task status comes from the task manager."
       }
     },
     "playbooks": {

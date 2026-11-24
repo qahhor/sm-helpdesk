@@ -202,6 +202,37 @@ test('вебхук: тело ответа не читается дальше п�
   expect(written).toBeLessThan(5_000_000);
 });
 
+// --- Запрос с телом и ответом: API таск-менеджера (FR-DEV-03; план M8, задача 8) ---
+
+test('запрос с телом: с readBody возвращается и тело ответа; ответ длиннее предела приходит без тела', async () => {
+  const srv = await httpServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(201, { 'content-type': 'application/json' });
+      res.end(req.url === '/big' ? JSON.stringify({ pad: 'x'.repeat(5000) }) : '{"ref":"DEV-1","url":"https://t.example/1"}');
+    });
+  });
+  const base = `http://127.0.0.1:${srv.port}`;
+  expect(await guardedPostJson({ allowLoopback: true }, `${base}/tasks`, { body: '{}', readBody: true, maxResponseBytes: 1024 })).toEqual({ status: 201, body: '{"ref":"DEV-1","url":"https://t.example/1"}' });
+  // Без readBody ответ прежний: только код.
+  expect(await guardedPostJson({ allowLoopback: true }, `${base}/tasks`, { body: '{}', maxResponseBytes: 1024 })).toEqual({ status: 201 });
+  expect(await guardedPostJson({ allowLoopback: true }, `${base}/big`, { body: '{}', readBody: true, maxResponseBytes: 1024 })).toEqual({ status: 201 });
+});
+
+test('запрос с телом и readBody: срок покрывает чтение тела, переадресация не выполняется', async () => {
+  const target = await httpServer((_req, res) => res.writeHead(200).end('{"secret":true}'));
+  const srv = await httpServer((req, res) => {
+    if (req.url === '/moved') return res.writeHead(307, { location: `http://127.0.0.1:${target.port}/` }).end();
+    // Заголовки пришли, тело не заканчивается.
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.write('{"ref":');
+  });
+  const base = `http://127.0.0.1:${srv.port}`;
+  await expect(guardedPostJson({ allowLoopback: true }, `${base}/slow`, { body: '{}', readBody: true, timeoutMs: 150 })).rejects.toBeInstanceOf(OutboundTimeoutError);
+  expect(await guardedPostJson({ allowLoopback: true }, `${base}/moved`, { body: '{}', readBody: true })).toEqual({ status: 307, body: '' });
+  expect(target.hits()).toBe(0);
+});
+
 test('адрес вебхука при сохранении: только https, без учётной записи, узел внешний и разрешается во внешние адреса', async () => {
   const outer = async () => ['203.0.113.10'];
   expect((await publicUrlOrNull('https://hooks.partner.example/in', { allowLoopback: false, resolve: outer }))?.hostname).toBe('hooks.partner.example');

@@ -14,6 +14,8 @@ test.beforeEach(({}, testInfo) => {
 });
 test.use({ storageState: storageStateOf('l2') });
 
+// Тесты файла идут по очереди: очистка после одного не должна убрать задачу другого.
+test.describe.configure({ mode: 'serial' });
 const cleanup = async () => {
   await dbRows(`delete from hdw_dev_task_links where dev_task_id in (select dev_task_id from hdw_dev_tasks where external_id like 'E2E-%')`);
   await dbRows(`delete from hdw_dev_tasks where external_id like 'E2E-%'`);
@@ -118,4 +120,14 @@ test('S4: вторая линия передаёт обращение в раз�
   expect(
     await dbRows(`select o.template from hdn_outbox o join hdt_tickets t on t.ticket_id = o.ticket_id where t.number = $1 and o.template like '%dev_task%'`, [number]),
   ).toEqual([{ template: 'staff_dev_task_closed' }]);
+});
+
+test('вебхук таск-менеджера в ручном режиме не существует: 404 и для запроса с подписью', async ({ request }) => {
+  // Браузерные тесты идут в ручном режиме (DEV_TRACKER не задан): адрес вебхука отвечает "не найдено".
+  const response = await request.post('/api/webhooks/tracker', {
+    data: { event: 'task.status_changed', ref: 'E2E-1', status: 'done' },
+    headers: { 'x-tracker-timestamp': String(Math.floor(Date.now() / 1000)), 'x-tracker-signature': `sha256=${'0'.repeat(64)}` },
+  });
+  expect(response.status()).toBe(404);
+  expect(response.headers()['content-type']).toContain('application/problem+json');
 });

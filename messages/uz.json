@@ -1967,7 +1967,10 @@
           "merged": "Murojaat allaqachon birlashtirilgan.",
           "invalid_url": "Vazifa havolasini tekshiring: manzil https:// bilan boshlanishi kerak",
           "already_linked": "Murojaatda ishlab chiqish vazifasi allaqachon bor.",
-          "task_closed": "Bu raqamli vazifa allaqachon yopilgan. Boshqa vazifani ko'rsating."
+          "task_closed": "Bu raqamli vazifa allaqachon yopilgan. Boshqa vazifani ko'rsating.",
+          "not_manual": "Bu vazifaning holati task-menejerdan keladi: uni qo'lda o'zgartirib bo'lmaydi.",
+          "task_not_found": "Task-menejerda bunday raqamli vazifa yo'q.",
+          "tracker_unavailable": "Task-menejer javob bermadi. Murojaat o'zgarmadi: keyinroq yana urinib ko'ring."
         }
       },
       "presence": {
@@ -2116,7 +2119,12 @@
         "versionHint": "Ma'lum bo'lsa",
         "also": "Yana bog'langan",
         "changeStatus": "Holatni saqlash",
-        "unlink": "Vazifani uzish"
+        "unlink": "Vazifani uzish",
+        "apiText": "Portal Smartup task-menejerida vazifa yaratadi: mavzu, tavsif, tur, muhimlik, modul va murojaat havolasi. Biriktirmalar va yozishmalar uzatilmaydi. Murojaat «Ishlab chiqishda» holatini oladi.",
+        "existingRef": "Mavjud vazifa raqami",
+        "existingRefHint": "Ixtiyoriy. Yangi vazifa yaratish uchun bo'sh qoldiring.",
+        "submitApi": "Vazifa yaratish va berish",
+        "synced": "Vazifa holati task-menejerdan keladi."
       }
     },
     "playbooks": {

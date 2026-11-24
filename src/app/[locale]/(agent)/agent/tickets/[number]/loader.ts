@@ -1,7 +1,7 @@
 import { getPlaybook, listActiveModules, listTags, listTemplates } from '@/modules/hdr/api';
 import { DEVELOPMENT_ROLES, getAgentTicket, HDT_ERROR_CODES, loadDraft, QUEUE_KEYS, QUEUE_SORTS, TRANSFERABLE_STATUSES } from '@/modules/hdt/api';
 import { listAssignableStaff, type StaffContext } from '@/modules/hdu/api';
-import { DEV_TASK_ERROR_CODES, listRunnableMacros, readDevTaskForTicket } from '@/modules/hdw/api';
+import { DEV_TASK_ERROR_CODES, devTrackerMode, listRunnableMacros, readDevTaskForTicket } from '@/modules/hdw/api';
 
 // Данные страницы обращения у сотрудника: обращение с историей, справочники для действий, права на передачу
 // между линиями, итог прошлого действия из адреса. Вынесено из страницы (аудит 23.11.2026, находка A8): загрузка
@@ -55,6 +55,7 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
     devTask,
     canDevelop,
     canHandOver,
+    devMode: devTrackerMode(),
     // Очередь и сортировка, из которых открыто обращение (FR-AG-17): по ним "Отправить и к следующему".
     fromQueue: QUEUE_KEYS.find((key) => key === search.queue) ?? 'mine',
     fromSort: QUEUE_SORTS.find((key) => key === search.sort) ?? 'sla',

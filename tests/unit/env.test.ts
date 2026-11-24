@@ -321,3 +321,41 @@ test('таск-менеджер разработки: по умолчанию р
   expect(parseEnv({ ...ok, DEV_TRACKER: 'manual' }).DEV_TRACKER).toBe('manual');
   expect(() => parseEnv({ ...ok, DEV_TRACKER: 'jira' })).toThrowError(/DEV_TRACKER/);
 });
+
+test('таск-менеджер разработки, режим smartup: адрес, токен и секрет вебхука обязательны все три', () => {
+  const smartup = {
+    ...ok,
+    DEV_TRACKER: 'smartup',
+    DEV_TRACKER_URL: 'https://tasks.smartup.example/api/v1',
+    DEV_TRACKER_TOKEN: 'tracker-token-0123456789',
+    DEV_TRACKER_WEBHOOK_SECRET: 'tracker-webhook-secret-0123456789abcdef',
+  };
+  const e = parseEnv(smartup);
+  expect([e.DEV_TRACKER, e.DEV_TRACKER_URL]).toEqual(['smartup', 'https://tasks.smartup.example/api/v1']);
+  for (const name of ['DEV_TRACKER_URL', 'DEV_TRACKER_TOKEN', 'DEV_TRACKER_WEBHOOK_SECRET'] as const) {
+    const { [name]: _omit, ...rest } = smartup;
+    void _omit;
+    expect(() => parseEnv(rest), name).toThrowError(new RegExp(`${name} \\(не задана, а DEV_TRACKER равен smartup\\)`));
+  }
+  // В ручном режиме эти переменные не нужны, но если заданы, проверяются так же.
+  expect(parseEnv({ ...ok, DEV_TRACKER_URL: 'https://tasks.smartup.example/api' }).DEV_TRACKER).toBe('manual');
+  expect(() => parseEnv({ ...ok, DEV_TRACKER_TOKEN: 'short' })).toThrowError(/DEV_TRACKER_TOKEN/);
+});
+
+test('таск-менеджер разработки: адрес только https, http только для localhost рядом с локальным порталом; значения в ошибку не попадают', () => {
+  const smartup = { ...ok, DEV_TRACKER: 'smartup', DEV_TRACKER_TOKEN: 'tracker-token-0123456789', DEV_TRACKER_WEBHOOK_SECRET: 'tracker-webhook-secret-0123456789abcdef' };
+  for (const url of ['http://tasks.smartup.example/api', 'http://localhost:3194', 'ftp://tasks.smartup.example', 'tasks.smartup.example', 'https://user:pass@tasks.smartup.example/api', 'https://tasks.smartup.example/api?key=1'])
+    expect(() => parseEnv({ ...smartup, DEV_TRACKER_URL: url }), url).toThrowError(/DEV_TRACKER_URL/);
+  const local = { ...smartup, HUB_URL: 'http://localhost:3000', HUB_DOMAIN: 'localhost' };
+  expect(parseEnv({ ...local, DEV_TRACKER_URL: 'http://localhost:3194' }).DEV_TRACKER_URL).toBe('http://localhost:3194');
+  expect(() => parseEnv({ ...local, DEV_TRACKER_URL: 'http://tasks.smartup.example/api' })).toThrowError(/DEV_TRACKER_URL/);
+  // Токен с пробелом или не из ASCII не годится для заголовка; короткий секрет подписи подбирается.
+  for (const token of ['tracker token 0123456789', 'токен-таск-менеджера-0123']) expect(() => parseEnv({ ...smartup, DEV_TRACKER_URL: 'https://t.example/api', DEV_TRACKER_TOKEN: token })).toThrowError(/DEV_TRACKER_TOKEN/);
+  expect(() => parseEnv({ ...smartup, DEV_TRACKER_URL: 'https://t.example/api', DEV_TRACKER_WEBHOOK_SECRET: 'short-secret' })).toThrowError(/DEV_TRACKER_WEBHOOK_SECRET/);
+  expect(() => parseEnv({ ...smartup, DEV_TRACKER_URL: 'https://t.example/api', DEV_TRACKER_WEBHOOK_SECRET: ok.BETTER_AUTH_SECRET })).toThrowError(/DEV_TRACKER_WEBHOOK_SECRET/);
+  try {
+    parseEnv({ ...smartup, DEV_TRACKER_URL: 'https://t.example/api', DEV_TRACKER_WEBHOOK_SECRET: 'short-secret', DEV_TRACKER_TOKEN: 'secret token value' });
+  } catch (error) {
+    expect(String(error)).not.toMatch(/short-secret|secret token value/);
+  }
+});

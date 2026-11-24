@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server';
-import { DEV_TASK_REF_MAX, DEV_TASK_STATUSES, DEV_TASK_TITLE_MAX, DEV_TASK_URL_MAX, DEV_TASK_VERSION_MAX, type DevTaskStatus, type DevTaskView } from '@/modules/hdw/api';
+import { DEV_TASK_REF_MAX, DEV_TASK_STATUSES, DEV_TASK_TITLE_MAX, DEV_TASK_URL_MAX, DEV_TASK_VERSION_MAX, type DevTaskStatus, type DevTaskView, type DevTrackerKind } from '@/modules/hdw/api';
 import { Link } from '@/i18n/navigation';
 import { Button } from '@/ui/components/button';
 import { Card, CardContent } from '@/ui/components/card';
@@ -23,9 +23,11 @@ type Props = {
   canManage: boolean;
   /** Сотрудник может передать обращение в разработку прямо сейчас. */
   canHandOver: boolean;
+  /** Режим таск-менеджера: в ручном окно передачи спрашивает номер, ссылку и название задачи. */
+  mode: DevTrackerKind;
 };
 
-export async function DevTaskBlock({ number, devTask, canManage, canHandOver }: Props) {
+export async function DevTaskBlock({ number, devTask, canManage, canHandOver, mode }: Props) {
   const t = await getTranslations('agent.ticket.devTask');
   const hidden = <input type="hidden" name="number" value={number} />;
   const task = devTask?.task ?? null;
@@ -84,6 +86,7 @@ export async function DevTaskBlock({ number, devTask, canManage, canHandOver }: 
                 </Button>
               </form>
             )}
+            {task.tracker === 'smartup' && <p className="text-xs text-muted-foreground">{t('synced')}</p>}
             {canManage && (
               <form action={unlinkDevAction}>
                 {hidden}
@@ -97,6 +100,7 @@ export async function DevTaskBlock({ number, devTask, canManage, canHandOver }: 
         {canHandOver && (
           <DevTaskDialog
             number={number}
+            mode={mode}
             limits={{ ref: DEV_TASK_REF_MAX, url: DEV_TASK_URL_MAX, title: DEV_TASK_TITLE_MAX }}
             labels={{
               open: t('open'),
@@ -110,6 +114,10 @@ export async function DevTaskBlock({ number, devTask, canManage, canHandOver }: 
               cancel: t('cancel'),
               submit: t('submit'),
               close: t('close'),
+              apiText: t('apiText'),
+              existingRef: t('existingRef'),
+              existingRefHint: t('existingRefHint'),
+              submitApi: t('submitApi'),
             }}
           />
         )}

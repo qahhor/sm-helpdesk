@@ -31,6 +31,8 @@ export const HDT_ERROR_CODES = [
   'merged',
   // Обращение изменили другие, пока у сотрудника была открыта страница: действие не выполнено (FR-AG-12).
   'changed',
+  // На обращении уже предельное число тегов (проверка вехи M8, находка S2).
+  'too_many_tags',
 ] as const;
 
 export type HdtErrorCode = (typeof HDT_ERROR_CODES)[number];

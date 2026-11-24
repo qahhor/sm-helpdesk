@@ -518,7 +518,9 @@ test('приёмка M3, сценарий S3: очередь по сроку, в
   await client.getByLabel('Ответ', { exact: true }).fill('Склад "Основной"');
   await resetLimits();
   await client.getByRole('button', { name: 'Отправить', exact: true }).click();
-  await expect(client.getByRole('main')).toContainText('Склад "Основной"');
+  // Ответ принят сервером: он появился в переписке. Текст в поле ввода виден и до отправки, поэтому проверка всей
+  // страницы проходила сразу, и контекст клиента закрывался раньше, чем запрос доходил до сервера.
+  await expect(client.getByRole('main').locator('article', { hasText: 'Склад "Основной"' })).toBeVisible();
   await clientContext.close();
   await expect.poll(async () => (await ticketRow())?.sla_paused_on === null, { timeout: 15_000 }).toBe(true);
   const resumed = await ticketRow();

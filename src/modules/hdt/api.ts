@@ -1,6 +1,6 @@
 import 'server-only';
 import { type ClientContext, namesOf, otherOrganizationActors } from '@/modules/hdu/api';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
+import { consumeRateLimit, rateKey, wakeAutomation } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule, loadSlaConfig } from '@/modules/hdr/api';
 import { refreshSlaAfterClient } from './api/jobs';
@@ -43,6 +43,34 @@ export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type Pre
 export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest, staffAttachmentRedirect } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
 export { applyGuestMerges, type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
+// Теги на обращении (план M8, задача 1).
+export { addTicketTag, removeTicketTag, tagUsage } from './api/tags';
+export {
+  BREAKDOWN_PAGE,
+  type Breakdown,
+  type BreakdownItem,
+  buildCsv,
+  canReviewCsat,
+  canSeeBreakdown,
+  CSAT_REVIEW_MAX,
+  CSV_MAX_ROWS,
+  exportFileName,
+  exportMetrics,
+  getMetrics,
+  getMetricsBreakdown,
+  type LineRow,
+  type LowRating,
+  LOW_RATINGS_LIMIT,
+  METRICS_MAX_DAYS,
+  METRICS_PRESETS,
+  METRICS_REPORTS,
+  METRICS_ROW_CAP,
+  type MetricsExport,
+  type MetricsReport,
+  type MetricsView,
+  saveCsatReview,
+  splitMinutes,
+} from './api/metrics';
 export { type PickupMinutes, readPickup, readTimings, savePickup, saveTimings, type Timings, TIMINGS_DEFAULT } from './api/timings';
 export {
   bindTicket,
@@ -132,8 +160,9 @@ export async function createTicket(ctx: ClientContext, input: unknown): Promise<
     attachmentIds: [...new Set(data.attachmentIds)],
   });
   await refreshSlaAfterClient(ticketId);
-  // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации.
+  // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации. Событие для правил тоже записано.
   await wakeOutbox();
+  await wakeAutomation();
   return { number };
 }
 
@@ -214,7 +243,8 @@ export type AttachmentView = {
   isImage: boolean;
   isMine: boolean;
 };
-export type MessageView = { messageId: string; authorType: AuthorType; authorName: string | null; isMine: boolean; body: string; createdOn: Date; attachments: AttachmentView[] };
+/** isAuto: автоматический ответ правила автоматизации (FR-AUTO-11): страница помечает его подписью. */
+export type MessageView = { messageId: string; authorType: AuthorType; authorName: string | null; isMine: boolean; isAuto: boolean; body: string; createdOn: Date; attachments: AttachmentView[] };
 export type EventView = { kind: EventKind; actorType: AuthorType; payload: Record<string, unknown>; createdOn: Date };
 export type TicketActions = { reply: boolean; confirm: boolean; reopen: boolean; rate: boolean; changeVisibility: boolean; watch: boolean };
 export type TicketView = {
@@ -335,6 +365,7 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown, opts: { 
       authorType: m.authorType,
       authorName: m.authorType === 'client' && m.authorId ? (names.get(m.authorId) ?? null) : null,
       isMine: m.authorId === me,
+      isAuto: m.isAuto,
       body: m.body,
       createdOn: m.createdOn,
       attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),
@@ -368,6 +399,7 @@ export async function replyToTicket(ctx: ClientContext, input: unknown): Promise
   const limit = await consumeRateLimit(rateKey('ticket-reply:user', ctx.actor.userId), RATE_RULES.ticketReplyPerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
   await refreshSlaAfterClient(await replyTx(ctx.actor, data.number, data.body, ids));
+  await wakeAutomation();
 }
 
 /** Общий предел действий с обращением на пользователя (вторая проверка M2): каждое пишет событие и журнал. */
@@ -381,6 +413,7 @@ export async function confirmResolution(ctx: ClientContext, number: unknown): Pr
   const parsed = parseInput(numberInput, number);
   await consumeAction(ctx);
   await confirmTx(ctx.actor, parsed);
+  await wakeAutomation();
 }
 
 /** Открыть заново (FR-TK-12): решённое или закрытое в пределах срока из настройки. */
@@ -388,6 +421,7 @@ export async function reopenTicket(ctx: ClientContext, input: unknown): Promise<
   const data = parseInput(reopenInput, input);
   await consumeAction(ctx);
   await refreshSlaAfterClient(await reopenTx(ctx.actor, data.number, await reopenDays(), data.body));
+  await wakeAutomation();
 }
 
 /** Оценка закрытого обращения (FR-TK-11). */
@@ -395,6 +429,7 @@ export async function rateTicket(ctx: ClientContext, input: unknown): Promise<vo
   const data = parseInput(rateInput, input);
   await consumeAction(ctx);
   await rateTx(ctx.actor, data.number, { score: data.score, reason: data.reason, comment: data.comment });
+  await wakeAutomation();
 }
 
 /** Видимость обращения (FR-TK-04). */

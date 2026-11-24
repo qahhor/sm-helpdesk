@@ -2,7 +2,7 @@ import 'server-only';
 import { findOrgIds, findUserIds, listAssignableStaff, namesOf, type OrgSummary, orgSummaries, type StaffContext, verifiedEmails } from '@/modules/hdu/api';
 import { guestSenders, SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
 import { undeliveredMessages } from '@/modules/hdn/api/outbox';
-import { isActiveModule } from '@/modules/hdr/api';
+import { isActiveModule, type Tag } from '@/modules/hdr/api';
 import { loadSlaConfig } from '@/modules/hdr/api';
 import { calendarFor, type SlaPhase, slaPhase } from '../core/sla';
 import {
@@ -27,6 +27,7 @@ import { type AuthorType, type EventKind, type Impact, INLINE_IMAGE_TYPES, type 
 import { workingMinutesBetween } from '../sla';
 import { parseNumber, parseSearch, rejectReasonOf } from '../util';
 import * as z from 'zod';
+import { wakeAutomation } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Модуль hdt, слой api: рабочее место сотрудника (план M3). Контекст сотрудника строит requireStaffActor:
@@ -50,6 +51,8 @@ export type QueueRow = {
   /** Вернулось из отложенных, и сотрудник с ним ещё ничего не сделал (FR-AG-13). */
   snoozeReturned: boolean;
   clientWaitingSince: Date | null;
+  /** Теги обращения в порядке постановки (FR-AUTO-13). Клиенту не показываются нигде. */
+  tags: Tag[];
 };
 
 /** Строка поиска: номер и текст как у клиента, плюс организации по названию и ИНН и авторы по имени и адресу. */
@@ -76,6 +79,8 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
     queue: data.queue,
     sort: data.sort,
     search,
+    tagId: data.tag,
+    withTags: true,
     offset: (data.page - 1) * QUEUE_PAGE_SIZE,
     limit: QUEUE_PAGE_SIZE + 1,
     ...(data.after && ticketId ? { after: { modifiedKey, ticketId } } : {}),
@@ -104,6 +109,7 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
         snoozedUntil: row.snoozedUntil && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil : null,
         snoozeReturned: row.snoozeReturnedOn !== null && row.status !== 'resolved' && row.status !== 'closed',
         clientWaitingSince: row.clientWaitingSince,
+        tags: row.tags,
       };
     }),
     hasMore: rows.length > QUEUE_PAGE_SIZE,
@@ -157,6 +163,8 @@ export type AgentTimelineEntry =
       authorType: AuthorType;
       authorName: string | null;
       isInternal: boolean;
+      /** Сообщение написано правилом автоматизации: автоматический ответ или заметка (FR-AUTO-11). */
+      isAuto: boolean;
       body: string;
       createdOn: Date;
       attachments: AgentFileView[];
@@ -204,6 +212,8 @@ export type AgentTicketView = {
   changedSince: Date | null;
   /** Время последней записи переписки и истории, которую видит агент: по нему ответ узнаёт об изменениях других (FR-AG-12). */
   version: string;
+  /** Теги обращения в порядке постановки (FR-AUTO-13). */
+  tags: Tag[];
   attachments: AgentFileView[];
   timeline: AgentTimelineEntry[];
   /** Сколько последних записей истории запрошено и есть ли записи раньше них. */
@@ -260,6 +270,7 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
         authorType: m.authorType,
         authorName: m.authorId ? (names.get(m.authorId) ?? null) : null,
         isInternal: m.isInternal,
+        isAuto: m.isAuto,
         body: m.body,
         createdOn: m.createdOn,
         attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),
@@ -268,6 +279,8 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
       }),
     ),
     ...found.events
+      // Событие действия правила в истории не показывается: о срабатывании говорит одна запись "Правило ..." (FR-AUTO-09).
+      .filter((e) => e.kind === 'rule' || (e.payload as Record<string, unknown> | null)?.byRule !== true)
       .map(
         (e): AgentTimelineEntry => ({
           type: 'event',
@@ -328,6 +341,7 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
     version: new Date(Math.max(ticket.createdOn.getTime(), found.window.latestOn?.getTime() ?? 0)).toISOString(),
     shown,
     hasEarlier: found.window.hasEarlier,
+    tags: found.tags,
     attachments: found.attachments.filter((a) => a.messageId === null).map(fileView),
     timeline,
   };
@@ -345,6 +359,7 @@ export async function takeTicket(ctx: StaffContext, number: unknown): Promise<vo
   const parsed = parseInput(numberInput, number);
   try {
     await takeTx(ctx.actor, parsed, ctx.user.name);
+    await wakeAutomation();
   } catch (error) {
     if (isHdtError(error) && error.code === 'already_taken' && error.holderId) {
       const name = (await namesOf(ctx.actor, [error.holderId])).get(error.holderId);
@@ -365,20 +380,34 @@ export async function assignTicket(ctx: StaffContext, input: unknown): Promise<v
   await assignTx(ctx.actor, data.number, { id: assignee.userId, name: assignee.name }, seen);
 }
 
+/**
+ * Действие выполняет макрос (план M8, задача 6): проверки, история и журнал те же, что у ручного действия, но событие
+ * предметной области помечается как порождённое правилом, и правила на него не срабатывают (FR-AUTO-07). Признак
+ * задаёт только серверный код макроса: из ввода страницы он не читается.
+ */
+export type StaffActionOptions = { byMacro?: boolean };
+
 /** Статус по таблице 7.2; "Решено" с итогом (FR-AG-09). */
-export async function setStatus(ctx: StaffContext, input: unknown): Promise<void> {
+export async function setStatus(ctx: StaffContext, input: unknown, opts: StaffActionOptions = {}): Promise<void> {
   assertCanWrite(ctx.actor);
   const data = parseInput(statusInput, input);
-  await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version, seen: data.seenVersion ? new Date(data.seenVersion) : undefined });
+  await setStatusTx(ctx.actor, data.number, data.to, {
+    resolution: data.resolution,
+    version: data.version,
+    seen: data.seenVersion ? new Date(data.seenVersion) : undefined,
+    byRule: opts.byMacro === true,
+  });
   await wakeOutbox();
+  await wakeAutomation();
 }
 
 /** Приоритет с причиной (FR-SLA-03). Пустая причина: reason_required. */
-export async function setPriority(ctx: StaffContext, input: unknown): Promise<void> {
+export async function setPriority(ctx: StaffContext, input: unknown, opts: StaffActionOptions = {}): Promise<void> {
   assertCanWrite(ctx.actor);
   const data = parseInput(priorityInput, input);
   if (!data.reason) throw new HdtError('reason_required');
-  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason, data.seenVersion ? new Date(data.seenVersion) : undefined);
+  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason, data.seenVersion ? new Date(data.seenVersion) : undefined, { byRule: opts.byMacro === true });
+  await wakeAutomation();
 }
 
 export async function setTicketType(ctx: StaffContext, input: unknown): Promise<void> {

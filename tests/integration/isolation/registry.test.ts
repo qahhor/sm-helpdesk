@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { asActor, pools } from '../helpers/db';
-import { seedTwoOrgs } from './fixture';
+import { SEALED, seedTwoOrgs } from './fixture';
 import { DOMAIN_OBJECTS, type Write } from './tables';
 
 // Строки во все таблицы, чтобы "пусто" означало "закрыто политикой", а не "в таблице ничего нет".
@@ -55,6 +55,29 @@ async function seedEverything() {
     [f.aUser.userId],
   );
   await pools.root.query(`insert into hdn_telegram_updates (update_id) values (1)`);
+  await pools.root.query(`insert into hdc_domain_events (org_id, ticket_id, kind) values ($1, $2, 'ticket_created')`, [f.orgA.orgId, f.tickets.aOrg.ticketId]);
+  await pools.root.query(
+    `with tag as (insert into hdr_tags (name, color) values ('Срочно', 'red') returning tag_id)
+     insert into hdt_ticket_tags (org_id, ticket_id, tag_id, added_by) select $1, $2, tag_id, $3 from tag`,
+    [f.orgA.orgId, f.tickets.aOrg.ticketId, f.l1.userId],
+  );
+  await pools.root.query(
+    `with rule as (insert into hdw_rules (name, event, actions, order_no) values ('Срочные', 'ticket_created', '[{"action": "set_queue", "queue": "care"}]', 1) returning rule_id)
+     insert into hdw_rule_runs (org_id, rule_id, ticket_id, result) select $1, rule_id, $2, 'applied' from rule`,
+    [f.orgA.orgId, f.tickets.aOrg.ticketId],
+  );
+  await pools.root.query(
+    `with endpoint as (insert into hdw_webhook_endpoints (name, url, events) values ('Учёт', 'https://hooks.partner.example/in', '{ticket_created}') returning endpoint_id),
+          secret as (insert into hdw_webhook_secrets (endpoint_id, sealed) select endpoint_id, $3 from endpoint)
+     insert into hdw_webhook_deliveries (org_id, endpoint_id, ticket_id, kind, body) select $1, endpoint_id, $2, 'ticket_created', '{"event": "ticket_created"}' from endpoint`,
+    [f.orgA.orgId, f.tickets.aOrg.ticketId, SEALED],
+  );
+  await pools.root.query(`insert into hdw_macros (name, actions, order_no) values ('Запросить версию', '[{"action": "set_status", "status": "waiting_customer"}]', 1)`);
+  await pools.root.query(
+    `with task as (insert into hdw_dev_tasks (tracker, external_id, url, title) values ('manual', 'DEV-501', 'https://tracker.smartup.example/tasks/DEV-501', 'Отчёт не грузится') returning dev_task_id)
+     insert into hdw_dev_task_links (org_id, dev_task_id, ticket_id) select $1, dev_task_id, $2 from task`,
+    [f.orgA.orgId, f.tickets.aOrg.ticketId],
+  );
   await pools.root.query(`insert into hdu_server_checks (server_id, is_ok, issues) values ($1, false, '{timeout}')`, [f.server.serverId]);
   return f;
 }

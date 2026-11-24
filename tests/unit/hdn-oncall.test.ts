@@ -28,3 +28,11 @@ test('текст для чата дежурных на трёх языках и�
   expect(oncallTelegramText(payload, 'https://hub.example.test', 'uz')).toBe('P1: yangi shoshilinch murojaat SUP-5, ООО Клиент\nhttps://hub.example.test/uz/agent/tickets/SUP-5');
   expect(oncallTelegramText({ ...payload, orgName: '' }, 'https://hub.example.test', 'en')).toBe('P1: new urgent request SUP-5\nhttps://hub.example.test/en/agent/tickets/SUP-5');
 });
+
+test('уведомление правила дежурным: номер, название правила и ссылка, без темы обращения (FR-AUTO-04)', () => {
+  const payload = { template: 'oncall_rule', number: 1042, rule: 'P1 от категории A', url: '/agent/tickets/SUP-1042', title: 'Секрет клиента' } as const;
+  expect(oncallTelegramText(payload, 'https://hub.example.test')).toBe('Правило «P1 от категории A»: обращение SUP-1042\nhttps://hub.example.test/ru/agent/tickets/SUP-1042');
+  expect(oncallTelegramText(payload, 'https://hub.example.test', 'uz')).toContain('«P1 от категории A» qoidasi: SUP-1042');
+  expect(oncallTelegramText(payload, 'https://hub.example.test', 'en')).toBe('Rule "P1 от категории A": request SUP-1042\nhttps://hub.example.test/en/agent/tickets/SUP-1042');
+  expect(oncallTelegramText({ ...payload, rule: 'evil.example' }, 'https://hub.example.test')).not.toContain('evil.example');
+});

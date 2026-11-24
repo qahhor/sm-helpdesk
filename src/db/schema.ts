@@ -8,3 +8,4 @@ export * from '@/modules/hdn/schema';
 export * from '@/modules/hdr/schema';
 export * from '@/modules/hdt/schema';
 export * from '@/modules/hdu/schema';
+export * from '@/modules/hdw/schema';

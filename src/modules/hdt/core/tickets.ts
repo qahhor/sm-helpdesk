@@ -1,16 +1,16 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { containsText } from '@/db/contains';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
-import { writeAudit } from '@/modules/hdc/api';
+import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, type Impact, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { finalMainNumberTx } from './merged-into';
 import { timelineWindowTx } from './timeline';
 import { refreshSla } from './sla';
-import { notifyTicketTx, oncallP1Tx } from './notify';
+import { notifyTicketTx } from './notify';
 
 // Модуль hdt, слой core: обращения. Операции с данными внутри withActor под ролью hub_app.
 // Организация и автор берутся из актора; политики RLS и триггер t_hdt_tickets_client_guard страхуют.
@@ -71,8 +71,6 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
           moduleId: input.moduleId ?? null,
           relatedTicketId,
           source: 'portal',
-          // P1 от клиента: отметка сообщения дежурным ставится вставкой, клиент колонку не обновляет (FR-SLA-07).
-          oncallNotifiedOn: priority === 'p1' ? sql`now()` : null,
         })
         .returning({ ticketId: tickets.ticketId, number: tickets.number })
     )[0] as { ticketId: string; number: number };
@@ -93,9 +91,12 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
     }
     await tx.insert(ticketWatchers).values({ orgId: actor.orgId, ticketId: row.ticketId, userId: actor.userId, source: 'author' });
     await tx.insert(ticketEvents).values({ orgId: actor.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: actor.userId });
+    // Событие для правил автоматизации в той же транзакции (FR-AUTO-02).
+    await emitEventTx(tx, { orgId: actor.orgId, ticketId: row.ticketId, kind: 'ticket_created', payload: { source: 'portal', type: input.type, priority } });
     await writeAudit(tx, { action: 'ticket.created', objectType: 'ticket', objectId: row.ticketId, orgId: actor.orgId, diff: { type: input.type, priority } });
     await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: null });
-    if (priority === 'p1') await oncallP1Tx(tx, row.ticketId, { alreadyMarked: true });
+    // Сообщение дежурным о P1 (FR-SLA-07) ставит предустановленное правило по событию ticket_created (план M8,
+    // задача 10): слой api будит разбор событий сразу после фиксации.
     return row;
   });
 }
@@ -147,6 +148,7 @@ export async function createTicketForClientTx(
     }
     await tx.insert(ticketWatchers).values({ orgId: input.orgId, ticketId: row.ticketId, userId: input.authorId, source: 'author' });
     await tx.insert(ticketEvents).values({ orgId: input.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'staff', actorId: actor.userId });
+    await emitEventTx(tx, { orgId: input.orgId, ticketId: row.ticketId, kind: 'ticket_created', payload: { source: 'staff', type: input.type, priority } });
     await writeAudit(tx, {
       action: 'ticket.created',
       objectType: 'ticket',
@@ -156,7 +158,6 @@ export async function createTicketForClientTx(
     });
     await refreshSla(tx, row.ticketId, new Date());
     await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: actor.userId });
-    await oncallP1Tx(tx, row.ticketId);
     return row;
   });
 }
@@ -189,6 +190,7 @@ export async function createEmailTicketTx(
   if (!row) throw new Error('hdt: обращение из письма не создано');
   await tx.insert(ticketWatchers).values({ orgId: input.orgId, ticketId: row.ticketId, userId: input.authorId, source: 'author' });
   await tx.insert(ticketEvents).values({ orgId: input.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: input.authorId });
+  await emitEventTx(tx, { orgId: input.orgId, ticketId: row.ticketId, kind: 'ticket_created', payload: { source: 'email', type: 'question', priority: PRIORITY_BY_IMPACT.minor } });
   await writeAudit(tx, {
     action: 'ticket.created',
     objectType: 'ticket',
@@ -265,8 +267,18 @@ export async function ticketExists(actor: ClientActor, number: number): Promise<
   return rows.length > 0;
 }
 
-export type TicketRecord = typeof tickets.$inferSelect;
-export type MessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'createdOn'>;
+/**
+ * Колонки обращения, которые читает клиент: все, кроме заметки руководителя о разборе оценки (FR-MET-07). Политики
+ * RLS закрывают строки, а не колонки, поэтому внутренние колонки запрос клиента не выбирает вовсе.
+ */
+export const STAFF_ONLY_TICKET_COLUMNS = ['csatReviewNote', 'csatReviewedBy', 'csatReviewedOn'] as const;
+type StaffOnlyColumn = (typeof STAFF_ONLY_TICKET_COLUMNS)[number];
+const allTicketColumns = getTableColumns(tickets);
+const clientTicketColumns = Object.fromEntries(
+  Object.entries(allTicketColumns).filter(([name]) => !(STAFF_ONLY_TICKET_COLUMNS as readonly string[]).includes(name)),
+) as Omit<typeof allTicketColumns, StaffOnlyColumn>;
+export type TicketRecord = Omit<typeof tickets.$inferSelect, StaffOnlyColumn>;
+export type MessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'createdOn' | 'isAuto'>;
 export type EventRecord = Pick<typeof ticketEvents.$inferSelect, 'kind' | 'actorType' | 'actorId' | 'payload' | 'createdOn'>;
 export type AttachmentRecord = Pick<
   typeof attachments.$inferSelect,
@@ -283,7 +295,7 @@ export async function readTicket(
   limit: number,
 ): Promise<{ ticket: TicketRecord; messages: MessageRecord[]; events: EventRecord[]; attachments: AttachmentRecord[]; hasEarlier: boolean; watching: boolean; relatedNumber: number | null; mergedIntoNumber: number | null } | null> {
   return withActor(actor, async (tx) => {
-    const ticket = (await tx.select().from(tickets).where(clientTicketByNumber(actor, number)).limit(1))[0];
+    const ticket = (await tx.select(clientTicketColumns).from(tickets).where(clientTicketByNumber(actor, number)).limit(1))[0];
     if (!ticket) return null;
     // Последние записи истории, а не вся переписка (аудит 23.11.2026, находка P11). Окно считается под политиками
     // клиента: внутренние заметки и события в него не входят.
@@ -294,6 +306,7 @@ export async function readTicket(
         authorId: ticketMessages.authorId,
         authorType: ticketMessages.authorType,
         body: ticketMessages.body,
+        isAuto: ticketMessages.isAuto,
         createdOn: ticketMessages.createdOn,
       })
       .from(ticketMessages)

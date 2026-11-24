@@ -142,6 +142,13 @@ export default async function TicketPage({
         <article className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">{authorOf(m)}</span>, {when(m.createdOn)}
+            {/* Ответ правила автоматизации помечен как автоматический (FR-AUTO-11). */}
+            {m.isAuto && (
+              <>
+                {' '}
+                <StatusLabel tone="gray">{t('page.autoReply')}</StatusLabel>
+              </>
+            )}
           </p>
           <Markdown text={m.body} />
           {files(m.attachments)}

@@ -175,7 +175,7 @@
   LOG_LEVEL=info
   ```
 
-  `TELEGRAM_API_URL`, `CLAMAV_PORT`, `MAIL_FILE_DIR` и `FILE_STORAGE_DIR` на сервере не задаются. Полный перечень с пояснениями: `.env.example`. При неверном значении портал не запускается и в журнале называет переменную, не печатая значение.
+  `TELEGRAM_API_URL`, `CLAMAV_PORT`, `MAIL_FILE_DIR` и `FILE_STORAGE_DIR` на сервере не задаются. `DEV_TRACKER` не задаётся: передача в разработку работает в ручном режиме, пока нет описания API таск-менеджера Smartup (`docs/integrations/dev-tracker.md`). Полный перечень с пояснениями: `.env.example`. При неверном значении портал не запускается и в журнале называет переменную, не печатая значение.
 
 - [ ] Файл `/opt/smartup-hub/.env.migrate` (только для миграций):
 

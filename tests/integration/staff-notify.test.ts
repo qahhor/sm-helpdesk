@@ -7,6 +7,7 @@ import { saveHolidays } from '@/modules/hdr/api';
 import { createTicket, getAgentTicket, postStaffMessage, setPriority, setStatus, ticketsMinute } from '@/modules/hdt/api';
 import { addWorkingDays, TASHKENT_DEFAULT } from '@/modules/hdt/sla';
 import { clientCtx, staffCtx } from './helpers/auth';
+import { drainAutomation, seedBuiltinRules } from './helpers/automation';
 import { asActor, pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
@@ -18,6 +19,10 @@ const MINUTE = 60_000;
 let f: Fixture;
 beforeEach(async () => {
   f = await seedTwoOrgs();
+  // Сообщение дежурным о P1 и уведомление о нарушении срока отправляют предустановленные правила (план M8,
+  // задача 10): общая очистка таблиц их убирает, здесь они возвращаются. Отправка идёт при разборе событий
+  // (drainAutomation), как в фоновой задаче automation.process сразу после действия.
+  await seedBuiltinRules();
 });
 afterEach(() => setOncallBotFactoryForTests(null));
 
@@ -63,6 +68,7 @@ test('нарушение срока: руководителю линии оди�
   const after = new Date(due.getTime() + MINUTE);
   await ticketsMinute(SYSTEM, after);
   await ticketsMinute(SYSTEM, new Date(after.getTime() + MINUTE));
+  await drainAutomation();
   // Обращения прошлых тестов тоже нарушают сроки: проверяется своё обращение.
   expect((await notices(f.l1.userId, 'sla_breach', t.ticketId)).map((n) => n.payload.breach)).toEqual(['first_response']);
   expect((await outbox(t.ticketId, 'staff_breach')).map((m) => [m.recipient_user_id, m.payload.kind])).toEqual([[f.l1.userId, 'first_response']]);
@@ -78,15 +84,43 @@ test('отложенное вернулось: исполнителю уведо
   expect((await notices(f.l1.userId, 'snooze_returned')).map((n) => n.ticket_id)).toEqual([t.ticketId]);
 });
 
-test('"В разработке" 4 рабочих дня без ответа: напоминание исполнителю один раз', async () => {
+/** Переносит начало периода "В разработке": служебные колонки защищены триггером, поэтому без триггеров. */
+async function startPeriodAt(ticketId: string, start: Date): Promise<void> {
+  const client = await pools.root.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local session_replication_role = replica');
+    await client.query(`update hdt_tickets set created_on = $2::timestamptz - interval '1 hour' where ticket_id = $1`, [ticketId, start.toISOString()]);
+    await client.query(`update hdt_ticket_messages set created_on = $2::timestamptz - interval '1 hour' where ticket_id = $1`, [ticketId, start.toISOString()]);
+    await client.query(`update hdt_ticket_events set created_on = $2 where ticket_id = $1 and kind = 'status' and payload ->> 'to' = 'in_development'`, [ticketId, start.toISOString()]);
+    await client.query('commit');
+  } finally {
+    client.release();
+  }
+}
+
+// Начало периода задаётся явно: от времени запуска набора результат не зависит. Вечер вторника и пятницы
+// проверяет срок, который по графику субботы или после неё короче четырёх суток (суббота до 17:00).
+test.each([
+  ['вторник 10:00', '2026-11-17T05:00:00Z'],
+  ['вторник 19:30, срок в субботу до 17:00', '2026-11-17T14:30:00Z'],
+  ['вторник 17:01', '2026-11-17T12:01:00Z'],
+  ['пятница 19:30', '2026-11-20T14:30:00Z'],
+  ['суббота 12:00', '2026-11-21T07:00:00Z'],
+  ['воскресенье 03:00', '2026-11-22T22:00:00Z'],
+])('"В разработке" 4 рабочих дня без ответа: напоминание исполнителю один раз (%s)', async (_name, iso) => {
   const t = f.tickets.aOrg;
   await setStatus(staffCtx(f.care), { number: t.number, to: 'in_progress' });
   await setStatus(staffCtx(f.care), { number: t.number, to: 'in_development' });
   await setState(t.ticketId, `assignee_id = $2`, [f.care.userId]);
-  const start = new Date();
+  const start = new Date(iso);
+  await startPeriodAt(t.ticketId, start);
   await ticketsMinute(SYSTEM, new Date(addWorkingDays(start, 3, TASHKENT_DEFAULT).getTime() + MINUTE));
   expect(await notices(f.care.userId, 'update_due')).toEqual([]);
-  const remindAt = new Date(addWorkingDays(start, 4, TASHKENT_DEFAULT).getTime() + MINUTE);
+  const due = addWorkingDays(start, 4, TASHKENT_DEFAULT);
+  await ticketsMinute(SYSTEM, new Date(due.getTime() - MINUTE));
+  expect(await notices(f.care.userId, 'update_due')).toEqual([]);
+  const remindAt = new Date(due.getTime() + MINUTE);
   await ticketsMinute(SYSTEM, remindAt);
   await ticketsMinute(SYSTEM, new Date(remindAt.getTime() + MINUTE));
   expect((await notices(f.care.userId, 'update_due')).map((n) => n.ticket_id)).toEqual([t.ticketId]);
@@ -113,6 +147,7 @@ test('1 декабря без праздников следующего года
 test('новое обращение P1: письмо дежурным и сообщение в чат один раз', async () => {
   const { number } = await createTicket(await clientCtx(f.aUser), { description: 'Склад стоит', type: 'bug', impact: 'blocker', locale: 'ru' });
   const ticketId = (await pools.root.query(`select ticket_id from hdt_tickets where number = $1`, [number])).rows[0].ticket_id as string;
+  await drainAutomation();
   const rows = await outbox(ticketId, 'oncall_p1');
   expect(rows.map((r) => [r.channel, r.recipient_kind]).sort()).toEqual([
     ['email', 'oncall'],
@@ -121,10 +156,12 @@ test('новое обращение P1: письмо дежурным и соо�
   expect(rows[0]!.payload).toMatchObject({ number, url: `/agent/tickets/SUP-${number}`, orgName: f.orgA.name });
   // Подтверждение того же приоритета сотрудником второго сообщения не даёт.
   await setPriority(staffCtx(f.l1), { number, priority: 'p1', reason: 'Подтверждаю' });
+  await drainAutomation();
   expect(await outbox(ticketId, 'oncall_p1')).toHaveLength(2);
   // Поднятие до P1 до первого ответа даёт сообщение.
   const t = f.tickets.aOrg;
   await setPriority(staffCtx(f.l1), { number: t.number, priority: 'p1', reason: 'Стоит склад' });
+  await drainAutomation();
   expect(await outbox(t.ticketId, 'oncall_p1')).toHaveLength(2);
 });
 
@@ -132,6 +169,7 @@ test('P1 поднят после первого ответа: сообщения
   const t = f.tickets.aOrg;
   await postStaffMessage(staffCtx(f.l1), { number: t.number, body: 'Смотрим', internal: false, seenVersion: await versionOf(t.number) });
   await setPriority(staffCtx(f.l1), { number: t.number, priority: 'p1', reason: 'Стоит склад' });
+  await drainAutomation();
   expect(await outbox(t.ticketId, 'oncall_p1')).toEqual([]);
 });
 
@@ -143,6 +181,7 @@ test('выбран отдельный бот: сообщение уходит е
   await saveOncallBotToken(f.adminStaff.actor, '123456:own-oncall-bot-token');
   const t = f.tickets.aOrg;
   await setPriority(staffCtx(f.l1), { number: t.number, priority: 'p1', reason: 'Стоит склад' });
+  await drainAutomation();
   await dispatchOutbox(DISPATCH, new Date(), createMemoryEmailProvider());
   expect(sent.map((s) => [s.token, s.chatId])).toEqual([['123456:own-oncall-bot-token', '-1001234567890']]);
   expect(sent[0]!.text).toContain(`SUP-${t.number}`);
@@ -154,6 +193,7 @@ test('чат дежурных не задан: только письмо, оче
   await setSetting('notify.oncall_emails', ['duty@smartup24.com']);
   const t = f.tickets.aOrg;
   await setPriority(staffCtx(f.l1), { number: t.number, priority: 'p1', reason: 'Стоит склад' });
+  await drainAutomation();
   await dispatchOutbox(DISPATCH, new Date(), provider);
   expect(provider.sent.map((s) => s.message.to)).toEqual(['duty@smartup24.com']);
   const statuses = await pools.root.query(`select channel, status from hdn_outbox where ticket_id = $1 and template = 'oncall_p1' order by channel`, [t.ticketId]);

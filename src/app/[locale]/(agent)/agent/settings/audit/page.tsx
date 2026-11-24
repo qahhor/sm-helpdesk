@@ -18,7 +18,7 @@ import { Select } from '@/ui/components/select';
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2 align-top';
-const OBJECT_TYPES = ['staff', 'server', 'membership', 'invitation', 'user', 'session', 'organization', 'ticket', 'attachment', 'module', 'sla_policy', 'business_calendar'] as const;
+const OBJECT_TYPES = ['staff', 'server', 'membership', 'invitation', 'user', 'session', 'organization', 'ticket', 'attachment', 'module', 'sla_policy', 'business_calendar', 'rule', 'webhook', 'macro', 'dev_task', 'metrics'] as const;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Дата из поля формы как начало или конец дня в часовом поясе портала. */

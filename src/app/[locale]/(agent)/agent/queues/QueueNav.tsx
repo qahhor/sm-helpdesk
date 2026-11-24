@@ -29,7 +29,7 @@ export async function QueueNav({ location, counts, filters, unidentified }: Prop
         {QUEUE_KEYS.map((key) => (
           <li key={key}>
             <Link
-              href={href({ queue: key, q: undefined, page: 1 })}
+              href={href({ queue: key, q: undefined, tag: undefined, page: 1 })}
               aria-current={key === queue ? 'page' : undefined}
               className={cn(
                 'flex items-center justify-between gap-3 rounded-control px-3 py-2 text-sm',
@@ -61,7 +61,7 @@ export async function QueueNav({ location, counts, filters, unidentified }: Prop
             {filters.map((filter) => (
               <li key={filter.filterId} className="flex items-center justify-between gap-2">
                 <Link
-                  href={href({ queue: pick<QueueKey>(filter.query.queue, QUEUE_KEYS, 'all'), sort: pick<QueueSort>(filter.query.sort, QUEUE_SORTS, 'sla'), q: filter.query.q, page: 1 })}
+                  href={href({ queue: pick<QueueKey>(filter.query.queue, QUEUE_KEYS, 'all'), sort: pick<QueueSort>(filter.query.sort, QUEUE_SORTS, 'sla'), q: filter.query.q, tag: undefined, page: 1 })}
                   className="rounded-control px-3 py-1 text-sm text-link hover:underline"
                 >
                   {filter.name}

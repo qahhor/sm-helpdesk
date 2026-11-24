@@ -5,6 +5,7 @@ import { type MinuteResult, ticketsMinuteTx } from '../core/housekeeping';
 import { needsSlaRefreshTx, refreshSla, type SlaState } from '../core/sla';
 import { attachmentIdInput, parseInput } from '../input';
 import { type ScanStatus, SWEEP_BATCH } from '../pref';
+import { wakeAutomation } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 import { finishGuestMerge, pendingGuestMerges } from '@/modules/hdu/api/guests';
 import { moveGuestTx, unidentifiedSinceTx } from '../core/unidentified';
@@ -69,6 +70,8 @@ export async function ticketsMinute(actor: SystemActor, now: Date = new Date()):
   result.guestsMerged = await applyGuestMerges(actor);
   // Письма автозакрытия, напоминаний, нарушений и праздников уже в очереди: отправка будится после фиксации.
   await wakeOutbox();
+  // События сроков и автозакрытия записаны: разбор правил будится, если было что писать.
+  if (result.breached + result.soon + result.closed > 0) await wakeAutomation();
   return result;
 }
 

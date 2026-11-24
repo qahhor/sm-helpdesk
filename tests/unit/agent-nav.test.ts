@@ -25,8 +25,8 @@ test('состав групп этапа 1 и вехи, в которых пун
   });
 });
 
-test('включены вехи M0-M3: в группе "Работа" пункт "Очереди" виден всем сотрудникам', () => {
-  expect([...ENABLED_MILESTONES]).toEqual(['M0', 'M1', 'M2', 'M3']);
+test('включены вехи M0-M3 и M8: в группе "Работа" пункт "Очереди" виден всем сотрудникам', () => {
+  expect([...ENABLED_MILESTONES]).toEqual(['M0', 'M1', 'M2', 'M3', 'M8']);
   const work = AGENT_NAV_GROUPS.find((g) => g.key === 'work');
   for (const role of ['agent_l1', 'agent_l2', 'care', 'product', 'admin'] as const) expect(visibleItems(work!, ENABLED_MILESTONES, role).map((i) => i.key), role).toEqual(['queues']);
 });
@@ -34,6 +34,14 @@ test('включены вехи M0-M3: в группе "Работа" пункт
 test('в вехе M1 в группе "Клиенты" есть пункт "Организации"', () => {
   const group = AGENT_NAV_GROUPS.find((g) => g.key === 'clients');
   expect(visibleItems(group!, ENABLED_MILESTONES, 'care').map((i) => i.key)).toEqual(['organizations']);
+});
+
+test('веха M8 включает пункт "Показатели" для всех сотрудников; "Сводки" и "Разбор ответов AI" ждут своих вех', () => {
+  expect([...ENABLED_MILESTONES]).toContain('M8');
+  const analytics = AGENT_NAV_GROUPS.find((g) => g.key === 'analytics')!;
+  for (const role of ['agent_l1', 'agent_l2', 'care', 'product', 'admin'] as const) expect(visibleItems(analytics, ENABLED_MILESTONES, role).map((i) => i.href), role).toEqual(['/agent/metrics']);
+  // Код M8 не включает пункты вех M8b и M8c.
+  for (const group of AGENT_NAV_GROUPS) for (const item of visibleItems(group, ENABLED_MILESTONES, 'admin')) expect(['M1', 'M3', 'M8'], item.key).toContain(item.availableFrom);
 });
 
 test('пункт "Все настройки" виден только администратору', () => {

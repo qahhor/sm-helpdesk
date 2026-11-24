@@ -23,6 +23,23 @@ export { type DetectedType, SNIFF_BYTES, sniffFileType } from './filetype';
 // Настройки портала (hdc_settings).
 export { readSetting, writeSettingTx } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';
+// События предметной области (FR-AUTO-02; план M8, задача 2): запись в транзакции действия, разбор фоновой задачей.
+export {
+  cleanupDomainEvents,
+  type DomainEvent,
+  droppedEventsSince,
+  emitEventTx,
+  EVENT_MAX_ATTEMPTS,
+  EVENT_RETRY_SECONDS,
+  type EventHandler,
+  EVENTS_KEEP_DAYS,
+  eventsState,
+  type NewDomainEvent,
+  processEvents,
+  type ProcessOptions,
+  wakeAutomation,
+} from './events';
+export { DOMAIN_EVENT_KINDS, type DomainEventKind } from './pref';
 // Сигналы дежурным о состоянии портала (ТЗ 13.8).
 export { type ArchiveState, archiveFailing, archiveState, claimOpsAlert, failedJobsSince, failedStaffSignIns, noteStaffSignInFailure, OPS_ALERT_EVERY_MS } from './ops-alerts';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).

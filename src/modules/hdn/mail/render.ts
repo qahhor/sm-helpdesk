@@ -23,8 +23,15 @@ export const MAIL_TEMPLATES = [
   'staff_mention',
   'staff_breach',
   'staff_update_due',
+  // Задача разработки закрыта (веха M8, FR-DEV-05): напоминание исполнителю обращения.
+  'staff_dev_task_closed',
   'holidays_reminder',
   'oncall_p1',
+  // Уведомления правил автоматизации (веха M8): сотруднику и дежурным.
+  'staff_rule',
+  'oncall_rule',
+  // Оценка 1 или 2 (веха M8, FR-AUTO-12): уведомление предустановленного правила сотрудникам Customer Care.
+  'staff_csat_low',
   'inbound_test',
   'ops_alert',
 ] as const;
@@ -46,8 +53,15 @@ export type MailPayload =
   | ({ template: 'staff_mention'; author: string } & TicketRef)
   | ({ template: 'staff_breach'; kind: 'first_response' | 'resolution' } & TicketRef)
   | ({ template: 'staff_update_due' } & TicketRef)
+  // ref: номер задачи в таск-менеджере. Письмо уходит только сотруднику.
+  | ({ template: 'staff_dev_task_closed'; ref: string } & TicketRef)
   | { template: 'holidays_reminder'; year: number; url: string }
   | ({ template: 'oncall_p1'; orgName: string } & TicketRef)
+  | ({ template: 'staff_rule'; rule: string } & TicketRef)
+  // Дежурным без темы обращения: это текст клиента (решение 0041). Только номер и название правила.
+  | { template: 'oncall_rule'; rule: string; number: number; url: string }
+  // Низкая оценка: только оценка, номер, тема и организация. Комментария и причины клиента в письме нет.
+  | ({ template: 'staff_csat_low'; score: number; orgName: string } & TicketRef)
   | { template: 'inbound_test'; address: string; token: string }
   // Сигнал дежурным о состоянии портала (ТЗ 13.8): готовый текст с числами, без данных клиентов.
   | { template: 'ops_alert'; text: string; url: string };
@@ -188,6 +202,15 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
         reply: false,
         signature: false,
       };
+    case 'staff_dev_task_closed':
+      return {
+        subject: ticketSubject(payload.number, payload.title),
+        heading: t('staffDevTaskClosed.heading'),
+        text: t('staffDevTaskClosed.text', { ref: noLinks(payload.ref, NAME_MAX), number: payload.number, title: noLinks(payload.title, TITLE_MAX) }),
+        button: open(payload.url),
+        reply: false,
+        signature: false,
+      };
     case 'holidays_reminder':
       return {
         subject: t('holidaysReminder.subject', { year: payload.year }),
@@ -204,6 +227,33 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
         // Темы обращения в письме дежурным нет: это текст клиента, в служебной почте он не нужен (решение 0041).
         text: t('oncallP1.text', { orgName: noLinks(payload.orgName, NAME_MAX), number: payload.number }),
         button: { label: t('oncallP1.button'), url: payload.url },
+        reply: false,
+        signature: false,
+      };
+    case 'staff_rule':
+      return {
+        subject: ticketSubject(payload.number, payload.title),
+        heading: t('staffRule.heading'),
+        text: t('staffRule.text', { rule: noLinks(payload.rule, TITLE_MAX), number: payload.number, title: noLinks(payload.title, TITLE_MAX) }),
+        button: open(payload.url),
+        reply: false,
+        signature: false,
+      };
+    case 'oncall_rule':
+      return {
+        subject: ticketSubject(payload.number, t('oncallRule.subject')),
+        heading: t('oncallRule.subject'),
+        text: t('oncallRule.text', { rule: noLinks(payload.rule, TITLE_MAX), number: payload.number }),
+        button: { label: t('oncallRule.button'), url: payload.url },
+        reply: false,
+        signature: false,
+      };
+    case 'staff_csat_low':
+      return {
+        subject: ticketSubject(payload.number, payload.title),
+        heading: t('staffCsatLow.heading'),
+        text: t('staffCsatLow.text', { score: payload.score, orgName: noLinks(payload.orgName, NAME_MAX), number: payload.number, title: noLinks(payload.title, TITLE_MAX) }),
+        button: open(payload.url),
         reply: false,
         signature: false,
       };

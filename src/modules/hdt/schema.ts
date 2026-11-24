@@ -85,6 +85,17 @@ export const tickets = pgTable('hdt_tickets', {
   // Миграция 0049 (волна 3): пометка "вернулось из отложенных".
   /** Когда обращение вернулось из отложенных (FR-AG-13). Пусто после первого действия сотрудника. */
   snoozeReturnedOn: moment('snooze_returned_on'),
+  // Миграция 0056 (веха M8): момент, когда срок станет близким. Задача раз в минуту пишет событие и очищает колонку.
+  /** Когда срок первого ответа станет близким. Пусто: события "срок скоро" не ждём. */
+  firstResponseSoonOn: moment('first_response_soon_on'),
+  /** Когда срок решения станет близким. Пусто: события "срок скоро" не ждём. */
+  resolutionSoonOn: moment('resolution_soon_on'),
+  // Миграция 0064 (веха M8): заметка руководителя о разборе низкой оценки (FR-MET-07). Клиенту не отдаётся:
+  // запросы клиента эти три колонки не выбирают (core/tickets.ts, clientTicketColumns).
+  /** Заметка о разборе оценки 1-3. Пишут Customer Care и администратор. */
+  csatReviewNote: text('csat_review_note'),
+  csatReviewedBy: uuid('csat_reviewed_by'),
+  csatReviewedOn: moment('csat_reviewed_on'),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {
@@ -102,6 +113,9 @@ export const ticketMessages = pgTable('hdt_ticket_messages', {
   ...stampColumns,
   // Колонка добавлена миграцией 0029 и стоит в конце таблицы.
   isThanks: boolean('is_thanks').notNull().default(false),
+  // Миграция 0058 (веха M8): сообщение написано правилом автоматизации (FR-AUTO-11).
+  /** Автоматический ответ по шаблону или заметка правила. Автор такого сообщения всегда система. */
+  isAuto: boolean('is_auto').notNull().default(false),
 });
 
 export const ticketEvents = pgTable('hdt_ticket_events', {
@@ -214,5 +228,18 @@ export const lineTransfers = pgTable('hdt_ticket_line_transfers', {
   pickupDueOn: moment('pickup_due_on'),
   pickedUpOn: moment('picked_up_on'),
   pickedUpBy: uuid('picked_up_by'),
+  ...stampColumns,
+});
+
+/** Теги на обращении (FR-AUTO-13, миграция 0055). Справочник тегов в модуле hdr; клиент строк не видит. */
+export const ticketTags = pgTable('hdt_ticket_tags', {
+  orgId: uuid('org_id').notNull(),
+  ticketTagId: uuid('ticket_tag_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ticketId: uuid('ticket_id').notNull(),
+  tagId: uuid('tag_id').notNull(),
+  /** Сотрудник, который поставил тег. Пусто: поставило правило автоматизации. */
+  addedBy: uuid('added_by'),
   ...stampColumns,
 });

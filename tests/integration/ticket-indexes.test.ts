@@ -21,19 +21,32 @@ test('лишний индекс по сроку решения убран, ин�
   expect(all.hdt_tickets_i19).toMatch(/\(merged_into_id\) WHERE \(merged_into_id IS NOT NULL\)/);
   expect(all.hdt_tickets_i20).toMatch(/\(related_ticket_id\) WHERE \(related_ticket_id IS NOT NULL\)/);
   // Плюс два индекса поиска по тексту темы и описания (миграция 0052, решение владельца о поиске от 24.11.2026).
-  expect(Object.keys(all)).toHaveLength(21);
+  // Плюс два частичных индекса момента "срок скоро" (миграция 0057, веха M8): в них только обращения, которые ждут события.
+  expect(all.hdt_tickets_i23).toMatch(/\(first_response_soon_on\) WHERE \(first_response_soon_on IS NOT NULL\)/);
+  expect(all.hdt_tickets_i24).toMatch(/\(resolution_soon_on\) WHERE \(resolution_soon_on IS NOT NULL\)/);
+  // Плюс индекс по дате создания для страницы показателей (миграция 0065, веха M8, решение 15): дата создания не
+  // меняется, поэтому обновлению без записи в индексы (HOT) он не мешает.
+  expect(all.hdt_tickets_i25).toMatch(/\(created_on\)$/);
+  // Плюс частичный индекс по дате решения или закрытия для счётчика "завершено за период" (миграция 0066, веха M8):
+  // в нём только решённые и закрытые обращения, открытое обращение в него не входит.
+  expect(all.hdt_tickets_i26).toMatch(/resolved_on IS NOT NULL[^]* WHERE [^]*IS NOT NULL\)$/);
+  expect(all.hdt_tickets_i26).toContain('closed_on');
+  expect(Object.keys(all)).toHaveLength(25);
 });
 
-test('обычное обращение без подписи ошибки и связей входит не больше чем в 15 индексов из 21: 13 прежних и два индекса поиска по тексту (было 17 из 20)', async () => {
+test('обычное обращение без подписи ошибки и связей входит не больше чем в 16 индексов из 25: 13 прежних, два индекса поиска по тексту и индекс даты создания для показателей (было 17 из 20)', async () => {
   const f = await seedTwoOrgs();
   // Сколько индексов получают запись при обновлении этой строки: полные и те частичные, условию которых строка отвечает.
+  // Всего индексов у таблицы 25 (их число сверяет тест выше). Новое открытое обращение набора входит ровно в 16:
+  // остальные девять частичные, и их условию оно не отвечает. Обращение с подписью ошибки, отложенное, решённое
+  // или закрытое входит в большее число индексов: тест меряет обычный случай, а не предел.
   const partial = (await pools.root.query(`select c.relname as name, pg_get_expr(i.indpred, i.indrelid) as pred from pg_index i join pg_class c on c.oid = i.indexrelid where i.indrelid = 'hdt_tickets'::regclass`)).rows;
   let included = 0;
   for (const index of partial) {
     if (!index.pred) included += 1;
     else if ((await pools.root.query(`select 1 from hdt_tickets where ticket_id = $1 and (${index.pred})`, [f.tickets.aOrg.ticketId])).rowCount) included += 1;
   }
-  expect(included).toBeLessThanOrEqual(15);
+  expect(included).toBeLessThanOrEqual(16);
 });
 
 test('поиск дублей основного обращения и связанных идёт по частичным индексам', async () => {

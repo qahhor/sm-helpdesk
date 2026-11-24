@@ -2,7 +2,7 @@ import 'server-only';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
-import { consumeRateLimit, enqueue, getStorage, rateKey, writeAudit } from '@/modules/hdc/api';
+import { consumeRateLimit, emitEventTx, enqueue, getStorage, rateKey, wakeAutomation, writeAudit } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import {
   classifyAuto,
@@ -241,10 +241,14 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
         await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status', actorType: 'client', actorId: client.userId, payload: diff });
         await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff });
       }
+      // События для правил автоматизации (FR-AUTO-02) в порядке действия: ответ клиента, затем смена статуса.
+      await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'client_replied', payload: { source: 'email' } });
+      if (reopens) await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status_changed', payload: { from: current.status, to: 'in_progress' } });
       // Отметки ответа, статус и сроки одним обновлением строки (аудит 23.11.2026, находка P8). Строка обращения
       // заблокирована выше, событие статуса уже записано: по его времени снимается пауза срока.
       await refreshSla(tx, ticket.ticketId, new Date(), reopens ? { status: 'in_progress', ...waiting } : waiting);
     }
+    if (thanks) await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'client_replied', payload: { source: 'email', thanks: true } });
     await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'client_reply', actorUserId: client.userId });
     if (row.messageId) await recordThreadTx(tx, { ticketId: ticket.ticketId, messageId: row.messageId, inReplyTo: inReplyToOf(letter.headers), direction: 'in' });
     await markInboundTx(tx, row.inboundId, { classification: 'reply', ticketId: ticket.ticketId, headers: letter.headers, dmarcAligned: letter.aligned });
@@ -411,6 +415,7 @@ async function finish(actor: SystemActor, letter: Pick<Letter, 'row'> & Partial<
 async function afterCommit(attachmentIds: string[]): Promise<void> {
   for (const attachmentId of attachmentIds) await enqueue('attachment.scan', { attachmentId });
   await wakeOutbox();
+  await wakeAutomation();
 }
 
 export async function intakeEmailTx(actor: SystemActor, inboundId: string): Promise<InboundClass> {

@@ -11,7 +11,7 @@ import { dbRows } from './db';
 export const AUTH_DIR = 'tests/e2e/.auth';
 const STAFF_FILE = `${AUTH_DIR}/staff.json`;
 
-export type StaffKey = 'care' | 'l1' | 'admin';
+export type StaffKey = 'care' | 'l1' | 'l2' | 'admin';
 export type E2eStaff = { key: StaffKey; name: string; role: string; email: string; password: string; totpSecret: string };
 
 /** Сохранённая сессия сотрудника: для тестов, которым нужен уже вошедший сотрудник. */

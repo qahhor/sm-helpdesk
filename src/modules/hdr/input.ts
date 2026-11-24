@@ -1,6 +1,7 @@
 import * as z from 'zod';
 import { cleanUserText } from '@/modules/hdc/pref';
 import { TICKET_TYPES } from '@/modules/hdt/pref';
+import { TAG_COLORS, TAG_NAME_MAX } from './pref';
 import { SHORTCUT_PATTERN } from './util';
 
 // Модуль hdr: схема файла выгрузки модулей Smartup для команды hub modules:import (план M2, задача 10).
@@ -104,3 +105,15 @@ export const templateInput = z.object({
 });
 
 export const templateQueryInput = z.object({ q: z.string().trim().max(100).optional(), moduleId: z.uuid().nullable().optional() });
+
+// --- Теги обращений (FR-AUTO-13; план M8, задача 1) ---
+
+/** Название тега: одна строка без невидимых знаков, пробелы по краям и повторные убраны, до 40 знаков. */
+export const tagNameInput = z
+  .string()
+  .overwrite(cleanUserText)
+  .transform((value) => value.replace(/\s+/gu, ' ').trim())
+  .pipe(z.string().min(1).max(TAG_NAME_MAX));
+
+export const tagUpdateInput = z.object({ tagId: z.uuid(), name: tagNameInput, color: z.enum(TAG_COLORS) });
+export const tagDeleteInput = z.object({ tagId: z.uuid() });

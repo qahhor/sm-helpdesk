@@ -83,7 +83,12 @@
         "snooze_returned": "Kechiktirilgan SUP-{number} murojaati qaytdi",
         "update_due": "Ertaga SUP-{number} murojaati bo'yicha mijozga xabar berish muddati",
         "holidays_reminder": "{year} yil bayram kunlarini to'ldiring",
-        "telegram_linked": "Telegram hisobi bog'landi. Agar bu siz bo'lmasangiz, uni profilda uzing."
+        "telegram_linked": "Telegram hisobi bog'landi. Agar bu siz bo'lmasangiz, uni profilda uzing.",
+        "rule": "«{rule}» qoidasi: SUP-{number} murojaati",
+        "rule_disabled": "«{rule}» qoidasi o'chirildi: u juda tez-tez ishga tushdi",
+        "rule_paused": "«{rule}» qoidasi SUP-{number} murojaatida to'xtatib turildi: u juda tez-tez ishga tushdi",
+        "dev_task_closed": "Ishlab chiqish vazifasi yopildi: tekshiring va mijozga xabar bering. SUP-{number} murojaati",
+        "csat_low": "Mijoz SUP-{number} murojaatiga {score} baho qo'ydi"
       },
       "settings": {
         "title": "Xatlar",
@@ -202,6 +207,7 @@
         "copied": "Raqam nusxalandi",
         "you": "Siz",
         "support": "Smartup qo'llab-quvvatlash xizmati",
+        "autoReply": "Avtomatik javob",
         "colleague": "Hamkasb",
         "visibleOrg": "Hamkasblar ko'radi",
         "visiblePrivate": "Siz va administrator ko'radi",
@@ -592,6 +598,22 @@
         "mail": {
           "title": "Bildirishnomalar va pochta",
           "text": "Qo'llab-quvvatlash manzillari va qabulni tekshirish, navbatchilar va ularning boti, eslatma va avtomatik yopish muddatlari, spam."
+        },
+        "tags": {
+          "title": "Teglar",
+          "text": "Murojaat teglarining nomlari va ranglari, keraksizlarini o'chirish."
+        },
+        "rules": {
+          "title": "Avtomatlashtirish qoidalari",
+          "text": "Portal o'zi bajaradigan ishlar: hodisa, shartlar va amallar. Sinov ishga tushirish va ishga tushishlar jurnali."
+        },
+        "webhooks": {
+          "title": "Vebhuklar",
+          "text": "Portal murojaat hodisalari haqida xabar beradigan manzillar: imzo siri, sinov yuborish, yetkazishlar jurnali."
+        },
+        "macros": {
+          "title": "Makroslar",
+          "text": "Murojaat bilan bir necha amal bir bosishda: javob shabloni, holat, teg, ijrochi."
         }
       },
       "servers": {
@@ -802,7 +824,14 @@
           "sla_policy": "SLA muddatlari",
           "business_calendar": "Ish kalendari",
           "playbook": "Birinchi liniya eslatmasi",
-          "reply_template": "Javob shabloni"
+          "reply_template": "Javob shabloni",
+          "tag": "Teg",
+          "rule": "Avtomatlashtirish qoidasi",
+          "webhook": "Vebhuk manzili",
+          "webhook_secret": "Vebhuk sirlari",
+          "macro": "Makros",
+          "dev_task": "Ishlab chiqish vazifasi",
+          "metrics": "Ko'rsatkichlar"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -871,7 +900,10 @@
             "rated_by_link": "Baho xatdagi havola orqali qo'yildi",
             "bound": "Xat tashkilotga bog'landi",
             "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi",
-            "viewed_by_staff": "Murojaatni xodim ochdi"
+            "viewed_by_staff": "Murojaatni xodim ochdi",
+            "tag_added": "Murojaatga teg qo'shildi",
+            "tag_removed": "Murojaatdan teg olib tashlandi",
+            "csat_reviewed": "Baho tahlili qaydi yozildi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi",
@@ -909,6 +941,46 @@
           },
           "secrets": {
             "resealed": "Maxfiy qiymatlar yangi kalit bilan qayta shifrlandi"
+          },
+          "tag": {
+            "created": "Teg yaratildi",
+            "updated": "Teg o'zgartirildi",
+            "deleted": "Teg o'chirildi"
+          },
+          "rule": {
+            "created": "Avtomatlashtirish qoidasi yaratildi",
+            "updated": "Avtomatlashtirish qoidasi o'zgartirildi",
+            "enabled": "Avtomatlashtirish qoidasi yoqildi",
+            "disabled": "Avtomatlashtirish qoidasi o'chirildi",
+            "moved": "Avtomatlashtirish qoidalari tartibi o'zgartirildi",
+            "deleted": "Avtomatlashtirish qoidasi o'chirib tashlandi",
+            "restored": "Avtomatlashtirish qoidasi dastlabki ko'rinishiga qaytarildi",
+            "applied": "Avtomatlashtirish qoidasi ishga tushdi",
+            "disabled_loop": "Avtomatlashtirish qoidasi takrorlanishdan himoya tufayli o'chirildi",
+            "paused_loop": "Avtomatlashtirish qoidasi takrorlanishdan himoya tufayli murojaatda to'xtatib turildi",
+            "dry_run": "Avtomatlashtirish qoidasining sinov ishga tushirilishi"
+          },
+          "webhook": {
+            "created": "Vebhuk manzili qo'shildi",
+            "updated": "Vebhuk manzili o'zgartirildi",
+            "deleted": "Vebhuk manzili o'chirildi",
+            "secret_rotated": "Vebhuk siri almashtirildi",
+            "test_sent": "Vebhukka sinov yuborildi"
+          },
+          "macro": {
+            "created": "Makros yaratildi",
+            "updated": "Makros o'zgartirildi",
+            "moved": "Makroslar tartibi o'zgartirildi",
+            "deleted": "Makros o'chirildi",
+            "run": "Murojaatda makros ishga tushirildi"
+          },
+          "devtask": {
+            "linked": "Murojaat ishlab chiqishga berildi",
+            "unlinked": "Ishlab chiqish vazifasi murojaatdan uzildi",
+            "status_changed": "Ishlab chiqish vazifasining holati o'zgardi"
+          },
+          "metrics": {
+            "exported": "Ko'rsatkichlar CSV ga eksport qilindi"
           }
         },
         "words": {
@@ -958,7 +1030,11 @@
           "resealed": "Qayta shifrlandi",
           "failed": "Ochilmadi",
           "number": "Raqam",
-          "ticketId": "Murojaat"
+          "ticketId": "Murojaat",
+          "host": "Tugun",
+          "events": "Hodisalar",
+          "urlChanged": "Manzil o'zgardi",
+          "isEnabled": "Yoqilgan"
         }
       },
       "sla": {
@@ -1112,6 +1188,486 @@
           "stale_session": "Sozlamalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak."
         },
         "reauth": "Qayta kirish"
+      },
+      "tags": {
+        "title": "Teglar",
+        "intro": "Tegni xodim murojaatning o'zida yaratadi. Bu yerda tegning nomini, rangini o'zgartirish yoki tegni o'chirish mumkin. Mijozlar teglarni ko'rmaydi.",
+        "emptyTitle": "Hozircha teglar yo'q",
+        "emptyText": "Birinchi teg xodim uni murojaatga qo'shganda paydo bo'ladi.",
+        "usage": "{count, plural, =0 {murojaatlar yo'q} other {# ta murojaat}}",
+        "name": "Nomi",
+        "color": "Rangi",
+        "save": "Saqlash",
+        "delete": "Tegni o'chirish",
+        "deleteText": "{count, plural, =0 {Teg hech bir murojaatda yo'q.} other {Teg # ta murojaatdan olib tashlanadi.}} Uni qaytarib bo'lmaydi.",
+        "deleteConfirm": "O'chirish",
+        "colors": {
+          "gray": "Kulrang",
+          "green": "Yashil",
+          "orange": "To'q sariq",
+          "purple": "Binafsha",
+          "blue": "Ko'k",
+          "teal": "Feruza",
+          "red": "Qizil",
+          "accent": "Asosiy"
+        },
+        "done": {
+          "saved": "Teg saqlandi",
+          "deleted": "Teg o'chirildi"
+        },
+        "errors": {
+          "forbidden": "Teglarni portal administratori o'zgartiradi.",
+          "invalid_input": "Nomni tekshiring: 1 dan 40 gacha belgi.",
+          "tag_taken": "Bunday nomli teg allaqachon bor.",
+          "not_found": "Teg topilmadi. Balki u allaqachon o'chirilgan.",
+          "stale_session": "Teglarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qayta kiring va takrorlang."
+        }
+      },
+      "rules": {
+        "title": "Avtomatlashtirish qoidalari",
+        "intro": "Qoida gap kabi o'qiladi: hodisa yuz berganda va shartlar bajarilganda portal amallarni bajaradi. Bir hodisaning qoidalari yuqoridan pastga qo'llanadi. Mijozlar qoidalarni ko'rmaydi.",
+        "newRule": "Yangi qoida",
+        "emptyTitle": "Hozircha qoidalar yo'q",
+        "emptyText": "Birinchi qoidani yarating va uni sinov ishga tushirish bilan tekshiring. Yangi qoida siz yoqmaguningizcha o'chiq turadi.",
+        "listLabel": "Qoidalar qo'llanish tartibida",
+        "columns": {
+          "order": "№",
+          "name": "Qoida",
+          "event": "Hodisa",
+          "state": "Holati",
+          "actions": "Amallar"
+        },
+        "states": {
+          "enabled": "Yoqilgan",
+          "disabled": "O'chirilgan",
+          "loop": "O'chirilgan: takrorlanish",
+          "invalid": "E'tibor talab qiladi"
+        },
+        "builtin": "Oldindan o'rnatilgan",
+        "builtinInactive": "Portalning o'rnatilgan bildirishnomalari yuborilmayapti: {rules}. Qoida o'chirilgan, e'tibor talab qiladi yoki undan o'z bildirishnomasi olib tashlangan. Shunday ekan, navbatchilar va rahbarlar bunday xabarlarni olmaydi.",
+        "moveUp": "Yuqoriga",
+        "moveDown": "Pastga",
+        "moveUpOf": "«{name}» qoidasini yuqoriga ko'tarish",
+        "moveDownOf": "«{name}» qoidasini pastga tushirish",
+        "enable": "Yoqish",
+        "disable": "O'chirish",
+        "enableOf": "«{name}» qoidasini yoqish",
+        "disableOf": "«{name}» qoidasini o'chirish",
+        "open": "Ochish",
+        "openOf": "«{name}» qoidasini ochish",
+        "done": {
+          "created": "Qoida yaratildi. U o'chiq: uni sinov ishga tushirish bilan tekshiring va ro'yxatda yoqing.",
+          "saved": "Qoida saqlandi",
+          "enabled": "Qoida yoqildi",
+          "disabled": "Qoida o'chirildi",
+          "moved": "Tartib o'zgartirildi",
+          "deleted": "Qoida o'chirib tashlandi",
+          "restored": "Qoida dastlabki ko'rinishiga qaytarildi."
+        },
+        "errors": {
+          "forbidden": "Qoidalarni portal administratori o'zgartiradi.",
+          "stale_session": "Qoidalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak.",
+          "invalid_input": "Qoidaning belgilangan maydonlarini tekshiring.",
+          "not_found": "Qoida topilmadi. Balki u allaqachon o'chirilgan.",
+          "builtin_rule": "Oldindan o'rnatilgan qoidani o'chirib tashlab bo'lmaydi. Uni o'chirib qo'yish mumkin.",
+          "not_builtin": "Dastlabki ko'rinish faqat oldindan o'rnatilgan qoidada bor."
+        },
+        "reauth": "Qayta kirish",
+        "loopNote": "Qoidani takrorlanishdan himoya o'chirdi: bir soat ichida u uchta tashkilotning murojaatlarida bitta murojaatda 10 martadan ko'p ishga tushdi. Shartlar va amallarni tekshiring va qoidani qayta yoqing.",
+        "invalidNote": "Bu qoidaning shartlari yoki amallari eskirgan, shuning uchun u qo'llanmaydi. Ularni qaytadan belgilang va saqlang.",
+        "events": {
+          "ticket_created": "Murojaat yaratildi",
+          "client_replied": "Mijoz javob berdi",
+          "staff_replied": "Xodim javob berdi",
+          "status_changed": "Holat o'zgardi",
+          "priority_changed": "Ustuvorlik o'zgardi",
+          "rated": "Mijoz baho qo'ydi",
+          "sla_soon": "SLA muddati yaqinlashmoqda",
+          "sla_breached": "SLA muddati buzildi",
+          "no_activity": "N soat faollik yo'q",
+          "ai_handoff": "AI murojaatni topshirdi"
+        },
+        "editor": {
+          "newTitle": "Yangi qoida",
+          "name": "Qoida nomi",
+          "nameHint": "Uni xodimlar murojaat tarixida ko'radi.",
+          "when": "Qachon",
+          "event": "Hodisa",
+          "hours": "Xabarsiz soatlar",
+          "hoursHint": "1 dan 8760 gacha. Qoida har bir sukutda bir marta ishga tushadi.",
+          "if": "Agar",
+          "match": "Nechta shart bajarilishi kerak",
+          "matchAll": "barcha shartlar",
+          "matchAny": "istalgan shart",
+          "noConditions": "Shartlar yo'q: qoida har bir shunday hodisada ishga tushadi.",
+          "then": "Unda",
+          "noActions": "Kamida bitta amal qo'shing.",
+          "addCondition": "Shart",
+          "addAction": "Amal",
+          "conditionRow": "{n}-shart",
+          "actionRow": "{n}-amal",
+          "removeCondition": "{n}-shartni olib tashlash",
+          "removeAction": "{n}-amalni olib tashlash",
+          "field": "Maydon",
+          "operator": "Taqqoslash",
+          "value": "Qiymat",
+          "action": "Nima qilish",
+          "pick": "Tanlang",
+          "addValue": "Qiymat qo'shish",
+          "add": "Qo'shish",
+          "removeValue": "{name} qiymatini olib tashlash",
+          "unknown": "O'chirilgan qiymat",
+          "words": "So'zlar vergul bilan",
+          "hoursValue": "Soat",
+          "rating": "Baho",
+          "orgSearch": "Tashkilot nomi yoki STIR",
+          "orgFind": "Topish",
+          "orgEmpty": "Hech narsa topilmadi. Nom yoki STIRning kamida uchta belgisini kiriting.",
+          "orgAdd": "{name} tashkilotini qo'shish",
+          "stop": "Keyingi qoidalarni qayta ishlashni to'xtatish",
+          "save": "Saqlash",
+          "newDisabled": "Yangi qoida o'chiq holda saqlanadi. Uni qoidalar ro'yxatida yoqish mumkin.",
+          "builtinEvent": "Oldindan o'rnatilgan qoidaning hodisasi o'zgarmaydi.",
+          "alsoOn": "Qoida «{event}» hodisasida ham ishga tushadi."
+        },
+        "fields": {
+          "priority": "Ustuvorlik",
+          "type": "Turi",
+          "module": "Modul",
+          "impact": "Ishga ta'siri",
+          "status": "Holat",
+          "queue": "Navbat",
+          "source": "Manba",
+          "locale": "Til",
+          "org_category": "Mijoz toifasi",
+          "org": "Tashkilot",
+          "tags": "Teglar",
+          "text": "Murojaat matni",
+          "work_time": "Vaqt",
+          "hours_since_client": "Mijoz xabaridan beri soat",
+          "hours_since_staff": "Xodim javobidan beri soat",
+          "rating": "Baho"
+        },
+        "ops": {
+          "is": "teng",
+          "is_not": "teng emas",
+          "has_any": "istalgani bor",
+          "has_all": "barchasi bor",
+          "has_none": "hech biri yo'q",
+          "contains_any": "so'zlardan birini o'z ichiga oladi",
+          "contains_none": "so'zlarni o'z ichiga olmaydi",
+          "gte": "kamida",
+          "lt": "kichik",
+          "lte": "ko'pi bilan"
+        },
+        "actions": {
+          "set_queue": "Navbatni almashtirish",
+          "assign": "Ijrochini tayinlash",
+          "assign_round_robin": "Navbat ichida navbat bilan tayinlash",
+          "set_priority": "Ustuvorlikni almashtirish",
+          "add_tag": "Teg qo'shish",
+          "remove_tag": "Tegni olib tashlash",
+          "add_note": "Ichki izoh qo'shish",
+          "reply_template": "Mijozga shablon bo'yicha javob berish",
+          "notify": "Xabardor qilish",
+          "snooze": "Kechiktirish",
+          "set_status": "Holatni almashtirish",
+          "webhook": "Vebhukni chaqirish",
+          "notify_oncall_p1": "Navbatchilarga P1 haqida xabar berish (bir marta, birinchi javobgacha)",
+          "notify_sla_breach": "Liniya rahbarlarini muddat o'tgani haqida xabardor qilish",
+          "notify_csat_low": "Customer Care ni past baho haqida xabardor qilish"
+        },
+        "actionValues": {
+          "set_queue": "Navbat",
+          "assign": "Xodim",
+          "set_priority": "Ustuvorlik",
+          "add_tag": "Teg",
+          "remove_tag": "Teg",
+          "add_note": "Izoh matni",
+          "reply_template": "Shablon",
+          "notify": "Kimni xabardor qilish",
+          "snooze": "Necha soatga",
+          "set_status": "Holat",
+          "webhook": "Vebhuk manzili"
+        },
+        "targets": {
+          "oncall": "Navbatchilar: chat va pochta",
+          "roles": "Rol",
+          "staff": "Xodim"
+        },
+        "workTime": {
+          "working": "ish vaqti",
+          "off": "ishdan tashqari vaqt"
+        },
+        "categoryNone": "belgilanmagan",
+        "moduleNone": "ko'rsatilmagan",
+        "templateDisabled": "{title} (o'chirilgan)",
+        "issues": {
+          "event_not_ready": "Bu hodisa hozircha mavjud emas.",
+          "condition_not_ready": "Bu shart hozircha mavjud emas.",
+          "hours_required": "Soatlar sonini 1 dan 8760 gacha kiriting.",
+          "hours_not_allowed": "Soatlar faqat «Faollik yo'q» hodisasida belgilanadi.",
+          "reference_missing": "Tanlangan qiymat endi yo'q. Boshqasini tanlang.",
+          "invalid": "Qatorni to'ldiring: ro'yxatdan qiymat tanlang yoki ruxsat etilgan chegaradagi sonni kiriting.",
+          "name": "Nomni kiriting: 1 dan 120 gacha belgi.",
+          "actions": "Kamida bitta amal qo'shing, ko'pi bilan 10 ta.",
+          "conditions": "Shartlar ko'pi bilan 20 ta bo'lishi mumkin.",
+          "general": "Qoidani tekshiring va takrorlang.",
+          "builtin_only": "Bu amal faqat o'zining oldindan o'rnatilgan qoidasida bo'ladi.",
+          "builtin_event": "Oldindan o'rnatilgan qoidaning hodisasi o'zgarmaydi."
+        },
+        "dry": {
+          "title": "Sinov ishga tushirish",
+          "scopeHint": "Oxirgi 100 ta murojaat hozirgi holatida.",
+          "run": "Sinovni boshlash",
+          "count": "Ishga tushgan bo'lardi: {count}",
+          "none": "Shartlarga hech bir murojaat mos kelmadi.",
+          "would": "Nima qilingan bo'lardi",
+          "matches": "Mos kelgan murojaatlar",
+          "safe": "Sinov ishga tushirish hech narsani o'zgartirmaydi.",
+          "failed": "{name}: bajarilmaydi ({reason})",
+          "more": "{count} tadan birinchi {shown} tasi ko'rsatilgan."
+        },
+        "details": {
+          "error": "bajarishda xato",
+          "merged": "murojaat boshqasi bilan birlashtirilgan",
+          "no_candidates": "navbatda xodimlar yo'q",
+          "tag_missing": "teg o'chirilgan",
+          "too_many_tags": "murojaatda allaqachon 20 ta teg bor",
+          "template_disabled": "shablon o'chirilgan",
+          "template_missing": "shablon yo'q yoki unda matn yo'q",
+          "transition_refused": "bunday o'tish taqiqlangan",
+          "user_missing": "xodim topilmadi",
+          "no_recipients": "qabul qiluvchilar yo'q",
+          "webhook_failed": "vebhuk navbatga qo'yilmadi",
+          "unknown": "sabab ko'rsatilmagan",
+          "endpoint_missing": "vebhuk manzili o'chirilgan",
+          "endpoint_disabled": "vebhuk manzili o'chirib qo'yilgan",
+          "forbidden": "bu amalga huquq yo'q",
+          "changed": "makros bajarilayotganda murojaat o'zgartirildi",
+          "draft_is_note": "shablon qo'yilmadi: javob maydonida ichki qayd yozilmoqda. Uni saqlang yoki tozalang va makrosni qayta ishga tushiring",
+          "not_found": "topilmadi",
+          "invalid_input": "qiymat qabul qilinmadi",
+          "rate_limited": "ketma-ket juda ko'p amal",
+          "resolution_required": "yechim yakuni kerak",
+          "refused": "amal rad etildi",
+          "event_mismatch": "hodisada muddat yo'q",
+          "not_low_rating": "baho yo'q yoki u 2 dan yuqori"
+        },
+        "runs": {
+          "title": "Ishga tushishlar jurnali",
+          "intro": "Ishga tushishlar 90 kun saqlanadi.",
+          "empty": "Qoida hali ishga tushmagan.",
+          "columns": {
+            "ticket": "Murojaat",
+            "result": "Natija",
+            "actions": "Amallar",
+            "time": "Vaqt"
+          },
+          "next": "Keyingi 50 ta yozuv",
+          "first": "Yangi yozuvlarga",
+          "noTicket": "yo'q",
+          "notDone": "{name}: bajarilmadi ({reason})"
+        },
+        "results": {
+          "applied": "Bajarildi",
+          "no_match": "Shartlar mos kelmadi",
+          "partial": "Qisman bajarildi",
+          "failed": "Bajarilmadi",
+          "skipped_loop": "O'tkazib yuborildi: qoida takrorlanishdan himoya tufayli murojaatda to'xtatib turilgan"
+        },
+        "delete": {
+          "open": "Qoidani o'chirib tashlash",
+          "title": "«{name}» qoidasi o'chirib tashlansinmi?",
+          "text": "Qoida va uning ishga tushishlar jurnali o'chirib tashlanadi. Murojaatlar tarixi qoladi. Qoidani qaytarib bo'lmaydi.",
+          "confirm": "O'chirib tashlash",
+          "cancel": "Bekor qilish",
+          "close": "Yopish"
+        },
+        "webhookDisabled": "{name} (o'chirilgan)",
+        "restore": {
+          "open": "Dastlabki ko'rinishga qaytarish",
+          "hint": "Nom, shartlar va amallar portal bilan yetkazilgan ko'rinishga qaytadi. Yoqilganligi va tartibi o'zgarmaydi."
+        },
+        "embedded": {
+          "text": "Portalga o'rnatilgan: mijozga eslatma va avtomatik yopish («Muddatlar» bo'limida sozlanadi).",
+          "link": "Eslatma va avtomatik yopish muddatlarini ochish"
+        }
+      },
+      "webhooks": {
+        "title": "Vebhuklar",
+        "intro": "Murojaatda hodisa yuz berganda yoki vebhukni avtomatlashtirish qoidasi chaqirganda portal shu ro'yxatdagi manzilga POST so'rovini yuboradi. So'rov tanasida murojaat raqami, holati, ustuvorligi, turi, navbati, moduli va teglari bor. Mavzu, tavsif va yozishmalar unda yo'q.",
+        "newWebhook": "Yangi manzil",
+        "emptyTitle": "Hozircha manzillar yo'q",
+        "emptyText": "Qabul qiluvchi manzilini qo'shing. Imzo sirini portal bir marta, yaratilgandan so'ng darhol ko'rsatadi.",
+        "listLabel": "Vebhuk manzillari",
+        "columns": {
+          "name": "Nomi",
+          "url": "Manzil",
+          "events": "Hodisalar",
+          "state": "Holati",
+          "actions": "Amallar"
+        },
+        "states": {
+          "enabled": "Yoqilgan",
+          "disabled": "O'chirilgan"
+        },
+        "eventsNone": "Faqat avtomatlashtirish qoidasi bo'yicha",
+        "open": "Ochish",
+        "openOf": "{name} manzilini ochish",
+        "reauth": "Qayta kirish",
+        "form": {
+          "newTitle": "Yangi vebhuk manzili",
+          "editTitle": "Manzil va obunalar",
+          "name": "Nomi",
+          "nameHint": "Uni administrator shu ro'yxatda va qoidalar muharririda ko'radi.",
+          "url": "Qabul qiluvchi manzili",
+          "urlHint": "Faqat https va faqat tashqi tugun. Ichki tarmoq manzillarini portal qabul qilmaydi.",
+          "events": "Hodisalar",
+          "eventsHint": "Portal har bir belgilangan hodisada manzilni chaqiradi. Hech biri belgilanmagan bo'lsa, manzilni faqat qoidaning «Vebhukni chaqirish» amali chaqiradi.",
+          "enabled": "Manzil yoqilgan",
+          "create": "Manzil qo'shish",
+          "save": "Saqlash"
+        },
+        "secret": {
+          "title": "Imzo siri",
+          "text": "Sirni hozir saqlab oling: portal uni bir marta ko'rsatadi. Yo'qolgan sirni faqat almashtirish mumkin.",
+          "label": "Sir",
+          "copy": "Sirni nusxalash",
+          "copied": "Nusxalandi",
+          "openEndpoint": "Manzilga o'tish",
+          "howTitle": "So'rovni qanday tekshirish kerak",
+          "how": "X-Hub-Signature sarlavhasi «t=vaqt,v1=imzo» ko'rinishida, vaqt soniyalarda. Imzo: shu sir bilan «vaqt.so'rov tanasi» satridan olingan HMAC-SHA256, o'n oltilik ko'rinishda. X-Hub-Delivery sarlavhasi bitta yetkazishning takrorlarida o'zgarmaydi.",
+          "set": "Sir berilgan. Portal uni ko'rsatmaydi."
+        },
+        "rotate": {
+          "open": "Sirni almashtirish",
+          "title": "{name} manzilining siri almashtirilsinmi?",
+          "text": "Avvalgi sir darhol kuchini yo'qotadi. So'rovlar yangi sir bilan imzolanadi: uni qabul qiluvchi tomonda yangilang.",
+          "confirm": "Almashtirish",
+          "cancel": "Bekor qilish",
+          "close": "Yopish"
+        },
+        "test": {
+          "title": "Sinov yuborish",
+          "text": "Portal namunaviy tana bilan test hodisasini yuboradi. Unda murojaatlar ma'lumoti yo'q. Natija yetkazishlar jurnalida ko'rinadi.",
+          "send": "Sinov so'rovini yuborish"
+        },
+        "delete": {
+          "open": "Manzilni o'chirish",
+          "title": "{name} manzili o'chirilsinmi?",
+          "text": "Manzil bilan birga uning siri va yetkazishlar jurnali o'chiriladi. Bu vebhukni chaqirgan qoidalar amalni bajarilmagan deb yozadi.",
+          "confirm": "O'chirish",
+          "cancel": "Bekor qilish",
+          "close": "Yopish"
+        },
+        "deliveries": {
+          "title": "Yetkazishlar jurnali",
+          "intro": "Yetkazishlar 30 kun saqlanadi. Muvaffaqiyatsizlikdan so'ng portal so'rovni 1, 5, 15, 60 va 240 daqiqadan keyin takrorlaydi.",
+          "empty": "Hozircha yetkazishlar yo'q.",
+          "columns": {
+            "event": "Hodisa",
+            "ticket": "Murojaat",
+            "status": "Natija",
+            "attempts": "Urinishlar",
+            "error": "Sabab",
+            "time": "Vaqt"
+          },
+          "statuses": {
+            "queued": "Yuborishni kutmoqda",
+            "retry": "Takrorni kutmoqda",
+            "sent": "Yetkazildi",
+            "failed": "Yetkazilmadi"
+          },
+          "testEvent": "Sinov yuborish",
+          "noTicket": "yo'q",
+          "next": "Keyingi 50 ta yozuv",
+          "first": "Jurnal boshiga",
+          "errors": {
+            "timeout": "qabul qiluvchi 10 soniyada javob bermadi",
+            "unreachable": "qabul qiluvchiga ulanib bo'lmadi",
+            "blocked_address": "manzil ichki tarmoqqa olib boradi",
+            "secret_unreadable": "sir ochilmayapti, uni almashtiring",
+            "endpoint_disabled": "manzil o'chirilgan",
+            "http": "javob {status}",
+            "unknown": "sabab ko'rsatilmagan"
+          }
+        },
+        "done": {
+          "saved": "Manzil saqlandi",
+          "deleted": "Manzil o'chirildi",
+          "tested": "Sinov so'rovi navbatga qo'yildi. Natija yetkazishlar jurnalida ko'rinadi."
+        },
+        "errors": {
+          "forbidden": "Vebhuklarni portal administratori sozlaydi.",
+          "stale_session": "Bu amal uchun yaqinda kirgan bo'lish kerak.",
+          "invalid_input": "Nomni tekshiring: 1 dan 120 belgigacha.",
+          "invalid_url": "Manzil qabul qilinmadi. Tashqi tugundagi https manzili kerak, login va parolsiz.",
+          "not_found": "Manzil topilmadi. Ehtimol, u allaqachon o'chirilgan.",
+          "endpoint_disabled": "Manzil o'chirilgan. Sinov so'rovini yuborish uchun uni yoqing.",
+          "too_many": "Ro'yxatda 50 ta manzil bor. Keraksizini o'chiring."
+        }
+      },
+      "macros": {
+        "title": "Makroslar",
+        "intro": "Makros murojaat bilan bir necha amalni bir bosishda bajaradi. Xodim uni murojaat sahifasida ishga tushiradi va makros shu xodimning huquqlari bilan ishlaydi: xodimga mumkin bo'lmagan amal bajarilmaydi. Mijozlar makroslarni ko'rmaydi.",
+        "newMacro": "Yangi makros",
+        "emptyTitle": "Hozircha makroslar yo'q",
+        "emptyText": "Birinchi makrosni yarating, masalan «Versiya va skrinshot so'rash»: shablonni qo'yish va «Mijoz javobi kutilmoqda» holatini belgilash.",
+        "listLabel": "Menyu tartibidagi makroslar",
+        "columns": {
+          "order": "№",
+          "name": "Makros",
+          "actions": "Amallar",
+          "state": "Holati",
+          "controls": "Boshqaruv"
+        },
+        "states": {
+          "enabled": "Yoqilgan",
+          "disabled": "O'chirilgan",
+          "invalid": "Tuzatish kerak"
+        },
+        "moveUp": "Yuqoriga",
+        "moveDown": "Pastga",
+        "moveUpOf": "«{name}» makrosini ko'tarish",
+        "moveDownOf": "«{name}» makrosini tushirish",
+        "open": "Ochish",
+        "openOf": "«{name}» makrosini ochish",
+        "assignMe": "Makrosni ishga tushirgan xodim",
+        "actions": {
+          "reply_template": "Shablonni javob maydoniga qo'yish",
+          "set_queue": "Liniyaga o'tkazish"
+        },
+        "invalidNote": "Makros amallari tekshiruvdan o'tmayapti. Tuzatib saqlanmaguncha makros ishga tushmaydi.",
+        "editor": {
+          "newTitle": "Yangi makros",
+          "name": "Makros nomi",
+          "nameHint": "Uni xodimlar «Makroslar» menyusida va murojaat tarixida ko'radi.",
+          "actionsTitle": "Amallar",
+          "actionsHint": "Bittadan o'ntagacha amal, tartib bilan bajariladi. Makros shablonni yubormaydi: matn javob maydoniga tushadi, xodim uni o'qib, o'zi yuboradi.",
+          "enabled": "Makros yoqilgan"
+        },
+        "delete": {
+          "open": "Makrosni o'chirish",
+          "title": "«{name}» makrosi o'chirilsinmi?",
+          "text": "Makros murojaat sahifasidagi menyudan yo'qoladi. Murojaatlar tarixidagi avvalgi ishga tushirishlar yozuvlari qoladi.",
+          "confirm": "O'chirish",
+          "cancel": "Bekor qilish",
+          "close": "Yopish"
+        },
+        "done": {
+          "created": "Makros yaratildi",
+          "saved": "Makros saqlandi",
+          "moved": "Tartib o'zgartirildi",
+          "deleted": "Makros o'chirildi"
+        },
+        "errors": {
+          "forbidden": "Makroslarni portal administratori sozlaydi.",
+          "stale_session": "Bu amal uchun yaqinda kirgan bo'lish kerak.",
+          "invalid_input": "Makros saqlanmadi. Belgilangan maydonlarni tekshiring.",
+          "not_found": "Makros topilmadi. Ehtimol, u allaqachon o'chirilgan.",
+          "too_many": "Ro'yxatda 50 ta makros bor. Keraksizini o'chiring."
+        }
       }
     },
     "queues": {
@@ -1249,7 +1805,10 @@
           "other": "Bo'lmadi. Yana urinib ko'ring."
         },
         "addressOwned": "Bu manzil portal mijoziga tegishli, lekin xat DMARC tekshiruvidan o'tmadi: uni soxtalashtirgan bo'lishlari mumkin. Mijozdan aniqlamaguncha uni spam deb belgilamang va bog'lamang."
-      }
+      },
+      "tag": "Teg",
+      "anyTag": "Barcha teglar",
+      "byTag": "{name} tegi bor murojaatlarni ko'rsatish"
     },
     "ticket": {
       "files": "Fayllar",
@@ -1258,6 +1817,7 @@
       "system": "Tizim",
       "client": "Mijoz",
       "note": "Eslatma",
+      "auto": "Avtomatik",
       "new": "yangi",
       "scan": {
         "pending": "tekshirilmoqda",
@@ -1284,12 +1844,55 @@
         "merge": "{actor}: birlashtirildi",
         "visibility": "{actor}: ko'rinish o'zgartirildi",
         "rated": "{actor}: baho qo'yildi",
-        "rule": "Qoida ishladi",
+        "rule": "«{name}» qoidasi: {actions}",
         "transferred": "{actor}: ikkinchi liniyaga o'tkazildi. Sabab: {reason}. Tekshirildi: {checked}. Kerak: {needed}",
         "returned": "{actor}: birinchi liniyaga qaytarildi. {explanation}",
         "mergedFrom": "{actor}: {number} qo'shildi",
-        "bound": "{actor}: mijoz tashkilotiga bog'landi"
+        "bound": "{actor}: mijoz tashkilotiga bog'landi",
+        "tagAdded": "{actor}: {name} tegi qo'shildi",
+        "tagRemoved": "{actor}: {name} tegi olib tashlandi",
+        "macro": "«{name}» makrosi ({actor}): {actions}",
+        "devTaskLinked": "{actor}: ishlab chiqishga berildi, vazifa {ref}",
+        "devTaskUnlinked": "{actor}: {ref} ishlab chiqish vazifasi uzildi",
+        "devTaskClosed": "{ref} ishlab chiqish vazifasi yopildi ({status}). Ijrochiga tekshirish va mijozga xabar berish haqida eslatma yuborildi",
+        "csat_review": "{actor}: baho tahlili qaydi yozildi"
       },
+      "ruleActions": {
+        "set_queue": "navbat {to}",
+        "assign": "ijrochi {to}",
+        "assign_round_robin": "navbat bilan ijrochi {to}",
+        "set_priority": "ustuvorlik {from} > {to}",
+        "add_tag": "teg qo'shildi {to}",
+        "remove_tag": "teg olib tashlandi {from}",
+        "add_note": "izoh qo'shildi",
+        "reply_template": "avtomatik javob yuborildi",
+        "notify": "bildirishnoma yuborildi",
+        "snooze": "kechiktirildi",
+        "set_status": "holat {from} > {to}",
+        "webhook": "vebhuk chaqirildi",
+        "unchanged": "o'zgarishsiz",
+        "notify_oncall_p1": "navbatchilarga P1 haqida xabar yuborildi",
+        "notify_sla_breach": "liniya rahbarlariga muddat o'tgani haqida bildirishnoma yuborildi",
+        "notify_csat_low": "Customer Care ga {to} baho haqida bildirishnoma yuborildi"
+      },
+      "ruleActionNames": {
+        "set_queue": "navbatni almashtirish",
+        "assign": "ijrochini tayinlash",
+        "assign_round_robin": "navbat bilan taqsimlash",
+        "set_priority": "ustuvorlikni almashtirish",
+        "add_tag": "teg qo'shish",
+        "remove_tag": "tegni olib tashlash",
+        "add_note": "izoh",
+        "reply_template": "shablon bo'yicha javob",
+        "notify": "bildirishnoma",
+        "snooze": "kechiktirish",
+        "set_status": "holatni almashtirish",
+        "webhook": "vebhuk",
+        "notify_oncall_p1": "navbatchilarga P1 haqida xabar",
+        "notify_sla_breach": "muddat o'tgani haqida bildirishnoma",
+        "notify_csat_low": "past baho haqida bildirishnoma"
+      },
+      "ruleActionFailed": "{name}: bajarilmadi",
       "dueKinds": {
         "first_response": "birinchi javob",
         "resolution": "hal qilish"
@@ -1380,7 +1983,12 @@
           "returned": "Murojaat birinchi liniyaga qaytarildi",
           "merged": "Murojaat takroriy sifatida yopildi",
           "created": "Murojaat yaratildi",
-          "invited": "Yuboruvchiga taklif yuborildi"
+          "invited": "Yuboruvchiga taklif yuborildi",
+          "tagged": "Teg qo'shildi",
+          "untagged": "Teg olib tashlandi",
+          "dev_sent": "Murojaat ishlab chiqishga berildi",
+          "dev_unlinked": "Ishlab chiqish vazifasi uzildi",
+          "dev_status": "Vazifa holati saqlandi"
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -1394,7 +2002,14 @@
           "rate_limited": "Juda ko'p amal ketma-ket. Bir daqiqa kuting.",
           "other": "Bo'lmadi. Yana urinib ko'ring.",
           "merge_refused": "Birlashtirib bo'lmaydi: bu o'sha murojaat yoki boshqa tashkilot murojaati.",
-          "merged": "Murojaat allaqachon birlashtirilgan."
+          "merged": "Murojaat allaqachon birlashtirilgan.",
+          "too_many_tags": "Murojaatda allaqachon 20 ta teg bor. Yangisini qo'shish uchun keraksizini olib tashlang.",
+          "invalid_url": "Vazifa havolasini tekshiring: manzil https:// bilan boshlanishi kerak",
+          "already_linked": "Murojaatda ishlab chiqish vazifasi allaqachon bor.",
+          "task_closed": "Bu raqamli vazifa allaqachon yopilgan. Boshqa vazifani ko'rsating.",
+          "not_manual": "Bu vazifaning holati task-menejerdan keladi: uni qo'lda o'zgartirib bo'lmaydi.",
+          "task_not_found": "Task-menejerda bunday raqamli vazifa yo'q.",
+          "tracker_unavailable": "Task-menejer javob bermadi. Murojaat o'zgarmadi: keyinroq yana urinib ko'ring."
         }
       },
       "presence": {
@@ -1487,7 +2102,69 @@
       "senderUnconfirmed": "Yuboruvchi tasdiqlanmagan",
       "senderUnconfirmedHint": "Xat tashkilot manzilidan keldi, lekin u odam hali portal ishtirokchisi emas. Murojaatni faqat xodimlar ko'radi.",
       "inviteSender": "Yuboruvchini taklif qilish",
-      "undelivered": "Xat yetkazilmadi"
+      "undelivered": "Xat yetkazilmadi",
+      "tags": {
+        "title": "Teglar",
+        "empty": "Teglar yo'q",
+        "add": "Teg qo'shish",
+        "hint": "Tavsiyalardan tanlang yoki yangi nom kiriting.",
+        "submit": "Qo'shish",
+        "remove": "{name} tegini olib tashlash"
+      },
+      "macroActions": {
+        "reply_template": "«{to}» shabloni javob maydoniga qo'yildi"
+      },
+      "macros": {
+        "open": "Makroslar",
+        "list": "Makrosni bajarish",
+        "busy": "Bajarilmoqda...",
+        "result": "«{name}» makrosi bajarildi",
+        "done": "Bajarildi: {actions}.",
+        "template": "Shablon matni javob maydonida. Uni tekshirib, yuboring.",
+        "templateFallback": "Shablon matni javob maydonida. Murojaat tiliga tarjima yo'q: ruscha matn qo'yildi. Uni tekshirib, yuboring.",
+        "errors": {
+          "forbidden": "Makroslarni murojaatlarni yurituvchi xodim ishga tushiradi.",
+          "not_found": "Makros topilmadi yoki o'chirilgan. Sahifani yangilang.",
+          "invalid_input": "Makros ishga tushmadi. Sahifani yangilab, qayta urinib ko'ring.",
+          "other": "Makros bajarilmadi. Keyinroq qayta urinib ko'ring."
+        },
+        "resultNone": "«{name}» makrosi: birorta amal bajarilmadi"
+      },
+      "devTask": {
+        "title": "Ishlab chiqish vazifasi",
+        "none": "Berilmagan",
+        "open": "Ishlab chiqishga berish",
+        "dialogTitle": "Ishlab chiqishga berish",
+        "dialogText": "Murojaat «Ishlab chiqishda» holatini oladi. Mijoz holatni ko'radi, lekin vazifa raqami va havolasini ko'rmaydi.",
+        "ref": "Vazifa raqami",
+        "refHint": "Task-menejerdagidek, masalan DEV-501. Bunday raqamli vazifa allaqachon bo'lsa, murojaat unga bog'lanadi.",
+        "url": "Vazifa havolasi",
+        "urlHint": "Vazifaning task-menejerdagi manzili, https:// bilan boshlanadi",
+        "taskTitle": "Vazifa nomi",
+        "submit": "Berish",
+        "cancel": "Bekor qilish",
+        "close": "Yopish",
+        "link": "Vazifa {ref}",
+        "external": "yangi varaqda ochiladi",
+        "status": "Vazifa holati",
+        "statuses": {
+          "todo": "Boshlanmagan",
+          "in_progress": "Ishda",
+          "done": "Tayyor",
+          "cancelled": "Bekor qilingan"
+        },
+        "version": "Versiya: {version}",
+        "versionField": "Tuzatilgan versiya",
+        "versionHint": "Ma'lum bo'lsa",
+        "also": "Yana bog'langan",
+        "changeStatus": "Holatni saqlash",
+        "unlink": "Vazifani uzish",
+        "apiText": "Portal Smartup task-menejerida vazifa yaratadi: mavzu, tavsif, tur, muhimlik, modul va murojaat havolasi. Biriktirmalar va yozishmalar uzatilmaydi. Murojaat «Ishlab chiqishda» holatini oladi.",
+        "existingRef": "Mavjud vazifa raqami",
+        "existingRefHint": "Ixtiyoriy. Yangi vazifa yaratish uchun bo'sh qoldiring.",
+        "submitApi": "Vazifa yaratish va berish",
+        "synced": "Vazifa holati task-menejerdan keladi."
+      }
     },
     "playbooks": {
       "title": "Birinchi liniya eslatmalari",
@@ -1576,6 +2253,169 @@
         "template": "Shablon /{code}: {title}",
         "group": "Murojaat",
         "templates": "Shablonlar"
+      }
+    },
+    "metrics": {
+      "title": "Ko'rsatkichlar",
+      "period": {
+        "label": "Davr",
+        "days7": "7 kun",
+        "days30": "30 kun",
+        "days90": "90 kun",
+        "custom": "O'z davringiz",
+        "from": "Sanadan",
+        "to": "Sanagacha",
+        "show": "Ko'rsatish",
+        "hint": "Sanalar faqat o'z davringiz uchun kerak. U 366 kundan uzun bo'lmaydi.",
+        "line": "{from} - {to}, {days, plural, other {# kun}}. Kunlar qo'llab-quvvatlash taqvimi vaqti bo'yicha hisoblanadi ({zone}).",
+        "invalid": "Davr noto'g'ri berilgan: oxirgi 30 kun ko'rsatildi. O'z davringiz ikki sanadan iborat, 366 kundan ko'p emas."
+      },
+      "definition": "Sahifadagi sonlar tanlangan davrda yaratilgan murojaatlarni hisoblaydi. Oldin yaratilib, shu davrda hal qilingan murojaat o'zi yaratilgan davrda hisobga olingan. Bitta istisno bor: «Davrda yakunlangan» qachon yaratilganidan qat'i nazar, shu davrda hal qilingan yoki yopilgan murojaatlarni hisoblaydi.",
+      "capped": "Javob vaqti, hal qilish vaqti va liniyalar davrning birinchi {count} ta murojaati bo'yicha hisoblandi: murojaatlar ko'proq. Hammasini hisoblash uchun davrni qisqartiring.",
+      "empty": {
+        "title": "Bu davrda murojaatlar yo'q",
+        "text": "Boshqa davrni tanlang: ko'rsatkichlar shu davrda yaratilgan murojaatlar bo'yicha hisoblanadi."
+      },
+      "none": "ma'lumot yo'q",
+      "duration": "{hours} soat {minutes} daq",
+      "durationMinutes": "{minutes} daq",
+      "overview": {
+        "title": "Umumiy ko'rinish",
+        "created": "Yaratilgan",
+        "resolved": "Shundan hal qilingan",
+        "closed": "Shundan yopilgan",
+        "finished": "Davrda yakunlangan",
+        "finishedHint": "Qachon yaratilganidan qat'i nazar, shu davrda hal qilingan yoki yopilgan",
+        "firstResponseSla": "Birinchi javob muddatida",
+        "resolutionSla": "Yechim muddatida",
+        "slaOf": "{total} tadan {ok} ta",
+        "slaHint": "Muddatga rioya: natijasi allaqachon ma'lum bo'lgan murojaatlar orasida buzilish belgisi yo'q murojaatlar ulushi. Birinchi javob: javob berilgan yoki muddat o'tgan. Yechim: murojaat hal qilingan yoki muddat o'tgan; mijoz javobini kutayotgan murojaatlar va birlashtirilgan nusxalar hisoblanmaydi.",
+        "firstResponseTime": "Birinchi javob vaqti",
+        "resolutionTime": "Hal qilish vaqti",
+        "average": "O'rtacha",
+        "median": "Mediana",
+        "basedOn": "{count, plural, other {# ta murojaat bo'yicha}}",
+        "timeHint": "Vaqt SLA muddatlari taqvimining ish soatlarida hisoblanadi. Hal qilish vaqtiga mijoz javobini kutish kirmaydi.",
+        "csat": "Mijozlar bahosi",
+        "csatAverage": "O'rtacha baho",
+        "csatCount": "Baholar",
+        "csatHigh": "4 va 5 baholar ulushi"
+      },
+      "sources": {
+        "title": "Murojaat manbalari",
+        "source": "Manba",
+        "count": "Murojaatlar",
+        "share": "Ulush",
+        "shareOf": "{name} manbasining ulushi",
+        "names": {
+          "portal": "Portal",
+          "widget_web": "Smartup ichidagi vidjet",
+          "widget_mobile": "Mobil ilova",
+          "email": "Pochta",
+          "staff": "Xodim tomonidan yaratilgan"
+        }
+      },
+      "lines": {
+        "title": "Qo'llab-quvvatlash liniyalari",
+        "line": "Liniya",
+        "resolved": "Liniyada hal qilingan",
+        "share": "Hal qilinganlar ulushi",
+        "shareOf": "Hal qilinganlar ulushi: {name}",
+        "averageTime": "Liniyadagi o'rtacha vaqt",
+        "returns": "Ikkinchi liniyadan birinchisiga qaytarishlar: {count}",
+        "hint": "Davrning hal qilingan murojaatlari hisoblanadi. Murojaat \"Hal qilindi\" holatiga o'tishdan oldin qaysi liniyada bo'lsa, o'sha liniyada hal qilingan: \"Ishlab chiqishda\" holati ishlab chiqish, birinchi liniya navbati birinchi liniya, ikkinchi liniya va Customer Care navbatlari ikkinchi liniya. Liniyadagi vaqt: yaratilgandan hal qilingungacha bo'lgan ish soatlari, mijozni kutish bilan birga; o'rtacha qiymat liniyada bo'lgan murojaatlar bo'yicha. Liniya murojaat tarixidan tiklanadi, shuning uchun avtomatlashtirish qoidasi bilan o'tkazish ham hisobga olingan.",
+        "names": {
+          "first": "Birinchi liniya",
+          "second": "Ikkinchi liniya",
+          "development": "Ishlab chiqish"
+        }
+      },
+      "breakdown": {
+        "orgsTitle": "Tashkilotlar bo'yicha",
+        "modulesTitle": "Modullar bo'yicha",
+        "org": "Tashkilot",
+        "module": "Modul",
+        "created": "Yaratilgan",
+        "resolved": "Hal qilingan",
+        "firstResponse": "Birinchi javob muddatida",
+        "resolution": "Yechim muddatida",
+        "csatCount": "Baholar",
+        "csatAverage": "O'rtacha baho",
+        "more": "Yana ko'rsatish",
+        "noModule": "Modulsiz",
+        "unknown": "Nomsiz",
+        "hint": "Qatorlar yaratilgan murojaatlar soni bo'yicha saralangan. Muddatlar umumiy ko'rinishdagi kabi hisoblanadi."
+      },
+      "low": {
+        "title": "Past baholar",
+        "hint": "Davrning 1 dan 3 gacha baholangan murojaatlari. Tahlil qaydini Customer Care va administrator yozadi, mijoz uni ko'rmaydi.",
+        "empty": "Bu davrda past baholar yo'q.",
+        "number": "Murojaat",
+        "score": "Baho",
+        "reason": "Mijoz sababi",
+        "org": "Tashkilot",
+        "assignee": "Ijrochi",
+        "note": "Tahlil qaydi",
+        "noReason": "Ko'rsatilmagan",
+        "noAssignee": "Tayinlanmagan",
+        "noNote": "Hali tahlil qilinmagan",
+        "noteBy": "{name}, {date}",
+        "write": "Qayd yozish",
+        "edit": "Qaydni o'zgartirish",
+        "noteLabel": "SUP-{number} murojaati tahlili qaydi",
+        "save": "Qaydni saqlash",
+        "capped": "Past baholi oxirgi {count} ta murojaat ko'rsatildi. Barcha qatorlar eksportda bor.",
+        "reasons": {
+          "slow": "Javobni uzoq kutdim",
+          "not_solved": "Muammo hal bo'lmadi",
+          "unclear": "Javob tushunarsiz",
+          "other": "Boshqa"
+        }
+      },
+      "export": {
+        "title": "CSV ga eksport",
+        "hint": "Fayl Excel da ochiladi. Murojaatlar eksportida mavzu, tavsif va yozishmalar yo'q. Har bir eksport audit jurnaliga yoziladi; soatiga 20 tadan ko'p emas.",
+        "orgs": "Tashkilotlar",
+        "modules": "Modullar",
+        "low_ratings": "Past baholar",
+        "requests": "Davr murojaatlari",
+        "truncated": "Birinchi {count} ta qator ko'rsatildi, davrda ular ko'proq. Davrni qisqartiring."
+      },
+      "csv": {
+        "columns": {
+          "org": "Tashkilot",
+          "module": "Modul",
+          "created": "Yaratilgan",
+          "resolved": "Hal qilingan",
+          "firstResponsePercent": "Birinchi javob muddatida, %",
+          "resolutionPercent": "Yechim muddatida, %",
+          "csatCount": "Baholar",
+          "csatAverage": "O'rtacha baho",
+          "number": "Raqam",
+          "assignee": "Ijrochi",
+          "score": "Baho",
+          "reason": "Mijoz sababi",
+          "comment": "Mijoz izohi",
+          "reviewNote": "Tahlil qaydi",
+          "reviewedBy": "Qayd muallifi",
+          "reviewed": "Qayd sanasi",
+          "type": "Turi",
+          "priority": "Ustuvorlik",
+          "source": "Manba",
+          "status": "Holat",
+          "firstResponseMinutes": "Birinchi javob, ish daqiqalari",
+          "resolutionMinutes": "Yechim, ish daqiqalari",
+          "firstResponseBreached": "Birinchi javob muddati buzilgan",
+          "resolutionBreached": "Yechim muddati buzilgan"
+        }
+      },
+      "done": {
+        "reviewed": "Tahlil qaydi saqlandi"
+      },
+      "errors": {
+        "forbidden": "Tahlil qaydini Customer Care va administrator yozadi.",
+        "invalid_input": "Qayd saqlanmadi: 1 dan 3 gacha baholangan murojaatga 2000 belgigacha matn kerak.",
+        "not_found": "Murojaat topilmadi."
       }
     }
   },
@@ -1852,6 +2692,15 @@
       "text": "{orgName} tashkilotidan yangi shoshilinch P1 murojaati: SUP-{number}.",
       "button": "Murojaatni ochish"
     },
+    "staffRule": {
+      "heading": "Qoida bildirishnomasi",
+      "text": "«{rule}» qoidasi SUP-{number} «{title}» murojaatida ishga tushdi."
+    },
+    "oncallRule": {
+      "subject": "Avtomatlashtirish qoidasi bildirishnomasi",
+      "text": "«{rule}» qoidasi SUP-{number} murojaatida ishga tushdi.",
+      "button": "Murojaatni ochish"
+    },
     "inboundTest": {
       "subject": "Smartup Hub xatlarni qabul qilishni tekshirish {token}",
       "text": "Bu Smartup Hub portalining tekshiruv xati. Agar u portalga yetib kelgan bo'lsa, {address} manzilidagi xatlarni qabul qilish ishlayapti. Unga javob berish shart emas."
@@ -1860,6 +2709,14 @@
     "opsAlert": {
       "subject": "Smartup Hub: navbatchiga signal",
       "button": "Ish joyini ochish"
+    },
+    "staffDevTaskClosed": {
+      "heading": "Ishlab chiqish vazifasi yopildi",
+      "text": "{ref} ishlab chiqish vazifasi yopildi: tekshiring va mijozga xabar bering. SUP-{number} «{title}» murojaati siz o'zgartirmaguningizcha «Ishlab chiqishda» holatida qoladi."
+    },
+    "staffCsatLow": {
+      "heading": "Mijozning past bahosi",
+      "text": "«{orgName}» tashkiloti mijozi SUP-{number} «{title}» murojaatiga {score} baho qo'ydi. Murojaatni oching: baho sababi uning sahifasida ko'rinadi."
     }
   },
   "bot": {
@@ -1894,6 +2751,7 @@
     },
     "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
     "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}",
+    "oncallRule": "«{rule}» qoidasi: SUP-{number} murojaati",
     "ops": {
       "jobs_failed": "Smartup Hub: bir soatda bajarilmagan fon vazifalari: {count}. Fon jarayoni jurnalini ko'ring.",
       "outbox_failed": "Smartup Hub: bir soatda yuborilmagan xat va xabarlar: {count}. Chiquvchi navbatni ko'ring.",
@@ -1903,7 +2761,10 @@
       "infected_files": "Smartup Hub: bir soatda topilgan zararlangan fayllar: {count}.",
       "archive_failing": "Smartup Hub: baza jurnali arxivi saqlanmayapti, muvaffaqiyatsiz urinishlar: {count}. Arxiv katalogi va diskdagi joyni tekshiring.",
       "inbound_held": "Smartup Hub: bir soat ichida tezlik chegarasi {count} ta kiruvchi xatni to'xtatdi. Ular murojaatlarga tushmadi: bitta manzildan yoki bitta murojaatga juda ko'p xat keldi.",
-      "unidentified_flood": "Smartup Hub: bir soat ichida noma'lum manzillardan kelgan xatlardan {count} ta murojaat yaratildi. Xatlar oqimi bo'lishi mumkin. \"Aniqlanmaganlar\" va pochta sozlamalarini ko'ring."
+      "unidentified_flood": "Smartup Hub: bir soat ichida noma'lum manzillardan kelgan xatlardan {count} ta murojaat yaratildi. Xatlar oqimi bo'lishi mumkin. \"Aniqlanmaganlar\" va pochta sozlamalarini ko'ring.",
+      "automation_dropped": "Smartup Hub: bir soat ichida {count} ta avtomatlashtirish hodisasi qayta ishlanmadi. Ular bo'yicha qoidalar va bildirishnomalar bajarilmadi, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
+      "automation_lag": "Smartup Hub: avtomatlashtirish hodisalari {minutes} daqiqadan beri qayta ishlanmayapti, navbatda: {count}. Qoidalar va bildirishnomalar kechikmoqda, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
+      "builtin_rule_inactive": "Smartup Hub: o'rnatilgan bildirishnomalar ishlamayapti, qoidalar: {count} ({rules}). Qoida o'chirilgan yoki nosoz: navbatchilarga P1 haqida, rahbarga muddat buzilishi yoki past baho haqida xabarlar yuborilmayapti. Sozlamalarda avtomatlashtirish qoidalarini tekshiring."
     }
   },
   "dev": {

@@ -26,6 +26,8 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Удаление: только ночная очистка под системным актором и только записи старше 3 лет (срок хранения журнала,
   // решение владельца 24.11.2026, решение 0041). Свежую запись политика не отдаёт ни одному актору: retention.test.ts.
   hdc_audit_log: { client: 'none', app: ['insert', 'delete'], auth: ['insert'] },
+  // События предметной области (веха M8): пишет действие над обращением, разбирает и удаляет система, клиент не видит.
+  hdc_domain_events: { client: 'none', app: IUD },
   hdc_ops_alerts: { client: 'none', app: IU },
   hdc_rate_limits: { client: 'none', app: IUD },
   hdc_settings: { client: 'none', app: IUD },
@@ -49,6 +51,8 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdr_product_modules: { client: 'all', app: IUD },
   hdr_reply_templates: { client: 'none', app: IU },
   hdr_sla_policies: { client: 'all', app: IU },
+  // Теги обращений (веха M8): создаёт сотрудник с правом записи, меняет и удаляет администратор, клиент не видит.
+  hdr_tags: { client: 'none', app: IUD },
   // Идентичность: меняет только hub_auth, удаляет только отвязка контакта.
   hdu_contact_identities: { client: 'own-user', auth: IUD },
   // Ссылки и коды удаляет только ночная очистка системой (решение 0023, дополнение M2).
@@ -78,5 +82,23 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdt_ticket_messages: { client: 'own-org', app: ['insert'] },
   hdt_ticket_events: { client: 'own-org', app: ['insert'] },
   hdt_ticket_watchers: { client: 'own-user', app: ['insert', 'delete'] },
+  // Теги на обращении (веха M8): ставит и снимает сотрудник с правом записи и система, клиент не видит.
+  hdt_ticket_tags: { client: 'none', app: ['insert', 'delete'] },
   hdt_attachments: { client: 'own-org', app: IUD },
+  // Автоматизация (веха M8): правила ведёт администратор, выключает система (защита от зацикливания); срабатывания
+  // пишет и удаляет только система. Клиент не видит ни правил, ни срабатываний.
+  hdw_rules: { client: 'none', app: IUD },
+  hdw_rule_runs: { client: 'none', app: ['insert', 'delete'] },
+  // Макросы (веха M8): создаёт и меняет администратор, читают сотрудники, клиент и система не видят.
+  hdw_macros: { client: 'none', app: IUD },
+  // Исходящие вебхуки (веха M8): адреса ведёт администратор; секрет подписи читает только система; доставки ставит,
+  // отправляет и удаляет только система. Клиент не видит ничего, из сотрудников читает только администратор.
+  hdw_webhook_endpoints: { client: 'none', app: IUD },
+  hdw_webhook_secrets: { client: 'none', app: IU },
+  hdw_webhook_deliveries: { client: 'none', app: IUD },
+  // Передача в разработку (веха M8): задачи и привязки читают сотрудники и система, пишут вторая линия, Customer
+  // Care, администратор и система (статус из таск-менеджера). Удаляется только привязка. Клиент не видит ничего:
+  // ему виден лишь статус обращения "В разработке".
+  hdw_dev_tasks: { client: 'none', app: IU },
+  hdw_dev_task_links: { client: 'none', app: ['insert', 'delete'] },
 };

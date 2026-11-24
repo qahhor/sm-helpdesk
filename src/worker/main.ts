@@ -4,14 +4,17 @@ import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import { configureLog, logEvent, timedJob } from '@/lib/log';
-import { bossOptions, cleanupAudit, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
+import { bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, createPgBossQueue, eventsState, JOB_NAMES, processEvents, setJobQueue } from '@/modules/hdc/api';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
-import { dispatchOutbox, outboxState } from '@/modules/hdn/api/outbox';
+import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
+import { cleanupRuleRuns, handleRuleEvent, newRuleRun, type NoActivityOptions, runNoActivityRules } from '@/modules/hdw/api/engine';
+import { syncDevTasks } from '@/modules/hdw/api/dev-task-jobs';
+import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { opsWatch } from './ops-watch';
 
@@ -20,11 +23,15 @@ import { opsWatch } from './ops-watch';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок, задача обращений и отправка очереди писем раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
   { name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' },
+  { name: 'automation.process', cron: '* * * * *', tz: 'UTC' },
+  { name: 'webhooks.dispatch', cron: '* * * * *', tz: 'UTC' },
+  // Опрос таск-менеджера Smartup (FR-DEV-04): раз в 15 минут; в ручном режиме задание ничего не делает.
+  { name: 'devtasks.sync', cron: '*/15 * * * *', tz: 'UTC' },
   { name: 'ops.watch', cron: '*/5 * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
@@ -38,6 +45,8 @@ const actor = (job: string): SystemActor => ({ type: 'system', job });
  * идут параллельно, браузерные тесты). Паузы растут от 1 до 30 секунд, всего около восьми минут (StartOptions pg-boss).
  */
 const START_ATTEMPTS = 20;
+/** Событие "нет активности" (решение 5 плана M8) проверяется раз в минуту, чуть чаще расписания: запуск по расписанию его не пропускает. */
+const NO_ACTIVITY_EVERY_MS = 55_000;
 
 export interface WorkerOptions {
   connectionString?: string;
@@ -60,6 +69,54 @@ async function waitForQueues(boss: PgBoss, attempts: number): Promise<void> {
     if (attempt >= attempts) throw new Error(`нет очередей ${missing.join(', ')}: миграции не применены`);
     await new Promise((resolve) => setTimeout(resolve, Math.min(30_000, 500 * 2 ** attempt)));
   }
+}
+
+/** Память задачи automation.process между запусками: когда последний раз проверялось событие "нет активности". */
+export type AutomationState = { silentCheckedAt: number };
+
+/**
+ * Один запуск задачи automation.process: разбор событий предметной области (план M8, задачи 2 и 3) и, не чаще раза
+ * в минуту, событие "нет активности". Правила события применяются в транзакции события вместе с отметкой разбора,
+ * после правил событие уходит адресам вебхуков, которые на него подписаны (задача 5). При остановке процесса разбор
+ * прекращается между событиями.
+ */
+export async function automationTick(system: SystemActor, state: AutomationState, opts: { stopped: () => boolean; noActivity?: NoActivityOptions }): Promise<void> {
+  const run = newRuleRun();
+  const total = { processed: 0, failed: 0 };
+  const drain = async () => {
+    const result = await processEvents(
+      system,
+      async (tx, event) => {
+        await handleRuleEvent(tx, event, run);
+        await handleWebhookEvent(tx, event);
+      },
+      { stopped: opts.stopped },
+    );
+    total.processed += result.processed;
+    total.failed += result.failed;
+  };
+  await drain();
+  let silent = { checked: 0, applied: 0, failed: 0 };
+  if (!opts.stopped() && Date.now() - state.silentCheckedAt >= NO_ACTIVITY_EVERY_MS) {
+    state.silentCheckedAt = Date.now();
+    // Просмотр молчащих обращений идёт после событий, ограничен по времени и перед каждой пачкой уступает разбору
+    // событий (проверка вехи M8, находка I5): сообщение дежурным о P1 не ждёт конца просмотра.
+    silent = await runNoActivityRules(system, { stopped: opts.stopped, ...opts.noActivity, between: drain });
+    // События, которые записали срабатывания последней пачки.
+    if (!opts.stopped()) await drain();
+  }
+  const { processed, failed } = total;
+  if (failed > 0) console.info(`События: разобрано ${processed}, со сбоем ${failed}`);
+  if (run.applied + run.failed + run.loops + run.paused + silent.applied + silent.failed > 0)
+    console.info(
+      `Правила: сработало ${run.applied + silent.applied}, без выполненных действий ${run.failed + silent.failed}, приостановлено на обращении защитой от зацикливания ${run.paused}, выключено ею ${run.loops}`,
+    );
+  // Письма и сообщения правил уже в очереди исходящих: отправка будится после фиксации.
+  if (run.applied + silent.applied > 0) await wakeOutbox();
+  // Доставки вебхуков поставлены правилами и подписками: отправка будится, только если есть что отправлять.
+  if (processed + silent.applied > 0 && (await hasDueDeliveries(system))) await wakeWebhooks();
+  const queue = await eventsState(system);
+  logEvent(queue.lagSec > 120 ? 'warn' : queue.pending > 0 ? 'info' : 'debug', 'automation.state', queue);
 }
 
 export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): Promise<void> }> {
@@ -111,6 +168,23 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const state = await outboxState(actor('outbox.dispatch'), new Date());
     logEvent(state.failed > 0 || state.lagSec > 60 ? 'warn' : state.queued > 0 ? 'info' : 'debug', 'outbox.state', state);
   }));
+  // Событие "нет активности" проверяется не чаще раза в минуту: задача идёт и по расписанию, и по сигналу после каждого изменения.
+  const automation: AutomationState = { silentCheckedAt: 0 };
+  await boss.work('automation.process', polling, () => timedJob('automation.process', () => automationTick(actor('automation.process'), automation, { stopped: () => stopping })));
+  await boss.work('webhooks.dispatch', polling, () => timedJob('webhooks.dispatch', async () => {
+    // Исходящие вебхуки (план M8, задача 5): повторы ведёт сама очередь доставок. При остановке процесса запуск
+    // прекращает работу между доставками.
+    const { sent, failed, retried, cancelled } = await dispatchWebhooks(actor('webhooks.dispatch'), { stopped: () => stopping });
+    if (sent + failed + retried + cancelled > 0) console.info(`Вебхуки: доставлено ${sent}, ждут повтора ${retried}, не доставлено ${failed}, отменено ${cancelled}`);
+  }));
+  await boss.work('devtasks.sync', polling, () => timedJob('devtasks.sync', async () => {
+    // Статусы задач разработки из таск-менеджера Smartup (план M8, задача 8): только в режиме API. Сбой чтения одной
+    // задачи остальным не мешает; при остановке процесса опрос прекращается между задачами.
+    const { checked, updated, failed, reminded } = await syncDevTasks(actor('devtasks.sync'), { stopped: () => stopping });
+    if (checked > 0) console.info(`Задачи разработки: сверено ${checked}, изменилось ${updated}, не прочитано ${failed}, напоминаний о закрытии ${reminded}`);
+    // Письма исполнителям о закрытых задачах уже в очереди исходящих.
+    if (reminded > 0) await wakeOutbox();
+  }));
   await boss.work('ops.watch', polling, () => timedJob('ops.watch', async () => {
     const sent = await opsWatch(actor('ops.watch'));
     if (sent.length > 0) logEvent('warn', 'ops.alerts_sent', { codes: sent });
@@ -124,6 +198,15 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const sentMail = await cleanupOutbox(system);
     const letters = await cleanupInbound(system);
     // Журнал аудита хранится 3 года (ТЗ 14.6, решение владельца 24.11.2026).
+    // Разобранные события предметной области хранятся 30 суток (план M8, задача 2).
+    const events = await cleanupDomainEvents(system);
+    if (events > 0) console.info(`Ночная очистка: разобранные события старше 30 суток ${events}`);
+    // Срабатывания правил автоматизации хранятся 90 суток (план M8, задача 3).
+    const runs = await cleanupRuleRuns(system);
+    if (runs > 0) console.info(`Ночная очистка: срабатывания правил старше 90 суток ${runs}`);
+    // Журнал доставок вебхуков хранится 30 суток (план M8, решение 10).
+    const hooks = await cleanupWebhookDeliveries(system);
+    if (hooks > 0) console.info(`Ночная очистка: доставки вебхуков старше 30 суток ${hooks}`);
     const audit = await cleanupAudit(system);
     if (audit > 0) console.info(`Ночная очистка: записи журнала аудита старше 3 лет ${audit}`);
     console.info(

@@ -54,6 +54,15 @@ export const NOTIFICATION_KINDS = [
   'update_due',
   'holidays_reminder',
   'telegram_linked',
+  // Правила автоматизации (веха M8): правило уведомило сотрудника; система выключила правило из-за зацикливания.
+  'rule',
+  'rule_disabled',
+  // Задача разработки закрыта (веха M8, FR-DEV-05): исполнителю пора проверить и сообщить клиенту.
+  'dev_task_closed',
+  // Клиент поставил оценку 1 или 2 (веха M8, FR-AUTO-12): предустановленное правило уведомляет Customer Care.
+  'csat_low',
+  // Защита от зацикливания приостановила правило на одном обращении (проверка вехи M8, находка S1).
+  'rule_paused',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

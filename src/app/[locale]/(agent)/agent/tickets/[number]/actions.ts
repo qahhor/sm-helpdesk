@@ -1,9 +1,10 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { getLocale } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { loadSlaConfig } from '@/modules/hdr/api';
 import {
+  addTicketTag,
   assignTicket,
   inviteSender,
   type ChangeSummary,
@@ -13,6 +14,7 @@ import {
   nextInQueue,
   parseNumber,
   postStaffMessage,
+  removeTicketTag,
   type PresenceEntry,
   returnToL1,
   saveDraft,
@@ -29,6 +31,8 @@ import {
   zonedToDate,
 } from '@/modules/hdt/api';
 import { requireStaffActor, type StaffContext } from '@/modules/hdu/api';
+import { devTrackerMode, isHdwError, runMacro, sendToDevelopment, setDevTaskStatus, unlinkFromDevelopment } from '@/modules/hdw/api';
+import { actionTexts } from '../../settings/rules/run-text';
 
 // Действия сотрудника на странице обращения (план M3, задача 7). Права, переходы и данные проверяет модуль hdt,
 // итог показывается кодом в адресе страницы.
@@ -42,6 +46,8 @@ async function run(form: FormData, action: (staff: StaffContext, number: number)
   try {
     await action(staff, number);
   } catch (error) {
+    // Отказ передачи в разработку (модуль hdw): тот же показ кодом в адресе страницы.
+    if (isHdwError(error)) redirect(`${page}?error=${error.code}`);
     if (!isHdtError(error)) throw error;
     // Обращение изменили другие, пока страница была открыта (FR-AG-12): в адресе только числа сводки, страница
     // после перехода уже свежая, действие можно повторить.
@@ -78,6 +84,15 @@ export async function statusAction(form: FormData): Promise<void> {
 
 export async function priorityAction(form: FormData): Promise<void> {
   await run(form, (staff, number) => setPriority(staff, { number, priority: text(form, 'priority'), reason: text(form, 'reason'), seenVersion: text(form, 'seen') || undefined }), 'priority');
+}
+
+/** Тег по названию: нет такого в справочнике, создаётся (FR-AUTO-13). */
+export async function addTagAction(form: FormData): Promise<void> {
+  await run(form, (staff, number) => addTicketTag(staff, { number, name: text(form, 'name') }), 'tagged');
+}
+
+export async function removeTagAction(form: FormData): Promise<void> {
+  await run(form, (staff, number) => removeTicketTag(staff, { number, tagId: text(form, 'tagId') }), 'untagged');
 }
 
 export async function typeAction(form: FormData): Promise<void> {
@@ -222,4 +237,67 @@ export async function inviteSenderAction(form: FormData): Promise<void> {
     },
     'invited',
   );
+}
+
+// --- Передача в разработку (FR-DEV-02, 05, 06; план M8, задача 7) ---
+
+/**
+ * Передать обращение в разработку. Ручной режим: номер, ссылка и название задачи из формы. Режим API: задачу создаёт
+ * портал, из формы берётся только номер существующей задачи, если сотрудник его указал. Роль и данные проверяет модуль.
+ */
+export async function sendToDevAction(form: FormData): Promise<void> {
+  await run(
+    form,
+    async (staff, number) => {
+      const externalId = text(form, 'externalId');
+      await sendToDevelopment(
+        staff,
+        devTrackerMode() === 'manual' ? { ticketNumber: number, externalId, url: text(form, 'url'), title: text(form, 'title') } : { ticketNumber: number, ...(externalId ? { externalId } : {}) },
+      );
+    },
+    'dev_sent',
+  );
+}
+
+export async function unlinkDevAction(form: FormData): Promise<void> {
+  await run(form, (staff, number) => unlinkFromDevelopment(staff, { ticketNumber: number }), 'dev_unlinked');
+}
+
+/** Статус задачи в ручном режиме. Пустая версия: версия не меняется. */
+export async function devTaskStatusAction(form: FormData): Promise<void> {
+  await run(form, (staff) => setDevTaskStatus(staff, { devTaskId: text(form, 'devTaskId'), status: text(form, 'status'), ...(text(form, 'version') ? { version: text(form, 'version') } : {}) }), 'dev_status');
+}
+
+// --- Макросы (FR-AG-15, UX-A-16; план M8, задача 6) ---
+
+/** Итог запуска макроса словами на языке страницы: что сделано, в чём отказано, вставлен ли шаблон. */
+export type MacroRunState = { error?: string; title?: string; done?: string; refused?: string[]; template?: string };
+
+const MACRO_ERRORS = new Set(['forbidden', 'not_found', 'invalid_input']);
+
+/**
+ * Запустить макрос на обращении. Права и переходы проверяет модуль: макрос выполняется от имени сотрудника.
+ * Текст шаблона не отправляется: модуль дописывает его в черновик ответа сотрудника, поле ответа покажет его после
+ * перечитывания страницы, сотрудник проверит и отправит сам (решение 7 плана M8). Если сотрудник пишет внутреннюю
+ * заметку, шаблон не вставляется: черновик остаётся заметкой, причина видна среди невыполненных действий.
+ */
+export async function runMacroAction(number: number, macroId: string): Promise<MacroRunState> {
+  const staff = await requireStaffActor();
+  const t = await getTranslations('agent.ticket.macros');
+  try {
+    const run = await runMacro(staff, { ticketNumber: number, macroId });
+    const describe = await actionTexts({ macro: true });
+    const done = describe(run.actions.filter((item) => item.ok), 'runs.notDone');
+    const refused = describe(run.actions.filter((item) => !item.ok), 'runs.notDone');
+    return {
+      title: t(run.actions.some((item) => item.ok) ? 'result' : 'resultNone', { name: run.macroName }),
+      ...(done.length > 0 ? { done: t('done', { actions: done.join('; ') }) } : {}),
+      ...(refused.length > 0 ? { refused } : {}),
+      ...(run.template ? { template: t(run.template.fallback ? 'templateFallback' : 'template') } : {}),
+    };
+  } catch (error) {
+    if (isHdwError(error)) return { error: t(`errors.${MACRO_ERRORS.has(error.code) ? error.code : 'other'}`) };
+    if (isHdtError(error)) return { error: t('errors.other') };
+    throw error;
+  }
 }

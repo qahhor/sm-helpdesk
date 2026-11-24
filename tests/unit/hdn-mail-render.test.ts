@@ -22,8 +22,12 @@ const SAMPLES: { [K in MailTemplate]: Omit<Extract<MailData, { template: K }>, k
   staff_mention: { template: 'staff_mention', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', author: 'Анна' },
   staff_breach: { template: 'staff_breach', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', kind: 'first_response' },
   staff_update_due: { template: 'staff_update_due', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042' },
+  staff_dev_task_closed: { template: 'staff_dev_task_closed', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', ref: 'DEV-501' },
   holidays_reminder: { template: 'holidays_reminder', year: 2027, url: 'https://hub.example.test/ru/agent/settings/sla' },
   oncall_p1: { template: 'oncall_p1', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', orgName: 'ООО Клиент' },
+  staff_rule: { template: 'staff_rule', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', rule: 'P1 от категории A' },
+  oncall_rule: { template: 'oncall_rule', number: 1042, url: 'https://hub.example.test/ru/agent/tickets/1042', rule: 'P1 от категории A' },
+  staff_csat_low: { template: 'staff_csat_low', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', score: 2, orgName: 'ООО Клиент' },
   inbound_test: { template: 'inbound_test', address: 'support@greenwhite.uz', token: 'chk-7f3a' },
   ops_alert: { template: 'ops_alert', text: 'Smartup Hub: за час не отправлено писем и сообщений: 3.', url: 'https://hub.example.test/ru/agent' },
 };
@@ -38,7 +42,11 @@ const TICKET_TEMPLATES: MailTemplate[] = [
   'staff_mention',
   'staff_breach',
   'staff_update_due',
+  'staff_dev_task_closed',
   'oncall_p1',
+  'staff_rule',
+  'oncall_rule',
+  'staff_csat_low',
 ];
 
 const cases = MAIL_TEMPLATES.flatMap((template) => LOCALES.map((locale) => [template, locale] as const));

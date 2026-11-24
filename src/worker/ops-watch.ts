@@ -1,8 +1,9 @@
 import type { SystemActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
-import { archiveFailing, archiveState, claimOpsAlert, failedJobsSince, failedStaffSignIns } from '@/modules/hdc/api';
+import { archiveFailing, archiveState, claimOpsAlert, droppedEventsSince, eventsState, failedJobsSince, failedStaffSignIns } from '@/modules/hdc/api';
 import { heldInboundCount, type OpsAlert, type OpsAlertCode, outboxFailedSince, outboxState, sendOpsAlert, staleInboundCount } from '@/modules/hdn/api/ops';
 import { infectedSince, unidentifiedSince } from '@/modules/hdt/api/jobs';
+import { inactiveBuiltinRules } from '@/modules/hdw/api/engine';
 
 // Задача ops.watch фонового процесса (ТЗ 13.8; аудит 23.11.2026, находки O2 и S4; план W0, задача 4).
 // Раз в 5 минут собирает проверки модулей и шлёт дежурным сигнал: в чат и письмом. Один вид сигнала уходит не чаще
@@ -17,12 +18,14 @@ export const STAFF_SIGNIN_ALERT = 20;
 export const INBOUND_HELD_ALERT = 10;
 /** Столько обращений из писем с неизвестных адресов за час считается потоком. */
 export const UNIDENTIFIED_FLOOD_ALERT = 60;
+/** Очередь событий автоматизации считается застрявшей, если самое старое событие ждёт разбора дольше 5 минут. */
+export const AUTOMATION_LAG_ALERT_SEC = 300;
 
 type Deps = Parameters<typeof sendOpsAlert>[2];
 
 export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<OpsAlert[]> {
   const hourAgo = new Date(now.getTime() - 60 * MINUTE);
-  const [jobs, failed, state, stuck, signIns, infected, archive, held, unidentified] = await Promise.all([
+  const [jobs, failed, state, stuck, signIns, infected, archive, held, unidentified, dropped, events, inactive] = await Promise.all([
     failedJobsSince(actor, hourAgo),
     outboxFailedSince(actor, hourAgo),
     outboxState(actor, now),
@@ -32,6 +35,9 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
     archiveState(actor),
     heldInboundCount(actor, hourAgo),
     unidentifiedSince(actor, hourAgo),
+    droppedEventsSince(actor, hourAgo),
+    eventsState(actor, now),
+    inactiveBuiltinRules(actor),
   ]);
   const alerts: OpsAlert[] = [];
   if (jobs > 0) alerts.push({ code: 'jobs_failed', count: jobs });
@@ -46,6 +52,15 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
   if (held >= INBOUND_HELD_ALERT) alerts.push({ code: 'inbound_held', count: held });
   // Поток писем с неизвестных адресов: письма не теряются, но очередь "Неопознанные" растёт. Решает человек.
   if (unidentified >= UNIDENTIFIED_FLOOD_ALERT) alerts.push({ code: 'unidentified_flood', count: unidentified });
+  // Событие обращения снято с очереди после пяти сбоев разбора: его правила и уведомления не выполнены. Среди них
+  // может быть сообщение дежурным о P1 (предустановленное правило; план M8, задача 10), поэтому сигнал от одного события.
+  if (dropped > 0) alerts.push({ code: 'automation_dropped', count: dropped });
+  // Очередь событий стоит (фоновая задача не идёт или события ждут повтора после сбоев): правила и уведомления
+  // опаздывают, среди них сообщение дежурным о P1 (проверка вехи M8, находка I7).
+  if (events.lagSec > AUTOMATION_LAG_ALERT_SEC) alerts.push({ code: 'automation_lag', count: events.pending, minutes: Math.floor(events.lagSec / 60) });
+  // Встроенное уведомление портала выключено, негодно или осталось без своего действия: пока это так, дежурные о
+  // P1, руководитель линии о сроке или Customer Care о низкой оценке не узнают. Сигнал повторяется раз в час.
+  if (inactive.length > 0) alerts.push({ code: 'builtin_rule_inactive', count: inactive.length, rules: inactive.join(', ') });
   return alerts;
 }
 

@@ -242,3 +242,77 @@ test('смена токена бота дежурных оставляет за�
   ).rows[0].same;
   expect(same).toBe(true);
 });
+
+test('событие автоматизации снято после пяти сбоев разбора: дежурным сигнал "событие не разобрано", только число', async () => {
+  // Событие создания P1, разбор которого упал пять раз: сообщение дежурным о P1 по нему не ушло (план M8, задача 10).
+  const { processEvents, emitEventTx, EVENT_MAX_ATTEMPTS } = await import('@/modules/hdc/api');
+  const { withActor } = await import('@/db/with-actor');
+  const automation = { type: 'system', job: 'automation.process' } as const;
+  await withActor(automation, (tx) => emitEventTx(tx, { orgId: f.orgA.orgId, ticketId: f.tickets.aOrg.ticketId, kind: 'ticket_created', payload: { priority: 'p1' } }));
+  const failing = async () => {
+    throw new Error('база недоступна: секретный текст');
+  };
+  // Четыре сбоя: событие ещё в очереди, сигнала нет.
+  // Часы разбора подменены: между попытками проходит пауза перед повтором, самая длинная 15 минут.
+  const started = Date.now();
+  const attemptAt = (n: number) => processEvents(automation, failing, { clock: () => started + (n - 1) * 16 * 60_000 });
+  for (let attempt = 1; attempt < EVENT_MAX_ATTEMPTS; attempt++) expect(await attemptAt(attempt)).toEqual({ processed: 0, failed: 1 });
+  expect(await watch()).toEqual([]);
+  expect(await attemptAt(EVENT_MAX_ATTEMPTS)).toEqual({ processed: 0, failed: 1 });
+  expect((await collectOpsAlerts(SYSTEM, new Date())).filter((alert) => alert.code === 'automation_dropped')).toEqual([{ code: 'automation_dropped', count: 1 }]);
+  expect(await watch()).toEqual(['automation_dropped']);
+  expect(chat).toHaveLength(1);
+  expect(chat[0]).toBe(opsAlertText({ code: 'automation_dropped', count: 1 }));
+  expect(chat[0]).toContain('1');
+  expect(chat[0]).not.toContain('секретный');
+  expect(mail.sent.map((s) => s.message.to)).toEqual(['duty@smartup24.com']);
+  // Успешно разобранное событие сигнала не даёт; снятое больше часа назад тоже.
+  await pools.root.query(`update hdc_ops_alerts set last_sent_on = now() - interval '2 hours'`);
+  expect(await watch(new Date(Date.now() + 61 * 60_000))).toEqual([]);
+});
+
+// --- Проверка вехи M8, находка I7: встроенные уведомления выключены или очередь событий стоит ---
+
+test('встроенное уведомление выключено, негодно или осталось без своего действия: один сигнал с кодами правил, не чаще раза в час', async () => {
+  const { seedBuiltinRules } = await import('./helpers/automation');
+  await seedBuiltinRules();
+  // Все три правила на месте и включены: сигнала нет.
+  expect((await collectOpsAlerts(SYSTEM, new Date())).filter((alert) => alert.code === 'builtin_rule_inactive')).toEqual([]);
+  // Одно выключено, у второго условия не проходят схему, у третьего убрано его уведомление.
+  await pools.root.query(`update hdw_rules set is_enabled = false where pcode = 'p1_oncall'`);
+  await pools.root.query(`update hdw_rules set conditions = '{"match": "all", "items": [{"field": "нет такого поля"}]}' where pcode = 'sla_breach_lead'`);
+  await pools.root.query(`update hdw_rules set actions = '[{"action": "add_note", "text": "Оценка"}]' where pcode = 'csat_low_manager'`);
+  expect((await collectOpsAlerts(SYSTEM, new Date())).filter((alert) => alert.code === 'builtin_rule_inactive')).toEqual([
+    { code: 'builtin_rule_inactive', count: 3, rules: 'p1_oncall, sla_breach_lead, csat_low_manager' },
+  ]);
+  const now = Date.now();
+  expect(await watch(new Date(now))).toEqual(['builtin_rule_inactive']);
+  expect(chat).toEqual([opsAlertText({ code: 'builtin_rule_inactive', count: 3, rules: 'p1_oncall, sla_breach_lead, csat_low_manager' })]);
+  expect(chat[0]).toContain('p1_oncall, sla_breach_lead, csat_low_manager');
+  expect(mail.sent.map((s) => s.message.to)).toEqual(['duty@smartup24.com']);
+  // Через 10 минут повтора нет, через час сигнал повторяется: правило всё ещё выключено.
+  expect(await watch(new Date(now + 10 * 60_000))).toEqual([]);
+  expect(await watch(new Date(now + 61 * 60_000))).toEqual(['builtin_rule_inactive']);
+  // Правила вернули: сигнала больше нет.
+  await pools.root.query(`delete from hdw_rules`);
+  await seedBuiltinRules();
+  expect(await watch(new Date(now + 3 * 60 * 60_000))).toEqual([]);
+});
+
+test('очередь событий автоматизации стоит: самое старое событие ждёт разбора дольше 5 минут', async () => {
+  const event = (minutesAgo: number) =>
+    pools.root.query(`insert into hdc_domain_events (org_id, ticket_id, kind, created_on) values ($1, $2, 'client_replied', now() - make_interval(mins => $3))`, [f.orgA.orgId, f.tickets.aOrg.ticketId, minutesAgo]);
+  // Событие ждёт четыре минуты: рано.
+  await event(4);
+  expect(await watch()).toEqual([]);
+  await event(12);
+  await event(1);
+  expect((await collectOpsAlerts(SYSTEM, new Date())).filter((alert) => alert.code === 'automation_lag')).toEqual([{ code: 'automation_lag', count: 3, minutes: 12 }]);
+  expect(await watch()).toEqual(['automation_lag']);
+  expect(chat).toEqual([opsAlertText({ code: 'automation_lag', count: 3, minutes: 12 })]);
+  expect(chat[0]).toContain('12');
+  // Очередь разобрана: сигнала нет.
+  await pools.root.query(`update hdc_domain_events set processed_on = now()`);
+  await pools.root.query(`update hdc_ops_alerts set last_sent_on = now() - interval '2 hours'`);
+  expect(await watch()).toEqual([]);
+});

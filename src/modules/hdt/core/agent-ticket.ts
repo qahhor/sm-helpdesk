@@ -2,8 +2,10 @@ import 'server-only';
 import { and, asc, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
+import type { Tag } from '@/modules/hdr/api';
 import { attachments, lineTransfers, ticketEvents, ticketMessages, ticketReads, tickets } from '../schema';
 import { finalMainNumberTx } from './merged-into';
+import { ticketTagsTx } from './tags';
 import { type TimelineWindow, timelineWindowTx } from './timeline';
 
 // Модуль hdt, слой core: обращение глазами сотрудника (FR-AG-04, FR-AG-05, UX-A-15; план M3, задача 6).
@@ -13,7 +15,7 @@ import { type TimelineWindow, timelineWindowTx } from './timeline';
 const VIEW_LOG_EVERY_MIN = 60;
 
 export type AgentTicketRecord = typeof tickets.$inferSelect;
-export type AgentMessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'isInternal' | 'createdOn'>;
+export type AgentMessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'isInternal' | 'createdOn' | 'isAuto'>;
 export type AgentEventRecord = Pick<typeof ticketEvents.$inferSelect, 'eventId' | 'kind' | 'actorType' | 'actorId' | 'payload' | 'isInternal' | 'createdOn'>;
 export type AgentAttachmentRecord = Pick<
   typeof attachments.$inferSelect,
@@ -34,6 +36,7 @@ export async function readAgentTicketTx(
   window: Pick<TimelineWindow, 'order' | 'hasEarlier' | 'latestOn'>;
   transfer: { toLine: string; pickupDueOn: Date | null; pickedUpOn: Date | null } | null;
   mergedIntoNumber: number | null;
+  tags: Tag[];
 } | null> {
   return withActor(actor, async (tx) => {
     const [ticket] = await tx.select().from(tickets).where(eq(tickets.number, number)).limit(1);
@@ -48,6 +51,7 @@ export async function readAgentTicketTx(
         body: ticketMessages.body,
         isInternal: ticketMessages.isInternal,
         createdOn: ticketMessages.createdOn,
+        isAuto: ticketMessages.isAuto,
       })
       .from(ticketMessages)
       .where(inArray(ticketMessages.messageId, window.messageIds))
@@ -103,7 +107,8 @@ export async function readAgentTicketTx(
     if (logged.length > 0)
       await writeAudit(tx, { action: 'ticket.viewed_by_staff', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: { number: ticket.number } });
     const mergedIntoNumber = await finalMainNumberTx(tx, ticket.mergedIntoId);
-    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, window, transfer: transfer ?? null, mergedIntoNumber };
+    const tags = (await ticketTagsTx(tx, [ticket.ticketId])).get(ticket.ticketId) ?? [];
+    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, window, transfer: transfer ?? null, mergedIntoNumber, tags };
   });
 }
 

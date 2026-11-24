@@ -83,7 +83,12 @@
         "snooze_returned": "Snoozed request SUP-{number} is back",
         "update_due": "Client update due tomorrow on request SUP-{number}",
         "holidays_reminder": "Fill in the holidays for {year}",
-        "telegram_linked": "A Telegram account was linked. If it was not you, unlink it in your profile."
+        "telegram_linked": "A Telegram account was linked. If it was not you, unlink it in your profile.",
+        "rule": "Rule \"{rule}\": request SUP-{number}",
+        "rule_disabled": "Rule \"{rule}\" was turned off: it fired too often",
+        "rule_paused": "Rule \"{rule}\" is paused on request SUP-{number}: it fired too often",
+        "dev_task_closed": "Development task closed: check and tell the client. Request SUP-{number}",
+        "csat_low": "The client rated request SUP-{number} with {score}"
       },
       "settings": {
         "title": "Emails",
@@ -202,6 +207,7 @@
         "copied": "Number copied",
         "you": "You",
         "support": "Smartup support",
+        "autoReply": "Automatic reply",
         "colleague": "Colleague",
         "visibleOrg": "Visible to colleagues",
         "visiblePrivate": "Visible to you and the administrator",
@@ -592,6 +598,22 @@
         "mail": {
           "title": "Notifications and email",
           "text": "Support addresses and intake check, on-call staff and their bot, reminder and auto-close periods, spam."
+        },
+        "tags": {
+          "title": "Tags",
+          "text": "Names and colors of ticket tags, removal of unused ones."
+        },
+        "rules": {
+          "title": "Automation rules",
+          "text": "What the portal does by itself: event, conditions and actions. Dry run and run log."
+        },
+        "webhooks": {
+          "title": "Webhooks",
+          "text": "Addresses the portal notifies about request events: signing secret, test delivery, delivery log."
+        },
+        "macros": {
+          "title": "Macros",
+          "text": "Several actions on a request in one click: reply template, status, tag, assignee."
         }
       },
       "servers": {
@@ -802,7 +824,14 @@
           "sla_policy": "SLA targets",
           "business_calendar": "Working calendar",
           "playbook": "First-line playbook",
-          "reply_template": "Reply template"
+          "reply_template": "Reply template",
+          "tag": "Tag",
+          "rule": "Automation rule",
+          "webhook": "Webhook address",
+          "webhook_secret": "Webhook secrets",
+          "macro": "Macro",
+          "dev_task": "Development task",
+          "metrics": "Metrics"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -871,7 +900,10 @@
             "rated_by_link": "Rating given through the email link",
             "bound": "Email linked to an organization",
             "author_moved": "Request author changed on guest hand-over",
-            "viewed_by_staff": "Ticket opened by staff"
+            "viewed_by_staff": "Ticket opened by staff",
+            "tag_added": "Tag added to a ticket",
+            "tag_removed": "Tag removed from a ticket",
+            "csat_reviewed": "Rating review note written"
           },
           "attachment": {
             "infected": "Infected file found",
@@ -909,6 +941,46 @@
           },
           "secrets": {
             "resealed": "Secrets re-encrypted with the new key"
+          },
+          "tag": {
+            "created": "Tag created",
+            "updated": "Tag changed",
+            "deleted": "Tag deleted"
+          },
+          "rule": {
+            "created": "Automation rule created",
+            "updated": "Automation rule changed",
+            "enabled": "Automation rule turned on",
+            "disabled": "Automation rule turned off",
+            "moved": "Automation rule order changed",
+            "deleted": "Automation rule deleted",
+            "restored": "Automation rule restored to default",
+            "applied": "Automation rule fired",
+            "disabled_loop": "Automation rule turned off by loop protection",
+            "paused_loop": "Automation rule paused on a request by loop protection",
+            "dry_run": "Automation rule dry run"
+          },
+          "webhook": {
+            "created": "Webhook address added",
+            "updated": "Webhook address changed",
+            "deleted": "Webhook address deleted",
+            "secret_rotated": "Webhook secret rotated",
+            "test_sent": "Webhook test delivery"
+          },
+          "macro": {
+            "created": "Macro created",
+            "updated": "Macro changed",
+            "moved": "Macro order changed",
+            "deleted": "Macro deleted",
+            "run": "Macro run on a request"
+          },
+          "devtask": {
+            "linked": "Ticket handed over to development",
+            "unlinked": "Development task unlinked from the ticket",
+            "status_changed": "Development task status changed"
+          },
+          "metrics": {
+            "exported": "Metrics exported to CSV"
           }
         },
         "words": {
@@ -958,7 +1030,11 @@
           "resealed": "Re-encrypted",
           "failed": "Could not be opened",
           "number": "Number",
-          "ticketId": "Ticket"
+          "ticketId": "Ticket",
+          "host": "Host",
+          "events": "Events",
+          "urlChanged": "Address changed",
+          "isEnabled": "Enabled"
         }
       },
       "sla": {
@@ -1112,6 +1188,486 @@
           "stale_session": "Changing settings needs a sign-in no older than 15 minutes."
         },
         "reauth": "Sign in again"
+      },
+      "tags": {
+        "title": "Tags",
+        "intro": "A staff member creates a tag right on a ticket. Here you can rename a tag, change its color or delete it. Clients never see tags.",
+        "emptyTitle": "No tags yet",
+        "emptyText": "The first tag appears when a staff member adds it to a ticket.",
+        "usage": "{count, plural, =0 {no tickets} one {# ticket} other {# tickets}}",
+        "name": "Name",
+        "color": "Color",
+        "save": "Save",
+        "delete": "Delete tag",
+        "deleteText": "{count, plural, =0 {The tag is not on any ticket.} one {The tag will be removed from # ticket.} other {The tag will be removed from # tickets.}} This cannot be undone.",
+        "deleteConfirm": "Delete",
+        "colors": {
+          "gray": "Gray",
+          "green": "Green",
+          "orange": "Orange",
+          "purple": "Purple",
+          "blue": "Blue",
+          "teal": "Teal",
+          "red": "Red",
+          "accent": "Primary"
+        },
+        "done": {
+          "saved": "Tag saved",
+          "deleted": "Tag deleted"
+        },
+        "errors": {
+          "forbidden": "Tags are changed by the portal administrator.",
+          "invalid_input": "Check the name: 1 to 40 characters.",
+          "tag_taken": "A tag with this name already exists.",
+          "not_found": "Tag not found. It may have been deleted already.",
+          "stale_session": "Changing tags needs a sign-in no older than 15 minutes. Sign in again and repeat."
+        }
+      },
+      "rules": {
+        "title": "Automation rules",
+        "intro": "A rule reads as a sentence: when an event happens and the conditions hold, the portal performs the actions. Rules of one event apply from top to bottom. Clients never see rules.",
+        "newRule": "New rule",
+        "emptyTitle": "No rules yet",
+        "emptyText": "Create the first rule and check it with a dry run. A new rule stays off until you turn it on.",
+        "listLabel": "Rules in the order they apply",
+        "columns": {
+          "order": "No.",
+          "name": "Rule",
+          "event": "Event",
+          "state": "State",
+          "actions": "Actions"
+        },
+        "states": {
+          "enabled": "On",
+          "disabled": "Off",
+          "loop": "Off: loop",
+          "invalid": "Needs attention"
+        },
+        "builtin": "Built-in",
+        "builtinInactive": "Built-in portal notifications are not being sent: {rules}. The rule is turned off, needs attention, or its own notification was removed. Until this is fixed, on-call staff and leads do not receive these messages.",
+        "moveUp": "Up",
+        "moveDown": "Down",
+        "moveUpOf": "Move rule \"{name}\" up",
+        "moveDownOf": "Move rule \"{name}\" down",
+        "enable": "Turn on",
+        "disable": "Turn off",
+        "enableOf": "Turn on rule \"{name}\"",
+        "disableOf": "Turn off rule \"{name}\"",
+        "open": "Open",
+        "openOf": "Open rule \"{name}\"",
+        "done": {
+          "created": "Rule created. It is off: check it with a dry run and turn it on in the list.",
+          "saved": "Rule saved",
+          "enabled": "Rule turned on",
+          "disabled": "Rule turned off",
+          "moved": "Order changed",
+          "deleted": "Rule deleted",
+          "restored": "The rule is back to its default."
+        },
+        "errors": {
+          "forbidden": "Rules are changed by the portal administrator.",
+          "stale_session": "Changing rules needs a sign-in no older than 15 minutes.",
+          "invalid_input": "Check the marked fields of the rule.",
+          "not_found": "Rule not found. It may have been deleted already.",
+          "builtin_rule": "A built-in rule cannot be deleted. You can turn it off.",
+          "not_builtin": "Only a built-in rule has a default to restore."
+        },
+        "reauth": "Sign in again",
+        "loopNote": "Loop protection turned this rule off: within an hour it fired more than 10 times on one request in three organizations. Check the conditions and actions and turn the rule on again.",
+        "invalidNote": "The conditions or actions of this rule are out of date, so it does not apply. Set them again and save.",
+        "events": {
+          "ticket_created": "Ticket created",
+          "client_replied": "Client replied",
+          "staff_replied": "Staff replied",
+          "status_changed": "Status changed",
+          "priority_changed": "Priority changed",
+          "rated": "Client rated the ticket",
+          "sla_soon": "SLA deadline is near",
+          "sla_breached": "SLA deadline breached",
+          "no_activity": "No activity for N hours",
+          "ai_handoff": "AI handed the ticket over"
+        },
+        "editor": {
+          "newTitle": "New rule",
+          "name": "Rule name",
+          "nameHint": "Staff see it in the ticket history.",
+          "when": "When",
+          "event": "Event",
+          "hours": "Hours without messages",
+          "hoursHint": "From 1 to 8760. The rule fires once per silence.",
+          "if": "If",
+          "match": "How many conditions must hold",
+          "matchAll": "all conditions",
+          "matchAny": "any condition",
+          "noConditions": "No conditions: the rule fires on every such event.",
+          "then": "Then",
+          "noActions": "Add at least one action.",
+          "addCondition": "Condition",
+          "addAction": "Action",
+          "conditionRow": "Condition {n}",
+          "actionRow": "Action {n}",
+          "removeCondition": "Remove condition {n}",
+          "removeAction": "Remove action {n}",
+          "field": "Field",
+          "operator": "Comparison",
+          "value": "Value",
+          "action": "What to do",
+          "pick": "Choose",
+          "addValue": "Add a value",
+          "add": "Add",
+          "removeValue": "Remove value {name}",
+          "unknown": "Deleted value",
+          "words": "Words separated by commas",
+          "hoursValue": "Hours",
+          "rating": "Rating",
+          "orgSearch": "Organization name or tax ID",
+          "orgFind": "Find",
+          "orgEmpty": "Nothing found. Enter at least three characters of the name or tax ID.",
+          "orgAdd": "Add organization {name}",
+          "stop": "Stop processing the next rules",
+          "save": "Save",
+          "newDisabled": "A new rule is saved turned off. You can turn it on in the list of rules.",
+          "builtinEvent": "The event of a built-in rule cannot be changed.",
+          "alsoOn": "The rule also fires on the event \"{event}\"."
+        },
+        "fields": {
+          "priority": "Priority",
+          "type": "Type",
+          "module": "Module",
+          "impact": "Impact on work",
+          "status": "Status",
+          "queue": "Queue",
+          "source": "Source",
+          "locale": "Language",
+          "org_category": "Client category",
+          "org": "Organization",
+          "tags": "Tags",
+          "text": "Ticket text",
+          "work_time": "Time",
+          "hours_since_client": "Hours since client message",
+          "hours_since_staff": "Hours since staff reply",
+          "rating": "Rating"
+        },
+        "ops": {
+          "is": "is",
+          "is_not": "is not",
+          "has_any": "has any of",
+          "has_all": "has all of",
+          "has_none": "has none of",
+          "contains_any": "contains any of the words",
+          "contains_none": "contains none of the words",
+          "gte": "at least",
+          "lt": "less than",
+          "lte": "at most"
+        },
+        "actions": {
+          "set_queue": "Change queue",
+          "assign": "Assign to",
+          "assign_round_robin": "Assign round-robin within the queue",
+          "set_priority": "Change priority",
+          "add_tag": "Add tag",
+          "remove_tag": "Remove tag",
+          "add_note": "Add internal note",
+          "reply_template": "Reply to client by template",
+          "notify": "Notify",
+          "snooze": "Snooze",
+          "set_status": "Change status",
+          "webhook": "Call webhook",
+          "notify_oncall_p1": "Message on-call about P1 (once, until the first response)",
+          "notify_sla_breach": "Notify line leads about a missed deadline",
+          "notify_csat_low": "Notify Customer Care about a low rating"
+        },
+        "actionValues": {
+          "set_queue": "Queue",
+          "assign": "Staff member",
+          "set_priority": "Priority",
+          "add_tag": "Tag",
+          "remove_tag": "Tag",
+          "add_note": "Note text",
+          "reply_template": "Template",
+          "notify": "Whom to notify",
+          "snooze": "For how many hours",
+          "set_status": "Status",
+          "webhook": "Webhook address"
+        },
+        "targets": {
+          "oncall": "On-call: chat and email",
+          "roles": "Role",
+          "staff": "Staff member"
+        },
+        "workTime": {
+          "working": "working hours",
+          "off": "off hours"
+        },
+        "categoryNone": "not set",
+        "moduleNone": "not set",
+        "templateDisabled": "{title} (off)",
+        "issues": {
+          "event_not_ready": "This event is not available yet.",
+          "condition_not_ready": "This condition is not available yet.",
+          "hours_required": "Enter the number of hours from 1 to 8760.",
+          "hours_not_allowed": "Hours are set only for the \"No activity\" event.",
+          "reference_missing": "The chosen value no longer exists. Choose another one.",
+          "invalid": "Complete the row: choose a value from the list or enter a number within the allowed range.",
+          "name": "Enter a name: 1 to 120 characters.",
+          "actions": "Add at least one action, 10 at most.",
+          "conditions": "There can be 20 conditions at most.",
+          "general": "Check the rule and try again.",
+          "builtin_only": "This action belongs only to its own built-in rule.",
+          "builtin_event": "The event of a built-in rule cannot be changed."
+        },
+        "dry": {
+          "title": "Dry run",
+          "scopeHint": "The last 100 tickets in their current state.",
+          "run": "Start dry run",
+          "count": "Would fire: {count}",
+          "none": "No ticket matched the conditions.",
+          "would": "What would be done",
+          "matches": "Matched tickets",
+          "safe": "A dry run changes nothing.",
+          "failed": "{name}: will not be done ({reason})",
+          "more": "Showing the first {shown} of {count}."
+        },
+        "details": {
+          "error": "error while running",
+          "merged": "the ticket is merged into another one",
+          "no_candidates": "no staff in the queue",
+          "tag_missing": "the tag is deleted",
+          "too_many_tags": "the request already has 20 tags",
+          "template_disabled": "the template is off",
+          "template_missing": "the template is missing or has no text",
+          "transition_refused": "this transition is not allowed",
+          "user_missing": "staff member not found",
+          "no_recipients": "no recipients",
+          "webhook_failed": "the webhook was not queued",
+          "unknown": "no reason given",
+          "endpoint_missing": "webhook address deleted",
+          "endpoint_disabled": "webhook address is off",
+          "forbidden": "no rights for this action",
+          "changed": "the request was changed while the macro ran",
+          "draft_is_note": "the template was not inserted: you are writing an internal note in the reply field. Save or clear it and run the macro again",
+          "not_found": "not found",
+          "invalid_input": "value not accepted",
+          "rate_limited": "too many actions in a row",
+          "resolution_required": "a resolution is required",
+          "refused": "action refused",
+          "event_mismatch": "the event has no deadline",
+          "not_low_rating": "no rating or it is above 2"
+        },
+        "runs": {
+          "title": "Run log",
+          "intro": "Runs are kept for 90 days.",
+          "empty": "The rule has not fired yet.",
+          "columns": {
+            "ticket": "Ticket",
+            "result": "Result",
+            "actions": "Actions",
+            "time": "Time"
+          },
+          "next": "Next 50 records",
+          "first": "To newest records",
+          "noTicket": "none",
+          "notDone": "{name}: not done ({reason})"
+        },
+        "results": {
+          "applied": "Done",
+          "no_match": "Conditions did not match",
+          "partial": "Partly done",
+          "failed": "Not done",
+          "skipped_loop": "Skipped: loop protection paused the rule on this request"
+        },
+        "delete": {
+          "open": "Delete rule",
+          "title": "Delete rule \"{name}\"?",
+          "text": "The rule and its run log will be deleted. Ticket history stays. This cannot be undone.",
+          "confirm": "Delete",
+          "cancel": "Cancel",
+          "close": "Close"
+        },
+        "webhookDisabled": "{name} (off)",
+        "restore": {
+          "open": "Restore default",
+          "hint": "The name, conditions and actions return to what the portal ships. On or off and the order stay as they are."
+        },
+        "embedded": {
+          "text": "Built into the portal: client reminder and auto-close (configured in \"Timings\").",
+          "link": "Open reminder and auto-close timings"
+        }
+      },
+      "webhooks": {
+        "title": "Webhooks",
+        "intro": "The portal sends a POST request to an address from this list when an event happens to a request or when an automation rule calls the webhook. The body carries the number, status, priority, type, queue, module and tags of the request. It has no subject, description or messages.",
+        "newWebhook": "New address",
+        "emptyTitle": "No addresses yet",
+        "emptyText": "Add a receiver address. The portal shows the signing secret once, right after creation.",
+        "listLabel": "Webhook addresses",
+        "columns": {
+          "name": "Name",
+          "url": "Address",
+          "events": "Events",
+          "state": "State",
+          "actions": "Actions"
+        },
+        "states": {
+          "enabled": "On",
+          "disabled": "Off"
+        },
+        "eventsNone": "Only by automation rule",
+        "open": "Open",
+        "openOf": "Open address {name}",
+        "reauth": "Sign in again",
+        "form": {
+          "newTitle": "New webhook address",
+          "editTitle": "Address and subscriptions",
+          "name": "Name",
+          "nameHint": "The administrator sees it in this list and in the rule editor.",
+          "url": "Receiver address",
+          "urlHint": "Only https and only a public host. The portal does not accept internal network addresses.",
+          "events": "Events",
+          "eventsHint": "The portal calls the address on every checked event. With none checked, only the rule action \"Call webhook\" calls it.",
+          "enabled": "Address is on",
+          "create": "Add address",
+          "save": "Save"
+        },
+        "secret": {
+          "title": "Signing secret",
+          "text": "Save the secret now: the portal shows it once. A lost secret can only be rotated.",
+          "label": "Secret",
+          "copy": "Copy secret",
+          "copied": "Copied",
+          "openEndpoint": "Go to the address",
+          "howTitle": "How to verify a request",
+          "how": "The X-Hub-Signature header looks like \"t=time,v1=signature\", time in seconds. The signature is HMAC-SHA256 of the string \"time.request body\" with this secret, in hex. The X-Hub-Delivery header stays the same across retries of one delivery.",
+          "set": "The secret is set. The portal does not show it."
+        },
+        "rotate": {
+          "open": "Rotate secret",
+          "title": "Rotate the secret of {name}?",
+          "text": "The previous secret stops working at once. Requests will be signed with the new secret: update it on the receiver side.",
+          "confirm": "Rotate",
+          "cancel": "Cancel",
+          "close": "Close"
+        },
+        "test": {
+          "title": "Test delivery",
+          "text": "The portal sends the test event with a sample body. It carries no request data. The result appears in the delivery log.",
+          "send": "Send test request"
+        },
+        "delete": {
+          "open": "Delete address",
+          "title": "Delete address {name}?",
+          "text": "The secret and the delivery log are deleted with the address. Rules that called this webhook will record the action as not done.",
+          "confirm": "Delete",
+          "cancel": "Cancel",
+          "close": "Close"
+        },
+        "deliveries": {
+          "title": "Delivery log",
+          "intro": "Deliveries are kept for 30 days. After a failure the portal retries in 1, 5, 15, 60 and 240 minutes.",
+          "empty": "No deliveries yet.",
+          "columns": {
+            "event": "Event",
+            "ticket": "Request",
+            "status": "Result",
+            "attempts": "Attempts",
+            "error": "Reason",
+            "time": "Time"
+          },
+          "statuses": {
+            "queued": "Waiting to send",
+            "retry": "Waiting to retry",
+            "sent": "Delivered",
+            "failed": "Not delivered"
+          },
+          "testEvent": "Test delivery",
+          "noTicket": "none",
+          "next": "Next 50 records",
+          "first": "Back to the start",
+          "errors": {
+            "timeout": "the receiver did not answer in 10 seconds",
+            "unreachable": "the receiver is unreachable",
+            "blocked_address": "the address leads to an internal network",
+            "secret_unreadable": "the secret cannot be decrypted, rotate it",
+            "endpoint_disabled": "the address is off",
+            "http": "response {status}",
+            "unknown": "no reason given"
+          }
+        },
+        "done": {
+          "saved": "Address saved",
+          "deleted": "Address deleted",
+          "tested": "The test request is queued. The result will appear in the delivery log."
+        },
+        "errors": {
+          "forbidden": "Webhooks are set up by the portal administrator.",
+          "stale_session": "This action needs a recent sign-in.",
+          "invalid_input": "Check the name: 1 to 120 characters.",
+          "invalid_url": "The address was not accepted. It must be an https address on a public host, without a user name or password.",
+          "not_found": "Address not found. It may have been deleted already.",
+          "endpoint_disabled": "The address is off. Turn it on to send a test request.",
+          "too_many": "The list already has 50 addresses. Delete one you do not need."
+        }
+      },
+      "macros": {
+        "title": "Macros",
+        "intro": "A macro performs several actions on a request in one click. A staff member runs it on the request page, and the macro acts with the rights of that staff member: an action they may not do is not performed. Clients never see macros.",
+        "newMacro": "New macro",
+        "emptyTitle": "No macros yet",
+        "emptyText": "Create the first macro, for example \"Ask for version and screenshot\": insert a template and set \"Waiting for client\".",
+        "listLabel": "Macros in menu order",
+        "columns": {
+          "order": "No.",
+          "name": "Macro",
+          "actions": "Actions",
+          "state": "State",
+          "controls": "Controls"
+        },
+        "states": {
+          "enabled": "On",
+          "disabled": "Off",
+          "invalid": "Needs fixing"
+        },
+        "moveUp": "Up",
+        "moveDown": "Down",
+        "moveUpOf": "Move macro \"{name}\" up",
+        "moveDownOf": "Move macro \"{name}\" down",
+        "open": "Open",
+        "openOf": "Open macro \"{name}\"",
+        "assignMe": "Whoever runs the macro",
+        "actions": {
+          "reply_template": "Insert a template into the reply field",
+          "set_queue": "Transfer to a line"
+        },
+        "invalidNote": "The macro actions do not pass validation. The macro will not run until it is fixed and saved.",
+        "editor": {
+          "newTitle": "New macro",
+          "name": "Macro name",
+          "nameHint": "Staff see it in the \"Macros\" menu and in the request history.",
+          "actionsTitle": "Actions",
+          "actionsHint": "One to ten actions, performed in order. A macro does not send the template: the text goes into the reply field, the staff member reads it and sends it.",
+          "enabled": "Macro is on"
+        },
+        "delete": {
+          "open": "Delete macro",
+          "title": "Delete macro \"{name}\"?",
+          "text": "The macro will disappear from the menu on the request page. Records of past runs stay in the request history.",
+          "confirm": "Delete",
+          "cancel": "Cancel",
+          "close": "Close"
+        },
+        "done": {
+          "created": "Macro created",
+          "saved": "Macro saved",
+          "moved": "Order changed",
+          "deleted": "Macro deleted"
+        },
+        "errors": {
+          "forbidden": "Macros are set up by the portal administrator.",
+          "stale_session": "This action needs a recent sign-in.",
+          "invalid_input": "The macro was not saved. Check the marked fields.",
+          "not_found": "Macro not found. It may have been deleted already.",
+          "too_many": "The list already has 50 macros. Delete one you do not need."
+        }
       }
     },
     "queues": {
@@ -1249,7 +1805,10 @@
           "other": "That did not work. Try again."
         },
         "addressOwned": "This address belongs to a portal client, but the email did not pass the DMARC check: it may be forged. Do not mark it as spam or link it until you confirm with the client."
-      }
+      },
+      "tag": "Tag",
+      "anyTag": "All tags",
+      "byTag": "Show tickets tagged {name}"
     },
     "ticket": {
       "files": "Files",
@@ -1258,6 +1817,7 @@
       "system": "System",
       "client": "Client",
       "note": "Note",
+      "auto": "Automatic",
       "new": "new",
       "scan": {
         "pending": "being checked",
@@ -1284,12 +1844,55 @@
         "merge": "{actor}: merged",
         "visibility": "{actor}: visibility changed",
         "rated": "{actor}: rated",
-        "rule": "A rule fired",
+        "rule": "Rule \"{name}\": {actions}",
         "transferred": "{actor}: transferred to the second line. Reason: {reason}. Checked: {checked}. Needed: {needed}",
         "returned": "{actor}: returned to the first line. {explanation}",
         "mergedFrom": "{actor}: merged {number} into this ticket",
-        "bound": "{actor}: linked to the client organization"
+        "bound": "{actor}: linked to the client organization",
+        "tagAdded": "{actor}: tag {name} added",
+        "tagRemoved": "{actor}: tag {name} removed",
+        "macro": "Macro \"{name}\" ({actor}): {actions}",
+        "devTaskLinked": "{actor}: handed over to development, task {ref}",
+        "devTaskUnlinked": "{actor}: development task {ref} unlinked",
+        "devTaskClosed": "Development task {ref} closed ({status}). The assignee was reminded to check and tell the client",
+        "csat_review": "{actor}: wrote a rating review note"
       },
+      "ruleActions": {
+        "set_queue": "queue {to}",
+        "assign": "assignee {to}",
+        "assign_round_robin": "round-robin assignee {to}",
+        "set_priority": "priority {from} > {to}",
+        "add_tag": "tag added {to}",
+        "remove_tag": "tag removed {from}",
+        "add_note": "note added",
+        "reply_template": "automatic reply sent",
+        "notify": "notification sent",
+        "snooze": "snoozed",
+        "set_status": "status {from} > {to}",
+        "webhook": "webhook called",
+        "unchanged": "no changes",
+        "notify_oncall_p1": "P1 message sent to on-call",
+        "notify_sla_breach": "missed deadline notification sent to line leads",
+        "notify_csat_low": "rating {to} notification sent to Customer Care"
+      },
+      "ruleActionNames": {
+        "set_queue": "queue change",
+        "assign": "assignment",
+        "assign_round_robin": "round-robin assignment",
+        "set_priority": "priority change",
+        "add_tag": "adding a tag",
+        "remove_tag": "removing a tag",
+        "add_note": "note",
+        "reply_template": "template reply",
+        "notify": "notification",
+        "snooze": "snooze",
+        "set_status": "status change",
+        "webhook": "webhook",
+        "notify_oncall_p1": "P1 message to on-call",
+        "notify_sla_breach": "missed deadline notification",
+        "notify_csat_low": "low rating notification"
+      },
+      "ruleActionFailed": "{name}: not done",
       "dueKinds": {
         "first_response": "first response",
         "resolution": "resolution"
@@ -1380,7 +1983,12 @@
           "returned": "Ticket returned to the first line",
           "merged": "Ticket closed as a duplicate",
           "created": "Ticket created",
-          "invited": "The invitation was sent to the sender"
+          "invited": "The invitation was sent to the sender",
+          "tagged": "Tag added",
+          "untagged": "Tag removed",
+          "dev_sent": "Ticket handed over to development",
+          "dev_unlinked": "Development task unlinked",
+          "dev_status": "Task status saved"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -1394,7 +2002,14 @@
           "rate_limited": "Too many actions in a row. Wait a minute.",
           "other": "That did not work. Try again.",
           "merge_refused": "Cannot merge: it is the same ticket or a ticket of another organization.",
-          "merged": "The ticket is already merged."
+          "merged": "The ticket is already merged.",
+          "too_many_tags": "This request already has 20 tags. Remove one to add another.",
+          "invalid_url": "Check the task link: the address must start with https://",
+          "already_linked": "The ticket already has a development task.",
+          "task_closed": "The task with this number is already closed. Enter another task.",
+          "not_manual": "The status of this task comes from the task manager: it cannot be changed by hand.",
+          "task_not_found": "There is no task with this number in the task manager.",
+          "tracker_unavailable": "The task manager did not respond. The ticket was not changed: try again later."
         }
       },
       "presence": {
@@ -1487,7 +2102,69 @@
       "senderUnconfirmed": "Sender not confirmed",
       "senderUnconfirmedHint": "The email came from an organization address, but the person is not a portal member yet. Only staff see this request.",
       "inviteSender": "Invite the sender",
-      "undelivered": "Email not delivered"
+      "undelivered": "Email not delivered",
+      "tags": {
+        "title": "Tags",
+        "empty": "No tags",
+        "add": "Add a tag",
+        "hint": "Pick a suggestion or type a new name.",
+        "submit": "Add",
+        "remove": "Remove tag {name}"
+      },
+      "macroActions": {
+        "reply_template": "template \"{to}\" inserted into the reply field"
+      },
+      "macros": {
+        "open": "Macros",
+        "list": "Run a macro",
+        "busy": "Running...",
+        "result": "Macro \"{name}\" done",
+        "done": "Done: {actions}.",
+        "template": "The template text is in the reply field. Check it and send.",
+        "templateFallback": "The template text is in the reply field. There is no translation into the request language: the Russian text was inserted. Check it and send.",
+        "errors": {
+          "forbidden": "Macros are run by staff who handle requests.",
+          "not_found": "Macro not found or turned off. Reload the page.",
+          "invalid_input": "The macro did not start. Reload the page and try again.",
+          "other": "The macro was not performed. Try again later."
+        },
+        "resultNone": "Macro \"{name}\": no action was performed"
+      },
+      "devTask": {
+        "title": "Development task",
+        "none": "Not handed over",
+        "open": "Hand over to development",
+        "dialogTitle": "Hand over to development",
+        "dialogText": "The ticket will get the status \"In development\". The client will see the status, but not the task number or link.",
+        "ref": "Task number",
+        "refHint": "As in the task manager, for example DEV-501. If a task with this number already exists, the ticket will be linked to it.",
+        "url": "Task link",
+        "urlHint": "The task address in the task manager, starts with https://",
+        "taskTitle": "Task title",
+        "submit": "Hand over",
+        "cancel": "Cancel",
+        "close": "Close",
+        "link": "Task {ref}",
+        "external": "opens in a new tab",
+        "status": "Task status",
+        "statuses": {
+          "todo": "Not started",
+          "in_progress": "In progress",
+          "done": "Done",
+          "cancelled": "Cancelled"
+        },
+        "version": "Version: {version}",
+        "versionField": "Version with the fix",
+        "versionHint": "If known",
+        "also": "Also linked",
+        "changeStatus": "Save status",
+        "unlink": "Unlink the task",
+        "apiText": "The portal will create a task in the Smartup task manager: subject, description, type, priority, module and a link to the ticket. Attachments and the conversation are not sent. The ticket will get the status \"In development\".",
+        "existingRef": "Existing task number",
+        "existingRefHint": "Optional. Leave empty to create a new task.",
+        "submitApi": "Create the task and hand over",
+        "synced": "The task status comes from the task manager."
+      }
     },
     "playbooks": {
       "title": "First-line playbooks",
@@ -1576,6 +2253,169 @@
         "template": "Template /{code}: {title}",
         "group": "Ticket",
         "templates": "Templates"
+      }
+    },
+    "metrics": {
+      "title": "Metrics",
+      "period": {
+        "label": "Period",
+        "days7": "7 days",
+        "days30": "30 days",
+        "days90": "90 days",
+        "custom": "Custom period",
+        "from": "From",
+        "to": "To",
+        "show": "Show",
+        "hint": "Dates are used only for a custom period. It is at most 366 days long.",
+        "line": "{from} - {to}, {days, plural, one {# day} other {# days}}. Days follow the support calendar time ({zone}).",
+        "invalid": "The period is not valid: the last 30 days are shown. A custom period is two dates, at most 366 days apart."
+      },
+      "definition": "The numbers on this page count requests created in the selected period. A request created earlier and resolved in this period belongs to the period of its creation. There is one exception: \"Finished in the period\" counts requests resolved or closed in the period, whenever they were created.",
+      "capped": "Response time, resolution time and lines are computed on the first {count} requests of the period: there are more. Narrow the period to count them all.",
+      "empty": {
+        "title": "No requests in this period",
+        "text": "Choose another period: metrics count the requests created in it."
+      },
+      "none": "no data",
+      "duration": "{hours} h {minutes} min",
+      "durationMinutes": "{minutes} min",
+      "overview": {
+        "title": "Overview",
+        "created": "Created",
+        "resolved": "Resolved of them",
+        "closed": "Closed of them",
+        "finished": "Finished in the period",
+        "finishedHint": "Resolved or closed in the period, whenever created",
+        "firstResponseSla": "First response on time",
+        "resolutionSla": "Resolution on time",
+        "slaOf": "{ok} of {total}",
+        "slaHint": "SLA compliance: the share of requests without a breach mark among those whose outcome is already known. First response: answered or the deadline has passed. Resolution: resolved or the deadline has passed; requests waiting for the client and merged duplicates are not counted.",
+        "firstResponseTime": "Time to first response",
+        "resolutionTime": "Time to resolution",
+        "average": "Average",
+        "median": "Median",
+        "basedOn": "{count, plural, one {on # request} other {on # requests}}",
+        "timeHint": "Time is counted in working hours of the SLA calendar. Time to resolution excludes waiting for the client.",
+        "csat": "Client rating",
+        "csatAverage": "Average rating",
+        "csatCount": "Ratings",
+        "csatHigh": "Share of ratings 4 and 5"
+      },
+      "sources": {
+        "title": "Request sources",
+        "source": "Source",
+        "count": "Requests",
+        "share": "Share",
+        "shareOf": "Share of source {name}",
+        "names": {
+          "portal": "Portal",
+          "widget_web": "Widget in Smartup",
+          "widget_mobile": "Mobile app",
+          "email": "Email",
+          "staff": "Created by staff"
+        }
+      },
+      "lines": {
+        "title": "Support lines",
+        "line": "Line",
+        "resolved": "Resolved on the line",
+        "share": "Share of resolved",
+        "shareOf": "Share of resolved: {name}",
+        "averageTime": "Average time on the line",
+        "returns": "Returns from the second line to the first: {count}",
+        "hint": "Resolved requests of the period are counted. A request is resolved on the line where it was right before it became \"Resolved\": the status \"In development\" means development, the first line queue means the first line, the second line and Customer Care queues mean the second line. Time on a line: working hours from creation to resolution, including waiting for the client; the average is over the requests that were on the line. The line is rebuilt from the request history, so a move made by an automation rule is counted too.",
+        "names": {
+          "first": "First line",
+          "second": "Second line",
+          "development": "Development"
+        }
+      },
+      "breakdown": {
+        "orgsTitle": "By organization",
+        "modulesTitle": "By module",
+        "org": "Organization",
+        "module": "Module",
+        "created": "Created",
+        "resolved": "Resolved",
+        "firstResponse": "First response on time",
+        "resolution": "Resolution on time",
+        "csatCount": "Ratings",
+        "csatAverage": "Average rating",
+        "more": "Show more",
+        "noModule": "No module",
+        "unknown": "No name",
+        "hint": "Rows are sorted by the number of created requests. Deadlines are counted the same way as in the overview."
+      },
+      "low": {
+        "title": "Low ratings",
+        "hint": "Requests of the period rated 1 to 3. The review note is written by Customer Care and the administrator; the client never sees it.",
+        "empty": "No low ratings in this period.",
+        "number": "Request",
+        "score": "Rating",
+        "reason": "Client reason",
+        "org": "Organization",
+        "assignee": "Assignee",
+        "note": "Review note",
+        "noReason": "Not given",
+        "noAssignee": "Not assigned",
+        "noNote": "Not reviewed yet",
+        "noteBy": "{name}, {date}",
+        "write": "Write a note",
+        "edit": "Edit the note",
+        "noteLabel": "Review note for request SUP-{number}",
+        "save": "Save note",
+        "capped": "The latest {count} requests with a low rating are shown. The export has all rows.",
+        "reasons": {
+          "slow": "Waited too long for a reply",
+          "not_solved": "The problem is not solved",
+          "unclear": "The reply is unclear",
+          "other": "Other"
+        }
+      },
+      "export": {
+        "title": "CSV export",
+        "hint": "The file opens in Excel. The request export has no title, description or messages. Every export is written to the audit log; at most 20 exports per hour.",
+        "orgs": "Organizations",
+        "modules": "Modules",
+        "low_ratings": "Low ratings",
+        "requests": "Requests of the period",
+        "truncated": "The first {count} rows are shown, the period has more. Narrow the period."
+      },
+      "csv": {
+        "columns": {
+          "org": "Organization",
+          "module": "Module",
+          "created": "Created",
+          "resolved": "Resolved",
+          "firstResponsePercent": "First response on time, %",
+          "resolutionPercent": "Resolution on time, %",
+          "csatCount": "Ratings",
+          "csatAverage": "Average rating",
+          "number": "Number",
+          "assignee": "Assignee",
+          "score": "Rating",
+          "reason": "Client reason",
+          "comment": "Client comment",
+          "reviewNote": "Review note",
+          "reviewedBy": "Note author",
+          "reviewed": "Note date",
+          "type": "Type",
+          "priority": "Priority",
+          "source": "Source",
+          "status": "Status",
+          "firstResponseMinutes": "First response, working minutes",
+          "resolutionMinutes": "Resolution, working minutes",
+          "firstResponseBreached": "First response deadline missed",
+          "resolutionBreached": "Resolution deadline missed"
+        }
+      },
+      "done": {
+        "reviewed": "Review note saved"
+      },
+      "errors": {
+        "forbidden": "The review note is written by Customer Care and the administrator.",
+        "invalid_input": "The note is not saved: it needs a text of up to 2000 characters for a request rated 1 to 3.",
+        "not_found": "Request not found."
       }
     }
   },
@@ -1852,6 +2692,15 @@
       "text": "New urgent P1 request from {orgName}: SUP-{number}.",
       "button": "Open the request"
     },
+    "staffRule": {
+      "heading": "Rule notification",
+      "text": "Rule \"{rule}\" fired on request SUP-{number} \"{title}\"."
+    },
+    "oncallRule": {
+      "subject": "Automation rule notification",
+      "text": "Rule \"{rule}\" fired on request SUP-{number}.",
+      "button": "Open the request"
+    },
     "inboundTest": {
       "subject": "Smartup Hub mail intake check {token}",
       "text": "This is a check email from the Smartup Hub portal. If it has reached the portal, mail intake for {address} works. There is no need to reply."
@@ -1860,6 +2709,14 @@
     "opsAlert": {
       "subject": "Smartup Hub: on-call alert",
       "button": "Open the workspace"
+    },
+    "staffDevTaskClosed": {
+      "heading": "Development task closed",
+      "text": "Development task {ref} is closed: check and tell the client. Request SUP-{number} \"{title}\" stays in development until you change its status."
+    },
+    "staffCsatLow": {
+      "heading": "Low client rating",
+      "text": "A client of {orgName} rated request SUP-{number} \"{title}\" with {score}. Open the request: the reason for the rating is on its page."
     }
   },
   "bot": {
@@ -1894,6 +2751,7 @@
     },
     "oncallP1": "P1: new urgent request SUP-{number}",
     "oncallP1Org": "P1: new urgent request SUP-{number}, {org}",
+    "oncallRule": "Rule \"{rule}\": request SUP-{number}",
     "ops": {
       "jobs_failed": "Smartup Hub: background jobs that failed in the last hour: {count}. Check the worker log.",
       "outbox_failed": "Smartup Hub: emails and messages not sent in the last hour: {count}. Check the outbox.",
@@ -1903,7 +2761,10 @@
       "infected_files": "Smartup Hub: infected files found in the last hour: {count}.",
       "archive_failing": "Smartup Hub: the database log archive is not being saved, failed attempts: {count}. Check the archive directory and disk space.",
       "inbound_held": "Smartup Hub: the rate limit stopped {count} inbound emails within an hour. They were not added to requests: too many emails from one address or to one request.",
-      "unidentified_flood": "Smartup Hub: {count} requests were created from emails from unknown addresses within an hour. A flood is possible. Check \"Unidentified\" and the mail settings."
+      "unidentified_flood": "Smartup Hub: {count} requests were created from emails from unknown addresses within an hour. A flood is possible. Check \"Unidentified\" and the mail settings.",
+      "automation_dropped": "Smartup Hub: {count} automation events were not processed within an hour. Their rules and notifications did not run, an on-call message about a P1 request may be among them. Check the background process log.",
+      "automation_lag": "Smartup Hub: automation events have not been processed for {minutes} min, waiting: {count}. Rules and notifications are late, an on-call message about a P1 request may be among them. Check the background process log.",
+      "builtin_rule_inactive": "Smartup Hub: built-in notifications are not working, rules: {count} ({rules}). A rule is turned off or broken: on-call messages about P1, notices to the lead about a missed deadline or a low rating are not sent. Check the automation rules in settings."
     }
   },
   "dev": {

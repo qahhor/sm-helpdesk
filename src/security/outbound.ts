@@ -131,24 +131,15 @@ export type GuardedFetchConfig = {
  *   - переадресации не выполняются: ответ 3xx возвращается как есть;
  *   - соединения не переиспользуются: каждое проверяется заново.
  * Из параметров запроса учитываются method (GET или HEAD), headers и signal. Запрос с телом, с иным методом
- * или готовым объектом Request отклоняется: слой только читает.
+ * или готовым объектом Request отклоняется: эта функция только читает. Запрос с телом: guardedPostJson ниже.
  */
 export function createGuardedFetch(cfg: GuardedFetchConfig): typeof fetch {
   return (input, init = {}) => {
     if (shared.__hubOutboundFetch) return shared.__hubOutboundFetch(input, init);
     return new Promise<Response>((done, reject) => {
-      let url: URL;
-      try {
-        url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
-      } catch {
-        return reject(new BlockedAddressError());
-      }
-      const host = hostOf(url);
-      const loopback = cfg.allowLoopback && LOOPBACK_HOSTS.has(host);
-      if (url.username || url.password) return reject(new BlockedAddressError());
-      if (url.protocol !== 'https:' && !(loopback && url.protocol === 'http:')) return reject(new BlockedAddressError());
-      // Адрес числом: разрешения имени не будет, проверка здесь.
-      if (!loopback && isIP(host) !== 0 && isPrivateAddress(host)) return reject(new BlockedAddressError());
+      const target = targetOf(cfg, typeof input === 'string' || input instanceof URL ? input : input.url);
+      if (!target) return reject(new BlockedAddressError());
+      const { url, loopback } = target;
 
       // Слой только читает. Запрос с телом или иным методом ушёл бы без тела и как GET: лучше отказ, чем тихая подмена.
       const method = (init.method ?? 'GET').toUpperCase();
@@ -184,4 +175,149 @@ export function createGuardedFetch(cfg: GuardedFetchConfig): typeof fetch {
       request.end();
     });
   };
+}
+
+/**
+ * Куда пойдёт запрос и локальный ли это узел. null: адрес не разобран, несёт учётную запись, схема не https
+ * (в локальном режиме ещё http на localhost и 127.0.0.1) или адрес цифрами внутренний. Общая проверка до соединения
+ * для читающего запроса и для запроса с телом.
+ */
+function targetOf(cfg: GuardedFetchConfig, input: string | URL): { url: URL; loopback: boolean } | null {
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return null;
+  }
+  const host = hostOf(url);
+  const loopback = cfg.allowLoopback && LOOPBACK_HOSTS.has(host);
+  if (url.username || url.password) return null;
+  if (url.protocol !== 'https:' && !(loopback && url.protocol === 'http:')) return null;
+  // Адрес числом: разрешения имени не будет, проверка здесь.
+  if (!loopback && isIP(host) !== 0 && isPrivateAddress(host)) return null;
+  return { url, loopback };
+}
+
+// --- Запрос с телом: исходящие вебхуки (FR-AUTO-10; план M8, задача 5, решение 10) ---
+
+/** Приёмник не ответил за отведённое время. */
+export class OutboundTimeoutError extends Error {
+  constructor() {
+    super('Исходящий запрос не дождался ответа');
+    this.name = 'OutboundTimeoutError';
+  }
+}
+
+export const POST_TIMEOUT_MS = 10_000;
+/** Тело ответа приёмника порталу не нужно: читается не больше этого и отбрасывается. */
+export const POST_RESPONSE_MAX_BYTES = 4096;
+
+/** readBody: вернуть и тело ответа (не длиннее maxResponseBytes): его ждёт вызывающий, которому нужен ответ API, а не только код. */
+export type GuardedPostOptions = { body: string; headers?: Record<string, string>; timeoutMs?: number; maxResponseBytes?: number; readBody?: boolean };
+/** body есть только при readBody и только если ответ дочитан и уложился в предел. */
+export type GuardedPostResult = { status: number; body?: string };
+export type GuardedPost = (cfg: GuardedFetchConfig, input: string | URL, opts: GuardedPostOptions) => Promise<GuardedPostResult>;
+
+/**
+ * Запрос POST с телом JSON по адресу, который задал администратор. Правила те же, что у читающего запроса:
+ *   - только https (в локальном режиме ещё http и https на localhost и 127.0.0.1);
+ *   - имя узла разрешается при соединении, и если хотя бы один адрес внутренний, соединения нет (BlockedAddressError);
+ *   - переадресации не выполняются: ответ 3xx возвращается кодом, по новому адресу никто не идёт;
+ *   - соединение не переиспользуется;
+ *   - на всё отведено timeoutMs (10 секунд), дольше: OutboundTimeoutError;
+ *   - из ответа берётся только код: тело не читается, соединение закрывается сразу после кода.
+ *     С readBody тело возвращается, если оно уложилось в maxResponseBytes: ответ длиннее предела приходит без тела,
+ *     соединение рвётся так же. Срок timeoutMs тогда покрывает и чтение тела.
+ * Подмена запроса в тестах (setOutboundFetchForTests) сюда не относится: её даёт вызывающий своим параметром.
+ */
+export const guardedPostJson: GuardedPost = (cfg, input, opts) =>
+  new Promise<GuardedPostResult>((done, reject) => {
+    const target = targetOf(cfg, input);
+    if (!target) return reject(new BlockedAddressError());
+    const { url, loopback } = target;
+    const body = Buffer.from(opts.body, 'utf8');
+    const limit = Math.max(0, opts.maxResponseBytes ?? POST_RESPONSE_MAX_BYTES);
+    let settled = false;
+    const finish = (result: GuardedPostResult | Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (result instanceof Error) reject(result);
+      else done(result);
+    };
+    const request = (url.protocol === 'https:' ? https : http).request(
+      url,
+      {
+        method: 'POST',
+        headers: { ...opts.headers, 'content-type': 'application/json', 'content-length': String(body.length) },
+        agent: false,
+        ...(loopback ? {} : { lookup: guardedLookup(resolverFor(cfg.resolve)) }),
+      },
+      (response) => {
+        const status = response.statusCode ?? 0;
+        let read = 0;
+        const pieces: Buffer[] = [];
+        // После предела соединение рвётся: приёмник не может держать его длинным ответом.
+        response.on('data', (piece: Buffer) => {
+          read += piece.length;
+          if (read > limit) {
+            response.destroy();
+            // Ответ длиннее предела: вызывающий получает код без тела.
+            if (opts.readBody) finish({ status });
+          } else if (opts.readBody) pieces.push(piece);
+        });
+        response.on('error', () => {
+          if (opts.readBody) finish({ status });
+        });
+        if (opts.readBody) {
+          response.on('end', () => finish({ status, body: Buffer.concat(pieces).toString('utf8') }));
+          response.on('close', () => finish({ status }));
+          return;
+        }
+        // Тело не нужно: ответ отдаётся по коду, и соединение рвётся сразу. Иначе приёмник, который отдал код и
+        // тянет тело (или не заканчивает его, не доходя до предела), держал бы сокет уже без срока ожидания.
+        finish({ status });
+        response.destroy();
+      },
+    );
+    const timer = setTimeout(() => {
+      request.destroy(new OutboundTimeoutError());
+      finish(new OutboundTimeoutError());
+    }, opts.timeoutMs ?? POST_TIMEOUT_MS);
+    request.on('error', (error) => finish(error));
+    request.end(body);
+  });
+
+// --- Проверка адреса при сохранении ---
+
+const BLOCKED_SUFFIXES = ['.local', '.internal', '.localhost'];
+
+/**
+ * Разобранный адрес, если он внешний, иначе null: схема https, без учётной записи, узел не служебный, адрес цифрами
+ * не внутренний, имя разрешается и ни один из его адресов не внутренний. allowLoopback: портал сам работает на
+ * localhost (разработка и тесты), тогда допускаются http и https на localhost и 127.0.0.1. Проверка при сохранении
+ * не заменяет проверку при соединении: ответ DNS может смениться, поэтому запрос идёт только через этот слой.
+ */
+export async function publicUrlOrNull(raw: string, opts: { allowLoopback: boolean; resolve?: Resolve }): Promise<URL | null> {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.username || url.password) return null;
+  const host = hostOf(url);
+  if (opts.allowLoopback && LOOPBACK_HOSTS.has(host) && (url.protocol === 'http:' || url.protocol === 'https:')) return url;
+  if (url.protocol !== 'https:') return null;
+  if (host === 'localhost' || BLOCKED_SUFFIXES.some((suffix) => host.endsWith(suffix))) return null;
+  if (isIP(host) !== 0) return isPrivateAddress(host) ? null : url;
+  let addresses: string[];
+  try {
+    addresses = await resolverFor(opts.resolve)(host);
+  } catch {
+    return null;
+  }
+  // Имя, которое не разрешается, тоже отклоняется: проверить его нельзя.
+  if (addresses.length === 0 || addresses.some(isPrivateAddress)) return null;
+  return url;
 }

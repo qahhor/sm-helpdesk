@@ -1,5 +1,6 @@
 import 'server-only';
-import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, asc, eq, or, sql } from 'drizzle-orm';
+import { containsText } from '@/db/contains';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
@@ -77,13 +78,11 @@ const orgColumns = {
 };
 
 /** Знаки шаблона LIKE в запросе ищутся как обычные знаки. */
-const likeEscape = (text: string) => text.replace(/[\\%_]/g, (char) => `\\${char}`);
 
 /** Поиск по названию, ИНН и идентификатору компании, без учёта регистра. limit + 1 строка: есть ли ещё. */
 export async function searchOrgs(actor: StaffActor, input: { query: string; offset: number; limit: number }): Promise<OrgRow[]> {
-  const pattern = `%${likeEscape(input.query)}%`;
   const filter = input.query
-    ? or(ilike(organizations.name, pattern), ilike(organizations.inn, pattern), ilike(organizations.externalCompanyId, pattern))
+    ? or(containsText(organizations.name, input.query), containsText(organizations.inn, input.query), containsText(organizations.externalCompanyId, input.query))
     : undefined;
   return withActor(actor, (tx) =>
     tx

@@ -201,5 +201,6 @@ test('поиск клиента по тексту в своей организа
   const ctx = await clientCtx(f.aUser);
   const { queries } = await captureQueries(() => listTickets(ctx, { q: 'нагрузочное' }));
   const plans = await plansFor(f.aUser.actor, queries, 'hdt_tickets');
+  expect(plans.length).toBeGreaterThan(0);
   for (const plan of plans) expect(plan, plan).not.toMatch(SEQ_SCAN);
 });

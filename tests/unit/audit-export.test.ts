@@ -57,6 +57,17 @@ test('следующий запуск продолжает с отметки п�
   expect(box.read('docker.args').trim().split('\n').at(-1)).toContain(`created_on >= '${first}'`);
 });
 
+test('верхняя граница отстаёт на 15 минут: запись долгой транзакции не теряется между файлами', () => {
+  const box = sandbox();
+  const before = Date.now();
+  expect(box.run().status).toBe(0);
+  const to = Date.parse(box.state() ?? '');
+  // Отметка это граница выгруженного отрезка: она в прошлом не меньше чем на 14 минут и не больше чем на 17.
+  expect(before - to).toBeGreaterThan(14 * 60_000);
+  expect(before - to).toBeLessThan(17 * 60_000);
+  expect(box.read('docker.args')).toContain(`created_on < '${box.state()}'`);
+});
+
 test('сбой выгрузки или чтения базы отметку не сдвигает: следующий запуск возьмёт тот же отрезок', () => {
   const upload = sandbox({ rcloneFails: true });
   expect(upload.run().status).not.toBe(0);

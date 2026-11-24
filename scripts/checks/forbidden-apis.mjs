@@ -8,7 +8,7 @@
 
 // - модуль не называет таблицу другого модуля в тексте запроса: нужное даёт api модуля-владельца (аудит
 //   23.11.2026, находка A2). Линтер импортов такую связь не видит.
-// - поиск по шаблону (LIKE, ILIKE) только с функцией экранирования likeEscape или likeText (решение 0041).
+// - поиск по шаблону (LIKE, ILIKE) только через src/db/contains.ts, где шаблон экранируется (решение 0041).
 
 /** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql' | 'system-actor' | 'cross-module-sql' | 'like-pattern'} ForbiddenRule */
 
@@ -37,9 +37,14 @@ function namesForeignTable(owner, line) {
   return owner !== 'hdu' && AUTH_TABLE.test(code);
 }
 
-// Поиск по шаблону: функции ilike и like построителя запросов или оператор в тексте запроса.
-const LIKE_USE = /\b(?:ilike|like)\(|\s(?:i?like)\s+\$\{/i;
-const LIKE_CONSTANT = /\b(?:ilike|like)\([^,()]+,\s*'[^'$]*'\)/;
+// Поиск по шаблону собирает только src/db/contains.ts (решение 0041): вызов ilike и like построителя запросов,
+// оператор в тексте запроса (ilike, like, ~~, ~~*) в остальном коде запрещены. Шаблон, записанный в коде строкой
+// ('files/%'), от человека не приходит и допускается.
+const LIKE_HOME = 'src/db/contains.ts';
+const LIKE_CALL = /\b(?:ilike|like|notIlike|notLike)\(/;
+const LIKE_CONSTANT = /\b(?:ilike|like)\([^,()]+,\s*'[^'$]*'\)/g;
+const LIKE_RAW_CONSTANT = /\si?like\s+'[^'$]*'(?!\s*\|\|)/gi;
+const LIKE_RAW = /(?:\s(?:not\s+)?i?like\s+(?:\$|'|\(|:)|~~\*?)/i;
 
 /** @type {{ rule: ForbiddenRule; test: RegExp }[]} */
 const RULES = [
@@ -70,7 +75,6 @@ export function findForbiddenApis(path, text) {
   /** @type {{ line: number; rule: ForbiddenRule }[]} */
   const found = [];
   const lines = text.split('\n');
-  const escapesPatterns = /\b(?:likeEscape|likeText)\(/.test(text);
   for (let i = 0; i < lines.length; i++) {
     /** @type {Set<ForbiddenRule>} */
     const seen = new Set();
@@ -83,11 +87,11 @@ export function findForbiddenApis(path, text) {
     if (REQUEST_CODE.test(path) && SYSTEM_ACTOR.test(lines[i])) found.push({ line: i + 1, rule: 'system-actor' });
     const owner = MODULE_FILE.exec(path)?.[1];
     if (owner && namesForeignTable(owner, lines[i])) found.push({ line: i + 1, rule: 'cross-module-sql' });
-    // Поиск по шаблону в файле без функции экранирования (решение 0041): шаблон из текста человека мог бы
-    // кончаться знаком экранирования, а оператор ILIKE отмечен в базе как безопасный для политик RLS.
-    // Шаблон, записанный в коде строкой ('files/%'), от человека не приходит и правилом не считается.
-    if (!escapesPatterns && LIKE_USE.test(lines[i].replace(/\/\/.*$/, '')) && !LIKE_CONSTANT.test(lines[i]) && !/^\s*(\/\/|\*|\/\*)/.test(lines[i]))
-      found.push({ line: i + 1, rule: 'like-pattern' });
+    // Шаблон поиска собирает только общий помощник: иначе экранирование легко забыть (решение 0041).
+    if (path !== LIKE_HOME && !/^\s*(\/\/|\*|\/\*)/.test(lines[i])) {
+      const code = lines[i].replace(/\/\/.*$/, '').replace(LIKE_CONSTANT, '').replace(LIKE_RAW_CONSTANT, '');
+      if (LIKE_CALL.test(code) || (/sql`|\.query\(|\.execute\(/.test(text) && LIKE_RAW.test(code))) found.push({ line: i + 1, rule: 'like-pattern' });
+    }
   }
   return found;
 }

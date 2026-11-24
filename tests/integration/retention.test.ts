@@ -120,14 +120,16 @@ test('журнал аудита не удаляет никто, кроме си�
   const fresh = await auditRow(1);
   // Сотрудник, администратор и клиент: удаление не проходит (нет права или политика не пускает ни одну строку).
   for (const who of [f.adminStaff.actor, f.l1.actor, f.aAdmin.actor]) {
-    const removed = await asActor(pools.app, who, (db) => db.query(`delete from hdc_audit_log where object_id like 'probe-%' returning audit_id`)).then(
-      (r) => r.rows.length,
-      () => 0,
-    );
-    expect(removed, who.type).toBe(0);
+    // Запрос проходит (право у роли есть), но политика не отдаёт ему ни одной строки.
+    const removed = await asActor(pools.app, who, (db) => db.query(`delete from hdc_audit_log where object_id like 'probe-%' returning audit_id`));
+    expect(removed.rows, who.type).toEqual([]);
   }
   // Система: свежая запись не удаляется даже прямым запросом без условия на возраст.
   const bySystem = await asActor(pools.app, SYSTEM, (db) => db.query(`delete from hdc_audit_log where object_id like 'probe-%' returning audit_id`));
   expect(bySystem.rows.map((r) => r.audit_id)).toEqual([old]);
   expect((await auditIds()).has(fresh)).toBe(true);
+  // Второй замок: ограничивающая политика держит срок, какую бы разрешающую ни добавили позже.
+  const guard = await pools.root.query(`select permissive, qual from pg_policies where tablename = 'hdc_audit_log' and policyname = 'hdc_audit_log_delete_guard'`);
+  expect(guard.rows[0]?.permissive).toBe('RESTRICTIVE');
+  expect(guard.rows[0]?.qual).toContain("'3 years'");
 });

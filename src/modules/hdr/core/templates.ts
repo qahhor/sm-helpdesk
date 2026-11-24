@@ -1,5 +1,6 @@
 import 'server-only';
-import { and, asc, eq, ilike, isNull, or } from 'drizzle-orm';
+import { and, asc, eq, isNull, or } from 'drizzle-orm';
+import { containsText } from '@/db/contains';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { HdrError } from '../error';
@@ -26,11 +27,10 @@ const columns = {
   isEnabled: replyTemplates.isEnabled,
 };
 
-const likeEscape = (text: string) => text.replace(/[\\%_]/g, (char) => `\\${char}`);
 
 /** Включённые шаблоны для поля ответа: общие и шаблоны модуля обращения, с поиском по коду и названию. */
 export async function listTemplatesTx(actor: StaffActor, opts: { q?: string; moduleId?: string | null }): Promise<ReplyTemplate[]> {
-  const pattern = opts.q ? `%${likeEscape(opts.q)}%` : null;
+  const q = opts.q;
   return withActor(actor, (tx) =>
     tx
       .select(columns)
@@ -39,7 +39,7 @@ export async function listTemplatesTx(actor: StaffActor, opts: { q?: string; mod
         and(
           eq(replyTemplates.isEnabled, true),
           opts.moduleId ? or(isNull(replyTemplates.moduleId), eq(replyTemplates.moduleId, opts.moduleId)) : isNull(replyTemplates.moduleId),
-          pattern ? or(ilike(replyTemplates.shortcut, pattern), ilike(replyTemplates.title, pattern)) : undefined,
+          q ? or(containsText(replyTemplates.shortcut, q), containsText(replyTemplates.title, q)) : undefined,
         ),
       )
       .orderBy(asc(replyTemplates.shortcut)),

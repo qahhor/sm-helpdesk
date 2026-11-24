@@ -1,5 +1,6 @@
 import 'server-only';
-import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lt, ne, notInArray, or, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, ne, notInArray, or, type SQL, sql } from 'drizzle-orm';
+import { containsText } from '@/db/contains';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
@@ -73,14 +74,13 @@ function queueWhere(queue: QueueKey, me: string): SQL | undefined {
   }
 }
 
-const likeText = (text: string) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 /** Поиск (FR-AG-10): номер, текст темы и описания, организация, автор. Части соединяются через "или". */
 function searchWhere(search: QueueSearch | undefined): SQL | undefined {
   if (!search) return undefined;
   const parts: SQL[] = [];
   if (search.number !== undefined) parts.push(eq(tickets.number, search.number));
-  if (search.text) parts.push(ilike(tickets.title, likeText(search.text)), ilike(tickets.description, likeText(search.text)));
+  if (search.text) parts.push(containsText(tickets.title, search.text), containsText(tickets.description, search.text));
   if (search.orgIds.length > 0) parts.push(inArray(tickets.orgId, search.orgIds));
   if (search.authorIds.length > 0) parts.push(inArray(tickets.authorId, search.authorIds));
   // Строка поиска была, а совпадений ни по чему нет: пусто, а не вся очередь.

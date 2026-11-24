@@ -40,7 +40,7 @@ test('hub_app не меняет схему и не видит журнал ми�
 
 test('повторный запуск начальной настройки и миграций ничего не меняет', async () => {
   await expect(bootstrap()).resolves.toBeUndefined();
-  expect(await migrate()).toEqual({ applied: 0 });
+  expect(await migrate()).toEqual({ applied: 0, searchIndexed: true });
   await pools.app.query('select 1');
 });
 

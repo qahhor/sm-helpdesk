@@ -90,6 +90,13 @@ test('замеры бюджета и Lighthouse идут после подгот
   expect(steps.indexOf('pnpm budget')).toBeLessThan(steps.indexOf('pnpm lighthouse'));
 });
 
+test('оценка Lighthouse считается по медиане трёх замеров с порогами ТЗ', () => {
+  const rc = JSON.parse(readFileSync('lighthouserc.json', 'utf8')).ci;
+  expect(rc.collect.numberOfRuns).toBe(3);
+  expect(rc.assert.assertions['categories:performance']).toEqual(['error', { minScore: 0.85, aggregationMethod: 'median' }]);
+  expect(rc.assert.assertions['categories:accessibility']).toEqual(['error', { minScore: 0.95, aggregationMethod: 'median' }]);
+});
+
 test('контейнер в задаче image получает все обязательные переменные окружения (итоговая проверка M1)', () => {
   const run = (wf.jobs.image.steps as { run?: string }[]).map((step) => step.run ?? '').join('\n');
   const passed = new Set([...run.matchAll(/--env ([A-Z_]+)=/g)].map((m) => m[1]));

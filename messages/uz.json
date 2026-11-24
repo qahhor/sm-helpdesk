@@ -981,6 +981,14 @@
           },
           "metrics": {
             "exported": "Ko'rsatkichlar CSV ga eksport qilindi"
+          },
+          "solution": {
+            "published": "Yechim e'lon qilindi",
+            "archived": "Yechim arxivga olindi",
+            "audience_changed": "Yechim kimga ko'rinishi o'zgartirildi",
+            "version_restored": "Yechimning oldingi versiyasi qaytarildi",
+            "text_read": "Belgilandi: AI yozgan yechim matni o'qildi",
+            "file_infected": "Antivirus yechim rasmida virus topdi"
           }
         },
         "words": {
@@ -2418,6 +2426,142 @@
         "forbidden": "Tahlil qaydini Customer Care va administrator yozadi.",
         "invalid_input": "Qayd saqlanmadi: 1 dan 3 gacha baholangan murojaatga 2000 belgigacha matn kerak.",
         "not_found": "Murojaat topilmadi."
+      }
+    },
+    "solutions": {
+      "title": "Yechimlar",
+      "new": "Yangi yechim",
+      "newTitle": "Yangi yechim",
+      "create": "Yaratish",
+      "untitled": "Sarlavhasiz",
+      "noModule": "Modul tanlanmagan",
+      "moduleInactive": "Modul o'chirilgan",
+      "hasChanges": "Tuzatishlar bor",
+      "internalOnly": "Faqat xodim orqali",
+      "needsReview": "Qayta ko'rib chiqish",
+      "numberLabel": "Yechim {number}",
+      "languageOf": "Til: {language}",
+      "archivedNotice": "Yechim arxivda: mijozlar uni ko'rmaydi. Uni yangi e'lon bilan qaytarish mumkin.",
+      "readOnly": "Yechim faqat o'qish uchun ochiq: uni birinchi va ikkinchi liniya, Customer Care va administrator tuzatadi.",
+      "columns": {
+        "number": "Raqam",
+        "title": "Sarlavha",
+        "module": "Modul",
+        "language": "Til",
+        "status": "Holat",
+        "updated": "O'zgartirilgan"
+      },
+      "locales": {
+        "ru": "Ruscha",
+        "uz": "O'zbekcha",
+        "en": "Inglizcha"
+      },
+      "statuses": {
+        "draft": "Qoralama",
+        "published": "E'lon qilingan",
+        "archived": "Arxivda"
+      },
+      "mine": {
+        "title": "Mening vazifalarim",
+        "intro": "Qoralamalaringiz va mijozlarga ko'pincha yordam bermaydigan yechimlaringiz.",
+        "emptyTitle": "Vazifa yo'q",
+        "emptyText": "Bu yerda qoralamalaringiz va qayta ko'rib chiqiladigan yechimlar chiqadi."
+      },
+      "all": {
+        "title": "Barcha yechimlar",
+        "emptyTitle": "Yechim topilmadi",
+        "emptyText": "Filtrlarni o'zgartiring yoki yangi yechim yarating."
+      },
+      "filters": {
+        "label": "Yechimlar filtrlari",
+        "status": "Holat",
+        "module": "Modul",
+        "language": "Til",
+        "any": "Istalgan",
+        "apply": "Ko'rsatish"
+      },
+      "fields": {
+        "title": "Sarlavha",
+        "locale": "Asl til",
+        "module": "Modul",
+        "internal": "Faqat xodim orqali",
+        "internalHint": "Mijozlar yechimni ko'rmaydi: uni xodim qo'llaydi."
+      },
+      "errors": {
+        "forbidden": "Bu amal uchun huquq yetarli emas.",
+        "invalid_input": "Maydonlarni tekshirib, qayta urinib ko'ring.",
+        "not_found": "Yechim yoki versiya topilmadi.",
+        "meta": "Modul va ko'rinishni saqlab bo'lmadi. Qayta urinib ko'ring.",
+        "metaForbidden": "E'lon qilingan yechimni mijozlarga faqat ikkinchi liniya, Customer Care yoki administrator ochadi."
+      },
+      "template": {
+        "what": "Foydalanuvchi nimani ko'radi",
+        "why": "Nega shunday bo'ladi",
+        "do": "Nima qilish kerak"
+      },
+      "save": {
+        "saved": "Barcha o'zgarishlar saqlandi",
+        "savedAt": "{time} da saqlandi",
+        "dirty": "Saqlanmagan o'zgarishlar bor",
+        "saving": "Saqlanmoqda...",
+        "offline": "Aloqa yo'q. O'zgarishlar aloqa tiklanganda saqlanadi.",
+        "conflict": "Qoralamani boshqa oynada yoki boshqa xodim o'zgartirdi. Matningiz saqlanmadi va sahifada qoldi: keraklisini nusxalab, oxirgi versiyani oching.",
+        "error": "Saqlab bo'lmadi",
+        "restored": "Saqlanib ulgurmagan matn tiklandi.",
+        "reload": "Oxirgi versiyani ochish"
+      },
+      "screenshot": {
+        "title": "Ekran surati",
+        "description": "Suratni qo'ying, kerakli joyni belgilang va shaxsiy ma'lumotlarni xiralashtiring.",
+        "close": "Yopish",
+        "pasteHint": "Ekran suratini qo'ying: Ctrl+V.",
+        "chooseFile": "Faylni tanlash",
+        "tools": "Surat belgilari",
+        "arrow": "Strelka",
+        "frame": "Ramka",
+        "number": "Qadam raqami",
+        "blur": "Xiralashtirish",
+        "undo": "Bekor qilish",
+        "alt": "Suratda nima bor",
+        "altHint": "Rasmni ko'rmaydiganlar uchun qisqacha.",
+        "insert": "Qo'yish",
+        "uploading": "Yuklanmoqda va tekshirilmoqda...",
+        "failed": "Suratni yuklab bo'lmadi. Qayta urinib ko'ring.",
+        "notImage": "PNG, JPEG yoki WebP surat mos keladi.",
+        "canvas": "Belgilangan ekran surati"
+      },
+      "view": {
+        "warning": "Diqqat",
+        "info": "Eslatma",
+        "step": "{n}-qadam"
+      },
+      "versions": {
+        "title": "Versiyalar tarixi",
+        "columns": {
+          "number": "Versiya",
+          "state": "Holat",
+          "title": "Sarlavha",
+          "modified": "O'zgartirilgan",
+          "actions": "Amallar"
+        },
+        "states": {
+          "draft": "Qoralama",
+          "published": "E'lon qilingan",
+          "superseded": "Oldingi"
+        },
+        "machine": "AI, tekshirilmagan",
+        "restore": "Qaytarish",
+        "restoreOf": "{number}-versiyani qaytarish",
+        "restored": "Oldingi versiya matni qoralamaga aylandi.",
+        "hint": "Qaytarish tarixni o'zgartirmaydi: tanlangan versiya matni qoralamaga aylanadi."
+      },
+      "preview": {
+        "open": "Oldindan ko'rish",
+        "title": "Oldindan ko'rish",
+        "devices": "Ekran kengligi",
+        "phone": "Telefon",
+        "desktop": "Kompyuter",
+        "hint": "Oxirgi saqlangan matn mijoz ko'radigan ko'rinishda."
       }
     }
   },

@@ -148,6 +148,35 @@ test('3в. вставка из Word: заголовки по уровням, с�
   await shot(page, '3c-word-mixed');
 });
 
+test('3г. вставка из Google Docs: заголовки, списки с вложенным уровнем, таблица и отметки; стили, цвет и рисунок уходят (UX-W-11)', async ({ page }) => {
+  await open(page);
+  await clear(page);
+  await paste(page, fixture('gdocs-mixed.html'));
+  const doc = await savedDoc(page);
+  expect(doc.blocks.map((b) => (b.type === 'heading' ? `h${b.attrs.level}` : b.type))).toEqual(['h2', 'paragraph', 'orderedList', 'h3', 'bulletList', 'table']);
+  expect(textOf(doc.blocks[0])).toBe('Отчёт не открывается');
+  // Обёртка <b style="font-weight:normal"> не делает весь текст жирным: жирное только слово "жирный".
+  const marks = (doc.blocks[1] as { content: { text: string; marks?: { type: string }[] }[] }).content;
+  expect(marks.filter((n) => n.marks?.some((m) => m.type === 'bold')).map((n) => n.text)).toEqual(['жирный']);
+  expect(marks.filter((n) => n.marks?.some((m) => m.type === 'italic')).map((n) => n.text)).toEqual(['курсив']);
+  const ordered = doc.blocks[2]!;
+  if (ordered.type !== 'orderedList') throw new Error('нет списка');
+  expect(ordered.content.map((item) => textOf(item.content[0]))).toEqual(['Откройте раздел Отчёты', 'Нажмите Обновить']);
+  // Вложенный список Google Docs лежит прямо в списке: он становится вторым уровнем пункта выше.
+  expect(ordered.content[1]!.content[1]?.type).toBe('orderedList');
+  expect(textOf(ordered.content[1]!.content[1])).toBe('подождите минуту');
+  const table = doc.blocks[5]!;
+  expect(table.type === 'table' && table.content.map((row) => row.content.map(textOf))).toEqual([
+    ['Код', 'Что сделать'],
+    ['R-17', 'Обновите отчёт'],
+  ]);
+  const raw = JSON.stringify(doc);
+  expect(raw).toContain('"href":"https://smartup.uz/docs/reports"');
+  for (const junk of ['docs-internal-guid', 'style', 'Arial', 'ff0000', 'googleusercontent', '"image"', 'underline', 'hardBreak']) expect(raw).not.toContain(junk);
+  expect(textOf(doc.blocks[1])).toContain('подчёркнутый красный');
+  await shot(page, '3d-gdocs-mixed');
+});
+
 test('4. копия блока внутри документа получает новые идентификаторы, оригинал свои сохраняет', async ({ page }) => {
   await open(page);
   const before = await savedDoc(page);

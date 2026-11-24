@@ -221,6 +221,8 @@
   --container-dashboard: 1680px;
   /* Колонка разделов в образце "Настройки" (раздел 8.11 ТЗ) */
   --container-settings-nav: 240px;
+  /* Предпросмотр решения на телефоне (UX-W-05): ширина телефона клиента, как у браузерных тестов кабинета */
+  --container-phone-preview: 360px;
 
   /* Точки перелома Smartup Web (docs/design/smartup-breakpoints.scss). Других в портале нет. */
   --breakpoint-*: initial;

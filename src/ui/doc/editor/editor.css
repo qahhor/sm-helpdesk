@@ -185,3 +185,11 @@ img.ProseMirror-separator {
   gap: calc(var(--spacing) * 2);
   padding-top: calc(var(--spacing) * 2);
 }
+
+/* Находка проверки FR-SOL-04 (план M5, задача 4): блок обведён цветом опасности, рядом список находок с объяснением.
+   Цвет не единственный признак: список находок называет каждую текстом. */
+.doc-editor .doc-finding {
+  outline: 2px solid var(--color-destructive);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}

@@ -12,7 +12,7 @@ import Paragraph from '@tiptap/extension-paragraph';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
 import Text from '@tiptap/extension-text';
 import { Dropcursor, Gapcursor, UndoRedo } from '@tiptap/extensions';
-import { Plugin, TextSelection } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection, type EditorState } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { CALLOUT_TONES, HEADING_LEVELS, ID_NODE_TYPES, isAllowedHref, isFileId } from '@/modules/hdk/api/doc-rules';
 import { moveBlock } from './commands';
@@ -257,6 +257,36 @@ export type SolutionExtensionOptions = {
   imageSrc?: ImageSrcResolver;
 };
 
+// Подсветка находок проверки FR-SOL-04 (план M5, задача 4): блоки с находками получают класс doc-finding.
+// Список идентификаторов приходит от страницы метой транзакции, документ при этом не меняется.
+export const findingsKey = new PluginKey<ReadonlySet<string>>('solutionFindings');
+
+const Findings = Extension.create({
+  name: 'solutionFindings',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin<ReadonlySet<string>>({
+        key: findingsKey,
+        state: {
+          init: () => new Set<string>(),
+          apply: (tr, value) => (tr.getMeta(findingsKey) as ReadonlySet<string> | undefined) ?? value,
+        },
+        props: {
+          decorations(state: EditorState) {
+            const ids = findingsKey.getState(state);
+            if (!ids || ids.size === 0) return null;
+            const decorations: Decoration[] = [];
+            state.doc.descendants((node, pos) => {
+              if (typeof node.attrs.id === 'string' && ids.has(node.attrs.id)) decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: 'doc-finding' }));
+            });
+            return DecorationSet.create(state.doc, decorations);
+          },
+        },
+      }),
+    ];
+  },
+});
+
 export function createSolutionExtensions(options: SolutionExtensionOptions = {}): Extensions {
   return [
     Document,
@@ -280,6 +310,7 @@ export function createSolutionExtensions(options: SolutionExtensionOptions = {})
     SolutionTableCell,
     SolutionTableHeader,
     StableIds,
+    Findings,
     UndoRedo,
     Dropcursor,
     Gapcursor,

@@ -34,3 +34,26 @@ export type DeflectionZone = (typeof DEFLECTION_ZONES)[number];
 export const TITLE_MAX = 200;
 /** Самый большой номер статьи, который принимает ввод. */
 export const ARTICLE_NUMBER_MAX = 999_999_999_999;
+
+/** Автосохранение черновика раз в 5 секунд (UX-W-04). */
+export const AUTOSAVE_INTERVAL_MS = 5000;
+/** Предел длины метки версии строки: текст timestamptz из базы. */
+export const REVISION_MAX = 64;
+/** Статусы решения в списке /agent/solutions: черновик без публикации, опубликовано, в архиве. */
+export const SOLUTION_LIST_STATUSES = ['draft', 'published', 'archived'] as const;
+export type SolutionListStatus = (typeof SOLUTION_LIST_STATUSES)[number];
+/** Сколько строк показывает список решений за раз. */
+export const SOLUTION_LIST_LIMIT = 200;
+/**
+ * Список на пересмотр (FR-SOL-19, план M5, решение 18): доля "не помогло" выше 40% при не менее чем 10 исходах.
+ * Тот же порог задача 11 покажет на странице показателей.
+ */
+export const REVIEW_MIN_OUTCOMES = 10;
+export const REVIEW_NOT_HELPED_PERCENT = 40;
+/** Ключи хранилища файлов решений: карантин до проверки и постоянное место (решение 16). */
+export const fileQuarantineKey = (fileId: string): string => `quarantine/kb/${fileId}`;
+export const fileStorageKey = (articleId: string, fileId: string): string => `files/kb/${articleId}/${fileId}`;
+/** Настройка администратора: домены, на которые можно ссылаться из решения (FR-SOL-04). */
+export const ALLOWED_DOMAINS_SETTING = 'kb.allowed_domains';
+/** Сколько доменов принимает настройка. */
+export const ALLOWED_DOMAINS_MAX = 50;

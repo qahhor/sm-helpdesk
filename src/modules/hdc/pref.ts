@@ -126,6 +126,13 @@ export const AUDIT_ACTIONS = [
   // Показатели (веха M8): выгрузка CSV и заметка руководителя о разборе низкой оценки.
   'metrics.exported',
   'ticket.csat_reviewed',
+  // Решения (веха M5): публикация, архив, аудитория, возврат версии, отметка "Текст прочитан", заражённое изображение.
+  'solution.published',
+  'solution.archived',
+  'solution.audience_changed',
+  'solution.version_restored',
+  'solution.text_read',
+  'solution.file_infected',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

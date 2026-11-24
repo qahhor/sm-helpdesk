@@ -8,6 +8,7 @@ import { bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, crea
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
+import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
@@ -38,6 +39,8 @@ export const SCHEDULES = [
 
 const scanJob = z.object({ attachmentId: z.uuid() }).strict();
 const inboundJob = z.object({ inboundId: z.uuid() }).strict();
+const kbFileJob = z.object({ fileId: z.uuid() }).strict();
+const kbIndexJob = z.object({ articleId: z.uuid() }).strict();
 const actor = (job: string): SystemActor => ({ type: 'system', job });
 
 /**
@@ -138,6 +141,16 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
       if (isHdtError(error) && error.code === 'not_found') return;
       throw error;
     }
+  }));
+  await boss.work('kb.scan', { ...polling, localConcurrency: 2 }, ([job]) => timedJob('kb.scan', async () => {
+    // Изображение решения (план M5, задача 3): в задаче только идентификатор файла.
+    const { fileId } = kbFileJob.parse(job?.data);
+    await scanSolutionFile(actor('kb.scan'), fileId);
+  }));
+  await boss.work('kb.index', polling, ([job]) => timedJob('kb.index', async () => {
+    // Публикация ставит задачу после фиксации (план M5, задача 4). Строку индекса и вектор пишет задача 9; до неё
+    // задача только принимает идентификатор и ничего не меняет, ночная сверка kb.reconcile задачи 9 найдёт опубликованное без строки индекса.
+    kbIndexJob.parse(job?.data);
   }));
   await boss.work('email.inbound', polling, ([job]) => timedJob('email.inbound', async () => {
     // В задаче только идентификатор письма: сведения о нём в базе, текст и файлы у почтового сервиса.

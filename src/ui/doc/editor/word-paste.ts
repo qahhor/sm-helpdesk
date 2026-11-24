@@ -86,8 +86,62 @@ function rename(element: Element, tag: string) {
   element.replaceWith(replacement);
 }
 
-/** Чистит HTML из Word. Разметка не из Word возвращается как есть: её разбирает схема редактора. */
+// Google Docs (UX-W-11; план M5, задача 3) кладёт в буфер документ внутри <b style="font-weight:normal"
+// id="docs-internal-guid-...">, заголовок документа как h1, вложенные списки прямо внутри списка (их разбор ProseMirror
+// переносит в пункт выше), рисунки по временным адресам googleusercontent, переводы строк <br> между блоками.
+const GDOCS_SIGNS = /id=["']?docs-internal-guid-/i;
+
+export function looksLikeGoogleDocs(html: string): boolean {
+  return GDOCS_SIGNS.test(html);
+}
+
+function cleanGoogleDocs(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const body = doc.body;
+  body.querySelectorAll(DROP).forEach((element) => element.remove());
+  // Обёртка всего документа: снимается, её содержимое остаётся.
+  body.querySelectorAll('b[id^="docs-internal-guid-"]').forEach((wrapper) => wrapper.replaceWith(...wrapper.childNodes));
+  // Жирный и курсив Google Docs задаёт стилем span (font-weight:700, font-style:italic), а разбор редактора берёт
+  // отметки по тегам: стиль становится тегом, сам span со стилями уходит.
+  for (const span of [...body.querySelectorAll('span[style]')]) {
+    const style = span.getAttribute('style') ?? '';
+    let content: Node[] = [...span.childNodes];
+    const wrap = (tag: string) => {
+      const element = doc.createElement(tag);
+      element.append(...content);
+      content = [element];
+    };
+    if (/font-weight\s*:\s*(?:bold|[6-9]00)/i.test(style)) wrap('strong');
+    if (/font-style\s*:\s*italic/i.test(style)) wrap('em');
+    span.replaceWith(...content);
+  }
+  // Переводы строк между блоками стали бы пустыми абзацами с переносом.
+  body.querySelectorAll('br').forEach((br) => {
+    if (br.parentElement === body || br.classList.contains('Apple-interchange-newline')) br.remove();
+  });
+  normalizeBlocks(body);
+  return body.innerHTML;
+}
+
+/** Заголовки по уровням решения, рисунки только файлами решения, без пустых абзацев. */
+function normalizeBlocks(body: HTMLElement) {
+  // Заголовки: в теле решения только второй и третий уровень, первый это заголовок решения.
+  body.querySelectorAll('h1').forEach((h) => rename(h, 'h2'));
+  body.querySelectorAll('h4, h5, h6').forEach((h) => rename(h, 'h3'));
+  // Рисунки из буфера ссылаются на временные файлы (file:///..., googleusercontent): их не загрузить.
+  // В документ попадает только изображение со ссылкой на файл решения (решение 16 плана M5).
+  body.querySelectorAll('img').forEach((img) => {
+    if (!isFileId(img.getAttribute('data-file-id'))) img.remove();
+  });
+  // Пустые абзацы (у Word <o:p>&nbsp;</o:p>) не нужны: отступы задаёт портал.
+  body.querySelectorAll('p').forEach((p) => {
+    if ((p.textContent ?? '').replace(/[\s\u00a0]/g, '') === '' && !p.querySelector('img')) p.remove();
+  });
+}
+
+/** Чистит HTML из Word и Google Docs. Другая разметка возвращается как есть: её разбирает схема редактора. */
 export function cleanPastedHtml(html: string): string {
+  if (looksLikeGoogleDocs(html)) return cleanGoogleDocs(html);
   if (!looksLikeWord(html)) return html;
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const body = doc.body;

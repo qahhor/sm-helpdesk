@@ -981,6 +981,14 @@
           },
           "metrics": {
             "exported": "Metrics exported to CSV"
+          },
+          "solution": {
+            "published": "Solution published",
+            "archived": "Solution archived",
+            "audience_changed": "Solution visibility changed",
+            "version_restored": "Earlier solution version restored",
+            "text_read": "Marked: AI solution text read",
+            "file_infected": "Antivirus found an infected solution image"
           }
         },
         "words": {
@@ -2418,6 +2426,142 @@
         "forbidden": "The review note is written by Customer Care and the administrator.",
         "invalid_input": "The note is not saved: it needs a text of up to 2000 characters for a request rated 1 to 3.",
         "not_found": "Request not found."
+      }
+    },
+    "solutions": {
+      "title": "Solutions",
+      "new": "New solution",
+      "newTitle": "New solution",
+      "create": "Create",
+      "untitled": "Untitled",
+      "noModule": "No module selected",
+      "moduleInactive": "Module disabled",
+      "hasChanges": "Has edits",
+      "internalOnly": "Staff only",
+      "needsReview": "Needs review",
+      "numberLabel": "Solution {number}",
+      "languageOf": "Language: {language}",
+      "archivedNotice": "The solution is archived: clients do not see it. Publish it again to bring it back.",
+      "readOnly": "This solution is read-only for you: first and second line, Customer Care and admins can edit it.",
+      "columns": {
+        "number": "Number",
+        "title": "Title",
+        "module": "Module",
+        "language": "Language",
+        "status": "Status",
+        "updated": "Changed"
+      },
+      "locales": {
+        "ru": "Russian",
+        "uz": "Uzbek",
+        "en": "English"
+      },
+      "statuses": {
+        "draft": "Draft",
+        "published": "Published",
+        "archived": "Archived"
+      },
+      "mine": {
+        "title": "My tasks",
+        "intro": "Your drafts and your solutions that often do not help clients.",
+        "emptyTitle": "No tasks",
+        "emptyText": "Your drafts and solutions to review will appear here."
+      },
+      "all": {
+        "title": "All solutions",
+        "emptyTitle": "No solutions found",
+        "emptyText": "Change the filters or create a new solution."
+      },
+      "filters": {
+        "label": "Solution filters",
+        "status": "Status",
+        "module": "Module",
+        "language": "Language",
+        "any": "Any",
+        "apply": "Show"
+      },
+      "fields": {
+        "title": "Title",
+        "locale": "Original language",
+        "module": "Module",
+        "internal": "Staff only",
+        "internalHint": "Clients will not see the solution: staff apply it."
+      },
+      "errors": {
+        "forbidden": "You do not have permission for this action.",
+        "invalid_input": "Check the fields and try again.",
+        "not_found": "Solution or version not found.",
+        "meta": "Could not save the module and visibility. Try again.",
+        "metaForbidden": "Only second line, Customer Care or an admin can open a published solution to clients."
+      },
+      "template": {
+        "what": "What the user sees",
+        "why": "Why it happens",
+        "do": "What to do"
+      },
+      "save": {
+        "saved": "All changes saved",
+        "savedAt": "Saved at {time}",
+        "dirty": "Unsaved changes",
+        "saving": "Saving...",
+        "offline": "No connection. Changes will be saved when the connection is back.",
+        "conflict": "The draft was changed in another tab or by a colleague. Your text was not saved and stays on the page: copy what you need and open the latest version.",
+        "error": "Could not save",
+        "restored": "Restored text that had not been saved.",
+        "reload": "Open latest version"
+      },
+      "screenshot": {
+        "title": "Screenshot",
+        "description": "Paste a screenshot, mark what matters and blur personal data.",
+        "close": "Close",
+        "pasteHint": "Paste a screenshot: Ctrl+V.",
+        "chooseFile": "Choose file",
+        "tools": "Screenshot markup",
+        "arrow": "Arrow",
+        "frame": "Frame",
+        "number": "Step number",
+        "blur": "Blur",
+        "undo": "Undo",
+        "alt": "What is in the image",
+        "altHint": "Briefly, for people who cannot see the image.",
+        "insert": "Insert",
+        "uploading": "Uploading and checking...",
+        "failed": "Could not upload the screenshot. Try again.",
+        "notImage": "Use a PNG, JPEG or WebP image.",
+        "canvas": "Screenshot with markup"
+      },
+      "view": {
+        "warning": "Warning",
+        "info": "Note",
+        "step": "Step {n}"
+      },
+      "versions": {
+        "title": "Version history",
+        "columns": {
+          "number": "Version",
+          "state": "State",
+          "title": "Title",
+          "modified": "Changed",
+          "actions": "Actions"
+        },
+        "states": {
+          "draft": "Draft",
+          "published": "Published",
+          "superseded": "Earlier"
+        },
+        "machine": "AI, not checked",
+        "restore": "Restore",
+        "restoreOf": "Restore version {number}",
+        "restored": "The earlier version text is now the draft.",
+        "hint": "Restoring does not change history: the selected version text becomes the draft."
+      },
+      "preview": {
+        "open": "Preview",
+        "title": "Preview",
+        "devices": "Screen width",
+        "phone": "Phone",
+        "desktop": "Computer",
+        "hint": "The last saved text as the client will see it."
       }
     }
   },

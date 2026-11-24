@@ -31,7 +31,7 @@ import type { SolutionDoc } from '@/modules/hdk/api/doc';
 import { isAllowedHref } from '@/modules/hdk/api/doc-rules';
 import { cn } from '@/ui/cn';
 import { fromEditorJson, toEditorJson } from './convert';
-import { createSolutionExtensions, type ImageSrcResolver } from './extensions';
+import { createSolutionExtensions, findingsKey, type ImageSrcResolver } from './extensions';
 import { cleanPastedHtml } from './word-paste';
 import './editor.css';
 
@@ -81,7 +81,14 @@ function StepView() {
 
 type Tool = { key: keyof SolutionEditorLabels; icon: LucideIcon; run: (editor: Editor) => void; active?: (editor: Editor) => boolean; enabled?: (editor: Editor) => boolean };
 
-function tools(labels: SolutionEditorLabels, image: { fileId: string; alt: string }): Tool[][] {
+type ImageSource = { fileId: string; alt: string } | (() => Promise<{ fileId: string; alt: string } | null>);
+
+/** Изображение в текущее место: файл решения уже загружен и проверен. */
+function insertImageNode(editor: Editor, image: { fileId: string; alt: string }) {
+  editor.chain().focus().insertContent({ type: 'image', attrs: { fileId: image.fileId, alt: image.alt } }).run();
+}
+
+function tools(labels: SolutionEditorLabels, image: ImageSource): Tool[][] {
   return [
     [
       { key: 'bold', icon: Bold, run: (e) => e.chain().focus().toggleBold().run(), active: (e) => e.isActive('bold') },
@@ -110,7 +117,19 @@ function tools(labels: SolutionEditorLabels, image: { fileId: string; alt: strin
       { key: 'step', icon: Footprints, run: (e) => e.chain().focus().toggleStep().run(), active: (e) => e.isActive('step') },
       { key: 'calloutWarning', icon: TriangleAlert, run: (e) => e.chain().focus().toggleCallout('warning').run(), active: (e) => e.isActive('callout', { tone: 'warning' }) },
       { key: 'calloutInfo', icon: Info, run: (e) => e.chain().focus().toggleCallout('info').run(), active: (e) => e.isActive('callout', { tone: 'info' }) },
-      { key: 'image', icon: ImagePlus, run: (e) => e.chain().focus().insertContent({ type: 'image', attrs: { fileId: image.fileId, alt: image.alt } }).run() },
+      {
+        key: 'image',
+        icon: ImagePlus,
+        run: (e) => {
+          if (typeof image !== 'function') return insertImageNode(e, image);
+          // Окно загрузки и разметки снимка: изображение встаёт туда, где был курсор.
+          const at = e.state.selection.from;
+          void image().then((result) => {
+            if (!result || e.isDestroyed) return;
+            e.chain().focus(at).insertContent({ type: 'image', attrs: { fileId: result.fileId, alt: result.alt } }).run();
+          });
+        },
+      },
     ],
     [
       { key: 'table', icon: Table, run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run(), enabled: (e) => !e.isActive('table') },
@@ -191,16 +210,32 @@ export type SolutionEditorProps = {
   labels: SolutionEditorLabels;
   /** Адрес файла решения для показа изображения: в документе хранится только fileId (план M5, решение 16). */
   imageSrc: ImageSrcResolver;
-  /** Файл для кнопки "Изображение". Загрузка файлов появится в задаче 3 и заменит эту заготовку. */
-  insertImage: { fileId: string; alt: string };
+  /**
+   * Кнопка "Изображение": готовый файл (страница пробы) или окно загрузки и разметки снимка (страница решения,
+   * задача 3), которое отдаёт проверенный файл или null.
+   */
+  insertImage: ImageSource;
+  /** Снимок экрана вставлен из буфера прямо в текст: страница открывает окно разметки (UX-W-03). */
+  onPasteImage?: ((file: File) => void) | undefined;
+  /** Блоки с находками проверки FR-SOL-04: подсвечиваются (задача 4). */
+  findingIds?: readonly string[];
+  /** Готовый редактор: страница вставляет изображение после окна разметки. */
+  onReady?: (api: { insertImage: (image: { fileId: string; alt: string }) => void }) => void;
+  /** Только чтение: редактор показывает документ без правки. */
+  editable?: boolean;
   /** Документ для сохранения после каждой правки (ещё не проверен схемой). */
   onChange?: (doc: { version: 1; blocks: unknown[] }) => void;
   /** Только на странице пробы: редактор доступен браузерному тесту как window.__solutionEditor. */
   exposeForTests?: boolean;
 };
 
-export function SolutionEditor({ initial, labels, imageSrc, insertImage, onChange, exposeForTests }: SolutionEditorProps) {
+export function SolutionEditor({ initial, labels, imageSrc, insertImage, onPasteImage, findingIds, onReady, editable = true, onChange, exposeForTests }: SolutionEditorProps) {
+  const pasteImage = useRef(onPasteImage);
+  useEffect(() => {
+    pasteImage.current = onPasteImage;
+  }, [onPasteImage]);
   const editor = useEditor({
+    editable,
     extensions: createSolutionExtensions({ stepView: ReactNodeViewRenderer(StepView), imageSrc }),
     content: toEditorJson(initial),
     immediatelyRender: false,
@@ -208,9 +243,26 @@ export function SolutionEditor({ initial, labels, imageSrc, insertImage, onChang
     editorProps: {
       attributes: { class: 'doc-editor', 'aria-label': labels.area, 'aria-multiline': 'true', role: 'textbox' },
       transformPastedHTML: cleanPastedHtml,
+      // Снимок экрана из буфера: файл, а не HTML. Его забирает окно разметки страницы.
+      handlePaste: (_view, event) => {
+        const file = [...(event.clipboardData?.files ?? [])].find((item) => item.type.startsWith('image/'));
+        if (!file || !pasteImage.current) return false;
+        pasteImage.current(file);
+        return true;
+      },
     },
     onUpdate: ({ editor: e }) => onChange?.(fromEditorJson(e.getJSON())),
   });
+
+  const findingKey = (findingIds ?? []).join(' ');
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dispatch(editor.state.tr.setMeta(findingsKey, new Set(findingKey ? findingKey.split(' ') : [])));
+  }, [editor, findingKey]);
+
+  useEffect(() => {
+    if (editor && onReady) onReady({ insertImage: (image) => insertImageNode(editor, image) });
+  }, [editor, onReady]);
 
   useEffect(() => {
     if (!editor || !exposeForTests) return;
@@ -223,7 +275,7 @@ export function SolutionEditor({ initial, labels, imageSrc, insertImage, onChang
   if (!editor) return <div className="min-h-row rounded-card border border-border bg-card" aria-busy="true" />;
   return (
     <div className="rounded-card border border-border bg-card">
-      <Toolbar editor={editor} labels={labels} groups={tools(labels, insertImage)} />
+      {editable && <Toolbar editor={editor} labels={labels} groups={tools(labels, insertImage)} />}
       <EditorContent editor={editor} />
     </div>
   );

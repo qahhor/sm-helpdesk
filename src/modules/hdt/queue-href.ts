@@ -7,7 +7,8 @@ import type { QueueKey, QueueSort } from './core/agent-queue-keys';
 
 /** Где сотрудник сейчас. sortChosen: сортировка задана в адресе им самим, а не взята по умолчанию. */
 export type QueueLocation = { queue: QueueKey; sort: QueueSort; sortChosen: boolean; q?: string };
-export type QueueTarget = { queue?: QueueKey; sort?: QueueSort; q?: string; page?: number };
+/** after: ключ листания (сортировка по последнему изменению); с ним номер страницы в адрес не пишется. */
+export type QueueTarget = { queue?: QueueKey; sort?: QueueSort; q?: string; page?: number; after?: string };
 
 export const defaultQueueSort = (queue: QueueKey): QueueSort => (queue === 'all' ? 'updated' : 'sla');
 
@@ -24,6 +25,7 @@ export function queueHref(current: QueueLocation, next: QueueTarget): string {
   if (sort !== defaultQueueSort(queue)) search.set('sort', sort);
   const query = 'q' in next ? next.q : current.q;
   if (query) search.set('q', query);
-  if (next.page && next.page > 1) search.set('page', String(next.page));
+  if (next.after) search.set('after', next.after);
+  else if (next.page && next.page > 1) search.set('page', String(next.page));
   return `/agent/queues?${search.toString()}`;
 }

@@ -29,6 +29,8 @@ export type QueueRecord = {
   dueOn: Date | null;
   snoozedUntil: Date | null;
   snoozeReturnedOn: Date | null;
+  /** Время изменения с точностью базы (микросекунды): ключ листания по последнему изменению. */
+  modifiedKey: string;
   clientWaitingSince: Date | null;
 };
 
@@ -91,9 +93,17 @@ function orderOf(sort: QueueSort) {
   return [sql`${dueOn} asc nulls last`, asc(tickets.ticketId)];
 }
 
+/**
+ * Продолжение после строки с этим ключом при сортировке по последнему изменению (решение 0040, пункт 5). Сравнение
+ * пары значений становится границей индекса (modified_on DESC, ticket_id DESC): строки прошлых страниц не читаются.
+ */
+function afterKey(after: { modifiedKey: string; ticketId: string } | undefined): SQL | undefined {
+  return after ? sql`(${tickets.modifiedOn}, ${tickets.ticketId}) < (${after.modifiedKey}::timestamptz, ${after.ticketId}::uuid)` : undefined;
+}
+
 export async function queueRowsTx(
   actor: StaffActor,
-  input: { queue: QueueKey; sort: QueueSort; search?: QueueSearch; offset: number; limit: number },
+  input: { queue: QueueKey; sort: QueueSort; search?: QueueSearch; offset: number; limit: number; after?: { modifiedKey: string; ticketId: string } },
 ): Promise<QueueRecord[]> {
   return withActor(actor, (tx) =>
     tx
@@ -111,13 +121,15 @@ export async function queueRowsTx(
         dueOn,
         snoozedUntil: tickets.snoozedUntil,
         snoozeReturnedOn: tickets.snoozeReturnedOn,
+        modifiedKey: sql<string>`to_char(${tickets.modifiedOn} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         clientWaitingSince: tickets.clientWaitingSince,
       })
       .from(tickets)
-      .where(and(queueWhere(input.queue, actor.userId), searchWhere(input.search)))
+      .where(and(queueWhere(input.queue, actor.userId), searchWhere(input.search), afterKey(input.after)))
       .orderBy(...orderOf(input.sort))
       .limit(input.limit)
-      .offset(input.offset),
+      // Листание по ключу смещения не несёт: далёкая страница стоит столько же, сколько первая.
+      .offset(input.after ? 0 : input.offset),
   );
 }
 

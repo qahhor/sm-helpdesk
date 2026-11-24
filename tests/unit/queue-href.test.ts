@@ -40,3 +40,13 @@ test('сохранённый фильтр открывается со своей
   expect(queueHref(current, { queue: 'all', sort: 'sla', q: 'ИНН 123', page: 1 })).toBe('/agent/queues?queue=all&sort=sla&q=%D0%98%D0%9D%D0%9D+123');
   expect(queueHref({ ...current, q: 'склад' }, { page: 2 })).toBe('/agent/queues?queue=new&q=%D1%81%D0%BA%D0%BB%D0%B0%D0%B4&page=2');
 });
+
+test('листание по ключу: ссылка "Дальше" несёт ключ вместо номера страницы, смена очереди или поиска ключ сбрасывает', () => {
+  const all = { queue: 'all', sort: 'updated', sortChosen: false } as const;
+  const key = '2026-11-24T10:00:00.123456Z_01a20ab0-3c68-79e2-a4ae-1a2ec7e60c17';
+  expect(queueHref(all, { after: key })).toBe(`/agent/queues?queue=all&after=${encodeURIComponent(key)}`);
+  // Ключ и номер страницы вместе не пишутся: ключ важнее.
+  expect(queueHref(all, { after: key, page: 7 })).toBe(`/agent/queues?queue=all&after=${encodeURIComponent(key)}`);
+  expect(queueHref(all, { queue: 'new', q: undefined, page: 1 })).toBe('/agent/queues?queue=new');
+  expect(queueHref(all, { page: 1 })).toBe('/agent/queues?queue=all');
+});

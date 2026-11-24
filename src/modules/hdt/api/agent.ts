@@ -63,16 +63,22 @@ async function searchOf(ctx: StaffContext, q: string | undefined): Promise<Queue
 }
 
 /** Очередь (FR-AG-01), по умолчанию по ближайшему сроку; поиск (FR-AG-10); по 50 строк. */
-export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ items: QueueRow[]; hasMore: boolean; searchTooShort: boolean }> {
+export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ items: QueueRow[]; hasMore: boolean; nextCursor: string | null; searchTooShort: boolean }> {
   const data = parseInput(queueInput, input ?? {});
   const search = await searchOf(ctx, data.q);
-  if (search === 'too_short') return { items: [], hasMore: false, searchTooShort: true };
+  if (search === 'too_short') return { items: [], hasMore: false, nextCursor: null, searchTooShort: true };
+  // Ключ листания есть только у сортировки по последнему изменению: по ней листают очередь "Все", где страниц
+  // тысячи. Очереди открытых обращений ограничены их числом, там остаётся номер страницы (решение 0040, пункт 5).
+  const keyed = data.sort === 'updated';
+  if (data.after && !keyed) throw new HdtError('invalid_input');
+  const [modifiedKey, ticketId] = (data.after ?? '').split('_') as [string, string | undefined];
   const rows = await queueRowsTx(ctx.actor, {
     queue: data.queue,
     sort: data.sort,
     search,
     offset: (data.page - 1) * QUEUE_PAGE_SIZE,
     limit: QUEUE_PAGE_SIZE + 1,
+    ...(data.after && ticketId ? { after: { modifiedKey, ticketId } } : {}),
   });
   const page = rows.slice(0, QUEUE_PAGE_SIZE);
   const [config, orgs, names] = await Promise.all([
@@ -101,6 +107,7 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
       };
     }),
     hasMore: rows.length > QUEUE_PAGE_SIZE,
+    nextCursor: keyed && rows.length > QUEUE_PAGE_SIZE && page.at(-1) ? `${page.at(-1)?.modifiedKey}_${page.at(-1)?.ticketId}` : null,
     searchTooShort: false,
   };
 }

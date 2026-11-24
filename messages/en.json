@@ -1169,6 +1169,7 @@
       },
       "prev": "Back",
       "next": "Next",
+      "first": "To the start",
       "saveTitle": "Save as a list",
       "filterName": "List name",
       "shareFilter": "Shared with all staff",

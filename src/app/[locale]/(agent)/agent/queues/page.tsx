@@ -33,7 +33,9 @@ import { QueueKeys } from './QueueKeys';
 // Очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18, UX-A-08, UX-A-09; экран 8.4 "Очередь").
 // Слева очереди со счётчиками и сохранённые списки, справа поиск, сортировка и таблица по ближайшему сроку.
 
-type Search = { queue?: string; sort?: string; q?: string; page?: string; done?: string; error?: string; open?: string };
+type Search = { queue?: string; sort?: string; q?: string; page?: string; after?: string; done?: string; error?: string; open?: string };
+/** Ключ листания: время изменения с микросекундами и идентификатор обращения. Иное значение из адреса не берётся. */
+const AFTER = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2 align-top';
@@ -53,9 +55,11 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   const sortChosen = QUEUE_SORTS.some((key) => key === params.sort);
   const q = params.q?.trim() ? params.q.trim().slice(0, 200) : undefined;
   const page = Math.max(1, Math.min(1000, Number(params.page) || 1));
+  // Очередь по последнему изменению листается по ключу последней строки, остальные по номеру страницы.
+  const after = sort === 'updated' && params.after && AFTER.test(params.after) ? params.after : undefined;
   const canWrite = staff.actor.staffRole !== 'product';
   const [list, sidebar, assignable] = await Promise.all([
-    listQueue(staff, { queue, sort, q, page }),
+    listQueue(staff, { queue, sort, q, ...(after ? { after } : { page }) }),
     queueSidebar(staff),
     canWrite ? listAssignableStaff(staff) : Promise.resolve([]),
   ]);
@@ -184,7 +188,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                           href={`/agent/tickets/SUP-${row.number}?queue=${queue}&sort=${sort}`}
                           className="font-semibold text-link hover:underline"
                           data-row-link
-                          data-preview={`/${locale}${href({ page })}&open=${row.number}`}
+                          data-preview={`/${locale}${href(after ? { after } : { page })}&open=${row.number}`}
                           data-open={openNumber === row.number ? '' : undefined}
                         >
                           {row.number}
@@ -218,13 +222,19 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
             </>
           )}
           <div className="flex gap-2">
-            {page > 1 && (
-              <Link href={href({ page: page - 1 })} className="text-sm text-link hover:underline">
-                {t('queues.prev')}
+            {after ? (
+              <Link href={href({ page: 1 })} className="text-sm text-link hover:underline">
+                {t('queues.first')}
               </Link>
+            ) : (
+              page > 1 && (
+                <Link href={href({ page: page - 1 })} className="text-sm text-link hover:underline">
+                  {t('queues.prev')}
+                </Link>
+              )
             )}
             {list.hasMore && (
-              <Link href={href({ page: page + 1 })} className="text-sm text-link hover:underline">
+              <Link href={list.nextCursor ? href({ after: list.nextCursor }) : href({ page: page + 1 })} className="text-sm text-link hover:underline">
                 {t('queues.next')}
               </Link>
             )}

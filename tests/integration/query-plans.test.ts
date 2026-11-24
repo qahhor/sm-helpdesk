@@ -7,7 +7,7 @@ import { undeliveredMessages } from '@/modules/hdn/api/outbox';
 import { PAUSED_STATUSES } from '@/modules/hdt/core/sla';
 import { SERVICE_ORG_ID } from '@/modules/hdu/pref';
 import { ticketsMinute } from '@/modules/hdt/api/jobs';
-import { captureQueries, plansFor, seedBulkInbound, seedBulkTickets } from './helpers/bulk';
+import { captureQueries, planOf, plansFor, seedBulkInbound, seedBulkTickets } from './helpers/bulk';
 import { pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
@@ -117,4 +117,41 @@ test('отметка "Письмо не доставлено" ищет по ин
 
 test('список статусов с паузой срока совпадает с условием индекса hdt_tickets_i17 и запроса сверки', () => {
   expect([...PAUSED_STATUSES]).toEqual(['waiting_customer', 'resolved', 'closed']);
+});
+
+// --- Листание по ключу (решение 0038, пункт 3; план W3, задача 5) ---
+
+test('очередь "Все": следующая страница берётся по ключу последней строки, без смещения и без повторов', async () => {
+  const l1 = staffCtx(f.l1);
+  const seen = new Set<number>();
+  let after: string | undefined;
+  for (let page = 0; page < 4; page++) {
+    const list = await listQueue(l1, { queue: 'all', sort: 'updated', ...(after ? { after } : {}) });
+    expect(list.items).toHaveLength(50);
+    for (const item of list.items) {
+      expect(seen.has(item.number), `повтор SUP-${item.number} на странице ${page + 1}`).toBe(false);
+      seen.add(item.number);
+    }
+    expect(list.nextCursor).toBeTruthy();
+    after = list.nextCursor ?? undefined;
+  }
+  // Тот же порядок, что у листания номером страницы: по последнему изменению.
+  const byPage = await listQueue(l1, { queue: 'all', sort: 'updated', page: 4 });
+  const byKey = [...seen].slice(150, 200);
+  expect(byKey).toEqual(byPage.items.map((item) => item.number));
+  // Запрос страницы по ключу не несёт смещения и идёт по индексу сортировки с условием на ключ.
+  const { queries } = await captureQueries(() => listQueue(l1, { queue: 'all', sort: 'updated', after }));
+  const ticketQuery = queries.find((q) => /from "hdt_tickets"/.test(q.text) && /order by/i.test(q.text));
+  expect(ticketQuery?.text).not.toMatch(/offset \$\d+/i);
+  const plan = await planOf(f.l1.actor, ticketQuery!);
+  expect(plan, plan).toMatch(/Index Cond: .*modified_on/);
+  expect(plan, plan).not.toMatch(SEQ_SCAN);
+});
+
+test('негодный ключ листания отклоняется; у сортировки по сроку ключа нет, страницы идут номером', async () => {
+  const l1 = staffCtx(f.l1);
+  await expect(listQueue(l1, { queue: 'all', sort: 'updated', after: 'мусор' })).rejects.toMatchObject({ code: 'invalid_input' });
+  const bySla = await listQueue(l1, { queue: 'all', sort: 'sla' });
+  expect(bySla.nextCursor).toBeNull();
+  expect(bySla.hasMore).toBe(true);
 });

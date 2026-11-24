@@ -78,15 +78,43 @@ test('отложенное вернулось: исполнителю уведо
   expect((await notices(f.l1.userId, 'snooze_returned')).map((n) => n.ticket_id)).toEqual([t.ticketId]);
 });
 
-test('"В разработке" 4 рабочих дня без ответа: напоминание исполнителю один раз', async () => {
+/** Переносит начало периода "В разработке": служебные колонки защищены триггером, поэтому без триггеров. */
+async function startPeriodAt(ticketId: string, start: Date): Promise<void> {
+  const client = await pools.root.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local session_replication_role = replica');
+    await client.query(`update hdt_tickets set created_on = $2::timestamptz - interval '1 hour' where ticket_id = $1`, [ticketId, start.toISOString()]);
+    await client.query(`update hdt_ticket_messages set created_on = $2::timestamptz - interval '1 hour' where ticket_id = $1`, [ticketId, start.toISOString()]);
+    await client.query(`update hdt_ticket_events set created_on = $2 where ticket_id = $1 and kind = 'status' and payload ->> 'to' = 'in_development'`, [ticketId, start.toISOString()]);
+    await client.query('commit');
+  } finally {
+    client.release();
+  }
+}
+
+// Начало периода задаётся явно: от времени запуска набора результат не зависит. Вечер вторника и пятницы
+// проверяет срок, который по графику субботы или после неё короче четырёх суток (суббота до 17:00).
+test.each([
+  ['вторник 10:00', '2026-11-17T05:00:00Z'],
+  ['вторник 19:30, срок в субботу до 17:00', '2026-11-17T14:30:00Z'],
+  ['вторник 17:01', '2026-11-17T12:01:00Z'],
+  ['пятница 19:30', '2026-11-20T14:30:00Z'],
+  ['суббота 12:00', '2026-11-21T07:00:00Z'],
+  ['воскресенье 03:00', '2026-11-22T22:00:00Z'],
+])('"В разработке" 4 рабочих дня без ответа: напоминание исполнителю один раз (%s)', async (_name, iso) => {
   const t = f.tickets.aOrg;
   await setStatus(staffCtx(f.care), { number: t.number, to: 'in_progress' });
   await setStatus(staffCtx(f.care), { number: t.number, to: 'in_development' });
   await setState(t.ticketId, `assignee_id = $2`, [f.care.userId]);
-  const start = new Date();
+  const start = new Date(iso);
+  await startPeriodAt(t.ticketId, start);
   await ticketsMinute(SYSTEM, new Date(addWorkingDays(start, 3, TASHKENT_DEFAULT).getTime() + MINUTE));
   expect(await notices(f.care.userId, 'update_due')).toEqual([]);
-  const remindAt = new Date(addWorkingDays(start, 4, TASHKENT_DEFAULT).getTime() + MINUTE);
+  const due = addWorkingDays(start, 4, TASHKENT_DEFAULT);
+  await ticketsMinute(SYSTEM, new Date(due.getTime() - MINUTE));
+  expect(await notices(f.care.userId, 'update_due')).toEqual([]);
+  const remindAt = new Date(due.getTime() + MINUTE);
   await ticketsMinute(SYSTEM, remindAt);
   await ticketsMinute(SYSTEM, new Date(remindAt.getTime() + MINUTE));
   expect((await notices(f.care.userId, 'update_due')).map((n) => n.ticket_id)).toEqual([t.ticketId]);

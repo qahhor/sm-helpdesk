@@ -294,9 +294,11 @@ async function remindUpdates(actor: SystemActor, now: Date): Promise<number> {
   return withActor(actor, async (tx) => {
     const calendar = (await readSlaConfig(tx)).calendar;
     // Отбор в базе: только обращения, у которых напоминания за этот период ещё не было и которые по календарным дням
-    // уже могут быть близки к сроку (рабочих дней не меньше календарных). Иначе первые 200 строк проверялись бы
-    // каждую минуту, а остальные не доходили бы до проверки (итоговая проверка M4, замечание I9).
-    const earliest = new Date(now.getTime() - Math.max(days - 1, 0) * DAY_MS);
+    // уже могут быть близки к сроку. Иначе первые 200 строк проверялись бы каждую минуту, а остальные не доходили бы
+    // до проверки (итоговая проверка M4, замечание I9). Граница на сутки мягче числа рабочих дней: срок вне графика
+    // своего дня сдвигается к концу рабочего дня, и N рабочих дней бывают короче N суток (вторник 19:30 плюс 4 дня
+    // это суббота 17:00). Точную проверку делает addWorkingDays ниже.
+    const earliest = new Date(now.getTime() - Math.max(days - 2, 0) * DAY_MS);
     const result = await tx.execute<{ ticket_id: string; since: Date | string; reminded: Date | string | null }>(sql`
       select c.ticket_id, c.reminded, c.since
         from (select t.ticket_id, t.update_reminded_on as reminded, greatest(

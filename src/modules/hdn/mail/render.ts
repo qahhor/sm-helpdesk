@@ -23,6 +23,8 @@ export const MAIL_TEMPLATES = [
   'staff_mention',
   'staff_breach',
   'staff_update_due',
+  // Задача разработки закрыта (веха M8, FR-DEV-05): напоминание исполнителю обращения.
+  'staff_dev_task_closed',
   'holidays_reminder',
   'oncall_p1',
   // Уведомления правил автоматизации (веха M8): сотруднику и дежурным.
@@ -49,6 +51,8 @@ export type MailPayload =
   | ({ template: 'staff_mention'; author: string } & TicketRef)
   | ({ template: 'staff_breach'; kind: 'first_response' | 'resolution' } & TicketRef)
   | ({ template: 'staff_update_due' } & TicketRef)
+  // ref: номер задачи в таск-менеджере. Письмо уходит только сотруднику.
+  | ({ template: 'staff_dev_task_closed'; ref: string } & TicketRef)
   | { template: 'holidays_reminder'; year: number; url: string }
   | ({ template: 'oncall_p1'; orgName: string } & TicketRef)
   | ({ template: 'staff_rule'; rule: string } & TicketRef)
@@ -190,6 +194,15 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
         subject: ticketSubject(payload.number, payload.title),
         heading: t('staffUpdateDue.heading'),
         text: t('staffUpdateDue.text', { number: payload.number, title: noLinks(payload.title, TITLE_MAX) }),
+        button: open(payload.url),
+        reply: false,
+        signature: false,
+      };
+    case 'staff_dev_task_closed':
+      return {
+        subject: ticketSubject(payload.number, payload.title),
+        heading: t('staffDevTaskClosed.heading'),
+        text: t('staffDevTaskClosed.text', { ref: noLinks(payload.ref, NAME_MAX), number: payload.number, title: noLinks(payload.title, TITLE_MAX) }),
         button: open(payload.url),
         reply: false,
         signature: false,

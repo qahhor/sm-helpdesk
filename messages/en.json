@@ -85,7 +85,8 @@
         "holidays_reminder": "Fill in the holidays for {year}",
         "telegram_linked": "A Telegram account was linked. If it was not you, unlink it in your profile.",
         "rule": "Rule \"{rule}\": request SUP-{number}",
-        "rule_disabled": "Rule \"{rule}\" was turned off: it fired too often"
+        "rule_disabled": "Rule \"{rule}\" was turned off: it fired too often",
+        "dev_task_closed": "Development task closed: check and tell the client. Request SUP-{number}"
       },
       "settings": {
         "title": "Emails",
@@ -826,7 +827,8 @@
           "rule": "Automation rule",
           "webhook": "Webhook address",
           "webhook_secret": "Webhook secrets",
-          "macro": "Macro"
+          "macro": "Macro",
+          "dev_task": "Development task"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -965,6 +967,11 @@
             "moved": "Macro order changed",
             "deleted": "Macro deleted",
             "run": "Macro run on a request"
+          },
+          "devtask": {
+            "linked": "Ticket handed over to development",
+            "unlinked": "Development task unlinked from the ticket",
+            "status_changed": "Development task status changed"
           }
         },
         "words": {
@@ -1813,7 +1820,10 @@
         "bound": "{actor}: linked to the client organization",
         "tagAdded": "{actor}: tag {name} added",
         "tagRemoved": "{actor}: tag {name} removed",
-        "macro": "Macro \"{name}\" ({actor}): {actions}"
+        "macro": "Macro \"{name}\" ({actor}): {actions}",
+        "devTaskLinked": "{actor}: handed over to development, task {ref}",
+        "devTaskUnlinked": "{actor}: development task {ref} unlinked",
+        "devTaskClosed": "Development task {ref} closed ({status}). The assignee was reminded to check and tell the client"
       },
       "ruleActions": {
         "set_queue": "queue {to}",
@@ -1937,7 +1947,10 @@
           "created": "Ticket created",
           "invited": "The invitation was sent to the sender",
           "tagged": "Tag added",
-          "untagged": "Tag removed"
+          "untagged": "Tag removed",
+          "dev_sent": "Ticket handed over to development",
+          "dev_unlinked": "Development task unlinked",
+          "dev_status": "Task status saved"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -1951,7 +1964,10 @@
           "rate_limited": "Too many actions in a row. Wait a minute.",
           "other": "That did not work. Try again.",
           "merge_refused": "Cannot merge: it is the same ticket or a ticket of another organization.",
-          "merged": "The ticket is already merged."
+          "merged": "The ticket is already merged.",
+          "invalid_url": "Check the task link: the address must start with https://",
+          "already_linked": "The ticket already has a development task.",
+          "task_closed": "The task with this number is already closed. Enter another task."
         }
       },
       "presence": {
@@ -2071,6 +2087,36 @@
           "other": "The macro was not performed. Try again later."
         },
         "resultNone": "Macro \"{name}\": no action was performed"
+      },
+      "devTask": {
+        "title": "Development task",
+        "none": "Not handed over",
+        "open": "Hand over to development",
+        "dialogTitle": "Hand over to development",
+        "dialogText": "The ticket will get the status \"In development\". The client will see the status, but not the task number or link.",
+        "ref": "Task number",
+        "refHint": "As in the task manager, for example DEV-501. If a task with this number already exists, the ticket will be linked to it.",
+        "url": "Task link",
+        "urlHint": "The task address in the task manager, starts with https://",
+        "taskTitle": "Task title",
+        "submit": "Hand over",
+        "cancel": "Cancel",
+        "close": "Close",
+        "link": "Task {ref}",
+        "external": "opens in a new tab",
+        "status": "Task status",
+        "statuses": {
+          "todo": "Not started",
+          "in_progress": "In progress",
+          "done": "Done",
+          "cancelled": "Cancelled"
+        },
+        "version": "Version: {version}",
+        "versionField": "Version with the fix",
+        "versionHint": "If known",
+        "also": "Also linked",
+        "changeStatus": "Save status",
+        "unlink": "Unlink the task"
       }
     },
     "playbooks": {
@@ -2453,6 +2499,10 @@
     "opsAlert": {
       "subject": "Smartup Hub: on-call alert",
       "button": "Open the workspace"
+    },
+    "staffDevTaskClosed": {
+      "heading": "Development task closed",
+      "text": "Development task {ref} is closed: check and tell the client. Request SUP-{number} \"{title}\" stays in development until you change its status."
     }
   },
   "bot": {

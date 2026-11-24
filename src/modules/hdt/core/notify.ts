@@ -33,7 +33,8 @@ export type TicketNotice = {
     | 'mention'
     | 'sla_breach'
     | 'snooze_returned'
-    | 'update_due';
+    | 'update_due'
+    | 'dev_task_closed';
   /** Кто действовал: он не получает уведомления о своём действии. Система: null. */
   actorUserId: string | null;
   messageId?: string;
@@ -48,6 +49,8 @@ export type TicketNotice = {
   /** Нарушение срока: какой срок и руководители линии обращения. */
   breach?: 'first_response' | 'resolution';
   leads?: string[];
+  /** Закрытая задача разработки: её номер в таск-менеджере. Получатели в leads: исполнитель или руководители линии. */
+  devTaskRef?: string;
 };
 
 /** Смены статуса, о которых клиенту уходит письмо (решение 6). "Решено" идёт отдельным письмом. */
@@ -259,6 +262,12 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
       return ticket.assigneeId
         ? tellStaff(tx, e.ticketId, ticket, [ticket.assigneeId], 'update_due', { template: 'staff_update_due', ...staffRef }, null)
         : undefined;
+    case 'dev_task_closed':
+      // Задача разработки закрыта (FR-DEV-05): напоминание проверить и сообщить клиенту, в портале и письмом. Получает
+      // его и тот, кто сам закрыл задачу: это напоминание о следующем шаге, а не известие о чужом действии.
+      return tellStaff(tx, e.ticketId, ticket, e.leads ?? [], 'dev_task_closed', { template: 'staff_dev_task_closed', ...staffRef, ref: e.devTaskRef ?? '' }, null, {
+        ref: e.devTaskRef ?? '',
+      });
   }
 }
 

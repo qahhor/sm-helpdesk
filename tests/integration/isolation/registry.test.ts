@@ -73,6 +73,11 @@ async function seedEverything() {
     [f.orgA.orgId, f.tickets.aOrg.ticketId, SEALED],
   );
   await pools.root.query(`insert into hdw_macros (name, actions, order_no) values ('Запросить версию', '[{"action": "set_status", "status": "waiting_customer"}]', 1)`);
+  await pools.root.query(
+    `with task as (insert into hdw_dev_tasks (tracker, external_id, url, title) values ('manual', 'DEV-501', 'https://tracker.smartup.example/tasks/DEV-501', 'Отчёт не грузится') returning dev_task_id)
+     insert into hdw_dev_task_links (org_id, dev_task_id, ticket_id) select $1, dev_task_id, $2 from task`,
+    [f.orgA.orgId, f.tickets.aOrg.ticketId],
+  );
   await pools.root.query(`insert into hdu_server_checks (server_id, is_ok, issues) values ($1, false, '{timeout}')`, [f.server.serverId]);
   return f;
 }

@@ -1,10 +1,10 @@
 import { sql } from 'drizzle-orm';
 import { boolean, integer, jsonb, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
-import type { DeliveryKind, DeliveryStatus, DisabledReason, RuleEventKind, RunResult } from './pref';
+import type { DeliveryKind, DeliveryStatus, DevTaskStatus, DevTrackerKind, DisabledReason, RuleEventKind, RunResult } from './pref';
 
 // Модуль hdw: автоматизация. Таблицы, ограничения, триггеры и политики RLS создаёт миграция
-// drizzle/0058_hdw_rules.sql, drizzle/0061_hdw_webhooks.sql и drizzle/0062_hdw_macros.sql. Здесь только описание колонок для запросов под ролью
+// drizzle/0058_hdw_rules.sql, drizzle/0061_hdw_webhooks.sql, drizzle/0062_hdw_macros.sql и drizzle/0063_hdw_dev_tasks.sql. Здесь только описание колонок для запросов под ролью
 // hub_app (withActor).
 
 /** Действие срабатывания в журнале: код, выполнено ли, код причины отказа, прежнее и новое значение. unchanged: менять было нечего. */
@@ -106,5 +106,34 @@ export const macros = pgTable('hdw_macros', {
   actions: jsonb('actions').$type<unknown>().notNull(),
   isEnabled: boolean('is_enabled').notNull().default(true),
   orderNo: integer('order_no').notNull(),
+  ...stampColumns,
+});
+
+/** Задачи разработки в таск-менеджере Smartup (FR-DEV-01..06). Клиент не видит. */
+export const devTasks = pgTable('hdw_dev_tasks', {
+  devTaskId: uuid('dev_task_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  tracker: text('tracker').$type<DevTrackerKind>().notNull(),
+  /** Номер задачи в таск-менеджере: как ввёл сотрудник или как вернул API. */
+  externalId: text('external_id').notNull(),
+  url: text('url').notNull(),
+  title: text('title').notNull().default(''),
+  status: text('status').$type<DevTaskStatus>().notNull().default('todo'),
+  version: text('version'),
+  syncedOn: timestamp('synced_on', { withTimezone: true }),
+  /** Когда ушло напоминание о закрытии задачи: одно на закрытие (FR-DEV-05). */
+  closedNotifiedOn: timestamp('closed_notified_on', { withTimezone: true }),
+  ...stampColumns,
+});
+
+/** Привязки обращений к задачам разработки (FR-DEV-06): у обращения не больше одной задачи. */
+export const devTaskLinks = pgTable('hdw_dev_task_links', {
+  orgId: uuid('org_id').notNull(),
+  linkId: uuid('link_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  devTaskId: uuid('dev_task_id').notNull(),
+  ticketId: uuid('ticket_id').notNull(),
   ...stampColumns,
 });

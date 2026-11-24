@@ -13,6 +13,7 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 import { acceptOf, STATUS_TONE } from '@/ui/ticket-status';
 import { inviteSenderAction } from './actions';
 import { Composer } from './Composer';
+import { DevTaskBlock } from './DevTaskBlock';
 import { MacroMenu } from './MacroMenu';
 import { MergeDialog } from './MergeDialog';
 import { PresenceBar } from './PresenceBar';
@@ -44,7 +45,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
   const tc = await getTranslations('client.tickets');
   const data = await loadTicketPage(staff, safeDecode((await params).number), search, await getLocale());
   if (!data) notFound();
-  const { ticket, canWrite, assignable, modules, draft, templates, knownTags, macros, canTransfer, canReturn, playbook, fromQueue, fromSort, done, error, changed } = data;
+  const { ticket, canWrite, assignable, modules, draft, templates, knownTags, macros, canTransfer, canReturn, playbook, devTask, canDevelop, canHandOver, fromQueue, fromSort, done, error, changed } = data;
   const playbookScope = playbook
     ? `${playbook.moduleId ? (modules.find((m) => m.moduleId === playbook.moduleId)?.name ?? '') : t('ticket.transfer.anyModule')} / ${t(`ticket.types.${ticket.type}`)}`
     : null;
@@ -188,6 +189,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
         <aside className="flex flex-col gap-4" aria-label={t('ticket.details')}>
           <TicketControls ticket={ticket} me={staff.user.id} role={staff.actor.staffRole} staff={assignable} modules={modules} />
           <TicketTags number={ticket.number} tags={ticket.tags} known={knownTags} canWrite={canWrite} />
+          <DevTaskBlock number={ticket.number} devTask={devTask} canManage={canDevelop} canHandOver={canHandOver} />
           <Card>
             <CardContent className="flex flex-col gap-1 pt-6 text-sm">
               <h2 className="text-xs font-medium text-secondary-foreground">{t('ticket.clientTitle')}</h2>

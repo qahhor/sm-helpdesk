@@ -116,6 +116,10 @@ export const AUDIT_ACTIONS = [
   'macro.moved',
   'macro.deleted',
   'macro.run',
+  // Передача в разработку (веха M8): привязка обращения к задаче, снятие привязки, смена статуса задачи.
+  'devtask.linked',
+  'devtask.unlinked',
+  'devtask.status_changed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

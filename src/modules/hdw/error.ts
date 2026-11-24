@@ -7,7 +7,24 @@ import type { RuleIssue } from './rule-schema';
 // stale_session: правила меняет только свежий вход администратора (ТЗ 14.3).
 // invalid_url: адрес вебхука не https, несёт учётную запись или ведёт не на внешний узел (FR-AUTO-10).
 // endpoint_disabled: проверочная отправка на выключенный адрес. too_many: достигнут предел числа адресов или макросов.
-export const HDW_ERROR_CODES = ['forbidden', 'stale_session', 'invalid_input', 'not_found', 'builtin_rule', 'invalid_url', 'endpoint_disabled', 'too_many'] as const;
+// Передача в разработку (FR-DEV): already_linked: у обращения уже есть задача; task_closed: задача с таким номером
+// закрыта; not_manual: статус задачи из API таск-менеджера сотрудник не меняет; task_not_found: в таск-менеджере нет
+// задачи с таким номером; tracker_unavailable: таск-менеджер не ответил, обращение не изменено.
+export const HDW_ERROR_CODES = [
+  'forbidden',
+  'stale_session',
+  'invalid_input',
+  'not_found',
+  'builtin_rule',
+  'invalid_url',
+  'endpoint_disabled',
+  'too_many',
+  'already_linked',
+  'task_closed',
+  'not_manual',
+  'task_not_found',
+  'tracker_unavailable',
+] as const;
 export type HdwErrorCode = (typeof HDW_ERROR_CODES)[number];
 
 export class HdwError extends Error {

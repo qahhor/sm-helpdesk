@@ -88,3 +88,18 @@ export const MACRO_ACTIONS = ['set_queue', 'assign', 'set_priority', 'add_tag', 
 export const MAX_MACROS = 50;
 /** Итог запуска макроса: все действия выполнены, часть или ни одного. */
 export type MacroResult = 'applied' | 'partial' | 'failed';
+
+// --- Передача в разработку (FR-DEV-01..06; план M8, задачи 7 и 8, решения 12 и 13) ---
+
+/** Режим работы с таск-менеджером: ручной (номер и ссылку вводит сотрудник) или API таск-менеджера Smartup. */
+export const DEV_TRACKERS = ['manual', 'smartup'] as const;
+export type DevTrackerKind = (typeof DEV_TRACKERS)[number];
+/** Статусы задачи разработки (интерфейс DevTracker, ТЗ 11.11). */
+export const DEV_TASK_STATUSES = ['todo', 'in_progress', 'done', 'cancelled'] as const;
+export type DevTaskStatus = (typeof DEV_TASK_STATUSES)[number];
+/** Задача закрыта: исполнителям привязанных обращений уходит напоминание (FR-DEV-05). */
+export const DEV_TASK_CLOSED: readonly DevTaskStatus[] = ['done', 'cancelled'];
+export const DEV_TASK_REF_MAX = 80;
+export const DEV_TASK_URL_MAX = 500;
+export const DEV_TASK_TITLE_MAX = 300;
+export const DEV_TASK_VERSION_MAX = 60;

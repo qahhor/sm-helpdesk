@@ -315,3 +315,9 @@ test('размер пула соединений с базой: целое от 
   expect(poolMaxOf(undefined)).toBe(10);
   expect(poolMaxOf(6)).toBe(6);
 });
+
+test('таск-менеджер разработки: по умолчанию ручной режим, неизвестное значение отклоняется', () => {
+  expect(parseEnv(ok).DEV_TRACKER).toBe('manual');
+  expect(parseEnv({ ...ok, DEV_TRACKER: 'manual' }).DEV_TRACKER).toBe('manual');
+  expect(() => parseEnv({ ...ok, DEV_TRACKER: 'jira' })).toThrowError(/DEV_TRACKER/);
+});

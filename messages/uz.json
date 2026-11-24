@@ -85,7 +85,8 @@
         "holidays_reminder": "{year} yil bayram kunlarini to'ldiring",
         "telegram_linked": "Telegram hisobi bog'landi. Agar bu siz bo'lmasangiz, uni profilda uzing.",
         "rule": "«{rule}» qoidasi: SUP-{number} murojaati",
-        "rule_disabled": "«{rule}» qoidasi o'chirildi: u juda tez-tez ishga tushdi"
+        "rule_disabled": "«{rule}» qoidasi o'chirildi: u juda tez-tez ishga tushdi",
+        "dev_task_closed": "Ishlab chiqish vazifasi yopildi: tekshiring va mijozga xabar bering. SUP-{number} murojaati"
       },
       "settings": {
         "title": "Xatlar",
@@ -826,7 +827,8 @@
           "rule": "Avtomatlashtirish qoidasi",
           "webhook": "Vebhuk manzili",
           "webhook_secret": "Vebhuk sirlari",
-          "macro": "Makros"
+          "macro": "Makros",
+          "dev_task": "Ishlab chiqish vazifasi"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -965,6 +967,11 @@
             "moved": "Makroslar tartibi o'zgartirildi",
             "deleted": "Makros o'chirildi",
             "run": "Murojaatda makros ishga tushirildi"
+          },
+          "devtask": {
+            "linked": "Murojaat ishlab chiqishga berildi",
+            "unlinked": "Ishlab chiqish vazifasi murojaatdan uzildi",
+            "status_changed": "Ishlab chiqish vazifasining holati o'zgardi"
           }
         },
         "words": {
@@ -1813,7 +1820,10 @@
         "bound": "{actor}: mijoz tashkilotiga bog'landi",
         "tagAdded": "{actor}: {name} tegi qo'shildi",
         "tagRemoved": "{actor}: {name} tegi olib tashlandi",
-        "macro": "«{name}» makrosi ({actor}): {actions}"
+        "macro": "«{name}» makrosi ({actor}): {actions}",
+        "devTaskLinked": "{actor}: ishlab chiqishga berildi, vazifa {ref}",
+        "devTaskUnlinked": "{actor}: {ref} ishlab chiqish vazifasi uzildi",
+        "devTaskClosed": "{ref} ishlab chiqish vazifasi yopildi ({status}). Ijrochiga tekshirish va mijozga xabar berish haqida eslatma yuborildi"
       },
       "ruleActions": {
         "set_queue": "navbat {to}",
@@ -1937,7 +1947,10 @@
           "created": "Murojaat yaratildi",
           "invited": "Yuboruvchiga taklif yuborildi",
           "tagged": "Teg qo'shildi",
-          "untagged": "Teg olib tashlandi"
+          "untagged": "Teg olib tashlandi",
+          "dev_sent": "Murojaat ishlab chiqishga berildi",
+          "dev_unlinked": "Ishlab chiqish vazifasi uzildi",
+          "dev_status": "Vazifa holati saqlandi"
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -1951,7 +1964,10 @@
           "rate_limited": "Juda ko'p amal ketma-ket. Bir daqiqa kuting.",
           "other": "Bo'lmadi. Yana urinib ko'ring.",
           "merge_refused": "Birlashtirib bo'lmaydi: bu o'sha murojaat yoki boshqa tashkilot murojaati.",
-          "merged": "Murojaat allaqachon birlashtirilgan."
+          "merged": "Murojaat allaqachon birlashtirilgan.",
+          "invalid_url": "Vazifa havolasini tekshiring: manzil https:// bilan boshlanishi kerak",
+          "already_linked": "Murojaatda ishlab chiqish vazifasi allaqachon bor.",
+          "task_closed": "Bu raqamli vazifa allaqachon yopilgan. Boshqa vazifani ko'rsating."
         }
       },
       "presence": {
@@ -2071,6 +2087,36 @@
           "other": "Makros bajarilmadi. Keyinroq qayta urinib ko'ring."
         },
         "resultNone": "«{name}» makrosi: birorta amal bajarilmadi"
+      },
+      "devTask": {
+        "title": "Ishlab chiqish vazifasi",
+        "none": "Berilmagan",
+        "open": "Ishlab chiqishga berish",
+        "dialogTitle": "Ishlab chiqishga berish",
+        "dialogText": "Murojaat «Ishlab chiqishda» holatini oladi. Mijoz holatni ko'radi, lekin vazifa raqami va havolasini ko'rmaydi.",
+        "ref": "Vazifa raqami",
+        "refHint": "Task-menejerdagidek, masalan DEV-501. Bunday raqamli vazifa allaqachon bo'lsa, murojaat unga bog'lanadi.",
+        "url": "Vazifa havolasi",
+        "urlHint": "Vazifaning task-menejerdagi manzili, https:// bilan boshlanadi",
+        "taskTitle": "Vazifa nomi",
+        "submit": "Berish",
+        "cancel": "Bekor qilish",
+        "close": "Yopish",
+        "link": "Vazifa {ref}",
+        "external": "yangi varaqda ochiladi",
+        "status": "Vazifa holati",
+        "statuses": {
+          "todo": "Boshlanmagan",
+          "in_progress": "Ishda",
+          "done": "Tayyor",
+          "cancelled": "Bekor qilingan"
+        },
+        "version": "Versiya: {version}",
+        "versionField": "Tuzatilgan versiya",
+        "versionHint": "Ma'lum bo'lsa",
+        "also": "Yana bog'langan",
+        "changeStatus": "Holatni saqlash",
+        "unlink": "Vazifani uzish"
       }
     },
     "playbooks": {
@@ -2453,6 +2499,10 @@
     "opsAlert": {
       "subject": "Smartup Hub: navbatchiga signal",
       "button": "Ish joyini ochish"
+    },
+    "staffDevTaskClosed": {
+      "heading": "Ishlab chiqish vazifasi yopildi",
+      "text": "{ref} ishlab chiqish vazifasi yopildi: tekshiring va mijozga xabar bering. SUP-{number} «{title}» murojaati siz o'zgartirmaguningizcha «Ishlab chiqishda» holatida qoladi."
     }
   },
   "bot": {

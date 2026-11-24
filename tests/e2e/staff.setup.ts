@@ -8,6 +8,8 @@ import { acceptAndEnroll, AUTH_DIR, createStaffInvitation, type E2eStaff, staffF
 const ACCOUNTS: { key: StaffKey; name: string; role: string }[] = [
   { key: 'care', name: 'Камила', role: 'care' },
   { key: 'l1', name: 'Азиз', role: 'agent_l1' },
+  // Вторая линия: передача в разработку (сценарий S4).
+  { key: 'l2', name: 'Санжар', role: 'agent_l2' },
   { key: 'admin', name: 'Рустам', role: 'admin' },
 ];
 

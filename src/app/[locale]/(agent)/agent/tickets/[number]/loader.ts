@@ -1,14 +1,14 @@
 import { getPlaybook, listActiveModules, listTags, listTemplates } from '@/modules/hdr/api';
 import { DEVELOPMENT_ROLES, getAgentTicket, HDT_ERROR_CODES, loadDraft, QUEUE_KEYS, QUEUE_SORTS, TRANSFERABLE_STATUSES } from '@/modules/hdt/api';
 import { listAssignableStaff, type StaffContext } from '@/modules/hdu/api';
-import { listRunnableMacros } from '@/modules/hdw/api';
+import { DEV_TASK_ERROR_CODES, listRunnableMacros, readDevTaskForTicket } from '@/modules/hdw/api';
 
 // Данные страницы обращения у сотрудника: обращение с историей, справочники для действий, права на передачу
 // между линиями, итог прошлого действия из адреса. Вынесено из страницы (аудит 23.11.2026, находка A8): загрузка
 // данных и права отдельно от разметки.
 
 /** Коды "сделано" в адресе страницы после действия. */
-export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged'] as const;
+export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged', 'dev_sent', 'dev_unlinked', 'dev_status'] as const;
 
 export type TicketPageSearch = { done?: string; error?: string; ch?: string; queue?: string; sort?: string; shown?: string };
 
@@ -34,6 +34,12 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
   const canReturn =
     (DEVELOPMENT_ROLES as readonly string[]).includes(staff.actor.staffRole) && ticket.line !== 'l1' && ticket.status !== 'resolved' && ticket.status !== 'closed';
   const playbook = canTransfer ? await getPlaybook(staff.actor, { moduleId: ticket.moduleId, type: ticket.type }) : null;
+  // Задача разработки (FR-DEV): блок читают все сотрудники; передать, отвязать и сменить статус задачи могут вторая
+  // линия, care и admin. Кнопка "Передать в разработку" есть, когда переход разрешён (из "В работе") или обращение
+  // уже "В разработке", но ещё без задачи.
+  const devTask = await readDevTaskForTicket(staff, ticket.number);
+  const canDevelop = (DEVELOPMENT_ROLES as readonly string[]).includes(staff.actor.staffRole);
+  const canHandOver = canDevelop && !devTask && ticket.mergedInto === null && (ticket.status === 'in_progress' || ticket.status === 'in_development');
   return {
     ticket,
     canWrite,
@@ -46,11 +52,14 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
     canTransfer,
     canReturn,
     playbook,
+    devTask,
+    canDevelop,
+    canHandOver,
     // Очередь и сортировка, из которых открыто обращение (FR-AG-17): по ним "Отправить и к следующему".
     fromQueue: QUEUE_KEYS.find((key) => key === search.queue) ?? 'mine',
     fromSort: QUEUE_SORTS.find((key) => key === search.sort) ?? 'sla',
     done: DONE.find((code) => code === search.done),
-    error: HDT_ERROR_CODES.find((code) => code === search.error),
+    error: [...HDT_ERROR_CODES, ...DEV_TASK_ERROR_CODES].find((code) => code === search.error),
     // Сводка "что изменилось" для ошибки changed: три числа из адреса, ничего кроме чисел не принимается.
     changed: changedOf(search.ch),
   };

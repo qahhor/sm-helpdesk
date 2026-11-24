@@ -103,6 +103,13 @@ export async function TicketTimeline({ ticket, from }: Props) {
         if (p.macro === true) return t('ticket.events.macro', { actor, name: String(p.ruleName ?? ''), actions: done.join('; ') });
         return t('ticket.events.rule', { name: String(p.ruleName ?? ''), actions: done.join('; ') });
       }
+      case 'dev_task': {
+        // Задача разработки (FR-DEV): привязана, отвязана, закрыта. Клиент этих записей не видит.
+        const ref = String(p.ref ?? '');
+        if (p.action === 'closed')
+          return t('ticket.events.devTaskClosed', { ref, status: t.has(`ticket.devTask.statuses.${String(p.status)}`) ? t(`ticket.devTask.statuses.${String(p.status)}`) : String(p.status ?? '') });
+        return t(p.action === 'unlinked' ? 'ticket.events.devTaskUnlinked' : 'ticket.events.devTaskLinked', { actor, ref });
+      }
       case 'due':
         return t('ticket.events.due', { kind: t.has(`ticket.dueKinds.${String(p.kind)}`) ? t(`ticket.dueKinds.${String(p.kind)}`) : '' });
       default:

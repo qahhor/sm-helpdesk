@@ -32,7 +32,7 @@ import {
   zonedToDate,
 } from '@/modules/hdt/api';
 import { requireStaffActor, type StaffContext } from '@/modules/hdu/api';
-import { isHdwError, runMacro } from '@/modules/hdw/api';
+import { isHdwError, runMacro, sendToDevelopment, setDevTaskStatus, unlinkFromDevelopment } from '@/modules/hdw/api';
 import { actionTexts } from '../../settings/rules/run-text';
 
 // Действия сотрудника на странице обращения (план M3, задача 7). Права, переходы и данные проверяет модуль hdt,
@@ -47,6 +47,8 @@ async function run(form: FormData, action: (staff: StaffContext, number: number)
   try {
     await action(staff, number);
   } catch (error) {
+    // Отказ передачи в разработку (модуль hdw): тот же показ кодом в адресе страницы.
+    if (isHdwError(error)) redirect(`${page}?error=${error.code}`);
     if (!isHdtError(error)) throw error;
     // Обращение изменили другие, пока страница была открыта (FR-AG-12): в адресе только числа сводки, страница
     // после перехода уже свежая, действие можно повторить.
@@ -236,6 +238,28 @@ export async function inviteSenderAction(form: FormData): Promise<void> {
     },
     'invited',
   );
+}
+
+// --- Передача в разработку (FR-DEV-02, 05, 06; план M8, задача 7) ---
+
+/** Передать обращение в разработку: номер, ссылка и название задачи из формы. Роль и данные проверяет модуль. */
+export async function sendToDevAction(form: FormData): Promise<void> {
+  await run(
+    form,
+    async (staff, number) => {
+      await sendToDevelopment(staff, { ticketNumber: number, externalId: text(form, 'externalId'), url: text(form, 'url'), title: text(form, 'title') });
+    },
+    'dev_sent',
+  );
+}
+
+export async function unlinkDevAction(form: FormData): Promise<void> {
+  await run(form, (staff, number) => unlinkFromDevelopment(staff, { ticketNumber: number }), 'dev_unlinked');
+}
+
+/** Статус задачи в ручном режиме. Пустая версия: версия не меняется. */
+export async function devTaskStatusAction(form: FormData): Promise<void> {
+  await run(form, (staff) => setDevTaskStatus(staff, { devTaskId: text(form, 'devTaskId'), status: text(form, 'status'), ...(text(form, 'version') ? { version: text(form, 'version') } : {}) }), 'dev_status');
 }
 
 // --- Макросы (FR-AG-15, UX-A-16; план M8, задача 6) ---

@@ -96,4 +96,9 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdw_webhook_endpoints: { client: 'none', app: IUD },
   hdw_webhook_secrets: { client: 'none', app: IU },
   hdw_webhook_deliveries: { client: 'none', app: IUD },
+  // Передача в разработку (веха M8): задачи и привязки читают сотрудники и система, пишут вторая линия, Customer
+  // Care, администратор и система (статус из таск-менеджера). Удаляется только привязка. Клиент не видит ничего:
+  // ему виден лишь статус обращения "В разработке".
+  hdw_dev_tasks: { client: 'none', app: IU },
+  hdw_dev_task_links: { client: 'none', app: ['insert', 'delete'] },
 };

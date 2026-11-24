@@ -193,6 +193,8 @@ const schema = z
       .regex(/^[A-Za-z0-9.-]{1,253}$/, { error: 'ожидается имя узла или адрес IPv4' })
       .optional(),
     CLAMAV_PORT: z.coerce.number({ error: 'ожидается номер порта' }).int().min(1, { error: 'ожидается номер порта' }).max(65535, { error: 'ожидается номер порта' }).default(3310),
+    // Таск-менеджер разработки (ТЗ 7.9, решение 13 вехи M8): manual значит, что номер и ссылку задачи вводит сотрудник.
+    DEV_TRACKER: z.enum(['manual'], { error: 'ожидается manual' }).default('manual'),
   })
   .superRefine((value, ctx) => {
     const host = new URL(value.HUB_URL).hostname;

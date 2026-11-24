@@ -52,7 +52,8 @@ function parse<T>(schema: z.ZodType<T>, input: unknown): T {
 
 const idInput = z.strictObject({ macroId: z.uuid() });
 const moveInput = z.strictObject({ macroId: z.uuid(), direction: z.enum(['up', 'down']) });
-const runInput = z.strictObject({ ticketNumber: z.number().int().positive().max(999_999_999_999), macroId: z.uuid() });
+/** seenVersion: версия, с которой открыта страница обращения (FR-AG-12). Не передана: проверки устаревшей страницы нет. */
+const runInput = z.strictObject({ ticketNumber: z.number().int().positive().max(999_999_999_999), macroId: z.uuid(), seenVersion: z.iso.datetime().optional() });
 
 // --- Настройка ---
 
@@ -153,7 +154,16 @@ const refused = (detail: string): Outcome => ({ ok: false, detail });
 /** Справочники запуска: читаются один раз и только если нужны действию. */
 type Lookups = { staff: () => Promise<AssignableStaff[]>; tags: () => Promise<Map<string, Tag>> };
 
-async function perform(ctx: StaffContext, macro: MacroRecord, action: MacroAction, ticket: MacroTicket, number: number, lookups: Lookups, texts: { text: string; fallback: boolean }[]): Promise<Outcome> {
+async function perform(
+  ctx: StaffContext,
+  macro: MacroRecord,
+  action: MacroAction,
+  ticket: MacroTicket,
+  number: number,
+  lookups: Lookups,
+  texts: { text: string; fallback: boolean }[],
+  seenVersion: string | undefined,
+): Promise<Outcome> {
   const byMacro = { byMacro: true } as const;
   switch (action.action) {
     case 'set_queue': {
@@ -169,13 +179,13 @@ async function perform(ctx: StaffContext, macro: MacroRecord, action: MacroActio
       const member = (await lookups.staff()).find((item) => item.userId === userId);
       if (!member) return refused('user_missing');
       if (ticket.assigneeId === userId) return unchanged(member.name);
-      await assignTicket(ctx, { number, assigneeId: userId });
+      await assignTicket(ctx, { number, assigneeId: userId, seenVersion });
       return done(undefined, member.name);
     }
     case 'set_priority':
       // Тот же приоритет макрос не трогает: подтверждение приоритета это решение сотрудника, а не макроса.
       if (ticket.priority === action.priority) return unchanged(action.priority);
-      await setPriority(ctx, { number, priority: action.priority, reason: macro.name }, byMacro);
+      await setPriority(ctx, { number, priority: action.priority, reason: macro.name, seenVersion }, byMacro);
       return done(ticket.priority, action.priority);
     case 'add_tag': {
       const tag = (await lookups.tags()).get(action.tagId);
@@ -193,8 +203,9 @@ async function perform(ctx: StaffContext, macro: MacroRecord, action: MacroActio
     }
     case 'add_note': {
       // Заметка сотрудника стирает его черновик ответа: черновик, начатый до макроса, возвращается на место.
+      // Проверка устаревшей страницы по той же версии, что у остальных действий; без версии проверки нет.
       const draft = await loadDraft(ctx, number);
-      const posted = await postStaffMessage(ctx, { number, body: action.text, internal: true, seenVersion: new Date(Date.now() + 60_000).toISOString() });
+      const posted = await postStaffMessage(ctx, { number, body: action.text, internal: true, seenVersion: seenVersion ?? new Date(Date.now() + 60_000).toISOString() });
       if (draft && draft.body !== '') await saveDraft(ctx, { number, body: draft.body, internal: draft.internal });
       return posted.ok ? done() : refused('changed');
     }
@@ -215,7 +226,7 @@ async function perform(ctx: StaffContext, macro: MacroRecord, action: MacroActio
     }
     case 'set_status':
       if (ticket.status === action.status) return unchanged(action.status);
-      await setStatus(ctx, { number, to: action.status }, byMacro);
+      await setStatus(ctx, { number, to: action.status, seenVersion }, byMacro);
       return done(ticket.status, action.status);
   }
 }
@@ -224,7 +235,8 @@ const resultOf = (actions: readonly ActionDone[]): MacroResult => (actions.every
 
 /**
  * Запустить макрос на обращении от имени сотрудника. Отказы: forbidden (сотрудник не ведёт обращения), invalid_input,
- * not_found (нет обращения; макроса нет, он выключен или негоден). Действия идут по порядку; отказ одного не
+ * not_found (нет обращения; макроса нет, он выключен или негоден), changed модуля обращений (страница с версией
+ * seenVersion устарела, ничего не выполнено). Действия идут по порядку; отказ одного не
  * останавливает остальные. В историю обращения пишется одна внутренняя запись о запуске, в журнал запись macro.run.
  *
  * Текст шаблона не отправляется: он дописывается в черновик ответа сотрудника (решение 7 плана M8). В непустой
@@ -237,7 +249,11 @@ export async function runMacro(ctx: StaffContext, input: unknown): Promise<Macro
   const number = data.ticketNumber;
   const macro = await runnableMacroTx(ctx.actor, data.macroId);
   if (!macro) throw new HdwError('not_found');
-  if (!(await macroTicket(ctx, number))) throw new HdwError('not_found');
+  // Страница устарела (обращение изменили другие после seenVersion): ошибка changed модуля обращений, ни одно действие
+  // не выполняется и запись о запуске не пишется (FR-AG-12, решение 0040). Версия передаётся и действиям: изменение
+  // другого человека посреди макроса даёт этому и следующим действиям отказ changed. Свои действия изменением не считаются.
+  const seen = data.seenVersion ? new Date(data.seenVersion) : undefined;
+  if (!(await macroTicket(ctx, number, { seen }))) throw new HdwError('not_found');
 
   let staff: Promise<AssignableStaff[]> | undefined;
   let tags: Promise<Map<string, Tag>> | undefined;
@@ -254,7 +270,7 @@ export async function runMacro(ctx: StaffContext, input: unknown): Promise<Macro
     try {
       // Состояние обращения читается перед каждым действием: предыдущее действие макроса могло его изменить.
       const ticket = await macroTicket(ctx, number);
-      outcome = ticket ? await perform(ctx, macro, action, ticket, number, lookups, texts) : refused('not_found');
+      outcome = ticket ? await perform(ctx, macro, action, ticket, number, lookups, texts, data.seenVersion) : refused('not_found');
     } catch (error) {
       if (isHdtError(error) || isHdrError(error)) outcome = refused(KNOWN_REFUSALS.has(error.code) ? error.code : 'refused');
       else {

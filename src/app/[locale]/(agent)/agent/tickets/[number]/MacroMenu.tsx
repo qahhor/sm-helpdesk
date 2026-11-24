@@ -12,16 +12,18 @@ import { type MacroRunState, runMacroAction } from './actions';
 // на сервере от имени сотрудника; страница показывает, что сделано и в чём отказано, и перечитывается. Текст шаблона
 // макрос не отправляет: сервер кладёт его в черновик ответа, поле ответа показывает его после перечитывания.
 // Меню открывается с клавиатуры (Enter, пробел, стрелка вниз), пункты выбираются стрелками и Enter, Esc закрывает.
+// version: версия, с которой открыта страница. Если обращение с тех пор изменили другие, макрос ничего не делает, а
+// страница перечитывается и называет изменения, как после действий статуса, исполнителя и приоритета (FR-AG-12).
 
 export type MacroMenuLabels = { open: string; list: string; busy: string };
 
-export function MacroMenu({ number, macros, labels }: { number: number; macros: { macroId: string; name: string }[]; labels: MacroMenuLabels }) {
+export function MacroMenu({ number, version, macros, labels }: { number: number; version: string; macros: { macroId: string; name: string }[]; labels: MacroMenuLabels }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [state, setState] = useState<MacroRunState | null>(null);
   const run = (macroId: string) =>
     start(async () => {
-      setState(await runMacroAction(number, macroId));
+      setState(await runMacroAction(number, macroId, version));
       router.refresh();
     });
   return (

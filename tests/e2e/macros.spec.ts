@@ -189,3 +189,42 @@ test('агент пишет внутреннюю заметку и запуск�
   expect(await dbRows(`select count(*)::int as n from hdt_ticket_messages m join hdt_tickets t using (ticket_id) where t.number = $1 and m.author_type = 'staff'`, [number])).toEqual([{ n: 0 }]);
   await context.close();
 });
+
+test('макрос со старой страницы: клиент написал, макрос ничего не делает, страница называет изменение (FR-AG-12)', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const stamp = Date.now();
+  const name = `E2E Ждём клиента ${stamp}`;
+  await dbRows(`insert into hdw_macros (name, actions, order_no) values ($1, $2, 9000)`, [name, JSON.stringify([{ action: 'set_status', status: 'waiting_customer' }, { action: 'add_note', text: `Заметка макроса ${stamp}` }])]);
+  const number = await clientTicket(browser, `Старая страница и макрос ${stamp}`);
+  const context = await browser.newContext({ storageState: storageStateOf('l1') });
+  const agent = await context.newPage();
+  await agent.goto(`/ru/agent/tickets/SUP-${number}`);
+  await expect(agent.locator('form[data-ready]').first()).toBeAttached();
+
+  // Клиент дописал, пока у сотрудника была открыта страница.
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.locator('form[data-ready]').first()).toBeAttached();
+  await client.getByLabel('Ответ', { exact: true }).fill('Подождите, ошибка осталась');
+  await dbRows(`delete from hdc_rate_limits where code like 'ticket-reply:user:%'`);
+  await client.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(client.getByRole('main')).toContainText('Подождите, ошибка осталась');
+  await clientContext.close();
+
+  // Макрос со старой страницы: ни статуса, ни заметки; страница перечитана и говорит, что изменилось.
+  await main(agent).getByRole('button', { name: 'Макросы' }).click();
+  await agent.getByRole('menuitem', { name }).click();
+  await expect(agent).toHaveURL(/error=changed&ch=1\.0\.0/);
+  await expect(main(agent).getByText('Пока страница была открыта, обращение изменилось')).toBeVisible();
+  await expect(main(agent).getByText('новых сообщений: 1')).toBeVisible();
+  expect(
+    await dbRows(`select t.status, (select count(*)::int from hdt_ticket_messages m where m.ticket_id = t.ticket_id and m.author_type = 'staff') as staff from hdt_tickets t where t.number = $1`, [number]),
+  ).toEqual([{ status: 'new', staff: 0 }]);
+  // Страница уже свежая: повтор макроса проходит.
+  await main(agent).getByRole('button', { name: 'Макросы' }).click();
+  await agent.getByRole('menuitem', { name }).click();
+  await expect(main(agent).locator('[data-macro-result]')).toContainText(`Макрос «${name}» выполнен`);
+  expect((await dbRows(`select status from hdt_tickets where number = $1`, [number]))[0]).toEqual({ status: 'waiting_customer' });
+  await context.close();
+});

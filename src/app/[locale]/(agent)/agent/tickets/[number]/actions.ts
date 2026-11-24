@@ -281,11 +281,12 @@ const MACRO_ERRORS = new Set(['forbidden', 'not_found', 'invalid_input']);
  * перечитывания страницы, сотрудник проверит и отправит сам (решение 7 плана M8). Если сотрудник пишет внутреннюю
  * заметку, шаблон не вставляется: черновик остаётся заметкой, причина видна среди невыполненных действий.
  */
-export async function runMacroAction(number: number, macroId: string): Promise<MacroRunState> {
+export async function runMacroAction(number: number, macroId: string, seenVersion: string): Promise<MacroRunState> {
   const staff = await requireStaffActor();
   const t = await getTranslations('agent.ticket.macros');
+  let changed: ChangeSummary | null = null;
   try {
-    const run = await runMacro(staff, { ticketNumber: number, macroId });
+    const run = await runMacro(staff, { ticketNumber: number, macroId, seenVersion });
     const describe = await actionTexts({ macro: true });
     const done = describe(run.actions.filter((item) => item.ok), 'runs.notDone');
     const refused = describe(run.actions.filter((item) => !item.ok), 'runs.notDone');
@@ -297,7 +298,11 @@ export async function runMacroAction(number: number, macroId: string): Promise<M
     };
   } catch (error) {
     if (isHdwError(error)) return { error: t(`errors.${MACRO_ERRORS.has(error.code) ? error.code : 'other'}`) };
-    if (isHdtError(error)) return { error: t('errors.other') };
-    throw error;
+    if (!isHdtError(error)) throw error;
+    // Страница устарела: макрос ничего не сделал. Переход на свежую страницу со сводкой, как у остальных действий.
+    if (error.code !== 'changed' || !error.changed) return { error: t('errors.other') };
+    changed = error.changed;
   }
+  const page = `/${await getLocale()}/agent/tickets/SUP-${Number.isInteger(number) ? number : 0}`;
+  redirect(`${page}?error=changed&ch=${changed.newMessages}.${changed.statusChanged ? 1 : 0}.${changed.assigneeChanged ? 1 : 0}`);
 }

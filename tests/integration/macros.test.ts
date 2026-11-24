@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'vitest';
 import { processEvents } from '@/modules/hdc/api';
-import { getAgentTicket, getTicket, loadDraft, saveDraft, setStatus } from '@/modules/hdt/api';
+import { assignTicket, getAgentTicket, getTicket, loadDraft, postStaffMessage, replyToTicket, saveDraft, setStatus } from '@/modules/hdt/api';
 import { handleRuleEvent, newRuleRun } from '@/modules/hdw/api/engine';
 import { deleteMacro, listMacros, listRunnableMacros, macroOptions, moveMacro, readMacro, runMacro, saveMacro } from '@/modules/hdw/api/macros';
 import { saveRule, setRuleEnabled } from '@/modules/hdw/api/rules';
@@ -382,4 +382,65 @@ test('шаблон макроса не вставляется в чернови�
   expect(await loadDraft(l1, f.tickets.aMine.number)).toBeNull();
   await runMacro(l1, { ticketNumber: f.tickets.aMine.number, macroId: only });
   expect(await loadDraft(l1, f.tickets.aMine.number)).toMatchObject({ body: 'Пришлите, пожалуйста, версию и снимок экрана.', internal: false });
+});
+
+// Страница устарела (FR-AG-12, решение 0040; волна 5, задача 3): меню макросов передаёт версию, с которой открыта
+// страница обращения. Если обращение с тех пор изменили другие, макрос не выполняет ни одного действия и отвечает
+// отказом changed со сводкой, как действия статуса, исполнителя и приоритета.
+const pause = () => new Promise((resolve) => setTimeout(resolve, 5));
+
+test('макрос со старой страницы: ни одного действия, отказ changed со сводкой изменений', async () => {
+  const t = f.tickets.aOrg;
+  const tagId = await tag('Проверено');
+  const macroId = await macro('Взять и пометить', [
+    { action: 'add_tag', tagId },
+    { action: 'add_note', text: 'Взято макросом' },
+    { action: 'set_status', status: 'in_progress' },
+  ]);
+  const seenVersion = (await getAgentTicket(l1, t.number))?.version as string;
+  expect(seenVersion).toMatch(/^\d{4}-/);
+  await pause();
+  // Пока страница открыта, клиент ответил, а Customer Care взял обращение.
+  await replyToTicket(await clientCtx(f.aUser), { number: t.number, body: 'Добавил скриншот' });
+  await assignTicket(staffCtx(f.care), { number: t.number, assigneeId: f.care.userId });
+  const before = { row: await ticketRow(t.ticketId), messages: (await messagesOf(t.ticketId)).length };
+  await expect(runMacro(l1, { ticketNumber: t.number, macroId, seenVersion })).rejects.toMatchObject({
+    code: 'changed',
+    changed: { newMessages: 1, statusChanged: false, assigneeChanged: true },
+  });
+  // Ничего не сделано: ни тега, ни заметки, ни статуса, ни записи о запуске макроса.
+  expect(await ticketRow(t.ticketId)).toMatchObject({ status: before.row.status, modified_on: before.row.modified_on });
+  expect((await pools.root.query(`select 1 from hdt_ticket_tags where ticket_id = $1`, [t.ticketId])).rows).toEqual([]);
+  expect(await messagesOf(t.ticketId)).toHaveLength(before.messages);
+  expect(await history(t.ticketId, 'rule')).toEqual([]);
+  expect(await auditOf(t.ticketId, 'macro.run')).toEqual([]);
+});
+
+test('макрос со свежей страницы выполняется; свои действия макроса изменением не считаются', async () => {
+  const t = f.tickets.aOrg;
+  const tagId = await tag('Проверено');
+  const macroId = await macro('Взять и пометить', [
+    { action: 'set_status', status: 'in_progress' },
+    { action: 'assign_me' },
+    { action: 'set_priority', priority: 'p1' },
+    // Заметка после действий самого сотрудника: проверка по версии страницы их не считает.
+    { action: 'add_note', text: 'Взято макросом' },
+    { action: 'add_tag', tagId },
+  ]);
+  const seenVersion = (await getAgentTicket(l1, t.number))?.version as string;
+  await pause();
+  // Свой ответ сотрудника после открытия страницы тоже не изменение.
+  await postStaffMessage(l1, { number: t.number, body: 'Смотрю', internal: false, seenVersion });
+  const result = await runMacro(l1, { ticketNumber: t.number, macroId, seenVersion });
+  expect(result.actions.map((item) => [item.action, item.ok])).toEqual([
+    ['set_status', true],
+    ['assign', true],
+    ['set_priority', true],
+    ['add_note', true],
+    ['add_tag', true],
+  ]);
+  expect(await ticketRow(t.ticketId)).toMatchObject({ status: 'in_progress', assignee_id: f.l1.userId, priority: 'p1' });
+  expect((await messagesOf(t.ticketId)).at(-1)).toMatchObject({ author_id: f.l1.userId, body: 'Взято макросом', is_internal: true });
+  // Негодная версия отклоняется схемой.
+  await expect(runMacro(l1, { ticketNumber: t.number, macroId, seenVersion: 'вчера' })).rejects.toMatchObject({ code: 'invalid_input' });
 });

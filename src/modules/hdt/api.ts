@@ -159,11 +159,14 @@ function decodeCursor(cursor: string): { modifiedOn: string; ticketId: string } 
  * Обращения клиента: организации (видимые ему) или только свои, с фильтром по статусу и типу и поиском по
  * номеру или тексту темы и описания. По 20 строк, новые изменения первыми, курсор на следующую страницу.
  */
-export async function listTickets(ctx: ClientContext, input: unknown): Promise<{ items: TicketRow[]; nextCursor: string | null; searchTooShort: boolean }> {
+export async function listTickets(ctx: ClientContext, input: unknown): Promise<{ items: TicketRow[]; nextCursor: string | null; searchTooShort: boolean; searchLimited: boolean }> {
   const data = parseInput(listTicketsInput, input);
   const search = data.q !== undefined ? parseSearch(data.q) : { tooShort: false };
   // Текст короче трёх знаков не ищется: список пуст, страница просит уточнить запрос (аудит 23.11.2026, находка P9).
-  if (search.tooShort) return { items: [], nextCursor: null, searchTooShort: true };
+  if (search.tooShort) return { items: [], nextCursor: null, searchTooShort: true, searchLimited: false };
+  // Поиск по тексту идёт по общему индексу: время ответа зависит от совпадений во всей базе. Предел частоты не даёт
+  // перебирать шаблоны ради замера времени (решение 0041, пункт 9). Список без поиска и поиск по номеру не считаются.
+  if (search.text && !(await searchAllowed(ctx.actor))) return { items: [], nextCursor: null, searchTooShort: false, searchLimited: true };
   const rows = await listTicketRows(ctx.actor, {
     mineOnly: data.scope === 'mine',
     status: data.status,
@@ -187,7 +190,17 @@ export async function listTickets(ctx: ClientContext, input: unknown): Promise<{
     })),
     nextCursor: rows.length > TICKET_PAGE_SIZE && last ? encodeCursor(last) : null,
     searchTooShort: false,
+    searchLimited: false,
   };
+}
+
+/** Учитывает поиск по тексту на пользователя и на организацию. Оба счётчика считают каждую попытку. */
+async function searchAllowed(actor: ClientContext['actor']): Promise<boolean> {
+  const [user, org] = await Promise.all([
+    consumeRateLimit(rateKey('ticket-search:user', actor.userId), RATE_RULES.ticketSearchPerUser),
+    consumeRateLimit(rateKey('ticket-search:org', actor.orgId), RATE_RULES.ticketSearchPerOrg),
+  ]);
+  return user.allowed && org.allowed;
 }
 
 export type AttachmentView = {

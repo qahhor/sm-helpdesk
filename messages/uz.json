@@ -194,6 +194,7 @@
         "more": "Yana ko'rsatish",
         "nothing": "Hech narsa topilmadi. Qidiruv shartlarini o'zgartiring.",
         "tooShort": "Kamida 3 ta belgi kiriting: bir-ikki belgi bo'yicha qidiruv ishlamaydi. Murojaat raqamini to'liq kiritish mumkin.",
+        "limited": "Ketma-ket juda ko'p qidiruv. Bir daqiqa kuting va qayta urinib ko'ring. Murojaat raqami bo'yicha qidiruv cheklanmagan.",
         "private": "Shaxsiy"
       },
       "page": {

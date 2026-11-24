@@ -194,6 +194,7 @@
         "more": "Show more",
         "nothing": "Nothing found. Change the search conditions.",
         "tooShort": "Enter at least 3 characters: one or two are not enough to search. A request number can be entered in full.",
+        "limited": "Too many searches in a row. Wait a minute and try again. Search by request number is not limited.",
         "private": "Private"
       },
       "page": {

@@ -1,4 +1,6 @@
 import { beforeEach, expect, test } from 'vitest';
+import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
+import { RATE_RULES } from '@/modules/hdc/pref';
 import { listQueue, listTickets } from '@/modules/hdt/api';
 import { searchOrganizations } from '@/modules/hdu/api/orgs';
 import { findOrgIds, findUserIds } from '@/modules/hdu/api/staff-lookup';
@@ -40,6 +42,25 @@ test('список клиента: запрос короче 3 знаков не
   expect(found.searchTooShort).toBe(false);
   expect(found.items.length).toBeGreaterThan(0);
   expect((await listTickets(ctx, { q: `SUP-${f.tickets.aOrg.number}` })).items).toHaveLength(1);
+});
+
+test('список клиента: поиск по тексту ограничен по частоте, список без поиска и поиск по номеру нет (вопрос 22)', async () => {
+  const ctx = await clientCtx(f.aUser);
+  for (let attempt = 0; attempt < RATE_RULES.ticketSearchPerUser.limit; attempt++)
+    expect((await listTickets(ctx, { q: 'Отчёт' })).searchLimited).toBe(false);
+  const over = await captureQueries(() => listTickets(ctx, { q: 'Отчёт' }));
+  expect(over.result).toMatchObject({ items: [], nextCursor: null, searchLimited: true });
+  // Запрос сверх предела к обращениям не идёт: по времени ответа судить не о чем.
+  expect(over.queries.filter((q) => /hdt_tickets/.test(q.text))).toEqual([]);
+  expect((await listTickets(ctx, {})).items.length).toBeGreaterThan(0);
+  expect((await listTickets(ctx, { q: `SUP-${f.tickets.aOrg.number}` })).items).toHaveLength(1);
+});
+
+test('список клиента: предел поиска по тексту общий на организацию', async () => {
+  const ctx = await clientCtx(f.aUser);
+  const key = rateKey('ticket-search:org', ctx.actor.orgId);
+  for (let attempt = 0; attempt < RATE_RULES.ticketSearchPerOrg.limit; attempt++) await consumeRateLimit(key, RATE_RULES.ticketSearchPerOrg);
+  expect((await listTickets(ctx, { q: 'Отчёт' })).searchLimited).toBe(true);
 });
 
 test('организации: короткий запрос не ищет, пустой показывает все', async () => {

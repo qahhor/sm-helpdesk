@@ -147,6 +147,8 @@ export const attachments = pgTable('hdt_attachments', {
   detectedType: text('detected_type'),
   isInternal: boolean('is_internal').notNull().default(false),
   ...stampColumns,
+  // Миграция 0050 (волна 3): когда антивирус закончил проверку. По нему считается сигнал о заражённых файлах.
+  scannedOn: moment('scanned_on'),
 });
 
 /** Условия сохранённого списка рабочего места. */

@@ -155,7 +155,7 @@ async function finish(row: ScanRow, result: ScanResult): Promise<ScanStatus> {
   return withActor(SCAN_ACTOR, async (tx) => {
     const updated = await tx
       .update(attachments)
-      .set(result)
+      .set({ ...result, scannedOn: sql`now()` })
       .where(and(eq(attachments.attachmentId, row.attachmentId), eq(attachments.scanStatus, 'pending')))
       .returning({ scanStatus: attachments.scanStatus });
     if (updated.length === 0) {
@@ -334,7 +334,8 @@ export async function infectedSinceTx(actor: SystemActor, since: Date): Promise<
     tx
       .select({ n: sql<number>`count(*)::int` })
       .from(attachments)
-      .where(and(eq(attachments.scanStatus, 'infected'), gt(attachments.modifiedOn, since))),
+      // По времени проверки, а не изменения строки: строка меняется и при переходе файла гостя к пользователю.
+      .where(and(eq(attachments.scanStatus, 'infected'), gt(attachments.scannedOn, since))),
   );
   return rows[0]?.n ?? 0;
 }

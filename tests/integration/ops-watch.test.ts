@@ -106,7 +106,9 @@ test('20 неудачных входов сотрудников за 15 мину
 });
 
 test('заражённый файл за последний час', async () => {
-  await pools.root.query(`update hdt_attachments set scan_status = 'infected', scan_signature = 'Eicar-Test' where attachment_id = (select attachment_id from hdt_attachments limit 1)`);
+  await pools.root.query(
+    `update hdt_attachments set scan_status = 'infected', scan_signature = 'Eicar-Test', scanned_on = now() where attachment_id = (select attachment_id from hdt_attachments limit 1)`,
+  );
   expect(await watch()).toEqual(['infected_files']);
   expect(chat[0]).not.toContain('Eicar');
 });
@@ -212,4 +214,31 @@ test('поток обращений с неизвестных адресов: 60
   await flood(1);
   expect(await watch()).toEqual(['unidentified_flood']);
   expect(chat).toEqual([opsAlertText({ code: 'unidentified_flood', count: 60 })]);
+});
+
+test('заражённый файл гостя перешёл к пользователю: сигнал о нём не повторяется (проверка волны 0, мелкое 2)', async () => {
+  // Файл найден заражённым два часа назад: сигнал о нём уже был. Сейчас строка изменилась (сменился владелец).
+  await pools.root.query(
+    `update hdt_attachments set scan_status = 'infected', scan_signature = 'Eicar-Test', scanned_on = now() - interval '2 hours'
+      where attachment_id = (select attachment_id from hdt_attachments limit 1)`,
+  );
+  await pools.root.query(`update hdt_attachments set file_name = file_name where scan_status = 'infected'`);
+  expect((await pools.root.query(`select count(*)::int as n from hdt_attachments where scan_status = 'infected' and modified_on > now() - interval '1 minute'`)).rows[0].n).toBe(1);
+  expect(await watch()).toEqual([]);
+});
+
+test('смена токена бота дежурных оставляет запись в журнале в той же транзакции, что и сам токен (M4, мелкое 12)', async () => {
+  const { saveOncall } = await import('@/modules/hdn/api/mail-settings');
+  const { staffCtx } = await import('./helpers/auth');
+  await pools.root.query(`delete from hdc_settings where code = 'notify.oncall_emails'`);
+  await saveOncall(staffCtx(f.adminStaff), { emails: ['duty@smartup24.com'], chatId: '-100123', bot: 'own', botToken: '123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw0' });
+  const rows = (await pools.root.query(`select actor_type, diff, txid_current() is not null as ok from hdc_audit_log where action = 'settings.oncall_bot_replaced'`)).rows;
+  expect(rows).toEqual([{ actor_type: 'system', diff: { by: f.adminStaff.userId }, ok: true }]);
+  // Запись и секрет зафиксированы одной транзакцией: номера транзакций строк совпадают.
+  const same = (
+    await pools.root.query(
+      `select (select xmin::text from hdc_audit_log where action = 'settings.oncall_bot_replaced') = (select xmin::text from hdn_channel_secrets limit 1) as same`,
+    )
+  ).rows[0].same;
+  expect(same).toBe(true);
 });

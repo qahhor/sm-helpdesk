@@ -54,12 +54,15 @@ export async function oncallTelegram(): Promise<{ token: string; chatId: string 
 export async function saveOncallBotToken(staff: StaffActor, token: string): Promise<void> {
   if (staff.type !== 'staff' || staff.staffRole !== 'admin') throw new Error('бот дежурных: токен задаёт только администратор');
   const sealed = getSecretBox().seal(BOT_TOKEN.parse(token), SECRET_CONTEXT);
-  await withActor({ type: 'system', job: 'settings.oncall-bot' }, (tx) =>
-    tx
+  await withActor({ type: 'system', job: 'settings.oncall-bot' }, async (tx) => {
+    await tx
       .insert(channelSecrets)
       .values({ code: SECRET_CODE, sealed })
-      .onConflictDoUpdate({ target: channelSecrets.code, set: { sealed } }),
-  );
+      .onConflictDoUpdate({ target: channelSecrets.code, set: { sealed } });
+    // Запись журнала в той же транзакции, что и секрет: смена токена без записи невозможна (итоговая проверка M4,
+    // мелкое 12). Секрет пишет система, поэтому сотрудник назван в описании изменения.
+    await writeAudit(tx, { action: 'settings.oncall_bot_replaced', objectType: 'setting', objectId: 'notify.oncall_bot', diff: { by: staff.userId } });
+  });
 }
 
 /** Место хранения секрета канала по его коду. Новый секрет канала добавляется сюда. */

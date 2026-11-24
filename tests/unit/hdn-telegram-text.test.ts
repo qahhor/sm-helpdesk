@@ -53,3 +53,16 @@ test('ссылка только на портал: чужой адрес в да
   const notice = telegramNoticeText({ template: 'ticket_reply', ...ref, url: 'https://evil.example/x', body: '' }, 'ru', HUB);
   expect(notice.button.url).toBe(`${HUB}/ru/tickets/SUP-1042`);
 });
+
+test('тема не становится нажимаемой в Telegram: домен в любом регистре, команда бота, упоминание и метка (M4b, мелкое 1)', () => {
+  const text = (title: string) => telegramNoticeText({ template: 'ticket_created', number: 7, title, url: '/tickets/SUP-7', viaEmail: false }, 'ru', HUB).text.split('\n')[0] ?? '';
+  // Telegram делает ссылкой домен в любом регистре букв.
+  expect(text('Войдите на Login.Com срочно')).not.toMatch(/\w\.\w/);
+  expect(text('Зайдите на EVIL.cOm')).not.toMatch(/\w\.\w/);
+  // Команда бота, упоминание и метка в теме остаются текстом.
+  expect(text('/unlink и /start помогут')).not.toMatch(/(^|\s)\/[a-z]/);
+  expect(text('Пишите @smartup_admin')).not.toContain('@');
+  expect(text('Смотрите #скидка')).not.toMatch(/(^|\s)#\p{L}/u);
+  // Обычная тема не меняется: дробь, номер и знаки препинания остаются как были.
+  expect(text('Счёт 5/7 не сходится, строка №3. Проверьте')).toBe('SUP-7 · Счёт 5/7 не сходится, строка №3. Проверьте');
+});

@@ -69,6 +69,8 @@ export const AUDIT_ACTIONS = [
   // Настройки почты и уведомлений (план M4, задача 12)
   'settings.changed',
   'settings.oncall_changed',
+  // Токен отдельного бота дежурных заменён: запись в одной транзакции с секретом (решение 0040).
+  'settings.oncall_bot_replaced',
   'sender.unblocked',
   'org.domain_added',
   'org.domain_removed',

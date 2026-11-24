@@ -41,6 +41,14 @@ export default async function RulesSettingsPage({ searchParams }: { searchParams
         {done && DONE.has(done) && <Alert tone="success">{r(`done.${done}`)}</Alert>}
         {error && ERRORS.has(error) && <Alert tone="danger">{r(`errors.${error}`)}</Alert>}
         <p className="text-secondary-foreground">{r('intro')}</p>
+        {/* Напоминание клиенту и автозакрытие остались в коде портала (план M8, задача 11): строка только для чтения,
+            чтобы администратор не завёл второе, спорящее с ними автозакрытие, не зная о встроенном. */}
+        <p className="text-sm text-secondary-foreground" data-embedded>
+          {r('embedded.text')}{' '}
+          <Link href="/agent/settings/mail" className="text-link underline underline-offset-2">
+            {r('embedded.link')}
+          </Link>
+        </p>
         {rules.length === 0 ? (
           <Card>
             <EmptyState title={r('emptyTitle')} text={r('emptyText')} />

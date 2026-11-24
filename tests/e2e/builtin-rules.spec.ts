@@ -45,7 +45,7 @@ async function clientP1(browser: Browser, description: string): Promise<number> 
   return number;
 }
 
-test('список правил: три предустановленных правила', async ({ page }) => {
+test('список правил: три предустановленных правила и строка о встроенных напоминании и автозакрытии', async ({ page }) => {
   await signInStaff(page, staffAccount('admin'));
   await page.goto('/ru/agent/settings/rules');
   for (const name of [P1_NAME, 'Нарушение срока: руководителю линии', 'Оценка 1-2: руководителю']) {
@@ -53,6 +53,11 @@ test('список правил: три предустановленных пр�
     await expect(row).toContainText('Предустановленное');
     await expect(row).toContainText('Включено');
   }
+  const embedded = main(page).locator('[data-embedded]');
+  await expect(embedded).toContainText('Встроено в портал: напоминание клиенту и автозакрытие (настраивается в «Сроки»).');
+  await embedded.getByRole('link', { name: 'Открыть сроки напоминаний и автозакрытия' }).click();
+  await expect(page).toHaveURL(/\/ru\/agent\/settings\/mail$/);
+  await expect(main(page)).toContainText('Сроки напоминаний и автозакрытия');
 });
 
 test('предустановленное правило: событие закрыто, удалить нельзя, условие добавлено и возвращён исходный вид', async ({ page }) => {

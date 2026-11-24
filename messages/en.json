@@ -1483,6 +1483,10 @@
         "restore": {
           "open": "Restore default",
           "hint": "The name, conditions and actions return to what the portal ships. On or off and the order stay as they are."
+        },
+        "embedded": {
+          "text": "Built into the portal: client reminder and auto-close (configured in \"Timings\").",
+          "link": "Open reminder and auto-close timings"
         }
       },
       "webhooks": {

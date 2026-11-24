@@ -1483,6 +1483,10 @@
         "restore": {
           "open": "Dastlabki ko'rinishga qaytarish",
           "hint": "Nom, shartlar va amallar portal bilan yetkazilgan ko'rinishga qaytadi. Yoqilganligi va tartibi o'zgarmaydi."
+        },
+        "embedded": {
+          "text": "Portalga o'rnatilgan: mijozga eslatma va avtomatik yopish («Muddatlar» bo'limida sozlanadi).",
+          "link": "Eslatma va avtomatik yopish muddatlarini ochish"
         }
       },
       "webhooks": {

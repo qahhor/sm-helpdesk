@@ -14,6 +14,9 @@ import { type NavGroupView, SectionsMenu } from './SectionsMenu';
  * Верхняя панель рабочего места по образцу Smartup Web: тёмная в обеих темах, высота 52 px,
  * логотип для тёмного фона, пять групп разделов, справа язык, тема и меню пользователя.
  * Пункты с ролями видны только своим ролям; без роли (витрина компонентов) только общие пункты.
+ * На телефоне (уже 600 px) промежутки между частями панели меньше, название "Hub" и подпись кнопки "Разделы" читает
+ * только программа экранного доступа (как в шапке клиента): панель помещается в экран 360 px без прокрутки вбок
+ * (волна 5, задача 1). Логотип не сжимается.
  */
 export async function TopBar({ userMenu, bell, role }: { userMenu?: ReactNode; bell?: ReactNode; role: StaffRole | null }) {
   const t = await getTranslations();
@@ -28,9 +31,9 @@ export async function TopBar({ userMenu, bell, role }: { userMenu?: ReactNode; b
   }));
 
   return (
-    <header className="sticky top-0 z-40 flex h-header shrink-0 items-center gap-4 bg-header px-4 text-header-foreground">
-      <Link href="/agent" className="inline-flex items-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <Logo onDark withProductName />
+    <header className="sticky top-0 z-40 flex h-header shrink-0 items-center gap-4 bg-header px-4 max-tablet:gap-2 text-header-foreground">
+      <Link href="/agent" className="inline-flex shrink-0 items-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Logo onDark withProductName className="max-tablet:[&>span]:sr-only" />
       </Link>
       <nav aria-label={t('agent.nav.sections')} className="flex items-center">
         <SectionsMenu groups={groups} sectionsLabel={t('agent.nav.sections')} emptyLabel={t('agent.nav.soon')} />

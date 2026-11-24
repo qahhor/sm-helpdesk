@@ -86,6 +86,7 @@
         "telegram_linked": "Telegram hisobi bog'landi. Agar bu siz bo'lmasangiz, uni profilda uzing.",
         "rule": "«{rule}» qoidasi: SUP-{number} murojaati",
         "rule_disabled": "«{rule}» qoidasi o'chirildi: u juda tez-tez ishga tushdi",
+        "rule_paused": "«{rule}» qoidasi SUP-{number} murojaatida to'xtatib turildi: u juda tez-tez ishga tushdi",
         "dev_task_closed": "Ishlab chiqish vazifasi yopildi: tekshiring va mijozga xabar bering. SUP-{number} murojaati",
         "csat_low": "Mijoz SUP-{number} murojaatiga {score} baho qo'ydi"
       },
@@ -956,6 +957,7 @@
             "restored": "Avtomatlashtirish qoidasi dastlabki ko'rinishiga qaytarildi",
             "applied": "Avtomatlashtirish qoidasi ishga tushdi",
             "disabled_loop": "Avtomatlashtirish qoidasi takrorlanishdan himoya tufayli o'chirildi",
+            "paused_loop": "Avtomatlashtirish qoidasi takrorlanishdan himoya tufayli murojaatda to'xtatib turildi",
             "dry_run": "Avtomatlashtirish qoidasining sinov ishga tushirilishi"
           },
           "webhook": {
@@ -1242,6 +1244,7 @@
           "invalid": "E'tibor talab qiladi"
         },
         "builtin": "Oldindan o'rnatilgan",
+        "builtinInactive": "Portalning o'rnatilgan bildirishnomalari yuborilmayapti: {rules}. Qoida o'chirilgan, e'tibor talab qiladi yoki undan o'z bildirishnomasi olib tashlangan. Shunday ekan, navbatchilar va rahbarlar bunday xabarlarni olmaydi.",
         "moveUp": "Yuqoriga",
         "moveDown": "Pastga",
         "moveUpOf": "«{name}» qoidasini yuqoriga ko'tarish",
@@ -1270,7 +1273,7 @@
           "not_builtin": "Dastlabki ko'rinish faqat oldindan o'rnatilgan qoidada bor."
         },
         "reauth": "Qayta kirish",
-        "loopNote": "Qoidani takrorlanishdan himoya o'chirdi: u bitta murojaatda bir soatda 10 martadan ko'p ishga tushdi. Shartlar va amallarni tekshiring va qoidani qayta yoqing.",
+        "loopNote": "Qoidani takrorlanishdan himoya o'chirdi: bir soat ichida u uchta tashkilotning murojaatlarida bitta murojaatda 10 martadan ko'p ishga tushdi. Shartlar va amallarni tekshiring va qoidani qayta yoqing.",
         "invalidNote": "Bu qoidaning shartlari yoki amallari eskirgan, shuning uchun u qo'llanmaydi. Ularni qaytadan belgilang va saqlang.",
         "events": {
           "ticket_created": "Murojaat yaratildi",
@@ -1430,17 +1433,19 @@
           "merged": "murojaat boshqasi bilan birlashtirilgan",
           "no_candidates": "navbatda xodimlar yo'q",
           "tag_missing": "teg o'chirilgan",
+          "too_many_tags": "murojaatda allaqachon 20 ta teg bor",
           "template_disabled": "shablon o'chirilgan",
           "template_missing": "shablon yo'q yoki unda matn yo'q",
           "transition_refused": "bunday o'tish taqiqlangan",
           "user_missing": "xodim topilmadi",
           "no_recipients": "qabul qiluvchilar yo'q",
-          "webhook_failed": "vebhuk javob bermadi",
+          "webhook_failed": "vebhuk navbatga qo'yilmadi",
           "unknown": "sabab ko'rsatilmagan",
           "endpoint_missing": "vebhuk manzili o'chirilgan",
           "endpoint_disabled": "vebhuk manzili o'chirib qo'yilgan",
           "forbidden": "bu amalga huquq yo'q",
           "changed": "makros bajarilayotganda murojaat o'zgartirildi",
+          "draft_is_note": "shablon qo'yilmadi: javob maydonida ichki qayd yozilmoqda. Uni saqlang yoki tozalang va makrosni qayta ishga tushiring",
           "not_found": "topilmadi",
           "invalid_input": "qiymat qabul qilinmadi",
           "rate_limited": "ketma-ket juda ko'p amal",
@@ -1469,7 +1474,7 @@
           "no_match": "Shartlar mos kelmadi",
           "partial": "Qisman bajarildi",
           "failed": "Bajarilmadi",
-          "skipped_loop": "Takrorlanishdan himoya to'xtatdi"
+          "skipped_loop": "O'tkazib yuborildi: qoida takrorlanishdan himoya tufayli murojaatda to'xtatib turilgan"
         },
         "delete": {
           "open": "Qoidani o'chirib tashlash",
@@ -1998,6 +2003,7 @@
           "other": "Bo'lmadi. Yana urinib ko'ring.",
           "merge_refused": "Birlashtirib bo'lmaydi: bu o'sha murojaat yoki boshqa tashkilot murojaati.",
           "merged": "Murojaat allaqachon birlashtirilgan.",
+          "too_many_tags": "Murojaatda allaqachon 20 ta teg bor. Yangisini qo'shish uchun keraksizini olib tashlang.",
           "invalid_url": "Vazifa havolasini tekshiring: manzil https:// bilan boshlanishi kerak",
           "already_linked": "Murojaatda ishlab chiqish vazifasi allaqachon bor.",
           "task_closed": "Bu raqamli vazifa allaqachon yopilgan. Boshqa vazifani ko'rsating.",
@@ -2756,7 +2762,9 @@
       "archive_failing": "Smartup Hub: baza jurnali arxivi saqlanmayapti, muvaffaqiyatsiz urinishlar: {count}. Arxiv katalogi va diskdagi joyni tekshiring.",
       "inbound_held": "Smartup Hub: bir soat ichida tezlik chegarasi {count} ta kiruvchi xatni to'xtatdi. Ular murojaatlarga tushmadi: bitta manzildan yoki bitta murojaatga juda ko'p xat keldi.",
       "unidentified_flood": "Smartup Hub: bir soat ichida noma'lum manzillardan kelgan xatlardan {count} ta murojaat yaratildi. Xatlar oqimi bo'lishi mumkin. \"Aniqlanmaganlar\" va pochta sozlamalarini ko'ring.",
-      "automation_dropped": "Smartup Hub: bir soat ichida {count} ta avtomatlashtirish hodisasi qayta ishlanmadi. Ular bo'yicha qoidalar va bildirishnomalar bajarilmadi, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring."
+      "automation_dropped": "Smartup Hub: bir soat ichida {count} ta avtomatlashtirish hodisasi qayta ishlanmadi. Ular bo'yicha qoidalar va bildirishnomalar bajarilmadi, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
+      "automation_lag": "Smartup Hub: avtomatlashtirish hodisalari {minutes} daqiqadan beri qayta ishlanmayapti, navbatda: {count}. Qoidalar va bildirishnomalar kechikmoqda, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
+      "builtin_rule_inactive": "Smartup Hub: o'rnatilgan bildirishnomalar ishlamayapti, qoidalar: {count} ({rules}). Qoida o'chirilgan yoki nosoz: navbatchilarga P1 haqida, rahbarga muddat buzilishi yoki past baho haqida xabarlar yuborilmayapti. Sozlamalarda avtomatlashtirish qoidalarini tekshiring."
     }
   },
   "dev": {

@@ -30,6 +30,7 @@ export {
   droppedEventsSince,
   emitEventTx,
   EVENT_MAX_ATTEMPTS,
+  EVENT_RETRY_SECONDS,
   type EventHandler,
   EVENTS_KEEP_DAYS,
   eventsState,

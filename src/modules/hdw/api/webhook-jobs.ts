@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Tx } from '@/db/client';
 import type { SystemActor } from '@/db/with-actor';
+import { logEvent } from '@/lib/log';
 import type { DomainEvent } from '@/modules/hdc/api';
 import { cleanupDeliveriesTx, dispatchWebhooksTx, enqueueEventDeliveriesTx, hasDueDeliveriesTx, resealWebhookSecretsTx, type WebhookDispatchOptions, type WebhookDispatchResult } from '../core/deliveries';
 
@@ -19,9 +20,19 @@ function requireSystem(actor: SystemActor): void {
 /**
  * Обработчик события для processEvents: событие уходит адресам, которые на него подписаны. Работает в транзакции
  * события после правил: доставка фиксируется вместе с отметкой разбора. Возвращает число поставленных доставок.
+ *
+ * Постановка идёт в точке сохранения (проверка вехи M8, находка S2): её сбой откатывает только доставки и пишется в
+ * журнал процесса. Раньше он откатывал всё событие вместе с правилами и сообщением дежурным о P1, и после пяти
+ * попыток событие снималось с очереди.
  */
-export function handleWebhookEvent(tx: Tx, event: DomainEvent): Promise<number> {
-  return enqueueEventDeliveriesTx(tx, event);
+export async function handleWebhookEvent(tx: Tx, event: DomainEvent): Promise<number> {
+  try {
+    return await tx.transaction((point) => enqueueEventDeliveriesTx(point, event));
+  } catch (error) {
+    // Вид ошибки без её текста: в тексте могут быть данные клиента.
+    logEvent('error', 'webhooks.enqueue_failed', { eventId: event.eventId, kind: event.kind, error: error instanceof Error ? error.name : 'ошибка' });
+    return 0;
+  }
 }
 
 /** Отправка очереди доставок: задача webhooks.dispatch раз в минуту и по сигналу. */

@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, arrayContains, asc, eq, inArray, lt, lte, sql } from 'drizzle-orm';
+import { and, arrayContains, asc, eq, inArray, lt, lte, notInArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
@@ -9,7 +9,7 @@ import { moduleCodesTx, tagsByIdTx } from '@/modules/hdr/api';
 import { ruleTicketFactsTx } from '@/modules/hdt/api/automation';
 import { BlockedAddressError, type GuardedPost, guardedPostJson, LOOPBACK_HOSTS, OutboundTimeoutError } from '@/security/outbound';
 import { getSecretBox } from '@/security/secret-box';
-import { DELIVERIES_KEEP_DAYS, type DeliveryKind, WEBHOOK_EVENTS, WEBHOOK_MAX_ATTEMPTS, WEBHOOK_RETRY_MINUTES, WEBHOOK_TIMEOUT_MS } from '../pref';
+import { DELIVERIES_KEEP_DAYS, type DeliveryKind, WEBHOOK_BODY_BUDGET_BYTES, WEBHOOK_BODY_MAX_TAGS, WEBHOOK_CLAIM_PER_ENDPOINT, WEBHOOK_EVENTS, WEBHOOK_MAX_ATTEMPTS, WEBHOOK_RETRY_MINUTES, WEBHOOK_TIMEOUT_MS } from '../pref';
 import { type WebhookBody, webhookDeliveries, webhookEndpoints, webhookSecrets } from '../schema';
 import { DELIVERY_HEADER, EVENT_HEADER, SIGNATURE_HEADER, signatureHeader } from '../webhook-sign';
 import type { WebhookDeliverer } from './actions';
@@ -28,30 +28,43 @@ import { secretContext } from './webhooks';
 //
 // В теле запроса вид события, время и поля обращения: темы, описания, переписки, имён и адресов людей нет.
 
+/**
+ * Теги в теле доставки: по алфавиту, не больше WEBHOOK_BODY_MAX_TAGS и столько, чтобы тело уложилось в
+ * WEBHOOK_BODY_BUDGET_BYTES (база держит 8000 байт, ограничение hdw_webhook_deliveries_c3). Список обрезан:
+ * truncated. Тело с обрезанным списком всегда проходит ограничение: остальные поля короткие коды.
+ */
+export function fitTags(names: readonly string[], rest: (tags: string[]) => unknown): { tags: string[]; truncated: boolean } {
+  const sorted = [...names].sort((a, b) => a.localeCompare(b));
+  const tags = sorted.slice(0, WEBHOOK_BODY_MAX_TAGS);
+  // Текст jsonb в базе чуть длиннее JSON.stringify (пробелы после двоеточий и запятых): запас заложен в бюджет.
+  while (tags.length > 0 && Buffer.byteLength(JSON.stringify(rest(tags))) > WEBHOOK_BODY_BUDGET_BYTES) tags.pop();
+  return { tags, truncated: tags.length < sorted.length };
+}
+
 /** Тело доставки об обращении. null: обращения нет. */
 async function bodyOfTx(tx: Tx, input: { kind: DeliveryKind; occurredOn: Date; ticketId: string }): Promise<{ body: WebhookBody; orgId: string } | null> {
   const ticket = (await ruleTicketFactsTx(tx, [input.ticketId])).get(input.ticketId);
   if (!ticket) return null;
   const tags = await tagsByIdTx(tx, ticket.tagIds);
   const moduleCode = ticket.moduleId ? ((await moduleCodesTx(tx, [ticket.moduleId])).get(ticket.moduleId) ?? null) : null;
-  return {
-    orgId: ticket.orgId,
-    body: {
-      event: input.kind,
-      occurredOn: input.occurredOn.toISOString(),
-      ticket: {
-        number: ticket.number,
-        ticketId: ticket.ticketId,
-        orgId: ticket.orgId,
-        status: ticket.status,
-        priority: ticket.priority,
-        type: ticket.type,
-        queue: ticket.queue,
-        moduleCode,
-        tags: [...tags.values()].map((tag) => tag.name).sort((a, b) => a.localeCompare(b)),
-      },
+  const build = (names: string[], truncated: boolean): WebhookBody => ({
+    event: input.kind,
+    occurredOn: input.occurredOn.toISOString(),
+    ticket: {
+      number: ticket.number,
+      ticketId: ticket.ticketId,
+      orgId: ticket.orgId,
+      status: ticket.status,
+      priority: ticket.priority,
+      type: ticket.type,
+      queue: ticket.queue,
+      moduleCode,
+      tags: names,
+      ...(truncated ? { tagsTruncated: true as const } : {}),
     },
-  };
+  });
+  const fitted = fitTags([...tags.values()].map((tag) => tag.name), (names) => build(names, true));
+  return { orgId: ticket.orgId, body: build(fitted.tags, fitted.truncated) };
 }
 
 type NewDelivery = { endpointIds: readonly string[]; eventId: string | null; kind: DeliveryKind; occurredOn: Date; ticketId: string };
@@ -147,13 +160,26 @@ export type WebhookDispatchResult = { sent: number; failed: number; retried: num
 
 type Claimed = { deliveryId: string; endpointId: string; kind: DeliveryKind; body: WebhookBody; attempts: number; url: string | null; isEnabled: boolean; sealed: string | null };
 
-/** Захват пачки: доставки помечаются попыткой и сроком захвата, другой запуск их не возьмёт. Адрес и секрет читаются здесь же. */
-async function claimBatch(actor: SystemActor, now: Date): Promise<Claimed[]> {
+/**
+ * Захват пачки: доставки помечаются попыткой и сроком захвата, другой запуск их не возьмёт. Адрес и секрет читаются
+ * здесь же. От одного адреса в пачку идёт не больше WEBHOOK_CLAIM_PER_ENDPOINT самых давних доставок: адрес с
+ * большой очередью не занимает пачку целиком (проверка вехи M8, находка I6). skip: адреса, которые в этом запуске
+ * уже не ответили; их доставки подождут следующего запуска.
+ */
+async function claimBatch(actor: SystemActor, now: Date, skip: ReadonlySet<string>): Promise<Claimed[]> {
   return withActor(actor, async (tx) => {
+    const due = and(eq(webhookDeliveries.status, 'queued'), lte(webhookDeliveries.nextAttemptOn, now), skip.size > 0 ? notInArray(webhookDeliveries.endpointId, [...skip]) : undefined);
+    // Номер доставки в очереди своего адреса считает оконная функция; строки блокирует внешний запрос (оконная
+    // функция с FOR UPDATE в одном запросе не сочетается).
+    const ranked = tx
+      .select({ deliveryId: webhookDeliveries.deliveryId, place: sql<number>`row_number() over (partition by ${webhookDeliveries.endpointId} order by ${webhookDeliveries.nextAttemptOn}, ${webhookDeliveries.deliveryId})`.as('place') })
+      .from(webhookDeliveries)
+      .where(due)
+      .as('ranked');
     const rows = await tx
       .select({ deliveryId: webhookDeliveries.deliveryId, endpointId: webhookDeliveries.endpointId, kind: webhookDeliveries.kind, body: webhookDeliveries.body, attempts: webhookDeliveries.attempts })
       .from(webhookDeliveries)
-      .where(and(eq(webhookDeliveries.status, 'queued'), lte(webhookDeliveries.nextAttemptOn, now)))
+      .where(and(due, inArray(webhookDeliveries.deliveryId, tx.select({ deliveryId: ranked.deliveryId }).from(ranked).where(lte(ranked.place, WEBHOOK_CLAIM_PER_ENDPOINT)))))
       .orderBy(asc(webhookDeliveries.nextAttemptOn))
       .limit(BATCH)
       .for('update', { skipLocked: true });
@@ -206,8 +232,14 @@ async function deliver(row: Claimed, opts: { post: GuardedPost; timeoutMs: numbe
   }
 }
 
-/** Отправка одной доставки и запись итога. Итог пишется только в строку, которая ещё ждёт. */
-async function sendRow(actor: SystemActor, now: Date, row: Claimed, opts: Parameters<typeof deliver>[1], result: WebhookDispatchResult): Promise<void> {
+/** Адрес не ответил: не дождались ответа, соединение не установлено или запрещено. Ответ с кодом ошибки сюда не входит. */
+const UNRESPONSIVE: ReadonlySet<string> = new Set(['timeout', 'unreachable', 'blocked_address']);
+
+/**
+ * Отправка одной доставки и запись итога. Итог пишется только в строку, которая ещё ждёт. Возвращает, ответил ли
+ * адрес: неответивший адрес до конца запуска больше не берётся.
+ */
+async function sendRow(actor: SystemActor, now: Date, row: Claimed, opts: Parameters<typeof deliver>[1], result: WebhookDispatchResult): Promise<{ unresponsive: boolean }> {
   const outcome = await deliver(row, opts);
   const queuedRow = and(eq(webhookDeliveries.deliveryId, row.deliveryId), eq(webhookDeliveries.status, 'queued'));
   await withActor(actor, async (tx) => {
@@ -228,11 +260,13 @@ async function sendRow(actor: SystemActor, now: Date, row: Claimed, opts: Parame
       await tx.update(webhookDeliveries).set({ lastError: outcome.error, nextAttemptOn: new Date(now.getTime() + pause * MINUTE) }).where(queuedRow);
     }
   });
+  return { unresponsive: outcome.kind === 'error' && UNRESPONSIVE.has(outcome.error) };
 }
 
 /**
- * Отправляет очередь доставок: берёт пачку, шлёт несколько запросов одновременно и повторяет, пока очередь не
- * опустеет, не кончится бюджет времени или процесс не начнёт остановку. Неудача: повтор через 1, 5, 15, 60 и 240
+ * Отправляет очередь доставок: берёт пачку (от каждого адреса понемногу), шлёт несколько запросов одновременно и
+ * повторяет, пока очередь не опустеет, не кончится бюджет времени или процесс не начнёт остановку. Адрес, который не
+ * ответил, до конца запуска пропускается: исправные адреса получают свои доставки в том же запуске. Неудача: повтор через 1, 5, 15, 60 и 240
  * минут, после шестой доставка получает failed (FR-AUTO-10: до пяти повторов). Доставки, взятые в пачку, но не
  * начатые, возвращаются в очередь без потраченной попытки.
  */
@@ -247,29 +281,40 @@ export async function dispatchWebhooksTx(actor: SystemActor, opts: WebhookDispat
   // Портал на localhost (разработка и тесты): допускается локальный приёмник, как ложный сервер входа.
   const send = { post: opts.post ?? guardedPostJson, timeoutMs: opts.timeoutMs ?? WEBHOOK_TIMEOUT_MS, allowLoopback: LOOPBACK_HOSTS.has(new URL(getEnv().HUB_URL).hostname) };
 
+  // Адреса, которые в этом запуске не ответили: их доставки, взятые в пачку, возвращаются в очередь без попытки,
+  // следующие пачки их не берут. Молчащий адрес занимает за запуск не больше одной своей доли пачки.
+  const unresponsive = new Set<string>();
   while (!done()) {
-    const claimed = await claimBatch(actor, now);
+    const claimed = await claimBatch(actor, now, unresponsive);
     if (claimed.length === 0) break;
     const untouched: string[] = [];
+    const returned: string[] = [];
     await Promise.all(
       Array.from({ length: Math.min(concurrency, claimed.length) }, async () => {
         for (let row = claimed.shift(); row; row = claimed.shift()) {
           if (done()) untouched.push(row.deliveryId);
-          else await sendRow(actor, now, row, send, result);
+          else if (unresponsive.has(row.endpointId)) returned.push(row.deliveryId);
+          else if ((await sendRow(actor, now, row, send, result)).unresponsive) unresponsive.add(row.endpointId);
         }
       }),
     );
+    if (returned.length > 0) await release(actor, now, returned);
     if (untouched.length > 0) {
-      await withActor(actor, (tx) =>
-        tx
-          .update(webhookDeliveries)
-          .set({ attempts: sql`${webhookDeliveries.attempts} - 1`, nextAttemptOn: now })
-          .where(and(inArray(webhookDeliveries.deliveryId, untouched), eq(webhookDeliveries.status, 'queued'))),
-      );
+      await release(actor, now, untouched);
       break;
     }
   }
   return result;
+}
+
+/** Доставки, взятые в пачку, но не начатые, возвращаются в очередь без потраченной попытки. */
+async function release(actor: SystemActor, now: Date, deliveryIds: readonly string[]): Promise<void> {
+  await withActor(actor, (tx) =>
+    tx
+      .update(webhookDeliveries)
+      .set({ attempts: sql`${webhookDeliveries.attempts} - 1`, nextAttemptOn: now })
+      .where(and(inArray(webhookDeliveries.deliveryId, [...deliveryIds]), eq(webhookDeliveries.status, 'queued'))),
+  );
 }
 
 /** Ночная очистка: доставки старше срока хранения журнала. */

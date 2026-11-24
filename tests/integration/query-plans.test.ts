@@ -204,3 +204,19 @@ test('поиск клиента по тексту в своей организа
   expect(plans.length).toBeGreaterThan(0);
   for (const plan of plans) expect(plan, plan).not.toMatch(SEQ_SCAN);
 });
+
+test('событие "нет активности": просмотр молчащих обращений не читает таблицу обращений целиком (проверка M8, I5)', async () => {
+  const { runNoActivityRules } = await import('@/modules/hdw/api/engine');
+  const { saveRule, setRuleEnabled } = await import('@/modules/hdw/api/rules');
+  const admin = staffCtx(f.adminStaff);
+  const { ruleId } = await saveRule(admin, { name: 'Молчание', event: 'no_activity', hours: 24, conditions: { match: 'all', items: [{ field: 'priority', op: 'is', values: ['p1'] }] }, actions: [{ action: 'add_note', text: 'Молчание' }], isStop: false });
+  await setRuleEnabled(admin, { ruleId, enabled: true });
+  // Правило включено давно: граница включения не отсекает набор, просмотр идёт по всем открытым обращениям.
+  await pools.root.query(`update hdw_rules set enabled_on = now() - interval '60 days' where rule_id = $1`, [ruleId]);
+  const SYSTEM = { type: 'system', job: 'automation.process' } as const;
+  const scan = await captureQueries(() => runNoActivityRules(SYSTEM));
+  expect(scan.result.checked).toBeGreaterThan(1000);
+  const plans = await plansFor(SYSTEM, scan.queries, 'hdt_tickets');
+  expect(plans.length).toBeGreaterThan(3);
+  for (const plan of plans) expect(plan, plan).not.toMatch(SEQ_SCAN);
+}, 120_000);

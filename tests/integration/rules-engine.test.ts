@@ -374,24 +374,40 @@ test('зацикливание: два правила, меняющие прио
   expect(await ticketRow(t.ticketId)).toMatchObject({ priority: 'p1' });
 });
 
-test('зацикливание: одиннадцатое срабатывание правила на обращении за час выключает правило и уведомляет администраторов', async () => {
+test('зацикливание: одиннадцатое срабатывание правила на обращении за час достигнуто на обращениях трёх организаций: правило выключается, администраторы уведомлены', async () => {
   const t = f.tickets.aOrg;
   const second = await staffWithRole('admin');
   const ruleId = await rule({ name: 'Заметка на каждый ответ', actions: [{ action: 'add_note', text: 'Клиент ответил' }] });
   const other = await rule({ name: 'Соседнее правило', conditions: [{ field: 'priority', op: 'is', values: ['p2'] }], actions: [{ action: 'set_priority', priority: 'p3' }] });
+  // Предел на одном обращении правило только приостанавливает (проверка вехи M8, находка S1; подробно в
+  // m8-review-engine.test.ts). Выключается оно, когда предел за час достигнут на обращениях трёх организаций:
+  // сначала его достигают обращение организации Б и обращение третьей организации.
+  const orgC = (await pools.root.query(`insert into hdu_organizations (server_id, external_company_id, name) values ($1, '503', 'Initech') returning org_id`, [f.server.serverId])).rows[0].org_id as string;
+  const cTicket = (
+    await pools.root.query(
+      `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source)
+       values ($1, $2, 'bug', 'major', 'p2', 'org', 'Третья организация', 'Третья организация: описание', 'ru', 'portal') returning ticket_id`,
+      [orgC, f.aUser.userId],
+    )
+  ).rows[0].ticket_id as string;
+  for (const [ticket, orgId] of [[f.tickets.bOrg, f.orgB.orgId], [{ ticketId: cTicket } as TicketRef, orgC]] as const) {
+    for (let i = 0; i < 11; i++) await emit(ticket, orgId);
+    expect((await drain()).run.loops).toBe(0);
+  }
+  expect((await pools.root.query(`select is_enabled, disabled_reason from hdw_rules where rule_id = $1`, [ruleId])).rows).toEqual([{ is_enabled: true, disabled_reason: null }]);
   for (let i = 0; i < 11; i++) await emit(t, f.orgA.orgId);
   const result = await drain();
   // Одиннадцать событий клиента и одно событие смены приоритета от соседнего правила (оно разобрано без правил).
   expect(result).toMatchObject({ processed: 12, failed: 0 });
   expect(result.run.loops).toBe(1);
-  const mine = await runs(ruleId);
+  const mine = (await runs(ruleId)).filter((r) => r.ticket_id === t.ticketId);
   expect(mine.map((r) => r.result)).toEqual([...Array.from({ length: 10 }, () => 'applied'), 'skipped_loop']);
   expect(mine.at(-1)?.actions_done).toEqual([]);
   expect((await messagesOf(t.ticketId)).filter((m) => m.is_auto)).toHaveLength(10);
   expect((await pools.root.query(`select is_enabled, disabled_reason from hdw_rules where rule_id = $1`, [ruleId])).rows).toEqual([{ is_enabled: false, disabled_reason: 'loop' }]);
   // Соседнее правило того же события продолжает работать.
   expect((await pools.root.query(`select is_enabled from hdw_rules where rule_id = $1`, [other])).rows).toEqual([{ is_enabled: true }]);
-  expect(await runs(other)).toHaveLength(1);
+  expect((await runs(other)).filter((r) => r.ticket_id === t.ticketId)).toHaveLength(1);
   const audit = await auditOf(ruleId);
   expect(audit.at(-1)).toMatchObject({ action: 'rule.disabled_loop', actor_type: 'system', diff: { name: 'Заметка на каждый ответ', ticketId: t.ticketId, number: t.number } });
   // Уведомление в портале каждому действующему администратору, без привязки к обращению.
@@ -400,8 +416,9 @@ test('зацикливание: одиннадцатое срабатывани�
   for (const n of notices) expect(n).toMatchObject({ ticket_id: null, payload: { rule: 'Заметка на каждый ответ' } });
 
   // Выключенное правило больше не срабатывает; администратор включает его снова, причина снимается.
+  const before = (await runs(ruleId)).length;
   await fire(t);
-  expect(await runs(ruleId)).toHaveLength(11);
+  expect(await runs(ruleId)).toHaveLength(before);
   await setRuleEnabled(admin, { ruleId, enabled: true });
   expect((await pools.root.query(`select is_enabled, disabled_reason from hdw_rules where rule_id = $1`, [ruleId])).rows).toEqual([{ is_enabled: true, disabled_reason: null }]);
   // На другом обращении счётчик свой: правило срабатывает.
@@ -465,7 +482,10 @@ test('сбой внутри действия откатывает только �
   setWebhookDeliverer(async (tx) => {
     // Запись в середине действия, затем сбой: точка сохранения откатывает и запись.
     await tx.execute(`insert into hdt_ticket_messages (org_id, ticket_id, author_type, body, is_internal, is_auto) values ('${f.orgA.orgId}', '${t.ticketId}', 'system', 'Наполовину', true, true)`);
-    throw new Error('сбой доставки');
+    // Сбой, который повтор не исправит: нарушение ограничения базы (пустой текст сообщения). Временный сбой
+    // событие повторяет целиком: это проверяет m8-review-engine.test.ts.
+    await tx.execute(`insert into hdt_ticket_messages (org_id, ticket_id, author_type, body, is_internal, is_auto) values ('${f.orgA.orgId}', '${t.ticketId}', 'system', '', true, true)`);
+    return { ok: true };
   });
   const ruleId = await rule({ actions: [{ action: 'set_priority', priority: 'p1' }, { action: 'webhook', endpointId: '019a1111-1111-7111-8111-111111111111' }, { action: 'add_note', text: 'После сбоя' }] });
   await emit(t, f.orgA.orgId);

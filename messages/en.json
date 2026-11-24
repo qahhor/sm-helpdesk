@@ -86,6 +86,7 @@
         "telegram_linked": "A Telegram account was linked. If it was not you, unlink it in your profile.",
         "rule": "Rule \"{rule}\": request SUP-{number}",
         "rule_disabled": "Rule \"{rule}\" was turned off: it fired too often",
+        "rule_paused": "Rule \"{rule}\" is paused on request SUP-{number}: it fired too often",
         "dev_task_closed": "Development task closed: check and tell the client. Request SUP-{number}",
         "csat_low": "The client rated request SUP-{number} with {score}"
       },
@@ -956,6 +957,7 @@
             "restored": "Automation rule restored to default",
             "applied": "Automation rule fired",
             "disabled_loop": "Automation rule turned off by loop protection",
+            "paused_loop": "Automation rule paused on a request by loop protection",
             "dry_run": "Automation rule dry run"
           },
           "webhook": {
@@ -1242,6 +1244,7 @@
           "invalid": "Needs attention"
         },
         "builtin": "Built-in",
+        "builtinInactive": "Built-in portal notifications are not being sent: {rules}. The rule is turned off, needs attention, or its own notification was removed. Until this is fixed, on-call staff and leads do not receive these messages.",
         "moveUp": "Up",
         "moveDown": "Down",
         "moveUpOf": "Move rule \"{name}\" up",
@@ -1270,7 +1273,7 @@
           "not_builtin": "Only a built-in rule has a default to restore."
         },
         "reauth": "Sign in again",
-        "loopNote": "Loop protection turned this rule off: it fired on one ticket more than 10 times in an hour. Check the conditions and actions and turn the rule on again.",
+        "loopNote": "Loop protection turned this rule off: within an hour it fired more than 10 times on one request in three organizations. Check the conditions and actions and turn the rule on again.",
         "invalidNote": "The conditions or actions of this rule are out of date, so it does not apply. Set them again and save.",
         "events": {
           "ticket_created": "Ticket created",
@@ -1430,17 +1433,19 @@
           "merged": "the ticket is merged into another one",
           "no_candidates": "no staff in the queue",
           "tag_missing": "the tag is deleted",
+          "too_many_tags": "the request already has 20 tags",
           "template_disabled": "the template is off",
           "template_missing": "the template is missing or has no text",
           "transition_refused": "this transition is not allowed",
           "user_missing": "staff member not found",
           "no_recipients": "no recipients",
-          "webhook_failed": "the webhook did not respond",
+          "webhook_failed": "the webhook was not queued",
           "unknown": "no reason given",
           "endpoint_missing": "webhook address deleted",
           "endpoint_disabled": "webhook address is off",
           "forbidden": "no rights for this action",
           "changed": "the request was changed while the macro ran",
+          "draft_is_note": "the template was not inserted: you are writing an internal note in the reply field. Save or clear it and run the macro again",
           "not_found": "not found",
           "invalid_input": "value not accepted",
           "rate_limited": "too many actions in a row",
@@ -1469,7 +1474,7 @@
           "no_match": "Conditions did not match",
           "partial": "Partly done",
           "failed": "Not done",
-          "skipped_loop": "Stopped by loop protection"
+          "skipped_loop": "Skipped: loop protection paused the rule on this request"
         },
         "delete": {
           "open": "Delete rule",
@@ -1998,6 +2003,7 @@
           "other": "That did not work. Try again.",
           "merge_refused": "Cannot merge: it is the same ticket or a ticket of another organization.",
           "merged": "The ticket is already merged.",
+          "too_many_tags": "This request already has 20 tags. Remove one to add another.",
           "invalid_url": "Check the task link: the address must start with https://",
           "already_linked": "The ticket already has a development task.",
           "task_closed": "The task with this number is already closed. Enter another task.",
@@ -2756,7 +2762,9 @@
       "archive_failing": "Smartup Hub: the database log archive is not being saved, failed attempts: {count}. Check the archive directory and disk space.",
       "inbound_held": "Smartup Hub: the rate limit stopped {count} inbound emails within an hour. They were not added to requests: too many emails from one address or to one request.",
       "unidentified_flood": "Smartup Hub: {count} requests were created from emails from unknown addresses within an hour. A flood is possible. Check \"Unidentified\" and the mail settings.",
-      "automation_dropped": "Smartup Hub: {count} automation events were not processed within an hour. Their rules and notifications did not run, an on-call message about a P1 request may be among them. Check the background process log."
+      "automation_dropped": "Smartup Hub: {count} automation events were not processed within an hour. Their rules and notifications did not run, an on-call message about a P1 request may be among them. Check the background process log.",
+      "automation_lag": "Smartup Hub: automation events have not been processed for {minutes} min, waiting: {count}. Rules and notifications are late, an on-call message about a P1 request may be among them. Check the background process log.",
+      "builtin_rule_inactive": "Smartup Hub: built-in notifications are not working, rules: {count} ({rules}). A rule is turned off or broken: on-call messages about P1, notices to the lead about a missed deadline or a low rating are not sent. Check the automation rules in settings."
     }
   },
   "dev": {

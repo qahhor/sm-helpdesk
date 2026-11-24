@@ -72,11 +72,14 @@ export const webhookSecrets = pgTable('hdw_webhook_secrets', {
   ...stampColumns,
 });
 
-/** Тело доставки (решение 11 вехи M8): без темы, описания, переписки, имён и адресов людей. */
+/**
+ * Тело доставки (решение 11 вехи M8): без темы, описания, переписки, имён и адресов людей. tagsTruncated: тегов на
+ * обращении больше, чем поместилось в тело (в теле первые по алфавиту).
+ */
 export type WebhookBody = {
   event: DeliveryKind;
   occurredOn: string;
-  ticket: { number: number; ticketId: string; orgId: string; status: string; priority: string; type: string; queue: string; moduleCode: string | null; tags: string[] };
+  ticket: { number: number; ticketId: string; orgId: string; status: string; priority: string; type: string; queue: string; moduleCode: string | null; tags: string[]; tagsTruncated?: true };
 };
 
 /** Доставки вебхуков: очередь отправки и журнал. Пишет только система. */
@@ -125,6 +128,8 @@ export const devTasks = pgTable('hdw_dev_tasks', {
   /** Когда ушло напоминание о закрытии задачи: одно на закрытие (FR-DEV-05). */
   closedNotifiedOn: timestamp('closed_notified_on', { withTimezone: true }),
   ...stampColumns,
+  /** Когда опрос последний раз не смог прочитать задачу: такая задача уходит в конец очереди опроса. Миграция 0069. */
+  syncAttemptedOn: timestamp('sync_attempted_on', { withTimezone: true }),
 });
 
 /** Привязки обращений к задачам разработки (FR-DEV-06): у обращения не больше одной задачи. */

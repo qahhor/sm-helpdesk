@@ -32,6 +32,7 @@ export {
   ticketNumbersTx,
 } from '../core/automation';
 export type { LockedTicket } from '../core/agent-actions';
+export { isHdtError } from '../error';
 
 /** Идёт ли в этот момент рабочее время по календарю (тому же, по которому считаются сроки SLA): ближайшая минута рабочая. */
 export function isWorkingTime(now: Date, calendar: Calendar): boolean {

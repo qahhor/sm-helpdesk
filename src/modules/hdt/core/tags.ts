@@ -4,6 +4,7 @@ import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { findOrCreateTagTx, type Tag, tagsByIdTx } from '@/modules/hdr/api';
 import { HdtError } from '../error';
+import { MAX_TICKET_TAGS } from '../pref';
 import { ticketTags } from '../schema';
 import { assertCanWrite, lockAgentTicket, recordChange } from './agent-actions';
 
@@ -17,6 +18,7 @@ export async function addTagTx(actor: StaffActor, number: number, name: string):
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
     const tag = await findOrCreateTagTx(tx, name);
+    if (!(await canAddTagTx(tx, ticket.ticketId, tag.tagId))) return;
     const added = await tx
       .insert(ticketTags)
       .values({ orgId: ticket.orgId, ticketId: ticket.ticketId, tagId: tag.tagId, addedBy: actor.userId })
@@ -25,6 +27,17 @@ export async function addTagTx(actor: StaffActor, number: number, name: string):
     if (added.length === 0) return;
     await recordChange(tx, actor, ticket, { kind: 'tag', payload: { action: 'added', tagId: tag.tagId, name: tag.name }, audit: 'ticket.tag_added' });
   });
+}
+
+/**
+ * Можно ли поставить тег на обращение, строка которого заблокирована: тег уже стоит (false, менять нечего) или тегов
+ * уже MAX_TICKET_TAGS (ошибка too_many_tags). Тот же предел держит триггер t_hdt_ticket_tags_guard.
+ */
+export async function canAddTagTx(tx: Tx, ticketId: string, tagId: string): Promise<boolean> {
+  const rows = await tx.select({ tagId: ticketTags.tagId }).from(ticketTags).where(eq(ticketTags.ticketId, ticketId));
+  if (rows.some((row) => row.tagId === tagId)) return false;
+  if (rows.length >= MAX_TICKET_TAGS) throw new HdtError('too_many_tags');
+  return true;
 }
 
 /** Снять тег с обращения. Тега на обращении нет: not_found. */

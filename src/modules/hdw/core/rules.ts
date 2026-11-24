@@ -1,10 +1,10 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, lt, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { ticketNumbersTx } from '@/modules/hdt/api/automation';
-import { builtinCodesForExtraEvent, builtinRule } from '../builtin';
+import { type BuiltinCode, builtinCodesForExtraEvent, builtinRule, inactiveBuiltinCodes } from '../builtin';
 import { HdwError } from '../error';
 import { type DisabledReason, type RuleEventKind, RUNS_KEEP_DAYS, RUNS_PAGE, type RunResult } from '../pref';
 import { type Conditions, type RuleAction, type RuleDefinition, storedRule } from '../rule-schema';
@@ -84,6 +84,12 @@ export async function enabledRulesTx(tx: Tx, event: RuleEventKind): Promise<Rule
   return rows.map(toRecord);
 }
 
+/** Коды предустановленных правил, уведомление которых сейчас не уходит: для сигнала дежурным (ops.watch). */
+export async function inactiveBuiltinCodesTx(actor: SystemActor): Promise<BuiltinCode[]> {
+  const rows = await withActor(actor, (tx) => tx.select(columns).from(rules).where(isNotNull(rules.pcode)).orderBy(...inOrder));
+  return inactiveBuiltinCodes(rows.map(toRecord));
+}
+
 /**
  * Включено ли правило сейчас и с какого момента: перед применением к обращению по событию "нет активности".
  * Читается заново под блокировкой обращения: правило могли выключить и включить, пока шёл просмотр.
@@ -132,13 +138,35 @@ export async function restoreBuiltinRuleTx(actor: StaffActor, ruleId: string): P
   });
 }
 
-/** Новое правило (выключено, последним по порядку) или правка существующего. Нет правила: not_found. */
+/** Значение JSON в одном виде: ключи объектов по алфавиту. База хранит jsonb со своим порядком ключей. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value !== null && typeof value === 'object')
+    return `{${Object.entries(value as Record<string, unknown>).filter(([, item]) => item !== undefined).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`).join(',')}}`;
+  return JSON.stringify(value) ?? 'null';
+}
+
+/**
+ * Новое правило (выключено, последним по порядку) или правка существующего. Нет правила: not_found.
+ *
+ * У включённого правила смена события, срока молчания или условий ставит момент включения заново (проверка вехи
+ * M8, находка I1): от него считается граница события "нет активности". Иначе правка срока со 100 часов на 2 или
+ * более широкие условия сразу сработали бы на всех обращениях, которые молчали до правки. Название, действия и
+ * флаг "остановить" границу не трогают; у выключенного правила её поставит включение.
+ */
 export async function saveRuleTx(actor: StaffActor, rule: RuleDefinition): Promise<{ ruleId: string }> {
   requireAdmin(actor);
   return withActor(actor, async (tx) => {
     const values = { name: rule.name, event: rule.event, hours: rule.hours, conditions: rule.conditions, actions: rule.actions, isStop: rule.isStop };
     if (rule.ruleId) {
-      const [saved] = await tx.update(rules).set(values).where(eq(rules.ruleId, rule.ruleId)).returning({ ruleId: rules.ruleId });
+      const [before] = await tx.select({ event: rules.event, hours: rules.hours, conditions: rules.conditions, isEnabled: rules.isEnabled }).from(rules).where(eq(rules.ruleId, rule.ruleId)).limit(1).for('update');
+      if (!before) throw new HdwError('not_found');
+      const rearmed = before.isEnabled && (before.event !== rule.event || (before.hours ?? null) !== (rule.hours ?? null) || canonical(before.conditions) !== canonical(rule.conditions));
+      const [saved] = await tx
+        .update(rules)
+        .set({ ...values, ...(rearmed ? { enabledOn: sql`now()` } : {}) })
+        .where(eq(rules.ruleId, rule.ruleId))
+        .returning({ ruleId: rules.ruleId });
       if (!saved) throw new HdwError('not_found');
       await writeAudit(tx, { action: 'rule.updated', objectType: 'rule', objectId: saved.ruleId, diff: summary(rule) });
       return saved;

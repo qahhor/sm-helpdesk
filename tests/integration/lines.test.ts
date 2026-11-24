@@ -166,3 +166,21 @@ test('клиент не видит события линии и записки',
   expect(JSON.stringify(view)).not.toContain(NOTE.needed);
   expect(await asActor(pools.app, f.aUser.actor, (c) => c.query(`select count(*)::int as n from hdt_ticket_line_transfers`).then((r) => r.rows[0].n))).toBe(0);
 });
+
+test('возврат на первую линию из "В разработке" пишет событие смены статуса и сразу будит разбор событий (проверка M8, m5)', async () => {
+  const { MemoryJobQueue, setJobQueueForTests } = await import('@/modules/hdc/testing');
+  const f = await seedTwoOrgs();
+  const l2 = staffCtx(await staffWithRole('agent_l2'));
+  const t = f.tickets.aOrg;
+  await pools.root.query(`update hdt_tickets set queue = 'l2', status = 'in_development' where ticket_id = $1`, [t.ticketId]);
+  const jobs = new MemoryJobQueue();
+  setJobQueueForTests(jobs);
+  try {
+    await returnToL1(l2, { number: t.number, explanation: 'Исправлено, проверьте с клиентом' });
+  } finally {
+    setJobQueueForTests(null);
+  }
+  expect((await pools.root.query(`select kind, payload from hdc_domain_events where ticket_id = $1`, [t.ticketId])).rows).toEqual([{ kind: 'status_changed', payload: { from: 'in_development', to: 'in_progress' } }]);
+  // Без сигнала событие ждало бы задачу по расписанию до минуты.
+  expect(jobs.sent.filter((job) => job.name === 'automation.process')).toHaveLength(1);
+});

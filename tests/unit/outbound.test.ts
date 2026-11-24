@@ -202,6 +202,22 @@ test('вебхук: тело ответа не читается дальше п�
   expect(written).toBeLessThan(5_000_000);
 });
 
+test('вебхук: приёмник отдал код и держит ответ открытым: соединение закрывается сразу после кода (проверка M8, m3)', async () => {
+  let closed = false;
+  const stalled: Array<() => void> = [];
+  const srv = await httpServer((_req, res) => {
+    // Заголовки и один байт тела, дальше тишина: ответ не кончается и до предела чтения не доходит.
+    res.writeHead(200, { 'content-type': 'text/plain' });
+    res.write('x');
+    res.on('close', () => (closed = true));
+    stalled.push(() => res.destroy());
+  });
+  closers.push(async () => stalled.forEach((stop) => stop()));
+  expect(await guardedPostJson({ allowLoopback: true }, `http://127.0.0.1:${srv.port}/hook`, { body: '{}', timeoutMs: 3000 })).toEqual({ status: 200 });
+  await new Promise((done) => setTimeout(done, 200));
+  expect(closed).toBe(true);
+});
+
 // --- Запрос с телом и ответом: API таск-менеджера (FR-DEV-03; план M8, задача 8) ---
 
 test('запрос с телом: с readBody возвращается и тело ответа; ответ длиннее предела приходит без тела', async () => {

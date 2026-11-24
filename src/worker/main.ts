@@ -12,7 +12,7 @@ import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbo
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
-import { cleanupRuleRuns, handleRuleEvent, newRuleRun, runNoActivityRules } from '@/modules/hdw/api/engine';
+import { cleanupRuleRuns, handleRuleEvent, newRuleRun, type NoActivityOptions, runNoActivityRules } from '@/modules/hdw/api/engine';
 import { syncDevTasks } from '@/modules/hdw/api/dev-task-jobs';
 import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
@@ -71,6 +71,54 @@ async function waitForQueues(boss: PgBoss, attempts: number): Promise<void> {
   }
 }
 
+/** Память задачи automation.process между запусками: когда последний раз проверялось событие "нет активности". */
+export type AutomationState = { silentCheckedAt: number };
+
+/**
+ * Один запуск задачи automation.process: разбор событий предметной области (план M8, задачи 2 и 3) и, не чаще раза
+ * в минуту, событие "нет активности". Правила события применяются в транзакции события вместе с отметкой разбора,
+ * после правил событие уходит адресам вебхуков, которые на него подписаны (задача 5). При остановке процесса разбор
+ * прекращается между событиями.
+ */
+export async function automationTick(system: SystemActor, state: AutomationState, opts: { stopped: () => boolean; noActivity?: NoActivityOptions }): Promise<void> {
+  const run = newRuleRun();
+  const total = { processed: 0, failed: 0 };
+  const drain = async () => {
+    const result = await processEvents(
+      system,
+      async (tx, event) => {
+        await handleRuleEvent(tx, event, run);
+        await handleWebhookEvent(tx, event);
+      },
+      { stopped: opts.stopped },
+    );
+    total.processed += result.processed;
+    total.failed += result.failed;
+  };
+  await drain();
+  let silent = { checked: 0, applied: 0, failed: 0 };
+  if (!opts.stopped() && Date.now() - state.silentCheckedAt >= NO_ACTIVITY_EVERY_MS) {
+    state.silentCheckedAt = Date.now();
+    // Просмотр молчащих обращений идёт после событий, ограничен по времени и перед каждой пачкой уступает разбору
+    // событий (проверка вехи M8, находка I5): сообщение дежурным о P1 не ждёт конца просмотра.
+    silent = await runNoActivityRules(system, { stopped: opts.stopped, ...opts.noActivity, between: drain });
+    // События, которые записали срабатывания последней пачки.
+    if (!opts.stopped()) await drain();
+  }
+  const { processed, failed } = total;
+  if (failed > 0) console.info(`События: разобрано ${processed}, со сбоем ${failed}`);
+  if (run.applied + run.failed + run.loops + run.paused + silent.applied + silent.failed > 0)
+    console.info(
+      `Правила: сработало ${run.applied + silent.applied}, без выполненных действий ${run.failed + silent.failed}, приостановлено на обращении защитой от зацикливания ${run.paused}, выключено ею ${run.loops}`,
+    );
+  // Письма и сообщения правил уже в очереди исходящих: отправка будится после фиксации.
+  if (run.applied + silent.applied > 0) await wakeOutbox();
+  // Доставки вебхуков поставлены правилами и подписками: отправка будится, только если есть что отправлять.
+  if (processed + silent.applied > 0 && (await hasDueDeliveries(system))) await wakeWebhooks();
+  const queue = await eventsState(system);
+  logEvent(queue.lagSec > 120 ? 'warn' : queue.pending > 0 ? 'info' : 'debug', 'automation.state', queue);
+}
+
 export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): Promise<void> }> {
   let stopping = false;
   const boss = new PgBoss(bossOptions(opts.connectionString ?? getEnv().DATABASE_URL_APP, 'worker'));
@@ -121,36 +169,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     logEvent(state.failed > 0 || state.lagSec > 60 ? 'warn' : state.queued > 0 ? 'info' : 'debug', 'outbox.state', state);
   }));
   // Событие "нет активности" проверяется не чаще раза в минуту: задача идёт и по расписанию, и по сигналу после каждого изменения.
-  let silentCheckedAt = 0;
-  await boss.work('automation.process', polling, () => timedJob('automation.process', async () => {
-    // Разбор событий предметной области (план M8, задачи 2 и 3): правила события применяются в транзакции события
-    // вместе с отметкой разбора. При остановке процесса разбор прекращается между событиями.
-    const system = actor('automation.process');
-    const run = newRuleRun();
-    // После правил событие уходит адресам вебхуков, которые на него подписаны (задача 5): в той же транзакции.
-    const { processed, failed } = await processEvents(
-      system,
-      async (tx, event) => {
-        await handleRuleEvent(tx, event, run);
-        await handleWebhookEvent(tx, event);
-      },
-      { stopped: () => stopping },
-    );
-    if (failed > 0) console.info(`События: разобрано ${processed}, со сбоем ${failed}`);
-    let silent = { checked: 0, applied: 0, failed: 0 };
-    if (!stopping && Date.now() - silentCheckedAt >= NO_ACTIVITY_EVERY_MS) {
-      silentCheckedAt = Date.now();
-      silent = await runNoActivityRules(system, { stopped: () => stopping });
-    }
-    if (run.applied + run.failed + run.loops + silent.applied + silent.failed > 0)
-      console.info(`Правила: сработало ${run.applied + silent.applied}, без выполненных действий ${run.failed + silent.failed}, выключено защитой от зацикливания ${run.loops}`);
-    // Письма и сообщения правил уже в очереди исходящих: отправка будится после фиксации.
-    if (run.applied + silent.applied > 0) await wakeOutbox();
-    // Доставки вебхуков поставлены правилами и подписками: отправка будится, только если есть что отправлять.
-    if (processed + silent.applied > 0 && (await hasDueDeliveries(system))) await wakeWebhooks();
-    const state = await eventsState(system);
-    logEvent(state.lagSec > 120 ? 'warn' : state.pending > 0 ? 'info' : 'debug', 'automation.state', state);
-  }));
+  const automation: AutomationState = { silentCheckedAt: 0 };
+  await boss.work('automation.process', polling, () => timedJob('automation.process', () => automationTick(actor('automation.process'), automation, { stopped: () => stopping })));
   await boss.work('webhooks.dispatch', polling, () => timedJob('webhooks.dispatch', async () => {
     // Исходящие вебхуки (план M8, задача 5): повторы ведёт сама очередь доставок. При остановке процесса запуск
     // прекращает работу между доставками.

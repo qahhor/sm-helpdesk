@@ -6,7 +6,9 @@ import { tagsByIdTx } from '@/modules/hdr/api';
 import { lineLeads } from '@/modules/hdu/api/recipients';
 import { canTransition, type Impact, type Priority, type Queue, type TicketSource, type TicketStatus, type TicketType, TRANSFERABLE_STATUSES } from '../pref';
 import { ticketEvents, ticketMessages, tickets, ticketTags } from '../schema';
+import { isHdtError } from '../error';
 import { type LockedTicket } from './agent-actions';
+import { canAddTagTx } from './tags';
 import { notifyTicketTx, oncallP1Tx } from './notify';
 import { refreshSla } from './sla';
 
@@ -142,6 +144,13 @@ export async function ruleSetPriorityTx(tx: Tx, ticket: LockedTicket, priority: 
 export async function ruleAddTagTx(tx: Tx, ticket: LockedTicket, tagId: string): Promise<RuleActionResult> {
   const tag = (await tagsByIdTx(tx, [tagId])).get(tagId);
   if (!tag) return refused('tag_missing');
+  try {
+    if (!(await canAddTagTx(tx, ticket.ticketId, tagId))) return unchanged(tag.name);
+  } catch (error) {
+    // На обращении уже предельное число тегов: отказ действия с кодом, остальные действия правила идут дальше.
+    if (isHdtError(error) && error.code === 'too_many_tags') return refused('too_many_tags');
+    throw error;
+  }
   const added = await tx.insert(ticketTags).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, tagId, addedBy: null }).onConflictDoNothing().returning({ ticketTagId: ticketTags.ticketTagId });
   if (added.length === 0) return unchanged(tag.name);
   await record(tx, ticket, { kind: 'tag', payload: { action: 'added', tagId, name: tag.name }, audit: 'ticket.tag_added' });
@@ -283,8 +292,12 @@ export type RuleTicketFacts = {
 /** Сколько обращений читается одним запросом. */
 const FACTS_CHUNK = 500;
 
-/** Поля обращений для условий правил: обращения, последний публичный ответ сотрудника и теги, по запросу на пачку. */
-export async function ruleTicketFactsTx(tx: Tx, ticketIds: readonly string[]): Promise<Map<string, RuleTicketFacts>> {
+/**
+ * Поля обращений для условий правил: обращения, последний публичный ответ сотрудника и теги, по запросу на пачку.
+ * withText: false: тема и описание не читаются и возвращаются пустыми строками.
+ */
+export async function ruleTicketFactsTx(tx: Tx, ticketIds: readonly string[], opts: { withText?: boolean } = {}): Promise<Map<string, RuleTicketFacts>> {
+  const withText = opts.withText !== false;
   const facts = new Map<string, RuleTicketFacts>();
   const ids = [...new Set(ticketIds)];
   for (let from = 0; from < ids.length; from += FACTS_CHUNK) {
@@ -302,8 +315,8 @@ export async function ruleTicketFactsTx(tx: Tx, ticketIds: readonly string[]): P
         queue: tickets.queue,
         source: tickets.source,
         locale: tickets.locale,
-        title: tickets.title,
-        description: tickets.description,
+        title: withText ? tickets.title : sql<string>`''`,
+        description: withText ? tickets.description : sql<string>`''`,
         createdOn: tickets.createdOn,
         modifiedOn: tickets.modifiedOn,
         assigneeId: tickets.assigneeId,

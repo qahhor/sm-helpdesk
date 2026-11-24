@@ -1,5 +1,5 @@
 import 'server-only';
-import { readSetting } from '@/modules/hdc/api';
+import { readSetting, wakeAutomation } from '@/modules/hdc/api';
 import { namesOf, type StaffContext } from '@/modules/hdu/api';
 import { lastL1SenderTx, returnToL1Tx, transferToL2Tx } from '../core/lines';
 import { parseInput, returnInput, transferInput } from '../input';
@@ -21,4 +21,6 @@ export async function returnToL1(ctx: StaffContext, input: unknown, opts: StaffA
   const senderId = await lastL1SenderTx(ctx.actor, data.number);
   const sender = senderId ? { userId: senderId, name: (await namesOf(ctx.actor, [senderId])).get(senderId) ?? null } : null;
   await returnToL1Tx(ctx.actor, data.number, data.explanation, sender, { byRule: opts.byMacro === true });
+  // Возврат из "В разработке" меняет статус и пишет событие: разбор событий будится сразу, как у остальных действий.
+  await wakeAutomation();
 }

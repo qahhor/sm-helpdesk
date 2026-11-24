@@ -11,9 +11,14 @@ export type RuleEventKind = (typeof RULE_EVENT_KINDS)[number];
 export const RUN_RESULTS = ['applied', 'no_match', 'partial', 'failed', 'skipped_loop'] as const;
 export type RunResult = (typeof RUN_RESULTS)[number];
 
-/** Защита от зацикливания (FR-AUTO-07, решение 4 плана M8): столько срабатываний правила на обращении за окно, следующее выключает правило. */
+/**
+ * Защита от зацикливания (FR-AUTO-07, решение 4 плана M8): столько срабатываний правила на обращении за окно,
+ * следующее не выполняется (правило приостановлено на этом обращении, пока окно не освободится).
+ */
 export const LOOP_LIMIT = 10;
 export const LOOP_WINDOW_MIN = 60;
+/** Предел достигнут за окно на обращениях стольких разных организаций: правило выключается для всех. */
+export const LOOP_ORGS_TO_DISABLE = 3;
 /** Журнал срабатываний хранится столько суток, старше удаляет ночная очистка. */
 export const RUNS_KEEP_DAYS = 90;
 /** Пробный прогон берёт столько последних обращений (FR-AUTO-08, решение 6). */
@@ -78,6 +83,12 @@ export const WEBHOOK_RETRY_MINUTES = [1, 5, 15, 60, 240] as const;
 export const WEBHOOK_MAX_ATTEMPTS = WEBHOOK_RETRY_MINUTES.length + 1;
 /** Приёмник отвечает не дольше этого. */
 export const WEBHOOK_TIMEOUT_MS = 10_000;
+/** От одного адреса в одну пачку отправки берётся не больше стольких доставок: адрес с очередью не занимает пачку целиком. */
+export const WEBHOOK_CLAIM_PER_ENDPOINT = 5;
+/** В теле доставки не больше стольких тегов (предел тегов на обращении, MAX_TICKET_TAGS модуля обращений). */
+export const WEBHOOK_BODY_MAX_TAGS = 20;
+/** Тело доставки не длиннее этого, байт JSON: база держит 8000 байт текста jsonb, запас на его пробелы. */
+export const WEBHOOK_BODY_BUDGET_BYTES = 7000;
 /** Журнал доставок хранится столько суток. */
 export const DELIVERIES_KEEP_DAYS = 30;
 /** Страница журнала доставок. */

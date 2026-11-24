@@ -104,6 +104,8 @@ export const AUDIT_ACTIONS = [
   'rule.restored',
   'rule.applied',
   'rule.disabled_loop',
+  // Защита от зацикливания приостановила правило на одном обращении (проверка вехи M8, находка S1).
+  'rule.paused_loop',
   'rule.dry_run',
   // Исходящие вебхуки (веха M8): список адресов, смена секрета, проверочная отправка. Секрета в журнале нет.
   'webhook.created',

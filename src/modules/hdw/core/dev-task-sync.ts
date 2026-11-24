@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
 import type { DevTracker } from '../dev-tracker';
-import { DevTrackerUnknownStatusError } from '../dev-tracker/smartup';
+import { DevTrackerUnavailableError, DevTrackerUnknownStatusError } from '../dev-tracker/smartup';
 import type { DevTaskStatus } from '../pref';
 import { devTasks } from '../schema';
 import { applyDevTaskStatusTx, devTaskByRefTx, lockDevTaskTx } from './dev-tasks';
@@ -16,8 +16,15 @@ import { applyDevTaskStatusTx, devTaskByRefTx, lockDevTaskTx } from './dev-tasks
 export const SYNC_EVERY_MIN = 15;
 /** Столько задач читает один запуск опроса: остальные возьмёт следующий. */
 export const SYNC_MAX_TASKS = 200;
-/** Столько сбоев таск-менеджера подряд останавливают запуск: он недоступен, остальные задачи подождут. */
+/** Столько сбоев сети подряд останавливают запуск: таск-менеджер недоступен, остальные задачи подождут. */
 export const SYNC_MAX_FAILURES = 5;
+
+/**
+ * Сбой говорит о недоступности таск-менеджера целиком: нет ответа, нет соединения или ошибка сервера. Отказ по
+ * одной задаче (ответ 4xx, ответ не по договору) и сбой базы при записи статуса сюда не входят: они не повод
+ * останавливать опрос остальных задач (проверка вехи M8, находка I4).
+ */
+const isOutage = (error: unknown): boolean => error instanceof DevTrackerUnavailableError && /^(timeout|unreachable|blocked_address|http_5\d\d)$/.test(error.code);
 
 const OPEN: DevTaskStatus[] = ['todo', 'in_progress'];
 
@@ -49,13 +56,27 @@ async function touchSynced(actor: SystemActor, devTaskId: string, now: Date): Pr
   await withActor(actor, (tx) => tx.update(devTasks).set({ syncedOn: now }).where(eq(devTasks.devTaskId, devTaskId)));
 }
 
+/**
+ * Отметить неудачную попытку: задача остаётся несверенной (её возьмёт следующий запуск), но встаёт в конец очереди
+ * опроса. Сбой самой отметки не бросает: это та же недоступность базы, о ней уже есть запись в журнале.
+ */
+async function touchAttempted(actor: SystemActor, devTaskId: string, now: Date): Promise<void> {
+  try {
+    await withActor(actor, (tx) => tx.update(devTasks).set({ syncAttemptedOn: now }).where(eq(devTasks.devTaskId, devTaskId)));
+  } catch (error) {
+    logEvent('warn', 'devtask.attempt_not_saved', { error: error instanceof Error ? error.name : 'ошибка' });
+  }
+}
+
 export type SyncOptions = { now?: Date; stopped?: () => boolean };
 export type SyncResult = { checked: number; updated: number; failed: number; reminded: number };
 
 /**
- * Опрос таск-менеджера: открытые задачи режима API (todo, in_progress), не сверенные 15 минут, давно не сверенные
- * первыми, не больше SYNC_MAX_TASKS за запуск. Сбой чтения одной задачи записывается в счётчик и не мешает
- * остальным; несколько сбоев подряд останавливают запуск до следующего раза. Ошибку запуск не бросает.
+ * Опрос таск-менеджера: открытые задачи режима API (todo, in_progress), не сверенные 15 минут, не больше
+ * SYNC_MAX_TASKS за запуск. Порядок: сначала те, к которым давно не обращались (позднее из момента сверки и момента
+ * неудачной попытки), поэтому задача, которая не читается постоянно, не стоит каждый раз первой. Сбой чтения одной
+ * задачи записывается в счётчик и не мешает остальным; SYNC_MAX_FAILURES сбоев сети подряд (isOutage) останавливают
+ * запуск до следующего раза. Ошибку запуск не бросает.
  */
 export async function syncDevTasksTx(actor: SystemActor, tracker: DevTracker, opts: SyncOptions = {}): Promise<SyncResult> {
   requireSystem(actor);
@@ -66,7 +87,7 @@ export async function syncDevTasksTx(actor: SystemActor, tracker: DevTracker, op
       .select({ devTaskId: devTasks.devTaskId, externalId: devTasks.externalId })
       .from(devTasks)
       .where(and(eq(devTasks.tracker, 'smartup'), inArray(devTasks.status, OPEN), or(isNull(devTasks.syncedOn), lt(devTasks.syncedOn, before))))
-      .orderBy(sql`${devTasks.syncedOn} asc nulls first`, asc(devTasks.devTaskId))
+      .orderBy(sql`greatest(${devTasks.syncedOn}, ${devTasks.syncAttemptedOn}) asc nulls first`, asc(devTasks.devTaskId))
       .limit(SYNC_MAX_TASKS),
   );
   const result: SyncResult = { checked: 0, updated: 0, failed: 0, reminded: 0 };
@@ -93,10 +114,12 @@ export async function syncDevTasksTx(actor: SystemActor, tracker: DevTracker, op
         await touchSynced(actor, task.devTaskId, now);
         continue;
       }
-      failuresInRow += 1;
+      // Подряд считаются только сбои сети: отказ по одной задаче или сбой записи не значит, что таск-менеджер недоступен.
+      failuresInRow = isOutage(error) ? failuresInRow + 1 : 0;
       result.failed += 1;
       // Вид ошибки без текста: сбой сети уже записан реализацией, здесь остаётся сбой базы.
       logEvent('warn', 'devtask.sync_failed', { ref: task.externalId, error: error instanceof Error ? error.name : 'ошибка' });
+      await touchAttempted(actor, task.devTaskId, now);
     }
   }
   return result;

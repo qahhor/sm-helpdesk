@@ -73,4 +73,6 @@ export const domainEvents = pgTable('hdc_domain_events', {
   lastError: text('last_error'),
   processedOn: timestamp('processed_on', { withTimezone: true }),
   createdOn: timestamp('created_on', { withTimezone: true }).notNull().defaultNow(),
+  /** Не раньше какого момента разбирать событие снова после сбоя. Колонка добавлена миграцией 0068. */
+  nextAttemptOn: timestamp('next_attempt_on', { withTimezone: true }),
 });

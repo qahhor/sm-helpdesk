@@ -61,6 +61,8 @@ export const NOTIFICATION_KINDS = [
   'dev_task_closed',
   // Клиент поставил оценку 1 или 2 (веха M8, FR-AUTO-12): предустановленное правило уведомляет Customer Care.
   'csat_low',
+  // Защита от зацикливания приостановила правило на одном обращении (проверка вехи M8, находка S1).
+  'rule_paused',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

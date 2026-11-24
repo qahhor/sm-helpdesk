@@ -82,6 +82,8 @@ export const ATTACHABLE_SCAN_STATUSES: readonly ScanStatus[] = ['pending', 'clea
 
 /** Сколько файлов можно приложить к одному сообщению (FR-TK-13). */
 export const MAX_FILES_PER_MESSAGE = 10;
+/** Тегов на одном обращении не больше этого (проверка вехи M8, находка S2): список остаётся обозримым и помещается в тело вебхука. Тот же предел в триггере t_hdt_ticket_tags_guard. */
+export const MAX_TICKET_TAGS = 20;
 
 /**
  * Разрешённые файлы (FR-TK-13): расширение и тип, который хранится в строке и подписывается в ссылке.

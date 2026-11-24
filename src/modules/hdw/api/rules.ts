@@ -24,7 +24,7 @@ export type { RuleRecord, RuleRunRecord } from '../core/rules';
 export { HdwError, type HdwErrorCode, isHdwError } from '../error';
 export type { Condition, Conditions, NotifyTarget, RuleAction, RuleActionKind, RuleDefinition, RuleIssue, RuleIssueCode } from '../rule-schema';
 export type { ActionDone } from '../schema';
-export { BUILTIN_RULES, type BuiltinCode, builtinRule } from '../builtin';
+export { BUILTIN_RULES, type BuiltinCode, builtinRule, inactiveBuiltinCodes } from '../builtin';
 export { BUILTIN_ACTIONS, type BuiltinAction } from '../pref';
 export { DRY_RUN_TICKETS, LOOP_LIMIT, MAX_ACTIONS, MAX_CONDITIONS, MAX_HOURS, MAX_SNOOZE_HOURS, RULE_EVENTS, RULE_NAME_MAX, RULE_NOTE_MAX, RUNS_PAGE, type RuleEvent, type RunResult } from '../pref';
 

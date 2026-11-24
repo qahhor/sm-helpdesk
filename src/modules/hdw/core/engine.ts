@@ -3,13 +3,13 @@ import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
-import { type DomainEvent, writeAudit } from '@/modules/hdc/api';
+import { type DomainEvent, EVENT_MAX_ATTEMPTS, writeAudit } from '@/modules/hdc/api';
 import { notifyTx } from '@/modules/hdn/api/notifications';
 import { lockRuleTicketTx, ruleHistoryTx, silenceOfTx, silentTicketsTx } from '@/modules/hdt/api/automation';
 import { TICKET_STATUSES, type TicketStatus } from '@/modules/hdt/pref';
 import { staffRoster } from '@/modules/hdu/api/automation';
 import { evaluate, type TicketSnapshot } from '../evaluate';
-import { LOOP_LIMIT, LOOP_WINDOW_MIN, RULE_EVENTS, type RuleEventKind, type RunResult } from '../pref';
+import { LOOP_LIMIT, LOOP_ORGS_TO_DISABLE, LOOP_WINDOW_MIN, RULE_EVENTS, type RuleEventKind, type RunResult } from '../pref';
 import { type ActionDone, ruleRuns, rules } from '../schema';
 import { isBuiltinAction } from '../rule-schema';
 import { executeAction, type Roster } from './actions';
@@ -28,25 +28,35 @@ import { snapshotsTx, snapshotTx } from './snapshot';
 //
 // Каждое срабатывание пишет строку hdw_rule_runs, одну внутреннюю запись истории обращения и запись журнала аудита
 // в той же транзакции (уведомление предустановленного правила историю обращения не пополняет: см. applyRuleTx).
-// Одиннадцатое срабатывание правила на обращении за час, которое что-то сделало, выключает правило.
+// Одиннадцатое срабатывание правила на обращении за час, которое что-то сделало, не выполняется: правило
+// приостановлено на этом обращении, пока не освободится окно. Выключается правило целиком, только когда предел за
+// час достигнут на обращениях трёх организаций (loopLimitTx).
 
 /** Состояние одного запуска разбора: счётчики для журнала процесса и сотрудники, прочитанные один раз. */
-export type RuleRun = { now: () => Date; roster: Roster; applied: number; failed: number; loops: number };
+export type RuleRun = { now: () => Date; roster: Roster; applied: number; failed: number; /** Правил выключено защитой от зацикливания. */ loops: number; /** Срабатываний пропущено: правило приостановлено на обращении. */ paused: number };
 
 export function createRuleRun(opts: { now?: () => Date } = {}): RuleRun {
   let roster: ReturnType<Roster> | undefined;
   return {
     now: opts.now ?? (() => new Date()),
     // Сотрудники читаются другим подключением (роль hub_auth) один раз на запуск и только если нужны действию.
-    roster: () => (roster ??= staffRoster()),
+    // Отказ чтения не запоминается: следующее действие и следующее событие читают заново.
+    roster: () => {
+      const pending = (roster ??= staffRoster());
+      pending.catch(() => {
+        if (roster === pending) roster = undefined;
+      });
+      return pending;
+    },
     applied: 0,
     failed: 0,
     loops: 0,
+    paused: 0,
   };
 }
 
 /** kind: вид разбираемого события. У предустановленного правила он бывает не его собственным событием (extraEvents). */
-type Source = { eventId: string | null; marker: string | null; payload?: Record<string, unknown>; kind?: RuleEventKind };
+type Source = { eventId: string | null; marker: string | null; payload?: Record<string, unknown>; kind?: RuleEventKind; lastAttempt: boolean };
 
 const RULE_EVENT_SET: ReadonlySet<string> = new Set(RULE_EVENTS);
 
@@ -54,18 +64,52 @@ const RULE_EVENT_SET: ReadonlySet<string> = new Set(RULE_EVENTS);
 const resultOf = (done: readonly ActionDone[]): RunResult => (done.every((item) => item.ok) ? 'applied' : done.some((item) => item.ok) ? 'partial' : 'failed');
 
 /**
- * Защита от зацикливания (FR-AUTO-07, решение 4): правило уже сработало на обращении LOOP_LIMIT раз за час.
- * Срабатывание не выполняется и записывается как skipped_loop, правило выключается с причиной loop, запись в журнал
- * аудита, действующим администраторам уведомление в портале.
+ * Защита от зацикливания (FR-AUTO-07, решение 4; проверка вехи M8, находка S1): правило уже сработало на обращении
+ * LOOP_LIMIT раз за час. Срабатывание не выполняется и записывается как skipped_loop: на этом обращении правило
+ * приостановлено, пока окно не освободится. На остальных обращениях оно работает: события, порождённые правилами,
+ * правил администратора не запускают, поэтому счётчик двигают только люди, и одиннадцать ответов одного клиента за
+ * час не должны выключать правило для всех организаций.
+ *
+ * Администраторы получают уведомление "правило приостановлено на обращении" один раз на правило в час. Целиком
+ * правило выключается (причина loop, запись в журнал аудита, уведомление), только когда предел за час достигнут на
+ * обращениях LOOP_ORGS_TO_DISABLE разных организаций: это уже не один настойчивый клиент, а ошибка в правиле.
+ * Пропуски до последнего включения правила не считаются: иначе включённое заново правило выключалось бы сразу.
  */
-async function stopLoopTx(tx: Tx, rule: RuleRecord, snapshot: TicketSnapshot, source: Source, run: RuleRun): Promise<void> {
+async function loopLimitTx(tx: Tx, rule: RuleRecord, snapshot: TicketSnapshot, source: Source, run: RuleRun): Promise<void> {
+  // Два события разных обращений не решают о паузе и выключении одновременно по устаревшим числам.
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`hdw.loop:${rule.ruleId}`}))`);
+  const [gate] = await tx.select({ isEnabled: rules.isEnabled, enabledOn: rules.enabledOn }).from(rules).where(eq(rules.ruleId, rule.ruleId)).limit(1);
+  const [before] = await tx
+    .select({ n: sql<number>`count(*)::int`, otherOrgs: sql<number>`count(distinct ${ruleRuns.orgId}) filter (where ${ruleRuns.orgId} <> ${snapshot.orgId})::int` })
+    .from(ruleRuns)
+    .where(
+      and(
+        eq(ruleRuns.ruleId, rule.ruleId),
+        eq(ruleRuns.result, 'skipped_loop'),
+        gt(ruleRuns.createdOn, sql`now() - make_interval(mins => ${LOOP_WINDOW_MIN})`),
+        gate?.enabledOn ? gt(ruleRuns.createdOn, gate.enabledOn) : undefined,
+      ),
+    );
   await tx.insert(ruleRuns).values({ orgId: snapshot.orgId, ruleId: rule.ruleId, ticketId: snapshot.ticketId, eventId: source.eventId, result: 'skipped_loop', actionsDone: [], marker: source.marker });
-  await tx.update(rules).set({ isEnabled: false, disabledReason: 'loop' }).where(eq(rules.ruleId, rule.ruleId));
-  await writeAudit(tx, { action: 'rule.disabled_loop', objectType: 'rule', objectId: rule.ruleId, diff: { name: rule.name, ticketId: snapshot.ticketId, number: snapshot.number, limit: LOOP_LIMIT } });
+  const diff = { name: rule.name, ticketId: snapshot.ticketId, number: snapshot.number, limit: LOOP_LIMIT };
+  if ((before?.otherOrgs ?? 0) + 1 >= LOOP_ORGS_TO_DISABLE) {
+    // Правило уже выключил другой процесс или администратор: второй записи и уведомления не нужно.
+    if (gate?.isEnabled !== true) return;
+    await tx.update(rules).set({ isEnabled: false, disabledReason: 'loop' }).where(eq(rules.ruleId, rule.ruleId));
+    await writeAudit(tx, { action: 'rule.disabled_loop', objectType: 'rule', objectId: rule.ruleId, diff });
+    for (const member of (await run.roster()).filter((item) => item.role === 'admin'))
+      await notifyTx(tx, { userId: member.userId, kind: 'rule_disabled', payload: { rule: rule.name } });
+    run.loops++;
+    logEvent('warn', 'automation.rule_disabled_loop', { ruleId: rule.ruleId, ticketId: snapshot.ticketId });
+    return;
+  }
+  run.paused++;
+  // Первая пауза правила за час: запись в журнал и уведомление. Следующие (то же или другое обращение) только пишут skipped_loop.
+  if ((before?.n ?? 0) > 0) return;
+  await writeAudit(tx, { action: 'rule.paused_loop', objectType: 'rule', objectId: rule.ruleId, diff });
   for (const member of (await run.roster()).filter((item) => item.role === 'admin'))
-    await notifyTx(tx, { userId: member.userId, kind: 'rule_disabled', payload: { rule: rule.name } });
-  run.loops++;
-  logEvent('warn', 'automation.rule_disabled_loop', { ruleId: rule.ruleId, ticketId: snapshot.ticketId });
+    await notifyTx(tx, { userId: member.userId, kind: 'rule_paused', ticketId: snapshot.ticketId, orgId: snapshot.orgId, payload: { rule: rule.name, number: snapshot.number } });
+  logEvent('warn', 'automation.rule_paused_loop', { ruleId: rule.ruleId, ticketId: snapshot.ticketId });
 }
 
 /**
@@ -89,7 +133,7 @@ async function applyRuleTx(tx: Tx, rule: RuleRecord, snapshot: TicketSnapshot, s
       ),
     );
   if ((recent?.n ?? 0) >= LOOP_LIMIT) {
-    await stopLoopTx(tx, rule, snapshot, source, run);
+    await loopLimitTx(tx, rule, snapshot, source, run);
     return 'skipped_loop';
   }
   let ticket = await lockRuleTicketTx(tx, snapshot.ticketId);
@@ -97,7 +141,7 @@ async function applyRuleTx(tx: Tx, rule: RuleRecord, snapshot: TicketSnapshot, s
   const done: ActionDone[] = [];
   for (const action of rule.actions) {
     const { error, ...item } = await executeAction(
-      { tx, ticket, snapshot, rule: { ruleId: rule.ruleId, name: rule.name, event: source.kind ?? rule.event }, eventId: source.eventId, eventPayload: source.payload ?? null, now: run.now(), roster: run.roster },
+      { tx, ticket, snapshot, rule: { ruleId: rule.ruleId, name: rule.name, event: source.kind ?? rule.event }, eventId: source.eventId, eventPayload: source.payload ?? null, now: run.now(), roster: run.roster, lastAttempt: source.lastAttempt },
       action,
     );
     done.push(item);
@@ -151,18 +195,27 @@ export async function handleRuleEventTx(tx: Tx, event: DomainEvent, run: RuleRun
   const locked = await lockRuleTicketTx(tx, event.ticketId);
   if (!locked || locked.orgId !== event.orgId) return;
   let snapshot = await snapshotTx(tx, event.ticketId, run.now());
-  for (const rule of list) {
+  // Последняя попытка разбора события: после её сбоя событие снимается с очереди.
+  const lastAttempt = event.attempts >= EVENT_MAX_ATTEMPTS - 1;
+  // После правила с флагом "остановить" правила администратора не разбираются, а уведомления предустановленных
+  // правил выполняются: это уведомления портала (дежурным о P1, руководителю о сроке и оценке), а не маршрутизация,
+  // и правило администратора выше по списку их не глушит (проверка вехи M8, находка I7).
+  let stopped = false;
+  for (const listed of list) {
     if (!snapshot) return;
+    const rule = stopped ? builtinOnly([listed])[0] : listed;
+    if (!rule) continue;
     if (!rule.isValid) {
       logEvent('warn', 'automation.rule_invalid', { ruleId: rule.ruleId });
       continue;
     }
     if (!evaluate(rule, snapshot, run.now())) continue;
-    const result = await applyRuleTx(tx, rule, snapshot, { eventId: event.eventId, marker: null, payload: event.payload, kind: event.kind as RuleEventKind }, run);
+    const result = await applyRuleTx(tx, rule, snapshot, { eventId: event.eventId, marker: null, payload: event.payload, kind: event.kind as RuleEventKind, lastAttempt }, run);
     if (result === 'skipped_loop') continue;
     // Следующее правило видит изменения этого.
     snapshot = await snapshotTx(tx, event.ticketId, run.now());
-    if (rule.isStop) break;
+    // Правило, у которого не выполнено ни одно действие, следующие не останавливает: оно ничего не сделало.
+    if (rule.isStop && result !== 'failed') stopped = true;
   }
 }
 
@@ -174,6 +227,11 @@ const OPEN_STATUSES: readonly TicketStatus[] = TICKET_STATUSES.filter((status) =
 const SILENT_BATCH = 200;
 const SILENT_PER_RUN = 2000;
 /**
+ * Бюджет времени одного просмотра на все правила (проверка вехи M8, находка I5). Просмотр идёт в той же задаче, что
+ * разбор событий: без бюджета длинный просмотр задерживал бы события, среди которых сообщение дежурным о P1.
+ */
+const SILENT_BUDGET_MS = 20_000;
+/**
  * Где правило остановилось в прошлый запуск: следующий продолжает с этого места, обращения дальше первой пачки не
  * ждут вечно. Память процесса: после перезапуска просмотр начинается сначала, срабатывания от этого не повторяются.
  */
@@ -182,11 +240,20 @@ const cursors = (globalThis as typeof globalThis & { __hubSilentCursors?: Map<st
 /**
  * Статусы, в которых правило ищет молчащие обращения: решённые и закрытые не берутся, если условие правила "статус
  * равен" не называет статусы само. Отбор в базе грубый, точное решение принимают условия правила на снимке.
+ *
+ * Названные статусы сужают просмотр, только когда должны выполняться все условия: каждое условие "статус равен"
+ * обязательно, подходят статусы, названные во всех таких условиях. При "любое из условий" обращение в другом
+ * статусе может подойти по соседнему условию, поэтому просматриваются все открытые (проверка вехи M8, находка I2).
  */
 export function silentStatuses(rule: Pick<RuleRecord, 'conditions'>): TicketStatus[] {
-  const named = rule.conditions.items.flatMap((item) => (item.field === 'status' && item.op === 'is' ? item.values : []));
-  return named.length > 0 ? [...new Set(named)] : [...OPEN_STATUSES];
+  if (rule.conditions.match !== 'all') return [...OPEN_STATUSES];
+  const named = rule.conditions.items.flatMap((item) => (item.field === 'status' && item.op === 'is' ? [item.values] : []));
+  const [first, ...rest] = named;
+  return first ? [...new Set(first)].filter((status) => rest.every((values) => values.includes(status))) : [...OPEN_STATUSES];
 }
+
+/** Нужны ли условиям правила тема и описание обращения. */
+const needsText = (rule: Pick<RuleRecord, 'conditions'>): boolean => rule.conditions.items.some((item) => item.field === 'text');
 
 /**
  * Граница включения: молчание должно достичь N часов не раньше включения правила, то есть начаться не раньше, чем за
@@ -195,7 +262,19 @@ export function silentStatuses(rule: Pick<RuleRecord, 'conditions'>): TicketStat
  */
 const silenceFloor = (enabledOn: Date | null, hours: number): Date | null => (enabledOn ? new Date(enabledOn.getTime() - hours * HOUR_MS) : null);
 
-export type NoActivityOptions = { now?: Date; batch?: number; perRun?: number; stopped?: () => boolean; run?: RuleRun };
+export type NoActivityOptions = {
+  now?: Date;
+  batch?: number;
+  perRun?: number;
+  stopped?: () => boolean;
+  run?: RuleRun;
+  /** Бюджет времени запуска на все правила: когда он исчерпан, просмотр останавливается между пачками. */
+  budgetMs?: number;
+  /** Часы для бюджета: тесты их подменяют. */
+  clock?: () => number;
+  /** Вызывается перед каждой пачкой: фоновый процесс разбирает в этот момент накопившиеся события. */
+  between?: () => Promise<void>;
+};
 
 /**
  * Событие "нет активности N часов": вызывается задачей automation.process раз в минуту, не на каждое событие.
@@ -204,6 +283,10 @@ export type NoActivityOptions = { now?: Date; batch?: number; perRun?: number; s
  * обращение применяется своей транзакцией под блокировкой строки, с перепроверкой молчания. Отметка и уникальный
  * индекс hdw_rule_runs_u1 дают одно срабатывание на молчание и при двух процессах; новое сообщение взводит заново.
  * Молчание, достигшее N часов до включения правила, не срабатывает (silenceFloor).
+ *
+ * Просмотр ограничен по времени (budgetMs на все правила запуска): он останавливается между пачками и в следующий
+ * запуск продолжает с того же места (cursors). Перед каждой пачкой вызывается between: события обращений не ждут
+ * конца просмотра. Тема и описание читаются, только если они нужны условию правила.
  */
 export async function runNoActivityTx(actor: SystemActor, opts: NoActivityOptions = {}): Promise<{ checked: number; applied: number; failed: number }> {
   if (actor.type !== 'system') throw new Error('Правила применяет только система');
@@ -212,16 +295,28 @@ export async function runNoActivityTx(actor: SystemActor, opts: NoActivityOption
   const batch = Math.max(1, opts.batch ?? SILENT_BATCH);
   const perRun = Math.max(batch, opts.perRun ?? SILENT_PER_RUN);
   const before = { applied: run.applied, failed: run.failed };
+  const clock = opts.clock ?? Date.now;
+  const deadline = clock() + (opts.budgetMs ?? SILENT_BUDGET_MS);
+  let exhausted = false;
   let checked = 0;
   const list = await withActor(actor, (tx) => enabledRulesTx(tx, 'no_activity'));
   for (const rule of list) {
+    if (exhausted) break;
     if (!rule.isValid || rule.hours === null) continue;
     const hours = rule.hours;
     const cutoff = new Date(now.getTime() - hours * HOUR_MS);
     const statuses = silentStatuses(rule);
     let after = cursors.get(rule.ruleId) ?? null;
+    const withText = needsText(rule);
     let seen = 0;
     while (seen < perRun && opts.stopped?.() !== true) {
+      if (clock() >= deadline) {
+        // Бюджет исчерпан: место остановки запоминается, это и следующие правила продолжит следующая минута.
+        exhausted = true;
+        logEvent('warn', 'automation.no_activity_budget', { ruleId: rule.ruleId, checked });
+        break;
+      }
+      await opts.between?.();
       // Чтение пачки одной транзакцией: молчащие обращения, уже отмеченные срабатывания, снимки остальных.
       const page = await withActor(actor, async (tx) => {
         const silent = await silentTicketsTx(tx, { cutoff, notBefore: silenceFloor(rule.enabledOn, hours), statuses, after, limit: batch });
@@ -232,7 +327,7 @@ export async function runNoActivityTx(actor: SystemActor, opts: NoActivityOption
           .where(and(eq(ruleRuns.ruleId, rule.ruleId), inArray(ruleRuns.ticketId, silent.map((item) => item.ticketId)), inArray(ruleRuns.marker, [...new Set(silent.map((item) => item.marker))])));
         const firedKeys = new Set(fired.map((row) => `${row.ticketId}|${row.marker}`));
         const waiting = silent.filter((item) => !firedKeys.has(`${item.ticketId}|${item.marker}`));
-        const snapshots = await snapshotsTx(tx, waiting.map((item) => item.ticketId), now);
+        const snapshots = await snapshotsTx(tx, waiting.map((item) => item.ticketId), now, { withText });
         const due = waiting.filter((item) => {
           const snapshot = snapshots.byId.get(item.ticketId);
           return snapshot !== undefined && evaluate(rule, snapshot, now);
@@ -258,7 +353,8 @@ export async function runNoActivityTx(actor: SystemActor, opts: NoActivityOption
             if (already) return;
             const snapshot = await snapshotTx(tx, item.ticketId, now);
             if (!snapshot || !statuses.includes(snapshot.status) || !evaluate(rule, snapshot, now)) return;
-            await applyRuleTx(tx, rule, snapshot, { eventId: null, marker: item.marker }, run);
+            // У события "нет активности" счётчика попыток нет: сбой действия записывается отказом, как на последней попытке.
+            await applyRuleTx(tx, rule, snapshot, { eventId: null, marker: item.marker, lastAttempt: true }, run);
           });
         } catch (error) {
           // Второй процесс успел первым (уникальная отметка) или сбой базы: транзакция обращения откатилась целиком.

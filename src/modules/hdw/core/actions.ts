@@ -5,6 +5,7 @@ import { notifyTx } from '@/modules/hdn/api/notifications';
 import { enqueueTx } from '@/modules/hdn/api/outbox';
 import { renderTemplate, type ReplyTemplate, type Tag, tagsByIdTx, templatesByIdTx } from '@/modules/hdr/api';
 import {
+  isHdtError,
   type LockedTicket,
   type RuleActionResult,
   ruleAddNoteTx,
@@ -24,7 +25,8 @@ import {
 import { canTransition, type Queue, TRANSFERABLE_STATUSES } from '@/modules/hdt/pref';
 import type { StaffMember } from '@/modules/hdu/api/automation';
 import type { TicketSnapshot } from '../evaluate';
-import { CSAT_LOW_ROLE, LINE_ROLES, type RuleEventKind } from '../pref';
+import { isHdwError } from '../error';
+import { BUILTIN_ACTIONS, CSAT_LOW_ROLE, LINE_ROLES, type RuleEventKind } from '../pref';
 import type { RuleAction } from '../rule-schema';
 import type { ActionDone } from '../schema';
 import { enqueueRuleDelivery } from './deliveries';
@@ -50,6 +52,11 @@ export type ActionContext = {
   eventPayload?: Record<string, unknown> | null;
   now: Date;
   roster: Roster;
+  /**
+   * Повторить событие больше нельзя: это последняя попытка его разбора либо событие "нет активности", у которого
+   * счётчика попыток нет. Тогда непредвиденный сбой обычного действия записывается отказом, а не бросается.
+   */
+  lastAttempt: boolean;
 };
 
 /**
@@ -177,17 +184,50 @@ async function notify(c: ActionContext, tx: Tx, target: Extract<RuleAction, { ac
   return { ok: true, to: target.kind === 'user' ? (recipients[0]?.name ?? null) : target.role };
 }
 
+const BUILTIN_ACTION_SET: ReadonlySet<string> = new Set(BUILTIN_ACTIONS);
+
+/** Код SQLSTATE ошибки базы: драйвер кладёт его в поле code, Drizzle оборачивает ошибку драйвера в cause. */
+function sqlState(error: unknown): string | null {
+  for (let current = error, depth = 0; current instanceof Error && depth < 5; current = current.cause, depth++) {
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return code;
+  }
+  return null;
+}
+
 /**
- * Выполняет одно действие в точке сохранения: непредвиденная ошибка (сбой базы, нарушение ограничения) откатывает
- * только это действие, записывается отказом с кодом error и не мешает остальным. error: true значит, что состояние
- * обращения в памяти могло разойтись с базой и его нужно перечитать.
+ * Ошибка, которую повтор не исправит: отказ модуля с кодом (HdtError, HdwError) или отказ базы по данным и правам:
+ * классы SQLSTATE 22 (неверное значение), 23 (нарушение ограничения) и 42 (нет прав, политика RLS). Всё остальное
+ * (обрыв подключения, в том числе к таблицам идентичности, взаимная блокировка, отмена запроса) считается временным.
+ */
+export function isPermanentFailure(error: unknown): boolean {
+  if (isHdtError(error) || isHdwError(error)) return true;
+  const state = sqlState(error);
+  return state !== null && ['22', '23', '42'].includes(state.slice(0, 2));
+}
+
+/**
+ * Выполняет одно действие в точке сохранения. Ожидаемый отказ (переход запрещён, тега нет) действие возвращает
+ * кодом. Ошибка, которую повтор не исправит (isPermanentFailure), откатывает только это действие и записывается
+ * отказом с кодом error: остальные действия идут дальше. error: true значит, что состояние обращения в памяти могло
+ * разойтись с базой и его нужно перечитать.
+ *
+ * Остальные ошибки бросаются дальше (проверка вехи M8, находка C1): транзакция события откатывается, событие
+ * остаётся в очереди и разбирается снова с паузой. Иначе короткий обрыв подключения записывался бы отказом, событие
+ * получало отметку разбора, и сообщение дежурным о P1 терялось без следа. Два уточнения:
+ * - уведомление предустановленного правила бросает любую ошибку, и на последней попытке тоже: событие снимается с
+ *   очереди, и дежурные получают сигнал "событие не разобрано" (ops.watch);
+ * - обычное действие на последней попытке (lastAttempt) записывается отказом: один сбойный вебхук или тег не должен
+ *   снять событие вместе с уведомлениями остальных правил.
  */
 export async function executeAction(c: ActionContext, action: RuleAction): Promise<ActionDone & { error?: true }> {
   try {
     return report(action.action, await c.tx.transaction((point) => run(c, point, action)));
   } catch (error) {
+    const retry = BUILTIN_ACTION_SET.has(action.action) || (!c.lastAttempt && !isPermanentFailure(error));
     // Вид ошибки без её текста: в тексте могут быть данные клиента.
-    logEvent('error', 'automation.action_failed', { ruleId: c.rule.ruleId, ticketId: c.ticket.ticketId, action: action.action, error: error instanceof Error ? error.name : 'ошибка' });
+    logEvent(retry ? 'warn' : 'error', retry ? 'automation.action_retry' : 'automation.action_failed', { ruleId: c.rule.ruleId, ticketId: c.ticket.ticketId, action: action.action, error: error instanceof Error ? error.name : 'ошибка' });
+    if (retry) throw error;
     return { action: action.action, ok: false, detail: 'error', error: true };
   }
 }

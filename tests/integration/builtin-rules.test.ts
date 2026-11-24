@@ -143,8 +143,9 @@ test('изменённое правило: с условием "категори
     actions: shipped.actions,
     isStop: false,
   });
-  // Правка не выключила правило и не поставила момент включения.
-  expect(await readRule(admin, id)).toMatchObject({ isEnabled: true, enabledOn: null, pcode: 'p1_oncall' });
+  // Правка не выключила правило. Смена условий включённого правила ставит момент включения (проверка вехи M8,
+  // находка I1): для события "нет активности" от него считается граница, остальным событиям он безразличен.
+  expect(await readRule(admin, id)).toMatchObject({ isEnabled: true, enabledOn: expect.any(Date), pcode: 'p1_oncall' });
   const a = await p1(f.aUser);
   const b = await p1(f.bAdmin);
   // Поднятие приоритета идёт тем же правилом: условие действует и там.
@@ -367,7 +368,9 @@ test('сбой разбора события пять раз подряд: со�
     await handleRuleEvent(tx, event, run);
     throw new Error('база недоступна');
   };
-  for (let attempt = 1; attempt <= 5; attempt++) expect(await processEvents(AUTOMATION, broken)).toEqual({ processed: 0, failed: 1 });
+  // Часы разбора подменены: между попытками проходит пауза перед повтором, самая длинная 15 минут.
+  const started = Date.now();
+  for (let attempt = 1; attempt <= 5; attempt++) expect(await processEvents(AUTOMATION, broken, { clock: () => started + (attempt - 1) * 16 * MINUTE })).toEqual({ processed: 0, failed: 1 });
   // Сообщение дежурным о P1 не поставлено: транзакция события откатывалась целиком.
   expect(await outbox(t.ticketId, 'oncall_p1')).toEqual([]);
   expect((await pools.root.query(`select attempts, processed_on is not null as dropped from hdc_domain_events where ticket_id = $1`, [t.ticketId])).rows).toEqual([{ attempts: 5, dropped: true }]);

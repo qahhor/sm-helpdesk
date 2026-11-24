@@ -66,3 +66,16 @@ export function builtinRule(pcode: string | null): BuiltinRule | null {
 export function builtinCodesForExtraEvent(event: string): BuiltinCode[] {
   return BUILTIN_CODES.filter((code) => (BUILTIN_RULES[code].extraEvents as readonly string[]).includes(event));
 }
+
+/**
+ * Предустановленные правила, уведомление которых сейчас не уходит (проверка вехи M8, находка I7): правило выключено,
+ * его условия или действия не проходят схему или из действий убрано его собственное уведомление. По этому списку
+ * дежурные получают сигнал, а администратор видит предупреждение над списком правил. Правило, строки которого нет,
+ * в список не входит: строки создаёт миграция, удалить их не даёт триггер, а в тестах таблица бывает пустой.
+ */
+export function inactiveBuiltinCodes(rules: readonly { pcode: string | null; isEnabled: boolean; isValid: boolean; actions: readonly { action: string }[] }[]): BuiltinCode[] {
+  return BUILTIN_CODES.filter((code) => {
+    const rule = rules.find((item) => item.pcode === code);
+    return rule !== undefined && (!rule.isEnabled || !rule.isValid || !rule.actions.some((item) => item.action === BUILTIN_RULES[code].action));
+  });
+}

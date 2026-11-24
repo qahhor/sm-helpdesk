@@ -22,9 +22,10 @@ export { outboxFailedSince, outboxState } from '../core/outbox';
 
 const MESSAGES = { ru, uz, en } as const;
 
-export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing', 'inbound_held', 'unidentified_flood', 'automation_dropped'] as const;
+export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing', 'inbound_held', 'unidentified_flood', 'automation_dropped', 'builtin_rule_inactive', 'automation_lag'] as const;
 export type OpsAlertCode = (typeof OPS_ALERT_CODES)[number];
-export type OpsAlert = { code: OpsAlertCode; count: number; minutes?: number };
+/** rules: коды предустановленных правил через запятую (сигнал builtin_rule_inactive). Это идентификаторы портала, а не данные клиентов. */
+export type OpsAlert = { code: OpsAlertCode; count: number; minutes?: number; rules?: string };
 
 /** Входящие письма, разбор которых не закончился за 10 минут (не больше 100). */
 export async function staleInboundCount(actor: SystemActor, now: Date): Promise<number> {
@@ -42,7 +43,7 @@ export async function heldInboundCount(actor: SystemActor, since: Date): Promise
 /** Текст сигнала: только вид и числа. Чат дежурных служебный, по умолчанию русский. */
 export function opsAlertText(alert: OpsAlert, locale: Locale = 'ru'): string {
   const t = createTranslator({ locale, messages: MESSAGES[locale], namespace: 'bot.ops' });
-  return t(alert.code, { count: alert.count, minutes: alert.minutes ?? 0 });
+  return t(alert.code, { count: alert.count, minutes: alert.minutes ?? 0, rules: alert.rules ?? '' });
 }
 
 /**

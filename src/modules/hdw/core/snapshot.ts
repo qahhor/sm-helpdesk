@@ -11,11 +11,13 @@ import type { TicketSnapshot } from '../evaluate';
 export type Snapshots = { byId: Map<string, TicketSnapshot>; orgNames: Map<string, string> };
 
 /** Снимки обращений на момент now в транзакции вызывающего: системы при применении, администратора в пробном прогоне. */
-export async function snapshotsTx(tx: Tx, ticketIds: readonly string[], now: Date): Promise<Snapshots> {
+export async function snapshotsTx(tx: Tx, ticketIds: readonly string[], now: Date, opts: { withText?: boolean } = {}): Promise<Snapshots> {
   const byId = new Map<string, TicketSnapshot>();
   const orgNames = new Map<string, string>();
   if (ticketIds.length === 0) return { byId, orgNames };
-  const facts = await ruleTicketFactsTx(tx, ticketIds);
+  // withText: false: тема и описание не читаются (в снимке пустые строки). Так просматривает молчащие обращения
+  // правило без условия по тексту: тексты клиентов не гоняются из базы каждую минуту.
+  const facts = await ruleTicketFactsTx(tx, ticketIds, opts);
   const orgs = await orgFactsTx(tx, [...facts.values()].map((ticket) => ticket.orgId));
   const working = isWorkingTime(now, (await readSlaConfig(tx)).calendar);
   for (const [ticketId, ticket] of facts) {

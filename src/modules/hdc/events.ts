@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, eq, gt, gte, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
@@ -31,6 +31,8 @@ export type DomainEvent = {
   payload: Record<string, unknown>;
   isByRule: boolean;
   createdOn: Date;
+  /** Сколько раз разбор этого события уже закончился сбоем. */
+  attempts: number;
 };
 
 const KNOWN_KINDS: ReadonlySet<string> = new Set(DOMAIN_EVENT_KINDS);
@@ -55,6 +57,11 @@ export async function wakeAutomation(): Promise<void> {
 
 /** После стольких сбоев разбора событие снимается с очереди с отметкой ошибки: оно не держит следующие события обращения. */
 export const EVENT_MAX_ATTEMPTS = 5;
+/**
+ * Паузы перед повтором после первого, второго, третьего и четвёртого сбоя, секунд. Задачу будит каждое изменение
+ * обращения: без паузы пять попыток уходили за секунды, и короткий сбой снимал событие с очереди.
+ */
+export const EVENT_RETRY_SECONDS = [10, 60, 300, 900] as const;
 const BATCH = 100;
 /** Бюджет времени запуска: задача по расписанию идёт раз в минуту, следующий запуск не должен догнать этот. */
 const PROCESS_BUDGET_MS = 50_000;
@@ -76,7 +83,11 @@ const columns = {
   payload: domainEvents.payload,
   isByRule: domainEvents.isByRule,
   createdOn: domainEvents.createdOn,
+  attempts: domainEvents.attempts,
 };
+
+/** Событие ждёт разбора и срок повтора после сбоя наступил. */
+const dueAt = (now: Date) => and(isNull(domainEvents.processedOn), or(isNull(domainEvents.nextAttemptOn), lte(domainEvents.nextAttemptOn, now)));
 
 /**
  * У обращения нет более раннего неразобранного события. Такое событие видно и тогда, когда его строку держит другой
@@ -93,8 +104,10 @@ const errorName = (error: unknown): string => (error instanceof Error ? error.na
  * Разбирает очередь событий: берёт пачку неразобранных по порядку записи и для каждого события открывает транзакцию,
  * блокирует строку (FOR UPDATE SKIP LOCKED: занятую другим процессом пропускает), вызывает обработчик и ставит
  * отметку разбора. Повторяет, пока очередь не опустеет, не кончится бюджет времени или процесс не начнёт остановку.
- * Сбой обработчика откатывает его транзакцию; счётчик попыток пишется отдельной транзакцией, после
- * EVENT_MAX_ATTEMPTS сбоев событие снимается с очереди. Событие, упавшее в этом запуске, до следующего не берётся.
+ * Сбой обработчика откатывает его транзакцию; счётчик попыток и срок следующей попытки (EVENT_RETRY_SECONDS) пишутся
+ * отдельной транзакцией, после EVENT_MAX_ATTEMPTS сбоев событие снимается с очереди. До срока событие не берётся, а
+ * следующие события его обращения ждут вместе с ним: порядок по обращению сохраняется. Текущее время берётся из
+ * clock: тесты его подменяют.
  */
 export async function processEvents(actor: SystemActor, handler: EventHandler, opts: ProcessOptions = {}): Promise<{ processed: number; failed: number }> {
   if (actor.type !== 'system') throw new Error('События разбирает только система');
@@ -103,7 +116,6 @@ export async function processEvents(actor: SystemActor, handler: EventHandler, o
   const batch = Math.max(1, opts.batch ?? BATCH);
   const done = () => clock() >= deadline || opts.stopped?.() === true;
   const result = { processed: 0, failed: 0 };
-  const failedNow: string[] = [];
 
   while (!done()) {
     // Кандидаты без блокировки: блокирует и перепроверяет строку транзакция самого события.
@@ -111,7 +123,7 @@ export async function processEvents(actor: SystemActor, handler: EventHandler, o
       tx
         .select({ eventId: domainEvents.eventId })
         .from(domainEvents)
-        .where(and(isNull(domainEvents.processedOn), noEarlierPending, failedNow.length > 0 ? notInArray(domainEvents.eventId, failedNow) : undefined))
+        .where(and(dueAt(new Date(clock())), noEarlierPending))
         .orderBy(asc(domainEvents.eventId))
         .limit(batch),
     );
@@ -124,7 +136,7 @@ export async function processEvents(actor: SystemActor, handler: EventHandler, o
           const [event] = await tx
             .select(columns)
             .from(domainEvents)
-            .where(and(eq(domainEvents.eventId, eventId), isNull(domainEvents.processedOn), noEarlierPending))
+            .where(and(eq(domainEvents.eventId, eventId), dueAt(new Date(clock())), noEarlierPending))
             .limit(1)
             .for('update', { skipLocked: true });
           // Событие взял или уже разобрал другой процесс, либо перед ним появилось более раннее событие обращения.
@@ -140,8 +152,7 @@ export async function processEvents(actor: SystemActor, handler: EventHandler, o
       } catch (error) {
         result.failed++;
         taken++;
-        failedNow.push(eventId);
-        await noteFailure(actor, eventId, errorName(error));
+        await noteFailure(actor, eventId, errorName(error), new Date(clock()));
       }
     }
     // Вся пачка занята другими процессами: они её и разберут, этот запуск не крутится вхолостую.
@@ -150,8 +161,12 @@ export async function processEvents(actor: SystemActor, handler: EventHandler, o
   return result;
 }
 
-/** Сбой разбора: попытка считается отдельной транзакцией. После последней попытки событие снимается с очереди. */
-async function noteFailure(actor: SystemActor, eventId: string, error: string): Promise<void> {
+/**
+ * Сбой разбора: попытка считается отдельной транзакцией, следующая не раньше паузы из EVENT_RETRY_SECONDS. После
+ * последней попытки событие снимается с очереди.
+ */
+async function noteFailure(actor: SystemActor, eventId: string, error: string, now: Date): Promise<void> {
+  const pauses = sql.join(EVENT_RETRY_SECONDS.map((seconds) => sql`${seconds}`), sql`, `);
   const [row] = await withActor(actor, (tx) =>
     tx
       .update(domainEvents)
@@ -159,6 +174,7 @@ async function noteFailure(actor: SystemActor, eventId: string, error: string): 
         attempts: sql`${domainEvents.attempts} + 1`,
         lastError: error,
         processedOn: sql`case when ${domainEvents.attempts} + 1 >= ${EVENT_MAX_ATTEMPTS} then now() end`,
+        nextAttemptOn: sql`${now.toISOString()}::timestamptz + make_interval(secs => (array[${pauses}]::int[])[least(${domainEvents.attempts} + 1, ${EVENT_RETRY_SECONDS.length})])`,
       })
       .where(and(eq(domainEvents.eventId, eventId), isNull(domainEvents.processedOn)))
       .returning({ attempts: domainEvents.attempts, kind: domainEvents.kind, processedOn: domainEvents.processedOn }),

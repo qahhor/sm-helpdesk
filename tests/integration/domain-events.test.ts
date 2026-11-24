@@ -283,16 +283,26 @@ test('сбой обработчика: событие остаётся, след
     await tx.execute(sql`update hdt_tickets set title = 'Испорчено' where ticket_id = ${event.ticketId}`);
     throw new Error('правило сломалось: секретный текст');
   };
-  expect(await processEvents(SYSTEM, handler)).toEqual({ processed: 1, failed: 1 });
+  // Часы разбора подменены: между попытками проходит пауза перед повтором (10 секунд, 1, 5 и 15 минут).
+  let at = Date.now();
+  const attempt = () => processEvents(SYSTEM, handler, { clock: () => at });
+  expect(await attempt()).toEqual({ processed: 1, failed: 1 });
   const byId = async () => new Map((await allEvents()).map((row) => [row.event_id, row]));
   let rows = await byId();
   expect(rows.get(bad)).toMatchObject({ processed_on: null, attempts: 1, last_error: 'Error' });
   expect(rows.get(blocked)).toMatchObject({ processed_on: null, attempts: 0 });
   expect(rows.get(other)?.processed_on).not.toBeNull();
   expect((await pools.root.query(`select title from hdt_tickets where ticket_id = $1`, [f.tickets.aOrg.ticketId])).rows[0].title).toBe(f.tickets.aOrg.title);
-  for (let attempt = 2; attempt < EVENT_MAX_ATTEMPTS; attempt++) expect(await processEvents(SYSTEM, handler)).toEqual({ processed: 0, failed: 1 });
+  // Раньше срока повтора событие не берётся и попытка не тратится: повторные пробуждения задачи событие не снимают.
+  expect(await attempt()).toEqual({ processed: 0, failed: 0 });
+  expect((await byId()).get(bad)).toMatchObject({ processed_on: null, attempts: 1 });
+  for (let n = 2; n < EVENT_MAX_ATTEMPTS; n++) {
+    at += 16 * MINUTE;
+    expect(await attempt()).toEqual({ processed: 0, failed: 1 });
+  }
   // Последняя попытка: событие снимается с разбора с отметкой ошибки, следующее событие обращения проходит.
-  expect(await processEvents(SYSTEM, handler)).toEqual({ processed: 1, failed: 1 });
+  at += 16 * MINUTE;
+  expect(await attempt()).toEqual({ processed: 1, failed: 1 });
   rows = await byId();
   expect(rows.get(bad)).toMatchObject({ attempts: EVENT_MAX_ATTEMPTS, last_error: 'Error' });
   expect(rows.get(bad)?.processed_on).not.toBeNull();

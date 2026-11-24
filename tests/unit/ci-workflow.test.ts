@@ -69,17 +69,16 @@ test('команда hub попадает в образ', () => {
   expect(pkg.scripts.build).toContain('scripts/build-cli.mjs');
 });
 
-test('браузерным тестам в CI заданы ключи портала и записаны ложные серверы Smartup (M1)', () => {
-  const env = wf.jobs.e2e.env as Record<string, string>;
-  expect(env.HUB_URL).toBe('http://localhost:3100');
-  expect(env.BETTER_AUTH_SECRET.length).toBeGreaterThanOrEqual(32);
-  expect(Buffer.from(env.ENCRYPTION_KEY, 'base64')).toHaveLength(32);
-  expect(env.ENCRYPTION_KEY).not.toBe(env.BETTER_AUTH_SECRET);
+test('браузерные тесты в CI готовят окружение так же, как на машине разработчика', () => {
+  // Файл .env с одноразовыми значениями создаётся до сборки; базу, роли, миграции и ложные серверы Smartup готовит
+  // tests/e2e/global-setup.ts. Отдельной базы и своих ключей у задачи нет: два способа подготовки расходились.
+  expect(wf.jobs.e2e.env).toBeUndefined();
+  expect(wf.jobs.e2e.services).toBeUndefined();
   const steps = (wf.jobs.e2e.steps as { run?: string }[]).map((step) => step.run ?? '');
-  const migrate = steps.indexOf('pnpm db:migrate');
-  const mocks = steps.indexOf('node scripts/dev-up.mjs --mocks-only');
-  expect(mocks).toBeGreaterThan(migrate);
-  expect(mocks).toBeLessThan(steps.indexOf('pnpm test:e2e'));
+  const envFile = steps.indexOf('node scripts/dev-up.mjs --env-only');
+  expect(envFile).toBeGreaterThan(-1);
+  expect(envFile).toBeLessThan(steps.indexOf('pnpm build'));
+  expect(steps.indexOf('pnpm build')).toBeLessThan(steps.indexOf('pnpm test:e2e'));
 });
 
 test('контейнер в задаче image получает все обязательные переменные окружения (итоговая проверка M1)', () => {

@@ -1418,7 +1418,9 @@
         },
         "dry": {
           "title": "Sinov ishga tushirish",
-          "scopeHint": "Oxirgi 100 ta murojaat hozirgi holatida.",
+          "scopeHint": "Oxirgi 100 ta murojaat orasidan qoida hodisasi bo'lganlari, «Faollik yo'q» qoidasi uchun esa belgilangan vaqt jim turgan murojaatlar. Shartlar ularning hozirgi holatida tekshiriladi.",
+          "basisEvent": "Oxirgi {window} ta murojaat orasidan «{event}» hodisasi bo'lganlari tanlandi: {checked}.",
+          "basisSilent": "{hours} soat va undan uzoq jim turgan murojaatlar tanlandi (oxirgi {window} ta): {checked}.",
           "run": "Sinovni boshlash",
           "count": "Ishga tushgan bo'lardi: {count}",
           "none": "Shartlarga hech bir murojaat mos kelmadi.",

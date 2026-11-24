@@ -252,6 +252,26 @@ export function silentStatuses(rule: Pick<RuleRecord, 'conditions'>): TicketStat
   return first ? [...new Set(first)].filter((status) => rest.every((values) => values.includes(status))) : [...OPEN_STATUSES];
 }
 
+/**
+ * Отбор просмотра "нет активности": молчание началось не позже cutoff (прошло не меньше hours часов) и обращение в
+ * одном из статусов statuses. Тот же отбор берёт пробный прогон правила (silentForDryRunTx).
+ */
+export function silentSelection(rule: Pick<RuleRecord, 'conditions'> & { hours: number }, now: Date): { cutoff: Date; statuses: TicketStatus[] } {
+  return { cutoff: new Date(now.getTime() - rule.hours * HOUR_MS), statuses: silentStatuses(rule) };
+}
+
+/**
+ * Молчащие обращения для пробного прогона (волна 5, задача 2): тот же отбор и то же определение молчания, что у
+ * просмотра, последние limit по номеру. Момент включения правила не учитывается: прогон отвечает, каким обращениям
+ * правило подошло бы сейчас. Уже отмеченные срабатывания тоже не исключаются. Статусы возвращаются для проверки на
+ * снимке, как перед применением.
+ */
+export async function silentForDryRunTx(tx: Tx, rule: Pick<RuleRecord, 'conditions'> & { hours: number }, now: Date, limit: number): Promise<{ ticketIds: string[]; statuses: TicketStatus[] }> {
+  const { cutoff, statuses } = silentSelection(rule, now);
+  const silent = await silentTicketsTx(tx, { cutoff, statuses, after: null, limit, newest: true });
+  return { ticketIds: silent.map((item) => item.ticketId), statuses };
+}
+
 /** Нужны ли условиям правила тема и описание обращения. */
 const needsText = (rule: Pick<RuleRecord, 'conditions'>): boolean => rule.conditions.items.some((item) => item.field === 'text');
 
@@ -304,8 +324,7 @@ export async function runNoActivityTx(actor: SystemActor, opts: NoActivityOption
     if (exhausted) break;
     if (!rule.isValid || rule.hours === null) continue;
     const hours = rule.hours;
-    const cutoff = new Date(now.getTime() - hours * HOUR_MS);
-    const statuses = silentStatuses(rule);
+    const { cutoff, statuses } = silentSelection({ ...rule, hours }, now);
     let after = cursors.get(rule.ruleId) ?? null;
     const withText = needsText(rule);
     let seen = 0;

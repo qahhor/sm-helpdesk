@@ -291,7 +291,7 @@ test('пробный прогон: на каких из последних об�
 
   // Негодное правило не прогоняется; правило без совпадений возвращает пустой список.
   await expect(dryRunRule(admin, { ...rule, event: 'ai_handoff' })).rejects.toMatchObject({ code: 'invalid_input' });
-  expect(await dryRunRule(admin, { ...rule, conditions: { match: 'all', items: [{ field: 'rating', op: 'lte', value: 2 }] } })).toEqual({ checked: 5, count: 0, matches: [] });
+  expect(await dryRunRule(admin, { ...rule, conditions: { match: 'all', items: [{ field: 'rating', op: 'lte', value: 2 }] } })).toEqual({ checked: 5, count: 0, matches: [], basis: { kind: 'event', event: 'ticket_created', window: 100 } });
 });
 
 test('пробный прогон берёт только последние 100 обращений', async () => {

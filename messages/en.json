@@ -1418,7 +1418,9 @@
         },
         "dry": {
           "title": "Dry run",
-          "scopeHint": "The last 100 tickets in their current state.",
+          "scopeHint": "Tickets that had the rule event among the last 100, or, for a \"No activity\" rule, tickets silent for the set time. Conditions are checked on their current state.",
+          "basisEvent": "Selected tickets with the \"{event}\" event among the last {window}: {checked}.",
+          "basisSilent": "Selected tickets silent for {hours} h or longer (the last {window}): {checked}.",
           "run": "Start dry run",
           "count": "Would fire: {count}",
           "none": "No ticket matched the conditions.",

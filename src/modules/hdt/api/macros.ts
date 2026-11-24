@@ -5,6 +5,7 @@ import { withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import type { StaffContext } from '@/modules/hdu/api';
 import { assertCanWrite, lockAgentTicket } from '../core/agent-actions';
+import { assertUnchangedTx } from '../core/changes';
 import { numberInput, parseInput } from '../input';
 import type { Priority, Queue, TicketStatus } from '../pref';
 import { ticketEvents, tickets, ticketTags } from '../schema';
@@ -16,8 +17,12 @@ import { ticketEvents, tickets, ticketTags } from '../schema';
 /** Состояние обращения, по которому макрос решает, что менять нечего, и берёт язык для текста шаблона. */
 export type MacroTicket = { ticketId: string; locale: string; status: TicketStatus; priority: Priority; queue: Queue; assigneeId: string | null; tagIds: string[] };
 
-/** Обращение по номеру глазами сотрудника, который ведёт обращения. Нет такого: null. */
-export async function macroTicket(ctx: StaffContext, number: unknown): Promise<MacroTicket | null> {
+/**
+ * Обращение по номеру глазами сотрудника, который ведёт обращения. Нет такого: null.
+ * seen: версия, с которой открыта страница обращения (FR-AG-12, решение 0040). Обращение с тех пор изменили другие
+ * (сообщение, статус, исполнитель): ошибка changed со сводкой, как у действий статуса, исполнителя и приоритета.
+ */
+export async function macroTicket(ctx: StaffContext, number: unknown, opts: { seen?: Date } = {}): Promise<MacroTicket | null> {
   assertCanWrite(ctx.actor);
   const parsed = parseInput(numberInput, number);
   return withActor(ctx.actor, async (tx) => {
@@ -27,6 +32,7 @@ export async function macroTicket(ctx: StaffContext, number: unknown): Promise<M
       .where(eq(tickets.number, parsed))
       .limit(1);
     if (!row) return null;
+    await assertUnchangedTx(tx, row.ticketId, opts.seen, ctx.actor.userId);
     const tags = await tx.select({ tagId: ticketTags.tagId }).from(ticketTags).where(eq(ticketTags.ticketId, row.ticketId));
     return { ...row, queue: row.queue as Queue, tagIds: tags.map((tag) => tag.tagId) };
   });

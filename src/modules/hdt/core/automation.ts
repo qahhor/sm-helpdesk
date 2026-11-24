@@ -2,7 +2,8 @@ import 'server-only';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { emitEventTx, writeAudit } from '@/modules/hdc/api';
-import { tagsByIdTx } from '@/modules/hdr/api';
+import type { DomainEventKind } from '@/modules/hdc/pref';
+import { readSlaConfig, tagsByIdTx } from '@/modules/hdr/api';
 import { lineLeads } from '@/modules/hdu/api/recipients';
 import { canTransition, type Impact, type Priority, type Queue, type TicketSource, type TicketStatus, type TicketType, TRANSFERABLE_STATUSES } from '../pref';
 import { ticketEvents, ticketMessages, tickets, ticketTags } from '../schema';
@@ -10,7 +11,7 @@ import { isHdtError } from '../error';
 import { type LockedTicket } from './agent-actions';
 import { canAddTagTx } from './tags';
 import { notifyTicketTx, oncallP1Tx } from './notify';
-import { refreshSla } from './sla';
+import { calendarFor, refreshSla, soonMoment } from './sla';
 
 // Модуль hdt, слой core: действия правил автоматизации над обращением (FR-AUTO-04, 07, 09, 11; план M8, задача 3).
 // Вызывает их только модуль правил из транзакции системного актора: lockRuleTicketTx это проверяет. Каждое действие
@@ -365,7 +366,10 @@ const lastHumanMessage = sql`
  * создания обращения, отметка "created". notBefore: молчание началось не раньше этого момента (граница включения
  * правила).
  */
-export async function silentTicketsTx(tx: Tx, opts: { cutoff: Date; notBefore?: Date | null; statuses: readonly TicketStatus[]; after: string | null; limit: number }): Promise<Silence[]> {
+export async function silentTicketsTx(
+  tx: Tx,
+  opts: { cutoff: Date; notBefore?: Date | null; statuses: readonly TicketStatus[]; after: string | null; limit: number; /** Пробный прогон: последние по номеру, без продолжения. */ newest?: boolean },
+): Promise<Silence[]> {
   if (opts.statuses.length === 0) return [];
   const statuses = sql.join(opts.statuses.map((status) => sql`${status}`), sql`, `);
   const result = await tx.execute<{ ticket_id: string; marker: string; since: Date | string }>(sql`
@@ -375,8 +379,8 @@ export async function silentTicketsTx(tx: Tx, opts: { cutoff: Date; notBefore?: 
        and t.created_on <= ${opts.cutoff.toISOString()}::timestamptz
        and coalesce(last.created_on, t.created_on) <= ${opts.cutoff.toISOString()}::timestamptz
        ${opts.notBefore ? sql`and coalesce(last.created_on, t.created_on) >= ${opts.notBefore.toISOString()}::timestamptz` : sql``}
-       ${opts.after ? sql`and t.ticket_id > ${opts.after}::uuid` : sql``}
-     order by t.ticket_id
+       ${opts.after && !opts.newest ? sql`and t.ticket_id > ${opts.after}::uuid` : sql``}
+     order by ${opts.newest ? sql`t.number desc` : sql`t.ticket_id`}
      limit ${opts.limit}`);
   return result.rows.map((row) => ({ ticketId: row.ticket_id, marker: row.marker, since: new Date(row.since) }));
 }
@@ -397,6 +401,69 @@ export async function silenceOfTx(tx: Tx, ticketId: string): Promise<Silence | n
 export async function recentTicketIdsTx(tx: Tx, limit: number): Promise<string[]> {
   const rows = await tx.select({ ticketId: tickets.ticketId }).from(tickets).orderBy(desc(tickets.number)).limit(limit);
   return rows.map((row) => row.ticketId);
+}
+
+/** Ответы людей: публичные сообщения клиента или сотрудника. Автоматические ответы правил пишет система. */
+const REPLY_AUTHORS = { client_replied: 'client', staff_replied: 'staff' } as const;
+/** Изменения по истории обращения. Изменение, сделанное правилом (отметка byRule), правила администратора не запускает. */
+const CHANGE_KINDS = { status_changed: 'status', priority_changed: 'priority', rated: 'rated', sla_breached: 'due' } as const;
+
+/**
+ * Какие из обращений пережили событие вида kind (пробный прогон правила; волна 5, задача 2). Смотрится история
+ * обращения, а не очередь событий предметной области: та хранится 30 суток. Создание было у каждого обращения.
+ * Ответы клиента и сотрудника берутся из сообщений, смена статуса и приоритета, оценка и нарушение срока из событий
+ * истории. "Срок скоро" следа в истории не оставляет: он восстанавливается по срокам обращения. Срок считается
+ * подошедшим, если момент "скоро" (soonMoment) уже наступил, а срок в этот момент ещё ждали: первого ответа не было,
+ * обращение не было решено. Для такого события это приближение: момент мог пройти, пока процесс не работал.
+ */
+export async function ticketsWithEventTx(tx: Tx, ticketIds: readonly string[], kind: Exclude<DomainEventKind, 'no_activity' | 'ai_handoff'>, now: Date): Promise<Set<string>> {
+  const ids = [...new Set(ticketIds)];
+  if (ids.length === 0) return new Set();
+  if (kind === 'ticket_created') return new Set(ids);
+  if (kind === 'client_replied' || kind === 'staff_replied') {
+    const rows = await tx
+      .selectDistinct({ ticketId: ticketMessages.ticketId })
+      .from(ticketMessages)
+      .where(and(inArray(ticketMessages.ticketId, ids), eq(ticketMessages.authorType, REPLY_AUTHORS[kind]), eq(ticketMessages.isInternal, false), eq(ticketMessages.isAuto, false)));
+    return new Set(rows.map((row) => row.ticketId));
+  }
+  if (kind === 'sla_soon') {
+    const config = await readSlaConfig(tx);
+    const rows = await tx
+      .select({
+        ticketId: tickets.ticketId,
+        priority: tickets.priority,
+        createdOn: tickets.createdOn,
+        firstResponseDueOn: tickets.firstResponseDueOn,
+        resolutionDueOn: tickets.resolutionDueOn,
+        firstRespondedOn: tickets.firstRespondedOn,
+        resolvedOn: tickets.resolvedOn,
+      })
+      .from(tickets)
+      .where(inArray(tickets.ticketId, ids));
+    const reached = (due: Date | null, settledOn: Date | null, priority: Priority, createdOn: Date): boolean => {
+      const moment = soonMoment(createdOn, due, calendarFor(config, priority));
+      return moment !== null && moment.getTime() <= now.getTime() && (settledOn === null || settledOn.getTime() > moment.getTime());
+    };
+    return new Set(
+      rows
+        .filter((row) => reached(row.firstResponseDueOn, row.firstRespondedOn, row.priority, row.createdOn) || reached(row.resolutionDueOn, row.resolvedOn, row.priority, row.createdOn))
+        .map((row) => row.ticketId),
+    );
+  }
+  const rows = await tx
+    .selectDistinct({ ticketId: ticketEvents.ticketId })
+    .from(ticketEvents)
+    .where(
+      and(
+        inArray(ticketEvents.ticketId, ids),
+        eq(ticketEvents.kind, CHANGE_KINDS[kind]),
+        sql`not (${ticketEvents.payload} ? 'byRule')`,
+        // Подтверждение приоритета пишет событие истории без смены значения, а событие правил не пишет (проверка волны 5, I1).
+        sql`(not (${ticketEvents.payload} ? 'from') or (${ticketEvents.payload} ->> 'from') is distinct from (${ticketEvents.payload} ->> 'to'))`,
+      ),
+    );
+  return new Set(rows.map((row) => row.ticketId));
 }
 
 /** Номера обращений по идентификаторам: подписи строк журнала срабатываний. */

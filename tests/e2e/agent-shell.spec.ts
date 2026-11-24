@@ -83,3 +83,28 @@ test('доступность рабочего места', async ({ page }) => {
   const { violations } = await new AxeBuilder({ page }).analyze();
   expect(violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? '')).map((v) => v.id)).toEqual([]);
 });
+
+// Телефон 360 px (волна 5, задача 1): верхняя панель и страницы рабочего места не прокручиваются вбок.
+// Проверяются и сама панель (её правый край в окне), и страница целиком, в трёх языках. Ширина сравнивается с
+// заданной шириной экрана, а не с innerWidth: на телефоне окно раздвигается под слишком широкую страницу.
+test('360: панель и страницы рабочего места помещаются в окно без прокрутки вбок', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone', 'ширина телефона');
+  const paths = ['/ru/agent', '/ru/agent/queues', '/ru/agent/notifications', '/ru/agent/account', '/uz/agent', '/en/agent/queues'];
+  const width = page.viewportSize()?.width ?? 360;
+  for (const path of paths) {
+    await page.goto(path);
+    const bar = page.getByRole('banner');
+    await expect(bar).toBeVisible();
+    const sizes = await page.evaluate(() => {
+      const header = document.querySelector('header') as HTMLElement;
+      return {
+        page: document.documentElement.scrollWidth,
+        barRight: Math.max(...[...header.querySelectorAll('*')].map((node) => node.getBoundingClientRect().right)),
+      };
+    });
+    expect(sizes.page, `${path}: ширина страницы`).toBeLessThanOrEqual(width);
+    expect(sizes.barRight, `${path}: правый край панели`).toBeLessThanOrEqual(width);
+    // Пункты панели на месте: разделы, язык, тема, уведомления и меню пользователя.
+    await expect(bar.getByRole('button', { name: /Разделы|Bo'limlar|Sections/ })).toBeVisible();
+  }
+});

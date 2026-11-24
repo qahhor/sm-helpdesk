@@ -28,7 +28,8 @@ function Items({ group, emptyLabel }: { group: NavGroupView; emptyLabel: string 
 
 /**
  * Группы разделов в верхней панели. Шире 1200 px пять кнопок, у каждой своё меню.
- * При 1200 px и уже группы свёрнуты в одну кнопку "Разделы", как в Smartup Web.
+ * При 1200 px и уже группы свёрнуты в одну кнопку "Разделы", как в Smartup Web. На телефоне у кнопки остаётся
+ * значок, название читает программа экранного доступа.
  */
 export function SectionsMenu({ groups, sectionsLabel, emptyLabel }: { groups: NavGroupView[]; sectionsLabel: string; emptyLabel: string }) {
   return (
@@ -50,7 +51,7 @@ export function SectionsMenu({ groups, sectionsLabel, emptyLabel }: { groups: Na
         <DropdownMenu>
           <DropdownMenuTrigger className={triggerClass}>
             <Menu className="size-5" aria-hidden />
-            {sectionsLabel}
+            <span className="max-tablet:sr-only">{sectionsLabel}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" aria-label={sectionsLabel}>
             {groups.map((group) => (

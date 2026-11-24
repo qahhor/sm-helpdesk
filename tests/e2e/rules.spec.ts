@@ -117,6 +117,8 @@ test('сценарий 14: правило создано, проверено п�
   await page.getByRole('button', { name: 'Запустить прогон' }).click();
   const dry = main(page).locator('[data-dry-result]');
   await expect(dry).toContainText('Сработало бы: 1');
+  // Признак отбора назван (волна 5, задача 2): событие правила среди последних 100 обращений.
+  await expect(dry.locator('[data-dry-basis]')).toContainText('Отобраны обращения с событием «Обращение создано» среди последних 100');
   await expect(dry.locator(`[data-dry-match="${before}"]`)).toContainText(`SUP-${before}`);
   await expect(dry.locator(`[data-dry-match="${before}"]`)).toContainText('P1');
   await expect(dry.locator(`[data-dry-match="${before}"]`)).toContainText('ACME Trade');

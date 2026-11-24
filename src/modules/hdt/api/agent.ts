@@ -350,17 +350,18 @@ export async function takeTicket(ctx: StaffContext, number: unknown): Promise<vo
 export async function assignTicket(ctx: StaffContext, input: unknown): Promise<void> {
   assertCanWrite(ctx.actor);
   const data = parseInput(assignInput, input);
-  if (data.assigneeId === null) return assignTx(ctx.actor, data.number, null);
+  const seen = data.seenVersion ? new Date(data.seenVersion) : undefined;
+  if (data.assigneeId === null) return assignTx(ctx.actor, data.number, null, seen);
   const assignee = (await listAssignableStaff(ctx)).find((s) => s.userId === data.assigneeId);
   if (!assignee) throw new HdtError('invalid_input');
-  await assignTx(ctx.actor, data.number, { id: assignee.userId, name: assignee.name });
+  await assignTx(ctx.actor, data.number, { id: assignee.userId, name: assignee.name }, seen);
 }
 
 /** Статус по таблице 7.2; "Решено" с итогом (FR-AG-09). */
 export async function setStatus(ctx: StaffContext, input: unknown): Promise<void> {
   assertCanWrite(ctx.actor);
   const data = parseInput(statusInput, input);
-  await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version });
+  await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version, seen: data.seenVersion ? new Date(data.seenVersion) : undefined });
   await wakeOutbox();
 }
 
@@ -369,7 +370,7 @@ export async function setPriority(ctx: StaffContext, input: unknown): Promise<vo
   assertCanWrite(ctx.actor);
   const data = parseInput(priorityInput, input);
   if (!data.reason) throw new HdtError('reason_required');
-  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason);
+  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason, data.seenVersion ? new Date(data.seenVersion) : undefined);
 }
 
 export async function setTicketType(ctx: StaffContext, input: unknown): Promise<void> {

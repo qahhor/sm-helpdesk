@@ -15,6 +15,7 @@ import {
   type TicketType,
 } from '../pref';
 import { lineTransfers, ticketEvents, tickets } from '../schema';
+import { assertUnchangedTx } from './changes';
 import { refreshSla, type TicketPatch } from './sla';
 import { notifyTicketTx, oncallP1Tx } from './notify';
 
@@ -181,19 +182,26 @@ export async function takeTx(actor: StaffActor, number: number, myName: string):
   });
 }
 
-export async function assignTx(actor: StaffActor, number: number, assignee: { id: string; name: string } | null): Promise<void> {
+export async function assignTx(actor: StaffActor, number: number, assignee: { id: string; name: string } | null, seen?: Date): Promise<void> {
   assertCanWrite(actor);
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
+    await assertUnchangedTx(tx, ticket.ticketId, seen, actor.userId);
     await changeAssigneeTx(tx, actor, ticket, assignee?.id ?? null, assignee?.name ?? null);
     await flushTicketTx(tx, ticket);
   });
 }
 
-export async function setStatusTx(actor: StaffActor, number: number, to: TicketStatus, opts: { resolution?: ResolutionType; version?: string }): Promise<void> {
+export async function setStatusTx(
+  actor: StaffActor,
+  number: number,
+  to: TicketStatus,
+  opts: { resolution?: ResolutionType; version?: string; seen?: Date },
+): Promise<void> {
   assertCanWrite(actor);
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
+    await assertUnchangedTx(tx, ticket.ticketId, opts.seen, actor.userId);
     await changeStatusTx(tx, actor, ticket, to, opts);
     await flushTicketTx(tx, ticket);
     await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: to === 'resolved' ? 'resolved' : 'status', actorUserId: actor.userId, to });
@@ -201,10 +209,11 @@ export async function setStatusTx(actor: StaffActor, number: number, to: TicketS
 }
 
 /** Приоритет с причиной (FR-SLA-03): подтверждён, сроки пересчитаны от создания. Тот же приоритет: подтверждение. */
-export async function setPriorityTx(actor: StaffActor, number: number, priority: Priority, reason: string): Promise<void> {
+export async function setPriorityTx(actor: StaffActor, number: number, priority: Priority, reason: string, seen?: Date): Promise<void> {
   assertCanWrite(actor);
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
+    await assertUnchangedTx(tx, ticket.ticketId, seen, actor.userId);
     stageTicket(ticket, { priority, priorityConfirmed: true }, { sla: true });
     await recordChange(tx, actor, ticket, { kind: 'priority', payload: { from: ticket.priority, to: priority, reason }, audit: 'ticket.priority_changed' });
     await flushTicketTx(tx, ticket);

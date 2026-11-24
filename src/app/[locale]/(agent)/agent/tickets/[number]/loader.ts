@@ -9,7 +9,7 @@ import { listAssignableStaff, type StaffContext } from '@/modules/hdu/api';
 /** Коды "сделано" в адресе страницы после действия. */
 export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited'] as const;
 
-export type TicketPageSearch = { done?: string; error?: string; queue?: string; sort?: string; shown?: string };
+export type TicketPageSearch = { done?: string; error?: string; ch?: string; queue?: string; sort?: string; shown?: string };
 
 /** Всё, что нужно странице. Нет обращения с таким номером: null (страница отвечает "не найдено"). */
 export async function loadTicketPage(staff: StaffContext, raw: string | null, search: TicketPageSearch, locale: string) {
@@ -39,5 +39,13 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
     fromSort: QUEUE_SORTS.find((key) => key === search.sort) ?? 'sla',
     done: DONE.find((code) => code === search.done),
     error: HDT_ERROR_CODES.find((code) => code === search.error),
+    // Сводка "что изменилось" для ошибки changed: три числа из адреса, ничего кроме чисел не принимается.
+    changed: changedOf(search.ch),
   };
+}
+
+/** Сводка изменений из адреса страницы: "сообщений.статус.исполнитель", например "2.1.0". */
+function changedOf(raw: string | undefined): { newMessages: number; statusChanged: boolean; assigneeChanged: boolean } | null {
+  const match = /^(\d{1,4})\.([01])\.([01])$/.exec(raw ?? '');
+  return match ? { newMessages: Number(match[1]), statusChanged: match[2] === '1', assigneeChanged: match[3] === '1' } : null;
 }

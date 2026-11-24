@@ -1,19 +1,20 @@
 import 'server-only';
-import { type AnyColumn, and, count, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, DEVELOPMENT_ROLES, type PresenceMode, PRESENCE_TTL_SEC, type TicketStatus } from '../pref';
-import { attachments, mentions, replyDrafts, ticketEvents, ticketMessages, ticketPresence, tickets } from '../schema';
+import { attachments, mentions, replyDrafts, ticketMessages, ticketPresence, tickets } from '../schema';
 import { findMentions } from '../util';
 import { assertCanWrite, changeAssigneeTx, changeStatusTx, flushTicketTx, lockAgentTicket, markPickedUpTx, stageTicket } from './agent-actions';
+import { type ChangeSummary, changesSinceTx, hasChanges } from './changes';
 import { notifyTicketTx } from './notify';
 
 // Модуль hdt, слой core: ответ клиенту и внутренняя заметка сотрудника, черновик, присутствие
 // (FR-AG-03, FR-AG-12, FR-AG-21, FR-SLA-04, UX-A-05..07; план M3, задача 8, решения 6 и 10).
 
 /** Что изменили другие после того, как агент открыл обращение (FR-AG-12, UX-A-06). */
-export type ChangeSummary = { newMessages: number; statusChanged: boolean; assigneeChanged: boolean };
+export type { ChangeSummary } from './changes';
 
 export type StaffMessage = {
   number: number;
@@ -26,35 +27,6 @@ export type StaffMessage = {
 
 /** Отказ несёт версию: последнюю запись переписки и истории. С ней агент может отправить, уже зная, что изменилось. */
 export type PostResult = { ok: true; ticketId: string } | { ok: false; changed: ChangeSummary; version: string };
-
-// Время в браузере передаётся с точностью до миллисекунды, в базе до микросекунды: сравнение по миллисекундам.
-const after = (column: AnyColumn, seen: Date) => gt(sql`date_trunc('milliseconds', ${column})`, seen);
-
-/** Сообщения, смена статуса и исполнителя от других людей после seen. Свои действия изменением не считаются. */
-async function changesSinceTx(tx: Tx, ticketId: string, seen: Date, me: string): Promise<ChangeSummary> {
-  const [messages] = await tx
-    .select({ n: count() })
-    .from(ticketMessages)
-    .where(and(eq(ticketMessages.ticketId, ticketId), after(ticketMessages.createdOn, seen), sql`${ticketMessages.authorId} is distinct from ${me}::uuid`));
-  const kinds = await tx
-    .selectDistinct({ kind: ticketEvents.kind })
-    .from(ticketEvents)
-    .where(
-      and(
-        eq(ticketEvents.ticketId, ticketId),
-        inArray(ticketEvents.kind, ['status', 'assignee']),
-        after(ticketEvents.createdOn, seen),
-        sql`${ticketEvents.actorId} is distinct from ${me}::uuid`,
-      ),
-    );
-  return {
-    newMessages: messages?.n ?? 0,
-    statusChanged: kinds.some((k) => k.kind === 'status'),
-    assigneeChanged: kinds.some((k) => k.kind === 'assignee'),
-  };
-}
-
-const hasChanges = (c: ChangeSummary) => c.newMessages > 0 || c.statusChanged || c.assigneeChanged;
 
 /** Время последней записи обращения, переписки и истории: та же версия, что видит страница. */
 async function latestEntryTx(tx: Tx, ticketId: string): Promise<string> {

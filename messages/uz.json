@@ -1374,6 +1374,7 @@
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
           "transition_refused": "Bu o'tish hozir mumkin emas. Sahifani yangilang: murojaat o'zgargan bo'lishi mumkin.",
           "already_taken": "Murojaatni {holder} allaqachon olgan.",
+          "changed": "Sahifa ochiq turganda murojaat o'zgardi. Amal bajarilmadi: sahifa yangilandi, tekshirib, qayta urinib ko'ring.",
           "reason_required": "Muhimlikni o'zgartirish sababini yozing.",
           "resolution_required": "Natijani tanlang. «Versiyada tuzatildi» uchun versiya raqamini kiriting.",
           "invalid_input": "Kiritilgan ma'lumotlarni tekshiring.",

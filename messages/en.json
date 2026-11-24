@@ -1374,6 +1374,7 @@
           "forbidden": "Your role does not allow this action.",
           "transition_refused": "This change is not possible now. Refresh the page: the ticket may have changed.",
           "already_taken": "{holder} has already taken this ticket.",
+          "changed": "The ticket changed while the page was open. The action was not done: the page is refreshed, check and repeat.",
           "reason_required": "Write the reason for the priority change.",
           "resolution_required": "Choose the outcome. For \"Fixed in version\", enter the version number.",
           "invalid_input": "Check the data you entered.",

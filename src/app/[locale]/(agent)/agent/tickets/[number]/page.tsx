@@ -42,7 +42,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
   const tc = await getTranslations('client.tickets');
   const data = await loadTicketPage(staff, safeDecode((await params).number), search, await getLocale());
   if (!data) notFound();
-  const { ticket, canWrite, assignable, modules, draft, templates, canTransfer, canReturn, playbook, fromQueue, fromSort, done, error } = data;
+  const { ticket, canWrite, assignable, modules, draft, templates, canTransfer, canReturn, playbook, fromQueue, fromSort, done, error, changed } = data;
   const playbookScope = playbook
     ? `${playbook.moduleId ? (modules.find((m) => m.moduleId === playbook.moduleId)?.name ?? '') : t('ticket.transfer.anyModule')} / ${t(`ticket.types.${ticket.type}`)}`
     : null;
@@ -92,6 +92,13 @@ export default async function AgentTicketPage({ params, searchParams }: { params
               {t.has(`ticket.controls.errors.${error}`)
                 ? t(`ticket.controls.errors.${error}`, { holder: ticket.assignee?.name ?? t('ticket.controls.someone') })
                 : t('ticket.controls.errors.other')}
+              {error === 'changed' && changed && (
+                <ul className="list-disc ps-5">
+                  {changed.newMessages > 0 && <li>{t('ticket.composer.changed.messages', { count: changed.newMessages })}</li>}
+                  {changed.statusChanged && <li>{t('ticket.composer.changed.status')}</li>}
+                  {changed.assigneeChanged && <li>{t('ticket.composer.changed.assignee')}</li>}
+                </ul>
+              )}
             </Alert>
           )}
           {ticket.changedSince && <p className="text-sm text-muted-foreground">{t('ticket.lastVisit', { time: when(ticket.changedSince) })}</p>}

@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { requireStaffActor } from '@/modules/hdu/api';
-import { listRules } from '@/modules/hdw/api';
+import { inactiveBuiltinCodes, listRules } from '@/modules/hdw/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card } from '@/ui/components/card';
@@ -24,6 +24,9 @@ export default async function RulesSettingsPage({ searchParams }: { searchParams
   const r = await getTranslations('agent.settings.rules');
   const { done, error } = await searchParams;
   const rules = await listRules(staff);
+  // Встроенные уведомления портала (дежурным о P1, руководителю о сроке и о низкой оценке), которые сейчас не
+  // уходят: правило выключено, негодно или осталось без своего уведомления (проверка вехи M8, находка I7).
+  const inactive = inactiveBuiltinCodes(rules).map((code) => rules.find((rule) => rule.pcode === code)?.name ?? code);
   const nav = await settingsNav('rules');
   return (
     <>
@@ -40,6 +43,11 @@ export default async function RulesSettingsPage({ searchParams }: { searchParams
       <SettingsLayout {...nav}>
         {done && DONE.has(done) && <Alert tone="success">{r(`done.${done}`)}</Alert>}
         {error && ERRORS.has(error) && <Alert tone="danger">{r(`errors.${error}`)}</Alert>}
+        {inactive.length > 0 && (
+          <Alert tone="danger">
+            <span data-builtin-inactive>{r('builtinInactive', { rules: inactive.join(', ') })}</span>
+          </Alert>
+        )}
         <p className="text-secondary-foreground">{r('intro')}</p>
         {/* Напоминание клиенту и автозакрытие остались в коде портала (план M8, задача 11): строка только для чтения,
             чтобы администратор не завёл второе, спорящее с ними автозакрытие, не зная о встроенном. */}

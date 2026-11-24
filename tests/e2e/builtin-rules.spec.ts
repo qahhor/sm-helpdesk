@@ -119,3 +119,18 @@ test('новое обращение P1: фоновый процесс стави
   await expect(main(page).getByText('Склад стоит, отгрузки нет').first()).toBeVisible();
   await expect(main(page).locator('[data-event="rule"]')).toHaveCount(0);
 });
+
+test('выключенное встроенное уведомление: над списком правил предупреждение с названием правила, после включения его нет (проверка M8, I7)', async ({ page }) => {
+  await signInStaff(page, staffAccount('admin'));
+  await page.goto('/ru/agent/settings/rules');
+  const warning = main(page).locator('[data-builtin-inactive]');
+  await expect(warning).toHaveCount(0);
+  await main(page).getByRole('button', { name: `Выключить правило «${P1_NAME}»` }).click();
+  await expect(main(page).locator(`tr[data-rule="${P1_NAME}"]`)).toContainText('Выключено');
+  await expect(warning).toContainText('Встроенные уведомления портала не уходят');
+  await expect(warning).toContainText(P1_NAME);
+  expect(await seriousAxe(page)).toEqual([]);
+  await main(page).getByRole('button', { name: `Включить правило «${P1_NAME}»` }).click();
+  await expect(main(page).locator(`tr[data-rule="${P1_NAME}"]`)).toContainText('Включено');
+  await expect(warning).toHaveCount(0);
+});

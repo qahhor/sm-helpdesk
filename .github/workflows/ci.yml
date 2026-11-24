@@ -69,6 +69,8 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm build
       - run: pnpm test:e2e
+      # Замеры открывают страницу входа, она читает базу разработки из .env. Тесты выше готовят только свою базу.
+      - run: node scripts/dev-up.mjs --prepare
       - run: pnpm budget
       - run: pnpm lighthouse
       - if: failure()

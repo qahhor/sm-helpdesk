@@ -81,6 +81,15 @@ test('браузерные тесты в CI готовят окружение т
   expect(steps.indexOf('pnpm build')).toBeLessThan(steps.indexOf('pnpm test:e2e'));
 });
 
+test('замеры бюджета и Lighthouse идут после подготовки базы разработки', () => {
+  // Оба замера открывают страницу входа, а она читает базу из .env. Браузерные тесты готовят только свою базу hub_e2e.
+  const steps = (wf.jobs.e2e.steps as { run?: string }[]).map((step) => step.run ?? '');
+  const prepare = steps.indexOf('node scripts/dev-up.mjs --prepare');
+  expect(prepare).toBeGreaterThan(-1);
+  expect(prepare).toBeLessThan(steps.indexOf('pnpm budget'));
+  expect(steps.indexOf('pnpm budget')).toBeLessThan(steps.indexOf('pnpm lighthouse'));
+});
+
 test('контейнер в задаче image получает все обязательные переменные окружения (итоговая проверка M1)', () => {
   const run = (wf.jobs.image.steps as { run?: string }[]).map((step) => step.run ?? '').join('\n');
   const passed = new Set([...run.matchAll(/--env ([A-Z_]+)=/g)].map((m) => m[1]));

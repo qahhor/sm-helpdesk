@@ -147,3 +147,45 @@ test('администратор создаёт макрос "Запросить
   await expect(page).toHaveURL(/\/agent\/settings\/macros\?done=deleted/);
   await expect(main(page).locator(`tr[data-macro="${name}"]`)).toHaveCount(0);
 });
+
+test('агент пишет внутреннюю заметку и запускает макрос с шаблоном: заметка цела и осталась заметкой, шаблон не вставлен (проверка M8, I3)', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const stamp = Date.now();
+  const name = `E2E Только шаблон ${stamp}`;
+  const title = `E2E версия ${stamp}`;
+  const reply = `Пришлите, пожалуйста, версию Smartup. ${stamp}`;
+  const note = `Клиент должен за два месяца, сроков не обещать ${stamp}`;
+  const templateId = (
+    await dbRows<{ template_id: string }>(`insert into hdr_reply_templates (shortcut, title, body) values ($1, $2, $3) returning template_id`, [`e2e-macro-${stamp}`, title, JSON.stringify({ ru: reply, uz: reply, en: reply })])
+  )[0]!.template_id;
+  await dbRows(`insert into hdw_macros (name, actions, order_no) values ($1, $2, 9000)`, [name, JSON.stringify([{ action: 'reply_template', templateId }])]);
+
+  const number = await clientTicket(browser, `Не печатается накладная ${stamp}`);
+  const context = await browser.newContext({ storageState: storageStateOf('l1') });
+  const agent = await context.newPage();
+  await agent.goto(`/ru/agent/tickets/SUP-${number}`);
+  await expect(agent.locator('form[data-ready]').first()).toBeAttached();
+  // Сотрудник пишет внутреннюю заметку: черновик сохранён на сервере как заметка.
+  await main(agent).getByRole('radio', { name: 'Внутренняя заметка' }).check();
+  await agent.getByLabel('Текст заметки').fill(note);
+  await expect(main(agent).getByText('Черновик сохранён')).toBeVisible();
+
+  await main(agent).getByRole('button', { name: 'Макросы' }).click();
+  await agent.getByRole('menuitem', { name }).click();
+  const result = main(agent).locator('[data-macro-result]');
+  await expect(result).toContainText(`Макрос «${name}»: ни одно действие не выполнено`);
+  await expect(result.locator('[data-macro-refused]')).toContainText('шаблон не вставлен: в поле ответа вы пишете внутреннюю заметку');
+  await expect(result).not.toContainText('Текст шаблона в поле ответа');
+  // Поле ответа: тот же текст заметки, режим заметки; на сервере черновик по-прежнему заметка.
+  await expect(agent.getByLabel('Текст заметки')).toHaveValue(note);
+  await expect(main(agent).getByRole('radio', { name: 'Внутренняя заметка' })).toBeChecked();
+  expect(await dbRows(`select d.body, d.is_internal from hdt_reply_drafts d join hdt_tickets t using (ticket_id) where t.number = $1`, [number])).toEqual([{ body: note, is_internal: true }]);
+  expect(await seriousAxe(agent)).toEqual([]);
+  // После перечитывания страницы черновик тот же: клиенту заметка не ушла.
+  await agent.reload();
+  await expect(agent.locator('form[data-ready]').first()).toBeAttached();
+  await expect(agent.getByLabel('Текст заметки')).toHaveValue(note);
+  await expect(main(agent).getByRole('radio', { name: 'Внутренняя заметка' })).toBeChecked();
+  expect(await dbRows(`select count(*)::int as n from hdt_ticket_messages m join hdt_tickets t using (ticket_id) where t.number = $1 and m.author_type = 'staff'`, [number])).toEqual([{ n: 0 }]);
+  await context.close();
+});

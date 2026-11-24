@@ -11,6 +11,7 @@ import { type AssignableStaff, listAssignableStaff } from '@/modules/hdu/api/sta
 import { deleteMacroTx, listMacrosTx, type MacroRecord, moveMacroTx, readMacroTx, runnableMacroTx, saveMacroTx } from '../core/macros';
 import { missingActionRefs } from '../core/references';
 import { HdwError } from '../error';
+import { draftWithTemplate } from '../macro-draft';
 import { type MacroAction, parseMacro } from '../macro-schema';
 import { MACRO_ACTIONS, MACRO_QUEUES, type MacroResult, RULE_STATUS_TARGETS } from '../pref';
 import type { ActionDone } from '../schema';
@@ -132,13 +133,17 @@ export type MacroRun = {
   macroName: string;
   /** Итог каждого действия по порядку: выполнено, менять было нечего или отказ с кодом. */
   actions: ActionDone[];
-  /** Текст шаблона для поля ответа на языке обращения. fallback: перевода нет, текст русский. Нет действия с шаблоном: null. */
+  /**
+   * Текст шаблона, вставленный в черновик ответа, на языке обращения. fallback: перевода нет, текст русский. null:
+   * действия с шаблоном нет или шаблон не вставлен (сотрудник пишет внутреннюю заметку: действие записано отказом
+   * draft_is_note).
+   */
   template: { text: string; fallback: boolean } | null;
 };
 
 const HOUR_MS = 3_600_000;
 /** Коды отказов действий обращения, которые макрос передаёт как есть. Остальные записываются общим кодом refused. */
-const KNOWN_REFUSALS: ReadonlySet<string> = new Set(['forbidden', 'transition_refused', 'merged', 'not_found', 'invalid_input', 'rate_limited', 'resolution_required', 'changed']);
+const KNOWN_REFUSALS: ReadonlySet<string> = new Set(['forbidden', 'transition_refused', 'merged', 'not_found', 'invalid_input', 'rate_limited', 'resolution_required', 'changed', 'too_many_tags']);
 
 type Outcome = Omit<ActionDone, 'action'>;
 const done = (from?: string | null, to?: string | null): Outcome => ({ ok: true, ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}) });
@@ -221,6 +226,10 @@ const resultOf = (actions: readonly ActionDone[]): MacroResult => (actions.every
  * Запустить макрос на обращении от имени сотрудника. Отказы: forbidden (сотрудник не ведёт обращения), invalid_input,
  * not_found (нет обращения; макроса нет, он выключен или негоден). Действия идут по порядку; отказ одного не
  * останавливает остальные. В историю обращения пишется одна внутренняя запись о запуске, в журнал запись macro.run.
+ *
+ * Текст шаблона не отправляется: он дописывается в черновик ответа сотрудника (решение 7 плана M8). В непустой
+ * черновик внутренней заметки шаблон не вставляется (draftWithTemplate): черновик не меняется, действие записывается
+ * отказом draft_is_note, сотрудник видит причину в итоге макроса.
  */
 export async function runMacro(ctx: StaffContext, input: unknown): Promise<MacroRun> {
   if (!canRun(ctx)) throw new HdwError('forbidden');
@@ -256,6 +265,18 @@ export async function runMacro(ctx: StaffContext, input: unknown): Promise<Macro
     }
     actions.push({ action: code, ...outcome });
   }
+  let template: MacroRun['template'] = null;
+  if (texts.length > 0) {
+    const text = texts.map((item) => item.text).join('\n\n');
+    const draft = draftWithTemplate(await loadDraft(ctx, number), text);
+    if (draft) {
+      await saveDraft(ctx, { number, ...draft });
+      template = { text, fallback: texts.some((item) => item.fallback) };
+    } else {
+      // Действие "вставить шаблон" считалось выполненным, пока текст был только собран: в черновик он не попал.
+      for (const [index, item] of actions.entries()) if (item.action === 'reply_template' && item.ok) actions[index] = { action: item.action, ...refused('draft_is_note') };
+    }
+  }
   await recordMacroRun(ctx, { number, macroId: macro.macroId, macroName: macro.name, result: resultOf(actions), actions });
-  return { macroName: macro.name, actions, template: texts.length > 0 ? { text: texts.map((item) => item.text).join('\n\n'), fallback: texts.some((item) => item.fallback) } : null };
+  return { macroName: macro.name, actions, template };
 }

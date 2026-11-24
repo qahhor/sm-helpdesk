@@ -353,3 +353,33 @@ test('клиент не видит ни записи о макросе, ни е�
   expect(entries).toHaveLength(1);
   expect(entries[0]).toMatchObject({ isInternal: true, actorName: f.l1.name, payload: { macro: true, ruleName: 'Секретный макрос' } });
 });
+
+test('шаблон макроса не вставляется в черновик внутренней заметки: заметка цела и осталась заметкой, действие записано отказом (проверка M8, I3)', async () => {
+  const t = f.tickets.aOrg;
+  const templateId = await template({ ru: 'Пришлите, пожалуйста, версию и снимок экрана.' });
+  const macroId = await macro('Запросить версию', [{ action: 'reply_template', templateId }, { action: 'set_priority', priority: 'p3' }]);
+  // Сотрудник пишет внутреннюю заметку: черновик сохранён как заметка.
+  await saveDraft(l1, { number: t.number, body: 'Клиент должен за два месяца, не обещать сроков', internal: true });
+  const result = await runMacro(l1, { ticketNumber: t.number, macroId });
+  expect(result.actions).toEqual([
+    { action: 'reply_template', ok: false, detail: 'draft_is_note' },
+    { action: 'set_priority', ok: true, from: 'p2', to: 'p3' },
+  ]);
+  expect(result.template).toBeNull();
+  expect(await loadDraft(l1, t.number)).toMatchObject({ body: 'Клиент должен за два месяца, не обещать сроков', internal: true });
+  // В истории обращения запись о макросе не говорит, что шаблон вставлен.
+  const history = (await pools.root.query(`select payload from hdt_ticket_events where ticket_id = $1 and kind = 'rule' order by created_on desc limit 1`, [t.ticketId])).rows[0].payload;
+  expect(history.actions).toEqual(result.actions);
+
+  // Черновик публичного ответа: шаблон дописан после него, черновик остаётся публичным.
+  await saveDraft(l1, { number: t.number, body: 'Здравствуйте!', internal: false });
+  const only = await macro('Только шаблон 2', [{ action: 'reply_template', templateId }]);
+  const second = await runMacro(l1, { ticketNumber: t.number, macroId: only });
+  expect(second.actions).toEqual([{ action: 'reply_template', ok: true, to: 'Запрос версии' }]);
+  expect(second.template).toEqual({ text: 'Пришлите, пожалуйста, версию и снимок экрана.', fallback: false });
+  expect(await loadDraft(l1, t.number)).toMatchObject({ body: 'Здравствуйте!\n\nПришлите, пожалуйста, версию и снимок экрана.', internal: false });
+  // Черновика нет: шаблон становится черновиком ответа.
+  expect(await loadDraft(l1, f.tickets.aMine.number)).toBeNull();
+  await runMacro(l1, { ticketNumber: f.tickets.aMine.number, macroId: only });
+  expect(await loadDraft(l1, f.tickets.aMine.number)).toMatchObject({ body: 'Пришлите, пожалуйста, версию и снимок экрана.', internal: false });
+});

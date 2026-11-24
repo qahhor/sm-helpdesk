@@ -9,7 +9,6 @@ import {
   inviteSender,
   type ChangeSummary,
   isHdtError,
-  loadDraft,
   markTicketRead,
   mergeTicket,
   nextInQueue,
@@ -275,23 +274,18 @@ export async function devTaskStatusAction(form: FormData): Promise<void> {
 export type MacroRunState = { error?: string; title?: string; done?: string; refused?: string[]; template?: string };
 
 const MACRO_ERRORS = new Set(['forbidden', 'not_found', 'invalid_input']);
-const DRAFT_MAX = 20_000;
 
 /**
  * Запустить макрос на обращении. Права и переходы проверяет модуль: макрос выполняется от имени сотрудника.
- * Текст шаблона не отправляется: он дописывается в черновик ответа сотрудника, поле ответа покажет его после
- * перечитывания страницы, сотрудник проверит и отправит сам (решение 7 плана M8).
+ * Текст шаблона не отправляется: модуль дописывает его в черновик ответа сотрудника, поле ответа покажет его после
+ * перечитывания страницы, сотрудник проверит и отправит сам (решение 7 плана M8). Если сотрудник пишет внутреннюю
+ * заметку, шаблон не вставляется: черновик остаётся заметкой, причина видна среди невыполненных действий.
  */
 export async function runMacroAction(number: number, macroId: string): Promise<MacroRunState> {
   const staff = await requireStaffActor();
   const t = await getTranslations('agent.ticket.macros');
   try {
     const run = await runMacro(staff, { ticketNumber: number, macroId });
-    if (run.template) {
-      const draft = await loadDraft(staff, number);
-      const body = [draft?.body ?? '', run.template.text].filter((part) => part.trim() !== '').join('\n\n');
-      await saveDraft(staff, { number, body: body.slice(0, DRAFT_MAX), internal: false });
-    }
     const describe = await actionTexts({ macro: true });
     const done = describe(run.actions.filter((item) => item.ok), 'runs.notDone');
     const refused = describe(run.actions.filter((item) => !item.ok), 'runs.notDone');

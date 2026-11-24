@@ -2,8 +2,10 @@ import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { channelsForMany, emailAllowed, type NotificationKind, notifyTx, type PrefKind } from '@/modules/hdn/api/notifications';
+import { replyConfig } from '@/modules/hdn/api/inbound';
 import { enqueueTx, TELEGRAM_TEMPLATES } from '@/modules/hdn/api/outbox';
 import { organizationName, replyRoles } from '@/modules/hdu/api/recipients';
+import { csatToken } from '../csat-link';
 import type { TicketStatus, Visibility } from '../pref';
 import { ticketMessages, tickets, ticketWatchers } from '../schema';
 
@@ -79,6 +81,17 @@ async function whoSees(ticket: TicketInfo, userIds: string[]): Promise<string[]>
  * Уведомление в портале каждому, кто видит обращение; письмо и сообщение в Telegram по его каналам (решения 3 и 4
  * вехи M4b): о своих обращениях хотя бы один внешний канал, об обращениях коллег по настройке.
  */
+/**
+ * Письмо автору о закрытии обращения несёт ссылку оценки (FR-TK-11, UX-C-07). Объединённому дублю оценка не нужна.
+ * Коллегам ссылка не уходит: оценку ставит только автор.
+ */
+function withRating(mail: Mail, ticket: TicketInfo): Mail {
+  if (mail.template !== 'ticket_status' || mail.status !== 'closed' || mail.mergedInto !== undefined) return mail;
+  // Ключ подписи общий с адресами ответа. Не задан: письмо уходит без ссылок, оценка остаётся на странице обращения.
+  const cfg = replyConfig();
+  return cfg ? { ...mail, rateUrl: `/rate?t=${csatToken(ticket.number, ticket.authorId, cfg.secret)}` } : mail;
+}
+
 async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: string[], kind: NotificationKind, mail: Mail, messageId?: string): Promise<void> {
   const locale = ticket.locale as 'ru' | 'uz' | 'en';
   const seeing = await whoSees(ticket, recipients);
@@ -99,7 +112,7 @@ async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: st
         channel: 'email',
         recipient: { kind: 'user', userId },
         template: mail.template,
-        payload: mail,
+        payload: own ? withRating(mail, ticket) : mail,
         ticketId,
         // Письмо об ответе связано с сообщением: недоставку видно на нём в рабочем месте (решение 21).
         ...(messageId ? { messageId } : {}),

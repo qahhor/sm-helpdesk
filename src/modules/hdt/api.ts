@@ -36,6 +36,7 @@ export { createTicketForClient } from './api/staff-create';
 export { bulkAction, type BulkResult, mergeTicket } from './api/bulk';
 // Передача между линиями (план M3, задача 9).
 export { returnToL1, transferToL2 } from './api/lines';
+export { csatLinkNumber, rateByLink, type RateByLinkResult } from './api/csat-link';
 // Ответ, заметка, черновик и присутствие сотрудника (план M3, задача 8).
 export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type PresenceEntry, saveDraft, syncPresence, touchPresence } from './api/agent-messages';
 // Скачивание вложений (задача 8).

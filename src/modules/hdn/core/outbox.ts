@@ -98,7 +98,7 @@ function errorCode(error: unknown): string {
 /** Ссылки вида "/tickets/1042" получают адрес портала и язык получателя. */
 function absolute(payload: Record<string, unknown>, hubUrl: string, locale: Locale): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(payload)) out[key] = key === 'url' && typeof value === 'string' && value.startsWith('/') ? `${hubUrl}/${locale}${value}` : value;
+  for (const [key, value] of Object.entries(payload)) out[key] = (key === 'url' || key === 'rateUrl') && typeof value === 'string' && value.startsWith('/') ? `${hubUrl}/${locale}${value}` : value;
   return out;
 }
 

@@ -866,6 +866,7 @@
             "line_transferred": "Ikkinchi liniyaga o'tkazildi",
             "line_returned": "Birinchi liniyaga qaytarildi",
             "merged": "Murojaatlar birlashtirildi",
+            "rated_by_link": "Baho xatdagi havola orqali qo'yildi",
             "bound": "Xat tashkilotga bog'landi",
             "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi",
             "viewed_by_staff": "Murojaatni xodim ochdi"
@@ -1564,6 +1565,28 @@
     }
   },
   "auth": {
+    "rate": {
+      "title": "SUP-{number} murojaatini baholash",
+      "text": "Sizning bahoyingiz: 5 dan {score}. Bahoni qo'yish uchun tugmani bosing.",
+      "reason": "Nima noto'g'ri bo'ldi",
+      "reasons": {
+        "slow": "Javobni uzoq kutdim",
+        "not_solved": "Muammo hal qilinmadi",
+        "unclear": "Javob tushunarsiz",
+        "other": "Boshqa"
+      },
+      "comment": "Izoh (ixtiyoriy)",
+      "submit": "Bahoni qo'yish",
+      "done": "Bahoyingiz uchun rahmat. U bizga yaxshiroq ishlashga yordam beradi.",
+      "errors": {
+        "link_invalid": "Havola mos kelmadi. Bahoni portaldagi murojaat sahifasida qo'yish mumkin.",
+        "already_rated": "Bu murojaatga baho allaqachon qo'yilgan. Rahmat.",
+        "not_closed": "Murojaat hali yopilmagan. Uni yopilgandan keyin baholash mumkin.",
+        "reason_required": "Nima noto'g'ri bo'lganini tanlang.",
+        "rate_limited": "Urinishlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+      },
+      "open": "Portalni ochish"
+    },
     "staff": {
       "login": {
         "title": "Xodimlar uchun kirish",
@@ -1774,7 +1797,8 @@
       "in_development": "SUP-{number} «{title}» murojaati dasturchilarga topshirildi. Yangilik bo'lganda xabar beramiz.",
       "closed": "SUP-{number} «{title}» murojaati yopildi. Savol qolgan bo'lsa, bizga yozing.",
       "autoClosed": "SUP-{number} «{title}» murojaati yopildi: javob olmadik. Savol qolgan bo'lsa, bizga yozing.",
-      "merged": "SUP-{number} murojaati SUP-{into} murojaati bilan birlashtirildi. Yozishmalar o'sha yerda davom etadi."
+      "merged": "SUP-{number} murojaati SUP-{into} murojaati bilan birlashtirildi. Yozishmalar o'sha yerda davom etadi.",
+      "rate": "Yordamimizni baholang (1 yomon, 5 a'lo):"
     },
     "ticketResolved": {
       "heading": "SUP-{number} murojaati hal qilindi",

@@ -146,7 +146,13 @@ export async function reopenTx(actor: ClientActor, number: number, reopenDays: n
 }
 
 /** Оценка закрытого обращения, один раз (FR-TK-11). */
-export async function rateTx(actor: ClientActor, number: number, rating: { score: number; reason?: CsatReason; comment?: string }): Promise<void> {
+export async function rateTx(
+  actor: ClientActor,
+  number: number,
+  rating: { score: number; reason?: CsatReason; comment?: string },
+  /** Оценка по ссылке из письма, без входа: в журнале аудита остаётся запись с адресом запроса (решение 0040). */
+  via?: { byLink: true; ip: string | null },
+): Promise<void> {
   await withActor(actor, async (tx) => {
     const ticket = await lockTicket(tx, actor, number);
     // Оценка одна и отражает опыт автора: коллега не ставит её за него (решение 0026, пункт 21).
@@ -158,6 +164,7 @@ export async function rateTx(actor: ClientActor, number: number, rating: { score
       .set({ csatScore: rating.score, csatReason: rating.reason ?? null, csatComment: rating.comment ?? null })
       .where(eq(tickets.ticketId, ticket.ticketId));
     await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'rated', actorType: 'client', actorId: actor.userId, payload: { score: rating.score } });
+    if (via) await writeAudit(tx, { action: 'ticket.rated_by_link', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: { score: rating.score }, ...(via.ip ? { ip: via.ip } : {}) });
   });
 }
 

@@ -3,6 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { EICAR } from '../helpers/fake-clamd';
 import { CLIENT_STATE, signInAsCustom, uniqueSub } from './helpers/client';
 import { dbRows } from './helpers/db';
+import { csatToken } from '../../src/modules/hdt/csat-link';
 
 // Обращения клиента (сценарий S2, FR-TK-01 - FR-TK-17, UX-C-02, UX-C-05, UX-C-11, UX-C-12; план M2, задача 9).
 // Клиент Алишер (ACME Trade) из сохранённой сессии. Файлы проверяет фоновый процесс с заглушкой антивируса.
@@ -100,6 +101,36 @@ test('S2: вход, "Сообщить о проблеме", тип, влияни
   const recent = page.getByRole('link', { name: /^SUP-\d+/ });
   await expect(recent.first()).toBeVisible();
   expect(await recent.count()).toBeLessThanOrEqual(3);
+});
+
+test('оценка из письма: ссылка открывается без входа и ничего не меняет, оценку ставит кнопка (FR-TK-11, UX-C-07)', async ({ page, browser }) => {
+  await createTicket(page, { description: `Оценка из письма ${Date.now()}` });
+  const number = Number(/SUP-(\d+)/.exec(page.url())?.[1]);
+  const [row] = await dbRows<{ author_id: string }>(`update hdt_tickets set status = 'closed', closed_on = now(), resolved_on = now() where number = $1 returning author_id`, [number]);
+  await dbRows(`delete from hdc_rate_limits where code = $1`, [`csat-link:${number}`]);
+  const token = csatToken(number, row!.author_id, 'e2e-reply-hmac-secret-0123456789abcdef');
+  const context = await browser.newContext(SIGNED_OUT);
+  const guest = await context.newPage();
+  // Низкая оценка: страница просит причину. Переход по ссылке оценку не ставит.
+  await guest.goto(`/ru/rate?t=${token}&score=2`);
+  await expect(guest.getByRole('heading', { level: 1 })).toHaveText(`Оценка обращения SUP-${number}`);
+  await expect(guest.getByText('Ваша оценка: 2 из 5')).toBeVisible();
+  expect((await dbRows(`select csat_score from hdt_tickets where number = $1`, [number]))[0]).toEqual({ csat_score: null });
+  expect((await new AxeBuilder({ page: guest }).analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  // Высокая оценка: одна кнопка.
+  await guest.goto(`/ru/rate?t=${token}&score=5`);
+  await expect(guest.getByLabel('Что пошло не так')).toHaveCount(0);
+  await guest.getByRole('button', { name: 'Поставить оценку' }).click();
+  await expect(guest.getByText('Спасибо за оценку')).toBeVisible();
+  expect((await dbRows(`select csat_score from hdt_tickets where number = $1`, [number]))[0]).toEqual({ csat_score: 5 });
+  // Повторная попытка и испорченная ссылка: понятный отказ без текста обращения.
+  await guest.goto(`/ru/rate?t=${token}&score=1`);
+  await guest.getByLabel('Что пошло не так').selectOption({ label: 'Другое' });
+  await guest.getByRole('button', { name: 'Поставить оценку' }).click();
+  await expect(guest.getByText('Оценка этому обращению уже поставлена')).toBeVisible();
+  await guest.goto(`/ru/rate?t=${token}x&score=5`);
+  await expect(guest.getByText('Ссылка не подходит')).toBeVisible();
+  await context.close();
 });
 
 test('срок следующего ответа на странице обращения (FR-SLA-08)', async ({ page }) => {

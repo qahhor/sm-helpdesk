@@ -866,6 +866,7 @@
             "line_transferred": "Transferred to the second line",
             "line_returned": "Returned to the first line",
             "merged": "Tickets merged",
+            "rated_by_link": "Rating given through the email link",
             "bound": "Email linked to an organization",
             "author_moved": "Request author changed on guest hand-over",
             "viewed_by_staff": "Ticket opened by staff"
@@ -1564,6 +1565,28 @@
     }
   },
   "auth": {
+    "rate": {
+      "title": "Rating for request SUP-{number}",
+      "text": "Your rating: {score} out of 5. Press the button to submit it.",
+      "reason": "What went wrong",
+      "reasons": {
+        "slow": "Waited too long for a reply",
+        "not_solved": "The problem is not solved",
+        "unclear": "The reply was unclear",
+        "other": "Other"
+      },
+      "comment": "Comment (optional)",
+      "submit": "Submit rating",
+      "done": "Thank you for the rating. It helps us work better.",
+      "errors": {
+        "link_invalid": "This link does not work. You can rate the request on its page in the portal.",
+        "already_rated": "This request already has a rating. Thank you.",
+        "not_closed": "The request is not closed yet. You can rate it after it is closed.",
+        "reason_required": "Choose what went wrong.",
+        "rate_limited": "Too many attempts. Try again in an hour."
+      },
+      "open": "Open the portal"
+    },
     "staff": {
       "login": {
         "title": "Staff sign-in",
@@ -1774,7 +1797,8 @@
       "in_development": "Request SUP-{number} \"{title}\" has been passed to development. We will write when there is news.",
       "closed": "Request SUP-{number} \"{title}\" is closed. If the question remains, write to us.",
       "autoClosed": "Request SUP-{number} \"{title}\" is closed because we did not get a reply. If the question remains, write to us.",
-      "merged": "Request SUP-{number} has been merged with request SUP-{into}. The conversation continues there."
+      "merged": "Request SUP-{number} has been merged with request SUP-{into}. The conversation continues there.",
+      "rate": "Rate how we helped (1 poor, 5 excellent):"
     },
     "ticketResolved": {
       "heading": "Request SUP-{number} resolved",

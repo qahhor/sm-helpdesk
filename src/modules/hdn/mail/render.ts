@@ -3,7 +3,7 @@ import type { Locale } from '@/i18n/locales';
 import en from '../../../../messages/en.json';
 import ru from '../../../../messages/ru.json';
 import uz from '../../../../messages/uz.json';
-import { esc, markdownToHtml } from './html';
+import { esc, link, markdownToHtml } from './html';
 import { LINK_COLOR, PARAGRAPH, renderLayout, renderLayoutText } from './layout';
 import { noLinks, personName, plain } from './sanitize';
 
@@ -38,7 +38,8 @@ type TicketRef = { number: number; title: string; url: string };
 export type MailPayload =
   | ({ template: 'ticket_created'; viaEmail: boolean } & TicketRef)
   | ({ template: 'ticket_reply'; body: string } & TicketRef)
-  | ({ template: 'ticket_status'; status: 'waiting_customer' | 'in_development' | 'closed'; auto?: boolean; mergedInto?: number } & TicketRef)
+  // rateUrl: страница оценки для автора закрытого обращения (FR-TK-11); оценка дописывается к адресу.
+  | ({ template: 'ticket_status'; status: 'waiting_customer' | 'in_development' | 'closed'; auto?: boolean; mergedInto?: number; rateUrl?: string } & TicketRef)
   | ({ template: 'ticket_resolved' } & TicketRef)
   | ({ template: 'waiting_reminder'; closeInDays: number } & TicketRef)
   | { template: 'unidentified_ack'; number: number; title: string }
@@ -73,7 +74,17 @@ const translatorOf = (locale: Locale) => createTranslator({ locale, messages: ME
 /** Строка "Ответьте на это письмо" на всех языках: по ней разбор входящего письма отрезает цитату (задача 7). */
 export const REPLY_MARKERS: readonly string[] = (['ru', 'uz', 'en'] as const).map((locale) => MESSAGES[locale].mail.layout.replyAbove);
 
-type Body = { subject: string; heading: string | null; text: string; html?: string; button: { label: string; url: string } | null; reply: boolean; signature: boolean };
+type Body = {
+  subject: string;
+  heading: string | null;
+  text: string;
+  html?: string;
+  button: { label: string; url: string } | null;
+  reply: boolean;
+  signature: boolean;
+  /** Строка с пятью ссылками оценки под текстом письма. */
+  rating?: { label: string; url: string };
+};
 
 function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
   const open = (url: string) => ({ label: t('layout.open'), url });
@@ -116,6 +127,7 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
         button: open(payload.url),
         reply: true,
         signature: false,
+        ...(payload.status === 'closed' && payload.mergedInto === undefined && payload.rateUrl ? { rating: { label: t('ticketStatus.rate'), url: payload.rateUrl } } : {}),
       };
     }
     case 'ticket_resolved': {
@@ -227,11 +239,15 @@ export async function renderMail(template: MailTemplate, locale: Locale, data: M
     contacts: t('layout.contacts'),
   };
   const shared = { hubUrl: data.hubUrl, heading: b.heading, button: b.button, replyHint: b.reply, signature: b.signature, settingsUrl: data.settingsUrl ?? null, text: layoutText };
-  const bodyHtml = b.html ?? b.text.split('\n\n').map((paragraph) => `<p style="${PARAGRAPH}">${esc(paragraph)}</p>`).join('');
+  const textHtml = b.html ?? b.text.split('\n\n').map((paragraph) => `<p style="${PARAGRAPH}">${esc(paragraph)}</p>`).join('');
+  // Пять ссылок с оценками. Переход по ссылке оценку не ставит: её ставит кнопка на открывшейся странице.
+  const scores = b.rating ? [1, 2, 3, 4, 5].map((score) => ({ score, url: `${b.rating?.url}&score=${score}` })) : [];
+  const ratingHtml = b.rating ? `<p style="${PARAGRAPH}">${esc(b.rating.label)} ${scores.map(({ score, url }) => link(url, String(score), LINK_COLOR)).join(' &nbsp; ')}</p>` : '';
+  const ratingText = b.rating ? `\n\n${b.rating.label}\n${scores.map(({ score, url }) => `${score}: ${url}`).join('\n')}` : '';
   return {
     subject: b.subject,
-    html: renderLayout({ ...shared, lang: locale, title: b.subject, bodyHtml }),
-    text: renderLayoutText({ ...shared, bodyText: b.text }),
+    html: renderLayout({ ...shared, lang: locale, title: b.subject, bodyHtml: textHtml + ratingHtml }),
+    text: renderLayoutText({ ...shared, bodyText: b.text + ratingText }),
   };
 }
 

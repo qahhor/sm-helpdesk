@@ -981,11 +981,18 @@
         "holidaysHint": "YYYY-OO-KK yoki KK.OO.YYYY sanalar, qator, vergul yoki nuqtali vergul orqali. Sanadan keyin bayram nomini qoldirish mumkin. Bayram kuni to'liq dam olish kuni.",
         "holidaysMissing": "{year}-yil bayramlari hali kiritilmagan. Ularsiz bu kunlar ish kuni hisoblanadi.",
         "appliesToNew": "Yangi qiymatlar yangi hisoblarga amal qiladi. Ochiq murojaatlar muddatlari ularning keyingi hodisasida o'zgaradi: ustuvorlik, holat yoki javob.",
+        "pickup": {
+          "title": "Uzatilgandan keyin ishga olish",
+          "intro": "Uzatilgan murojaatni ishga olish uchun ikkinchi liniyada necha ish daqiqasi bor. Bo'sh maydon: shu ustuvorlikning birinchi javob muddati.",
+          "field": "{priority}, daqiqa",
+          "hint": "Bo'sh bo'lsa: {minutes} daq, birinchi javob muddati kabi."
+        },
         "save": "Saqlash",
         "done": {
           "policy": "Muddatlar saqlandi",
           "calendar": "Ish vaqti saqlandi",
-          "holidays": "Bayramlar saqlandi"
+          "holidays": "Bayramlar saqlandi",
+          "pickup": "\"Ishga olish\" muddati saqlandi"
         },
         "errors": {
           "forbidden": "Muddatlarni faqat administrator o'zgartira oladi",

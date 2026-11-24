@@ -981,11 +981,18 @@
         "holidaysHint": "Dates YYYY-MM-DD or DD.MM.YYYY, one per line or separated by commas or semicolons. A holiday name after the date may stay. A holiday is a full day off.",
         "holidaysMissing": "Holidays of {year} are not filled in yet. Without them these days count as working days.",
         "appliesToNew": "New values apply to new calculations. Targets of open tickets change at their next event: priority, status or reply.",
+        "pickup": {
+          "title": "Pick up after a transfer",
+          "intro": "How many working minutes the second line has to pick up a transferred ticket. Empty field: the first response time of this priority.",
+          "field": "{priority}, minutes",
+          "hint": "Empty: {minutes} min, same as the first response time."
+        },
         "save": "Save",
         "done": {
           "policy": "Targets saved",
           "calendar": "Working hours saved",
-          "holidays": "Holidays saved"
+          "holidays": "Holidays saved",
+          "pickup": "The pick up time is saved"
         },
         "errors": {
           "forbidden": "Only an administrator can change targets",

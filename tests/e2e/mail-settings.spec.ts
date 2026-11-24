@@ -44,3 +44,18 @@ test('администратор добавляет два адреса подд
   await expect(footer.getByRole('link', { name: second })).toHaveAttribute('href', `mailto:${second}`);
   await client.close();
 });
+
+test('срок "взять в работу" после передачи: администратор задаёт минуты, пустое поле возвращает срок первого ответа (FR-LINE-06)', async ({ page }) => {
+  await signInStaff(page, staffAccount('admin'));
+  await page.goto('/ru/agent/settings/sla');
+  const field = main(page).getByLabel('P1, минут');
+  await field.fill('15');
+  await main(page).getByRole('region', { name: 'Взять в работу после передачи' }).getByRole('button', { name: 'Сохранить' }).click();
+  await expect(main(page).getByText('Срок "взять в работу" сохранён')).toBeVisible();
+  await expect(main(page).getByLabel('P1, минут')).toHaveValue('15');
+  expect((await new AxeBuilder({ page }).analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  // Возврат к сроку первого ответа: поле пустое.
+  await main(page).getByLabel('P1, минут').fill('');
+  await main(page).getByRole('region', { name: 'Взять в работу после передачи' }).getByRole('button', { name: 'Сохранить' }).click();
+  await expect(main(page).getByLabel('P1, минут')).toHaveValue('');
+});

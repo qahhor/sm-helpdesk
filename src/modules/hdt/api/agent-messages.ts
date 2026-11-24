@@ -1,7 +1,7 @@
 import 'server-only';
 import { listStaffDirectory, namesOf, type StaffContext } from '@/modules/hdu/api';
 import { assertCanWrite } from '../core/agent-actions';
-import { type ChangeSummary, listPresenceTx, loadDraftTx, postStaffMessageTx, saveDraftTx, touchPresenceTx } from '../core/agent-messages';
+import { type ChangeSummary, listPresenceTx, loadDraftTx, postStaffMessageTx, saveDraftTx, syncPresenceTx, touchPresenceTx } from '../core/agent-messages';
 import { draftInput, numberInput, parseInput, presenceInput, staffMessageInput } from '../input';
 import type { PresenceMode } from '../pref';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
@@ -40,6 +40,18 @@ export async function loadDraft(ctx: StaffContext, number: unknown): Promise<{ b
 export async function touchPresence(ctx: StaffContext, input: unknown): Promise<void> {
   const data = parseInput(presenceInput, input);
   await touchPresenceTx(ctx.actor, data.number, data.mode);
+}
+
+/**
+ * Отметка присутствия и список коллег за один запрос к базе (находка P12). Имена читаются, только когда на обращении
+ * есть кто-то ещё.
+ */
+export async function syncPresence(ctx: StaffContext, input: unknown): Promise<PresenceEntry[]> {
+  const data = parseInput(presenceInput, input);
+  const rows = await syncPresenceTx(ctx.actor, data.number, data.mode);
+  if (rows.length === 0) return [];
+  const names = await namesOf(ctx.actor, rows.map((row) => row.userId));
+  return rows.map((row) => ({ userId: row.userId, name: names.get(row.userId) ?? '', mode: row.mode }));
 }
 
 /** Кто ещё открыл обращение и кто печатает: другие сотрудники с действующей отметкой. */

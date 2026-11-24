@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { withIdentity } from '@/db/with-identity';
+import { writeAudit } from '@/modules/hdc/api';
 import type { Locale } from '@/i18n/locales';
 import { authUser } from '../auth-schema';
 import { contactIdentities, memberships, organizations, servers, staff } from '../schema';
@@ -115,10 +116,51 @@ export async function telegramChatTx(userId: string): Promise<{ chatId: string; 
  * привязки, которая заменяет строку и снимает отметку.
  */
 export async function markTelegramBlockedTx(chatId: string): Promise<void> {
-  await withIdentity(SYSTEM, (tx) =>
-    tx
+  await withIdentity(SYSTEM, async (tx) => {
+    // Запись в журнал только при смене состояния: повторный отказ Telegram строку не трогает (M4b, мелкое 5).
+    const changed = await tx
       .update(contactIdentities)
       .set({ isBlocked: true })
-      .where(and(eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.externalId, chatId))),
+      .where(and(eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.externalId, chatId), eq(contactIdentities.isBlocked, false)))
+      .returning({ userId: contactIdentities.userId });
+    for (const row of changed) await writeAudit(tx, { action: 'telegram.bot_blocked', objectType: 'user', objectId: row.userId });
+  });
+}
+
+/**
+ * Роли сразу нескольких пользователей в организации: то же условие, что у replyRoleTx, одним запросом
+ * (аудит 23.11.2026, находка A4). Кого в ответе нет, тот обращения организации не видит.
+ */
+export async function replyRolesTx(userIds: string[], orgId: string): Promise<Map<string, 'client_user' | 'client_admin'>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ userId: memberships.userId, role: memberships.role })
+      .from(memberships)
+      .innerJoin(organizations, eq(organizations.orgId, memberships.orgId))
+      .leftJoin(servers, eq(servers.serverId, organizations.serverId))
+      .where(
+        and(
+          inArray(memberships.userId, userIds),
+          eq(memberships.orgId, orgId),
+          eq(memberships.state, 'active'),
+          eq(organizations.state, 'active'),
+          or(eq(memberships.source, 'guest'), eq(servers.state, 'active')),
+          sql`not exists (select 1 from ${staff} where ${staff.userId} = ${memberships.userId})`,
+        ),
+      ),
   );
+  return new Map(rows.map((row) => [row.userId, row.role as 'client_user' | 'client_admin']));
+}
+
+/** У кого из пользователей действует привязка Telegram (есть и бот не заблокирован): одним запросом. */
+export async function telegramLinkedManyTx(userIds: string[]): Promise<Set<string>> {
+  if (userIds.length === 0) return new Set();
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ userId: contactIdentities.userId })
+      .from(contactIdentities)
+      .where(and(inArray(contactIdentities.userId, userIds), eq(contactIdentities.kind, 'telegram'), eq(contactIdentities.isBlocked, false))),
+  );
+  return new Set(rows.map((row) => row.userId));
 }

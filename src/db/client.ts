@@ -2,6 +2,7 @@ import 'server-only';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool, type PoolClient } from 'pg';
 import { env } from '@/env';
+import { poolMaxOf } from './pool-size';
 
 // Подключение приложения к базе под ролью hub_app. Политики RLS для этой роли принудительны,
 // поэтому запросы выполняются только через withActor (src/db/with-actor.ts).
@@ -17,7 +18,7 @@ function createAppPool(): Pool {
   const pool = new Pool({
     connectionString: env.DATABASE_URL_APP,
     application_name: 'hub-web',
-    max: 10,
+    max: poolMaxOf(env.DB_POOL_MAX),
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
     // Обрыв сети без уведомления должен обнаруживаться, а не держать соединение вечно.

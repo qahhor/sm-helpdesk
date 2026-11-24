@@ -12,7 +12,7 @@ import { TemplateForm } from './TemplateForm';
 // "Шаблоны ответов" (FR-AG-06): заготовки на языках портала, вызываются кодом после "/" в поле ответа.
 // Ведёт администратор, сотрудники только вставляют.
 
-const ERRORS = new Set(['forbidden', 'invalid_input', 'shortcut_taken']);
+const ERRORS = new Set(['forbidden', 'invalid_input', 'shortcut_taken', 'stale_session']);
 
 export default async function TemplatesSettingsPage({ searchParams }: { searchParams: Promise<{ done?: string; error?: string }> }) {
   const staff = await requireStaffActor({ roles: ['admin'] });

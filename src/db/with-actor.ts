@@ -2,6 +2,7 @@ import 'server-only';
 import { isIP } from 'node:net';
 import { DrizzleQueryError, sql } from 'drizzle-orm';
 import { type AppDb, getAppDb, type Tx } from './client';
+import { logEvent } from '@/lib/log';
 
 // Весь доступ к данным идёт через withActor (ТЗ, раздел 11.1). Функция открывает транзакцию
 // и сообщает базе, от чьего имени выполняется запрос. Значения живут до конца транзакции,
@@ -35,10 +36,30 @@ export type Actor = ClientActor | StaffActor | SystemActor | AgentActor;
 export type WithActor = <T>(actor: Actor, fn: (tx: Tx) => Promise<T>) => Promise<T>;
 
 /** Транзакция от имени актора на заданном подключении. Её же использует withIdentity (подключение hub_auth). */
+/** Транзакция дольше этого порога пишется в журнал событием db.slow_tx (аудит 23.11.2026, находки O1 и P4). */
+export const SLOW_TX_MS = 250;
+const slow = globalThis as typeof globalThis & { __hubSlowTxMs?: number | null };
+
+/** Порог медленной транзакции для тестов. null возвращает обычный. */
+export function setSlowTxMsForTests(ms: number | null): void {
+  slow.__hubSlowTxMs = ms;
+}
+
+/** Длительность и актор, без текста запросов и значений: по событию ищут медленное место, данные в журнал не идут. */
+function noteSlowTx(actor: Actor, startedAt: number): void {
+  const ms = Math.round(performance.now() - startedAt);
+  if (ms < (slow.__hubSlowTxMs ?? SLOW_TX_MS)) return;
+  logEvent('warn', 'db.slow_tx', { ms, actor: actor.type, ...(actor.type === 'system' ? { job: actor.job } : {}) });
+}
+
 export function createWithActor(db: AppDb): WithActor {
   return async (actor, fn) => {
+    // Отсчёт с начала транзакции, а не с ожидания свободного соединения: иначе при занятом пуле каждая транзакция
+    // выглядела бы медленной (итоговая проверка W0, M11).
+    let startedAt: number | null = null;
     try {
       return await db.transaction(async (tx) => {
+        startedAt = performance.now();
         await tx.execute(sql`
           select set_config('app.actor_type', ${actor.type}, true),
                  set_config('app.user_id', ${'userId' in actor ? actor.userId : ''}, true),
@@ -54,6 +75,8 @@ export function createWithActor(db: AppDb): WithActor {
       // не должны попадать в журнал: в них данные клиентов.
       if (error instanceof DrizzleQueryError && error.cause) throw error.cause;
       throw error;
+    } finally {
+      if (startedAt !== null) noteSlowTx(actor, startedAt);
     }
   };
 }

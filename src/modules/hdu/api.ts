@@ -116,3 +116,4 @@ export { HduError, type HduErrorCode, isHduError } from './error';
 export { needsPolicyNotice, safeReturnPath } from './util';
 // Имена людей для других модулей (обращения): только те, кого актор вправе видеть.
 export { namesOf } from './core/members';
+export { listAuditNamed, type NamedAuditRow } from './api/audit-view';

@@ -8,7 +8,7 @@ import { DEVELOPMENT_ROLES, type Queue, TRANSFERABLE_STATUSES, type TransferReas
 import { lineTransfers, tickets } from '../schema';
 import { addWorkingMinutes } from '../sla';
 import { pickupMinutes } from '../util';
-import { assertCanWrite, changeAssigneeTx, changeStatusTx, lockAgentTicket, recordChange } from './agent-actions';
+import { assertCanWrite, changeAssigneeTx, changeStatusTx, flushTicketTx, lockAgentTicket, recordChange, stageTicket } from './agent-actions';
 import { calendarFor } from './sla';
 
 // Модуль hdt, слой core: передача между линиями (FR-LINE-03..07; план M3, задача 9). Передача и возврат одной
@@ -34,8 +34,9 @@ export async function transferToL2Tx(actor: StaffActor, number: number, note: Tr
     const config = await readSlaConfig(tx);
     const minutes = pickupMinutes(ticket.priority, pickupSetting, config.policies[ticket.priority].firstResponseMinutes);
     const pickupDueOn = addWorkingMinutes(await dbNow(tx), minutes, calendarFor(config, ticket.priority));
-    await tx.update(tickets).set({ queue: 'l2' }).where(eq(tickets.ticketId, ticket.ticketId));
+    stageTicket(ticket, { queue: 'l2' });
     if (ticket.assigneeId) await changeAssigneeTx(tx, actor, ticket, null, null);
+    await flushTicketTx(tx, ticket);
     await tx.insert(lineTransfers).values({
       ticketId: ticket.ticketId,
       fromLine: 'l1',
@@ -60,7 +61,22 @@ export async function transferToL2Tx(actor: StaffActor, number: number, note: Tr
  * Вернуть на первую линию с пояснением (FR-LINE-04): вторая линия, care и admin. Обращение приходит тому, кто
  * его передавал; "В разработке" снова "В работе", разработка это вторая линия (ТЗ 10.5, вычисление линии).
  */
-export async function returnToL1Tx(actor: StaffActor, number: number, explanation: string, nameOf: (userId: string) => Promise<string | null>): Promise<void> {
+/** Кто последним передавал обращение с первой линии: ему оно вернётся. Читается до транзакции возврата, чтобы имя
+ * сотрудника не запрашивалось второй транзакцией внутри первой (аудит 23.11.2026, находка A4). */
+export async function lastL1SenderTx(actor: StaffActor, number: number): Promise<string | null> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .select({ byUser: lineTransfers.byUser })
+      .from(lineTransfers)
+      .innerJoin(tickets, eq(tickets.ticketId, lineTransfers.ticketId))
+      .where(and(eq(tickets.number, number), eq(lineTransfers.fromLine, 'l1')))
+      .orderBy(desc(lineTransfers.createdOn))
+      .limit(1),
+  );
+  return rows[0]?.byUser ?? null;
+}
+
+export async function returnToL1Tx(actor: StaffActor, number: number, explanation: string, sender: { userId: string; name: string | null } | null): Promise<void> {
   if (!(DEVELOPMENT_ROLES as readonly string[]).includes(actor.staffRole)) throw new HdtError('forbidden');
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
@@ -72,11 +88,13 @@ export async function returnToL1Tx(actor: StaffActor, number: number, explanatio
       .orderBy(desc(lineTransfers.createdOn))
       .limit(1);
     const from = ticket.queue as Queue;
-    await tx.update(tickets).set({ queue: 'l1' }).where(eq(tickets.ticketId, ticket.ticketId));
+    stageTicket(ticket, { queue: 'l1' });
     await tx.insert(lineTransfers).values({ ticketId: ticket.ticketId, fromLine: from, toLine: 'l1', explanation, byUser: actor.userId });
     await recordChange(tx, actor, ticket, { kind: 'queue', payload: { from, to: 'l1', explanation }, audit: 'ticket.line_returned' });
     ticket.queue = 'l1';
     if (ticket.status === 'in_development') await changeStatusTx(tx, actor, ticket, 'in_progress');
-    if (last && last.byUser !== ticket.assigneeId) await changeAssigneeTx(tx, actor, ticket, last.byUser, await nameOf(last.byUser));
+    // Имя прочитано до транзакции. Если за это время обращение передавал кто-то другой, событие пишется без имени.
+    if (last && last.byUser !== ticket.assigneeId) await changeAssigneeTx(tx, actor, ticket, last.byUser, sender?.userId === last.byUser ? sender.name : null);
+    await flushTicketTx(tx, ticket);
   });
 }

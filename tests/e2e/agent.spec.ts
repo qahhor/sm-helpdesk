@@ -56,7 +56,8 @@ test('обращение у сотрудника открывается из о�
   await page.goto(`/ru/agent/queues?queue=all&q=SUP-${number}`);
   await main(page).getByRole('link', { name: String(number), exact: true }).click();
   // Ссылка из очереди несёт очередь и сортировку: по ним "Отправить и к следующему" (FR-AG-17).
-  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${number}\\?queue=all&sort=sla$`));
+  // Очередь "Все" по умолчанию идёт по последнему изменению: по сроку её не листают (волна 1, задача 2).
+  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${number}\\?queue=all&sort=updated$`));
   await expect(main(page).locator('article').getByText(description)).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Сведения об обращении' })).toContainText('ACME Trade');
   const axe = await new AxeBuilder({ page }).analyze();
@@ -140,6 +141,34 @@ test('ответ и заметка: два режима, "Ждём ответа 
   await expect(client.getByRole('main')).not.toContainText('Проверю логи сервера клиента');
   await expect(client.getByRole('main')).not.toContainText('Азиз');
   await clientContext.close();
+});
+
+test('действие со старой страницы: клиент написал, смена статуса не выполняется и называет изменение (FR-AG-12)', async ({ page, browser }) => {
+  const number = await clientTicket(browser, `Старая страница ${Date.now()}`);
+  await page.goto(`/ru/agent/tickets/SUP-${number}`);
+  const panel = page.getByRole('complementary', { name: 'Сведения об обращении' });
+  await expect(panel.getByLabel('Статус', { exact: true })).toBeVisible();
+  // Клиент дописал, пока у сотрудника была открыта страница.
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.locator('form[data-ready]').first()).toBeAttached();
+  await client.getByLabel('Ответ', { exact: true }).fill('Подождите, ошибка осталась');
+  await resetLimits();
+  await client.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(client.getByRole('main')).toContainText('Подождите, ошибка осталась');
+  await clientContext.close();
+  // Сотрудник со старой страницы ставит "Ждём клиента": действие не выполняется, страница говорит почему.
+  await panel.getByLabel('Статус', { exact: true }).selectOption('waiting_customer');
+  await panel.getByRole('button', { name: 'Сменить статус' }).click();
+  await expect(page).toHaveURL(/error=changed&ch=1\.0\.0/);
+  await expect(main(page).getByText('Пока страница была открыта, обращение изменилось')).toBeVisible();
+  await expect(main(page).getByText('новых сообщений: 1')).toBeVisible();
+  expect((await dbRows(`select status from hdt_tickets where number = $1`, [number]))[0]).toEqual({ status: 'new' });
+  // Страница уже свежая: повтор проходит.
+  await panel.getByLabel('Статус', { exact: true }).selectOption('waiting_customer');
+  await panel.getByRole('button', { name: 'Сменить статус' }).click();
+  await expect(main(page).getByText('Ждём клиента', { exact: true }).first()).toBeVisible();
 });
 
 test('обращение изменилось, пока агент писал: ответ не ушёл, видно что изменилось, "Отправить всё равно" отправляет', async ({ page, browser }) => {
@@ -341,7 +370,9 @@ test('"Отправить и к следующему" открывает сле�
   await expect(composer).toHaveAttribute('data-ready', '');
   await composer.getByLabel('Текст ответа').fill('Готово, проверьте, пожалуйста');
   await composer.getByRole('button', { name: 'Отправить и к следующему' }).click();
-  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-${first}\\?queue=mine&sort=updated$`));
+  // Переход на другое обращение той же очереди с теми же параметрами. Какое именно следующее, проверяет
+  // интеграционный тест: в "Моих" этого сотрудника параллельно работают другие браузерные тесты.
+  await expect(page).toHaveURL(new RegExp(`/ru/agent/tickets/SUP-(?!${second}\\b)\\d+\\?queue=mine&sort=updated$`));
 });
 
 test('цикл S3 с клавиатуры без мыши', async ({ page, browser }) => {
@@ -402,6 +433,30 @@ test('на широком экране список и обращение ряд
   await expect(pane).toContainText(`SUP-${first}`);
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(pane).toBeHidden();
+});
+
+test('обращение рядом со списком: последняя запись, если это заметка, помечена "Заметка" (M3, мелкое 8)', async ({ page, browser }) => {
+  const stamp = `Заметка рядом ${Date.now()}`;
+  const number = await clientTicket(browser, stamp);
+  await dbRows(
+    `insert into hdt_ticket_messages (org_id, ticket_id, author_id, author_type, body, is_internal, source)
+     select org_id, ticket_id, null, 'system', 'Только для сотрудников', true, 'email' from hdt_tickets where number = ${number}`,
+  );
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(`/ru/agent/queues?queue=all&sort=updated&q=${encodeURIComponent(stamp)}&open=${number}`);
+  const pane = page.getByRole('complementary', { name: 'Обращение рядом со списком' });
+  await expect(pane).toContainText('Только для сотрудников');
+  await expect(pane.locator('[data-internal]')).toContainText('Заметка');
+});
+
+test('вернувшееся из отложенных помечено в очереди и на странице обращения (FR-AG-13)', async ({ page, browser }) => {
+  const stamp = `Возврат из отложенных ${Date.now()}`;
+  const number = await clientTicket(browser, stamp);
+  await dbRows(`update hdt_tickets set snooze_returned_on = now() where number = $1`, [number]);
+  await page.goto(`/ru/agent/queues?queue=all&sort=updated&q=${encodeURIComponent(stamp)}`);
+  await expect(main(page).locator('[data-snooze-returned]')).toHaveText('вернулось из отложенных');
+  await page.goto(`/ru/agent/tickets/SUP-${number}`);
+  await expect(main(page).getByText('Вернулось из отложенных')).toBeVisible();
 });
 
 /** Нет прокрутки вбок: содержимое помещается в окно (UX-C-12 для рабочего места). */

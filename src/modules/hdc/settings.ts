@@ -1,5 +1,5 @@
 import 'server-only';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { withActor } from '@/db/with-actor';
 import { writeAudit } from './audit';
@@ -21,8 +21,11 @@ export async function readSetting(code: string): Promise<unknown> {
  * значение. Секретов в настройках нет (раздел 11.11): значение в журнале безопасно.
  */
 export async function writeSettingTx(tx: Tx, code: string, value: unknown, opts: { audit?: boolean } = {}): Promise<void> {
-  const updated = await tx.update(appSettings).set({ value }).where(eq(appSettings.code, code)).returning({ settingId: appSettings.settingId });
-  if (updated.length === 0) await tx.insert(appSettings).values({ code, value });
+  // Пустое значение хранится как JSON null: колонка обязательная, а null без приведения стал бы пустой ячейкой и
+  // ошибкой базы (дежурные без чата Telegram, проверка волны 0).
+  const stored = value === null ? sql`'null'::jsonb` : value;
+  const updated = await tx.update(appSettings).set({ value: stored }).where(eq(appSettings.code, code)).returning({ settingId: appSettings.settingId });
+  if (updated.length === 0) await tx.insert(appSettings).values({ code, value: stored });
   // Несколько настроек одного экрана вызывающий может записать одной своей записью журнала.
   if (opts.audit !== false) await writeAudit(tx, { action: 'settings.changed', objectType: 'setting', objectId: code, diff: { code, to: value } });
 }

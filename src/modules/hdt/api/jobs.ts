@@ -1,13 +1,13 @@
 import 'server-only';
 import { type SystemActor, withActor } from '@/db/with-actor';
-import { scanAttachment as scanCore, sweepAttachments as sweepCore } from '../core/attachments';
+import { infectedSinceTx, scanAttachment as scanCore, sweepAttachments as sweepCore } from '../core/attachments';
 import { type MinuteResult, ticketsMinuteTx } from '../core/housekeeping';
 import { needsSlaRefreshTx, refreshSla, type SlaState } from '../core/sla';
 import { attachmentIdInput, parseInput } from '../input';
 import { type ScanStatus, SWEEP_BATCH } from '../pref';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 import { finishGuestMerge, pendingGuestMerges } from '@/modules/hdu/api/guests';
-import { moveGuestTx } from '../core/unidentified';
+import { moveGuestTx, unidentifiedSinceTx } from '../core/unidentified';
 
 export { isHdtError } from '../error';
 
@@ -94,4 +94,17 @@ export async function applyGuestMerges(actor: SystemActor): Promise<number> {
     }
   }
   return applied;
+}
+
+/** Заражённые файлы, найденные с этого времени: для сигнала дежурным (ТЗ 13.8). */
+export async function infectedSince(actor: SystemActor, since: Date): Promise<number> {
+  return infectedSinceTx(actor, since);
+}
+
+/**
+ * Обращения из писем с неизвестных адресов с этого времени: для сигнала дежурным о потоке писем. Общего предела на
+ * такие письма нет: он останавливал бы и письма новых клиентов (итоговая проверка волны 2).
+ */
+export async function unidentifiedSince(actor: SystemActor, since: Date): Promise<number> {
+  return unidentifiedSinceTx(actor, since);
 }

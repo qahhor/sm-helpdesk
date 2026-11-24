@@ -153,6 +153,9 @@ test('страницы входа сотрудников без серьёзны
   await page.getByLabel('Пароль', { exact: true }).fill(care.password);
   await page.getByRole('button', { name: 'Войти' }).click();
   await expect(page.getByLabel('Код из приложения')).toBeVisible();
+  // Проверка идёт на готовой странице: во время перехода у документа на мгновение нет заголовка, и проверка
+  // доступности изредка ловила именно этот момент.
+  await expect(page).toHaveTitle(/\S/);
   expect(await serious(), 'шаг кода').toEqual([]);
   expect(violations).toEqual([]);
 });

@@ -1,19 +1,20 @@
 import 'server-only';
-import { type AnyColumn, and, count, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, DEVELOPMENT_ROLES, type PresenceMode, PRESENCE_TTL_SEC, type TicketStatus } from '../pref';
-import { attachments, mentions, replyDrafts, ticketEvents, ticketMessages, ticketPresence, tickets } from '../schema';
+import { attachments, mentions, replyDrafts, ticketMessages, ticketPresence, tickets } from '../schema';
 import { findMentions } from '../util';
-import { assertCanWrite, changeAssigneeTx, changeStatusTx, lockAgentTicket, markPickedUpTx } from './agent-actions';
+import { assertCanWrite, changeAssigneeTx, changeStatusTx, flushTicketTx, lockAgentTicket, markPickedUpTx, stageTicket } from './agent-actions';
+import { type ChangeSummary, changesSinceTx, hasChanges } from './changes';
 import { notifyTicketTx } from './notify';
 
 // Модуль hdt, слой core: ответ клиенту и внутренняя заметка сотрудника, черновик, присутствие
 // (FR-AG-03, FR-AG-12, FR-AG-21, FR-SLA-04, UX-A-05..07; план M3, задача 8, решения 6 и 10).
 
 /** Что изменили другие после того, как агент открыл обращение (FR-AG-12, UX-A-06). */
-export type ChangeSummary = { newMessages: number; statusChanged: boolean; assigneeChanged: boolean };
+export type { ChangeSummary } from './changes';
 
 export type StaffMessage = {
   number: number;
@@ -26,35 +27,6 @@ export type StaffMessage = {
 
 /** Отказ несёт версию: последнюю запись переписки и истории. С ней агент может отправить, уже зная, что изменилось. */
 export type PostResult = { ok: true; ticketId: string } | { ok: false; changed: ChangeSummary; version: string };
-
-// Время в браузере передаётся с точностью до миллисекунды, в базе до микросекунды: сравнение по миллисекундам.
-const after = (column: AnyColumn, seen: Date) => gt(sql`date_trunc('milliseconds', ${column})`, seen);
-
-/** Сообщения, смена статуса и исполнителя от других людей после seen. Свои действия изменением не считаются. */
-async function changesSinceTx(tx: Tx, ticketId: string, seen: Date, me: string): Promise<ChangeSummary> {
-  const [messages] = await tx
-    .select({ n: count() })
-    .from(ticketMessages)
-    .where(and(eq(ticketMessages.ticketId, ticketId), after(ticketMessages.createdOn, seen), sql`${ticketMessages.authorId} is distinct from ${me}::uuid`));
-  const kinds = await tx
-    .selectDistinct({ kind: ticketEvents.kind })
-    .from(ticketEvents)
-    .where(
-      and(
-        eq(ticketEvents.ticketId, ticketId),
-        inArray(ticketEvents.kind, ['status', 'assignee']),
-        after(ticketEvents.createdOn, seen),
-        sql`${ticketEvents.actorId} is distinct from ${me}::uuid`,
-      ),
-    );
-  return {
-    newMessages: messages?.n ?? 0,
-    statusChanged: kinds.some((k) => k.kind === 'status'),
-    assigneeChanged: kinds.some((k) => k.kind === 'assignee'),
-  };
-}
-
-const hasChanges = (c: ChangeSummary) => c.newMessages > 0 || c.statusChanged || c.assigneeChanged;
 
 /** Время последней записи обращения, переписки и истории: та же версия, что видит страница. */
 async function latestEntryTx(tx: Tx, ticketId: string): Promise<string> {
@@ -111,16 +83,17 @@ export async function postStaffMessageTx(
         await tx.insert(mentions).values(mentioned.map((userId) => ({ messageId: message.messageId, userId })));
         await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'mention', actorUserId: actor.userId, mentioned, authorName: people.myName });
       }
+      // Заметка это действие с обращением: пометка "вернулось из отложенных" снимается.
+      await flushTicketTx(tx, ticket);
     } else {
-      await tx
-        .update(tickets)
-        .set({ firstRespondedOn: sql`coalesce(${tickets.firstRespondedOn}, now())`, clientWaitingSince: null })
-        .where(eq(tickets.ticketId, ticket.ticketId));
+      stageTicket(ticket, { firstRespondedOn: sql`coalesce(${tickets.firstRespondedOn}, now())`, clientWaitingSince: null });
       // Ответ берёт новое обращение на своей линии (решение 6): ответ первой линии на переданное второй не забирает его.
       const ownLine = ticket.queue === 'l1' || (DEVELOPMENT_ROLES as readonly string[]).includes(actor.staffRole);
       if (!ticket.assigneeId && ticket.status === 'new' && ownLine) await changeAssigneeTx(tx, actor, ticket, actor.userId, people.myName);
       const target: TicketStatus | null = input.waitForClient ? 'waiting_customer' : ticket.status === 'new' ? 'in_progress' : null;
       if (target && target !== ticket.status) await changeStatusTx(tx, actor, ticket, target);
+      // Ответ, исполнитель, статус и сроки: одно обновление строки обращения (аудит 23.11.2026, находка P8).
+      await flushTicketTx(tx, ticket);
       await markPickedUpTx(tx, actor, ticket);
       // Одно письмо об ответе, даже если тем же действием поставлено "Ждём вашего ответа" (решение 6).
       await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'staff_reply', actorUserId: actor.userId, messageId: message.messageId });
@@ -180,6 +153,29 @@ export async function touchPresenceTx(actor: StaffActor, number: number, mode: P
       .values({ ticketId, userId: actor.userId, mode, expiresOn })
       .onConflictDoUpdate({ target: [ticketPresence.ticketId, ticketPresence.userId], set: { mode, expiresOn } });
   });
+}
+
+/**
+ * Отметка присутствия и список коллег одной командой (аудит 23.11.2026, находка P12): страница обращения вызывает
+ * это раз в 10 секунд на каждую открытую вкладку. Обращения с таким номером нет: отметка не создаётся, список пуст.
+ */
+export async function syncPresenceTx(actor: StaffActor, number: number, mode: PresenceMode): Promise<{ userId: string; mode: PresenceMode }[]> {
+  const result = await withActor(actor, (tx) =>
+    tx.execute<{ user_id: string; mode: PresenceMode }>(sql`
+      with ticket as (select ticket_id from hdt_tickets where number = ${number}),
+      mine as (
+        insert into hdt_ticket_presence (ticket_id, user_id, mode, expires_on)
+        select ticket_id, ${actor.userId}::uuid, ${mode}, now() + make_interval(secs => ${PRESENCE_TTL_SEC}) from ticket
+        on conflict (ticket_id, user_id) do update set mode = excluded.mode, expires_on = excluded.expires_on
+        returning ticket_id
+      )
+      select p.user_id, p.mode
+        from hdt_ticket_presence p
+        join ticket using (ticket_id)
+       where p.user_id <> ${actor.userId}::uuid and p.expires_on > now()
+       order by p.created_on`),
+  );
+  return result.rows.map((row) => ({ userId: row.user_id, mode: row.mode }));
 }
 
 /** Другие сотрудники с действующей отметкой на этом обращении. */

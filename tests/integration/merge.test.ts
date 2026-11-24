@@ -113,3 +113,23 @@ test('массовое назначение: отказ по одному обр
   expect((await row(t2.ticketId)).queue).toBe('l2');
   await expect(bulkAction(l1, { action: 'assign', numbers: Array.from({ length: 101 }, (_, i) => i + 1), assigneeId: null })).rejects.toMatchObject({ code: 'invalid_input' });
 });
+
+// --- Отложенное замечание M3 (план W2, задача 13) ---
+
+test('у объединённого были свои дубли: клиент и сотрудник попадают от них к конечному основному (M3, мелкое 6)', async () => {
+  const f = await seedTwoOrgs();
+  const l1 = staffCtx(f.l1);
+  const main = f.tickets.aOrg;
+  const middle = await newTicket(f.aUser, 'Отчёт не грузится, второе обращение');
+  const old = await newTicket(f.aUser, 'Отчёт не грузится, самое первое');
+  await mergeTicket(l1, { number: old.number, intoNumber: middle.number });
+  expect((await row(old.ticketId)).merged_into_id).toBe(middle.ticketId);
+  // Теперь "среднее" само оказалось дублем: его старый дубль должен вести сразу к основному, а не к закрытому.
+  await mergeTicket(l1, { number: middle.number, intoNumber: main.number });
+  expect((await row(middle.ticketId)).merged_into_id).toBe(main.ticketId);
+  // Строка старого дубля не меняется (правило базы: объединённое закрыто навсегда), цепочка проходится при чтении.
+  expect((await row(old.ticketId)).merged_into_id).toBe(middle.ticketId);
+  expect((await getTicket(await clientCtx(f.aUser), old.number))?.mergedInto).toEqual({ number: main.number });
+  expect((await getAgentTicket(l1, old.number))?.mergedInto).toEqual({ number: main.number });
+  expect((await getTicket(await clientCtx(f.aUser), middle.number))?.mergedInto).toEqual({ number: main.number });
+});

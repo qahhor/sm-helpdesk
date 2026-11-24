@@ -33,7 +33,8 @@ test('нарушение отмечается один раз, повторны�
   expect((await ticketsMinute(SYSTEM, afterFirst)).breached).toBeGreaterThanOrEqual(1);
   await ticketsMinute(SYSTEM, afterFirst);
   expect((await events(t.ticketId, 'due')).map((e) => [e.payload, e.is_internal])).toEqual([[{ kind: 'first_response' }, true]]);
-  expect((await row(t.ticketId)).first_response_breached_on?.toISOString()).toBe(afterFirst.toISOString());
+  // Время нарушения это сам срок, а не время запуска задачи (M3, мелкое 1): после простоя процесса показатели не сдвигаются.
+  expect((await row(t.ticketId)).first_response_breached_on?.toISOString()).toBe(due.first_response_due_on.toISOString());
   const afterResolution = new Date(due.resolution_due_on.getTime() + MINUTE);
   await ticketsMinute(SYSTEM, afterResolution);
   await ticketsMinute(SYSTEM, afterResolution);
@@ -145,4 +146,17 @@ test('срок автозакрытия из настроек: текст кли
   await ticketsMinute(SYSTEM, new Date(addWorkingDays(start, 3, TASHKENT_DEFAULT).getTime() + MINUTE));
   expect((await row(t.ticketId)).status).toBe('closed');
   expect(await systemMessages(t.ticketId)).toEqual([{ body: expect.stringContaining('3 рабочих дня'), is_internal: false }]);
+});
+
+// --- Отложенные замечания M3 (план W2, задача 13) ---
+
+test('процесс стоял два часа: время нарушения равно сроку, а не времени запуска задачи (M3, мелкое 1)', async () => {
+  const f = await seedTwoOrgs();
+  const t = f.tickets.aOrg;
+  await setState(t.ticketId, `first_response_due_on = now() - interval '2 hours', resolution_due_on = now() - interval '90 minutes', first_responded_on = null`);
+  const before = await row(t.ticketId);
+  await ticketsMinute(SYSTEM, new Date());
+  const after = await row(t.ticketId);
+  expect(after.first_response_breached_on.toISOString()).toBe(before.first_response_due_on.toISOString());
+  expect(after.resolution_breached_on.toISOString()).toBe(before.resolution_due_on.toISOString());
 });

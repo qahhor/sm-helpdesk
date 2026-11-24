@@ -8,7 +8,7 @@ import {
   inviteSender,
   type ChangeSummary,
   isHdtError,
-  listPresence,
+  markTicketRead,
   mergeTicket,
   nextInQueue,
   parseNumber,
@@ -24,7 +24,7 @@ import {
   snoozeTarget,
   snoozeTicket,
   takeTicket,
-  touchPresence,
+  syncPresence,
   transferToL2,
   zonedToDate,
 } from '@/modules/hdt/api';
@@ -43,6 +43,10 @@ async function run(form: FormData, action: (staff: StaffContext, number: number)
     await action(staff, number);
   } catch (error) {
     if (!isHdtError(error)) throw error;
+    // Обращение изменили другие, пока страница была открыта (FR-AG-12): в адресе только числа сводки, страница
+    // после перехода уже свежая, действие можно повторить.
+    if (error.code === 'changed' && error.changed)
+      redirect(`${page}?error=changed&ch=${error.changed.newMessages}.${error.changed.statusChanged ? 1 : 0}.${error.changed.assigneeChanged ? 1 : 0}`);
     // Кто взял обращение, страница покажет сама из текущего исполнителя: имя в адресе не передаётся.
     redirect(`${page}?error=${error.code}`);
   }
@@ -54,20 +58,26 @@ export async function takeAction(form: FormData): Promise<void> {
 }
 
 export async function assignAction(form: FormData): Promise<void> {
-  await run(form, (staff, number) => assignTicket(staff, { number, assigneeId: text(form, 'assigneeId') || null }), 'assigned');
+  await run(form, (staff, number) => assignTicket(staff, { number, assigneeId: text(form, 'assigneeId') || null, seenVersion: text(form, 'seen') || undefined }), 'assigned');
 }
 
 export async function statusAction(form: FormData): Promise<void> {
   await run(
     form,
     (staff, number) =>
-      setStatus(staff, { number, to: text(form, 'to'), resolution: text(form, 'resolution') || undefined, version: text(form, 'version') || undefined }),
+      setStatus(staff, {
+        number,
+        to: text(form, 'to'),
+        resolution: text(form, 'resolution') || undefined,
+        version: text(form, 'version') || undefined,
+        seenVersion: text(form, 'seen') || undefined,
+      }),
     'status',
   );
 }
 
 export async function priorityAction(form: FormData): Promise<void> {
-  await run(form, (staff, number) => setPriority(staff, { number, priority: text(form, 'priority'), reason: text(form, 'reason') }), 'priority');
+  await run(form, (staff, number) => setPriority(staff, { number, priority: text(form, 'priority'), reason: text(form, 'reason'), seenVersion: text(form, 'seen') || undefined }), 'priority');
 }
 
 export async function typeAction(form: FormData): Promise<void> {
@@ -151,12 +161,24 @@ export async function saveDraftAction(input: { number: number; body: string; int
   }
 }
 
+/**
+ * Отметка "просмотрено" (UX-A-15). Ставит страница в браузере после показа, а не чтение страницы на сервере
+ * (аудит 23.11.2026, находка A5): предзагрузка ссылки и запрос с чужой страницы обращение прочитанным не делают.
+ */
+export async function markSeenAction(ticketId: string): Promise<void> {
+  const staff = await requireStaffActor();
+  try {
+    await markTicketRead(staff, ticketId);
+  } catch (error) {
+    if (!isHdtError(error)) throw error;
+  }
+}
+
 /** Отметка "открыл" или "печатает" и список коллег на этом обращении (решение 10). */
 export async function presenceAction(input: { number: number; mode: 'viewing' | 'typing' }): Promise<PresenceEntry[]> {
   const staff = await requireStaffActor();
   try {
-    await touchPresence(staff, input);
-    return await listPresence(staff, input.number);
+    return await syncPresence(staff, input);
   } catch (error) {
     if (!isHdtError(error)) throw error;
     return [];

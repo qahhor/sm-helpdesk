@@ -2,10 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test, vi } from 'vitest';
+import { afterAll, beforeAll, expect, test } from 'vitest';
 import { runCli } from '@/cli/commands';
 import { setDnsResolverForTests } from '@/modules/hdu/url-safety';
 import { pools } from './helpers/db';
+import { spyOutbound } from './helpers/outbound';
 
 beforeAll(() => setDnsResolverForTests(async () => ['203.0.113.10']));
 afterAll(() => setDnsResolverForTests(null));
@@ -102,7 +103,7 @@ test('server:check печатает итог проверки связи, код
     userinfo_endpoint: 'https://id.chk.example/u',
     jwks_uri: 'https://id.chk.example/j',
   };
-  const spy = vi.spyOn(globalThis, 'fetch');
+  const spy = spyOutbound();
   spy.mockImplementation(async () => new Response(JSON.stringify(discovery)));
   const bad = fakeIo();
   expect(await runCli(['server:check', '--code', 'chk'], bad.io)).toBe(1);
@@ -130,7 +131,7 @@ test('maintenance:cleanup удаляет только просроченные �
   );
   const { io, lines } = fakeIo();
   expect(await runCli(['maintenance:cleanup'], io)).toBe(0);
-  expect(lines).toEqual(['Удалено просроченных строк: счётчики частоты 1, события Telegram 1, сессии 1, одноразовые значения входа 1, ссылки и коды входа 0.']);
+  expect(lines).toEqual(['Удалено просроченных строк: счётчики частоты 1, события Telegram 1, сессии 1, одноразовые значения входа 1, ссылки и коды входа 0, отправленные письма очереди 0, разобранные входящие письма 0.']);
   expect((await pools.root.query(`select code from hdc_rate_limits`)).rows).toEqual([{ code: 'new:1' }]);
   expect((await pools.root.query(`select update_id from hdn_telegram_updates`)).rows).toEqual([{ update_id: '2' }]);
   expect((await pools.root.query(`select token from auth.session`)).rows).toEqual([{ token: 't-new' }]);

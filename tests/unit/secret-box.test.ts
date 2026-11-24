@@ -41,3 +41,31 @@ test('ключ не той длины отклоняется', () => {
   expect(() => createSecretBox(Buffer.alloc(16))).toThrow();
   expect(() => createSecretBox(Buffer.alloc(33))).toThrow();
 });
+
+// --- Замена ключа (аудит 23.11.2026, находка S6; план W1, задача 7) ---
+
+test('замена ключа: значение, зашифрованное прежним ключом, читается, новое шифруется новым', () => {
+  const oldKey = Buffer.alloc(32, 1);
+  const newKey = Buffer.alloc(32, 2);
+  const sealedOld = createSecretBox(oldKey).seal('s3cr3t', 'c');
+  const rotated = createSecretBox(newKey, [oldKey]);
+  expect(rotated.open(sealedOld, 'c')).toBe('s3cr3t');
+  // Новое значение шифруется текущим ключом: коробка только с прежним ключом его не откроет.
+  const sealedNew = rotated.seal('другое', 'c');
+  expect(() => createSecretBox(oldKey).open(sealedNew, 'c')).toThrow();
+  expect(createSecretBox(newKey).open(sealedNew, 'c')).toBe('другое');
+});
+
+test('needsReseal говорит, что значение зашифровано прежним ключом; reseal перешифровывает текущим', () => {
+  const oldKey = Buffer.alloc(32, 1);
+  const newKey = Buffer.alloc(32, 2);
+  const rotated = createSecretBox(newKey, [oldKey]);
+  const sealedOld = createSecretBox(oldKey).seal('s3cr3t', 'c');
+  expect(rotated.needsReseal(sealedOld, 'c')).toBe(true);
+  const resealed = rotated.reseal(sealedOld, 'c');
+  expect(rotated.needsReseal(resealed, 'c')).toBe(false);
+  expect(createSecretBox(newKey).open(resealed, 'c')).toBe('s3cr3t');
+  // Чужой контекст и чужой ключ по-прежнему отклоняются.
+  expect(() => rotated.open(sealedOld, 'other')).toThrow();
+  expect(() => rotated.needsReseal(createSecretBox(Buffer.alloc(32, 9)).seal('x', 'c'), 'c')).toThrow();
+});

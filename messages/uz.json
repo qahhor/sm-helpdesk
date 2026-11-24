@@ -102,6 +102,7 @@
           "telegram": "Telegram",
           "ownRule": "O'z murojaatlaringiz haqidagi xatlarni Telegram yoqilgan bo'lsa o'chirish mumkin: kamida bitta usul qoladi.",
           "telegramMissing": "Telegram bog'lanmagan. Undagi xabarlar bog'langandan keyin kela boshlaydi.",
+          "telegramBlocked": "Siz Telegramda botni bloklagansiz, shuning uchun u yerga xabarlar kelmayapti. Botni oching va uni blokdan chiqaring.",
           "telegramLink": "Bog'lashga o'tish",
           "needTelegram": "O'z murojaatlaringiz haqidagi xatlar faqat Telegram bog'langan va shu qatorda yoqilgan bo'lsa o'chadi.",
           "ownFallback": "O'z murojaatlaringiz haqidagi xatlar yana kelmoqda: Telegram hozir ishlamayapti."
@@ -192,6 +193,7 @@
         "find": "Qidirish",
         "more": "Yana ko'rsatish",
         "nothing": "Hech narsa topilmadi. Qidiruv shartlarini o'zgartiring.",
+        "tooShort": "Kamida 3 ta belgi kiriting: bir-ikki belgi bo'yicha qidiruv ishlamaydi. Murojaat raqamini to'liq kiritish mumkin.",
         "private": "Shaxsiy"
       },
       "page": {
@@ -216,6 +218,8 @@
         },
         "related": "{number} murojaatining davomi",
         "history": "Yozishma va tarix",
+        "showEarlier": "Oldingilarini ko'rsatish",
+        "earlierLimit": "Oxirgi {count} ta yozuv ko'rsatilgan. Undan oldingi yozuvlar bu yerda ko'rsatilmaydi.",
         "events": {
           "created": "Murojaat yaratildi",
           "status": "Holati: {from} > {to}",
@@ -465,6 +469,7 @@
       "none": "Yo'q",
       "emptyTitle": "Tashkilotlar topilmadi",
       "emptyText": "So'rovni o'zgartiring: qidiruv nomi, STIR va kompaniya identifikatori bo'yicha ishlaydi.",
+      "searchTooShort": "Nom, STIR yoki kompaniya identifikatoridan kamida 3 ta belgi kiriting.",
       "invalid": "So'rov juda uzun: 100 belgidan oshmasin.",
       "pages": "Sahifalar",
       "prev": "Orqaga",
@@ -838,14 +843,17 @@
           "user": {
             "email_confirmed": "Manzil tasdiqlandi",
             "policy_acknowledged": "Siyosat tahriri qabul qilindi",
-            "signed_in_telegram": "Telegram boti orqali kirish"
+            "signed_in_telegram": "Telegram boti orqali kirish",
+            "signed_in": "Mijoz kirdi"
           },
           "session": {
             "revoked": "Sessiya yakunlandi"
           },
           "telegram": {
             "linked": "Telegram bog'landi",
-            "unlinked": "Telegram uzildi"
+            "unlinked": "Telegram uzildi",
+            "bot_blocked": "Telegramda bot bloklangan",
+            "bot_unblocked": "Telegramda bot blokdan chiqarildi"
           },
           "ticket": {
             "created": "Murojaat yaratildi",
@@ -859,11 +867,14 @@
             "line_transferred": "Ikkinchi liniyaga o'tkazildi",
             "line_returned": "Birinchi liniyaga qaytarildi",
             "merged": "Murojaatlar birlashtirildi",
+            "rated_by_link": "Baho xatdagi havola orqali qo'yildi",
             "bound": "Xat tashkilotga bog'landi",
-            "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi"
+            "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi",
+            "viewed_by_staff": "Murojaatni xodim ochdi"
           },
           "attachment": {
-            "infected": "Zararlangan fayl topildi"
+            "infected": "Zararlangan fayl topildi",
+            "downloaded_by_staff": "Faylni xodim ochdi"
           },
           "modules": {
             "imported": "Modullar ma'lumotnomasi yuklandi"
@@ -889,10 +900,14 @@
           },
           "settings": {
             "changed": "Sozlama o'zgartirildi",
-            "oncall_changed": "Navbatchilar sozlamalari o'zgartirildi"
+            "oncall_changed": "Navbatchilar sozlamalari o'zgartirildi",
+            "oncall_bot_replaced": "Navbatchilar boti tokeni almashtirildi"
           },
           "notify": {
             "channels_changed": "Bildirishnoma kanallari o'zgartirildi"
+          },
+          "secrets": {
+            "resealed": "Maxfiy qiymatlar yangi kalit bilan qayta shifrlandi"
           }
         },
         "words": {
@@ -933,7 +948,16 @@
           "rate_limited": "urinishlar chegarasi oshdi",
           "category": "Mijoz toifasi",
           "isAiEnabled": "AI-yordamchi ishlovi",
-          "version": "Tahrir"
+          "version": "Tahrir",
+          "method": "Usul",
+          "email_link": "emailga yuborilgan havola",
+          "invitation": "taklif",
+          "telegram": "Telegram boti",
+          "other": "boshqa",
+          "resealed": "Qayta shifrlandi",
+          "failed": "Ochilmadi",
+          "number": "Raqam",
+          "ticketId": "Murojaat"
         }
       },
       "sla": {
@@ -959,16 +983,24 @@
         "holidaysHint": "YYYY-OO-KK yoki KK.OO.YYYY sanalar, qator, vergul yoki nuqtali vergul orqali. Sanadan keyin bayram nomini qoldirish mumkin. Bayram kuni to'liq dam olish kuni.",
         "holidaysMissing": "{year}-yil bayramlari hali kiritilmagan. Ularsiz bu kunlar ish kuni hisoblanadi.",
         "appliesToNew": "Yangi qiymatlar yangi hisoblarga amal qiladi. Ochiq murojaatlar muddatlari ularning keyingi hodisasida o'zgaradi: ustuvorlik, holat yoki javob.",
+        "pickup": {
+          "title": "Uzatilgandan keyin ishga olish",
+          "intro": "Uzatilgan murojaatni ishga olish uchun ikkinchi liniyada necha ish daqiqasi bor. Bo'sh maydon: shu ustuvorlikning birinchi javob muddati.",
+          "field": "{priority}, daqiqa",
+          "hint": "Bo'sh bo'lsa: {minutes} daq, birinchi javob muddati kabi."
+        },
         "save": "Saqlash",
         "done": {
           "policy": "Muddatlar saqlandi",
           "calendar": "Ish vaqti saqlandi",
-          "holidays": "Bayramlar saqlandi"
+          "holidays": "Bayramlar saqlandi",
+          "pickup": "\"Ishga olish\" muddati saqlandi"
         },
         "errors": {
           "forbidden": "Muddatlarni faqat administrator o'zgartira oladi",
           "invalid_input": "Qiymatlarni tekshiring: daqiqa va kunlar noldan katta, ish kuni oxiri boshlanishidan keyin, bayram sanalari shu yilga tegishli va takrorlanmagan",
-          "holidaysLine": "{line}-qator: bu yerda shu yil sanasi yo'q. Hech narsa saqlanmadi, qatorni tuzating."
+          "holidaysLine": "{line}-qator: bu yerda shu yil sanasi yo'q. Hech narsa saqlanmadi, qatorni tuzating.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak."
         },
         "days7": {
           "0": "Yakshanba",
@@ -978,7 +1010,8 @@
           "4": "Payshanba",
           "5": "Juma",
           "6": "Shanba"
-        }
+        },
+        "reauth": "Qayta kirish"
       },
       "templates": {
         "title": "Javob shablonlari",
@@ -1002,7 +1035,8 @@
         "errors": {
           "forbidden": "Shablonlarni portal administratori yuritadi.",
           "invalid_input": "Kod, nom va rus tilidagi matnni tekshiring.",
-          "shortcut_taken": "Bu kod boshqa shablonda bor."
+          "shortcut_taken": "Bu kod boshqa shablonda bor.",
+          "stale_session": "Shablonlarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qayta kiring va takrorlang."
         }
       },
       "mail": {
@@ -1073,8 +1107,10 @@
           "forbidden": "Bu sozlamalarni faqat administrator o'zgartira oladi.",
           "invalid_input": "Qiymatlarni tekshiring: pochta manzillari, bitta ko'rsatiladigan manzil, chat raqami, bot tokeni, 1 dan 30 gacha muddatlar.",
           "oncallTest": "Xabar yuborilmadi: chat raqami va botni tekshiring.",
-          "other": "Bo'lmadi. Yana urinib ko'ring."
-        }
+          "other": "Bo'lmadi. Yana urinib ko'ring.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak."
+        },
+        "reauth": "Qayta kirish"
       }
     },
     "queues": {
@@ -1105,6 +1141,7 @@
       "emptyTitle": "Bu yerda bo'sh",
       "emptyText": "Bu navbatda hozir murojaat yo'q.",
       "emptySearch": "Bu so'rov bo'yicha hech narsa topilmadi. Raqam yoki matnni tekshiring.",
+      "searchTooShort": "Kamida 3 ta belgi kiriting: bir-ikki belgi bo'yicha qidiruv ishlamaydi. Murojaat raqamini to'liq kiritish mumkin.",
       "columns": {
         "number": "№",
         "title": "Mavzu",
@@ -1123,6 +1160,7 @@
       },
       "lineL2": "ikkinchi liniya",
       "snoozed": "{time} gacha qoldirilgan",
+      "snoozeReturned": "qoldirilganlardan qaytdi",
       "unassigned": "tayinlanmagan",
       "sla": {
         "minutes": "{value} daq",
@@ -1133,6 +1171,7 @@
       },
       "prev": "Orqaga",
       "next": "Keyingi",
+      "first": "Boshiga",
       "saveTitle": "Ro'yxat sifatida saqlash",
       "filterName": "Ro'yxat nomi",
       "shareFilter": "Barcha xodimlar uchun umumiy",
@@ -1273,7 +1312,10 @@
       },
       "priorityUnconfirmed": "ustuvorlik tasdiqlanmagan",
       "snoozed": "{time} gacha qoldirilgan",
+      "snoozeReturned": "Qoldirilganlardan qaytdi",
       "lastVisit": "Oldingi tashrifingiz: {time}. O'shandan beri yangilari belgilangan.",
+      "showEarlier": "Oldingilarini ko'rsatish",
+      "earlierLimit": "Oxirgi {count} ta yozuv ko'rsatilgan. Undan oldingi yozuvlar bu yerda ko'rsatilmaydi.",
       "details": "Murojaat ma'lumotlari",
       "clientTitle": "MIJOZ",
       "inn": "STIR {inn}",
@@ -1343,6 +1385,7 @@
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
           "transition_refused": "Bu o'tish hozir mumkin emas. Sahifani yangilang: murojaat o'zgargan bo'lishi mumkin.",
           "already_taken": "Murojaatni {holder} allaqachon olgan.",
+          "changed": "Sahifa ochiq turganda murojaat o'zgardi. Amal bajarilmadi: sahifa yangilandi, tekshirib, qayta urinib ko'ring.",
           "reason_required": "Muhimlikni o'zgartirish sababini yozing.",
           "resolution_required": "Natijani tanlang. «Versiyada tuzatildi» uchun versiya raqamini kiriting.",
           "invalid_input": "Kiritilgan ma'lumotlarni tekshiring.",
@@ -1437,6 +1480,9 @@
       },
       "mergedInto": "{number} bilan birlashtirildi",
       "emailReview": "Xat tekshiruvda: u {address} manzilidan keldi, bu manzil mijoz manzili sifatida tasdiqlanmagan. Mijozga hech narsa ko'rsatilmadi va yuborilmadi. Xat mijozdan bo'lsa, unga murojaatda javob bering.",
+      "emailHeld": "Bir soat ichida bu murojaatga tasdiqlanmagan manzillardan {limit} tadan ortiq xat keldi. Qolganlari ushlab qolindi va murojaatga tushmadi. Mijoz xatini kutayotgan bo'lsangiz, undan portalda tasdiqlangan manzildan yozishini so'rang.",
+      "linkRemoved": "[havola olib tashlandi: {host}]",
+      "linkRemovedNoHost": "[havola olib tashlandi]",
       "senderUnconfirmed": "Yuboruvchi tasdiqlanmagan",
       "senderUnconfirmedHint": "Xat tashkilot manzilidan keldi, lekin u odam hali portal ishtirokchisi emas. Murojaatni faqat xodimlar ko'radi.",
       "inviteSender": "Yuboruvchini taklif qilish",
@@ -1533,6 +1579,28 @@
     }
   },
   "auth": {
+    "rate": {
+      "title": "SUP-{number} murojaatini baholash",
+      "text": "Sizning bahoyingiz: 5 dan {score}. Bahoni qo'yish uchun tugmani bosing.",
+      "reason": "Nima noto'g'ri bo'ldi",
+      "reasons": {
+        "slow": "Javobni uzoq kutdim",
+        "not_solved": "Muammo hal qilinmadi",
+        "unclear": "Javob tushunarsiz",
+        "other": "Boshqa"
+      },
+      "comment": "Izoh (ixtiyoriy)",
+      "submit": "Bahoni qo'yish",
+      "done": "Bahoyingiz uchun rahmat. U bizga yaxshiroq ishlashga yordam beradi.",
+      "errors": {
+        "link_invalid": "Havola mos kelmadi. Bahoni portaldagi murojaat sahifasida qo'yish mumkin.",
+        "already_rated": "Bu murojaatga baho allaqachon qo'yilgan. Rahmat.",
+        "not_closed": "Murojaat hali yopilmagan. Uni yopilgandan keyin baholash mumkin.",
+        "reason_required": "Nima noto'g'ri bo'lganini tanlang.",
+        "rate_limited": "Urinishlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+      },
+      "open": "Portalni ochish"
+    },
     "staff": {
       "login": {
         "title": "Xodimlar uchun kirish",
@@ -1565,13 +1633,14 @@
         "text": "Sizni Smartup Hub ish joyiga taklif qilishdi. Kirish manzili: {email}.",
         "name": "Ism",
         "password": "Parol",
-        "passwordHint": "Kamida 12 belgi",
+        "passwordHint": "Kamida 12 belgi. Password12345 yoki qwerty kabi keng tarqalgan parollar qabul qilinmaydi: o'zingizning bir necha so'zingizdan iborat ibora yaxshiroq",
         "passwordRepeat": "Parolni takrorlang",
         "submit": "Parolni saqlash",
         "invalidTitle": "Havola yaroqsiz",
         "invalidText": "U ishlatilgan yoki muddati tugagan. Administratordan yangisini yuborishni so'rang.",
         "errors": {
           "password_short": "Parol kamida 12 belgidan iborat bo'lishi kerak.",
+          "weak_password": "Bunday parol juda keng tarqalgan: uni birinchi bo'lib tanlab ko'rishadi. Boshqasini kiriting, masalan, o'zingizning bir necha so'zingizdan iborat ibora.",
           "password_mismatch": "Parollar mos kelmadi.",
           "link_invalid": "Havola ishlatilgan yoki muddati tugagan. Administratordan yangisini yuborishni so'rang.",
           "email_taken": "Bu manzil boshqa hisobga biriktirilgan. Administratorga murojaat qiling.",
@@ -1742,7 +1811,8 @@
       "in_development": "SUP-{number} «{title}» murojaati dasturchilarga topshirildi. Yangilik bo'lganda xabar beramiz.",
       "closed": "SUP-{number} «{title}» murojaati yopildi. Savol qolgan bo'lsa, bizga yozing.",
       "autoClosed": "SUP-{number} «{title}» murojaati yopildi: javob olmadik. Savol qolgan bo'lsa, bizga yozing.",
-      "merged": "SUP-{number} murojaati SUP-{into} murojaati bilan birlashtirildi. Yozishmalar o'sha yerda davom etadi."
+      "merged": "SUP-{number} murojaati SUP-{into} murojaati bilan birlashtirildi. Yozishmalar o'sha yerda davom etadi.",
+      "rate": "Yordamimizni baholang (1 yomon, 5 a'lo):"
     },
     "ticketResolved": {
       "heading": "SUP-{number} murojaati hal qilindi",
@@ -1785,7 +1855,11 @@
       "subject": "Smartup Hub xatlarni qabul qilishni tekshirish {token}",
       "text": "Bu Smartup Hub portalining tekshiruv xati. Agar u portalga yetib kelgan bo'lsa, {address} manzilidagi xatlarni qabul qilish ishlayapti. Unga javob berish shart emas."
     },
-    "noSubject": "Mavzusiz xat"
+    "noSubject": "Mavzusiz xat",
+    "opsAlert": {
+      "subject": "Smartup Hub: navbatchiga signal",
+      "button": "Ish joyini ochish"
+    }
   },
   "bot": {
     "linked": "Tayyor: Telegram {org} tashkilotidagi {name} hisobiga bog'landi. Smartupga kirish imkoni bo'lmasa, Smartup Hub tizimiga shu yerdan kirish mumkin. Agar bog'lagan siz bo'lmasangiz, «Uzish» tugmasini bosing.",
@@ -1818,7 +1892,18 @@
       "reminder": "Javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi."
     },
     "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
-    "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}"
+    "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}",
+    "ops": {
+      "jobs_failed": "Smartup Hub: bir soatda bajarilmagan fon vazifalari: {count}. Fon jarayoni jurnalini ko'ring.",
+      "outbox_failed": "Smartup Hub: bir soatda yuborilmagan xat va xabarlar: {count}. Chiquvchi navbatni ko'ring.",
+      "outbox_lag": "Smartup Hub: chiquvchi navbat {minutes} daqiqadan beri turibdi, yuborilishini kutayotganlar: {count}.",
+      "inbound_stuck": "Smartup Hub: 10 daqiqadan ortiq ko'rib chiqilmagan kiruvchi xatlar: {count}.",
+      "staff_signin_failures": "Smartup Hub: 15 daqiqada xodimlarning muvaffaqiyatsiz kirishlari: {count}. Parol tanlanayotgan bo'lishi mumkin.",
+      "infected_files": "Smartup Hub: bir soatda topilgan zararlangan fayllar: {count}.",
+      "archive_failing": "Smartup Hub: baza jurnali arxivi saqlanmayapti, muvaffaqiyatsiz urinishlar: {count}. Arxiv katalogi va diskdagi joyni tekshiring.",
+      "inbound_held": "Smartup Hub: bir soat ichida tezlik chegarasi {count} ta kiruvchi xatni to'xtatdi. Ular murojaatlarga tushmadi: bitta manzildan yoki bitta murojaatga juda ko'p xat keldi.",
+      "unidentified_flood": "Smartup Hub: bir soat ichida noma'lum manzillardan kelgan xatlardan {count} ta murojaat yaratildi. Xatlar oqimi bo'lishi mumkin. \"Aniqlanmaganlar\" va pochta sozlamalarini ko'ring."
+    }
   },
   "dev": {
     "title": "Komponentlar vitrinasi",

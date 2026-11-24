@@ -1,9 +1,11 @@
 import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { channelsFor, emailAllowed, type NotificationKind, notifyTx, type PrefKind } from '@/modules/hdn/api/notifications';
+import { channelsForMany, emailAllowed, type NotificationKind, notifyTx, type PrefKind } from '@/modules/hdn/api/notifications';
+import { replyConfig } from '@/modules/hdn/api/inbound';
 import { enqueueTx, TELEGRAM_TEMPLATES } from '@/modules/hdn/api/outbox';
-import { organizationName, replyRole } from '@/modules/hdu/api/recipients';
+import { organizationName, replyRoles } from '@/modules/hdu/api/recipients';
+import { csatToken } from '../csat-link';
 import type { TicketStatus, Visibility } from '../pref';
 import { ticketMessages, tickets, ticketWatchers } from '../schema';
 
@@ -53,7 +55,7 @@ const STATUS_MAILS = new Set<TicketStatus>(['waiting_customer', 'in_development'
 const CLIENT_SETTINGS_PATH = '/settings';
 const STAFF_SETTINGS_PATH = '/agent/account';
 
-type TicketInfo = { number: number; title: string; locale: string; authorId: string; assigneeId: string | null; orgId: string; visibility: Visibility };
+type TicketInfo = { number: number; title: string; locale: string; authorId: string; assigneeId: string | null; orgId: string; visibility: Visibility; csatScore: number | null };
 type Mail = Parameters<typeof enqueueTx>[1]['payload'];
 
 async function people(tx: Tx, ticketId: string, ticket: TicketInfo, actorUserId: string | null): Promise<string[]> {
@@ -62,27 +64,44 @@ async function people(tx: Tx, ticketId: string, ticket: TicketInfo, actorUserId:
 }
 
 /**
- * Видит ли клиент обращение сейчас: действующее членство в организации обращения, и для коллеги видимость
+ * Кто из получателей видит обращение сейчас: действующее членство в организации обращения, и для коллеги видимость
  * "организация" или роль администратора клиента. Отключённый участник и подписчик, оставшийся у личного обращения,
- * ни уведомления, ни письма не получают (итоговая проверка M4, замечание I8).
+ * ни уведомления, ни письма не получают (итоговая проверка M4, замечание I8). Роли читаются одним запросом на всех
+ * получателей (аудит 23.11.2026, находка A4).
  */
-async function stillSees(ticket: TicketInfo, userId: string): Promise<boolean> {
-  const role = await replyRole(userId, ticket.orgId);
-  if (!role) return false;
-  return userId === ticket.authorId || ticket.visibility === 'org' || role === 'client_admin';
+async function whoSees(ticket: TicketInfo, userIds: string[]): Promise<string[]> {
+  const roles = await replyRoles(userIds, ticket.orgId);
+  return userIds.filter((userId) => {
+    const role = roles.get(userId);
+    return role !== undefined && (userId === ticket.authorId || ticket.visibility === 'org' || role === 'client_admin');
+  });
 }
 
 /**
  * Уведомление в портале каждому, кто видит обращение; письмо и сообщение в Telegram по его каналам (решения 3 и 4
  * вехи M4b): о своих обращениях хотя бы один внешний канал, об обращениях коллег по настройке.
  */
+/**
+ * Письмо автору о закрытии обращения несёт ссылку оценки (FR-TK-11, UX-C-07). Объединённому дублю оценка не нужна.
+ * Коллегам ссылка не уходит: оценку ставит только автор.
+ */
+function withRating(mail: Mail, ticket: TicketInfo): Mail {
+  if (mail.template !== 'ticket_status' || mail.status !== 'closed' || mail.mergedInto !== undefined) return mail;
+  // Обращение уже оценено (закрыто, оценено, открыто снова и закрыто): вторая оценка не ставится, ссылки не нужны.
+  if (ticket.csatScore !== null) return mail;
+  // Ключ подписи общий с адресами ответа. Не задан: письмо уходит без ссылок, оценка остаётся на странице обращения.
+  const cfg = replyConfig();
+  return cfg ? { ...mail, rateUrl: `/rate?t=${csatToken(ticket.number, ticket.authorId, cfg.secret)}` } : mail;
+}
+
 async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: string[], kind: NotificationKind, mail: Mail, messageId?: string): Promise<void> {
   const locale = ticket.locale as 'ru' | 'uz' | 'en';
-  for (const userId of recipients) {
-    if (!(await stillSees(ticket, userId))) continue;
-    await notifyTx(tx, { userId, kind, ticketId, payload: { number: ticket.number, title: ticket.title } });
+  const seeing = await whoSees(ticket, recipients);
+  const channelsOf = await channelsForMany(tx, seeing, ticket.authorId);
+  for (const userId of seeing) {
+    await notifyTx(tx, { userId, kind, ticketId, orgId: ticket.orgId, payload: { number: ticket.number, title: ticket.title } });
     const own = userId === ticket.authorId;
-    const channels = await channelsFor(tx, userId, own ? 'own' : 'watched');
+    const channels = channelsOf.get(userId) ?? { email: true, telegram: false };
     const telegramId =
       channels.telegram && TELEGRAM_TEMPLATES.has(mail.template)
         ? await enqueueTx(tx, { channel: 'telegram', recipient: { kind: 'user', userId }, template: mail.template, payload: mail, ticketId, locale })
@@ -95,7 +114,7 @@ async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: st
         channel: 'email',
         recipient: { kind: 'user', userId },
         template: mail.template,
-        payload: mail,
+        payload: own ? withRating(mail, ticket) : mail,
         ticketId,
         // Письмо об ответе связано с сообщением: недоставку видно на нём в рабочем месте (решение 21).
         ...(messageId ? { messageId } : {}),
@@ -122,7 +141,7 @@ async function tellStaff(
   extra: Record<string, string> = {},
 ): Promise<void> {
   for (const userId of new Set(recipients)) {
-    await notifyTx(tx, { userId, kind, ticketId, payload: { number: ticket.number, title: ticket.title, ...extra } });
+    await notifyTx(tx, { userId, kind, ticketId, orgId: ticket.orgId, payload: { number: ticket.number, title: ticket.title, ...extra } });
     if (!mail || (pref && !(await emailAllowed(tx, userId, pref)))) continue;
     await enqueueTx(tx, {
       channel: 'email',
@@ -147,6 +166,7 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
         assigneeId: tickets.assigneeId,
         orgId: tickets.orgId,
         visibility: tickets.visibility,
+        csatScore: tickets.csatScore,
       })
       .from(tickets)
       .where(eq(tickets.ticketId, e.ticketId))
@@ -173,7 +193,7 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
     case 'client_reply':
       // Ответ клиента: исполнителю уведомление в портале, без письма (решение 7).
       if (ticket.assigneeId && ticket.assigneeId !== e.actorUserId)
-        await notifyTx(tx, { userId: ticket.assigneeId, kind: 'client_replied', ticketId: e.ticketId, payload: { number: ticket.number, title: ticket.title } });
+        await notifyTx(tx, { userId: ticket.assigneeId, kind: 'client_replied', ticketId: e.ticketId, orgId: ticket.orgId, payload: { number: ticket.number, title: ticket.title } });
       return;
     case 'staff_reply': {
       if (!e.messageId) throw new Error('уведомление: нет сообщения');

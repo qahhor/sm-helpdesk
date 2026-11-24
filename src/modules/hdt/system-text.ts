@@ -17,7 +17,7 @@ export function systemText(locale: string, key: SystemTextKey, values: { days: n
   return createTranslator({ locale: lang, messages: MESSAGES[lang], namespace: 'client.tickets.system' })(key, values);
 }
 
-export type StaffSystemTextKey = 'emailReview';
+export type StaffSystemTextKey = 'emailReview' | 'emailHeld' | 'linkRemoved' | 'linkRemovedNoHost';
 
 /** Внутренняя заметка системы для сотрудника (пространство agent.ticket) на языке обращения. */
 export function staffSystemText(locale: string, key: StaffSystemTextKey, values: Record<string, string>): string {

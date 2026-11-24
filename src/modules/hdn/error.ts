@@ -1,7 +1,7 @@
 // Модуль hdn, слой error: ошибки настроек почты и уведомлений (правило ошибок: решение 0022). Сервис возвращает
 // код, текст на языке пользователя подставляет страница из messages/*.json.
 
-export const HDN_ERROR_CODES = ['forbidden', 'invalid_input', 'not_found'] as const;
+export const HDN_ERROR_CODES = ['forbidden', 'invalid_input', 'not_found', 'stale_session'] as const;
 
 export type HdnErrorCode = (typeof HDN_ERROR_CODES)[number];
 

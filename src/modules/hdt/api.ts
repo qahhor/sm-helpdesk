@@ -24,6 +24,7 @@ import {
   type Priority,
   type Visibility,
 } from './pref';
+import { timelineLimit } from './core/timeline';
 import { parseNumber, parseSearch, rejectReasonOf, titleFromDescription } from './util';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
@@ -35,13 +36,14 @@ export { createTicketForClient } from './api/staff-create';
 export { bulkAction, type BulkResult, mergeTicket } from './api/bulk';
 // Передача между линиями (план M3, задача 9).
 export { returnToL1, transferToL2 } from './api/lines';
+export { csatLinkNumber, rateByLink, type RateByLinkResult } from './api/csat-link';
 // Ответ, заметка, черновик и присутствие сотрудника (план M3, задача 8).
-export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type PresenceEntry, saveDraft, touchPresence } from './api/agent-messages';
+export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type PresenceEntry, saveDraft, syncPresence, touchPresence } from './api/agent-messages';
 // Скачивание вложений (задача 8).
 export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest, staffAttachmentRedirect } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
 export { applyGuestMerges, type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
-export { readTimings, saveTimings, type Timings, TIMINGS_DEFAULT } from './api/timings';
+export { type PickupMinutes, readPickup, readTimings, savePickup, saveTimings, type Timings, TIMINGS_DEFAULT } from './api/timings';
 export {
   bindTicket,
   inviteSender,
@@ -67,8 +69,13 @@ export {
   QUEUE_KEYS,
   QUEUE_PAGE_SIZE,
   QUEUE_SORTS,
+  defaultQueueSort,
+  queueHref,
+  type QueueLocation,
+  type QueueTarget,
   type QueueKey,
   queueCounts,
+  queueSidebar,
   type QueueRow,
   type QueueSort,
   type SavedFilter,
@@ -88,7 +95,7 @@ export { type SnoozePreset, snoozeTarget, zonedToDate } from './sla';
 // Каждая функция принимает проверенный контекст клиента и разбирает вход схемой (ТЗ 9.4, правило 7).
 
 export { HDT_ERROR_CODES, type HdtErrorCode, HdtError, isHdtError } from './error';
-export { formatNumber, parseNumber } from './util';
+export { earlierLink, formatNumber, parseNumber } from './util';
 // Значения для форм и фильтров кабинета: страницы берут модуль только через api.
 export {
   allowedStaffTransitions,
@@ -100,6 +107,7 @@ export {
   RESOLUTION_TYPES,
   TICKET_STATUSES,
   TICKET_TYPES,
+  TIMELINE_PAGE,
   TRANSFER_REASONS,
   TRANSFERABLE_STATUSES,
   VISIBILITIES,
@@ -151,9 +159,11 @@ function decodeCursor(cursor: string): { modifiedOn: string; ticketId: string } 
  * Обращения клиента: организации (видимые ему) или только свои, с фильтром по статусу и типу и поиском по
  * номеру или тексту темы и описания. По 20 строк, новые изменения первыми, курсор на следующую страницу.
  */
-export async function listTickets(ctx: ClientContext, input: unknown): Promise<{ items: TicketRow[]; nextCursor: string | null }> {
+export async function listTickets(ctx: ClientContext, input: unknown): Promise<{ items: TicketRow[]; nextCursor: string | null; searchTooShort: boolean }> {
   const data = parseInput(listTicketsInput, input);
-  const search = data.q !== undefined ? parseSearch(data.q) : {};
+  const search = data.q !== undefined ? parseSearch(data.q) : { tooShort: false };
+  // Текст короче трёх знаков не ищется: список пуст, страница просит уточнить запрос (аудит 23.11.2026, находка P9).
+  if (search.tooShort) return { items: [], nextCursor: null, searchTooShort: true };
   const rows = await listTicketRows(ctx.actor, {
     mineOnly: data.scope === 'mine',
     status: data.status,
@@ -176,6 +186,7 @@ export async function listTickets(ctx: ClientContext, input: unknown): Promise<{
       modifiedOn: row.modifiedOn,
     })),
     nextCursor: rows.length > TICKET_PAGE_SIZE && last ? encodeCursor(last) : null,
+    searchTooShort: false,
   };
 }
 
@@ -217,6 +228,9 @@ export type TicketView = {
   attachments: AttachmentView[];
   messages: MessageView[];
   events: EventView[];
+  /** Сколько последних записей истории запрошено и есть ли записи раньше них. */
+  shown: number;
+  hasEarlier: boolean;
   turn: 'client' | 'support' | 'none';
   /** Срок, который поддержка обещает клиенту сейчас (FR-SLA-08): первый ответ или решение. На ходу клиента пусто. */
   nextReply: { kind: 'first_response' | 'resolution'; at: Date; timeZone: string } | null;
@@ -260,10 +274,11 @@ export const withinReopen = (closedOn: Date | null, days: number, now: Date = ne
   closedOn !== null && now.getTime() - closedOn.getTime() <= days * 86_400_000;
 
 /** Страница обращения по номеру (SUP-1042 или 1042). Чужое, невидимое и несуществующее: пусто, без различия. */
-export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise<TicketView | null> {
+export async function getTicket(ctx: ClientContext, numberRaw: unknown, opts: { shown?: unknown } = {}): Promise<TicketView | null> {
   const number = typeof numberRaw === 'string' ? parseNumber(numberRaw) : typeof numberRaw === 'number' ? numberRaw : null;
   if (number === null) return null;
-  const found = await readTicket(ctx.actor, number);
+  const shown = timelineLimit(opts.shown);
+  const found = await readTicket(ctx.actor, number, shown);
   if (!found) return null;
   const { ticket } = found;
   // Имена только людей клиента: ответ сотрудника подписан "Поддержка Smartup", имя сотрудника клиенту не уходит (FR-LINE-07).
@@ -312,6 +327,8 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown): Promise
       attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),
     })),
     events: found.events.map((e) => ({ kind: e.kind, actorType: e.actorType, payload: e.payload, createdOn: e.createdOn })),
+    shown,
+    hasEarlier: found.hasEarlier,
     turn: turnOf(ticket.status),
     // Часовой пояс календаря поддержки: срок показывается в нём, а не в поясе сервера.
     nextReply: turnOf(ticket.status) === 'support' ? nextReplyOf(ticket, (await loadSlaConfig(ctx.actor)).calendar.timeZone) : null,

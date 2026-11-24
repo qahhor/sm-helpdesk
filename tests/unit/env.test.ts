@@ -300,3 +300,18 @@ test('идентификатор сервиса проверки почты: и�
   expect(problems({ ...ok, INBOUND_AUTHSERV_ID: 'two words' }).map((x) => x.name)).toEqual(['INBOUND_AUTHSERV_ID']);
   expect(parseEnv(ok).INBOUND_AUTHSERV_ID).toBeUndefined();
 });
+
+test('узлы скачивания вложений писем: имена через запятую, адрес со схемой или путём отклоняется (аудит, S15)', () => {
+  expect(problems({ ...prod, INBOUND_DOWNLOAD_HOSTS: 'resend.com' })).toEqual([]);
+  expect(problems({ ...prod, INBOUND_DOWNLOAD_HOSTS: 'resend.com, files.example.net' })).toEqual([]);
+  for (const bad of ['https://resend.com', 'resend.com/path', 'com', '*', 'resend.com,'])
+    expect(problems({ ...prod, INBOUND_DOWNLOAD_HOSTS: bad }).map((x) => x.name), bad).toEqual(['INBOUND_DOWNLOAD_HOSTS']);
+});
+
+test('размер пула соединений с базой: целое от 2 до 50, по умолчанию 10 (аудит, O6)', async () => {
+  expect(problems({ ...prod, DB_POOL_MAX: '6' })).toEqual([]);
+  for (const bad of ['0', '1', '51', 'много', '6.5']) expect(problems({ ...prod, DB_POOL_MAX: bad }).map((x) => x.name), bad).toEqual(['DB_POOL_MAX']);
+  const { poolMaxOf } = await import('@/db/pool-size');
+  expect(poolMaxOf(undefined)).toBe(10);
+  expect(poolMaxOf(6)).toBe(6);
+});

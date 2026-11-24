@@ -22,7 +22,7 @@ beforeEach(async () => {
 });
 
 const notifyAUser = (kind: 'ticket_reply' | 'ticket_status' = 'ticket_reply') =>
-  withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.aUser.userId, kind, ticketId: f.tickets.aOrg.ticketId, payload: { number: f.tickets.aOrg.number, title: f.tickets.aOrg.title } }));
+  withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.aUser.userId, kind, ticketId: f.tickets.aOrg.ticketId, orgId: f.orgA.orgId, payload: { number: f.tickets.aOrg.number, title: f.tickets.aOrg.title } }));
 
 test('уведомление видит и отмечает только адресат', async () => {
   await notifyAUser();
@@ -51,7 +51,7 @@ test('счётчик непрочитанных и "Прочитать все"',
   await markRead(f.aUser.actor, 'all');
   expect(await unreadCount(f.aUser.actor)).toBe(0);
   // Чужие уведомления "Прочитать все" не трогает.
-  await withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'ticket_reply', ticketId: f.tickets.bOrg.ticketId, payload: { number: f.tickets.bOrg.number } }));
+  await withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'ticket_reply', ticketId: f.tickets.bOrg.ticketId, orgId: f.orgB.orgId, payload: { number: f.tickets.bOrg.number } }));
   const bBefore = await unreadCount(f.bUser.actor);
   await markRead(f.aUser.actor, 'all');
   expect(await unreadCount(f.bUser.actor)).toBe(bBefore);
@@ -59,7 +59,7 @@ test('счётчик непрочитанных и "Прочитать все"',
 
 test('клиент не ставит уведомление по чужому обращению', async () => {
   await expect(
-    withActor(f.aUser.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'ticket_reply', ticketId: f.tickets.bOrg.ticketId, payload: { number: 1 } })),
+    withActor(f.aUser.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'ticket_reply', ticketId: f.tickets.bOrg.ticketId, orgId: f.orgB.orgId, payload: { number: 1 } })),
   ).rejects.toThrow();
   await expect(withActor(f.aUser.actor, (tx) => notifyTx(tx, { userId: f.bUser.userId, kind: 'holidays_reminder', payload: { year: 2027 } }))).rejects.toThrow();
 });
@@ -93,7 +93,7 @@ test('ночная очистка удаляет прочитанные стар
   await markRead(f.aUser.actor, 'all');
   await pools.root.query(`update hdn_notifications set read_on = now() - interval '91 days' where notification_id = $1`, [older!.notificationId]);
   // Непрочитанное старое остаётся.
-  await withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.aUser.userId, kind: 'ticket_reply', ticketId: f.tickets.aOrg.ticketId, payload: { number: 7 } }));
+  await withActor(f.l1.actor, (tx) => notifyTx(tx, { userId: f.aUser.userId, kind: 'ticket_reply', ticketId: f.tickets.aOrg.ticketId, orgId: f.orgA.orgId, payload: { number: 7 } }));
   await pools.root.query(`update hdn_notifications set created_on = now() - interval '200 days' where read_on is null and user_id = $1`, [f.aUser.userId]);
   const removed = await cleanupNotifications({ type: 'system', job: 'maintenance.cleanup' }, new Date());
   expect(removed).toBeGreaterThanOrEqual(1);
@@ -101,4 +101,40 @@ test('ночная очистка удаляет прочитанные стар
   expect(left).toContain(newer!.notificationId);
   expect(left).not.toContain(older!.notificationId);
   expect(await unreadCount(f.aUser.actor)).toBe(1);
+});
+
+test('листание уведомлений не теряет строки с одинаковым временем (M4, мелкое 10)', async () => {
+  const root = await pools.root.connect();
+  try {
+    await root.query('begin');
+    await root.query(`set local session_replication_role = replica`);
+    // 120 уведомлений с одним и тем же временем: граница страницы проходит внутри них.
+    await root.query(
+      `insert into hdn_notifications (notification_id, user_id, kind, ticket_id, org_id, payload, created_on)
+       select uuidv7(), $1, 'ticket_reply', $2, $3, jsonb_build_object('number', g), date_trunc('second', now()) from generate_series(1, 120) g`,
+      [f.aUser.userId, f.tickets.aOrg.ticketId, f.orgA.orgId],
+    );
+    await root.query('commit');
+  } finally {
+    root.release();
+  }
+  const seen = new Set<string>();
+  let before: string | undefined;
+  for (let page = 0; page < 5; page++) {
+    const rows = await listNotifications(f.aUser.actor, before ? { before } : {});
+    if (rows.length === 0) break;
+    for (const row of rows) {
+      // Строка не показывается дважды: повтор на стыке страниц множество бы скрыло.
+      expect(seen.has(row.notificationId)).toBe(false);
+      seen.add(row.notificationId);
+    }
+    before = rows.at(-1)?.notificationId;
+  }
+  // Ни одна строка пользователя не потеряна и не показана дважды (у него могут быть и уведомления из заготовки).
+  const total = (await pools.root.query(`select count(*)::int as n from hdn_notifications where user_id = $1`, [f.aUser.userId])).rows[0].n as number;
+  expect(total).toBeGreaterThanOrEqual(120);
+  expect(seen.size).toBe(total);
+  // Прежняя ссылка с временем в адресе по-прежнему открывается.
+  expect(Array.isArray(await listNotifications(f.aUser.actor, { before: new Date().toISOString() }))).toBe(true);
+  await expect(listNotifications(f.aUser.actor, { before: 'не курсор' })).rejects.toThrow();
 });

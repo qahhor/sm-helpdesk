@@ -59,6 +59,38 @@ export async function listSsoServers(): Promise<SsoServer[]> {
   return ready;
 }
 
+/**
+ * Перешифровывает секреты серверов текущим ключом (замена ключа, находка S6 аудита 23.11.2026). Идёт по всем
+ * серверам, включая отключённые: отключённый сервер могут включить после того, как прежний ключ убран.
+ * Секрет, который не открывается ни одним ключом, не трогается, его код возвращается в failed.
+ */
+export async function resealServerSecrets(actor: Actor): Promise<{ resealed: number; failed: string[] }> {
+  const box = getSecretBox();
+  return withIdentity(actor, async (tx) => {
+    const rows = await tx.select({ code: servers.code, sealed: servers.oauthClientSecret }).from(servers).orderBy(asc(servers.code));
+    let resealed = 0;
+    const failed: string[] = [];
+    for (const row of rows) {
+      const context = secretContext(row.code);
+      // Под try только шифрование: ошибка базы не должна выглядеть как "секрет не открывается" (итоговая проверка W1, F9).
+      let next: string | null;
+      try {
+        next = box.needsReseal(row.sealed, context) ? box.reseal(row.sealed, context) : null;
+      } catch {
+        failed.push(row.code);
+        continue;
+      }
+      if (next === null) continue;
+      await tx.update(servers).set({ oauthClientSecret: next }).where(eq(servers.code, row.code));
+      resealed += 1;
+    }
+    // В журнал идут только числа: ни секрет, ни зашифрованная строка.
+    if (resealed > 0 || failed.length > 0)
+      await writeAudit(tx, { action: 'secrets.resealed', objectType: 'server', diff: { resealed, failed: failed.length } });
+    return { resealed, failed };
+  });
+}
+
 /** Отметка состояния реестра: меняется при добавлении, изменении и отключении сервера. */
 export async function registryStamp(): Promise<string> {
   const rows = await withIdentity(SYSTEM, (tx) =>

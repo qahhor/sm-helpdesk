@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { enqueue, getScanner, getStorage, SNIFF_BYTES, sniffFileType, writeAudit } from '@/modules/hdc/api';
@@ -71,6 +71,8 @@ export async function findDownloadable(
       .where(
         and(
           eq(attachments.attachmentId, attachmentId),
+          // Второй слой изоляции: вложение организации клиента (аудит 23.11.2026, S7).
+          eq(attachments.orgId, actor.orgId),
           eq(attachments.scanStatus, 'clean'),
           eq(attachments.isInternal, false),
           sql`${attachments.storageKey} like 'files/%'`,
@@ -153,7 +155,7 @@ async function finish(row: ScanRow, result: ScanResult): Promise<ScanStatus> {
   return withActor(SCAN_ACTOR, async (tx) => {
     const updated = await tx
       .update(attachments)
-      .set(result)
+      .set({ ...result, scannedOn: sql`now()` })
       .where(and(eq(attachments.attachmentId, row.attachmentId), eq(attachments.scanStatus, 'pending')))
       .returning({ scanStatus: attachments.scanStatus });
     if (updated.length === 0) {
@@ -324,4 +326,16 @@ export async function sweepAttachments(): Promise<{ requeued: number; removed: n
     }
   }
   return { requeued, removed, failed: stuck.length };
+}
+
+/** Сколько файлов получили отметку "заражён" с этого времени. */
+export async function infectedSinceTx(actor: SystemActor, since: Date): Promise<number> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(attachments)
+      // По времени проверки, а не изменения строки: строка меняется и при переходе файла гостя к пользователю.
+      .where(and(eq(attachments.scanStatus, 'infected'), gt(attachments.scannedOn, since))),
+  );
+  return rows[0]?.n ?? 0;
 }

@@ -38,6 +38,13 @@ export const auditLog = pgTable('hdc_audit_log', {
   createdOn: timestamp('created_on', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Когда дежурным последний раз ушёл сигнал каждого вида (ТЗ 13.8). Работать через src/modules/hdc/ops-alerts.ts. */
+export const opsAlerts = pgTable('hdc_ops_alerts', {
+  code: text('code').primaryKey(),
+  lastSentOn: timestamp('last_sent_on', { withTimezone: true }).notNull(),
+  ...stampColumns,
+});
+
 /** Счётчики ограничения частоты. Работать через consumeRateLimit (src/modules/hdc/rate-limit.ts). */
 export const rateLimits = pgTable('hdc_rate_limits', {
   rateLimitId: uuid('rate_limit_id')

@@ -58,3 +58,11 @@ test.each(authTables.map((t) => [getTableConfig(t).name, t] as const))(
     expect(declared).toEqual(r.rows);
   },
 );
+
+test('начальная настройка базы ставит расширение статистики запросов (план W0, задача 5)', async () => {
+  const { pools } = await import('./helpers/db');
+  const rows = (await pools.root.query(`select e.extname, n.nspname from pg_extension e join pg_namespace n on n.oid = e.extnamespace where e.extname = 'pg_stat_statements'`)).rows;
+  // В отдельной схеме: в public только предметные таблицы, роли приложения статистику запросов не читают.
+  expect(rows).toEqual([{ extname: 'pg_stat_statements', nspname: 'ops' }]);
+  expect((await pools.root.query(`select has_schema_privilege('hub_app', 'ops', 'usage') as app, has_schema_privilege('hub_auth', 'ops', 'usage') as auth`)).rows[0]).toEqual({ app: false, auth: false });
+});

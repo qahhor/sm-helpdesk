@@ -82,6 +82,9 @@ export const tickets = pgTable('hdt_tickets', {
   updateRemindedOn: moment('update_reminded_on'),
   // Миграция 0035 (веха M4): письмо с домена организации от неподтверждённого адреса (FR-EM-06).
   senderUnconfirmed: boolean('sender_unconfirmed').notNull().default(false),
+  // Миграция 0049 (волна 3): пометка "вернулось из отложенных".
+  /** Когда обращение вернулось из отложенных (FR-AG-13). Пусто после первого действия сотрудника. */
+  snoozeReturnedOn: moment('snooze_returned_on'),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {
@@ -144,6 +147,8 @@ export const attachments = pgTable('hdt_attachments', {
   detectedType: text('detected_type'),
   isInternal: boolean('is_internal').notNull().default(false),
   ...stampColumns,
+  // Миграция 0050 (волна 3): когда антивирус закончил проверку. По нему считается сигнал о заражённых файлах.
+  scannedOn: moment('scanned_on'),
 });
 
 /** Условия сохранённого списка рабочего места. */
@@ -163,8 +168,11 @@ export const savedFilters = pgTable('hdt_saved_filters', {
 export const ticketReads = pgTable('hdt_ticket_reads', {
   ticketId: uuid('ticket_id').notNull(),
   userId: uuid('user_id').notNull(),
-  seenOn: moment('seen_on').notNull(),
+  /** Пусто: строку создала запись о чтении в журнале аудита, отметку "просмотрено" страница ещё не поставила. */
+  seenOn: moment('seen_on'),
   ...stampColumns,
+  /** Когда открытие обращения последний раз записано в журнал аудита (не чаще раза в час). Колонка добавлена миграцией 0045, в базе она последняя. */
+  viewLoggedOn: moment('view_logged_on'),
 });
 
 export const replyDrafts = pgTable('hdt_reply_drafts', {

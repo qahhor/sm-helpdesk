@@ -13,18 +13,38 @@ services:
     ports: ['80:80', '443:443']
     environment:
       HUB_DOMAIN: ${HUB_DOMAIN:?задайте HUB_DOMAIN}
+      # Копии портала, на которые Caddy делит запросы (решение 0039). Две копии: "web:3000 web2:3000" и профиль replica.
+      HUB_UPSTREAMS: ${HUB_UPSTREAMS:-web:3000}
+      # Кому Caddy отвечает (план W0, задача 6): по умолчанию только адресам Cloudflare, список с cloudflare.com/ips
+      # на 23.11.2026. Остальным 403: заголовок CF-Connecting-IP нельзя подделать запросом в обход Cloudflare.
+      # Staging без Cloudflare: TRUSTED_PROXIES="0.0.0.0/0 ::/0" в .env.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32}
+    mem_limit: ${CADDY_MEM_LIMIT:-256m}
+    # Привилегии ядра сброшены, кроме права занять порты ниже 1024 (аудит 23.11.2026, S9).
+    cap_drop: ['ALL']
+    cap_add: ['NET_BIND_SERVICE']
+    security_opt: ['no-new-privileges:true']
+    networks: ['edge']
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
     depends_on: [web]
 
-  web:
+  web: &web
     image: ${HUB_IMAGE:?задайте HUB_IMAGE, например ghcr.io/<org>/smartup-hub:<тег>}
     restart: unless-stopped
     command: ['node', 'server.js']
     env_file: ['.env']
     user: '1001:1001'
     read_only: true
+    # Пределы памяти (план W0, задача 5): утечка в одной службе не забирает память у базы. Значения под сервер
+    # 8 ГБ: в сумме 6,8 ГБ, остальное системе (итоговая проверка W0, M8).
+    mem_limit: ${WEB_MEM_LIMIT:-768m}
+    # Без привилегий ядра и без права их получить (аудит 23.11.2026, S9). Сети: edge к Caddy и наружу, data к базе.
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    networks: ['edge', 'data']
+    stop_grace_period: 20s
     # Писать процессу можно только сюда: временные файлы и кеш Next.js (Dockerfile).
     tmpfs: ['/tmp', '/app/.next/cache']
     depends_on:
@@ -35,6 +55,13 @@ services:
       timeout: 3s
       retries: 3
 
+  # Вторая копия портала (аудит 23.11.2026, находка O6): те же настройки, запускается профилем replica:
+  #   HUB_UPSTREAMS="web:3000 web2:3000" DB_POOL_MAX=6 в .env, затем hubc --profile replica up -d
+  # Выкладка без простоя: копии перезапускаются по одной, Caddy шлёт запросы готовой.
+  web2:
+    <<: *web
+    profiles: ['replica']
+
   # Фоновый процесс (решение 0028): задачи pg-boss под ролью hub_app, ограничения те же, что у портала.
   worker:
     image: ${HUB_IMAGE:?задайте HUB_IMAGE}
@@ -43,6 +70,13 @@ services:
     env_file: ['.env']
     user: '1001:1001'
     read_only: true
+    mem_limit: ${WORKER_MEM_LIMIT:-768m}
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    # Сети: data к базе, scan к антивирусу и наружу (почта, Telegram, хранилище).
+    networks: ['data', 'scan']
+    # Остановка очереди задач ждёт до 30 секунд: Docker не должен убить процесс раньше.
+    stop_grace_period: 40s
     tmpfs: ['/tmp']
     depends_on:
       postgres: { condition: service_healthy }
@@ -53,6 +87,11 @@ services:
   clamav:
     image: clamav/clamav:1.5.5@sha256:12177441d1b40cef3c47b44c4090d59d4babc4c67bedd5af0fa315e603aa6dd8
     restart: unless-stopped
+    mem_limit: ${CLAMAV_MEM_LIMIT:-2g}
+    # Привилегии не сброшены: запуск образа меняет владельца баз и пользователя. Новых привилегий процесс не получит.
+    security_opt: ['no-new-privileges:true']
+    # Своя сеть с фоновым процессом: до базы и портала антивирус не достаёт. Выход наружу нужен для обновления баз.
+    networks: ['scan']
     volumes: ['clamav_db:/var/lib/clamav']
     # Образ переносит CLAMD_CONF_<параметр> в clamd.conf при каждом запуске (решение 0027, пункт 20). Зашифрованный
     # архив или документ и архив сверх пределов проверки (вложенность, число файлов, размер) получают подпись
@@ -62,6 +101,9 @@ services:
       CLAMD_CONF_AlertEncryptedDoc: 'yes'
       CLAMD_CONF_AlertExceedsMax: 'yes'
       CLAMD_CONF_StreamMaxLength: '60M'
+      # Обновление баз подписей без второй копии в памяти: иначе на время обновления память удваивается.
+      # Проверка файлов на эти секунды ждёт; задача проверки повторяется сама.
+      CLAMD_CONF_ConcurrentDatabaseReload: 'no'
     healthcheck:
       test: ['CMD', 'clamdcheck.sh']
       interval: 30s
@@ -77,6 +119,9 @@ services:
     env_file: ['.env.migrate']
     user: '1001:1001'
     read_only: true
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    networks: ['data']
     depends_on:
       postgres: { condition: service_healthy }
 
@@ -88,6 +133,9 @@ services:
     env_file: ['.env.bootstrap']
     user: '1001:1001'
     read_only: true
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    networks: ['data']
     depends_on:
       postgres: { condition: service_healthy }
 
@@ -95,13 +143,67 @@ services:
     # Закреплён по digest. Том в /var/lib/postgresql: образ версии 18 хранит данные в /var/lib/postgresql/18/docker.
     image: pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782
     restart: unless-stopped
+    # Настройки под сервер 8 ГБ (план W0, задача 5; аудит 23.11.2026, O3). Статистика запросов: pg_stat_statements.
+    # Запросы дольше 250 мс пишутся в журнал без значений параметров: в значениях данные клиентов.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - max_connections=100
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-1GB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-3GB}
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - log_min_duration_statement=250
+      - -c
+      - log_parameter_max_length=0
+      - -c
+      - log_parameter_max_length_on_error=0
+      - -c
+      - log_lock_waits=on
+      # Непрерывный архив журнала (решение 0039): готовый сегмент копируется в каталог на сервере, оттуда его шифрует
+      # и выгружает scripts/ops/wal-ship.sh. По умолчанию выключен: PG_ARCHIVE_MODE=on в .env и перезапуск базы.
+      # Сегмент закрывается не реже раза в 5 минут: столько данных можно потерять при гибели сервера.
+      - -c
+      - archive_mode=${PG_ARCHIVE_MODE:-off}
+      - -c
+      # sync: сегмент и каталог записаны на диск до ответа базе. Иначе после внезапной перезагрузки база считала бы
+      # сегмент сохранённым, а в архиве лежал бы обрезанный файл под его именем.
+      - archive_command=test ! -f /wal-archive/%f && cp %p /wal-archive/%f.tmp && sync /wal-archive/%f.tmp && mv /wal-archive/%f.tmp /wal-archive/%f && sync /wal-archive
+      - -c
+      - archive_timeout=300
+    mem_limit: ${PG_MEM_LIMIT:-3g}
+    # Привилегии не сброшены: запуск образа меняет владельца каталога данных и пользователя. Новых привилегий процесс не получит.
+    security_opt: ['no-new-privileges:true']
+    # Только внутренняя сеть: у базы нет выхода в интернет.
+    networks: ['data']
+    # Разделяемая память для параллельных запросов: по умолчанию у контейнера 64 МБ.
+    shm_size: 256m
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser
     secrets: [pg_superuser]
-    volumes: ['pg_data:/var/lib/postgresql']
+    volumes:
+      - pg_data:/var/lib/postgresql
+      - ./wal-archive:/wal-archive
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
+
+# Три сети вместо общей (аудит 23.11.2026, S9): взлом одной службы не открывает остальные.
+#   edge: Caddy и портал. Через неё портал ходит наружу (вход Smartup, почта, Telegram, хранилище).
+#   data: портал, фоновый процесс, задачи базы и PostgreSQL. Внутренняя: выхода в интернет нет.
+#   scan: фоновый процесс и антивирус. Через неё фоновый процесс ходит наружу, антивирус обновляет базы подписей.
+networks:
+  edge: {}
+  data:
+    internal: true
+  scan: {}
 
 volumes:
   caddy_data: {}

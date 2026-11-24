@@ -1,7 +1,8 @@
 // Модуль hdt, слой util: чистые функции без обращения к базе (docs/naming.md, раздел 5).
 
 import type { DetectedType } from '@/modules/hdc/api';
-import { ACCEPTED_TYPES, ALLOWED_FILES, ENCRYPTED_OFFICE_SIGNATURE, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES, type RejectReason } from './pref';
+import { searchable } from '@/modules/hdc/pref';
+import { ACCEPTED_TYPES, ALLOWED_FILES, ENCRYPTED_OFFICE_SIGNATURE, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES, type RejectReason, TIMELINE_MAX } from './pref';
 
 // Тема из описания нужна и форме в браузере (подстановка при вводе): общая функция лежит в src/lib/subject.ts.
 export { titleFromDescription } from '@/lib/subject';
@@ -21,11 +22,12 @@ export function parseNumber(raw: string): number | null {
  * Строка поиска в списке обращений (вторая проверка M2). С приставкой SUP- ищется только номер. Одни цифры
  * ищутся и как номер, и в тексте как набраны ("007" остаётся "007", а не 7). Остальное ищется как текст.
  */
-export function parseSearch(raw: string): { number?: number; text?: string } {
+export function parseSearch(raw: string): { number?: number; text?: string; tooShort: boolean } {
   const match = NUMBER_QUERY.exec(raw);
-  if (!match) return { text: raw };
+  // Текст короче трёх знаков не ищется (аудит 23.11.2026, находка P9); номер ищется всегда.
+  if (!match) return searchable(raw) ? { text: raw, tooShort: false } : { tooShort: raw.trim().length > 0 };
   const digits = match[2] as string;
-  return match[1] ? { number: Number(digits) } : { number: Number(digits), text: digits };
+  return match[1] || !searchable(digits) ? { number: Number(digits), tooShort: false } : { number: Number(digits), text: digits, tooShort: false };
 }
 
 /**
@@ -107,4 +109,13 @@ export function pickupMinutes(priority: string, setting: unknown, firstResponseM
     if (typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 100_000) return value;
   }
   return firstResponseMinutes;
+}
+
+/**
+ * Что показать над историей обращения: ссылку "Показать раньше", текст о пределе или ничего. Окно истории не больше
+ * TIMELINE_MAX записей: на пределе ссылка вела бы на ту же страницу (итоговая проверка волны 2, мелкое 6).
+ */
+export function earlierLink(shown: number, hasEarlier: boolean): 'link' | 'limit' | 'none' {
+  if (!hasEarlier) return 'none';
+  return shown >= TIMELINE_MAX ? 'limit' : 'link';
 }

@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { isHdrError, parseHolidays, saveCalendar, saveHolidays, saveSlaPolicy } from '@/modules/hdr/api';
+import { isHdtError, savePickup } from '@/modules/hdt/api';
 import { requireStaffActor, type StaffContext } from '@/modules/hdu/api';
 
 // Действия раздела "Сроки и рабочее время" (FR-SLA-01, FR-SLA-12). Права и значения проверяет модуль hdr,
@@ -14,7 +15,8 @@ async function run(action: (staff: StaffContext) => Promise<void>, done: string)
   try {
     await action(staff);
   } catch (error) {
-    if (!isHdrError(error)) throw error;
+    // Срок "взять в работу" хранит модуль обращений: его ошибки показываются теми же кодами.
+    if (!isHdrError(error) && !isHdtError(error)) throw error;
     redirect(`${page}?error=${error.code}`);
   }
   redirect(`${page}?done=${done}`);
@@ -57,4 +59,9 @@ export async function saveHolidaysAction(form: FormData): Promise<void> {
     redirect(`/${await getLocale()}/agent/settings/sla?error=holidaysLine&line=${parsed.line}`);
   }
   await run((staff) => saveHolidays(staff, { year, dates: parsed.dates }), 'holidays');
+}
+
+/** Срок "взять в работу" после передачи на вторую линию, рабочих минут по приоритетам (FR-LINE-06). */
+export async function savePickupAction(form: FormData): Promise<void> {
+  await run((staff) => savePickup(staff, { p1: text(form, 'p1'), p2: text(form, 'p2'), p3: text(form, 'p3'), p4: text(form, 'p4') }), 'pickup');
 }

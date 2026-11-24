@@ -11,6 +11,7 @@ import {
   type QueueKey,
   type QueueSearch,
   queueCountsTx,
+  queueSidebarTx,
   queueRowsTx,
   type SavedFilter,
   saveFilterTx,
@@ -18,6 +19,7 @@ import {
   thanksRowsTx,
 } from '../core/agent-queues';
 import { markReadTx, readAgentTicketTx } from '../core/agent-ticket';
+import { timelineLimit } from '../core/timeline';
 import { assertCanWrite, assignTx, setModuleTx, setPriorityTx, setStatusTx, setTypeTx, snoozeTx, takeTx } from '../core/agent-actions';
 import { HdtError, isHdtError } from '../error';
 import { assignInput, moduleInput, numberInput, parseInput, priorityInput, queueInput, savedFilterInput, snoozeInput, statusInput, thanksInput, typeInput, nextInput } from '../input';
@@ -45,26 +47,38 @@ export type QueueRow = {
   /** Рабочих минут до срока; у нарушенного 0. */
   minutesLeft: number | null;
   snoozedUntil: Date | null;
+  /** Вернулось из отложенных, и сотрудник с ним ещё ничего не сделал (FR-AG-13). */
+  snoozeReturned: boolean;
   clientWaitingSince: Date | null;
 };
 
 /** Строка поиска: номер и текст как у клиента, плюс организации по названию и ИНН и авторы по имени и адресу. */
-async function searchOf(ctx: StaffContext, q: string | undefined): Promise<QueueSearch | undefined> {
+async function searchOf(ctx: StaffContext, q: string | undefined): Promise<QueueSearch | 'too_short' | undefined> {
   if (!q) return undefined;
   const parsed = parseSearch(q);
+  // Текст короче трёх знаков не ищется (аудит 23.11.2026, находка P9): ни по обращениям, ни по организациям и людям.
+  if (parsed.tooShort) return 'too_short';
   const [orgIds, authorIds] = parsed.text ? await Promise.all([findOrgIds(ctx, parsed.text), findUserIds(ctx, parsed.text)]) : [[], []];
   return { number: parsed.number, text: parsed.text, orgIds, authorIds };
 }
 
 /** Очередь (FR-AG-01), по умолчанию по ближайшему сроку; поиск (FR-AG-10); по 50 строк. */
-export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ items: QueueRow[]; hasMore: boolean }> {
+export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ items: QueueRow[]; hasMore: boolean; nextCursor: string | null; searchTooShort: boolean }> {
   const data = parseInput(queueInput, input ?? {});
+  const search = await searchOf(ctx, data.q);
+  if (search === 'too_short') return { items: [], hasMore: false, nextCursor: null, searchTooShort: true };
+  // Ключ листания есть только у сортировки по последнему изменению: по ней листают очередь "Все", где страниц
+  // тысячи. Очереди открытых обращений ограничены их числом, там остаётся номер страницы (решение 0040, пункт 5).
+  const keyed = data.sort === 'updated';
+  if (data.after && !keyed) throw new HdtError('invalid_input');
+  const [modifiedKey, ticketId] = (data.after ?? '').split('_') as [string, string | undefined];
   const rows = await queueRowsTx(ctx.actor, {
     queue: data.queue,
     sort: data.sort,
-    search: await searchOf(ctx, data.q),
+    search,
     offset: (data.page - 1) * QUEUE_PAGE_SIZE,
     limit: QUEUE_PAGE_SIZE + 1,
+    ...(data.after && ticketId ? { after: { modifiedKey, ticketId } } : {}),
   });
   const page = rows.slice(0, QUEUE_PAGE_SIZE);
   const [config, orgs, names] = await Promise.all([
@@ -88,15 +102,23 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
         slaPhase: row.status === 'waiting_customer' || row.status === 'resolved' || row.status === 'closed' ? 'calm' : slaPhase(row.dueOn, row.createdOn, now, cal),
         minutesLeft: row.dueOn ? workingMinutesBetween(now, row.dueOn, cal) : null,
         snoozedUntil: row.snoozedUntil && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil : null,
+        snoozeReturned: row.snoozeReturnedOn !== null && row.status !== 'resolved' && row.status !== 'closed',
         clientWaitingSince: row.clientWaitingSince,
       };
     }),
     hasMore: rows.length > QUEUE_PAGE_SIZE,
+    nextCursor: keyed && rows.length > QUEUE_PAGE_SIZE && page.at(-1) ? `${page.at(-1)?.modifiedKey}_${page.at(-1)?.ticketId}` : null,
+    searchTooShort: false,
   };
 }
 
-export function queueCounts(ctx: StaffContext): Promise<Record<QueueKey, number>> {
+export function queueCounts(ctx: StaffContext): Promise<Record<QueueKey, number | null>> {
   return queueCountsTx(ctx.actor);
+}
+
+/** Боковая панель страницы очередей одной транзакцией: счётчики, фильтры, число "Неопознанных". */
+export function queueSidebar(ctx: StaffContext): Promise<{ counts: Record<QueueKey, number | null>; filters: SavedFilter[]; unidentified: number }> {
+  return queueSidebarTx(ctx.actor);
 }
 
 export function listFilters(ctx: StaffContext): Promise<SavedFilter[]> {
@@ -172,6 +194,8 @@ export type AgentTicketView = {
   resolutionType: string | null;
   resolvedVersion: string | null;
   snoozedUntil: Date | null;
+  /** Вернулось из отложенных, и сотрудник с ним ещё ничего не сделал (FR-AG-13). */
+  snoozeReturned: boolean;
   /** Открытая передача на вторую линию (FR-LINE-06): срок "взять в работу", пока вторая линия не взялась. */
   pickup: { dueOn: Date } | null;
   /** Дубль объединён с основным (решение 4 плана M3). */
@@ -182,15 +206,19 @@ export type AgentTicketView = {
   version: string;
   attachments: AgentFileView[];
   timeline: AgentTimelineEntry[];
+  /** Сколько последних записей истории запрошено и есть ли записи раньше них. */
+  shown: number;
+  hasEarlier: boolean;
 };
 
 const PREVIEW_TYPES: readonly string[] = [...INLINE_IMAGE_TYPES, 'application/pdf'];
 
 /** Обращение по номеру (SUP-1042 или 1042) глазами сотрудника. Нет такого: null. */
-export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Promise<AgentTicketView | null> {
+export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts: { shown?: unknown } = {}): Promise<AgentTicketView | null> {
   const number = typeof numberRaw === 'string' ? parseNumber(numberRaw) : typeof numberRaw === 'number' ? numberRaw : null;
   if (number === null) return null;
-  const found = await readAgentTicketTx(ctx.actor, number);
+  const shown = timelineLimit(opts.shown);
+  const found = await readAgentTicketTx(ctx.actor, number, shown);
   if (!found) return null;
   const { ticket, seenOn } = found;
   const people = [ticket.authorId, ticket.assigneeId, ...found.messages.map((m) => m.authorId), ...found.events.map((e) => e.actorId)].filter(
@@ -240,7 +268,6 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
       }),
     ),
     ...found.events
-      .filter((e) => e.kind !== 'created')
       .map(
         (e): AgentTimelineEntry => ({
           type: 'event',
@@ -253,7 +280,8 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
           isNew: isNew(e.createdOn),
         }),
       ),
-  ].sort((a, b) => a.createdOn.getTime() - b.createdOn.getTime());
+    // Порядок задаёт база: время с микросекундами, при равном времени сообщение раньше события.
+  ].sort((a, b) => (found.window.order.get(`${a.type === 'message' ? 'm' : 'e'}:${a.id}`) ?? 0) - (found.window.order.get(`${b.type === 'message' ? 'm' : 'e'}:${b.id}`) ?? 0));
   return {
     ticketId: ticket.ticketId,
     number: ticket.number,
@@ -287,6 +315,8 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
     resolutionType: ticket.resolutionType,
     resolvedVersion: ticket.resolvedVersion,
     snoozedUntil: ticket.snoozedUntil && ticket.snoozedUntil.getTime() > now.getTime() ? ticket.snoozedUntil : null,
+    // У решённого и закрытого пометка не показывается: закрыть обращение могли клиент или система, не снимая её.
+    snoozeReturned: ticket.snoozeReturnedOn !== null && ticket.status !== 'resolved' && ticket.status !== 'closed',
     mergedInto: found.mergedIntoNumber !== null ? { number: found.mergedIntoNumber } : null,
     pickup:
       found.transfer && found.transfer.toLine !== 'l1' && !found.transfer.pickedUpOn && found.transfer.pickupDueOn && ticket.queue !== 'l1'
@@ -294,7 +324,10 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown): Pro
         : null,
     changedSince: seenOn,
     // Последнее, что агент видит на странице: по нему ответ узнаёт об изменениях других (FR-AG-12).
-    version: new Date(Math.max(ticket.createdOn.getTime(), ...found.messages.map((m) => m.createdOn.getTime()), ...found.events.map((e) => e.createdOn.getTime()))).toISOString(),
+    // Считается по всей истории, а не по показанной части.
+    version: new Date(Math.max(ticket.createdOn.getTime(), found.window.latestOn?.getTime() ?? 0)).toISOString(),
+    shown,
+    hasEarlier: found.window.hasEarlier,
     attachments: found.attachments.filter((a) => a.messageId === null).map(fileView),
     timeline,
   };
@@ -325,17 +358,18 @@ export async function takeTicket(ctx: StaffContext, number: unknown): Promise<vo
 export async function assignTicket(ctx: StaffContext, input: unknown): Promise<void> {
   assertCanWrite(ctx.actor);
   const data = parseInput(assignInput, input);
-  if (data.assigneeId === null) return assignTx(ctx.actor, data.number, null);
+  const seen = data.seenVersion ? new Date(data.seenVersion) : undefined;
+  if (data.assigneeId === null) return assignTx(ctx.actor, data.number, null, seen);
   const assignee = (await listAssignableStaff(ctx)).find((s) => s.userId === data.assigneeId);
   if (!assignee) throw new HdtError('invalid_input');
-  await assignTx(ctx.actor, data.number, { id: assignee.userId, name: assignee.name });
+  await assignTx(ctx.actor, data.number, { id: assignee.userId, name: assignee.name }, seen);
 }
 
 /** Статус по таблице 7.2; "Решено" с итогом (FR-AG-09). */
 export async function setStatus(ctx: StaffContext, input: unknown): Promise<void> {
   assertCanWrite(ctx.actor);
   const data = parseInput(statusInput, input);
-  await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version });
+  await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version, seen: data.seenVersion ? new Date(data.seenVersion) : undefined });
   await wakeOutbox();
 }
 
@@ -344,7 +378,7 @@ export async function setPriority(ctx: StaffContext, input: unknown): Promise<vo
   assertCanWrite(ctx.actor);
   const data = parseInput(priorityInput, input);
   if (!data.reason) throw new HdtError('reason_required');
-  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason);
+  await setPriorityTx(ctx.actor, data.number, data.priority, data.reason, data.seenVersion ? new Date(data.seenVersion) : undefined);
 }
 
 export async function setTicketType(ctx: StaffContext, input: unknown): Promise<void> {
@@ -370,6 +404,7 @@ export async function snoozeTicket(ctx: StaffContext, input: unknown): Promise<v
 
 export type { SavedFilter } from '../core/agent-queues';
 export { QUEUE_KEYS, QUEUE_SORTS, type QueueKey, type QueueSort } from '../core/agent-queue-keys';
+export { defaultQueueSort, queueHref, type QueueLocation, type QueueTarget } from '../queue-href';
 
 // --- Благодарности, не открывшие обращение (FR-TK-14; план M3, задача 13) ---
 

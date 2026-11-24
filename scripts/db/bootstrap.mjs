@@ -91,6 +91,13 @@ export async function bootstrap(opts = {}) {
     // Расширения ставит суперпользователь: так установка не зависит от списка доверенных расширений.
     await db.query('CREATE EXTENSION IF NOT EXISTS vector');
     await db.query('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+    // Статистика запросов для поиска медленных мест (план W0, задача 5). Собирается, когда библиотека загружена
+    // при запуске базы (shared_preload_libraries в compose.prod.yaml); без этого расширение просто не считает.
+    // Представления расширения живут в отдельной схеме ops: в public только предметные таблицы (набор изоляции),
+    // а роли приложения к статистике запросов доступа не получают. Читает её суперпользователь.
+    await db.query('CREATE SCHEMA IF NOT EXISTS ops');
+    await db.query('REVOKE ALL ON SCHEMA ops FROM PUBLIC');
+    await db.query('CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA ops');
     // Схема public закрыта для всех, кроме явно названных ролей.
     await db.query('REVOKE ALL ON SCHEMA public FROM PUBLIC');
     await db.query('GRANT USAGE ON SCHEMA public TO hub_app, hub_auth');

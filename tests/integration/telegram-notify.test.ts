@@ -102,6 +102,19 @@ test('почта о своих обращениях выключена и Telegr
   expect((await fallbackRows(t.ticketId))[0]!.status).toBe('skipped');
 });
 
+test('сообщение Telegram и запасное письмо в одной пачке: письмо не уходит (проверка волны 2)', async () => {
+  const t = f.tickets.aOrg;
+  await verifyEmail(f.aUser.userId, 'a-user@example.uz');
+  await linkTelegramFixture(f.aUser, 700009);
+  await savePrefs(f.aUser.actor, { own: { email: false, telegram: true }, watched: { email: true, telegram: true } });
+  await reply(t.number, 'Ответ');
+  // Фоновый процесс стоял 6 минут: срок запасного письма уже подошёл, обе строки берёт один запуск.
+  await dispatch(new Date(Date.now() + 6 * 60_000));
+  expect(tg.bot.sent).toHaveLength(1);
+  expect(mail.sent).toEqual([]);
+  expect((await fallbackRows(t.ticketId))[0]!.status).toBe('skipped');
+});
+
 test('почта о своих обращениях выключена, бот заблокирован: письмо об этом же событии уходит запасным (итоговая проверка, I1)', async () => {
   const t = f.tickets.aOrg;
   await verifyEmail(f.aUser.userId, 'a-user@example.uz');

@@ -15,6 +15,20 @@ const MESSAGES = { ru, uz, en } as const;
 /** Шаблоны событий обращения, о которых клиенту уходит сообщение в Telegram. */
 export const TELEGRAM_TEMPLATES: ReadonlySet<MailTemplate> = new Set(['ticket_created', 'ticket_reply', 'ticket_status', 'ticket_resolved', 'waiting_reminder']);
 
+/**
+ * Telegram сам делает нажимаемыми домены в любом регистре букв, команды бота, упоминания и метки. В теме обращения
+ * это текст клиента: точка, косая черта, знаки @ и # заменяются похожими знаками (итоговая проверка M4b, мелкое 1).
+ * Дробь "5/7" и номер "№3" не трогаются: команда начинается с косой черты не после буквы или цифры, за ней буква.
+ */
+function unlinked(text: string): string {
+  const dotted = /[\p{L}\p{N}-]+\.\p{L}{2,}/u.test(text) ? text.replaceAll('.', '․') : text;
+  return dotted
+    // Команда не распознаётся после буквы, цифры и знаков "/", "<", ">": закрывающий тег "</b>" остаётся как был.
+    .replace(/(^|[^\p{L}\p{N}_/<>])\/(?=[A-Za-z])/gu, '$1∕')
+    .replaceAll('@', '＠')
+    .replace(/(^|[^\p{L}\p{N}_])#(?=[\p{L}\p{N}])/gu, '$1＃');
+}
+
 /** Тема в сообщении: 57 знаков и многоточие, всего не длиннее 60. */
 const TITLE_MAX = 57;
 
@@ -54,6 +68,6 @@ export function telegramNoticeText(payload: TicketPayload, locale: Locale, hubUr
   // Кнопка ведёт только в портал: адрес строится из номера, а не из данных строки.
   const url = `${hubUrl}/${locale}/tickets/SUP-${payload.number}`;
   // Ссылки обезвреживаются во всей теме, затем она обрезается: длина не зависит от того, была ли в ней ссылка.
-  const title = plain(noLinks(payload.title, Number.MAX_SAFE_INTEGER), TITLE_MAX);
+  const title = plain(unlinked(noLinks(payload.title, Number.MAX_SAFE_INTEGER)), TITLE_MAX);
   return { text: `SUP-${payload.number} · ${title}\n${event}`, button: { text: t('button'), url } };
 }

@@ -24,11 +24,12 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
   const prefsStatus = firstParam(params.prefs);
   const botOn = telegramEnabled();
   const telegramActive = botOn && (await telegramLinked(client.actor.userId));
+  const link = botOn ? await getTelegramLink(client) : null;
   return (
     <>
       <h1 className="text-2xl font-bold">{t('client.nav.profile')}</h1>
       <EmailSection user={client.user} status={firstParam(params.email)} />
-      {botOn && <ChannelsSection link={await getTelegramLink(client)} status={firstParam(params.telegram)} />}
+      {botOn && <ChannelsSection link={link} status={firstParam(params.telegram)} />}
       <ClientChannelsForm
         rows={[
           { key: 'own', label: t('common.notifications.settings.own'), ...prefs.own },
@@ -42,13 +43,14 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
           telegram: t('common.notifications.settings.client.telegram'),
           ownRule: t('common.notifications.settings.client.ownRule'),
           telegramMissing: t('common.notifications.settings.client.telegramMissing'),
+          telegramBlocked: t('common.notifications.settings.client.telegramBlocked'),
           telegramLink: t('common.notifications.settings.client.telegramLink'),
           needTelegram: t('common.notifications.settings.client.needTelegram'),
           ownFallback: t('common.notifications.settings.client.ownFallback'),
           save: t('common.notifications.settings.save'),
           saved: t('common.notifications.settings.saved'),
         }}
-        telegram={botOn ? { active: telegramActive, linkHref: '#telegram' } : null}
+        telegram={botOn ? { active: telegramActive, blocked: link?.blocked === true, linkHref: '#telegram' } : null}
         status={prefsStatus === 'saved' || prefsStatus === 'need_telegram' ? prefsStatus : null}
         ownFallback={!prefs.own.email && !telegramActive}
         save={saveClientPrefsAction}

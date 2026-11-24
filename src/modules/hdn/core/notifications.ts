@@ -4,8 +4,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
-import { writeAudit } from '@/modules/hdc/api';
-import { telegramLinked } from '@/modules/hdu/api/recipients';
+import { contacts, writeAudit } from '@/modules/hdc/api';
 import { HdnError } from '../error';
 import { type NotificationKind, notificationPrefs, notifications, type PrefKind } from '../schema';
 import { getTelegramBot } from '../telegram';
@@ -35,15 +34,23 @@ export type NotificationRow = {
  */
 export async function notifyTx(
   tx: Tx,
-  n: { userId: string; kind: NotificationKind; ticketId?: string; payload: Record<string, string | number> },
+  n: { userId: string; kind: NotificationKind; payload: Record<string, string | number> } & ({ ticketId: string; orgId: string } | { ticketId?: undefined; orgId?: undefined }),
 ): Promise<void> {
-  let orgId: string | null = null;
-  if (n.ticketId) {
-    const found = await tx.execute<{ org_id: string }>(sql`select org_id from hdt_tickets where ticket_id = ${n.ticketId}`);
-    orgId = found.rows[0]?.org_id ?? null;
-    if (!orgId) throw new Error('уведомление: обращение не найдено');
-  }
-  await tx.insert(notifications).values({ notificationId: randomUUID(), userId: n.userId, kind: n.kind, ticketId: n.ticketId ?? null, orgId, payload: n.payload });
+  // Организацию обращения передаёт вызывающий: таблица обращений принадлежит другому модулю, и читать её отсюда
+  // нельзя (аудит 23.11.2026, находка A2). Подделать организацию нельзя: политика вставки сверяет её с обращением.
+  await tx
+    .insert(notifications)
+    .values({ notificationId: randomUUID(), userId: n.userId, kind: n.kind, ticketId: n.ticketId ?? null, orgId: n.ticketId ? n.orgId : null, payload: n.payload });
+}
+
+/** Отправлено ли уже напоминание о праздниках этого года: его ставит ежемесячная проверка календаря (FR-SLA-12). */
+export async function holidaysReminderSentTx(tx: Tx, year: number): Promise<boolean> {
+  const rows = await tx
+    .select({ id: notifications.notificationId })
+    .from(notifications)
+    .where(and(eq(notifications.kind, 'holidays_reminder'), sql`${notifications.payload} ->> 'year' = ${String(year)}`))
+    .limit(1);
+  return rows.length > 0;
 }
 
 export async function unreadCountTx(actor: PersonActor): Promise<number> {
@@ -56,12 +63,22 @@ export async function unreadCountTx(actor: PersonActor): Promise<number> {
   return rows[0]?.n ?? 0;
 }
 
-export async function listNotificationsTx(actor: PersonActor, before: Date | null): Promise<NotificationRow[]> {
+/**
+ * Страница уведомлений. before: идентификатор последней показанной строки (следующая страница начинается сразу за
+ * ней, строки с одинаковым временем не теряются; M4, мелкое 10) или время, как в прежних ссылках.
+ */
+export async function listNotificationsTx(actor: PersonActor, before: Date | { afterId: string } | null): Promise<NotificationRow[]> {
+  const cursor =
+    before === null
+      ? undefined
+      : before instanceof Date
+        ? lt(notifications.createdOn, before)
+        : sql`(${notifications.createdOn}, ${notifications.notificationId}) < (select c.created_on, c.notification_id from hdn_notifications c where c.notification_id = ${before.afterId}::uuid and c.user_id = ${actor.userId}::uuid)`;
   const rows = await withActor(actor, (tx) =>
     tx
       .select()
       .from(notifications)
-      .where(and(eq(notifications.userId, actor.userId), before ? lt(notifications.createdOn, before) : undefined))
+      .where(and(eq(notifications.userId, actor.userId), cursor))
       .orderBy(desc(notifications.createdOn), desc(notifications.notificationId))
       .limit(PAGE),
   );
@@ -140,7 +157,7 @@ async function prefChannels(tx: Tx, userId: string, kind: PrefKind): Promise<Cha
 
 /** Действует ли Telegram у пользователя: бот портала включён, привязка есть и бот не заблокирован. */
 async function telegramActive(userId: string): Promise<boolean> {
-  return getTelegramBot().enabled && (await telegramLinked(userId));
+  return getTelegramBot().enabled && (await contacts().telegramLinked(userId));
 }
 
 /**
@@ -152,6 +169,27 @@ export async function channelsFor(tx: Tx, userId: string, scope: 'own' | 'watche
   const pref = await prefChannels(tx, userId, scope === 'own' ? 'own_tickets' : 'watched_tickets');
   const telegram = pref.telegram && (await telegramActive(userId));
   return { email: pref.email || (scope === 'own' && !telegram), telegram };
+}
+
+/**
+ * Каналы сразу нескольких получателей события (аудит 23.11.2026, находка A4): настройки одним запросом, действие
+ * Telegram одним запросом. Правила те же, что у channelsFor. own: пользователь, для которого обращение своё.
+ */
+export async function channelsForMany(tx: Tx, userIds: string[], own: string | null): Promise<Map<string, Channels>> {
+  const result = new Map<string, Channels>();
+  if (userIds.length === 0) return result;
+  const rows = await tx
+    .select({ userId: notificationPrefs.userId, kind: notificationPrefs.kind, email: notificationPrefs.emailEnabled, telegram: notificationPrefs.telegramEnabled })
+    .from(notificationPrefs)
+    .where(and(inArray(notificationPrefs.userId, userIds), inArray(notificationPrefs.kind, ['own_tickets', 'watched_tickets'])));
+  const linked = getTelegramBot().enabled ? await contacts().telegramLinkedMany(userIds) : new Set<string>();
+  for (const userId of userIds) {
+    const scope = userId === own ? 'own' : 'watched';
+    const pref = rows.find((row) => row.userId === userId && row.kind === (scope === 'own' ? 'own_tickets' : 'watched_tickets')) ?? { email: true, telegram: true };
+    const telegram = pref.telegram && linked.has(userId);
+    result.set(userId, { email: pref.email || (scope === 'own' && !telegram), telegram });
+  }
+  return result;
 }
 
 const STAFF_KIND = { staffMention: 'staff_mention', staffBreach: 'staff_breach' } as const;

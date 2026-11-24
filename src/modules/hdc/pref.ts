@@ -35,7 +35,12 @@ export const AUDIT_ACTIONS = [
   // Каналы связи
   'telegram.linked',
   'telegram.unlinked',
+  // Telegram отказал в доставке (человек заблокировал бота) и отметка снята (он снова написал боту).
+  'telegram.bot_blocked',
+  'telegram.bot_unblocked',
   'user.signed_in_telegram',
+  // Вход клиента любым способом (волна 1, задача 8). Способ в описании: smartup, email_link, invitation, telegram.
+  'user.signed_in',
   // Обращения (веха M2): создание, смена статуса и видимости. Текста обращения в журнале нет.
   'ticket.created',
   'ticket.status_changed',
@@ -53,6 +58,8 @@ export const AUDIT_ACTIONS = [
   'ticket.line_transferred',
   'ticket.line_returned',
   'ticket.merged',
+  // Оценка по ссылке из письма, без входа в портал (FR-TK-11; решение 0040).
+  'ticket.rated_by_link',
   // Письма из "Неопознанных" (план M4, задача 11)
   'ticket.bound',
   'sender.blocked',
@@ -62,11 +69,18 @@ export const AUDIT_ACTIONS = [
   // Настройки почты и уведомлений (план M4, задача 12)
   'settings.changed',
   'settings.oncall_changed',
+  // Токен отдельного бота дежурных заменён: запись в одной транзакции с секретом (решение 0040).
+  'settings.oncall_bot_replaced',
   'sender.unblocked',
   'org.domain_added',
   'org.domain_removed',
   // Каналы уведомлений (план M4b, задача 1)
   'notify.channels_changed',
+  // Замена ключа шифрования (волна 1, задача 7)
+  'secrets.resealed',
+  // Чтение сотрудниками (волна 1, задача 8): открытие обращения не чаще раза в час на пару, каждая выдача файла.
+  'ticket.viewed_by_staff',
+  'attachment.downloaded_by_staff',
   // Памятки первой линии и шаблоны ответов (веха M3).
   'playbook.saved',
   'template.saved',
@@ -77,6 +91,15 @@ export const AUDIT_ACTIONS = [
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+/**
+ * Наименьшая длина текста в поиске (аудит 23.11.2026, находка P9). Запрос короче совпадает почти со всем и не может
+ * идти по триграммному индексу. Номер обращения ищется при любой длине.
+ */
+export const SEARCH_MIN_CHARS = 3;
+
+/** Достаточно ли текста для поиска: считаются знаки, а не единицы UTF-16. */
+export const searchable = (text: string): boolean => [...text.trim()].length >= SEARCH_MIN_CHARS;
 
 export type RateRule = { limit: number; windowSec: number };
 
@@ -133,12 +156,20 @@ export const RATE_RULES = {
   /** Действия с обращением (подтвердить, открыть заново, оценить, видимость, подписка): общий предел на
    * пользователя, 60 в час. Каждое действие пишет событие и запись журнала (вторая проверка M2). */
   ticketActionPerUser: { limit: 60, windowSec: 3600 },
+  /** Попытки оценки по ссылке из письма: 10 в час на обращение. */
+  csatLinkPerTicket: { limit: 10, windowSec: 3600 },
   /** Новые обращения письмом: 10 в час на адрес отправителя, как создание обращения (решение 18 вехи M4). */
   emailTicketPerSender: { limit: 10, windowSec: 3600 },
   /** Подтверждение неопознанному отправителю: не чаще раза в час на адрес (FR-EM-07, решение 18 вехи M4). */
   unidentifiedAckPerSender: { limit: 1, windowSec: 3600 },
   /** Письма "на проверку" в обращение: 20 в час на адрес отправителя (итоговая проверка M4). */
   emailReviewPerSender: { limit: 20, windowSec: 3600 },
+  /** Письма "на проверку" в одно обращение: 5 в час с любых адресов (аудит 23.11.2026, находка S12). */
+  emailReviewPerTicket: { limit: 5, windowSec: 3600 },
+  /** Сводная заметка "письма придержаны" в обращении: не чаще раза в час (проверка волны 1). */
+  emailReviewHeldNote: { limit: 1, windowSec: 3600 },
+  /** Отметка "письмо уже учтено в пределах частоты": повтор разбора того же письма пределы не расходует. */
+  emailLetterOnce: { limit: 1, windowSec: 86_400 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

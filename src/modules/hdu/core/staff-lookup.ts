@@ -1,4 +1,5 @@
 import 'server-only';
+import { searchable } from '@/modules/hdc/pref';
 import { and, asc, eq, ilike, inArray, or } from 'drizzle-orm';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
@@ -15,6 +16,7 @@ const likeEscape = (text: string) => text.replace(/[\\%_]/g, (char) => `\\${char
 
 /** Организации по названию или ИНН. */
 export async function findOrgIdsTx(actor: StaffActor, query: string): Promise<string[]> {
+  if (!searchable(query)) return [];
   const pattern = `%${likeEscape(query)}%`;
   const rows = await withActor(actor, (tx) =>
     tx
@@ -28,6 +30,7 @@ export async function findOrgIdsTx(actor: StaffActor, query: string): Promise<st
 
 /** Люди по имени или подтверждённому адресу. Служебные адреса без почты не ищутся. */
 export async function findUserIdsTx(actor: StaffActor, query: string): Promise<string[]> {
+  if (!searchable(query)) return [];
   const pattern = `%${likeEscape(query)}%`;
   const rows = await withIdentity(actor, (tx) =>
     tx

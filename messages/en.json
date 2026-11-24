@@ -102,6 +102,7 @@
           "telegram": "Telegram",
           "ownRule": "Emails about your requests can be turned off when Telegram is on: at least one way stays.",
           "telegramMissing": "Telegram is not linked. Messages there start after you link it.",
+          "telegramBlocked": "You blocked the bot in Telegram, so messages do not arrive there. Open the bot and unblock it.",
           "telegramLink": "Go to linking",
           "needTelegram": "Emails about your requests turn off only when Telegram is linked and turned on in this row.",
           "ownFallback": "Emails about your requests arrive again: Telegram is not working right now."
@@ -192,6 +193,7 @@
         "find": "Search",
         "more": "Show more",
         "nothing": "Nothing found. Change the search conditions.",
+        "tooShort": "Enter at least 3 characters: one or two are not enough to search. A request number can be entered in full.",
         "private": "Private"
       },
       "page": {
@@ -216,6 +218,8 @@
         },
         "related": "Follow-up to request {number}",
         "history": "Conversation and history",
+        "showEarlier": "Show earlier",
+        "earlierLimit": "The last {count} entries are shown. Earlier entries are not shown here.",
         "events": {
           "created": "Request created",
           "status": "Status: {from} > {to}",
@@ -465,6 +469,7 @@
       "none": "None",
       "emptyTitle": "No organizations found",
       "emptyText": "Change the query: search works by name, tax ID and company ID.",
+      "searchTooShort": "Enter at least 3 characters of the name, tax ID or company identifier.",
       "invalid": "The query is too long: 100 characters at most.",
       "pages": "Pages",
       "prev": "Back",
@@ -838,14 +843,17 @@
           "user": {
             "email_confirmed": "Address confirmed",
             "policy_acknowledged": "Policy version acknowledged",
-            "signed_in_telegram": "Sign-in through the Telegram bot"
+            "signed_in_telegram": "Sign-in through the Telegram bot",
+            "signed_in": "Client signed in"
           },
           "session": {
             "revoked": "Session ended"
           },
           "telegram": {
             "linked": "Telegram linked",
-            "unlinked": "Telegram unlinked"
+            "unlinked": "Telegram unlinked",
+            "bot_blocked": "Bot blocked in Telegram",
+            "bot_unblocked": "Bot unblocked in Telegram"
           },
           "ticket": {
             "created": "Ticket created",
@@ -859,11 +867,14 @@
             "line_transferred": "Transferred to the second line",
             "line_returned": "Returned to the first line",
             "merged": "Tickets merged",
+            "rated_by_link": "Rating given through the email link",
             "bound": "Email linked to an organization",
-            "author_moved": "Request author changed on guest hand-over"
+            "author_moved": "Request author changed on guest hand-over",
+            "viewed_by_staff": "Ticket opened by staff"
           },
           "attachment": {
-            "infected": "Infected file found"
+            "infected": "Infected file found",
+            "downloaded_by_staff": "File opened by staff"
           },
           "modules": {
             "imported": "Module catalog imported"
@@ -889,10 +900,14 @@
           },
           "settings": {
             "changed": "Setting changed",
-            "oncall_changed": "On-call settings changed"
+            "oncall_changed": "On-call settings changed",
+            "oncall_bot_replaced": "On-call bot token replaced"
           },
           "notify": {
             "channels_changed": "Notification channels changed"
+          },
+          "secrets": {
+            "resealed": "Secrets re-encrypted with the new key"
           }
         },
         "words": {
@@ -933,7 +948,16 @@
           "rate_limited": "attempt limit reached",
           "category": "Client category",
           "isAiEnabled": "AI assistant handling",
-          "version": "Version"
+          "version": "Version",
+          "method": "Method",
+          "email_link": "email link",
+          "invitation": "invitation",
+          "telegram": "Telegram bot",
+          "other": "other",
+          "resealed": "Re-encrypted",
+          "failed": "Could not be opened",
+          "number": "Number",
+          "ticketId": "Ticket"
         }
       },
       "sla": {
@@ -959,16 +983,24 @@
         "holidaysHint": "Dates YYYY-MM-DD or DD.MM.YYYY, one per line or separated by commas or semicolons. A holiday name after the date may stay. A holiday is a full day off.",
         "holidaysMissing": "Holidays of {year} are not filled in yet. Without them these days count as working days.",
         "appliesToNew": "New values apply to new calculations. Targets of open tickets change at their next event: priority, status or reply.",
+        "pickup": {
+          "title": "Pick up after a transfer",
+          "intro": "How many working minutes the second line has to pick up a transferred ticket. Empty field: the first response time of this priority.",
+          "field": "{priority}, minutes",
+          "hint": "Empty: {minutes} min, same as the first response time."
+        },
         "save": "Save",
         "done": {
           "policy": "Targets saved",
           "calendar": "Working hours saved",
-          "holidays": "Holidays saved"
+          "holidays": "Holidays saved",
+          "pickup": "The pick up time is saved"
         },
         "errors": {
           "forbidden": "Only an administrator can change targets",
           "invalid_input": "Check the values: minutes and days above zero, the end of a working day after its start, holiday dates of this year without repeats",
-          "holidaysLine": "Line {line}: there is no date of this year here. Nothing was saved, fix the line."
+          "holidaysLine": "Line {line}: there is no date of this year here. Nothing was saved, fix the line.",
+          "stale_session": "Changing settings needs a sign-in no older than 15 minutes."
         },
         "days7": {
           "0": "Sunday",
@@ -978,7 +1010,8 @@
           "4": "Thursday",
           "5": "Friday",
           "6": "Saturday"
-        }
+        },
+        "reauth": "Sign in again"
       },
       "templates": {
         "title": "Reply templates",
@@ -1002,7 +1035,8 @@
         "errors": {
           "forbidden": "Templates are kept by the portal administrator.",
           "invalid_input": "Check the code, name and Russian text.",
-          "shortcut_taken": "Another template already has this code."
+          "shortcut_taken": "Another template already has this code.",
+          "stale_session": "Changing templates needs a sign-in no older than 15 minutes. Sign in again and repeat."
         }
       },
       "mail": {
@@ -1073,8 +1107,10 @@
           "forbidden": "Only the administrator can change these settings.",
           "invalid_input": "Check the values: email addresses, one shown address, chat number, bot token, periods from 1 to 30.",
           "oncallTest": "The message was not sent: check the chat number and the bot.",
-          "other": "That did not work. Try again."
-        }
+          "other": "That did not work. Try again.",
+          "stale_session": "Changing settings needs a sign-in no older than 15 minutes."
+        },
+        "reauth": "Sign in again"
       }
     },
     "queues": {
@@ -1105,6 +1141,7 @@
       "emptyTitle": "Nothing here",
       "emptyText": "There are no tickets in this queue right now.",
       "emptySearch": "Nothing matches this search. Check the number or the text.",
+      "searchTooShort": "Enter at least 3 characters: one or two are not enough to search. A ticket number can be entered in full.",
       "columns": {
         "number": "No.",
         "title": "Subject",
@@ -1123,6 +1160,7 @@
       },
       "lineL2": "second line",
       "snoozed": "snoozed until {time}",
+      "snoozeReturned": "back from snooze",
       "unassigned": "unassigned",
       "sla": {
         "minutes": "{value} min",
@@ -1133,6 +1171,7 @@
       },
       "prev": "Back",
       "next": "Next",
+      "first": "To the start",
       "saveTitle": "Save as a list",
       "filterName": "List name",
       "shareFilter": "Shared with all staff",
@@ -1273,7 +1312,10 @@
       },
       "priorityUnconfirmed": "priority not confirmed",
       "snoozed": "snoozed until {time}",
+      "snoozeReturned": "Back from snooze",
       "lastVisit": "Your last visit: {time}. Everything new since then is marked.",
+      "showEarlier": "Show earlier",
+      "earlierLimit": "The last {count} entries are shown. Earlier entries are not shown here.",
       "details": "Ticket details",
       "clientTitle": "CLIENT",
       "inn": "TIN {inn}",
@@ -1343,6 +1385,7 @@
           "forbidden": "Your role does not allow this action.",
           "transition_refused": "This change is not possible now. Refresh the page: the ticket may have changed.",
           "already_taken": "{holder} has already taken this ticket.",
+          "changed": "The ticket changed while the page was open. The action was not done: the page is refreshed, check and repeat.",
           "reason_required": "Write the reason for the priority change.",
           "resolution_required": "Choose the outcome. For \"Fixed in version\", enter the version number.",
           "invalid_input": "Check the data you entered.",
@@ -1437,6 +1480,9 @@
       },
       "mergedInto": "Merged with {number}",
       "emailReview": "Email under review: it came from {address}, and this address is not confirmed as the client address. Nothing was shown or sent to the client. If the email is from the client, reply in the request.",
+      "emailHeld": "More than {limit} emails from unconfirmed addresses arrived for this request within an hour. The rest are held back and were not added here. If you expect an email from the client, ask them to write from an address confirmed in the portal.",
+      "linkRemoved": "[link removed: {host}]",
+      "linkRemovedNoHost": "[link removed]",
       "senderUnconfirmed": "Sender not confirmed",
       "senderUnconfirmedHint": "The email came from an organization address, but the person is not a portal member yet. Only staff see this request.",
       "inviteSender": "Invite the sender",
@@ -1533,6 +1579,28 @@
     }
   },
   "auth": {
+    "rate": {
+      "title": "Rating for request SUP-{number}",
+      "text": "Your rating: {score} out of 5. Press the button to submit it.",
+      "reason": "What went wrong",
+      "reasons": {
+        "slow": "Waited too long for a reply",
+        "not_solved": "The problem is not solved",
+        "unclear": "The reply was unclear",
+        "other": "Other"
+      },
+      "comment": "Comment (optional)",
+      "submit": "Submit rating",
+      "done": "Thank you for the rating. It helps us work better.",
+      "errors": {
+        "link_invalid": "This link does not work. You can rate the request on its page in the portal.",
+        "already_rated": "This request already has a rating. Thank you.",
+        "not_closed": "The request is not closed yet. You can rate it after it is closed.",
+        "reason_required": "Choose what went wrong.",
+        "rate_limited": "Too many attempts. Try again in an hour."
+      },
+      "open": "Open the portal"
+    },
     "staff": {
       "login": {
         "title": "Staff sign-in",
@@ -1565,13 +1633,14 @@
         "text": "You have been invited to the Smartup Hub workspace. Sign-in address: {email}.",
         "name": "Name",
         "password": "Password",
-        "passwordHint": "At least 12 characters",
+        "passwordHint": "At least 12 characters. Common passwords such as Password12345 or qwerty are not accepted: a phrase of several words of your own works best",
         "passwordRepeat": "Password again",
         "submit": "Save password",
         "invalidTitle": "This link does not work",
         "invalidText": "It has been used or has expired. Ask an administrator to send a new one.",
         "errors": {
           "password_short": "The password must be at least 12 characters long.",
+          "weak_password": "This password is too common: it is among the first to be guessed. Choose another one, for example a phrase of several words of your own.",
           "password_mismatch": "The passwords do not match.",
           "link_invalid": "The link has been used or has expired. Ask an administrator to send a new one.",
           "email_taken": "This address belongs to another account. Contact an administrator.",
@@ -1742,7 +1811,8 @@
       "in_development": "Request SUP-{number} \"{title}\" has been passed to development. We will write when there is news.",
       "closed": "Request SUP-{number} \"{title}\" is closed. If the question remains, write to us.",
       "autoClosed": "Request SUP-{number} \"{title}\" is closed because we did not get a reply. If the question remains, write to us.",
-      "merged": "Request SUP-{number} has been merged with request SUP-{into}. The conversation continues there."
+      "merged": "Request SUP-{number} has been merged with request SUP-{into}. The conversation continues there.",
+      "rate": "Rate how we helped (1 poor, 5 excellent):"
     },
     "ticketResolved": {
       "heading": "Request SUP-{number} resolved",
@@ -1785,7 +1855,11 @@
       "subject": "Smartup Hub mail intake check {token}",
       "text": "This is a check email from the Smartup Hub portal. If it has reached the portal, mail intake for {address} works. There is no need to reply."
     },
-    "noSubject": "Email without a subject"
+    "noSubject": "Email without a subject",
+    "opsAlert": {
+      "subject": "Smartup Hub: on-call alert",
+      "button": "Open the workspace"
+    }
   },
   "bot": {
     "linked": "Done: Telegram is linked to the account {name} in the organization {org}. You can sign in to Smartup Hub here when Smartup is not available. If you did not link it, press \"Unlink\".",
@@ -1818,7 +1892,18 @@
       "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
     },
     "oncallP1": "P1: new urgent request SUP-{number}",
-    "oncallP1Org": "P1: new urgent request SUP-{number}, {org}"
+    "oncallP1Org": "P1: new urgent request SUP-{number}, {org}",
+    "ops": {
+      "jobs_failed": "Smartup Hub: background jobs that failed in the last hour: {count}. Check the worker log.",
+      "outbox_failed": "Smartup Hub: emails and messages not sent in the last hour: {count}. Check the outbox.",
+      "outbox_lag": "Smartup Hub: the outbox has been stuck for {minutes} min, waiting to be sent: {count}.",
+      "inbound_stuck": "Smartup Hub: incoming emails not processed for more than 10 minutes: {count}.",
+      "staff_signin_failures": "Smartup Hub: failed staff sign-ins in 15 minutes: {count}. Someone may be guessing a password.",
+      "infected_files": "Smartup Hub: infected files found in the last hour: {count}.",
+      "archive_failing": "Smartup Hub: the database log archive is not being saved, failed attempts: {count}. Check the archive directory and disk space.",
+      "inbound_held": "Smartup Hub: the rate limit stopped {count} inbound emails within an hour. They were not added to requests: too many emails from one address or to one request.",
+      "unidentified_flood": "Smartup Hub: {count} requests were created from emails from unknown addresses within an hour. A flood is possible. Check \"Unidentified\" and the mail settings."
+    }
   },
   "dev": {
     "title": "Component showcase",

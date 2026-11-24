@@ -1,11 +1,12 @@
 import 'server-only';
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, lt, ne, notInArray, or, type SQL, sql } from 'drizzle-orm';
+import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
 import type { Priority, Queue, TicketStatus } from '../pref';
 import { savedFilters, type SavedQuery, ticketMessages, tickets } from '../schema';
 import { SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
-import { QUEUE_KEYS, type QueueKey, type QueueSort } from './agent-queue-keys';
+import type { QueueKey, QueueSort } from './agent-queue-keys';
 
 // Модуль hdt, слой core: очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18; план M3, задача 5).
 // Читает сотрудник под своим актором: политики RLS отдают ему все обращения, а условия очереди задаёт код.
@@ -27,6 +28,9 @@ export type QueueRecord = {
   firstRespondedOn: Date | null;
   dueOn: Date | null;
   snoozedUntil: Date | null;
+  snoozeReturnedOn: Date | null;
+  /** Время изменения с точностью базы (микросекунды): ключ листания по последнему изменению. */
+  modifiedKey: string;
   clientWaitingSince: Date | null;
 };
 
@@ -89,9 +93,17 @@ function orderOf(sort: QueueSort) {
   return [sql`${dueOn} asc nulls last`, asc(tickets.ticketId)];
 }
 
+/**
+ * Продолжение после строки с этим ключом при сортировке по последнему изменению (решение 0040, пункт 5). Сравнение
+ * пары значений становится границей индекса (modified_on DESC, ticket_id DESC): строки прошлых страниц не читаются.
+ */
+function afterKey(after: { modifiedKey: string; ticketId: string } | undefined): SQL | undefined {
+  return after ? sql`(${tickets.modifiedOn}, ${tickets.ticketId}) < (${after.modifiedKey}::timestamptz, ${after.ticketId}::uuid)` : undefined;
+}
+
 export async function queueRowsTx(
   actor: StaffActor,
-  input: { queue: QueueKey; sort: QueueSort; search?: QueueSearch; offset: number; limit: number },
+  input: { queue: QueueKey; sort: QueueSort; search?: QueueSearch; offset: number; limit: number; after?: { modifiedKey: string; ticketId: string } },
 ): Promise<QueueRecord[]> {
   return withActor(actor, (tx) =>
     tx
@@ -108,28 +120,64 @@ export async function queueRowsTx(
         firstRespondedOn: tickets.firstRespondedOn,
         dueOn,
         snoozedUntil: tickets.snoozedUntil,
+        snoozeReturnedOn: tickets.snoozeReturnedOn,
+        modifiedKey: sql<string>`to_char(${tickets.modifiedOn} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         clientWaitingSince: tickets.clientWaitingSince,
       })
       .from(tickets)
-      .where(and(queueWhere(input.queue, actor.userId), searchWhere(input.search)))
+      .where(and(queueWhere(input.queue, actor.userId), searchWhere(input.search), afterKey(input.after)))
       .orderBy(...orderOf(input.sort))
       .limit(input.limit)
-      .offset(input.offset),
+      // Листание по ключу смещения не несёт: далёкая страница стоит столько же, сколько первая.
+      .offset(input.after ? 0 : input.offset),
   );
 }
 
-/** Счётчики очередей одним запросом. */
-export async function queueCountsTx(actor: StaffActor): Promise<Record<QueueKey, number>> {
-  const [row] = await withActor(actor, (tx) =>
-    tx
+const OPEN_QUEUES = ['new', 'l2', 'waiting', 'development', 'breached'] as const;
+
+/**
+ * Счётчики очередей (аудит 23.11.2026, находка P2). Считаются только открытые обращения (по частичному индексу) и
+ * "Мои" (по индексу исполнителя): закрытые, которых в базе большинство, не просматриваются. У очереди "Все"
+ * счётчика нет: её число равно размеру базы и работе сотрудника не помогает.
+ */
+export async function queueCountsTx(actor: StaffActor): Promise<Record<QueueKey, number | null>> {
+  return withActor(actor, (tx) => queueCountsIn(tx, actor));
+}
+
+async function queueCountsIn(tx: Tx, actor: StaffActor): Promise<Record<QueueKey, number | null>> {
+  {
+    const [open] = await tx
       .select(
-        Object.fromEntries(
-          QUEUE_KEYS.map((key) => [key, sql<number>`count(*) filter (where ${queueWhere(key, actor.userId) ?? sql`true`})::int`]),
-        ) as Record<QueueKey, SQL<number>>,
+        Object.fromEntries(OPEN_QUEUES.map((key) => [key, sql<number>`count(*) filter (where ${queueWhere(key, actor.userId)})::int`])) as Record<
+          (typeof OPEN_QUEUES)[number],
+          SQL<number>
+        >,
       )
-      .from(tickets),
-  );
-  return row as Record<QueueKey, number>;
+      .from(tickets)
+      // Условие записано текстом и совпадает с условием индексов hdt_tickets_i12 и i13.
+      .where(sql`${tickets.status} not in ('resolved', 'closed')`);
+    const [mine] = await tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(tickets)
+      .where(queueWhere('mine', actor.userId));
+    return { new: open?.new ?? 0, l2: open?.l2 ?? 0, waiting: open?.waiting ?? 0, development: open?.development ?? 0, breached: open?.breached ?? 0, mine: mine?.n ?? 0, all: null };
+  }
+}
+
+/**
+ * Боковая панель страницы очередей одной транзакцией: счётчики, сохранённые фильтры и число "Неопознанных"
+ * (аудит 23.11.2026, находка A3). Раньше это были три транзакции и три соединения пула на каждый просмотр.
+ */
+export async function queueSidebarTx(actor: StaffActor): Promise<{ counts: Record<QueueKey, number | null>; filters: SavedFilter[]; unidentified: number }> {
+  return withActor(actor, async (tx) => {
+    const counts = await queueCountsIn(tx, actor);
+    const filters = await listFiltersIn(tx, actor);
+    const [row] = await tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(tickets)
+      .where(and(eq(tickets.orgId, SERVICE_ORG_ID), ne(tickets.status, 'closed')));
+    return { counts, filters, unidentified: row?.n ?? 0 };
+  });
 }
 
 // --- Сохранённые фильтры (FR-AG-14, UX-A-09) ---
@@ -137,9 +185,11 @@ export async function queueCountsTx(actor: StaffActor): Promise<Record<QueueKey,
 export type SavedFilter = { filterId: string; name: string; query: SavedQuery; isShared: boolean; isMine: boolean };
 
 export async function listFiltersTx(actor: StaffActor): Promise<SavedFilter[]> {
-  const rows = await withActor(actor, (tx) =>
-    tx.select().from(savedFilters).orderBy(asc(savedFilters.name), asc(savedFilters.filterId)),
-  );
+  return withActor(actor, (tx) => listFiltersIn(tx, actor));
+}
+
+async function listFiltersIn(tx: Tx, actor: StaffActor): Promise<SavedFilter[]> {
+  const rows = await tx.select().from(savedFilters).orderBy(asc(savedFilters.name), asc(savedFilters.filterId));
   return rows.map((row) => ({ filterId: row.filterId, name: row.name, query: row.query, isShared: row.isShared, isMine: row.ownerId === actor.userId }));
 }
 

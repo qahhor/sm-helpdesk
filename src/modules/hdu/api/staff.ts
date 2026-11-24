@@ -4,7 +4,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { encode as encodeQr } from 'uqr';
 import * as z from 'zod';
 import { withIdentity } from '@/db/with-identity';
-import { clientIp, consumeRateLimit, ipRateKey, rateKey, resetRateLimit, writeAudit } from '@/modules/hdc/api';
+import { clientIp, consumeRateLimit, ipRateKey, noteStaffSignInFailure, rateKey, resetRateLimit, writeAudit } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { cookieValue } from '@/lib/cookies';
 import { getBotCheck } from '@/security/bot-check';
@@ -13,6 +13,7 @@ import { revokeOtherOwnSessions, revokeSessionById } from '../core/sessions';
 import { acceptStaffInvitationTx, findPendingStaffUserId, findStaff, findStaffByEmail, findStaffInvitation } from '../core/staff';
 import { HduError, type HduErrorCode } from '../error';
 import { emailInput, nameInput, parseInput, passwordInput, tokenInput, totpCodeInput } from '../input';
+import { isCommonPassword } from '../password-rules';
 import { AUTH_COOKIE_PREFIX } from '../pref';
 import { hashToken } from '../tokens';
 import { readSession, type RequestInfo } from './request';
@@ -43,6 +44,8 @@ const ONCE_PER_LOCK: ReadonlySet<FailedStep> = new Set(['rate_limited', 'code_lo
  * Неверный код после верного пароля тоже пишется: это самый явный признак украденного пароля.
  */
 async function recordStaffFailure(userId: string, step: FailedStep, request: Pick<RequestInfo, 'headers'>): Promise<void> {
+  // Общий счётчик неудачных входов для сигнала дежурным о подборе пароля (ТЗ 13.8): считает каждую неудачу.
+  await noteStaffSignInFailure();
   if (ONCE_PER_LOCK.has(step)) {
     const once = await consumeRateLimit(rateKey(`staff-failure-audit:${step}`, userId), RATE_RULES.staffFailureAuditOnce);
     if (!once.allowed) return;
@@ -89,6 +92,8 @@ export async function acceptStaffInvitation(input: unknown, request?: { headers:
   const redeem = await redeemAllowed(request ? clientIp(request.headers) : null);
   if (!redeem.ok) throw new HduError('rate_limited', { retryAfterSec: redeem.retryAfterSec });
   const data = parseInput(acceptInput, input);
+  // Частый пароль отклоняется до того, как приглашение потрачено: сотрудник задаёт другой по той же ссылке.
+  if (isCommonPassword(data.password)) throw new HduError('weak_password');
   await acceptStaffInvitationTx({
     tokenHash: hashToken(data.token),
     name: data.name,

@@ -6,11 +6,27 @@ import { writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, type Impact, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
+import { finalMainNumberTx } from './merged-into';
+import { timelineWindowTx } from './timeline';
 import { refreshSla } from './sla';
 import { notifyTicketTx, oncallP1Tx } from './notify';
 
 // Модуль hdt, слой core: обращения. Операции с данными внутри withActor под ролью hub_app.
 // Организация и автор берутся из актора; политики RLS и триггер t_hdt_tickets_client_guard страхуют.
+
+/**
+ * Второй слой изоляции (аудит 23.11.2026, находки P1 и S7): обращения организации клиента. Организация берётся из
+ * актора. Политики RLS остаются первым слоем; условие в запросе даёт планировщику индекс по организации и держит
+ * границу, если политика ослаблена ошибкой миграции.
+ */
+export function clientTicketScope(actor: ClientActor): SQL {
+  return eq(tickets.orgId, actor.orgId);
+}
+
+/** Обращение организации клиента по номеру. */
+export function clientTicketByNumber(actor: ClientActor, number: number): SQL {
+  return and(clientTicketScope(actor), eq(tickets.number, number)) as SQL;
+}
 
 export type NewTicket = {
   title: string;
@@ -33,7 +49,7 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
   return withActor(actor, async (tx) => {
     let relatedTicketId: string | null = null;
     if (input.relatedNumber !== undefined) {
-      const related = await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(eq(tickets.number, input.relatedNumber)).limit(1);
+      const related = await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(clientTicketByNumber(actor, input.relatedNumber)).limit(1);
       if (!related[0]) throw new HdtError('invalid_input');
       relatedTicketId = related[0].ticketId;
     }
@@ -213,7 +229,7 @@ const likeText = (text: string) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}
 
 /** Обращения, видимые актору (политики RLS), новые изменения первыми, на одну строку больше страницы. */
 export async function listTicketRows(actor: ClientActor, filters: ListFilters): Promise<ListedTicket[]> {
-  const where: SQL[] = [];
+  const where: SQL[] = [clientTicketScope(actor)];
   if (filters.mineOnly) where.push(eq(tickets.authorId, actor.userId));
   if (filters.status) where.push(eq(tickets.status, filters.status));
   if (filters.type) where.push(eq(tickets.type, filters.type));
@@ -237,7 +253,7 @@ export async function listTicketRows(actor: ClientActor, filters: ListFilters): 
         modifiedOnText: sql<string>`${tickets.modifiedOn}::text`,
       })
       .from(tickets)
-      .where(where.length > 0 ? and(...where) : undefined)
+      .where(and(...where))
       .orderBy(desc(tickets.modifiedOn), desc(tickets.ticketId))
       .limit(TICKET_PAGE_SIZE + 1),
   );
@@ -245,7 +261,7 @@ export async function listTicketRows(actor: ClientActor, filters: ListFilters): 
 
 /** Видно ли актору обращение с этим номером (политики RLS). Одна строка без сообщений и файлов. */
 export async function ticketExists(actor: ClientActor, number: number): Promise<boolean> {
-  const rows = await withActor(actor, (tx) => tx.select({ ticketId: tickets.ticketId }).from(tickets).where(eq(tickets.number, number)).limit(1));
+  const rows = await withActor(actor, (tx) => tx.select({ ticketId: tickets.ticketId }).from(tickets).where(clientTicketByNumber(actor, number)).limit(1));
   return rows.length > 0;
 }
 
@@ -264,11 +280,15 @@ export type AttachmentRecord = Pick<
 export async function readTicket(
   actor: ClientActor,
   number: number,
-): Promise<{ ticket: TicketRecord; messages: MessageRecord[]; events: EventRecord[]; attachments: AttachmentRecord[]; watching: boolean; relatedNumber: number | null; mergedIntoNumber: number | null } | null> {
+  limit: number,
+): Promise<{ ticket: TicketRecord; messages: MessageRecord[]; events: EventRecord[]; attachments: AttachmentRecord[]; hasEarlier: boolean; watching: boolean; relatedNumber: number | null; mergedIntoNumber: number | null } | null> {
   return withActor(actor, async (tx) => {
-    const ticket = (await tx.select().from(tickets).where(eq(tickets.number, number)).limit(1))[0];
+    const ticket = (await tx.select().from(tickets).where(clientTicketByNumber(actor, number)).limit(1))[0];
     if (!ticket) return null;
-    const messages = await tx
+    // Последние записи истории, а не вся переписка (аудит 23.11.2026, находка P11). Окно считается под политиками
+    // клиента: внутренние заметки и события в него не входят.
+    const window = await timelineWindowTx(tx, ticket.ticketId, limit);
+    const messages = window.messageIds.length === 0 ? [] : await tx
       .select({
         messageId: ticketMessages.messageId,
         authorId: ticketMessages.authorId,
@@ -277,12 +297,12 @@ export async function readTicket(
         createdOn: ticketMessages.createdOn,
       })
       .from(ticketMessages)
-      .where(eq(ticketMessages.ticketId, ticket.ticketId))
+      .where(inArray(ticketMessages.messageId, window.messageIds))
       .orderBy(asc(ticketMessages.createdOn), asc(ticketMessages.messageId));
-    const events = await tx
+    const events = window.eventIds.length === 0 ? [] : await tx
       .select({ kind: ticketEvents.kind, actorType: ticketEvents.actorType, actorId: ticketEvents.actorId, payload: ticketEvents.payload, createdOn: ticketEvents.createdOn })
       .from(ticketEvents)
-      .where(eq(ticketEvents.ticketId, ticket.ticketId))
+      .where(inArray(ticketEvents.eventId, window.eventIds))
       .orderBy(asc(ticketEvents.createdOn), asc(ticketEvents.eventId));
     const files = await tx
       .select({
@@ -306,9 +326,7 @@ export async function readTicket(
       ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.relatedTicketId)).limit(1))[0]?.number ?? null)
       : null;
     // Номер основного только если основное видно этому клиенту (решение 4 плана M3): запрос идёт под его политикой.
-    const mergedIntoNumber = ticket.mergedIntoId
-      ? ((await tx.select({ number: tickets.number }).from(tickets).where(eq(tickets.ticketId, ticket.mergedIntoId)).limit(1))[0]?.number ?? null)
-      : null;
-    return { ticket, messages, events, attachments: files, watching, relatedNumber, mergedIntoNumber };
+    const mergedIntoNumber = await finalMainNumberTx(tx, ticket.mergedIntoId);
+    return { ticket, messages, events, attachments: files, hasEarlier: window.hasEarlier, watching, relatedNumber, mergedIntoNumber };
   });
 }

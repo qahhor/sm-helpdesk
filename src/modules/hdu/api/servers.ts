@@ -7,6 +7,7 @@ import {
   readServer,
   readServerForCheck,
   readServers,
+  resealServerSecrets as resealCore,
   saveServer,
   saveServerCheck,
   type ServerCheckResult,
@@ -64,6 +65,15 @@ function managingActor(who: ServerManager, now: Date): SystemActor | StaffActor 
   }
   if (who.type !== 'system') throw new HduError('forbidden');
   return who;
+}
+
+/**
+ * Замена ключа шифрования: секреты серверов перешифровываются текущим ключом. Только команда консоли.
+ * Возвращает число перешифрованных и коды серверов, секрет которых не открылся ни одним ключом.
+ */
+export function resealServerSecrets(actor: SystemActor): Promise<{ resealed: number; failed: string[] }> {
+  if (actor.type !== 'system') throw new HduError('forbidden');
+  return resealCore(actor);
 }
 
 /** Адреса сервера по правилам реестра: внешние узлы по https, адрес Smartup Web без пути (угроза T16). */

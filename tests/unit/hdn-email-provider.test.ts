@@ -21,8 +21,8 @@ function signed(body: string, secretKey = key): Headers {
   return new Headers({ 'svix-id': id, 'svix-timestamp': ts, 'svix-signature': `v1,${sig}` });
 }
 
-const make = (fetch: typeof globalThis.fetch) =>
-  createResendProvider({ apiKey: 're_key', from: 'Smartup Hub <hub@mail.example.test>', webhookSecret, fetch, timeoutMs: 50, pausesMs: [0, 0] });
+const make = (fetch: typeof globalThis.fetch, downloadHosts: string[] = ['example.test']) =>
+  createResendProvider({ apiKey: 're_key', from: 'Smartup Hub <hub@mail.example.test>', webhookSecret, fetch, timeoutMs: 50, pausesMs: [0, 0], downloadHosts });
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } });
 
 test('email.received из образца даёт received без текста письма', async () => {
@@ -199,4 +199,68 @@ test('обрыв связи посреди тела вложения: ошибк
     return new Response(body, { status: 200 });
   });
   await expect(make(fetch).download('https://cdn.example.test/reset', 1000)).rejects.toThrow(MailError);
+});
+
+// Скачивание вложения письма (аудит 23.11.2026, находка S15): ссылку присылает почтовый сервис, но сервер портала
+// идёт только на доверенные узлы и за переадресацией на чужой узел не следует.
+
+test('вложение скачивается только с доверенного узла: чужой узел отклоняется без запроса', async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(new Uint8Array(4)));
+  const provider = make(fetch, ['resend.com']);
+  expect((await provider.download('https://inbound-cdn.resend.com/a?signature=s', 10)).byteLength).toBe(4);
+  expect((await provider.download('https://resend.com/a', 10)).byteLength).toBe(4);
+  for (const url of [
+    'https://evil.example/a',
+    'https://resend.com.evil.example/a',
+    'https://notresend.com/a',
+    'https://169.254.169.254/latest/meta-data',
+    'https://user:pass@inbound-cdn.resend.com/a',
+  ])
+    await expect(provider.download(url, 10), url).rejects.toThrow('узел');
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch.mock.calls[0]?.[1]).toMatchObject({ redirect: 'manual' });
+});
+
+test('переадресация вложения: на доверенный узел идём, на чужой нет, длинная цепочка обрывается', async () => {
+  const redirect = (to: string) => new Response(null, { status: 302, headers: { location: to } });
+  const inside = vi
+    .fn<typeof globalThis.fetch>()
+    .mockResolvedValueOnce(redirect('https://files.resend.com/b'))
+    .mockResolvedValueOnce(new Response(new Uint8Array(3)));
+  expect((await make(inside, ['resend.com']).download('https://inbound-cdn.resend.com/a', 10)).byteLength).toBe(3);
+  expect(inside.mock.calls.map((call) => String(call[0]))).toEqual(['https://inbound-cdn.resend.com/a', 'https://files.resend.com/b']);
+
+  const outside = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(redirect('https://169.254.169.254/latest/meta-data'));
+  await expect(make(outside, ['resend.com']).download('https://inbound-cdn.resend.com/a', 10)).rejects.toThrow('узел');
+  expect(outside).toHaveBeenCalledTimes(1);
+
+  const downgrade = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(redirect('http://inbound-cdn.resend.com/b'));
+  await expect(make(downgrade, ['resend.com']).download('https://inbound-cdn.resend.com/a', 10)).rejects.toThrow();
+  expect(downgrade).toHaveBeenCalledTimes(1);
+
+  const loop = vi.fn<typeof globalThis.fetch>(async () => redirect('https://inbound-cdn.resend.com/again'));
+  await expect(make(loop, ['resend.com']).download('https://inbound-cdn.resend.com/a', 10)).rejects.toThrow();
+  expect(loop.mock.calls.length).toBeLessThanOrEqual(4);
+});
+
+test('без настройки доверенным считается только узел почтового сервиса', async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(new Uint8Array(1)));
+  const provider = createResendProvider({ apiKey: 're_key', from: 'Hub <hub@mail.example.test>', fetch, timeoutMs: 50, pausesMs: [0] });
+  expect((await provider.download('https://inbound-cdn.resend.com/a', 10)).byteLength).toBe(1);
+  await expect(provider.download('https://cdn.example.test/a', 10)).rejects.toThrow('узел');
+});
+
+test('отказ и слишком большое вложение не оставляют соединение открытым: запрос отменяется (итоговая проверка W1, F4)', async () => {
+  for (const reply of [
+    () => new Response(new ReadableStream({ start() {} }), { status: 500 }),
+    () => new Response(new ReadableStream({ start() {} }), { status: 200, headers: { 'content-length': '999999' } }),
+  ]) {
+    let signal: AbortSignal | undefined;
+    const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) => {
+      signal = init?.signal ?? undefined;
+      return reply();
+    });
+    await expect(make(fetch).download('https://cdn.example.test/a', 100)).rejects.toThrow();
+    expect(signal?.aborted).toBe(true);
+  }
 });

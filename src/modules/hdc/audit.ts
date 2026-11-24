@@ -71,19 +71,18 @@ export async function writeAudit(tx: Tx, entry: AuditEntry): Promise<void> {
 }
 
 // --- Просмотр журнала (FR-ADM-07, решение 0019) ---
+// Имена авторов и организаций к строкам журнала добавляет модуль пользователей (hdu/api/audit-view.ts): таблицы
+// людей и организаций принадлежат ему (аудит 23.11.2026, находка A2).
 
 export type AuditRow = {
   auditId: string;
   createdOn: Date;
   actorType: string;
   actorId: string | null;
-  /** Имя автора из представления hdu_user_profiles. У системы пусто. */
-  actorName: string | null;
   action: AuditAction;
   objectType: string;
   objectId: string | null;
   orgId: string | null;
-  orgName: string | null;
   diff: Record<string, unknown> | null;
   ip: string | null;
 };
@@ -139,13 +138,10 @@ export async function listAudit(ctx: { actor: Actor }, input: unknown): Promise<
         createdOn: auditLog.createdOn,
         actorType: auditLog.actorType,
         actorId: auditLog.actorId,
-        // Колонки внешней таблицы названы полностью: без имени таблицы org_id совпал бы с колонкой подзапроса.
-        actorName: sql<string | null>`(select p.name from hdu_user_profiles p where p.user_id::text = hdc_audit_log.actor_id)`,
         action: auditLog.action,
         objectType: auditLog.objectType,
         objectId: auditLog.objectId,
         orgId: auditLog.orgId,
-        orgName: sql<string | null>`(select o.name from hdu_organizations o where o.org_id = hdc_audit_log.org_id)`,
         diff: auditLog.diff,
         ip: sql<string | null>`host(${auditLog.ip})`,
       })

@@ -376,6 +376,9 @@ test('неудачный вход сотрудника и упор в счётч
   // Упор в счётчик пишется один раз за окно блокировки, а не на каждую попытку (итоговая проверка, замечание 3).
   const locked = (await pools.root.query(`select diff from hdc_audit_log where action = 'staff.sign_in_failed' and diff->>'step' = 'rate_limited'`)).rows;
   expect(locked).toHaveLength(1);
+  // Общий счётчик для сигнала дежурным считает каждую неудачу известной учётной записи, без её адреса (план W0, задача 4).
+  const counter = (await pools.root.query(`select hits from hdc_rate_limits where code = 'ops:staff-signin-failures'`)).rows;
+  expect(counter).toEqual([{ hits: 21 }]);
 });
 
 test('неверный и повторный код второго фактора записываются в журнал с адресом (итоговая проверка, замечание 4)', async () => {
@@ -395,4 +398,18 @@ test('неверный и повторный код второго фактор�
     { object_id: staff.userId, diff: { step: 'code' }, ip: '203.0.113.32' },
     { object_id: staff.userId, diff: { step: 'code_reused' }, ip: '203.0.113.33' },
   ]);
+});
+
+test('частый пароль при первом входе отклоняется, приглашение остаётся действующим (аудит, S11)', async () => {
+  const { runCli } = await import('@/cli/commands');
+  const lines: string[] = [];
+  const io = { env: process.env, out: (line: string) => void lines.push(line), err: () => {}, readSecret: async () => '' };
+  expect(await runCli(['staff:create', '--email', 'weak@smartup.example', '--name', 'Слабый', '--role', 'care'], io)).toBe(0);
+  const token = (lines.find((line) => line.includes('token=')) ?? '').split('token=')[1] ?? '';
+  const { acceptStaffInvitation } = await import('@/modules/hdu/api/staff');
+  await expect(acceptStaffInvitation({ token, name: 'Слабый', password: 'Password12345' })).rejects.toMatchObject({ code: 'weak_password' });
+  await expect(acceptStaffInvitation({ token, name: 'Слабый', password: 'qwertyuiop12' })).rejects.toMatchObject({ code: 'weak_password' });
+  // Приглашение не потрачено: тот же токен принимает нормальный пароль.
+  await acceptStaffInvitation({ token, name: 'Слабый', password: 'osh-palov-2-kishi-7Q' });
+  expect((await pools.root.query(`select 1 from auth."user" where email = 'weak@smartup.example'`)).rowCount).toBe(1);
 });

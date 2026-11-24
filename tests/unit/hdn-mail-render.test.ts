@@ -25,6 +25,7 @@ const SAMPLES: { [K in MailTemplate]: Omit<Extract<MailData, { template: K }>, k
   holidays_reminder: { template: 'holidays_reminder', year: 2027, url: 'https://hub.example.test/ru/agent/settings/sla' },
   oncall_p1: { template: 'oncall_p1', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', orgName: 'ООО Клиент' },
   inbound_test: { template: 'inbound_test', address: 'support@greenwhite.uz', token: 'chk-7f3a' },
+  ops_alert: { template: 'ops_alert', text: 'Smartup Hub: за час не отправлено писем и сообщений: 3.', url: 'https://hub.example.test/ru/agent' },
 };
 
 const TICKET_TEMPLATES: MailTemplate[] = [
@@ -138,4 +139,22 @@ test('подтверждение неопознанному: в теме и те
       expect(part).not.toContain('заблокирован');
     }
   }
+});
+
+test('письмо о закрытии автору несёт пять ссылок оценки; без адреса оценки и у дубля ссылок нет (FR-TK-11)', async () => {
+  const rateUrl = 'https://hub.example.test/ru/rate?t=1042.aa.bb';
+  for (const locale of LOCALES) {
+    const mail = await renderMail('ticket_status', locale, { ...common, template: 'ticket_status', ...ticket, status: 'closed', rateUrl });
+    for (const score of [1, 2, 3, 4, 5]) {
+      expect(mail.html, locale).toContain(`href="${rateUrl.replace('&', '&amp;')}&amp;score=${score}"`);
+      expect(mail.text, locale).toContain(`${score}: ${rateUrl}&score=${score}`);
+    }
+  }
+  const plainClosed = await renderMail('ticket_status', 'ru', { ...common, template: 'ticket_status', ...ticket, status: 'closed' });
+  expect(plainClosed.html).not.toContain('/rate?');
+  const merged = await renderMail('ticket_status', 'ru', { ...common, template: 'ticket_status', ...ticket, status: 'closed', mergedInto: 7, rateUrl });
+  expect(merged.html).not.toContain('/rate?');
+  expect(merged.text).not.toContain('/rate?');
+  const waiting = await renderMail('ticket_status', 'ru', { ...common, template: 'ticket_status', ...ticket, status: 'waiting_customer', rateUrl });
+  expect(waiting.html).not.toContain('/rate?');
 });

@@ -279,6 +279,7 @@ test('собранный worker.mjs запускается без каталог
   expect((await pools.root.query(`select name, cron, timezone from pgboss.schedule order by name`)).rows).toEqual([
     { name: 'attachment.sweep', cron: '* * * * *', timezone: 'UTC' },
     { name: 'maintenance.cleanup', cron: '0 3 * * *', timezone: 'Asia/Tashkent' },
+    { name: 'ops.watch', cron: '*/5 * * * *', timezone: 'UTC' },
     { name: 'outbox.dispatch', cron: '* * * * *', timezone: 'UTC' },
     { name: 'tickets.minute', cron: '* * * * *', timezone: 'UTC' },
   ]);

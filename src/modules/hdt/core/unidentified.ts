@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, ne, sql } from 'drizzle-orm';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { blockSenderTx } from '@/modules/hdn/api/inbound';
@@ -120,4 +120,15 @@ export async function moveGuestTx(actor: SystemActor, guestUserId: string, userI
     });
     for (const row of watched) await tx.insert(ticketWatchers).values({ ...row, userId }).onConflictDoNothing();
   });
+}
+
+/** Обращений из писем с неизвестных адресов (очередь "Неопознанные"), созданных с указанного времени. */
+export async function unidentifiedSinceTx(actor: SystemActor, since: Date): Promise<number> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(tickets)
+      .where(and(eq(tickets.orgId, SERVICE_ORG_ID), eq(tickets.source, 'email'), gt(tickets.createdOn, since))),
+  );
+  return rows[0]?.n ?? 0;
 }

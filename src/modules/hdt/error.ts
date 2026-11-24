@@ -5,6 +5,8 @@ export const HDT_ERROR_CODES = [
   'invalid_input',
   'not_found',
   'forbidden',
+  // Настройку меняет только свежий вход администратора (аудит 23.11.2026, S10).
+  'stale_session',
   'rate_limited',
   // Переход статуса запрещён таблицей раздела 7.2 или обращение уже изменилось (второе нажатие).
   'transition_refused',
@@ -27,6 +29,8 @@ export const HDT_ERROR_CODES = [
   // обращение нельзя открыть заново, клиент идёт в основное.
   'merge_refused',
   'merged',
+  // Обращение изменили другие, пока у сотрудника была открыта страница: действие не выполнено (FR-AG-12).
+  'changed',
 ] as const;
 
 export type HdtErrorCode = (typeof HDT_ERROR_CODES)[number];
@@ -38,14 +42,20 @@ export class HdtError extends Error {
   /** Кто уже взял обращение (для already_taken): идентификатор ставит ядро, имя подставляет слой api. */
   readonly holderId?: string;
   readonly holderName?: string;
+  /** Что изменилось (для changed). */
+  readonly changed?: { newMessages: number; statusChanged: boolean; assigneeChanged: boolean };
 
-  constructor(code: HdtErrorCode, opts: { retryAfterSec?: number; holderId?: string; holderName?: string } = {}) {
+  constructor(
+    code: HdtErrorCode,
+    opts: { retryAfterSec?: number; holderId?: string; holderName?: string; changed?: { newMessages: number; statusChanged: boolean; assigneeChanged: boolean } } = {},
+  ) {
     super(`hdt: ${code}`);
     this.name = 'HdtError';
     this.code = code;
     this.retryAfterSec = opts.retryAfterSec;
     this.holderId = opts.holderId;
     this.holderName = opts.holderName;
+    this.changed = opts.changed;
   }
 }
 

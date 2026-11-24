@@ -1,4 +1,5 @@
 import 'server-only';
+import { searchable } from '@/modules/hdc/pref';
 import type { ClientActor } from '@/db/with-actor';
 import type { Locale } from '@/i18n/locales';
 import { z } from 'zod';
@@ -114,13 +115,16 @@ const searchInput = z.object({
 });
 
 /** Поиск по названию, ИНН и идентификатору компании. По 50 строк, hasMore: есть следующая страница. */
-export async function searchOrganizations(ctx: StaffContext, input: unknown): Promise<{ items: OrgRow[]; hasMore: boolean }> {
+export async function searchOrganizations(ctx: StaffContext, input: unknown): Promise<{ items: OrgRow[]; hasMore: boolean; searchTooShort: boolean }> {
   requireHumanStaff(ctx);
   const parsed = searchInput.safeParse(input ?? {});
   if (!parsed.success) throw new HduError('invalid_input');
   const page = parsed.data.page ?? 1;
-  const rows = await searchOrgs(ctx.actor, { query: parsed.data.query ?? '', offset: (page - 1) * ORG_PAGE_SIZE, limit: ORG_PAGE_SIZE });
-  return { items: rows.slice(0, ORG_PAGE_SIZE), hasMore: rows.length > ORG_PAGE_SIZE };
+  const query = parsed.data.query ?? '';
+  // Запрос из одного-двух знаков не ищется (аудит 23.11.2026, находка P9); пустой показывает все организации.
+  if (query && !searchable(query)) return { items: [], hasMore: false, searchTooShort: true };
+  const rows = await searchOrgs(ctx.actor, { query, offset: (page - 1) * ORG_PAGE_SIZE, limit: ORG_PAGE_SIZE });
+  return { items: rows.slice(0, ORG_PAGE_SIZE), hasMore: rows.length > ORG_PAGE_SIZE, searchTooShort: false };
 }
 
 /** Карточка организации. Неверный или неизвестный идентификатор: пусто (страница отвечает 404). */
@@ -182,6 +186,8 @@ export async function listOrgDomains(ctx: StaffContext, orgId: unknown): Promise
 /** Домен почты организации: Customer Care и администратор. Домен общей почтовой службы не принимается. */
 export async function addOrgDomain(ctx: StaffContext, input: unknown): Promise<void> {
   if (!DOMAIN_MANAGERS.has(ctx.actor.staffRole)) throw new HduError('forbidden');
+  // Домен решает, чьим считается письмо: меняет его только свежий вход (итоговая проверка W0, M6).
+  if (!isFresh(ctx, new Date(), FRESH_SIGN_IN_SEC)) throw new HduError('stale_session');
   const { orgId, domain } = parseInput(domainInput, input);
   if (!(await getOrgRow(ctx.actor, orgId))) throw new HduError('not_found');
   await addOrgDomainTx(ctx.actor, orgId, domain);
@@ -189,6 +195,8 @@ export async function addOrgDomain(ctx: StaffContext, input: unknown): Promise<v
 
 export async function removeOrgDomain(ctx: StaffContext, input: unknown): Promise<void> {
   if (!DOMAIN_MANAGERS.has(ctx.actor.staffRole)) throw new HduError('forbidden');
+  // Домен решает, чьим считается письмо: меняет его только свежий вход (итоговая проверка W0, M6).
+  if (!isFresh(ctx, new Date(), FRESH_SIGN_IN_SEC)) throw new HduError('stale_session');
   const { orgId, domain } = parseInput(domainInput.extend({ domain: z.string().trim().toLowerCase().max(253) }), input);
   await removeOrgDomainTx(ctx.actor, orgId, domain);
 }

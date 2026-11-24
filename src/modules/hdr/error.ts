@@ -2,7 +2,7 @@
 // Сервис возвращает код, а не текст: текст на языке пользователя подставляет страница (решение 0022).
 
 // shortcut_taken: код шаблона ответа уже занят другим шаблоном (FR-AG-06).
-export const HDR_ERROR_CODES = ['forbidden', 'invalid_input', 'shortcut_taken'] as const;
+export const HDR_ERROR_CODES = ['forbidden', 'invalid_input', 'shortcut_taken', 'stale_session'] as const;
 
 export type HdrErrorCode = (typeof HDR_ERROR_CODES)[number];
 

@@ -47,11 +47,25 @@ function offsetAt(instant: number, timeZone: string): number {
   return Date.UTC(p.y, p.m - 1, p.d, 0, p.minutes, p.seconds) - Math.floor(instant / 1000) * 1000;
 }
 
+/**
+ * Запомненные границы рабочих дней: момент для местной даты, минут суток и часового пояса. Расчёт фазы срока идёт
+ * по дням от создания обращения, и без памяти каждый день стоил четырёх форматирований даты: около 1 мс на строку
+ * очереди у давно открытого обращения (приёмка волны 1, замер на 200 тысячах обращений). Правила часового пояса
+ * в пределах процесса не меняются, поэтому значение можно хранить. Память ограничена: при переполнении сбрасывается.
+ */
+const instants = new Map<string, number>();
+const INSTANTS_MAX = 20_000;
+
 /** Момент времени для местных даты и минут суток. Две попытки учитывают переход на летнее время. */
 function toInstant(date: LocalDate, minutesOfDay: number, timeZone: string): number {
+  const key = `${timeZone}|${date.y}-${date.m}-${date.d}|${minutesOfDay}`;
+  const known = instants.get(key);
+  if (known !== undefined) return known;
   const wall = Date.UTC(date.y, date.m - 1, date.d, 0, minutesOfDay);
   const first = wall - offsetAt(wall, timeZone);
   const second = wall - offsetAt(first, timeZone);
+  if (instants.size >= INSTANTS_MAX) instants.clear();
+  instants.set(key, second);
   return second;
 }
 

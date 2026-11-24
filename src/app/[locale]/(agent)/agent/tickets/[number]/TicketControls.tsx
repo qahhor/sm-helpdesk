@@ -27,6 +27,8 @@ export async function TicketControls({ ticket, me, role, staff, modules }: Props
   const tt = await getTranslations('agent.ticket');
   if (role === 'product') return null;
   const hidden = <input type="hidden" name="number" value={ticket.number} />;
+  // Версия обращения, которую видит сотрудник: действие со старой страницы не выполняется молча (FR-AG-12).
+  const seen = <input type="hidden" name="seen" value={ticket.version} />;
   const transitions = allowedStaffTransitions(ticket.status, role, { merged: ticket.mergedInto !== null });
   // Обращение на второй линии берёт вторая линия (решение 0031, пункт 15).
   const canTake = ticket.assignee?.id !== me && (ticket.line === 'l1' || ['agent_l2', 'care', 'admin'].includes(role));
@@ -46,6 +48,7 @@ export async function TicketControls({ ticket, me, role, staff, modules }: Props
 
         <form action={assignAction} className={field}>
           {hidden}
+          {seen}
           <label htmlFor="ctl-assignee" className={label}>
             {t('assignee')}
           </label>
@@ -67,6 +70,7 @@ export async function TicketControls({ ticket, me, role, staff, modules }: Props
         {transitions.length > 0 && (
           <form action={statusAction} className={field}>
             {hidden}
+            {seen}
             <label htmlFor="ctl-status" className={label}>
               {t('status')}
             </label>
@@ -104,6 +108,7 @@ export async function TicketControls({ ticket, me, role, staff, modules }: Props
 
         <form action={priorityAction} className={field}>
           {hidden}
+          {seen}
           <label htmlFor="ctl-priority" className={label}>
             {t('priority')}
           </label>

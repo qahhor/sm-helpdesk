@@ -1,5 +1,6 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { loadSlaConfig, type Priority } from '@/modules/hdr/api';
+import { readPickup } from '@/modules/hdt/api';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
@@ -11,7 +12,7 @@ import { Select } from '@/ui/components/select';
 import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { Textarea } from '@/ui/components/textarea';
 import { settingsNav } from '../sections';
-import { saveCalendarAction, saveHolidaysAction, saveSlaPolicyAction } from './actions';
+import { saveCalendarAction, saveHolidaysAction, savePickupAction, saveSlaPolicyAction } from './actions';
 
 // "Сроки и рабочее время" (FR-SLA-01, FR-SLA-12, раздел 7.4): сроки по приоритету, режим отсчёта, график недели,
 // праздники текущего и следующего года. Новые значения действуют на новые расчёты (решение 0032).
@@ -19,7 +20,7 @@ import { saveCalendarAction, saveHolidaysAction, saveSlaPolicyAction } from './a
 const PRIORITIES: readonly Priority[] = ['p1', 'p2', 'p3', 'p4'];
 /** Дни в привычном порядке: с понедельника. 0 воскресенье. */
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
-const DONE = new Set(['policy', 'calendar', 'holidays']);
+const DONE = new Set(['policy', 'calendar', 'holidays', 'pickup']);
 
 /** Год и месяц по часовому поясу календаря. */
 function localYearMonth(timeZone: string, now = new Date()): { year: number; month: number } {
@@ -30,8 +31,10 @@ function localYearMonth(timeZone: string, now = new Date()): { year: number; mon
 export default async function SlaSettingsPage({ searchParams }: { searchParams: Promise<{ done?: string; error?: string; line?: string }> }) {
   const staff = await requireStaffActor({ roles: ['admin'] });
   const t = await getTranslations('agent');
+  const locale = await getLocale();
   const { done, error, line: lineParam } = await searchParams;
   const config = await loadSlaConfig(staff.actor);
+  const pickup = await readPickup(staff);
   const nav = await settingsNav('sla');
   const { year, month } = localYearMonth(config.calendar.timeZone);
   const years = [year, year + 1];
@@ -48,7 +51,17 @@ export default async function SlaSettingsPage({ searchParams }: { searchParams: 
       <SettingsLayout {...nav}>
         {done && DONE.has(done) && <Alert tone="success">{t(`settings.sla.done.${done}`)}</Alert>}
         {error === 'holidaysLine' && <Alert tone="danger">{t('settings.sla.errors.holidaysLine', { line: Number(lineParam) || 1 })}</Alert>}
-        {error && error !== 'holidaysLine' && <Alert tone="danger">{t(error === 'forbidden' ? 'settings.sla.errors.forbidden' : 'settings.sla.errors.invalid_input')}</Alert>}
+        {error === 'stale_session' && (
+          <Alert tone="danger">
+            {t('settings.sla.errors.stale_session')}{' '}
+            <a href={`/${locale}/staff/login?reauth=1&next=${encodeURIComponent(`/${locale}/agent/settings/sla`)}`} className="font-semibold underline">
+              {t('settings.sla.reauth')}
+            </a>
+          </Alert>
+        )}
+        {error && error !== 'holidaysLine' && error !== 'stale_session' && (
+          <Alert tone="danger">{t(error === 'forbidden' ? 'settings.sla.errors.forbidden' : 'settings.sla.errors.invalid_input')}</Alert>
+        )}
         {nextYearMissing && <Alert tone="info">{t('settings.sla.holidaysMissing', { year: year + 1 })}</Alert>}
         <p className="text-secondary-foreground">{t('settings.sla.intro')}</p>
 
@@ -153,6 +166,40 @@ export default async function SlaSettingsPage({ searchParams }: { searchParams: 
               </CardContent>
             </Card>
           ))}
+        </section>
+        <section aria-labelledby="sla-pickup" className="flex flex-col gap-3">
+          <h2 id="sla-pickup" className="text-lg font-semibold">
+            {t('settings.sla.pickup.title')}
+          </h2>
+          <p className="text-secondary-foreground">{t('settings.sla.pickup.intro')}</p>
+          <Card>
+            <CardContent className="pt-6">
+              <form action={savePickupAction} className="flex flex-col gap-3">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  {PRIORITIES.map((priority) => (
+                    <div key={priority} className="flex flex-col gap-1">
+                      <Label htmlFor={`pickup-${priority}`}>{t('settings.sla.pickup.field', { priority: priority.toUpperCase() })}</Label>
+                      <Input
+                        id={`pickup-${priority}`}
+                        name={priority}
+                        type="number"
+                        min={1}
+                        max={100000}
+                        defaultValue={pickup[priority] ?? ''}
+                        aria-describedby={`pickup-${priority}-hint`}
+                      />
+                      <p id={`pickup-${priority}-hint`} className="text-sm text-secondary-foreground">
+                        {t('settings.sla.pickup.hint', { minutes: config.policies[priority].firstResponseMinutes })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <Button type="submit" className="self-start">
+                  {t('settings.sla.save')}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </section>
         <p className="text-sm text-secondary-foreground">{t('settings.sla.appliesToNew')}</p>
       </SettingsLayout>

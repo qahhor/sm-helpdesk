@@ -58,7 +58,16 @@ export async function processedTwinTx(tx: Tx, row: InboundRow): Promise<{ classi
   const rows = await tx
     .select({ classification: emailInbound.classification, ticketId: emailInbound.ticketId })
     .from(emailInbound)
-    .where(and(eq(emailInbound.messageId, row.messageId), ne(emailInbound.inboundId, row.inboundId), isNotNull(emailInbound.processedOn)))
+    // Повтор доставки это то же письмо того же отправителя. Message-ID задаёт отправитель: чужое письмо с тем же
+    // значением повтором не считается (M4, мелкое 5), иначе им можно было бы "погасить" ожидаемое письмо клиента.
+    .where(
+      and(
+        eq(emailInbound.messageId, row.messageId),
+        eq(emailInbound.fromAddress, row.fromAddress),
+        ne(emailInbound.inboundId, row.inboundId),
+        isNotNull(emailInbound.processedOn),
+      ),
+    )
     .limit(1);
   const twin = rows[0];
   return twin ? { classification: twin.classification ?? 'ignored', ticketId: twin.ticketId } : null;
@@ -133,6 +142,17 @@ const REQUEUE_AFTER_MIN = 10;
  * Неразобранные письма (задача не встала в очередь или повторы кончились при сбое почтового сервиса): идентификаторы
  * для повторной постановки (итоговая проверка M4). Старше трёх суток не берутся.
  */
+/** Писем, которые с указанного времени остановил предел частоты (итог разбора rate_limited). */
+export async function heldInboundSince(actor: SystemActor, since: Date): Promise<number> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(emailInbound)
+      .where(and(eq(emailInbound.classification, 'rate_limited'), gt(emailInbound.processedOn, since))),
+  );
+  return rows[0]?.n ?? 0;
+}
+
 export async function staleInboundIds(actor: SystemActor, now: Date, limit: number): Promise<string[]> {
   const rows = await withActor(actor, (tx) =>
     tx
@@ -149,4 +169,19 @@ export async function staleInboundIds(actor: SystemActor, now: Date, limit: numb
       .limit(limit),
   );
   return rows.map((row) => row.inboundId);
+}
+
+/** Разобранные входящие письма хранятся столько суток (аудит 23.11.2026, находка P6). */
+export const INBOUND_KEEP_DAYS = 90;
+
+/** Ночная очистка: разобранные письма старше срока. Неразобранные остаются: их видит сигнал дежурным. */
+export async function cleanupInboundTx(actor: SystemActor, now: Date): Promise<number> {
+  const before = new Date(now.getTime() - INBOUND_KEEP_DAYS * 86_400_000);
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .delete(emailInbound)
+      .where(and(isNotNull(emailInbound.processedOn), lt(emailInbound.createdOn, before)))
+      .returning({ inboundId: emailInbound.inboundId }),
+  );
+  return rows.length;
 }

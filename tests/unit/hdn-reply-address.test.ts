@@ -31,3 +31,16 @@ test('одна изменённая буква подписи, чужой дом
   // Другой секрет: адрес чужой.
   expect(parseReplyAddress(address, { ...cfg, secret: 'another-secret-of-at-least-32-chars' })).toBeNull();
 });
+
+test('замена ключа подписи: адрес, подписанный прежним ключом, принимается, новый адрес подписан новым (S6)', () => {
+  const user = '0190a1b2-c3d4-7e5f-8a6b-0c1d2e3f4a5b';
+  const old = replyAddress(1042, user, { domain: 'reply.example.test', secret: 'old-secret-of-at-least-32-characters!!' });
+  const cfg = { domain: 'reply.example.test', secret: 'new-secret-of-at-least-32-characters!!', previousSecret: 'old-secret-of-at-least-32-characters!!' };
+  expect(parseReplyAddress(old, cfg)).toEqual({ number: 1042, userId: user });
+  const fresh = replyAddress(1042, user, cfg);
+  expect(fresh).not.toBe(old);
+  expect(parseReplyAddress(fresh, cfg)).toEqual({ number: 1042, userId: user });
+  // Без прежнего ключа старый адрес не принимается.
+  expect(parseReplyAddress(old, { domain: cfg.domain, secret: cfg.secret })).toBeNull();
+  expect(parseReplyAddress(old.replace(/\.[0-9a-f]{20}@/, `.${'0'.repeat(20)}@`), cfg)).toBeNull();
+});

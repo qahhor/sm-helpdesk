@@ -5,7 +5,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 // Только строчные буквы и цифры: почтовые серверы могут менять регистр. Местная часть не длиннее 64 знаков
 // при номере до 7 цифр. Подпись сверяется за постоянное время.
 
-export type ReplyConfig = { domain: string; secret: string };
+/** previousSecret: прежний ключ подписи на время замены ключа: адреса из уже отправленных писем продолжают работать. */
+export type ReplyConfig = { domain: string; secret: string; previousSecret?: string };
 
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567';
 const SIG_LENGTH = 20;
@@ -63,9 +64,13 @@ export function parseReplyAddress(address: string, cfg: ReplyConfig): { number: 
   if (domain !== cfg.domain.toLowerCase()) return null;
   const number = Number(numberText);
   if (!Number.isSafeInteger(number) || number <= 0) return null;
-  const expected = Buffer.from(sign(number, userShort, cfg.secret));
   const given = Buffer.from(sig);
-  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+  // Подпись сверяется с текущим ключом и, на время замены ключа, с прежним (аудит 23.11.2026, находка S6).
+  const matches = [cfg.secret, cfg.previousSecret].filter((secret): secret is string => Boolean(secret)).some((secret) => {
+    const expected = Buffer.from(sign(number, userShort, secret));
+    return given.length === expected.length && timingSafeEqual(given, expected);
+  });
+  if (!matches) return null;
   const bytes = fromBase32(userShort);
   if (!bytes || bytes.length !== 16) return null;
   const hex = bytes.toString('hex');
@@ -80,7 +85,9 @@ export function setReplyConfigForTests(cfg: ReplyConfig | null | undefined): voi
 }
 
 /** Домен и секрет адресов ответа из окружения (REPLY_DOMAIN, REPLY_HMAC_SECRET). Не заданы: приём выключен. */
-export function replyConfigOf(env: { REPLY_DOMAIN?: string; REPLY_HMAC_SECRET?: string }): ReplyConfig | null {
+export function replyConfigOf(env: { REPLY_DOMAIN?: string; REPLY_HMAC_SECRET?: string; REPLY_HMAC_SECRET_PREVIOUS?: string }): ReplyConfig | null {
   if (override !== undefined) return override;
-  return env.REPLY_DOMAIN && env.REPLY_HMAC_SECRET ? { domain: env.REPLY_DOMAIN, secret: env.REPLY_HMAC_SECRET } : null;
+  return env.REPLY_DOMAIN && env.REPLY_HMAC_SECRET
+    ? { domain: env.REPLY_DOMAIN, secret: env.REPLY_HMAC_SECRET, ...(env.REPLY_HMAC_SECRET_PREVIOUS ? { previousSecret: env.REPLY_HMAC_SECRET_PREVIOUS } : {}) }
+    : null;
 }

@@ -8,6 +8,7 @@ import { ATTACHABLE_SCAN_STATUSES, canTransition, type CsatReason, REOPEN_DAYS_D
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { isThanks } from './thanks';
 import { notifyTicketTx } from './notify';
+import { clientTicketByNumber } from './tickets';
 
 // Модуль hdt, слой core: действия клиента над обращением (FR-TK-08..12). Каждое действие одной
 // транзакцией: обращение блокируется (одновременное второе нажатие видит уже новый статус), меняется
@@ -25,7 +26,7 @@ type Locked = {
 };
 
 /** Видимое актору обращение по номеру с блокировкой строки. Невидимое и несуществующее: not_found. */
-async function lockTicket(tx: Tx, number: number): Promise<Locked> {
+async function lockTicket(tx: Tx, actor: ClientActor, number: number): Promise<Locked> {
   const row = (
     await tx
       .select({
@@ -39,7 +40,7 @@ async function lockTicket(tx: Tx, number: number): Promise<Locked> {
         mergedIntoId: tickets.mergedIntoId,
       })
       .from(tickets)
-      .where(eq(tickets.number, number))
+      .where(clientTicketByNumber(actor, number))
       .limit(1)
       .for('update')
   )[0];
@@ -92,7 +93,7 @@ async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body
  */
 export async function replyTx(actor: ClientActor, number: number, body: string, attachmentIds: string[]): Promise<string> {
   return withActor(actor, async (tx) => {
-    const ticket = await lockTicket(tx, number);
+    const ticket = await lockTicket(tx, actor, number);
     if (ticket.status === 'closed') throw new HdtError('transition_refused');
     // Благодарность на решённое (FR-TK-14, решение 15): сообщение сохраняется, обращение остаётся решённым и не
     // считается ждущим ответа. Файл в сообщении это уже не просто "спасибо": открывается заново.
@@ -119,7 +120,7 @@ export async function reopenDays(): Promise<number> {
 /** "Решение подошло": resolved → closed (FR-TK-10). */
 export async function confirmTx(actor: ClientActor, number: number): Promise<void> {
   await withActor(actor, async (tx) => {
-    const ticket = await lockTicket(tx, number);
+    const ticket = await lockTicket(tx, actor, number);
     // Закрыть чужое обращение подтверждением может только администратор клиента (решение 0026, пункт 21).
     if (ticket.authorId !== actor.userId && actor.orgRole !== 'client_admin') throw new HdtError('forbidden');
     if (ticket.status !== 'resolved') throw new HdtError('transition_refused');
@@ -130,7 +131,7 @@ export async function confirmTx(actor: ClientActor, number: number): Promise<voi
 /** Открыть заново: решённое всегда, закрытое в пределах срока (FR-TK-12). Необязательный текст становится сообщением. */
 export async function reopenTx(actor: ClientActor, number: number, reopenDays: number, body?: string): Promise<string> {
   return withActor(actor, async (tx) => {
-    const ticket = await lockTicket(tx, number);
+    const ticket = await lockTicket(tx, actor, number);
     // Объединённое закрыто навсегда: клиент продолжает в основном (решение 4 плана M3).
     if (ticket.mergedIntoId) throw new HdtError('merged');
     if (ticket.status === 'closed') {
@@ -145,9 +146,15 @@ export async function reopenTx(actor: ClientActor, number: number, reopenDays: n
 }
 
 /** Оценка закрытого обращения, один раз (FR-TK-11). */
-export async function rateTx(actor: ClientActor, number: number, rating: { score: number; reason?: CsatReason; comment?: string }): Promise<void> {
+export async function rateTx(
+  actor: ClientActor,
+  number: number,
+  rating: { score: number; reason?: CsatReason; comment?: string },
+  /** Оценка по ссылке из письма, без входа: в журнале аудита остаётся запись с адресом запроса (решение 0040). */
+  via?: { byLink: true; ip: string | null },
+): Promise<void> {
   await withActor(actor, async (tx) => {
-    const ticket = await lockTicket(tx, number);
+    const ticket = await lockTicket(tx, actor, number);
     // Оценка одна и отражает опыт автора: коллега не ставит её за него (решение 0026, пункт 21).
     if (ticket.authorId !== actor.userId) throw new HdtError('forbidden');
     if (ticket.status !== 'closed') throw new HdtError('transition_refused');
@@ -157,13 +164,14 @@ export async function rateTx(actor: ClientActor, number: number, rating: { score
       .set({ csatScore: rating.score, csatReason: rating.reason ?? null, csatComment: rating.comment ?? null })
       .where(eq(tickets.ticketId, ticket.ticketId));
     await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'rated', actorType: 'client', actorId: actor.userId, payload: { score: rating.score } });
+    if (via) await writeAudit(tx, { action: 'ticket.rated_by_link', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: { score: rating.score }, ...(via.ip ? { ip: via.ip } : {}) });
   });
 }
 
 /** Видимость (FR-TK-04): меняют автор и администратор клиента. */
 export async function visibilityTx(actor: ClientActor, number: number, visibility: Visibility): Promise<void> {
   const ticketId = await withActor(actor, async (tx) => {
-    const ticket = await lockTicket(tx, number);
+    const ticket = await lockTicket(tx, actor, number);
     if (ticket.authorId !== actor.userId && actor.orgRole !== 'client_admin') throw new HdtError('forbidden');
     if (ticket.visibility === visibility) return ticket.ticketId;
     await tx.update(tickets).set({ visibility }).where(eq(tickets.ticketId, ticket.ticketId));
@@ -205,7 +213,7 @@ async function dropColleagueWatchers(ticketId: string, ip: string | null): Promi
 /** Подписка на обращение организации (FR-TK-09). Повторная подписка ничего не меняет. */
 export async function watchTx(actor: ClientActor, number: number): Promise<void> {
   await withActor(actor, async (tx) => {
-    const ticket = await lockTicket(tx, number);
+    const ticket = await lockTicket(tx, actor, number);
     if (ticket.visibility !== 'org' || ticket.authorId === actor.userId) throw new HdtError('forbidden');
     await tx.insert(ticketWatchers).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, userId: actor.userId, source: 'manual' }).onConflictDoNothing();
   });
@@ -214,7 +222,7 @@ export async function watchTx(actor: ClientActor, number: number): Promise<void>
 /** Отписка. Автор подписан всегда. */
 export async function unwatchTx(actor: ClientActor, number: number): Promise<void> {
   await withActor(actor, async (tx) => {
-    const ticket = await lockTicket(tx, number);
+    const ticket = await lockTicket(tx, actor, number);
     if (ticket.authorId === actor.userId) throw new HdtError('forbidden');
     await tx.delete(ticketWatchers).where(and(eq(ticketWatchers.ticketId, ticket.ticketId), eq(ticketWatchers.userId, actor.userId)));
   });

@@ -85,6 +85,8 @@ export const queueInput = z.object({
   sort: z.enum(QUEUE_SORTS).default('sla'),
   q: optional(z.string().trim().min(1).max(200)),
   page: z.coerce.number().int().min(1).max(1000).default(1),
+  // Ключ последней строки прошлой страницы: время изменения с микросекундами и идентификатор обращения.
+  after: optional(z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/).refine((value) => !Number.isNaN(Date.parse(value.slice(0, 23) + 'Z')))),
 });
 
 export const savedFilterInput = z.object({
@@ -93,13 +95,17 @@ export const savedFilterInput = z.object({
   isShared: z.boolean().default(false),
 });
 
-export const assignInput = z.object({ number: numberInput, assigneeId: z.uuid().nullable() });
+/** seenVersion: версия обращения, которую видел сотрудник на странице (FR-AG-12). Не передана: проверки нет. */
+const seenVersion = optional(z.iso.datetime());
+
+export const assignInput = z.object({ number: numberInput, assigneeId: z.uuid().nullable(), seenVersion });
 
 export const statusInput = z.object({
   number: numberInput,
   to: z.enum(TICKET_STATUSES),
   resolution: optional(z.enum(RESOLUTION_TYPES)),
   version: optional(z.string().overwrite(cleanUserText).trim().min(1).max(50)),
+  seenVersion,
 });
 
 /** Причина обязательна (FR-SLA-03): пустую сервис отклоняет кодом reason_required, а не invalid_input. */
@@ -107,6 +113,7 @@ export const priorityInput = z.object({
   number: numberInput,
   priority: z.enum(PRIORITIES),
   reason: z.string().overwrite(cleanUserText).trim().max(500),
+  seenVersion,
 });
 
 export const typeInput = z.object({ number: numberInput, type: z.enum(TICKET_TYPES) });

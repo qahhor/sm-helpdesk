@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql 
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { readSetting, writeAudit } from '@/modules/hdc/api';
-import { notifyTx } from '@/modules/hdn/api/notifications';
+import { holidaysReminderSentTx, notifyTx } from '@/modules/hdn/api/notifications';
 import { enqueueTx } from '@/modules/hdn/api/outbox';
 import { adminIds, lineLeads } from '@/modules/hdu/api/recipients';
 import { readSlaConfig } from '@/modules/hdr/api';
@@ -23,6 +23,7 @@ import { addWorkingDays } from '../sla';
 import { systemText, type SystemTextKey } from '../system-text';
 import { notifyTicketTx } from './notify';
 import { needsSlaRefreshTx, refreshSla } from './sla';
+import { logEvent } from '@/lib/log';
 
 // Модуль hdt, слой core: задача раз в минуту (решения 2, 8, 13, 14 плана M3; FR-TK-10, FR-TK-15, 10.5). Каждый шаг
 // своей транзакцией системного актора, пачками по 200 строк с FOR UPDATE SKIP LOCKED: два экземпляра задачи не берут
@@ -88,9 +89,11 @@ async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
       .limit(SWEEP_BATCH)
       .for('update', { skipLocked: true });
     if (first.length > 0)
-      await tx.update(tickets).set({ firstResponseBreachedOn: now }).where(inArray(tickets.ticketId, first.map((t) => t.ticketId)));
+      // Время нарушения это сам срок, а не время запуска задачи (M3, мелкое 1): после простоя процесса показатели
+      // нарушений не сдвигаются на время простоя.
+      await tx.update(tickets).set({ firstResponseBreachedOn: sql`${tickets.firstResponseDueOn}` }).where(inArray(tickets.ticketId, first.map((t) => t.ticketId)));
     if (resolution.length > 0)
-      await tx.update(tickets).set({ resolutionBreachedOn: now }).where(inArray(tickets.ticketId, resolution.map((t) => t.ticketId)));
+      await tx.update(tickets).set({ resolutionBreachedOn: sql`${tickets.resolutionDueOn}` }).where(inArray(tickets.ticketId, resolution.map((t) => t.ticketId)));
     const events = [
       ...first.map((t) => ({ ...t, kind: 'first_response' })),
       ...resolution.map((t) => ({ ...t, kind: 'resolution' })),
@@ -117,7 +120,12 @@ async function returnSnoozed(actor: SystemActor, now: Date): Promise<number> {
       .limit(SWEEP_BATCH)
       .for('update', { skipLocked: true });
     if (due.length === 0) return 0;
-    await tx.update(tickets).set({ snoozedUntil: null }).where(inArray(tickets.ticketId, due.map((t) => t.ticketId)));
+    // Время возврата остаётся пометкой в очереди до первого действия сотрудника (FR-AG-13).
+    // Решённому и закрытому пометка не нужна: с ним уже нечего делать, и снять её было бы некому.
+    await tx
+      .update(tickets)
+      .set({ snoozedUntil: null, snoozeReturnedOn: sql`case when ${tickets.status} in ('resolved', 'closed') then null else ${now.toISOString()}::timestamptz end` })
+      .where(inArray(tickets.ticketId, due.map((t) => t.ticketId)));
     await tx.insert(ticketEvents).values(
       due.map((t) => ({ orgId: t.orgId, ticketId: t.ticketId, kind: 'snooze' as const, actorType: 'system' as const, payload: { until: null, returned: true }, isInternal: true })),
     );
@@ -283,8 +291,7 @@ export async function holidaysReminderTx(actor: SystemActor, now: Date): Promise
   return withActor(actor, async (tx) => {
     const calendar = (await readSlaConfig(tx)).calendar;
     if (calendar.holidays.some((day) => day.startsWith(`${next}-`))) return 0;
-    const sent = await tx.execute(sql`select 1 from hdn_notifications where kind = 'holidays_reminder' and payload ->> 'year' = ${String(next)} limit 1`);
-    if (sent.rows.length > 0) return 0;
+    if (await holidaysReminderSentTx(tx, next)) return 0;
     for (const userId of admins) {
       await notifyTx(tx, { userId, kind: 'holidays_reminder', payload: { year: next } });
       await enqueueTx(tx, {
@@ -311,9 +318,17 @@ async function removePresence(actor: SystemActor, now: Date): Promise<number> {
  * Шаг своей транзакцией: сбой одного шага (испорченный календарь, взаимная блокировка) пишется в журнал процесса
  * и не останавливает остальные. Следующая минута повторит его (итоговая проверка M3).
  */
+/** Шаг задачи раз в минуту дольше этого порога пишется в журнал. */
+const SLOW_STEP_MS = 5000;
+
 async function step(name: string, run: () => Promise<number>): Promise<number> {
+  const startedAt = performance.now();
   try {
-    return await run();
+    const result = await run();
+    // Длительность шага: по ней видно, какой шаг замедляется с ростом базы (аудит 23.11.2026, P3 и O1).
+    const ms = Math.round(performance.now() - startedAt);
+    if (ms >= SLOW_STEP_MS) logEvent('warn', 'tickets.minute.slow_step', { step: name, ms });
+    return result;
   } catch (error) {
     console.error(`tickets.minute: шаг ${name} не выполнен: ${error instanceof Error ? error.message : String(error)}`);
     return 0;

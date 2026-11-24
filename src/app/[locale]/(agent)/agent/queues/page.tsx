@@ -1,9 +1,22 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { HDT_ERROR_CODES, listFilters, listQueue, QUEUE_KEYS, QUEUE_SORTS, type QueueKey, queueCounts, type QueueSort, TRANSFER_REASONS, unidentifiedCount } from '@/modules/hdt/api';
+import {
+  defaultQueueSort,
+  HDT_ERROR_CODES,
+  listQueue,
+  QUEUE_KEYS,
+  QUEUE_SORTS,
+  queueHref,
+  type QueueKey,
+  queueSidebar,
+  type QueueSort,
+  type QueueTarget,
+  TRANSFER_REASONS,
+} from '@/modules/hdt/api';
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
+import { StatusLabel } from '@/ui/components/StatusLabel';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card } from '@/ui/components/card';
 import { EmptyState } from '@/ui/components/EmptyState';
@@ -11,15 +24,18 @@ import { Input } from '@/ui/components/input';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { Select } from '@/ui/components/select';
 import { cn } from '@/ui/cn';
-import { deleteFilterAction, saveFilterAction } from './actions';
+import { saveFilterAction } from './actions';
 import { BULK_FORM_ID, BulkBar } from './BulkBar';
+import { QueueNav } from './QueueNav';
 import { QueuePreview } from './QueuePreview';
 import { QueueKeys } from './QueueKeys';
 
 // Очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18, UX-A-08, UX-A-09; экран 8.4 "Очередь").
 // Слева очереди со счётчиками и сохранённые списки, справа поиск, сортировка и таблица по ближайшему сроку.
 
-type Search = { queue?: string; sort?: string; q?: string; page?: string; done?: string; error?: string; open?: string };
+type Search = { queue?: string; sort?: string; q?: string; page?: string; after?: string; done?: string; error?: string; open?: string };
+/** Ключ листания: время изменения с микросекундами и идентификатор обращения. Иное значение из адреса не берётся. */
+const AFTER = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2 align-top';
@@ -33,28 +49,24 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   const format = await getFormatter();
   const params = await searchParams;
   const queue = pick<QueueKey>(params.queue, QUEUE_KEYS, 'new');
-  const sort = pick<QueueSort>(params.sort, QUEUE_SORTS, 'sla');
+  // "Все" по умолчанию по последнему изменению: по сроку вперёд вышли бы давно закрытые обращения, а сортировка
+  // всей базы без индекса медленная (аудит 23.11.2026, находка P2).
+  const sort = pick<QueueSort>(params.sort, QUEUE_SORTS, defaultQueueSort(queue));
+  const sortChosen = QUEUE_SORTS.some((key) => key === params.sort);
   const q = params.q?.trim() ? params.q.trim().slice(0, 200) : undefined;
   const page = Math.max(1, Math.min(1000, Number(params.page) || 1));
+  // Очередь по последнему изменению листается по ключу последней строки, остальные по номеру страницы.
+  const after = sort === 'updated' && params.after && AFTER.test(params.after) && !Number.isNaN(Date.parse(`${params.after.slice(0, 23)}Z`)) ? params.after : undefined;
   const canWrite = staff.actor.staffRole !== 'product';
-  const [list, counts, filters, assignable, unidentified] = await Promise.all([
-    listQueue(staff, { queue, sort, q, page }),
-    queueCounts(staff),
-    listFilters(staff),
+  const [list, sidebar, assignable] = await Promise.all([
+    listQueue(staff, { queue, sort, q, ...(after ? { after } : { page }) }),
+    queueSidebar(staff),
     canWrite ? listAssignableStaff(staff) : Promise.resolve([]),
-    unidentifiedCount(staff),
   ]);
+  const { counts, filters, unidentified } = sidebar;
   const locale = await getLocale();
   const openNumber = Number(params.open) > 0 && Number.isInteger(Number(params.open)) ? Number(params.open) : null;
-  const href = (next: { queue?: QueueKey; sort?: QueueSort; q?: string; page?: number }) => {
-    const search = new URLSearchParams();
-    search.set('queue', next.queue ?? queue);
-    if ((next.sort ?? sort) !== 'sla') search.set('sort', next.sort ?? sort);
-    const query = 'q' in next ? next.q : q;
-    if (query) search.set('q', query);
-    if (next.page && next.page > 1) search.set('page', String(next.page));
-    return `/agent/queues?${search.toString()}`;
-  };
+  const href = (next: QueueTarget) => queueHref({ queue, sort, sortChosen, q }, next);
   const slaText = (minutesLeft: number | null) => {
     const label = slaLabelKey(minutesLeft);
     return t(`queues.sla.${label.key}`, { value: label.value });
@@ -75,64 +87,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
         }
       />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <nav aria-label={t('queues.listLabel')} className="flex flex-col gap-4 lg:w-60 lg:shrink-0">
-          <ul className="flex flex-wrap gap-1 lg:flex-col">
-            {QUEUE_KEYS.map((key) => (
-              <li key={key}>
-                <Link
-                  href={href({ queue: key, q: undefined, page: 1 })}
-                  aria-current={key === queue ? 'page' : undefined}
-                  className={cn(
-                    'flex items-center justify-between gap-3 rounded-control px-3 py-2 text-sm',
-                    key === queue ? 'bg-card-soft font-semibold text-foreground' : 'text-secondary-foreground hover:bg-card-soft',
-                  )}
-                >
-                  <span>{t(`queues.names.${key}`)}</span>
-                  <span className="tabular-nums">{counts[key]}</span>
-                </Link>
-              </li>
-            ))}
-            <li>
-              <Link href="/agent/queues/unidentified" className="flex rounded-control px-3 py-2 text-sm text-secondary-foreground hover:bg-card-soft">
-                {t('queues.unidentified.link', { count: unidentified })}
-              </Link>
-            </li>
-            <li>
-              <Link href="/agent/queues/thanks" className="flex rounded-control px-3 py-2 text-sm text-secondary-foreground hover:bg-card-soft">
-                {t('queues.thanks.link')}
-              </Link>
-            </li>
-          </ul>
-          {filters.length > 0 && (
-            <section aria-labelledby="saved-filters" className="flex flex-col gap-1">
-              <h2 id="saved-filters" className="px-3 text-xs font-medium text-secondary-foreground">
-                {t('queues.savedTitle')}
-              </h2>
-              <ul className="flex flex-col gap-1">
-                {filters.map((filter) => (
-                  <li key={filter.filterId} className="flex items-center justify-between gap-2">
-                    <Link
-                      href={href({ queue: pick<QueueKey>(filter.query.queue, QUEUE_KEYS, 'all'), sort: pick<QueueSort>(filter.query.sort, QUEUE_SORTS, 'sla'), q: filter.query.q, page: 1 })}
-                      className="rounded-control px-3 py-1 text-sm text-link hover:underline"
-                    >
-                      {filter.name}
-                      {filter.isShared && <span className="ms-1 text-xs text-muted-foreground">{t('queues.shared')}</span>}
-                    </Link>
-                    {filter.isMine && (
-                      <form action={deleteFilterAction}>
-                        <input type="hidden" name="filterId" value={filter.filterId} />
-                        <input type="hidden" name="queue" value={queue} />
-                        <Button type="submit" variant="ghost" size="small" aria-label={t('queues.deleteFilter', { name: filter.name })}>
-                          {t('queues.delete')}
-                        </Button>
-                      </form>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </nav>
+        <QueueNav location={{ queue, sort, sortChosen, q }} counts={counts} filters={filters} unidentified={unidentified} />
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           {params.done === 'filter_saved' && <Alert tone="success">{t('queues.done.filterSaved')}</Alert>}
@@ -163,7 +118,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
 
           {list.items.length === 0 ? (
             <Card>
-              <EmptyState title={t('queues.emptyTitle')} text={q ? t('queues.emptySearch') : t('queues.emptyText')} />
+              <EmptyState title={t('queues.emptyTitle')} text={list.searchTooShort ? t('queues.searchTooShort') : q ? t('queues.emptySearch') : t('queues.emptyText')} />
             </Card>
           ) : (
             <>
@@ -233,7 +188,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                           href={`/agent/tickets/SUP-${row.number}?queue=${queue}&sort=${sort}`}
                           className="font-semibold text-link hover:underline"
                           data-row-link
-                          data-preview={`/${locale}${href({ page })}&open=${row.number}`}
+                          data-preview={`/${locale}${href(after ? { after } : { page })}&open=${row.number}`}
                           data-open={openNumber === row.number ? '' : undefined}
                         >
                           {row.number}
@@ -246,6 +201,12 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                           {row.line === 'l2' && ` · ${t('queues.lineL2')}`}
                           {row.snoozedUntil && ` · ${t('queues.snoozed', { time: format.dateTime(row.snoozedUntil, { dateStyle: 'short', timeStyle: 'short' }) })}`}
                         </span>
+                        {/* Вернулось из отложенных: пометка стоит до первого действия сотрудника (FR-AG-13). */}
+                        {row.snoozeReturned && (
+                          <span data-snooze-returned className="mt-1 block">
+                            <StatusLabel tone="orange">{t('queues.snoozeReturned')}</StatusLabel>
+                          </span>
+                        )}
                       </td>
                       <td className={cell}>{row.orgName}</td>
                       <td className={cn(cell, 'font-semibold')}>{row.priority.toUpperCase()}</td>
@@ -261,13 +222,19 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
             </>
           )}
           <div className="flex gap-2">
-            {page > 1 && (
-              <Link href={href({ page: page - 1 })} className="text-sm text-link hover:underline">
-                {t('queues.prev')}
+            {after ? (
+              <Link href={href({ page: 1 })} className="text-sm text-link hover:underline">
+                {t('queues.first')}
               </Link>
+            ) : (
+              page > 1 && (
+                <Link href={href({ page: page - 1 })} className="text-sm text-link hover:underline">
+                  {t('queues.prev')}
+                </Link>
+              )
             )}
             {list.hasMore && (
-              <Link href={href({ page: page + 1 })} className="text-sm text-link hover:underline">
+              <Link href={list.nextCursor ? href({ after: list.nextCursor }) : href({ page: page + 1 })} className="text-sm text-link hover:underline">
                 {t('queues.next')}
               </Link>
             )}

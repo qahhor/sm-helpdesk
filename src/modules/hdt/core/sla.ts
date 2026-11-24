@@ -1,5 +1,6 @@
 import 'server-only';
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNotNull, isNull, lte, or, type SQL, sql } from 'drizzle-orm';
+import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import type { Tx } from '@/db/client';
 import type { SlaConfig } from '@/modules/hdr/api';
 import { readSlaConfig } from '@/modules/hdr/api';
@@ -56,8 +57,18 @@ async function statusMoment(tx: Tx, ticketId: string, opts: { enter: true; notAf
   return row?.at ?? null;
 }
 
-/** Пересчёт сроков в транзакции актора, который меняет обращение. Нет обращения или оно не видно актору: null. */
-export async function refreshSla(tx: Tx, ticketId: string, now: Date): Promise<SlaState | null> {
+/** Поля строки обращения, которые действие меняет вместе с пересчётом сроков. */
+export type TicketPatch = PgUpdateSetSource<typeof tickets>;
+
+/**
+ * Пересчёт сроков в транзакции актора, который меняет обращение. Нет обращения или оно не видно актору: null.
+ *
+ * set: поля, которые действие меняет тем же обновлением (статус, приоритет, исполнитель). Сроки считаются уже
+ * по новым статусу и приоритету, и строка обращения пишется один раз вместо двух (аудит 23.11.2026, находка P8).
+ * Событие смены статуса действие пишет до вызова: по его времени ставится начало паузы.
+ * Без set и без изменения сроков обновления нет вовсе.
+ */
+export async function refreshSla(tx: Tx, ticketId: string, now: Date, set: TicketPatch = {}): Promise<SlaState | null> {
   const [t] = await tx
     .select({
       createdOn: tickets.createdOn,
@@ -72,11 +83,13 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date): Promise<S
     .where(eq(tickets.ticketId, ticketId))
     .for('update');
   if (!t) return null;
+  const status = typeof set.status === 'string' ? (set.status as typeof t.status) : t.status;
+  const priority = typeof set.priority === 'string' ? (set.priority as typeof t.priority) : t.priority;
   const config = await readSlaConfig(tx);
-  const cal = calendarFor(config, t.priority);
+  const cal = calendarFor(config, priority);
   let pausedOn = t.pausedOn;
   let pausedMinutes = t.pausedMinutes;
-  const paused = PAUSED_STATUSES.includes(t.status);
+  const paused = PAUSED_STATUSES.includes(status);
   if (paused && !pausedOn) {
     pausedOn = (await statusMoment(tx, ticketId, { enter: true, notAfter: now })) ?? now;
   } else if (!paused && pausedOn) {
@@ -84,34 +97,39 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date): Promise<S
     pausedMinutes += workingMinutesBetween(pausedOn, resumed, cal);
     pausedOn = null;
   }
-  const settled = t.status === 'resolved' || t.status === 'closed';
-  const due = dueDates(t.createdOn, t.priority, pausedMinutes, config);
+  const settled = status === 'resolved' || status === 'closed';
+  const due = dueDates(t.createdOn, priority, pausedMinutes, config);
   const next = {
     firstResponseDueOn: settled && t.firstResponseDueOn ? t.firstResponseDueOn : due.firstResponseDueOn,
     resolutionDueOn: settled && t.resolutionDueOn ? t.resolutionDueOn : due.resolutionDueOn,
   };
-  await tx
-    .update(tickets)
-    .set({ ...next, slaPausedOn: pausedOn, slaPausedMinutes: pausedMinutes })
-    .where(eq(tickets.ticketId, ticketId));
+  const same = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
+  const slaChanged =
+    !same(next.firstResponseDueOn, t.firstResponseDueOn) || !same(next.resolutionDueOn, t.resolutionDueOn) || !same(pausedOn, t.pausedOn) || pausedMinutes !== t.pausedMinutes;
+  // Сроки не изменились и действию нечего писать: строка не переписывается.
+  if (slaChanged || Object.keys(set).length > 0)
+    await tx
+      .update(tickets)
+      .set({ ...set, ...(slaChanged ? { ...next, slaPausedOn: pausedOn, slaPausedMinutes: pausedMinutes } : {}) })
+      .where(eq(tickets.ticketId, ticketId));
   return { ...next, pausedSince: pausedOn };
 }
 
-/** Обращения, где пересчёт после действия клиента не прошёл: нет сроков или пауза не совпадает со статусом. */
+/**
+ * Обращения, где пересчёт после действия клиента не прошёл: нет сроков или пауза не совпадает со статусом.
+ *
+ * Три запроса вместо одного с "или" (аудит 23.11.2026, находка P3): каждый идёт по своему частичному индексу и не
+ * просматривает закрытые обращения. Условия записаны текстом без параметров и совпадают с условиями индексов
+ * hdt_tickets_i12 и hdt_tickets_i17: по ним планировщик выбирает индекс. Список статусов с паузой сверяет тест.
+ */
 export async function needsSlaRefreshTx(tx: Tx, limit: number): Promise<string[]> {
-  const rows = await tx
-    .select({ ticketId: tickets.ticketId })
-    .from(tickets)
-    .where(
-      or(
-        and(notInArray(tickets.status, ['resolved', 'closed']), or(isNull(tickets.firstResponseDueOn), isNull(tickets.resolutionDueOn))),
-        and(notInArray(tickets.status, [...PAUSED_STATUSES]), isNotNull(tickets.slaPausedOn)),
-        and(inArray(tickets.status, [...PAUSED_STATUSES]), isNull(tickets.slaPausedOn)),
-      ),
-    )
-    .orderBy(asc(tickets.createdOn))
-    .limit(limit);
-  return rows.map((row) => row.ticketId);
+  const pick = (where: SQL) => tx.select({ ticketId: tickets.ticketId, createdOn: tickets.createdOn }).from(tickets).where(where).orderBy(asc(tickets.createdOn)).limit(limit);
+  const open = sql`${tickets.status} not in ('resolved', 'closed')`;
+  const noDueDates = await pick(and(open, or(isNull(tickets.firstResponseDueOn), isNull(tickets.resolutionDueOn))) as SQL);
+  const pausedButActive = await pick(and(open, sql`${tickets.status} <> 'waiting_customer'`, isNotNull(tickets.slaPausedOn)) as SQL);
+  const notPausedButShould = await pick(sql`${tickets.slaPausedOn} is null and ${tickets.status} in ('waiting_customer', 'resolved', 'closed')`);
+  const rows = [...noDueDates, ...pausedButActive, ...notPausedButShould].sort((x, y) => x.createdOn.getTime() - y.createdOn.getTime());
+  return [...new Set(rows.map((row) => row.ticketId))].slice(0, limit);
 }
 
 export type SlaPhase = 'calm' | 'soon' | 'breached';

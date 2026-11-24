@@ -1,7 +1,8 @@
 import { beforeEach, expect, test } from 'vitest';
 import { dispatchOutbox } from '@/modules/hdn/api/outbox';
+import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { asActor, pools } from './helpers/db';
-import { deliver as deliverTo, inboundPerTest, type Letter, ticketCount } from './helpers/inbound';
+import { deliver as deliverTo, inboundPerTest, type Letter, receive, SYSTEM, ticketCount } from './helpers/inbound';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
 // Новое обращение из письма и опознание отправителя (FR-EM-01, FR-EM-03, FR-EM-05..07, FR-EM-09, FR-EM-10;
@@ -145,4 +146,38 @@ test('приоритет P3 без подтверждения, источник 
   expect(t).toMatchObject({ priority: 'p3', priority_confirmed: false, source: 'email', type: 'question', impact: 'minor', locale: 'ru' });
   // P1 письмом не бывает: сообщения дежурным нет.
   expect((await pools.root.query(`select count(*)::int as n from hdn_outbox where ticket_id = $1 and recipient_kind = 'oncall'`, [t.ticket_id])).rows[0].n).toBe(0);
+});
+
+// --- Отложенные замечания M4 (план W2, задача 13) ---
+
+test('повтор по Message-ID сверяет отправителя: чужое письмо с тем же номером разбирается само (M4, мелкое 5)', async () => {
+  const messageId = '<same-id@mail.example.uz>';
+  const first = await deliver({ from: 'first@unknown.uz', subject: 'Первое письмо', messageId });
+  expect(first.result).toBe('new');
+  // Тот же Message-ID у письма другого отправителя: это не повтор доставки, а другое письмо.
+  const other = await deliver({ from: 'second@unknown.uz', subject: 'Чужое письмо', messageId });
+  expect(other.result).toBe('new');
+  expect((await ticketOf(other.inboundId)).ticket_id).not.toBe((await ticketOf(first.inboundId)).ticket_id);
+  // Настоящий повтор доставки (тот же отправитель, второй адрес поддержки) по-прежнему не создаёт второго обращения.
+  const before = await ticketCount();
+  const twin = await deliver({ from: 'first@unknown.uz', subject: 'Первое письмо', messageId });
+  expect(twin.result).toBe('new');
+  expect(await ticketCount()).toBe(before);
+});
+
+test('поток писем с неизвестных адресов письма не теряет: 61-е за час тоже становится обращением (проверка волны 2)', async () => {
+  for (let i = 0; i < 61; i++) expect((await deliver({ from: `sender${i}@unknown${i}.uz`, subject: `Письмо ${i}` })).result, String(i)).toBe('new');
+}, 120_000);
+
+test('повтор разбора того же письма предел частоты не расходует (проверка волны 2)', async () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const { inboundId } = await receive(box, { from: 'retry@unknown.uz', subject: 'Письмо с файлом', attachments: [{ filename: 'a.png', contentType: 'image/png', data: PNG }] });
+  // Хранилище недоступно: разбор падает 12 раз подряд, как при повторах фоновой задачи. Предел на адрес 10 в час.
+  const put = box.storage.put.bind(box.storage);
+  box.storage.put = async () => {
+    throw new Error('хранилище недоступно');
+  };
+  for (let attempt = 0; attempt < 12; attempt++) await expect(intakeEmail(SYSTEM, inboundId)).rejects.toThrow();
+  box.storage.put = put;
+  expect(await intakeEmail(SYSTEM, inboundId)).toBe('new');
 });

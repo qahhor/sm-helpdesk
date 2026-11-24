@@ -1,10 +1,12 @@
+import './wiring';
 import { EnvError, getEnv } from './env';
-import { applyLogLevel } from './lib/log-level';
+import { configureLog } from './lib/log';
 
 // Проверка окружения при запуске. Сервер с неверными переменными не должен принимать запросы:
 // процесс завершается с кодом 1, и это видно оркестратору и в журнале.
 try {
-  applyLogLevel(getEnv().LOG_LEVEL);
+  const env = getEnv();
+  configureLog({ level: env.LOG_LEVEL, json: (env.LOG_FORMAT ?? (process.env.NODE_ENV === 'production' ? 'json' : 'text')) === 'json' });
 } catch (error) {
   if (!(error instanceof EnvError)) throw error;
   console.error(error.message);

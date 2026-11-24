@@ -1,6 +1,6 @@
 import 'server-only';
 import * as z from 'zod';
-import { adminIdsTx, lineLeadsTx, type MailRecipient, mailRecipientTx, markTelegramBlockedTx, organizationNameTx, replyRoleTx, telegramChatTx } from '../core/recipients';
+import { adminIdsTx, lineLeadsTx, type MailRecipient, mailRecipientTx, markTelegramBlockedTx, organizationNameTx, replyRolesTx, replyRoleTx, telegramChatTx, telegramLinkedManyTx } from '../core/recipients';
 import type { Locale } from '@/i18n/locales';
 
 // Модуль hdu, слой api: адрес для письма пользователю (решение 2 вехи M4), руководители линии, администраторы
@@ -49,4 +49,34 @@ export async function telegramLinked(userId: string): Promise<boolean> {
 export async function markTelegramBlocked(chatId: string): Promise<void> {
   if (!/^-?\d{1,20}$/.test(chatId)) return;
   await markTelegramBlockedTx(chatId);
+}
+
+/** Сколько получателей читается одним запросом: список длиннее делится на части. */
+const LOOKUP_CHUNK = 500;
+
+/**
+ * Годные идентификаторы частями. Негодный отбрасывается один: остальные получатели не должны остаться без
+ * уведомления из-за одной строки (итоговая проверка волны 1, замечание F11).
+ */
+function chunksOf(userIds: string[]): string[][] {
+  const valid = [...new Set(userIds.filter((id) => z.uuid().safeParse(id).success))];
+  const chunks: string[][] = [];
+  for (let from = 0; from < valid.length; from += LOOKUP_CHUNK) chunks.push(valid.slice(from, from + LOOKUP_CHUNK));
+  return chunks;
+}
+
+/** Роли пользователей в организации: для уведомлений многим получателям, один запрос на 500 человек. */
+export async function replyRoles(userIds: string[], orgId: string): Promise<Map<string, 'client_user' | 'client_admin'>> {
+  const org = z.uuid().safeParse(orgId);
+  const roles = new Map<string, 'client_user' | 'client_admin'>();
+  if (!org.success) return roles;
+  for (const chunk of chunksOf(userIds)) for (const [userId, role] of await replyRolesTx(chunk, org.data)) roles.set(userId, role);
+  return roles;
+}
+
+/** У кого из пользователей действует привязка Telegram: один запрос на 500 человек. */
+export async function telegramLinkedMany(userIds: string[]): Promise<Set<string>> {
+  const linked = new Set<string>();
+  for (const chunk of chunksOf(userIds)) for (const userId of await telegramLinkedManyTx(chunk)) linked.add(userId);
+  return linked;
 }

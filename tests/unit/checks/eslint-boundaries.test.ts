@@ -71,3 +71,35 @@ test('открытые страницы не читают сессию (CLAUDE.m
   // За пределами группы (public) сессию читать можно.
   expect(await lint('src/app/[locale]/(portal)/x/page.tsx', "import { cookies } from 'next/headers';")).not.toContain('no-restricted-imports');
 }, 30_000);
+
+// Слои модулей (аудит 23.11.2026, находка A1; план W2, задача 8): зависимость идёт в одну сторону.
+// hdc ни от кого не зависит, hdn только от hdc, hdu от hdc и hdn. Раньше hdu и hdn брали api друг друга:
+// модули нельзя было менять и проверять порознь, порядок загрузки был хрупким.
+
+test('модуль уведомлений не берёт api модуля пользователей, общий модуль не берёт ничей', async () => {
+  for (const source of ['@/modules/hdu/api', '@/modules/hdu/api/recipients', '@/modules/hdu/api/session', '@/modules/hdt/api', '@/modules/hdr/api'])
+    expect(await lint('src/modules/hdn/core/outbox.ts', `import { x } from '${source}';`), source).toContain('no-restricted-imports');
+  for (const source of ['@/modules/hdu/api', '@/modules/hdn/api', '@/modules/hdt/api', '@/modules/hdr/api'])
+    expect(await lint('src/modules/hdc/contacts.ts', `import { x } from '${source}';`), source).toContain('no-restricted-imports');
+  // Даже типом: общие понятия (контекст сотрудника, справочник контактов) объявлены в hdc.
+  expect(await lint('src/modules/hdn/api/mail-settings.ts', "import type { StaffContext } from '@/modules/hdu/api';")).toContain('no-restricted-imports');
+  // Модуль правил стоит ниже обращений и пользователей не трогает.
+  expect(await lint('src/modules/hdr/api.ts', "import { isFresh } from '@/modules/hdu/api/session';")).toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdr/api.ts', "import { listQueue } from '@/modules/hdt/api';")).toContain('no-restricted-imports');
+}, 30_000);
+
+test('разрешённое направление слоёв не задето', async () => {
+  expect(await lint('src/modules/hdn/core/outbox.ts', "import { contacts } from '@/modules/hdc/api';")).not.toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdu/api/invitations.ts', "import { queueMail } from '@/modules/hdn/api';")).not.toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdt/core/notify.ts', "import { notifyTx } from '@/modules/hdn/api';")).not.toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdt/api/agent.ts', "import { namesOf } from '@/modules/hdu/api';")).not.toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdt/core/sla.ts', "import { readSlaConfig } from '@/modules/hdr/api';")).not.toContain('no-restricted-imports');
+  // Константы (pref) слоями не ограничены: это общий словарь, обращений к базе в нём нет.
+  expect(await lint('src/modules/hdr/input.ts', "import { TICKET_TYPES } from '@/modules/hdt/pref';")).not.toContain('no-restricted-imports');
+}, 30_000);
+
+test('настоящий код модулей проходит правило слоёв', async () => {
+  const results = await eslint.lintFiles(['src/modules/hdn', 'src/modules/hdc', 'src/modules/hdr', 'src/modules/hdu']);
+  const broken = results.flatMap((result) => result.messages.filter((m) => m.ruleId === 'no-restricted-imports').map((m) => `${result.filePath.split('/src/')[1]}:${m.line}`));
+  expect(broken).toEqual([]);
+}, 120_000);

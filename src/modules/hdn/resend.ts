@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import * as z from 'zod';
+import { createGuardedFetch } from '@/security/outbound';
 import type { Mailer, MailMessage } from './mailer';
 import { assertEmailId, type EmailProvider, headerPairs, type InboundAttachment, verifyAndParse } from './provider';
 
@@ -88,10 +89,50 @@ export function createResendMailer(cfg: Config): Mailer {
 
 const API = 'https://api.resend.com';
 
-type ProviderConfig = Config & { webhookSecret?: string; now?: () => Date };
+type ProviderConfig = Config & {
+  webhookSecret?: string;
+  now?: () => Date;
+  /** Узлы, с которых скачиваются вложения писем: сам узел или его поддомен. По умолчанию узел почтового сервиса. */
+  downloadHosts?: readonly string[];
+};
+
+/** Вложения Resend отдаёт с inbound-cdn.resend.com (справочник Received Emails API). */
+export const DEFAULT_DOWNLOAD_HOSTS = ['resend.com'] as const;
+/** Сколько переадресаций внутри доверенных узлов проходит скачивание вложения. */
+const MAX_DOWNLOAD_REDIRECTS = 3;
+
+/** Узел из списка доверенных: совпадает с записью или её поддомен. */
+function trustedHost(host: string, allowed: readonly string[]): boolean {
+  return allowed.some((entry) => host === entry || host.endsWith(`.${entry}`));
+}
+
+/**
+ * Ссылка на вложение, по которой портал согласен идти (аудит 23.11.2026, находка S15): https, без имени и пароля,
+ * узел из списка доверенных. Ссылку присылает почтовый сервис, но подменённая ссылка или переадресация не должны
+ * заставить сервер портала скачать чужой адрес. В сообщении об ошибке только узел: в адресе подпись доступа.
+ */
+function checkedDownloadUrl(raw: string, allowed: readonly string[]): URL {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error('почта: ссылка на вложение не разбирается');
+  }
+  if (url.protocol !== 'https:') throw new Error('почта: ссылка на вложение не https');
+  const host = url.hostname.replace(/\.$/, '').toLowerCase();
+  if (url.username || url.password || !trustedHost(host, allowed)) {
+    console.error(`Почта: вложение не скачано, узел ${host.slice(0, 120)} не из списка доверенных (INBOUND_DOWNLOAD_HOSTS)`);
+    throw new Error('почта: узел вложения не из списка доверенных');
+  }
+  return url;
+}
 
 export function createResendProvider(cfg: ProviderConfig): EmailProvider {
   const doFetch = cfg.fetch ?? fetch;
+  // Вложения идут через сетевой слой с проверкой адреса при соединении: узел из списка доверенных не должен
+  // привести во внутреннюю сеть и через DNS. cfg.fetch подменяет оба пути в тестах.
+  const downloadFetch = cfg.fetch ?? createGuardedFetch({ allowLoopback: false });
+  const downloadHosts = cfg.downloadHosts ?? DEFAULT_DOWNLOAD_HOSTS;
   const timeoutMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pauses = cfg.pausesMs ?? DEFAULT_PAUSES_MS;
 
@@ -159,7 +200,7 @@ export function createResendProvider(cfg: ProviderConfig): EmailProvider {
       return attachmentList.parse(body.data ?? []);
     },
     async download(url, maxBytes) {
-      if (!url.startsWith('https://')) throw new Error('почта: ссылка на вложение не https');
+      let target = checkedDownloadUrl(url, downloadHosts);
       // Предел времени на весь ответ, включая чтение тела (M4, мелкое 13): тело, которое не кончается,
       // не держит разбор письма. По истечении чтение отменяется, вложение считается не скачанным.
       const controller = new AbortController();
@@ -171,7 +212,16 @@ export function createResendProvider(cfg: ProviderConfig): EmailProvider {
       const chunks: Uint8Array[] = [];
       let total = 0;
       try {
-        const response = await doFetch(url, { method: 'GET', signal: controller.signal }).catch(() => null);
+        let response: Response | null = null;
+        for (let hop = 0; ; hop++) {
+          // Переадресацию портал разбирает сам: каждый следующий адрес проходит ту же проверку узла.
+          response = await downloadFetch(target, { method: 'GET', redirect: 'manual', signal: controller.signal }).catch(() => null);
+          const location = response && response.status >= 300 && response.status < 400 ? response.headers.get('location') : null;
+          if (!response || !location) break;
+          await response.body?.cancel().catch(() => undefined);
+          if (hop >= MAX_DOWNLOAD_REDIRECTS) throw new Error('почта: слишком много переадресаций вложения');
+          target = checkedDownloadUrl(new URL(location, target).toString(), downloadHosts);
+        }
         if (!response?.ok || !response.body) throw new MailError(response?.status ?? null);
         const declared = Number(response.headers.get('content-length') ?? '0');
         if (declared > maxBytes) throw new Error('почта: вложение больше предела');
@@ -192,6 +242,9 @@ export function createResendProvider(cfg: ProviderConfig): EmailProvider {
         }
       } finally {
         clearTimeout(timer);
+        // Отказ, слишком большой файл и любая ошибка: запрос отменяется, соединение не остаётся висеть с непрочитанным
+        // телом (итоговая проверка волны 1, F4). После полного чтения отмена ничего не меняет.
+        controller.abort();
       }
       const out = new Uint8Array(total);
       let offset = 0;

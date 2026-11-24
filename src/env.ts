@@ -109,6 +109,13 @@ const schema = z
     DATABASE_URL_AUTH: databaseUrl('hub_auth'),
     BETTER_AUTH_SECRET: sessionSecret,
     ENCRYPTION_KEY: encryptionKey,
+    // Прежний ключ шифрования на время замены ключа (аудит 23.11.2026, находка S6): им открываются значения,
+    // зашифрованные до замены. После команды hub secrets:reseal переменную убирают.
+    ENCRYPTION_KEY_PREVIOUS: z
+      .string()
+      .trim()
+      .refine((value) => /^[A-Za-z0-9+/]{43}=$/.test(value) && Buffer.from(value, 'base64').length === 32, { error: 'ожидается 32 байта в base64' })
+      .optional(),
     // Письма со ссылками входа: none, console и file для разработки, resend для настоящей отправки (решение 0018).
     MAIL_TRANSPORT: z.enum(['none', 'console', 'file', 'resend'], { error: 'ожидается none, console, file или resend' }).default('none'),
     MAIL_FILE_DIR: z.string().trim().min(1, { error: 'не задана' }).optional(),
@@ -124,6 +131,14 @@ const schema = z
       .trim()
       .regex(/^whsec_[A-Za-z0-9+/]{16,}={0,2}$/, { error: 'ожидается секрет вида whsec_<base64> из настроек вебхука Resend' })
       .optional(),
+    // Узлы, с которых портал скачивает вложения входящих писем (аудит 23.11.2026, находка S15): через запятую,
+    // сам узел или его поддомен. Не задано: только узел почтового сервиса (resend.com).
+    INBOUND_DOWNLOAD_HOSTS: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+(\s*,\s*[a-z0-9-]+(\.[a-z0-9-]+)+)*$/, { error: 'ожидаются имена узлов через запятую, например resend.com' })
+      .optional(),
     // Приём ответов на письма (раздел 11.8): домен адресов reply+...@домен и секрет их подписи. Без домена приём выключен.
     REPLY_DOMAIN: z
       .string()
@@ -131,6 +146,8 @@ const schema = z
       .regex(/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/, { error: 'ожидается домен строчными буквами без схемы, например reply.smartup24.com' })
       .optional(),
     REPLY_HMAC_SECRET: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
+    // Прежний ключ подписи адресов ответа на время замены: ответы на уже отправленные письма продолжают приниматься.
+    REPLY_HMAC_SECRET_PREVIOUS: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
     // Чей заголовок Authentication-Results учитывать (решение 11 вехи M4). Не задан: отправитель письма не опознаётся.
     INBOUND_AUTHSERV_ID: z
       .string()
@@ -150,6 +167,11 @@ const schema = z
     TELEGRAM_API_URL: z.url({ error: 'ожидается адрес' }).default('https://api.telegram.org'),
     HUB_SHOWCASE: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error'], { error: 'ожидается debug, info, warn или error' }).default('info'),
+    // Размер каждого из двух пулов соединений процесса (роль приложения и роль входа). При двух копиях портала
+    // уменьшается, чтобы сумма не заняла больше 60% предела базы (src/db/pool-size.ts, решение 0039).
+    DB_POOL_MAX: z.coerce.number({ error: 'ожидается целое число от 2 до 50' }).int({ error: 'ожидается целое число от 2 до 50' }).min(2, { error: 'ожидается целое число от 2 до 50' }).max(50, { error: 'ожидается целое число от 2 до 50' }).optional(),
+    // Формат журнала: строки JSON для сбора и поиска (по умолчанию в production) или текст для окна разработчика.
+    LOG_FORMAT: z.enum(['json', 'text'], { error: 'ожидается json или text' }).optional(),
     // Заголовок, из которого берётся адрес посетителя для счётчиков частоты и журнала аудита (итоговая проверка M1).
     // За Cloudflare это cf-connecting-ip. Не задан: x-forwarded-for, только для localhost.
     CLIENT_IP_HEADER: clientIpHeaderField,
@@ -180,6 +202,10 @@ const schema = z
     // сам посетитель. На настоящем адресе источник адреса посетителя выбирается явно (docs/runbooks/launch.md, раздел 8).
     if (value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host) && !value.CLIENT_IP_HEADER)
       ctx.addIssue({ code: 'custom', path: ['CLIENT_IP_HEADER'], message: 'не задан: за Cloudflare задайте cf-connecting-ip' });
+    if (value.ENCRYPTION_KEY_PREVIOUS && value.ENCRYPTION_KEY_PREVIOUS === value.ENCRYPTION_KEY)
+      ctx.addIssue({ code: 'custom', path: ['ENCRYPTION_KEY_PREVIOUS'], message: 'совпадает с ENCRYPTION_KEY: прежний ключ должен отличаться от текущего' });
+    if (value.REPLY_HMAC_SECRET_PREVIOUS && !value.REPLY_HMAC_SECRET)
+      ctx.addIssue({ code: 'custom', path: ['REPLY_HMAC_SECRET_PREVIOUS'], message: 'задан без REPLY_HMAC_SECRET' });
     if (value.BETTER_AUTH_SECRET === value.ENCRYPTION_KEY)
       ctx.addIssue({
         code: 'custom',

@@ -71,17 +71,20 @@ test('серверное действие с чужого сайта откло�
   await expect.poll(() => rejected).not.toBeNull();
   expect(rejected).not.toBe(200);
   expect(await dbRows(`select 1 from hdu_invitations where email = $1`, [email])).toEqual([]);
+  // Страница шлёт на тот же адрес и другие запросы (счётчик колокольчика): перехват снимается до конца теста,
+  // иначе незавершённый запрос перехватчика роняет следующий тест (гонка, найдена прогоном волны 0).
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('страницы входа и кабинета отвечают с заголовками безопасности, кабинет без кеша', async ({ page, request }) => {
   const login = (await request.get('/ru/login')).headers();
-  expect(login['content-security-policy-report-only']).toContain("frame-ancestors 'none'");
+  expect(login['content-security-policy']).toContain("frame-ancestors 'none'");
   expect(login['x-content-type-options']).toBe('nosniff');
   await signInAsCustom(page, { sub: uniqueSub(), name: 'Заголовки', company_id: '501', company_name: 'ACME Trade' });
   const portal = await page.request.get('/ru/settings');
   expect(portal.status()).toBe(200);
   expect(portal.headers()['cache-control']).toContain('no-store');
-  expect(portal.headers()['content-security-policy-report-only']).toContain("frame-ancestors 'none'");
+  expect(portal.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
 });
 
 test('вебхук бота без секретного заголовка отклоняется', async ({ request }) => {

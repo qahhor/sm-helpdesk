@@ -1848,7 +1848,7 @@
     },
     "oncallP1": {
       "subject": "Срочное обращение P1",
-      "text": "Новое срочное обращение P1 от организации {orgName}: SUP-{number} «{title}».",
+      "text": "Новое срочное обращение P1 от организации {orgName}: SUP-{number}.",
       "button": "Открыть обращение"
     },
     "inboundTest": {

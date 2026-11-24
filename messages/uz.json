@@ -1848,7 +1848,7 @@
     },
     "oncallP1": {
       "subject": "Shoshilinch P1 murojaati",
-      "text": "{orgName} tashkilotidan yangi shoshilinch P1 murojaati: SUP-{number} «{title}».",
+      "text": "{orgName} tashkilotidan yangi shoshilinch P1 murojaati: SUP-{number}.",
       "button": "Murojaatni ochish"
     },
     "inboundTest": {

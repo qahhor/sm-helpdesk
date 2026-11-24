@@ -201,7 +201,8 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
       return {
         subject: ticketSubject(payload.number, t('oncallP1.subject')),
         heading: t('oncallP1.subject'),
-        text: t('oncallP1.text', { orgName: noLinks(payload.orgName, NAME_MAX), number: payload.number, title: noLinks(payload.title, TITLE_MAX) }),
+        // Темы обращения в письме дежурным нет: это текст клиента, в служебной почте он не нужен (решение 0041).
+        text: t('oncallP1.text', { orgName: noLinks(payload.orgName, NAME_MAX), number: payload.number }),
         button: { label: t('oncallP1.button'), url: payload.url },
         reply: false,
         signature: false,

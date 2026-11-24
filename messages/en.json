@@ -1848,7 +1848,7 @@
     },
     "oncallP1": {
       "subject": "Urgent P1 request",
-      "text": "New urgent P1 request from {orgName}: SUP-{number} \"{title}\".",
+      "text": "New urgent P1 request from {orgName}: SUP-{number}.",
       "button": "Open the request"
     },
     "inboundTest": {

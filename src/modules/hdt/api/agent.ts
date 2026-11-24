@@ -2,7 +2,7 @@ import 'server-only';
 import { findOrgIds, findUserIds, listAssignableStaff, namesOf, type OrgSummary, orgSummaries, type StaffContext, verifiedEmails } from '@/modules/hdu/api';
 import { guestSenders, SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
 import { undeliveredMessages } from '@/modules/hdn/api/outbox';
-import { isActiveModule } from '@/modules/hdr/api';
+import { isActiveModule, type Tag } from '@/modules/hdr/api';
 import { loadSlaConfig } from '@/modules/hdr/api';
 import { calendarFor, type SlaPhase, slaPhase } from '../core/sla';
 import {
@@ -50,6 +50,8 @@ export type QueueRow = {
   /** Вернулось из отложенных, и сотрудник с ним ещё ничего не сделал (FR-AG-13). */
   snoozeReturned: boolean;
   clientWaitingSince: Date | null;
+  /** Теги обращения в порядке постановки (FR-AUTO-13). Клиенту не показываются нигде. */
+  tags: Tag[];
 };
 
 /** Строка поиска: номер и текст как у клиента, плюс организации по названию и ИНН и авторы по имени и адресу. */
@@ -76,6 +78,8 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
     queue: data.queue,
     sort: data.sort,
     search,
+    tagId: data.tag,
+    withTags: true,
     offset: (data.page - 1) * QUEUE_PAGE_SIZE,
     limit: QUEUE_PAGE_SIZE + 1,
     ...(data.after && ticketId ? { after: { modifiedKey, ticketId } } : {}),
@@ -104,6 +108,7 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
         snoozedUntil: row.snoozedUntil && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil : null,
         snoozeReturned: row.snoozeReturnedOn !== null && row.status !== 'resolved' && row.status !== 'closed',
         clientWaitingSince: row.clientWaitingSince,
+        tags: row.tags,
       };
     }),
     hasMore: rows.length > QUEUE_PAGE_SIZE,
@@ -204,6 +209,8 @@ export type AgentTicketView = {
   changedSince: Date | null;
   /** Время последней записи переписки и истории, которую видит агент: по нему ответ узнаёт об изменениях других (FR-AG-12). */
   version: string;
+  /** Теги обращения в порядке постановки (FR-AUTO-13). */
+  tags: Tag[];
   attachments: AgentFileView[];
   timeline: AgentTimelineEntry[];
   /** Сколько последних записей истории запрошено и есть ли записи раньше них. */
@@ -328,6 +335,7 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
     version: new Date(Math.max(ticket.createdOn.getTime(), found.window.latestOn?.getTime() ?? 0)).toISOString(),
     shown,
     hasEarlier: found.window.hasEarlier,
+    tags: found.tags,
     attachments: found.attachments.filter((a) => a.messageId === null).map(fileView),
     timeline,
   };

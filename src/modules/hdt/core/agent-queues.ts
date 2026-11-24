@@ -7,7 +7,9 @@ import { HdtError } from '../error';
 import type { Priority, Queue, TicketStatus } from '../pref';
 import { savedFilters, type SavedQuery, ticketMessages, tickets } from '../schema';
 import { SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
+import type { Tag } from '@/modules/hdr/api';
 import type { QueueKey, QueueSort } from './agent-queue-keys';
+import { ticketTagsTx } from './tags';
 
 // Модуль hdt, слой core: очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18; план M3, задача 5).
 // Читает сотрудник под своим актором: политики RLS отдают ему все обращения, а условия очереди задаёт код.
@@ -33,6 +35,8 @@ export type QueueRecord = {
   /** Время изменения с точностью базы (микросекунды): ключ листания по последнему изменению. */
   modifiedKey: string;
   clientWaitingSince: Date | null;
+  /** Теги обращения (FR-AUTO-13): читаются той же транзакцией, только если список их просил. */
+  tags: Tag[];
 };
 
 const OPEN = notInArray(tickets.status, ['resolved', 'closed']);
@@ -87,6 +91,14 @@ function searchWhere(search: QueueSearch | undefined): SQL | undefined {
   return parts.length > 0 ? (or(...parts) as SQL) : sql`false`;
 }
 
+/**
+ * Фильтр по тегу (FR-AUTO-13): обращения, на которых стоит тег. Подзапрос идёт по индексу hdt_ticket_tags_i1
+ * (tag_id, ticket_id) или по уникальному ключу (ticket_id, tag_id), смотря с какой стороны планировщику дешевле.
+ */
+function tagWhere(tagId: string | undefined): SQL | undefined {
+  return tagId ? sql`exists (select 1 from hdt_ticket_tags tt where tt.ticket_id = ${tickets.ticketId} and tt.tag_id = ${tagId}::uuid)` : undefined;
+}
+
 function orderOf(sort: QueueSort) {
   if (sort === 'client_waiting') return [sql`${tickets.clientWaitingSince} asc nulls last`, asc(tickets.ticketId)];
   if (sort === 'updated') return [desc(tickets.modifiedOn), desc(tickets.ticketId)];
@@ -103,10 +115,10 @@ function afterKey(after: { modifiedKey: string; ticketId: string } | undefined):
 
 export async function queueRowsTx(
   actor: StaffActor,
-  input: { queue: QueueKey; sort: QueueSort; search?: QueueSearch; offset: number; limit: number; after?: { modifiedKey: string; ticketId: string } },
+  input: { queue: QueueKey; sort: QueueSort; search?: QueueSearch; tagId?: string; withTags?: boolean; offset: number; limit: number; after?: { modifiedKey: string; ticketId: string } },
 ): Promise<QueueRecord[]> {
-  return withActor(actor, (tx) =>
-    tx
+  return withActor(actor, async (tx) => {
+    const rows = await tx
       .select({
         ticketId: tickets.ticketId,
         number: tickets.number,
@@ -125,12 +137,15 @@ export async function queueRowsTx(
         clientWaitingSince: tickets.clientWaitingSince,
       })
       .from(tickets)
-      .where(and(queueWhere(input.queue, actor.userId), searchWhere(input.search), afterKey(input.after)))
+      .where(and(queueWhere(input.queue, actor.userId), searchWhere(input.search), tagWhere(input.tagId), afterKey(input.after)))
       .orderBy(...orderOf(input.sort))
       .limit(input.limit)
       // Листание по ключу смещения не несёт: далёкая страница стоит столько же, сколько первая.
-      .offset(input.after ? 0 : input.offset),
-  );
+      .offset(input.after ? 0 : input.offset);
+    // Теги строк той же транзакцией: страница очередей не открывает ради них ещё одну (бюджет транзакций, находка A3).
+    const tags = input.withTags ? await ticketTagsTx(tx, rows.map((row) => row.ticketId)) : new Map<string, Tag[]>();
+    return rows.map((row) => ({ ...row, tags: tags.get(row.ticketId) ?? [] }));
+  });
 }
 
 const OPEN_QUEUES = ['new', 'l2', 'waiting', 'development', 'breached'] as const;

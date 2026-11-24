@@ -43,6 +43,8 @@ export { type ChangeSummary, listPresence, loadDraft, postStaffMessage, type Pre
 export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAttachmentRequest, staffAttachmentRedirect } from './api/attachments';
 // Проверка и обход вложений для фонового процесса (задачи 6 и 7): только актор system.
 export { applyGuestMerges, type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
+// Теги на обращении (план M8, задача 1).
+export { addTicketTag, removeTicketTag, tagUsage } from './api/tags';
 export { type PickupMinutes, readPickup, readTimings, savePickup, saveTimings, type Timings, TIMINGS_DEFAULT } from './api/timings';
 export {
   bindTicket,

@@ -1,4 +1,4 @@
-import { getPlaybook, listActiveModules, listTemplates } from '@/modules/hdr/api';
+import { getPlaybook, listActiveModules, listTags, listTemplates } from '@/modules/hdr/api';
 import { DEVELOPMENT_ROLES, getAgentTicket, HDT_ERROR_CODES, loadDraft, QUEUE_KEYS, QUEUE_SORTS, TRANSFERABLE_STATUSES } from '@/modules/hdt/api';
 import { listAssignableStaff, type StaffContext } from '@/modules/hdu/api';
 
@@ -7,7 +7,7 @@ import { listAssignableStaff, type StaffContext } from '@/modules/hdu/api';
 // данных и права отдельно от разметки.
 
 /** Коды "сделано" в адресе страницы после действия. */
-export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited'] as const;
+export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged'] as const;
 
 export type TicketPageSearch = { done?: string; error?: string; ch?: string; queue?: string; sort?: string; shown?: string };
 
@@ -16,9 +16,16 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
   const ticket = raw ? await getAgentTicket(staff, raw, { shown: search.shown }) : null;
   if (!ticket) return null;
   const canWrite = staff.actor.staffRole !== 'product';
-  const [assignable, modules, draft, templates] = canWrite
-    ? await Promise.all([listAssignableStaff(staff), listActiveModules(staff.actor, locale), loadDraft(staff, ticket.number), listTemplates(staff, { moduleId: ticket.moduleId })])
-    : [[], [], null, []];
+  const [assignable, modules, draft, templates, knownTags] = canWrite
+    ? await Promise.all([
+        listAssignableStaff(staff),
+        listActiveModules(staff.actor, locale),
+        loadDraft(staff, ticket.number),
+        listTemplates(staff, { moduleId: ticket.moduleId }),
+        // Справочник тегов: подсказки в поле постановки тега (FR-AUTO-13).
+        listTags(staff),
+      ])
+    : [[], [], null, [], []];
   // Линии (FR-LINE-03, 04): передать может тот, кто ведёт обращения, с первой линии; вернуть вторая линия, care, admin.
   const canTransfer = canWrite && ticket.line === 'l1' && TRANSFERABLE_STATUSES.includes(ticket.status);
   const canReturn =
@@ -31,6 +38,7 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
     modules,
     draft,
     templates,
+    knownTags,
     canTransfer,
     canReturn,
     playbook,

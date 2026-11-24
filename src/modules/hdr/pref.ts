@@ -22,3 +22,13 @@ export const DEFAULT_WEEK = {
 
 /** Код календаря по умолчанию в hdr_business_calendars. */
 export const DEFAULT_CALENDAR_CODE = 'default';
+
+/**
+ * Цвета тега (FR-AUTO-13, решение 8 плана M8): восемь кодов, за каждым стоят токены оформления (метки статусов,
+ * "опасность" и основной цвет). В базе хранится код, а не значение цвета; классы токенов держит TagChip.
+ */
+export const TAG_COLORS = ['gray', 'green', 'orange', 'purple', 'blue', 'teal', 'red', 'accent'] as const;
+export type TagColor = (typeof TAG_COLORS)[number];
+/** Цвет тега, созданного на обращении: перекрасить может администратор. */
+export const TAG_DEFAULT_COLOR: TagColor = 'gray';
+export const TAG_NAME_MAX = 40;

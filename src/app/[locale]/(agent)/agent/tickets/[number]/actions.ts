@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { loadSlaConfig } from '@/modules/hdr/api';
 import {
+  addTicketTag,
   assignTicket,
   inviteSender,
   type ChangeSummary,
@@ -13,6 +14,7 @@ import {
   nextInQueue,
   parseNumber,
   postStaffMessage,
+  removeTicketTag,
   type PresenceEntry,
   returnToL1,
   saveDraft,
@@ -78,6 +80,15 @@ export async function statusAction(form: FormData): Promise<void> {
 
 export async function priorityAction(form: FormData): Promise<void> {
   await run(form, (staff, number) => setPriority(staff, { number, priority: text(form, 'priority'), reason: text(form, 'reason'), seenVersion: text(form, 'seen') || undefined }), 'priority');
+}
+
+/** Тег по названию: нет такого в справочнике, создаётся (FR-AUTO-13). */
+export async function addTagAction(form: FormData): Promise<void> {
+  await run(form, (staff, number) => addTicketTag(staff, { number, name: text(form, 'name') }), 'tagged');
+}
+
+export async function removeTagAction(form: FormData): Promise<void> {
+  await run(form, (staff, number) => removeTicketTag(staff, { number, tagId: text(form, 'tagId') }), 'untagged');
 }
 
 export async function typeAction(form: FormData): Promise<void> {

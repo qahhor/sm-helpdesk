@@ -76,6 +76,8 @@ export async function TicketTimeline({ ticket, from }: Props) {
         return t('ticket.events.queue', { actor, to: t.has(`ticket.lines.${String(p.to)}`) ? t(`ticket.lines.${String(p.to)}`) : String(p.to ?? '') });
       case 'merge':
         return typeof p.from === 'number' ? t('ticket.events.mergedFrom', { actor, number: `SUP-${p.from}` }) : t('ticket.events.merge', { actor });
+      case 'tag':
+        return t(p.action === 'removed' ? 'ticket.events.tagRemoved' : 'ticket.events.tagAdded', { actor, name: String(p.name ?? '') });
       case 'due':
         return t('ticket.events.due', { kind: t.has(`ticket.dueKinds.${String(p.kind)}`) ? t(`ticket.dueKinds.${String(p.kind)}`) : '' });
       default:

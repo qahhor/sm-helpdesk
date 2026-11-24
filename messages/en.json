@@ -592,6 +592,10 @@
         "mail": {
           "title": "Notifications and email",
           "text": "Support addresses and intake check, on-call staff and their bot, reminder and auto-close periods, spam."
+        },
+        "tags": {
+          "title": "Tags",
+          "text": "Names and colors of ticket tags, removal of unused ones."
         }
       },
       "servers": {
@@ -802,7 +806,8 @@
           "sla_policy": "SLA targets",
           "business_calendar": "Working calendar",
           "playbook": "First-line playbook",
-          "reply_template": "Reply template"
+          "reply_template": "Reply template",
+          "tag": "Tag"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -871,7 +876,9 @@
             "rated_by_link": "Rating given through the email link",
             "bound": "Email linked to an organization",
             "author_moved": "Request author changed on guest hand-over",
-            "viewed_by_staff": "Ticket opened by staff"
+            "viewed_by_staff": "Ticket opened by staff",
+            "tag_added": "Tag added to a ticket",
+            "tag_removed": "Tag removed from a ticket"
           },
           "attachment": {
             "infected": "Infected file found",
@@ -909,6 +916,11 @@
           },
           "secrets": {
             "resealed": "Secrets re-encrypted with the new key"
+          },
+          "tag": {
+            "created": "Tag created",
+            "updated": "Tag changed",
+            "deleted": "Tag deleted"
           }
         },
         "words": {
@@ -1112,6 +1124,40 @@
           "stale_session": "Changing settings needs a sign-in no older than 15 minutes."
         },
         "reauth": "Sign in again"
+      },
+      "tags": {
+        "title": "Tags",
+        "intro": "A staff member creates a tag right on a ticket. Here you can rename a tag, change its color or delete it. Clients never see tags.",
+        "emptyTitle": "No tags yet",
+        "emptyText": "The first tag appears when a staff member adds it to a ticket.",
+        "usage": "{count, plural, =0 {no tickets} one {# ticket} other {# tickets}}",
+        "name": "Name",
+        "color": "Color",
+        "save": "Save",
+        "delete": "Delete tag",
+        "deleteText": "{count, plural, =0 {The tag is not on any ticket.} one {The tag will be removed from # ticket.} other {The tag will be removed from # tickets.}} This cannot be undone.",
+        "deleteConfirm": "Delete",
+        "colors": {
+          "gray": "Gray",
+          "green": "Green",
+          "orange": "Orange",
+          "purple": "Purple",
+          "blue": "Blue",
+          "teal": "Teal",
+          "red": "Red",
+          "accent": "Primary"
+        },
+        "done": {
+          "saved": "Tag saved",
+          "deleted": "Tag deleted"
+        },
+        "errors": {
+          "forbidden": "Tags are changed by the portal administrator.",
+          "invalid_input": "Check the name: 1 to 40 characters.",
+          "tag_taken": "A tag with this name already exists.",
+          "not_found": "Tag not found. It may have been deleted already.",
+          "stale_session": "Changing tags needs a sign-in no older than 15 minutes. Sign in again and repeat."
+        }
       }
     },
     "queues": {
@@ -1249,7 +1295,10 @@
           "other": "That did not work. Try again."
         },
         "addressOwned": "This address belongs to a portal client, but the email did not pass the DMARC check: it may be forged. Do not mark it as spam or link it until you confirm with the client."
-      }
+      },
+      "tag": "Tag",
+      "anyTag": "All tags",
+      "byTag": "Show tickets tagged {name}"
     },
     "ticket": {
       "files": "Files",
@@ -1288,7 +1337,9 @@
         "transferred": "{actor}: transferred to the second line. Reason: {reason}. Checked: {checked}. Needed: {needed}",
         "returned": "{actor}: returned to the first line. {explanation}",
         "mergedFrom": "{actor}: merged {number} into this ticket",
-        "bound": "{actor}: linked to the client organization"
+        "bound": "{actor}: linked to the client organization",
+        "tagAdded": "{actor}: tag {name} added",
+        "tagRemoved": "{actor}: tag {name} removed"
       },
       "dueKinds": {
         "first_response": "first response",
@@ -1380,7 +1431,9 @@
           "returned": "Ticket returned to the first line",
           "merged": "Ticket closed as a duplicate",
           "created": "Ticket created",
-          "invited": "The invitation was sent to the sender"
+          "invited": "The invitation was sent to the sender",
+          "tagged": "Tag added",
+          "untagged": "Tag removed"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -1487,7 +1540,15 @@
       "senderUnconfirmed": "Sender not confirmed",
       "senderUnconfirmedHint": "The email came from an organization address, but the person is not a portal member yet. Only staff see this request.",
       "inviteSender": "Invite the sender",
-      "undelivered": "Email not delivered"
+      "undelivered": "Email not delivered",
+      "tags": {
+        "title": "Tags",
+        "empty": "No tags",
+        "add": "Add a tag",
+        "hint": "Pick a suggestion or type a new name.",
+        "submit": "Add",
+        "remove": "Remove tag {name}"
+      }
     },
     "playbooks": {
       "title": "First-line playbooks",

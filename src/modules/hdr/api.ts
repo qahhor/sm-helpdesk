@@ -3,10 +3,11 @@ import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from '@/modules/hdc/api
 import { and, asc, eq } from 'drizzle-orm';
 import { type Actor, withActor } from '@/db/with-actor';
 import { findPlaybookTx, listPlaybooksTx, type Playbook, PLAYBOOK_KEEPERS, savePlaybookTx } from './core/playbooks';
+import { deleteTagTx, listTagsTx, type Tag, updateTagTx } from './core/tags';
 import { listAllTemplatesTx, listTemplatesTx, type ReplyTemplate, saveTemplateTx } from './core/templates';
 import { loadSlaConfigTx, saveCalendarTx, saveHolidaysTx, saveSlaPolicyTx, type SlaConfig } from './core/sla-config';
 import { HdrError } from './error';
-import { calendarInput, holidaysInput, playbookInput, slaPolicyInput, templateInput, templateQueryInput } from './input';
+import { calendarInput, holidaysInput, playbookInput, slaPolicyInput, tagDeleteInput, tagNameInput, tagUpdateInput, templateInput, templateQueryInput } from './input';
 import { productModules } from './schema';
 
 // Модуль hdr (справочники), слой api: то, что могут вызывать страницы и другие модули.
@@ -135,4 +136,33 @@ export async function saveTemplate(ctx: StaffContext, input: unknown): Promise<v
   requireFreshAdmin(ctx);
   const data = parse(templateInput, input);
   await saveTemplateTx(ctx.actor, data);
+}
+
+// --- Теги обращений (FR-AUTO-13; план M8, задача 1) ---
+
+export type { Tag } from './core/tags';
+export { TAG_COLORS, TAG_NAME_MAX, type TagColor } from './pref';
+// Для модуля обращений: тег по названию в транзакции постановки и теги по идентификаторам для подписей строк.
+export { findOrCreateTagTx, tagsByIdTx } from './core/tags';
+
+/** Название тега по общей схеме: модуль обращений проверяет им ввод при постановке тега. */
+export function parseTagName(input: unknown): string {
+  return parse(tagNameInput, input);
+}
+
+/** Справочник тегов: читают все сотрудники (подсказки при постановке, фильтр очереди). */
+export function listTags(ctx: StaffContext): Promise<Tag[]> {
+  return listTagsTx(ctx.actor);
+}
+
+/** Переименовать и перекрасить тег: администратор со свежим входом. */
+export async function updateTag(ctx: StaffContext, input: unknown): Promise<void> {
+  requireFreshAdmin(ctx);
+  await updateTagTx(ctx.actor, parse(tagUpdateInput, input));
+}
+
+/** Удалить тег и снять его со всех обращений: администратор со свежим входом. */
+export async function deleteTag(ctx: StaffContext, input: unknown): Promise<void> {
+  requireFreshAdmin(ctx);
+  await deleteTagTx(ctx.actor, parse(tagDeleteInput, input).tagId);
 }

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { boolean, date, integer, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
+import type { TagColor } from './pref';
 
 // Модуль hdr: справочники. Таблицы, ограничения и политики RLS создают миграции drizzle/0002_hdr_hdc_tables.sql
 // и drizzle/0019_sla_calendar.sql. Здесь только описание колонок для запросов.
@@ -80,5 +81,15 @@ export const replyTemplates = pgTable('hdr_reply_templates', {
   body: jsonb('body').$type<LocalizedText>().notNull(),
   moduleId: uuid('module_id'),
   isEnabled: boolean('is_enabled').notNull().default(true),
+  ...stampColumns,
+});
+
+/** Справочник тегов обращений (FR-AUTO-13, миграция 0055). Название уникально без учёта регистра. */
+export const tags = pgTable('hdr_tags', {
+  tagId: uuid('tag_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  name: text('name').notNull(),
+  color: text('color').$type<TagColor>().notNull().default('gray'),
   ...stampColumns,
 });

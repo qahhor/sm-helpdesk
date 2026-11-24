@@ -88,6 +88,12 @@ export const AUDIT_ACTIONS = [
   'sla.policy_changed',
   'sla.calendar_changed',
   'sla.holidays_changed',
+  // Теги обращений (веха M8): справочник и постановка на обращение.
+  'tag.created',
+  'tag.updated',
+  'tag.deleted',
+  'ticket.tag_added',
+  'ticket.tag_removed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -216,3 +216,16 @@ export const lineTransfers = pgTable('hdt_ticket_line_transfers', {
   pickedUpBy: uuid('picked_up_by'),
   ...stampColumns,
 });
+
+/** Теги на обращении (FR-AUTO-13, миграция 0055). Справочник тегов в модуле hdr; клиент строк не видит. */
+export const ticketTags = pgTable('hdt_ticket_tags', {
+  orgId: uuid('org_id').notNull(),
+  ticketTagId: uuid('ticket_tag_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ticketId: uuid('ticket_id').notNull(),
+  tagId: uuid('tag_id').notNull(),
+  /** Сотрудник, который поставил тег. Пусто: поставило правило автоматизации. */
+  addedBy: uuid('added_by'),
+  ...stampColumns,
+});

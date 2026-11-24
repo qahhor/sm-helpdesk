@@ -13,7 +13,9 @@ import {
   type QueueTarget,
   TRANSFER_REASONS,
 } from '@/modules/hdt/api';
+import { listTags } from '@/modules/hdr/api';
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
+import { TagChip } from '@/ui/agent/TagChip';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
 import { StatusLabel } from '@/ui/components/StatusLabel';
@@ -33,9 +35,12 @@ import { QueueKeys } from './QueueKeys';
 // Очереди рабочего места (FR-AG-01, FR-AG-10, FR-AG-14, FR-AG-18, UX-A-08, UX-A-09; экран 8.4 "Очередь").
 // Слева очереди со счётчиками и сохранённые списки, справа поиск, сортировка и таблица по ближайшему сроку.
 
-type Search = { queue?: string; sort?: string; q?: string; page?: string; after?: string; done?: string; error?: string; open?: string };
+type Search = { queue?: string; sort?: string; q?: string; tag?: string; page?: string; after?: string; done?: string; error?: string; open?: string };
 /** Ключ листания: время изменения с микросекундами и идентификатор обращения. Иное значение из адреса не берётся. */
 const AFTER = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Тег в адресе: идентификатор из справочника. Иное значение не берётся. */
+const TAG = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2 align-top';
@@ -58,15 +63,18 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   // Очередь по последнему изменению листается по ключу последней строки, остальные по номеру страницы.
   const after = sort === 'updated' && params.after && AFTER.test(params.after) && !Number.isNaN(Date.parse(`${params.after.slice(0, 23)}Z`)) ? params.after : undefined;
   const canWrite = staff.actor.staffRole !== 'product';
-  const [list, sidebar, assignable] = await Promise.all([
-    listQueue(staff, { queue, sort, q, ...(after ? { after } : { page }) }),
+  // Фильтр по тегу (FR-AUTO-13): выбирается в очереди "Все", листание его сохраняет.
+  const tag = params.tag && TAG.test(params.tag) ? params.tag : undefined;
+  const [list, sidebar, tags, assignable] = await Promise.all([
+    listQueue(staff, { queue, sort, q, tag, ...(after ? { after } : { page }) }),
     queueSidebar(staff),
+    listTags(staff),
     canWrite ? listAssignableStaff(staff) : Promise.resolve([]),
   ]);
   const { counts, filters, unidentified } = sidebar;
   const locale = await getLocale();
   const openNumber = Number(params.open) > 0 && Number.isInteger(Number(params.open)) ? Number(params.open) : null;
-  const href = (next: QueueTarget) => queueHref({ queue, sort, sortChosen, q }, next);
+  const href = (next: QueueTarget) => queueHref({ queue, sort, sortChosen, q, tag }, next);
   const slaText = (minutesLeft: number | null) => {
     const label = slaLabelKey(minutesLeft);
     return t(`queues.sla.${label.key}`, { value: label.value });
@@ -87,7 +95,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
         }
       />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <QueueNav location={{ queue, sort, sortChosen, q }} counts={counts} filters={filters} unidentified={unidentified} />
+        <QueueNav location={{ queue, sort, sortChosen, q, tag }} counts={counts} filters={filters} unidentified={unidentified} />
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           {params.done === 'filter_saved' && <Alert tone="success">{t('queues.done.filterSaved')}</Alert>}
@@ -113,12 +121,27 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                 ))}
               </Select>
             </div>
+            {(queue === 'all' || tag) && tags.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <label htmlFor="queue-tag" className="text-sm font-medium">
+                  {t('queues.tag')}
+                </label>
+                <Select id="queue-tag" name="tag" defaultValue={tag ?? ''}>
+                  <option value="">{t('queues.anyTag')}</option>
+                  {tags.map((item) => (
+                    <option key={item.tagId} value={item.tagId}>
+                      {item.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
             <Button type="submit">{t('queues.show')}</Button>
           </form>
 
           {list.items.length === 0 ? (
             <Card>
-              <EmptyState title={t('queues.emptyTitle')} text={list.searchTooShort ? t('queues.searchTooShort') : q ? t('queues.emptySearch') : t('queues.emptyText')} />
+              <EmptyState title={t('queues.emptyTitle')} text={list.searchTooShort ? t('queues.searchTooShort') : q || tag ? t('queues.emptySearch') : t('queues.emptyText')} />
             </Card>
           ) : (
             <>
@@ -201,6 +224,15 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                           {row.line === 'l2' && ` · ${t('queues.lineL2')}`}
                           {row.snoozedUntil && ` · ${t('queues.snoozed', { time: format.dateTime(row.snoozedUntil, { dateStyle: 'short', timeStyle: 'short' }) })}`}
                         </span>
+                        {row.tags.length > 0 && (
+                          <span className="mt-1 flex flex-wrap gap-1" data-row-tags>
+                            {row.tags.map((item) => (
+                              <Link key={item.tagId} href={href({ queue: 'all', tag: item.tagId, page: 1 })} title={t('queues.byTag', { name: item.name })}>
+                                <TagChip color={item.color}>{item.name}</TagChip>
+                              </Link>
+                            ))}
+                          </span>
+                        )}
                         {/* Вернулось из отложенных: пометка стоит до первого действия сотрудника (FR-AG-13). */}
                         {row.snoozeReturned && (
                           <span data-snooze-returned className="mt-1 block">

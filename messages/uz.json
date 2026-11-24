@@ -592,6 +592,10 @@
         "mail": {
           "title": "Bildirishnomalar va pochta",
           "text": "Qo'llab-quvvatlash manzillari va qabulni tekshirish, navbatchilar va ularning boti, eslatma va avtomatik yopish muddatlari, spam."
+        },
+        "tags": {
+          "title": "Teglar",
+          "text": "Murojaat teglarining nomlari va ranglari, keraksizlarini o'chirish."
         }
       },
       "servers": {
@@ -802,7 +806,8 @@
           "sla_policy": "SLA muddatlari",
           "business_calendar": "Ish kalendari",
           "playbook": "Birinchi liniya eslatmasi",
-          "reply_template": "Javob shabloni"
+          "reply_template": "Javob shabloni",
+          "tag": "Teg"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -871,7 +876,9 @@
             "rated_by_link": "Baho xatdagi havola orqali qo'yildi",
             "bound": "Xat tashkilotga bog'landi",
             "author_moved": "Mehmon o'tishida murojaat muallifi o'zgartirildi",
-            "viewed_by_staff": "Murojaatni xodim ochdi"
+            "viewed_by_staff": "Murojaatni xodim ochdi",
+            "tag_added": "Murojaatga teg qo'shildi",
+            "tag_removed": "Murojaatdan teg olib tashlandi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi",
@@ -909,6 +916,11 @@
           },
           "secrets": {
             "resealed": "Maxfiy qiymatlar yangi kalit bilan qayta shifrlandi"
+          },
+          "tag": {
+            "created": "Teg yaratildi",
+            "updated": "Teg o'zgartirildi",
+            "deleted": "Teg o'chirildi"
           }
         },
         "words": {
@@ -1112,6 +1124,40 @@
           "stale_session": "Sozlamalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak."
         },
         "reauth": "Qayta kirish"
+      },
+      "tags": {
+        "title": "Teglar",
+        "intro": "Tegni xodim murojaatning o'zida yaratadi. Bu yerda tegning nomini, rangini o'zgartirish yoki tegni o'chirish mumkin. Mijozlar teglarni ko'rmaydi.",
+        "emptyTitle": "Hozircha teglar yo'q",
+        "emptyText": "Birinchi teg xodim uni murojaatga qo'shganda paydo bo'ladi.",
+        "usage": "{count, plural, =0 {murojaatlar yo'q} other {# ta murojaat}}",
+        "name": "Nomi",
+        "color": "Rangi",
+        "save": "Saqlash",
+        "delete": "Tegni o'chirish",
+        "deleteText": "{count, plural, =0 {Teg hech bir murojaatda yo'q.} other {Teg # ta murojaatdan olib tashlanadi.}} Uni qaytarib bo'lmaydi.",
+        "deleteConfirm": "O'chirish",
+        "colors": {
+          "gray": "Kulrang",
+          "green": "Yashil",
+          "orange": "To'q sariq",
+          "purple": "Binafsha",
+          "blue": "Ko'k",
+          "teal": "Feruza",
+          "red": "Qizil",
+          "accent": "Asosiy"
+        },
+        "done": {
+          "saved": "Teg saqlandi",
+          "deleted": "Teg o'chirildi"
+        },
+        "errors": {
+          "forbidden": "Teglarni portal administratori o'zgartiradi.",
+          "invalid_input": "Nomni tekshiring: 1 dan 40 gacha belgi.",
+          "tag_taken": "Bunday nomli teg allaqachon bor.",
+          "not_found": "Teg topilmadi. Balki u allaqachon o'chirilgan.",
+          "stale_session": "Teglarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qayta kiring va takrorlang."
+        }
       }
     },
     "queues": {
@@ -1249,7 +1295,10 @@
           "other": "Bo'lmadi. Yana urinib ko'ring."
         },
         "addressOwned": "Bu manzil portal mijoziga tegishli, lekin xat DMARC tekshiruvidan o'tmadi: uni soxtalashtirgan bo'lishlari mumkin. Mijozdan aniqlamaguncha uni spam deb belgilamang va bog'lamang."
-      }
+      },
+      "tag": "Teg",
+      "anyTag": "Barcha teglar",
+      "byTag": "{name} tegi bor murojaatlarni ko'rsatish"
     },
     "ticket": {
       "files": "Fayllar",
@@ -1288,7 +1337,9 @@
         "transferred": "{actor}: ikkinchi liniyaga o'tkazildi. Sabab: {reason}. Tekshirildi: {checked}. Kerak: {needed}",
         "returned": "{actor}: birinchi liniyaga qaytarildi. {explanation}",
         "mergedFrom": "{actor}: {number} qo'shildi",
-        "bound": "{actor}: mijoz tashkilotiga bog'landi"
+        "bound": "{actor}: mijoz tashkilotiga bog'landi",
+        "tagAdded": "{actor}: {name} tegi qo'shildi",
+        "tagRemoved": "{actor}: {name} tegi olib tashlandi"
       },
       "dueKinds": {
         "first_response": "birinchi javob",
@@ -1380,7 +1431,9 @@
           "returned": "Murojaat birinchi liniyaga qaytarildi",
           "merged": "Murojaat takroriy sifatida yopildi",
           "created": "Murojaat yaratildi",
-          "invited": "Yuboruvchiga taklif yuborildi"
+          "invited": "Yuboruvchiga taklif yuborildi",
+          "tagged": "Teg qo'shildi",
+          "untagged": "Teg olib tashlandi"
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -1487,7 +1540,15 @@
       "senderUnconfirmed": "Yuboruvchi tasdiqlanmagan",
       "senderUnconfirmedHint": "Xat tashkilot manzilidan keldi, lekin u odam hali portal ishtirokchisi emas. Murojaatni faqat xodimlar ko'radi.",
       "inviteSender": "Yuboruvchini taklif qilish",
-      "undelivered": "Xat yetkazilmadi"
+      "undelivered": "Xat yetkazilmadi",
+      "tags": {
+        "title": "Teglar",
+        "empty": "Teglar yo'q",
+        "add": "Teg qo'shish",
+        "hint": "Tavsiyalardan tanlang yoki yangi nom kiriting.",
+        "submit": "Qo'shish",
+        "remove": "{name} tegini olib tashlash"
+      }
     },
     "playbooks": {
       "title": "Birinchi liniya eslatmalari",

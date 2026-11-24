@@ -49,6 +49,8 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdr_product_modules: { client: 'all', app: IUD },
   hdr_reply_templates: { client: 'none', app: IU },
   hdr_sla_policies: { client: 'all', app: IU },
+  // Теги обращений (веха M8): создаёт сотрудник с правом записи, меняет и удаляет администратор, клиент не видит.
+  hdr_tags: { client: 'none', app: IUD },
   // Идентичность: меняет только hub_auth, удаляет только отвязка контакта.
   hdu_contact_identities: { client: 'own-user', auth: IUD },
   // Ссылки и коды удаляет только ночная очистка системой (решение 0023, дополнение M2).
@@ -78,5 +80,7 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdt_ticket_messages: { client: 'own-org', app: ['insert'] },
   hdt_ticket_events: { client: 'own-org', app: ['insert'] },
   hdt_ticket_watchers: { client: 'own-user', app: ['insert', 'delete'] },
+  // Теги на обращении (веха M8): ставит и снимает сотрудник с правом записи и система, клиент не видит.
+  hdt_ticket_tags: { client: 'none', app: ['insert', 'delete'] },
   hdt_attachments: { client: 'own-org', app: IUD },
 };

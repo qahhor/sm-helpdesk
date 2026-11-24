@@ -217,7 +217,8 @@ export type AttachmentView = {
   isImage: boolean;
   isMine: boolean;
 };
-export type MessageView = { messageId: string; authorType: AuthorType; authorName: string | null; isMine: boolean; body: string; createdOn: Date; attachments: AttachmentView[] };
+/** isAuto: автоматический ответ правила автоматизации (FR-AUTO-11): страница помечает его подписью. */
+export type MessageView = { messageId: string; authorType: AuthorType; authorName: string | null; isMine: boolean; isAuto: boolean; body: string; createdOn: Date; attachments: AttachmentView[] };
 export type EventView = { kind: EventKind; actorType: AuthorType; payload: Record<string, unknown>; createdOn: Date };
 export type TicketActions = { reply: boolean; confirm: boolean; reopen: boolean; rate: boolean; changeVisibility: boolean; watch: boolean };
 export type TicketView = {
@@ -338,6 +339,7 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown, opts: { 
       authorType: m.authorType,
       authorName: m.authorType === 'client' && m.authorId ? (names.get(m.authorId) ?? null) : null,
       isMine: m.authorId === me,
+      isAuto: m.isAuto,
       body: m.body,
       createdOn: m.createdOn,
       attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),

@@ -163,6 +163,8 @@ export type AgentTimelineEntry =
       authorType: AuthorType;
       authorName: string | null;
       isInternal: boolean;
+      /** Сообщение написано правилом автоматизации: автоматический ответ или заметка (FR-AUTO-11). */
+      isAuto: boolean;
       body: string;
       createdOn: Date;
       attachments: AgentFileView[];
@@ -268,6 +270,7 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
         authorType: m.authorType,
         authorName: m.authorId ? (names.get(m.authorId) ?? null) : null,
         isInternal: m.isInternal,
+        isAuto: m.isAuto,
         body: m.body,
         createdOn: m.createdOn,
         attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),
@@ -276,6 +279,8 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
       }),
     ),
     ...found.events
+      // Событие действия правила в истории не показывается: о срабатывании говорит одна запись "Правило ..." (FR-AUTO-09).
+      .filter((e) => e.kind === 'rule' || (e.payload as Record<string, unknown> | null)?.byRule !== true)
       .map(
         (e): AgentTimelineEntry => ({
           type: 'event',

@@ -61,6 +61,11 @@ async function seedEverything() {
      insert into hdt_ticket_tags (org_id, ticket_id, tag_id, added_by) select $1, $2, tag_id, $3 from tag`,
     [f.orgA.orgId, f.tickets.aOrg.ticketId, f.l1.userId],
   );
+  await pools.root.query(
+    `with rule as (insert into hdw_rules (name, event, actions, order_no) values ('Срочные', 'ticket_created', '[{"action": "set_queue", "queue": "care"}]', 1) returning rule_id)
+     insert into hdw_rule_runs (org_id, rule_id, ticket_id, result) select $1, rule_id, $2, 'applied' from rule`,
+    [f.orgA.orgId, f.tickets.aOrg.ticketId],
+  );
   await pools.root.query(`insert into hdu_server_checks (server_id, is_ok, issues) values ($1, false, '{timeout}')`, [f.server.serverId]);
   return f;
 }

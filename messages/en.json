@@ -83,7 +83,9 @@
         "snooze_returned": "Snoozed request SUP-{number} is back",
         "update_due": "Client update due tomorrow on request SUP-{number}",
         "holidays_reminder": "Fill in the holidays for {year}",
-        "telegram_linked": "A Telegram account was linked. If it was not you, unlink it in your profile."
+        "telegram_linked": "A Telegram account was linked. If it was not you, unlink it in your profile.",
+        "rule": "Rule \"{rule}\": request SUP-{number}",
+        "rule_disabled": "Rule \"{rule}\" was turned off: it fired too often"
       },
       "settings": {
         "title": "Emails",
@@ -202,6 +204,7 @@
         "copied": "Number copied",
         "you": "You",
         "support": "Smartup support",
+        "autoReply": "Automatic reply",
         "colleague": "Colleague",
         "visibleOrg": "Visible to colleagues",
         "visiblePrivate": "Visible to you and the administrator",
@@ -807,7 +810,8 @@
           "business_calendar": "Working calendar",
           "playbook": "First-line playbook",
           "reply_template": "Reply template",
-          "tag": "Tag"
+          "tag": "Tag",
+          "rule": "Automation rule"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -921,6 +925,17 @@
             "created": "Tag created",
             "updated": "Tag changed",
             "deleted": "Tag deleted"
+          },
+          "rule": {
+            "created": "Automation rule created",
+            "updated": "Automation rule changed",
+            "enabled": "Automation rule turned on",
+            "disabled": "Automation rule turned off",
+            "moved": "Automation rule order changed",
+            "deleted": "Automation rule deleted",
+            "applied": "Automation rule fired",
+            "disabled_loop": "Automation rule turned off by loop protection",
+            "dry_run": "Automation rule dry run"
           }
         },
         "words": {
@@ -1307,6 +1322,7 @@
       "system": "System",
       "client": "Client",
       "note": "Note",
+      "auto": "Automatic",
       "new": "new",
       "scan": {
         "pending": "being checked",
@@ -1333,7 +1349,7 @@
         "merge": "{actor}: merged",
         "visibility": "{actor}: visibility changed",
         "rated": "{actor}: rated",
-        "rule": "A rule fired",
+        "rule": "Rule \"{name}\": {actions}",
         "transferred": "{actor}: transferred to the second line. Reason: {reason}. Checked: {checked}. Needed: {needed}",
         "returned": "{actor}: returned to the first line. {explanation}",
         "mergedFrom": "{actor}: merged {number} into this ticket",
@@ -1341,6 +1357,36 @@
         "tagAdded": "{actor}: tag {name} added",
         "tagRemoved": "{actor}: tag {name} removed"
       },
+      "ruleActions": {
+        "set_queue": "queue {to}",
+        "assign": "assignee {to}",
+        "assign_round_robin": "round-robin assignee {to}",
+        "set_priority": "priority {from} > {to}",
+        "add_tag": "tag added {to}",
+        "remove_tag": "tag removed {from}",
+        "add_note": "note added",
+        "reply_template": "automatic reply sent",
+        "notify": "notification sent",
+        "snooze": "snoozed",
+        "set_status": "status {from} > {to}",
+        "webhook": "webhook called",
+        "unchanged": "no changes"
+      },
+      "ruleActionNames": {
+        "set_queue": "queue change",
+        "assign": "assignment",
+        "assign_round_robin": "round-robin assignment",
+        "set_priority": "priority change",
+        "add_tag": "adding a tag",
+        "remove_tag": "removing a tag",
+        "add_note": "note",
+        "reply_template": "template reply",
+        "notify": "notification",
+        "snooze": "snooze",
+        "set_status": "status change",
+        "webhook": "webhook"
+      },
+      "ruleActionFailed": "{name}: not done",
       "dueKinds": {
         "first_response": "first response",
         "resolution": "resolution"
@@ -1913,6 +1959,15 @@
       "text": "New urgent P1 request from {orgName}: SUP-{number}.",
       "button": "Open the request"
     },
+    "staffRule": {
+      "heading": "Rule notification",
+      "text": "Rule \"{rule}\" fired on request SUP-{number} \"{title}\"."
+    },
+    "oncallRule": {
+      "subject": "Automation rule notification",
+      "text": "Rule \"{rule}\" fired on request SUP-{number}.",
+      "button": "Open the request"
+    },
     "inboundTest": {
       "subject": "Smartup Hub mail intake check {token}",
       "text": "This is a check email from the Smartup Hub portal. If it has reached the portal, mail intake for {address} works. There is no need to reply."
@@ -1955,6 +2010,7 @@
     },
     "oncallP1": "P1: new urgent request SUP-{number}",
     "oncallP1Org": "P1: new urgent request SUP-{number}, {org}",
+    "oncallRule": "Rule \"{rule}\": request SUP-{number}",
     "ops": {
       "jobs_failed": "Smartup Hub: background jobs that failed in the last hour: {count}. Check the worker log.",
       "outbox_failed": "Smartup Hub: emails and messages not sent in the last hour: {count}. Check the outbox.",

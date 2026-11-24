@@ -54,6 +54,9 @@ export const NOTIFICATION_KINDS = [
   'update_due',
   'holidays_reminder',
   'telegram_linked',
+  // Правила автоматизации (веха M8): правило уведомило сотрудника; система выключила правило из-за зацикливания.
+  'rule',
+  'rule_disabled',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

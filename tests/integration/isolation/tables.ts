@@ -85,4 +85,8 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Теги на обращении (веха M8): ставит и снимает сотрудник с правом записи и система, клиент не видит.
   hdt_ticket_tags: { client: 'none', app: ['insert', 'delete'] },
   hdt_attachments: { client: 'own-org', app: IUD },
+  // Автоматизация (веха M8): правила ведёт администратор, выключает система (защита от зацикливания); срабатывания
+  // пишет и удаляет только система. Клиент не видит ни правил, ни срабатываний.
+  hdw_rules: { client: 'none', app: IUD },
+  hdw_rule_runs: { client: 'none', app: ['insert', 'delete'] },
 };

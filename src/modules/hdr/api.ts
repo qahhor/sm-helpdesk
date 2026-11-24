@@ -116,6 +116,8 @@ export async function savePlaybook(ctx: StaffContext, input: unknown): Promise<v
 // --- Шаблоны ответов (план M3, задача 10) ---
 
 export type { ReplyTemplate } from './core/templates';
+// Для модуля правил: шаблон ответа по идентификатору в транзакции срабатывания.
+export { templatesByIdTx } from './core/templates';
 export { filterTemplates, renderTemplate, slashQuery } from './util';
 
 /** Включённые шаблоны для поля ответа (FR-AG-06): общие и шаблоны модуля обращения. Читают сотрудники. */

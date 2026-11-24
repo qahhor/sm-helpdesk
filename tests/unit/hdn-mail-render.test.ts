@@ -24,6 +24,8 @@ const SAMPLES: { [K in MailTemplate]: Omit<Extract<MailData, { template: K }>, k
   staff_update_due: { template: 'staff_update_due', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042' },
   holidays_reminder: { template: 'holidays_reminder', year: 2027, url: 'https://hub.example.test/ru/agent/settings/sla' },
   oncall_p1: { template: 'oncall_p1', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', orgName: 'ООО Клиент' },
+  staff_rule: { template: 'staff_rule', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', rule: 'P1 от категории A' },
+  oncall_rule: { template: 'oncall_rule', number: 1042, url: 'https://hub.example.test/ru/agent/tickets/1042', rule: 'P1 от категории A' },
   inbound_test: { template: 'inbound_test', address: 'support@greenwhite.uz', token: 'chk-7f3a' },
   ops_alert: { template: 'ops_alert', text: 'Smartup Hub: за час не отправлено писем и сообщений: 3.', url: 'https://hub.example.test/ru/agent' },
 };
@@ -39,6 +41,8 @@ const TICKET_TEMPLATES: MailTemplate[] = [
   'staff_breach',
   'staff_update_due',
   'oncall_p1',
+  'staff_rule',
+  'oncall_rule',
 ];
 
 const cases = MAIL_TEMPLATES.flatMap((template) => LOCALES.map((locale) => [template, locale] as const));

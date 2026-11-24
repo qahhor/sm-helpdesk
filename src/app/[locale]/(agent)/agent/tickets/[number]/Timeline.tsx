@@ -78,6 +78,27 @@ export async function TicketTimeline({ ticket, from }: Props) {
         return typeof p.from === 'number' ? t('ticket.events.mergedFrom', { actor, number: `SUP-${p.from}` }) : t('ticket.events.merge', { actor });
       case 'tag':
         return t(p.action === 'removed' ? 'ticket.events.tagRemoved' : 'ticket.events.tagAdded', { actor, name: String(p.name ?? '') });
+      case 'rule': {
+        // Срабатывание правила автоматизации (FR-AUTO-09): название правила и что оно сделало, с прежним и новым значением.
+        const label = (action: string, value: unknown): string => {
+          if (value === null || value === undefined) return '';
+          const text = String(value);
+          if (action === 'set_status') return statusName(text);
+          if (action === 'set_priority') return text.toUpperCase();
+          if (action === 'set_queue') return t.has(`ticket.lines.${text}`) ? t(`ticket.lines.${text}`) : text;
+          if (action === 'snooze') return Number.isNaN(Date.parse(text)) ? text : when(new Date(text));
+          return text;
+        };
+        const done = (Array.isArray(p.actions) ? p.actions : []).flatMap((item): string[] => {
+          if (item === null || typeof item !== 'object') return [];
+          const { action, ok, from, to, unchanged } = item as { action?: unknown; ok?: unknown; from?: unknown; to?: unknown; unchanged?: unknown };
+          if (typeof action !== 'string' || !t.has(`ticket.ruleActions.${action}`)) return [];
+          if (ok !== true) return [t('ticket.ruleActionFailed', { name: t(`ticket.ruleActionNames.${action}`) })];
+          if (unchanged === true) return [`${t(`ticket.ruleActionNames.${action}`)}: ${t('ticket.ruleActions.unchanged')}`];
+          return [t(`ticket.ruleActions.${action}`, { from: label(action, from), to: label(action, to) }).trim()];
+        });
+        return t('ticket.events.rule', { name: String(p.ruleName ?? ''), actions: done.join('; ') });
+      }
       case 'due':
         return t('ticket.events.due', { kind: t.has(`ticket.dueKinds.${String(p.kind)}`) ? t(`ticket.dueKinds.${String(p.kind)}`) : '' });
       default:
@@ -111,6 +132,7 @@ export async function TicketTimeline({ ticket, from }: Props) {
           >
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               {entry.isInternal && <StatusLabel tone="orange">{t('ticket.note')}</StatusLabel>}
+              {entry.isAuto && <StatusLabel tone="gray">{t('ticket.auto')}</StatusLabel>}
               <span className="font-semibold text-foreground">{entry.authorName ?? t(`ticket.authors.${entry.authorType}`)}</span>, {when(entry.createdOn)}
               {entry.isNew && <StatusLabel tone="blue">{t('ticket.new')}</StatusLabel>}
               {entry.undelivered && <StatusLabel tone="danger">{t('ticket.undelivered')}</StatusLabel>}

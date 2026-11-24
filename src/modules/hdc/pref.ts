@@ -94,6 +94,16 @@ export const AUDIT_ACTIONS = [
   'tag.deleted',
   'ticket.tag_added',
   'ticket.tag_removed',
+  // Правила автоматизации (веха M8): настройка администратором, срабатывание на обращении, защита от зацикливания, пробный прогон.
+  'rule.created',
+  'rule.updated',
+  'rule.enabled',
+  'rule.disabled',
+  'rule.moved',
+  'rule.deleted',
+  'rule.applied',
+  'rule.disabled_loop',
+  'rule.dry_run',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

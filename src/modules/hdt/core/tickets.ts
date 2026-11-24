@@ -270,7 +270,7 @@ export async function ticketExists(actor: ClientActor, number: number): Promise<
 }
 
 export type TicketRecord = typeof tickets.$inferSelect;
-export type MessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'createdOn'>;
+export type MessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'createdOn' | 'isAuto'>;
 export type EventRecord = Pick<typeof ticketEvents.$inferSelect, 'kind' | 'actorType' | 'actorId' | 'payload' | 'createdOn'>;
 export type AttachmentRecord = Pick<
   typeof attachments.$inferSelect,
@@ -298,6 +298,7 @@ export async function readTicket(
         authorId: ticketMessages.authorId,
         authorType: ticketMessages.authorType,
         body: ticketMessages.body,
+        isAuto: ticketMessages.isAuto,
         createdOn: ticketMessages.createdOn,
       })
       .from(ticketMessages)

@@ -107,6 +107,9 @@ export const ticketMessages = pgTable('hdt_ticket_messages', {
   ...stampColumns,
   // Колонка добавлена миграцией 0029 и стоит в конце таблицы.
   isThanks: boolean('is_thanks').notNull().default(false),
+  // Миграция 0058 (веха M8): сообщение написано правилом автоматизации (FR-AUTO-11).
+  /** Автоматический ответ по шаблону или заметка правила. Автор такого сообщения всегда система. */
+  isAuto: boolean('is_auto').notNull().default(false),
 });
 
 export const ticketEvents = pgTable('hdt_ticket_events', {

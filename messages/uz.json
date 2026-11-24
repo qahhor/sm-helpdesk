@@ -83,7 +83,9 @@
         "snooze_returned": "Kechiktirilgan SUP-{number} murojaati qaytdi",
         "update_due": "Ertaga SUP-{number} murojaati bo'yicha mijozga xabar berish muddati",
         "holidays_reminder": "{year} yil bayram kunlarini to'ldiring",
-        "telegram_linked": "Telegram hisobi bog'landi. Agar bu siz bo'lmasangiz, uni profilda uzing."
+        "telegram_linked": "Telegram hisobi bog'landi. Agar bu siz bo'lmasangiz, uni profilda uzing.",
+        "rule": "«{rule}» qoidasi: SUP-{number} murojaati",
+        "rule_disabled": "«{rule}» qoidasi o'chirildi: u juda tez-tez ishga tushdi"
       },
       "settings": {
         "title": "Xatlar",
@@ -202,6 +204,7 @@
         "copied": "Raqam nusxalandi",
         "you": "Siz",
         "support": "Smartup qo'llab-quvvatlash xizmati",
+        "autoReply": "Avtomatik javob",
         "colleague": "Hamkasb",
         "visibleOrg": "Hamkasblar ko'radi",
         "visiblePrivate": "Siz va administrator ko'radi",
@@ -807,7 +810,8 @@
           "business_calendar": "Ish kalendari",
           "playbook": "Birinchi liniya eslatmasi",
           "reply_template": "Javob shabloni",
-          "tag": "Teg"
+          "tag": "Teg",
+          "rule": "Avtomatlashtirish qoidasi"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -921,6 +925,17 @@
             "created": "Teg yaratildi",
             "updated": "Teg o'zgartirildi",
             "deleted": "Teg o'chirildi"
+          },
+          "rule": {
+            "created": "Avtomatlashtirish qoidasi yaratildi",
+            "updated": "Avtomatlashtirish qoidasi o'zgartirildi",
+            "enabled": "Avtomatlashtirish qoidasi yoqildi",
+            "disabled": "Avtomatlashtirish qoidasi o'chirildi",
+            "moved": "Avtomatlashtirish qoidalari tartibi o'zgartirildi",
+            "deleted": "Avtomatlashtirish qoidasi o'chirib tashlandi",
+            "applied": "Avtomatlashtirish qoidasi ishga tushdi",
+            "disabled_loop": "Avtomatlashtirish qoidasi takrorlanishdan himoya tufayli o'chirildi",
+            "dry_run": "Avtomatlashtirish qoidasining sinov ishga tushirilishi"
           }
         },
         "words": {
@@ -1307,6 +1322,7 @@
       "system": "Tizim",
       "client": "Mijoz",
       "note": "Eslatma",
+      "auto": "Avtomatik",
       "new": "yangi",
       "scan": {
         "pending": "tekshirilmoqda",
@@ -1333,7 +1349,7 @@
         "merge": "{actor}: birlashtirildi",
         "visibility": "{actor}: ko'rinish o'zgartirildi",
         "rated": "{actor}: baho qo'yildi",
-        "rule": "Qoida ishladi",
+        "rule": "«{name}» qoidasi: {actions}",
         "transferred": "{actor}: ikkinchi liniyaga o'tkazildi. Sabab: {reason}. Tekshirildi: {checked}. Kerak: {needed}",
         "returned": "{actor}: birinchi liniyaga qaytarildi. {explanation}",
         "mergedFrom": "{actor}: {number} qo'shildi",
@@ -1341,6 +1357,36 @@
         "tagAdded": "{actor}: {name} tegi qo'shildi",
         "tagRemoved": "{actor}: {name} tegi olib tashlandi"
       },
+      "ruleActions": {
+        "set_queue": "navbat {to}",
+        "assign": "ijrochi {to}",
+        "assign_round_robin": "navbat bilan ijrochi {to}",
+        "set_priority": "ustuvorlik {from} > {to}",
+        "add_tag": "teg qo'shildi {to}",
+        "remove_tag": "teg olib tashlandi {from}",
+        "add_note": "izoh qo'shildi",
+        "reply_template": "avtomatik javob yuborildi",
+        "notify": "bildirishnoma yuborildi",
+        "snooze": "kechiktirildi",
+        "set_status": "holat {from} > {to}",
+        "webhook": "vebhuk chaqirildi",
+        "unchanged": "o'zgarishsiz"
+      },
+      "ruleActionNames": {
+        "set_queue": "navbatni almashtirish",
+        "assign": "ijrochini tayinlash",
+        "assign_round_robin": "navbat bilan taqsimlash",
+        "set_priority": "ustuvorlikni almashtirish",
+        "add_tag": "teg qo'shish",
+        "remove_tag": "tegni olib tashlash",
+        "add_note": "izoh",
+        "reply_template": "shablon bo'yicha javob",
+        "notify": "bildirishnoma",
+        "snooze": "kechiktirish",
+        "set_status": "holatni almashtirish",
+        "webhook": "vebhuk"
+      },
+      "ruleActionFailed": "{name}: bajarilmadi",
       "dueKinds": {
         "first_response": "birinchi javob",
         "resolution": "hal qilish"
@@ -1913,6 +1959,15 @@
       "text": "{orgName} tashkilotidan yangi shoshilinch P1 murojaati: SUP-{number}.",
       "button": "Murojaatni ochish"
     },
+    "staffRule": {
+      "heading": "Qoida bildirishnomasi",
+      "text": "«{rule}» qoidasi SUP-{number} «{title}» murojaatida ishga tushdi."
+    },
+    "oncallRule": {
+      "subject": "Avtomatlashtirish qoidasi bildirishnomasi",
+      "text": "«{rule}» qoidasi SUP-{number} murojaatida ishga tushdi.",
+      "button": "Murojaatni ochish"
+    },
     "inboundTest": {
       "subject": "Smartup Hub xatlarni qabul qilishni tekshirish {token}",
       "text": "Bu Smartup Hub portalining tekshiruv xati. Agar u portalga yetib kelgan bo'lsa, {address} manzilidagi xatlarni qabul qilish ishlayapti. Unga javob berish shart emas."
@@ -1955,6 +2010,7 @@
     },
     "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
     "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}",
+    "oncallRule": "«{rule}» qoidasi: SUP-{number} murojaati",
     "ops": {
       "jobs_failed": "Smartup Hub: bir soatda bajarilmagan fon vazifalari: {count}. Fon jarayoni jurnalini ko'ring.",
       "outbox_failed": "Smartup Hub: bir soatda yuborilmagan xat va xabarlar: {count}. Chiquvchi navbatni ko'ring.",

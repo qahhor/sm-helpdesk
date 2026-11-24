@@ -8,10 +8,11 @@ import { bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, crea
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
-import { dispatchOutbox, outboxState } from '@/modules/hdn/api/outbox';
+import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
+import { cleanupRuleRuns, handleRuleEvent, newRuleRun, runNoActivityRules } from '@/modules/hdw/api/engine';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { opsWatch } from './ops-watch';
 
@@ -20,7 +21,7 @@ import { opsWatch } from './ops-watch';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок, задача обращений, отправка очереди писем и разбор событий раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
@@ -39,6 +40,8 @@ const actor = (job: string): SystemActor => ({ type: 'system', job });
  * идут параллельно, браузерные тесты). Паузы растут от 1 до 30 секунд, всего около восьми минут (StartOptions pg-boss).
  */
 const START_ATTEMPTS = 20;
+/** Событие "нет активности" (решение 5 плана M8) проверяется раз в минуту, чуть чаще расписания: запуск по расписанию его не пропускает. */
+const NO_ACTIVITY_EVERY_MS = 55_000;
 
 export interface WorkerOptions {
   connectionString?: string;
@@ -112,12 +115,24 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const state = await outboxState(actor('outbox.dispatch'), new Date());
     logEvent(state.failed > 0 || state.lagSec > 60 ? 'warn' : state.queued > 0 ? 'info' : 'debug', 'outbox.state', state);
   }));
+  // Событие "нет активности" проверяется не чаще раза в минуту: задача идёт и по расписанию, и по сигналу после каждого изменения.
+  let silentCheckedAt = 0;
   await boss.work('automation.process', polling, () => timedJob('automation.process', async () => {
-    // Разбор событий предметной области (план M8, задача 2). Пока событие только отмечается разобранным: правила
-    // подключает следующая задача вехи. При остановке процесса разбор прекращается между событиями.
+    // Разбор событий предметной области (план M8, задачи 2 и 3): правила события применяются в транзакции события
+    // вместе с отметкой разбора. При остановке процесса разбор прекращается между событиями.
     const system = actor('automation.process');
-    const { processed, failed } = await processEvents(system, async () => {}, { stopped: () => stopping });
+    const run = newRuleRun();
+    const { processed, failed } = await processEvents(system, (tx, event) => handleRuleEvent(tx, event, run), { stopped: () => stopping });
     if (failed > 0) console.info(`События: разобрано ${processed}, со сбоем ${failed}`);
+    let silent = { checked: 0, applied: 0, failed: 0 };
+    if (!stopping && Date.now() - silentCheckedAt >= NO_ACTIVITY_EVERY_MS) {
+      silentCheckedAt = Date.now();
+      silent = await runNoActivityRules(system, { stopped: () => stopping });
+    }
+    if (run.applied + run.failed + run.loops + silent.applied + silent.failed > 0)
+      console.info(`Правила: сработало ${run.applied + silent.applied}, без выполненных действий ${run.failed + silent.failed}, выключено защитой от зацикливания ${run.loops}`);
+    // Письма и сообщения правил уже в очереди исходящих: отправка будится после фиксации.
+    if (run.applied + silent.applied > 0) await wakeOutbox();
     const state = await eventsState(system);
     logEvent(state.lagSec > 120 ? 'warn' : state.pending > 0 ? 'info' : 'debug', 'automation.state', state);
   }));
@@ -137,6 +152,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Разобранные события предметной области хранятся 30 суток (план M8, задача 2).
     const events = await cleanupDomainEvents(system);
     if (events > 0) console.info(`Ночная очистка: разобранные события старше 30 суток ${events}`);
+    // Срабатывания правил автоматизации хранятся 90 суток (план M8, задача 3).
+    const runs = await cleanupRuleRuns(system);
+    if (runs > 0) console.info(`Ночная очистка: срабатывания правил старше 90 суток ${runs}`);
     const audit = await cleanupAudit(system);
     if (audit > 0) console.info(`Ночная очистка: записи журнала аудита старше 3 лет ${audit}`);
     console.info(

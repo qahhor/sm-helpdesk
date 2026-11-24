@@ -10,7 +10,8 @@ export async function notificationItems(rows: NotificationRow[]): Promise<Notifi
   const format = await getFormatter();
   return rows.map((row) => ({
     id: row.notificationId,
-    text: t(row.kind, { number: row.ticketNumber ?? 0, year: Number(row.payload.year ?? 0) }),
+    // rule: название правила автоматизации в уведомлениях правил (веха M8).
+    text: t(row.kind, { number: row.ticketNumber ?? 0, year: Number(row.payload.year ?? 0), rule: String(row.payload.rule ?? '') }),
     time: format.dateTime(row.createdOn, { dateStyle: 'medium', timeStyle: 'short' }),
     unread: row.readOn === null,
   }));

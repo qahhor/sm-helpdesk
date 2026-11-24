@@ -40,9 +40,9 @@ const moduleBoundary = (name) => ({
 // hdc ни от кого, hdn и hdr только от hdc, hdu ещё от hdn, hdt от всех четырёх. Общие понятия, которые нужны
 // нижним модулям от верхних (справочник контактов, контекст сотрудника), объявлены в hdc. Константы (pref)
 // слоями не ограничены: это общий словарь без обращений к базе. Типы тоже под запретом: тип тянет понятие.
-const MODULE_LAYERS = { hdc: [], hdn: ['hdc'], hdr: ['hdc'], hdu: ['hdc', 'hdn'], hdt: ['hdc', 'hdn', 'hdr', 'hdu'] };
+const MODULE_LAYERS = { hdc: [], hdn: ['hdc'], hdr: ['hdc'], hdu: ['hdc', 'hdn'], hdt: ['hdc', 'hdn', 'hdr', 'hdu'], hdw: ['hdc', 'hdn', 'hdr', 'hdu', 'hdt'] };
 const LAYER_BOUNDARY =
-  'Слои модулей: зависимость идёт в одну сторону (hdc, затем hdn и hdr, затем hdu, затем hdt). Общее понятие объявляется в hdc (решение 0039)';
+  'Слои модулей: зависимость идёт в одну сторону (hdc, затем hdn и hdr, затем hdu, затем hdt, затем hdw). Общее понятие объявляется в hdc (решение 0039)';
 const layerBoundary = (name) => {
   const allowed = MODULE_LAYERS[name];
   if (!allowed) return [];

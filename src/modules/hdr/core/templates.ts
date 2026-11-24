@@ -1,6 +1,7 @@
 import 'server-only';
-import { and, asc, eq, isNull, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { containsText } from '@/db/contains';
+import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { HdrError } from '../error';
@@ -44,6 +45,13 @@ export async function listTemplatesTx(actor: StaffActor, opts: { q?: string; mod
       )
       .orderBy(asc(replyTemplates.shortcut)),
   );
+}
+
+/** Шаблоны по идентификаторам в транзакции вызывающего, включая выключенные: ответ правила автоматизации по шаблону. */
+export async function templatesByIdTx(tx: Tx, templateIds: readonly string[]): Promise<Map<string, ReplyTemplate>> {
+  if (templateIds.length === 0) return new Map();
+  const rows = await tx.select(columns).from(replyTemplates).where(inArray(replyTemplates.templateId, [...new Set(templateIds)]));
+  return new Map(rows.map((row) => [row.templateId, row]));
 }
 
 /** Все шаблоны для экрана настроек, включая выключенные. */

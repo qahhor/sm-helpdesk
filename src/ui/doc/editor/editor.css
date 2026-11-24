@@ -1,0 +1,187 @@
+/* Редактор решения (план M5, задача 1). Стили ProseMirror подключаются файлом, а не блоком стилей во время
+   работы (injectCSS выключен): политика CSP пропускает только стили с одноразовым кодом. Цвета и размеры
+   только из токенов. */
+
+.doc-editor {
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+  min-height: calc(var(--spacing-control) * 6);
+  padding: calc(var(--spacing) * 4);
+  outline: none;
+}
+
+.doc-editor [contenteditable="false"] {
+  white-space: normal;
+}
+
+.doc-editor [contenteditable="false"] [contenteditable="true"] {
+  white-space: pre-wrap;
+}
+
+img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  margin: 0;
+}
+
+.ProseMirror-gapcursor::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: calc(var(--spacing) * 5);
+  border-top: 1px solid var(--color-foreground);
+}
+
+.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}
+
+.ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+
+.ProseMirror-hideselection * {
+  caret-color: transparent;
+}
+
+.doc-editor .ProseMirror-selectednode {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+.doc-editor h2 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.doc-editor h3 {
+  font-weight: 600;
+}
+
+.doc-editor ul {
+  list-style: disc;
+  padding-inline-start: calc(var(--spacing) * 5);
+}
+
+.doc-editor ol {
+  list-style: decimal;
+  padding-inline-start: calc(var(--spacing) * 5);
+}
+
+.doc-editor a {
+  color: var(--color-link);
+  text-decoration: underline;
+}
+
+.doc-editor code {
+  border-radius: var(--radius-control);
+  background: var(--color-card-soft);
+  padding-inline: var(--spacing);
+}
+
+.doc-editor img {
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.doc-editor table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.doc-editor td,
+.doc-editor th {
+  border: 1px solid var(--color-border);
+  padding: calc(var(--spacing) * 2);
+  vertical-align: top;
+  text-align: start;
+}
+
+.doc-editor th {
+  background: var(--color-card-soft);
+  font-weight: 600;
+}
+
+.doc-editor .selectedCell {
+  background: var(--color-selected);
+}
+
+.doc-editor .doc-callout {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 2);
+  border-inline-start: 4px solid var(--color-link);
+  border-radius: var(--radius-control);
+  background: var(--color-card-soft);
+  padding: calc(var(--spacing) * 3);
+}
+
+.doc-editor .doc-callout[data-tone="warning"] {
+  border-inline-start-color: var(--color-warning);
+  background: var(--color-warning-bg);
+}
+
+/* Шаги: номер ставит расширение шага атрибутом data-step-number по порядку соседних шагов, в документе
+   номера не хранятся. Обёртка вида узла (data-node-view-wrapper) не занимает места: ручка, номер и текст
+   стоят в одном ряду. */
+.doc-editor .node-step {
+  display: flex;
+  gap: calc(var(--spacing) * 2);
+  align-items: flex-start;
+}
+
+.doc-editor .node-step > .doc-step {
+  display: contents;
+}
+
+.doc-editor .node-step::before {
+  content: attr(data-step-number);
+  order: 1;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--spacing-control-small);
+  height: var(--spacing-control-small);
+  border-radius: var(--radius-chip);
+  background: var(--color-selected);
+  color: var(--color-selected-foreground);
+  font-weight: 600;
+}
+
+.doc-editor .doc-step-handle {
+  order: 0;
+  display: flex;
+  align-items: center;
+  height: var(--spacing-control-small);
+  color: var(--color-muted-foreground);
+  cursor: grab;
+}
+
+.doc-editor .doc-step-body {
+  order: 2;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 2);
+  padding-top: calc(var(--spacing) * 2);
+}

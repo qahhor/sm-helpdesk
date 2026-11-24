@@ -2796,6 +2796,59 @@
       "teal": "Resolved",
       "danger": "Overdue"
     },
-    "numbers": "1,250,000 UZS, 11/10/2026"
+    "numbers": "1,250,000 UZS, 11/10/2026",
+    "editor": {
+      "title": "Solution editor trial",
+      "intro": "Developer page: a Tiptap trial before choosing the editor. The document is stored as a structure and shown with components.",
+      "editorHeading": "Editor",
+      "previewHeading": "What the client sees",
+      "save": "Save",
+      "saved": "The document is saved and checked against the schema.",
+      "invalid": "The document failed the schema check. Showing the sample.",
+      "toolbar": {
+        "area": "Solution text",
+        "toolbar": "Text formatting",
+        "bold": "Bold",
+        "italic": "Italic",
+        "code": "Code",
+        "link": "Link",
+        "linkPrompt": "Link address: https, mailto or a portal path. An empty address removes the link.",
+        "heading2": "Heading",
+        "heading3": "Subheading",
+        "paragraph": "Plain text",
+        "bulletList": "List",
+        "orderedList": "Numbered list",
+        "step": "Step",
+        "calloutWarning": "Warning",
+        "calloutInfo": "Note",
+        "image": "Image",
+        "table": "Table",
+        "addRow": "Add row",
+        "addColumn": "Add column",
+        "deleteTable": "Delete table",
+        "moveUp": "Move up (Alt+Shift+↑)",
+        "moveDown": "Move down (Alt+Shift+↓)",
+        "undo": "Undo",
+        "redo": "Redo"
+      },
+      "view": {
+        "warning": "Warning",
+        "info": "Note",
+        "step": "Step {n}"
+      },
+      "imageAlt": "Screenshot for the step",
+      "sample": {
+        "whatHeading": "What the user sees",
+        "what": "Posting a document shows an error about insufficient stock.",
+        "doHeading": "What to do",
+        "step1": "Open Warehouse, then Stock.",
+        "step2": "Check the item stock and post the document again.",
+        "warning": "Do not backdate the document.",
+        "codeHeader": "Code",
+        "meaningHeader": "Meaning",
+        "code": "ORA-20001",
+        "meaning": "Not enough stock"
+      }
+    }
   }
 }

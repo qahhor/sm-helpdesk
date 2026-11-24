@@ -2796,6 +2796,59 @@
       "teal": "Hal qilindi",
       "danger": "Muddat o'tdi"
     },
-    "numbers": "1 250 000 so'm, 10.11.2026"
+    "numbers": "1 250 000 so'm, 10.11.2026",
+    "editor": {
+      "title": "Yechimlar muharririni sinash",
+      "intro": "Dasturchilar uchun sahifa: muharrirni tanlashdan oldin Tiptap sinovi. Hujjat tuzilma sifatida saqlanadi va komponentlar bilan koʻrsatiladi.",
+      "editorHeading": "Muharrir",
+      "previewHeading": "Mijoz qanday koʻradi",
+      "save": "Saqlash",
+      "saved": "Hujjat saqlandi va sxema boʻyicha tekshirildi.",
+      "invalid": "Hujjat sxema tekshiruvidan oʻtmadi. Namuna koʻrsatilgan.",
+      "toolbar": {
+        "area": "Yechim matni",
+        "toolbar": "Matnni bezash",
+        "bold": "Qalin",
+        "italic": "Kursiv",
+        "code": "Kod",
+        "link": "Havola",
+        "linkPrompt": "Havola manzili: https, mailto yoki portal yoʻli. Boʻsh manzil havolani olib tashlaydi.",
+        "heading2": "Sarlavha",
+        "heading3": "Kichik sarlavha",
+        "paragraph": "Oddiy matn",
+        "bulletList": "Roʻyxat",
+        "orderedList": "Raqamli roʻyxat",
+        "step": "Qadam",
+        "calloutWarning": "Ogohlantirish",
+        "calloutInfo": "Eslatma",
+        "image": "Rasm",
+        "table": "Jadval",
+        "addRow": "Qator qoʻshish",
+        "addColumn": "Ustun qoʻshish",
+        "deleteTable": "Jadvalni oʻchirish",
+        "moveUp": "Yuqoriga surish (Alt+Shift+↑)",
+        "moveDown": "Pastga surish (Alt+Shift+↓)",
+        "undo": "Bekor qilish",
+        "redo": "Qaytarish"
+      },
+      "view": {
+        "warning": "Diqqat",
+        "info": "Eslatma",
+        "step": "{n}-qadam"
+      },
+      "imageAlt": "Qadamga ekran surati",
+      "sample": {
+        "whatHeading": "Foydalanuvchi nimani koʻradi",
+        "what": "Hujjatni oʻtkazishda qoldiq yetishmasligi haqida xato chiqadi.",
+        "doHeading": "Nima qilish kerak",
+        "step1": "Ombor boʻlimini, keyin Qoldiqlarni oching.",
+        "step2": "Tovar qoldigʻini tekshiring va hujjatni qayta oʻtkazing.",
+        "warning": "Hujjat sanasini oʻtgan sanaga oʻzgartirmang.",
+        "codeHeader": "Kod",
+        "meaningHeader": "Maʼnosi",
+        "code": "ORA-20001",
+        "meaning": "Qoldiq yetishmaydi"
+      }
+    }
   }
 }

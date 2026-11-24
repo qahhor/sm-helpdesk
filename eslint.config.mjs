@@ -51,6 +51,13 @@ const layerBoundary = (name) => {
   return [{ group: closed.flatMap((other) => [`@/modules/${other}/api`, `@/modules/${other}/api/**`]), message: LAYER_BOUNDARY }];
 };
 
+// Редактор решения (план M5, задача 1): пакеты Tiptap и ProseMirror живут только в src/ui/doc/editor, а сам
+// редактор не попадает в страницы кабинета клиента и открытые страницы: их бюджет скриптов 170 КБ (ТЗ 8.9).
+const EDITOR_BOUNDARY = 'Пакеты редактора (Tiptap, ProseMirror) подключаются только в src/ui/doc/editor (план M5, задача 1)';
+const CLIENT_EDITOR_BOUNDARY = 'Редактор решения только для рабочего места: страницы клиента показывают документ через DocView (план M5, задача 1)';
+const EDITOR_PACKAGES = { group: ['@tiptap/*', 'prosemirror-*'], message: EDITOR_BOUNDARY };
+const EDITOR_UI = { group: ['@/ui/doc/editor', '@/ui/doc/editor/*', '**/ui/doc/editor/*'], message: CLIENT_EDITOR_BOUNDARY };
+
 const PUBLIC_BOUNDARY = 'Открытые страницы (public) не читают сессию и не берут актора, кроме public (CLAUDE.md)';
 
 // Общие запреты для страниц, обработчиков, интерфейса и команды консоли.
@@ -83,7 +90,21 @@ const eslintConfig = defineConfig([
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['src/db/**', 'src/modules/**'],
     rules: {
+      'no-restricted-imports': ['error', { paths: APP_PATHS, patterns: [...APP_PATTERNS, EDITOR_PACKAGES] }],
+    },
+  },
+  {
+    // Сам редактор: пакеты Tiptap разрешены, остальные запреты те же.
+    files: ['src/ui/doc/editor/**/*.{ts,tsx}'],
+    rules: {
       'no-restricted-imports': ['error', { paths: APP_PATHS, patterns: APP_PATTERNS }],
+    },
+  },
+  {
+    // Кабинет клиента: редактор не подключается.
+    files: ['src/app/**/\\(portal\\)/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: APP_PATHS, patterns: [...APP_PATTERNS, EDITOR_PACKAGES, EDITOR_UI] }],
     },
   },
   {
@@ -95,7 +116,7 @@ const eslintConfig = defineConfig([
         'error',
         {
           paths: [...APP_PATHS, { name: 'next/headers', message: PUBLIC_BOUNDARY }, { name: '@/modules/hdu/api', message: PUBLIC_BOUNDARY }],
-          patterns: [...APP_PATTERNS, { group: ['@/modules/hdu/**', '**/modules/hdu/**'], message: PUBLIC_BOUNDARY }],
+          patterns: [...APP_PATTERNS, EDITOR_PACKAGES, EDITOR_UI, { group: ['@/modules/hdu/**', '**/modules/hdu/**'], message: PUBLIC_BOUNDARY }],
         },
       ],
     },
@@ -105,7 +126,7 @@ const eslintConfig = defineConfig([
   ...MODULES.map((name) => ({
     files: [`src/modules/${name}/**/*.{ts,tsx}`],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [moduleBoundary(name), ...layerBoundary(name), ...(name === 'hdu' ? [] : [AUTH_DB_PATTERN])] }],
+      'no-restricted-imports': ['error', { patterns: [moduleBoundary(name), ...layerBoundary(name), EDITOR_PACKAGES, ...(name === 'hdu' ? [] : [AUTH_DB_PATTERN])] }],
     },
   })),
   // Override default ignores of eslint-config-next.

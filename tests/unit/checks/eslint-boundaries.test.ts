@@ -103,3 +103,20 @@ test('настоящий код модулей проходит правило �
   const broken = results.flatMap((result) => result.messages.filter((m) => m.ruleId === 'no-restricted-imports').map((m) => `${result.filePath.split('/src/')[1]}:${m.line}`));
   expect(broken).toEqual([]);
 }, 120_000);
+
+test('пакеты редактора только в src/ui/doc/editor, сам редактор не в кабинете клиента и не на открытых страницах (план M5, задача 1)', async () => {
+  const tiptap = "import { useEditor } from '@tiptap/react';";
+  const pm = "import { EditorState } from '@tiptap/pm/state';";
+  const editor = "import { SolutionEditor } from '@/ui/doc/editor/SolutionEditor';";
+  expect(await lint('src/ui/doc/editor/x.tsx', tiptap)).not.toContain('no-restricted-imports');
+  expect(await lint('src/ui/doc/editor/x.tsx', pm)).not.toContain('no-restricted-imports');
+  expect(await lint('src/ui/doc/DocView.tsx', tiptap)).toContain('no-restricted-imports');
+  expect(await lint('src/ui/x.tsx', "import { EditorView } from 'prosemirror-view';")).toContain('no-restricted-imports');
+  expect(await lint('src/modules/hdk/core.ts', pm)).toContain('no-restricted-imports');
+  expect(await lint('src/app/[locale]/(portal)/tickets/new/page.tsx', editor)).toContain('no-restricted-imports');
+  expect(await lint('src/app/[locale]/(portal)/help/a/x.tsx', tiptap)).toContain('no-restricted-imports');
+  expect(await lint('src/app/[locale]/(public)/help/page.tsx', editor)).toContain('no-restricted-imports');
+  // Рабочее место и проба подключают редактор.
+  expect(await lint('src/app/[locale]/(agent)/agent/solutions/x.tsx', editor)).not.toContain('no-restricted-imports');
+  expect(await lint('src/app/[locale]/(dev)/dev/editor/TrialEditor.tsx', editor)).not.toContain('no-restricted-imports');
+}, 30_000);

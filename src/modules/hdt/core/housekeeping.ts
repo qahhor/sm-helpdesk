@@ -121,7 +121,11 @@ async function returnSnoozed(actor: SystemActor, now: Date): Promise<number> {
       .for('update', { skipLocked: true });
     if (due.length === 0) return 0;
     // Время возврата остаётся пометкой в очереди до первого действия сотрудника (FR-AG-13).
-    await tx.update(tickets).set({ snoozedUntil: null, snoozeReturnedOn: now }).where(inArray(tickets.ticketId, due.map((t) => t.ticketId)));
+    // Решённому и закрытому пометка не нужна: с ним уже нечего делать, и снять её было бы некому.
+    await tx
+      .update(tickets)
+      .set({ snoozedUntil: null, snoozeReturnedOn: sql`case when ${tickets.status} in ('resolved', 'closed') then null else ${now.toISOString()}::timestamptz end` })
+      .where(inArray(tickets.ticketId, due.map((t) => t.ticketId)));
     await tx.insert(ticketEvents).values(
       due.map((t) => ({ orgId: t.orgId, ticketId: t.ticketId, kind: 'snooze' as const, actorType: 'system' as const, payload: { until: null, returned: true }, isInternal: true })),
     );

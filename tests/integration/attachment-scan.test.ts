@@ -4,6 +4,7 @@ import type { AntivirusScanner } from '@/modules/hdc/api';
 import { MemoryJobQueue, MemoryStorage, setJobQueueForTests, setScannerForTests, setStorageForTests } from '@/modules/hdc/testing';
 import { createStubScanner } from '@/modules/hdc/antivirus/stub';
 import { completeUpload, createTicket, getTicket, presignUpload, scanAttachment } from '@/modules/hdt/api';
+import { infectedSince } from '@/modules/hdt/api/jobs';
 import { EICAR } from '../helpers/fake-clamd';
 import { clientCtx } from './helpers/auth';
 import { pools } from './helpers/db';
@@ -104,6 +105,9 @@ test('EICAR получает infected, объект из карантина уд
   expect(audit.rows).toEqual([{ action: 'attachment.infected', object_type: 'attachment', org_id: f.orgA.orgId, diff: { signature: 'Eicar-Test-Signature' } }]);
   expect(await scanAttachment(SYSTEM, id)).toBe('infected');
   expect(scans).toBe(1);
+  // Время проверки записано: по нему считается сигнал дежурным о заражённых файлах (проверка волны 3).
+  expect((await pools.root.query(`select scanned_on > now() - interval '1 minute' as fresh from hdt_attachments where attachment_id = $1`, [id])).rows[0].fresh).toBe(true);
+  expect(await infectedSince(SYSTEM, new Date(Date.now() - 3_600_000))).toBe(1);
 });
 
 test('законные файлы не отклоняются: журнал в UTF-16, старый формат Office, PNG с расширением .jpg', async () => {

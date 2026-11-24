@@ -4,13 +4,14 @@ import { getTicket, rateByLink, ticketsMinute } from '@/modules/hdt/api';
 import { csatToken } from '@/modules/hdt/csat-link';
 import { clientCtx } from './helpers/auth';
 import { pools } from './helpers/db';
-import { REPLY } from './helpers/inbound';
+import { inboundPerTest, REPLY } from './helpers/inbound';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
 // Оценка одним нажатием из письма (FR-TK-11, UX-C-07; план W3, задача 1). Письмо о закрытии несёт автору ссылки
 // с оценками. Ссылка без входа ставит оценку только этому обращению, только раз и только за автора.
 
 const SYSTEM = { type: 'system', job: 'tickets.minute' } as const;
+const box = inboundPerTest();
 let f: Fixture;
 beforeEach(async () => {
   f = await seedTwoOrgs();
@@ -83,4 +84,43 @@ test('перебор по ссылке ограничен: 11-я попытка 
   for (let i = 0; i < 10; i++) expect((await rateByLink({ token: token(t.number, f.aUser.userId), score: 5 }, { ip: null })).ok).toBe(false);
   await close(t.ticketId);
   expect(await rateByLink({ token: token(t.number, f.aUser.userId), score: 5 }, { ip: null })).toEqual({ ok: false, code: 'rate_limited' });
+});
+
+// --- Итоговая проверка волны 3 ---
+
+test('пересланное письмо о закрытии: ссылка оценки в текст обращения и заметки не попадает', async () => {
+  const { deliver } = await import('./helpers/inbound');
+  const t = f.tickets.aMine;
+  const link = `https://hub.example.test/ru/rate?t=${token(t.number, f.aUser.userId)}`;
+  const text = `Мне не помогли!\n\n---------- Пересланное письмо ----------\nОцените, как мы помогли:\n1: ${link}&score=1\n5: ${link}&score=5`;
+  const { inboundId, result } = await deliver(box, { from: 'forwarder@unknown.uz', subject: 'Жалоба', text });
+  expect(result).toBe('new');
+  const body = (await pools.root.query(`select t.description from hdt_tickets t join hdn_email_inbound i on i.ticket_id = t.ticket_id where i.inbound_id = $1`, [inboundId])).rows[0].description as string;
+  expect(body).toContain('Мне не помогли');
+  expect(body).not.toContain(token(t.number, f.aUser.userId));
+  expect(body).not.toMatch(/rate\?t=\d+\.[0-9a-f]{32}/);
+});
+
+test('комментарий из одних пробелов считается пустым, оценка ставится', async () => {
+  const t = f.tickets.aMine;
+  await close(t.ticketId);
+  expect(await rateByLink({ token: token(t.number, f.aUser.userId), score: 2, reason: 'slow', comment: '  \r\n ' }, { ip: null })).toEqual({ ok: true, number: t.number });
+  expect(await row(t.ticketId)).toEqual({ csat_score: 2, csat_reason: 'slow', csat_comment: null });
+});
+
+test('запросы с негодной подписью предел обращения не расходуют: настоящая ссылка после них работает', async () => {
+  const t = f.tickets.aMine;
+  await close(t.ticketId);
+  const bad = csatToken(t.number, f.aUser.userId, 'another-secret-of-at-least-32-chars!');
+  for (let i = 0; i < 11; i++) expect(await rateByLink({ token: bad, score: 5 }, { ip: null })).toEqual({ ok: false, code: 'link_invalid' });
+  expect(await rateByLink({ token: token(t.number, f.aUser.userId), score: 5 }, { ip: null })).toEqual({ ok: true, number: t.number });
+});
+
+test('обращение уже оценено: письмо о повторном закрытии ссылок оценки не несёт', async () => {
+  const t = f.tickets.aOrg;
+  await pools.root.query(`update hdt_tickets set status = 'resolved', resolved_on = now() - interval '30 days', resolution_type = 'solved', csat_score = 4 where ticket_id = $1`, [t.ticketId]);
+  expect((await ticketsMinute(SYSTEM, new Date())).closed).toBeGreaterThanOrEqual(1);
+  const mails = (await pools.root.query(`select payload from hdn_outbox where ticket_id = $1 and channel = 'email' and template = 'ticket_status' and recipient_user_id = $2`, [t.ticketId, f.aUser.userId])).rows;
+  expect(mails).toHaveLength(1);
+  expect(mails[0].payload.rateUrl).toBeUndefined();
 });

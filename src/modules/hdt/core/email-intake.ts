@@ -34,6 +34,7 @@ import { ensureGuest, findVerifiedUser, orgByEmailDomain, SERVICE_ORG_ID, sender
 import { mailRecipient, replyRole } from '@/modules/hdu/api/recipients';
 import { ALLOWED_FILES, MAX_FILES_PER_MESSAGE, type TicketStatus, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
+import { maskCsatLinks } from '../csat-link';
 import { staffSystemText } from '../system-text';
 import { untrustedNoteText } from '../untrusted-text';
 import { fileTypeOf, maxBytesFor, quarantineKey } from '../util';
@@ -425,8 +426,9 @@ export async function intakeEmailTx(actor: SystemActor, inboundId: string): Prom
     headers: content.headers,
     aligned,
     owner: aligned ? await findVerifiedUser(row.fromAddress) : null,
-    text: emailToText(content),
-    fullText: emailToText(content, { keepQuote: true }),
+    // Ссылки оценки из пересланного письма о закрытии в текст обращения и заметки не попадают.
+    text: maskCsatLinks(emailToText(content)),
+    fullText: maskCsatLinks(emailToText(content, { keepQuote: true })),
     files,
   };
 

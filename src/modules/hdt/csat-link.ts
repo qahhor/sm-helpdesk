@@ -27,3 +27,11 @@ export function parseCsatToken(token: string, secrets: readonly string[]): { num
   if (!valid) return null;
   return { number, userId: `${userHex.slice(0, 8)}-${userHex.slice(8, 12)}-${userHex.slice(12, 16)}-${userHex.slice(16, 20)}-${userHex.slice(20)}` };
 }
+
+/**
+ * Скрывает ссылки оценки в тексте письма. Клиент может переслать письмо о закрытии в поддержку: без этого подпись
+ * попала бы в текст обращения, и сотрудник мог бы поставить оценку за автора (итоговая проверка волны 3).
+ */
+export function maskCsatLinks(text: string): string {
+  return text.replace(/rate\?t=\d{1,15}\.[0-9a-f]{32}\.[0-9a-f]{32}(?:&(?:amp;)?score=\d)?/g, 'rate');
+}

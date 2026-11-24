@@ -102,7 +102,7 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
         slaPhase: row.status === 'waiting_customer' || row.status === 'resolved' || row.status === 'closed' ? 'calm' : slaPhase(row.dueOn, row.createdOn, now, cal),
         minutesLeft: row.dueOn ? workingMinutesBetween(now, row.dueOn, cal) : null,
         snoozedUntil: row.snoozedUntil && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil : null,
-        snoozeReturned: row.snoozeReturnedOn !== null,
+        snoozeReturned: row.snoozeReturnedOn !== null && row.status !== 'resolved' && row.status !== 'closed',
         clientWaitingSince: row.clientWaitingSince,
       };
     }),
@@ -315,7 +315,8 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
     resolutionType: ticket.resolutionType,
     resolvedVersion: ticket.resolvedVersion,
     snoozedUntil: ticket.snoozedUntil && ticket.snoozedUntil.getTime() > now.getTime() ? ticket.snoozedUntil : null,
-    snoozeReturned: ticket.snoozeReturnedOn !== null,
+    // У решённого и закрытого пометка не показывается: закрыть обращение могли клиент или система, не снимая её.
+    snoozeReturned: ticket.snoozeReturnedOn !== null && ticket.status !== 'resolved' && ticket.status !== 'closed',
     mergedInto: found.mergedIntoNumber !== null ? { number: found.mergedIntoNumber } : null,
     pickup:
       found.transfer && found.transfer.toLine !== 'l1' && !found.transfer.pickedUpOn && found.transfer.pickupDueOn && ticket.queue !== 'l1'

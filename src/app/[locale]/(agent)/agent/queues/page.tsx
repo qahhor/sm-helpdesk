@@ -56,7 +56,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
   const q = params.q?.trim() ? params.q.trim().slice(0, 200) : undefined;
   const page = Math.max(1, Math.min(1000, Number(params.page) || 1));
   // Очередь по последнему изменению листается по ключу последней строки, остальные по номеру страницы.
-  const after = sort === 'updated' && params.after && AFTER.test(params.after) ? params.after : undefined;
+  const after = sort === 'updated' && params.after && AFTER.test(params.after) && !Number.isNaN(Date.parse(`${params.after.slice(0, 23)}Z`)) ? params.after : undefined;
   const canWrite = staff.actor.staffRole !== 'product';
   const [list, sidebar, assignable] = await Promise.all([
     listQueue(staff, { queue, sort, q, ...(after ? { after } : { page }) }),

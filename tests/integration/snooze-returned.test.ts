@@ -46,3 +46,28 @@ test('пометку снимают смена статуса и новое от
   await snoozeTicket(second.l1, { number: second.t.number, until: new Date(Date.now() + 300 * MINUTE).toISOString() });
   expect((await getAgentTicket(second.l1, second.t.number))?.snoozeReturned).toBe(false);
 });
+
+test('решённому и закрытому обращению пометка не ставится и не показывается (проверка волны 3)', async () => {
+  const f = await seedTwoOrgs();
+  const l1 = staffCtx(f.l1);
+  const t = f.tickets.aOrg;
+  await takeTicket(l1, t.number);
+  const until = new Date(Date.now() + 60 * MINUTE);
+  await snoozeTicket(l1, { number: t.number, until: until.toISOString() });
+  // Сотрудник решил обращение, не снимая отложения: завтрашний возврат пометку ставить не должен.
+  await setStatus(l1, { number: t.number, to: 'resolved', resolution: 'solved' });
+  await ticketsMinute(SYSTEM, new Date(until.getTime() + MINUTE));
+  expect((await getAgentTicket(l1, t.number))?.snoozeReturned).toBe(false);
+  expect((await listQueue(l1, { queue: 'all', sort: 'updated' })).items.find((item) => item.number === t.number)?.snoozeReturned).toBe(false);
+});
+
+test('пометка стояла, обращение закрыли без действия сотрудника: у закрытого её не видно (проверка волны 3)', async () => {
+  const { f, l1, t } = await snoozedAndReturned();
+  expect((await getAgentTicket(l1, t.number))?.snoozeReturned).toBe(true);
+  // Закрытие системой или клиентом через сервис сотрудника не идёт: здесь состояние задаётся напрямую.
+  const { pools } = await import('./helpers/db');
+  await pools.root.query(`update hdt_tickets set status = 'closed', closed_on = now(), resolved_on = now() where ticket_id = $1`, [t.ticketId]);
+  expect((await getAgentTicket(l1, t.number))?.snoozeReturned).toBe(false);
+  expect((await listQueue(l1, { queue: 'all', sort: 'updated' })).items.find((item) => item.number === t.number)?.snoozeReturned).toBe(false);
+  expect(f.orgA.orgId).toBeTruthy();
+});

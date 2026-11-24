@@ -55,7 +55,7 @@ const STATUS_MAILS = new Set<TicketStatus>(['waiting_customer', 'in_development'
 const CLIENT_SETTINGS_PATH = '/settings';
 const STAFF_SETTINGS_PATH = '/agent/account';
 
-type TicketInfo = { number: number; title: string; locale: string; authorId: string; assigneeId: string | null; orgId: string; visibility: Visibility };
+type TicketInfo = { number: number; title: string; locale: string; authorId: string; assigneeId: string | null; orgId: string; visibility: Visibility; csatScore: number | null };
 type Mail = Parameters<typeof enqueueTx>[1]['payload'];
 
 async function people(tx: Tx, ticketId: string, ticket: TicketInfo, actorUserId: string | null): Promise<string[]> {
@@ -87,6 +87,8 @@ async function whoSees(ticket: TicketInfo, userIds: string[]): Promise<string[]>
  */
 function withRating(mail: Mail, ticket: TicketInfo): Mail {
   if (mail.template !== 'ticket_status' || mail.status !== 'closed' || mail.mergedInto !== undefined) return mail;
+  // Обращение уже оценено (закрыто, оценено, открыто снова и закрыто): вторая оценка не ставится, ссылки не нужны.
+  if (ticket.csatScore !== null) return mail;
   // Ключ подписи общий с адресами ответа. Не задан: письмо уходит без ссылок, оценка остаётся на странице обращения.
   const cfg = replyConfig();
   return cfg ? { ...mail, rateUrl: `/rate?t=${csatToken(ticket.number, ticket.authorId, cfg.secret)}` } : mail;
@@ -164,6 +166,7 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
         assigneeId: tickets.assigneeId,
         orgId: tickets.orgId,
         visibility: tickets.visibility,
+        csatScore: tickets.csatScore,
       })
       .from(tickets)
       .where(eq(tickets.ticketId, e.ticketId))

@@ -155,3 +155,33 @@ test('негодный ключ листания отклоняется; у со
   expect(bySla.nextCursor).toBeNull();
   expect(bySla.hasMore).toBe(true);
 });
+
+test('ключ листания с негодной датой отклоняется как неверные данные, а не ошибкой базы (проверка волны 3)', async () => {
+  const bad = '2026-13-45T99:99:99.000000Z_00000000-0000-0000-0000-000000000000';
+  await expect(listQueue(staffCtx(f.l1), { queue: 'all', sort: 'updated', after: bad })).rejects.toMatchObject({ code: 'invalid_input' });
+});
+
+test('строки с одним временем изменения на границе страниц не теряются и не повторяются (проверка волны 3)', async () => {
+  // Пакетная задача пишет сотни строк одной транзакцией: время изменения у них одно.
+  const root = await pools.root.connect();
+  try {
+    await root.query('begin');
+    await root.query(`set local session_replication_role = replica`);
+    await root.query(`update hdt_tickets set modified_on = date_trunc('second', now()) + interval '1 hour' where ticket_id in (select ticket_id from hdt_tickets order by ticket_id limit 130)`);
+    await root.query('commit');
+  } finally {
+    root.release();
+  }
+  const l1 = staffCtx(f.l1);
+  const seen: number[] = [];
+  let after: string | undefined;
+  for (let page = 0; page < 3; page++) {
+    const list = await listQueue(l1, { queue: 'all', sort: 'updated', ...(after ? { after } : {}) });
+    seen.push(...list.items.map((item) => item.number));
+    after = list.nextCursor ?? undefined;
+  }
+  expect(new Set(seen).size).toBe(150);
+  const same = (await pools.root.query(`select number from hdt_tickets where modified_on = (select max(modified_on) from hdt_tickets)`)).rows.map((r) => Number(r.number));
+  expect(same).toHaveLength(130);
+  for (const number of same) expect(seen, `SUP-${number}`).toContain(number);
+});

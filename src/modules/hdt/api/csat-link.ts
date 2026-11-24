@@ -21,7 +21,8 @@ const SYSTEM: SystemActor = { type: 'system', job: 'csat.link' };
 const linkInput = z.object({ token: z.string().min(1).max(120), score: z.coerce.number().int().min(1).max(5) });
 const detailsInput = z.object({
   reason: z.preprocess((value) => (value === '' || value === null ? undefined : value), z.enum(CSAT_REASONS).optional()),
-  comment: z.preprocess((value) => (value === '' || value === null ? undefined : value), z.string().overwrite(cleanUserText).trim().min(1).max(2000).optional()),
+  // Комментарий из одних пробелов или переводов строк считается пустым: человек его не писал.
+  comment: z.preprocess((value) => (typeof value !== 'string' || value.trim() === '' ? undefined : value), z.string().overwrite(cleanUserText).trim().max(2000).optional()),
 });
 
 export type RateByLinkResult = { ok: true; number: number } | { ok: false; code: 'link_invalid' | 'already_rated' | 'not_closed' | 'reason_required' | 'rate_limited' };

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { csatToken, parseCsatToken } from '@/modules/hdt/csat-link';
+import { csatToken, maskCsatLinks, parseCsatToken } from '@/modules/hdt/csat-link';
 import { replyAddress } from '@/modules/hdn/inbound/reply-address';
 
 // Ссылка оценки из письма (FR-TK-11, UX-C-07; план W3, задача 1). Подпись привязывает ссылку к обращению и автору:
@@ -36,4 +36,14 @@ test('подпись адреса ответа ссылкой оценки не 
   expect(signature.length).toBeGreaterThan(0);
   expect(parseCsatToken(`1042.${USER.replaceAll('-', '')}.${signature.padEnd(32, '0')}`, [SECRET])).toBeNull();
   expect(csatToken(1042, USER, SECRET)).not.toContain(signature);
+});
+
+test('ссылка оценки в чужом тексте скрывается: подпись из пересланного письма сотруднику не видна (проверка волны 3)', () => {
+  const token = csatToken(1042, USER, SECRET);
+  const text = `Оцените:\n1: https://hub.example.test/ru/rate?t=${token}&score=1\n5: https://hub.example.test/ru/rate?t=${token}&amp;score=5\nСпасибо`;
+  const masked = maskCsatLinks(text);
+  expect(masked).not.toContain(token);
+  expect(masked).toContain('Оцените:');
+  expect(masked).toContain('Спасибо');
+  expect(maskCsatLinks('Обычный текст с адресом /rate и числом 1042.5')).toBe('Обычный текст с адресом /rate и числом 1042.5');
 });

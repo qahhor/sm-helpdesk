@@ -86,7 +86,7 @@ export const queueInput = z.object({
   q: optional(z.string().trim().min(1).max(200)),
   page: z.coerce.number().int().min(1).max(1000).default(1),
   // Ключ последней строки прошлой страницы: время изменения с микросекундами и идентификатор обращения.
-  after: optional(z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)),
+  after: optional(z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/).refine((value) => !Number.isNaN(Date.parse(value.slice(0, 23) + 'Z')))),
 });
 
 export const savedFilterInput = z.object({

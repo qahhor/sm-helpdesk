@@ -143,6 +143,34 @@ test('ответ и заметка: два режима, "Ждём ответа 
   await clientContext.close();
 });
 
+test('действие со старой страницы: клиент написал, смена статуса не выполняется и называет изменение (FR-AG-12)', async ({ page, browser }) => {
+  const number = await clientTicket(browser, `Старая страница ${Date.now()}`);
+  await page.goto(`/ru/agent/tickets/SUP-${number}`);
+  const panel = page.getByRole('complementary', { name: 'Сведения об обращении' });
+  await expect(panel.getByLabel('Статус', { exact: true })).toBeVisible();
+  // Клиент дописал, пока у сотрудника была открыта страница.
+  const clientContext = await browser.newContext({ storageState: CLIENT_STATE });
+  const client = await clientContext.newPage();
+  await client.goto(`/ru/tickets/SUP-${number}`);
+  await expect(client.locator('form[data-ready]').first()).toBeAttached();
+  await client.getByLabel('Ответ', { exact: true }).fill('Подождите, ошибка осталась');
+  await resetLimits();
+  await client.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(client.getByRole('main')).toContainText('Подождите, ошибка осталась');
+  await clientContext.close();
+  // Сотрудник со старой страницы ставит "Ждём клиента": действие не выполняется, страница говорит почему.
+  await panel.getByLabel('Статус', { exact: true }).selectOption('waiting_customer');
+  await panel.getByRole('button', { name: 'Сменить статус' }).click();
+  await expect(page).toHaveURL(/error=changed&ch=1\.0\.0/);
+  await expect(main(page).getByText('Пока страница была открыта, обращение изменилось')).toBeVisible();
+  await expect(main(page).getByText('новых сообщений: 1')).toBeVisible();
+  expect((await dbRows(`select status from hdt_tickets where number = $1`, [number]))[0]).toEqual({ status: 'new' });
+  // Страница уже свежая: повтор проходит.
+  await panel.getByLabel('Статус', { exact: true }).selectOption('waiting_customer');
+  await panel.getByRole('button', { name: 'Сменить статус' }).click();
+  await expect(main(page).getByText('Ждём клиента', { exact: true }).first()).toBeVisible();
+});
+
 test('обращение изменилось, пока агент писал: ответ не ушёл, видно что изменилось, "Отправить всё равно" отправляет', async ({ page, browser }) => {
   const number = await clientTicket(browser, `Изменилось ${Date.now()}`);
   await page.goto(`/ru/agent/tickets/SUP-${number}`);

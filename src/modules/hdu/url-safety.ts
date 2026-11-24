@@ -1,7 +1,6 @@
-import { isIP } from 'node:net';
 import { HduError } from './error';
 import { readLimited } from '@/modules/hdc/api';
-import { BlockedAddressError, createGuardedFetch, hostOf, isPrivateAddress, LOOPBACK_HOSTS, type Resolve, resolverFor, setDnsResolverForTests } from '@/security/outbound';
+import { BlockedAddressError, createGuardedFetch, isPrivateAddress, LOOPBACK_HOSTS, publicUrlOrNull, type Resolve, setDnsResolverForTests } from '@/security/outbound';
 
 // Адреса серверов Smartup вводит администратор, и портал потом сам ходит по ним (документ discovery,
 // ключи, обмен кода на токен). Чтобы этим нельзя было заставить портал обратиться во внутреннюю сеть
@@ -10,8 +9,6 @@ import { BlockedAddressError, createGuardedFetch, hostOf, isPrivateAddress, LOOP
 // при соединении живут в общем сетевом слое src/security/outbound.ts.
 
 export { isPrivateAddress, type Resolve, setDnsResolverForTests };
-
-const BLOCKED_SUFFIXES = ['.local', '.internal', '.localhost'];
 
 const invalid = () => new HduError('invalid_input');
 
@@ -22,31 +19,9 @@ const invalid = () => new HduError('invalid_input');
  * http и https на localhost и 127.0.0.1, например ложный сервер входа. Остальные правила не меняются.
  */
 export async function assertPublicUrl(raw: string, opts: { allowLoopback: boolean; resolve?: Resolve }): Promise<URL> {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    throw invalid();
-  }
-  if (url.username || url.password) throw invalid();
-  const host = hostOf(url);
-
-  if (opts.allowLoopback && LOOPBACK_HOSTS.has(host) && (url.protocol === 'http:' || url.protocol === 'https:')) return url;
-  if (url.protocol !== 'https:') throw invalid();
-  if (host === 'localhost' || BLOCKED_SUFFIXES.some((suffix) => host.endsWith(suffix))) throw invalid();
-
-  if (isIP(host) !== 0) {
-    if (isPrivateAddress(host)) throw invalid();
-    return url;
-  }
-  let addresses: string[];
-  try {
-    addresses = await resolverFor(opts.resolve)(host);
-  } catch {
-    throw invalid();
-  }
-  // Имя, которое не разрешается, тоже отклоняется: проверить его нельзя.
-  if (addresses.length === 0 || addresses.some(isPrivateAddress)) throw invalid();
+  // Сама проверка общая с адресами исходящих вебхуков: src/security/outbound.ts.
+  const url = await publicUrlOrNull(raw, opts);
+  if (!url) throw invalid();
   return url;
 }
 

@@ -8,6 +8,7 @@ import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-adm
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { cleanupRateLimits } from '@/modules/hdc/api';
+import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
 
 // Команда hub для консоли сервера (FR-ID-12, решение 0015): первый администратор, сброс доступа
@@ -69,7 +70,7 @@ const HELP = `Использование: hub <команда> [ключи]
       и одноразовые значения входа. Запускать раз в сутки, пока нет фоновых задач (решение 0023).
 
   secrets:reseal
-      Замена ключа шифрования: перешифровать сохранённые секреты (серверы Smartup, бот дежурных) ключом
+      Замена ключа шифрования: перешифровать сохранённые секреты (серверы Smartup, бот дежурных, вебхуки) ключом
       из ENCRYPTION_KEY. Прежний ключ на время замены задаётся в ENCRYPTION_KEY_PREVIOUS.
       Код завершения 1, если какой-то секрет не открылся ни одним ключом.
 
@@ -266,14 +267,19 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
       case 'secrets:reseal': {
         const serverSecrets = await resealServerSecrets(ACTOR);
         const channelSecrets = await resealChannelSecrets(ACTOR);
-        io.out(`Перешифровано текущим ключом: серверы Smartup ${serverSecrets.resealed}, токены ботов ${channelSecrets.resealed}.`);
-        const failed = [...serverSecrets.failed.map((code) => `сервер ${code}`), ...channelSecrets.failed.map((code) => CHANNEL_SECRET_NAMES[code] ?? code)];
+        const webhookSecrets = await resealWebhookSecrets(ACTOR);
+        io.out(`Перешифровано текущим ключом: серверы Smartup ${serverSecrets.resealed}, токены ботов ${channelSecrets.resealed}, секреты вебхуков ${webhookSecrets.resealed}.`);
+        const failed = [
+          ...serverSecrets.failed.map((code) => `сервер ${code}`),
+          ...channelSecrets.failed.map((code) => CHANNEL_SECRET_NAMES[code] ?? code),
+          ...webhookSecrets.failed.map((name) => `вебхук ${name}`),
+        ];
         if (failed.length === 0) {
           io.out('Прежний ключ больше не нужен: уберите ENCRYPTION_KEY_PREVIOUS из окружения и перезапустите портал.');
           return 0;
         }
         io.err(`Не открываются ни текущим, ни прежним ключом: ${failed.join(', ')}.`);
-        io.err('Проверьте ENCRYPTION_KEY_PREVIOUS или задайте эти секреты заново: server:add для сервера, экран настроек для бота.');
+        io.err('Проверьте ENCRYPTION_KEY_PREVIOUS или задайте эти секреты заново: server:add для сервера, экран настроек для бота, смена секрета на странице вебхука.');
         return 1;
       }
       case 'modules:import': {

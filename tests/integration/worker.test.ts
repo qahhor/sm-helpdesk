@@ -283,6 +283,7 @@ test('собранный worker.mjs запускается без каталог
     { name: 'ops.watch', cron: '*/5 * * * *', timezone: 'UTC' },
     { name: 'outbox.dispatch', cron: '* * * * *', timezone: 'UTC' },
     { name: 'tickets.minute', cron: '* * * * *', timezone: 'UTC' },
+    { name: 'webhooks.dispatch', cron: '* * * * *', timezone: 'UTC' },
   ]);
   child.kill('SIGTERM');
   expect(await exited).toBe(0);

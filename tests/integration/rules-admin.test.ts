@@ -126,6 +126,8 @@ test('ссылки проверяются при сохранении: несу�
       ['actions.3.userId', 'reference_missing'],
       ['actions.4.userId', 'reference_missing'],
       ['actions.6.target.userId', 'reference_missing'],
+      // Адрес вебхука должен быть в списке администратора (FR-AUTO-10).
+      ['actions.7.endpointId', 'reference_missing'],
     ].sort(),
   );
   expect(await ruleRows()).toEqual([]);

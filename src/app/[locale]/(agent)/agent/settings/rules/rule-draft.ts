@@ -51,9 +51,9 @@ export type ConditionOp = (typeof FIELD_OPS)[FieldKind][number];
 
 export const kindOf = (field: string): FieldKind => (FIELD_KINDS as Record<string, FieldKind>)[field] ?? 'list';
 
-/** Действия, которые предлагает редактор. Вебхук появится со списком адресов (задача 5 вехи). */
-export const ACTION_KINDS = ['set_queue', 'assign', 'assign_round_robin', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status'] as const;
-export type ActionKind = (typeof ACTION_KINDS)[number] | 'webhook';
+/** Действия, которые предлагает редактор. Вебхук выбирается из списка адресов администратора (FR-AUTO-10). */
+export const ACTION_KINDS = ['set_queue', 'assign', 'assign_round_robin', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status', 'webhook'] as const;
+export type ActionKind = (typeof ACTION_KINDS)[number];
 
 /** Значение "модуль не указан" в списке модулей: в правиле это null. */
 export const NO_MODULE = 'none';

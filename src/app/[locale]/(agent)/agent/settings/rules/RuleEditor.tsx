@@ -73,7 +73,6 @@ export type RuleEditorLabels = {
   stop: string;
   save: string;
   newDisabled: string;
-  webhookSoon: string;
   reauth: string;
   ops: Record<string, string>;
   actionValues: Record<string, string>;
@@ -95,7 +94,7 @@ type Props = {
 const fill = (template: string, values: Record<string, string | number>) => template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''));
 const RATINGS = ['1', '2', '3', '4', '5'];
 /** Действия, у которых значение выбирается из списка actionValues. */
-const PICK_ACTIONS = new Set(['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'reply_template', 'set_status']);
+const PICK_ACTIONS = new Set(['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'reply_template', 'set_status', 'webhook']);
 
 /** Выбранные значения метками, у каждой кнопка "убрать". */
 function Picked({ label, values, nameOf, onChange, labels }: { label: string; values: string[]; nameOf: (value: string) => string; onChange: (values: string[]) => void; labels: RuleEditorLabels }) {
@@ -601,7 +600,6 @@ export function RuleEditor({ initial, options, labels, reauthHref, state }: Prop
                         onChange={(event) => patchAction(row.key, { text: event.target.value })}
                       />
                     )}
-                    {row.action === 'webhook' && <p className="text-sm text-muted-foreground">{labels.webhookSoon}</p>}
                     <RowIssues id={errorId} codes={codes} labels={labels} />
                   </li>
                 );

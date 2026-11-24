@@ -6,6 +6,7 @@ import { listActiveModules, listAllTemplates, listTags, type ModuleOption, type 
 import { IMPACTS, PRIORITIES, QUEUES, TICKET_SOURCES, TICKET_STATUSES, TICKET_TYPES } from '@/modules/hdt/pref';
 import { orgFactsTx, type StaffMember, staffRoster } from '@/modules/hdu/api/automation';
 import { type DryRunResult, dryRunTx } from '../core/dry-run';
+import { endpointsByIdTx, listWebhooksTx } from '../core/webhooks';
 import { deleteRuleTx, listRuleRunsTx, listRulesTx, moveRuleTx, readRuleTx, type RuleRecord, type RuleRunRecord, saveRuleTx, setRuleEnabledTx } from '../core/rules';
 import { HdwError } from '../error';
 import { NOTIFY_ROLES, ORG_CATEGORIES, RULE_EVENTS, RULE_STATUS_TARGETS } from '../pref';
@@ -55,8 +56,8 @@ const WRITER_ROLES: readonly string[] = ['agent_l1', 'agent_l2', 'care', 'admin'
 
 /**
  * Ссылки правила, которых нет в справочниках: модули, организации, теги, шаблоны, сотрудники. Очереди, статусы и
- * роли проверяет схема. Адрес вебхука не проверяется: список адресов появится в задаче 5 вехи, до неё действие
- * записывается невыполненным.
+ * роли проверяет схема. Адрес вебхука должен быть в списке администратора (FR-AUTO-10); выключенный адрес
+ * допускается, действие с ним запишется невыполненным.
  */
 async function missingReferences(ctx: StaffContext, rule: RuleDefinition): Promise<RuleIssue[]> {
   const issues: RuleIssue[] = [];
@@ -77,12 +78,15 @@ async function missingReferences(ctx: StaffContext, rule: RuleDefinition): Promi
     const modules = new Set((await listActiveModules(ctx.actor, 'ru')).map((item) => item.moduleId));
     for (const ref of moduleRefs) if (!modules.has(ref.value)) missing(`conditions.items.${ref.index}.values`);
   }
-  if (orgRefs.length + tagRefs.length + tagActions.length + templateActions.length > 0) {
+  const webhookActions = rule.actions.flatMap((item, index) => (item.action === 'webhook' ? [{ index, value: item.endpointId }] : []));
+  if (orgRefs.length + tagRefs.length + tagActions.length + templateActions.length + webhookActions.length > 0) {
     const found = await withActor(ctx.actor, async (tx) => ({
       orgs: await orgFactsTx(tx, orgRefs.map((ref) => ref.value)),
       tags: await tagsByIdTx(tx, [...tagRefs, ...tagActions].map((ref) => ref.value)),
       templates: await templatesByIdTx(tx, templateActions.map((ref) => ref.value)),
+      endpoints: await endpointsByIdTx(tx, webhookActions.map((ref) => ref.value)),
     }));
+    for (const ref of webhookActions) if (!found.endpoints.has(ref.value)) missing(`actions.${ref.index}.endpointId`);
     for (const ref of orgRefs) if (!found.orgs.has(ref.value)) missing(`conditions.items.${ref.index}.values`);
     for (const ref of tagRefs) if (!found.tags.has(ref.value)) missing(`conditions.items.${ref.index}.values`);
     for (const ref of tagActions) if (!found.tags.has(ref.value)) missing(`actions.${ref.index}.tagId`);
@@ -186,6 +190,8 @@ export type RuleOptions = {
   tags: Tag[];
   templates: { templateId: string; shortcut: string; title: string; isEnabled: boolean }[];
   modules: ModuleOption[];
+  /** Адреса исходящих вебхуков для действия "вызвать вебхук". */
+  webhooks: { endpointId: string; name: string; isEnabled: boolean }[];
   /** Названия организаций, запрошенных в orgIds: подписи уже выбранных в правиле организаций. */
   orgs: { orgId: string; name: string }[];
 };
@@ -194,11 +200,12 @@ export type RuleOptions = {
 export async function ruleOptions(ctx: StaffContext, input: unknown = {}): Promise<RuleOptions> {
   requireAdmin(ctx);
   const data = parse(optionsInput, input);
-  const [staff, tags, templates, modules, orgs] = await Promise.all([
+  const [staff, tags, templates, modules, webhooks, orgs] = await Promise.all([
     staffRoster(),
     listTags(ctx),
     listAllTemplates(ctx),
     listActiveModules(ctx.actor, data.locale),
+    listWebhooksTx(ctx.actor),
     data.orgIds.length > 0 ? withActor(ctx.actor, (tx) => orgFactsTx(tx, data.orgIds)) : Promise.resolve(new Map<string, { name: string }>()),
   ]);
   return {
@@ -217,6 +224,7 @@ export async function ruleOptions(ctx: StaffContext, input: unknown = {}): Promi
     tags,
     templates: templates.map((item) => ({ templateId: item.templateId, shortcut: item.shortcut, title: item.title, isEnabled: item.isEnabled })),
     modules,
+    webhooks: webhooks.map((item) => ({ endpointId: item.endpointId, name: item.name, isEnabled: item.isEnabled })),
     orgs: [...orgs].map(([orgId, org]) => ({ orgId, name: org.name })),
   };
 }

@@ -13,6 +13,7 @@ import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, runNoActivityRules } from '@/modules/hdw/api/engine';
+import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { opsWatch } from './ops-watch';
 
@@ -21,12 +22,13 @@ import { opsWatch } from './ops-watch';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
   { name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' },
   { name: 'automation.process', cron: '* * * * *', tz: 'UTC' },
+  { name: 'webhooks.dispatch', cron: '* * * * *', tz: 'UTC' },
   { name: 'ops.watch', cron: '*/5 * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
@@ -122,7 +124,15 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // вместе с отметкой разбора. При остановке процесса разбор прекращается между событиями.
     const system = actor('automation.process');
     const run = newRuleRun();
-    const { processed, failed } = await processEvents(system, (tx, event) => handleRuleEvent(tx, event, run), { stopped: () => stopping });
+    // После правил событие уходит адресам вебхуков, которые на него подписаны (задача 5): в той же транзакции.
+    const { processed, failed } = await processEvents(
+      system,
+      async (tx, event) => {
+        await handleRuleEvent(tx, event, run);
+        await handleWebhookEvent(tx, event);
+      },
+      { stopped: () => stopping },
+    );
     if (failed > 0) console.info(`События: разобрано ${processed}, со сбоем ${failed}`);
     let silent = { checked: 0, applied: 0, failed: 0 };
     if (!stopping && Date.now() - silentCheckedAt >= NO_ACTIVITY_EVERY_MS) {
@@ -133,8 +143,16 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
       console.info(`Правила: сработало ${run.applied + silent.applied}, без выполненных действий ${run.failed + silent.failed}, выключено защитой от зацикливания ${run.loops}`);
     // Письма и сообщения правил уже в очереди исходящих: отправка будится после фиксации.
     if (run.applied + silent.applied > 0) await wakeOutbox();
+    // Доставки вебхуков поставлены правилами и подписками: отправка будится, только если есть что отправлять.
+    if (processed + silent.applied > 0 && (await hasDueDeliveries(system))) await wakeWebhooks();
     const state = await eventsState(system);
     logEvent(state.lagSec > 120 ? 'warn' : state.pending > 0 ? 'info' : 'debug', 'automation.state', state);
+  }));
+  await boss.work('webhooks.dispatch', polling, () => timedJob('webhooks.dispatch', async () => {
+    // Исходящие вебхуки (план M8, задача 5): повторы ведёт сама очередь доставок. При остановке процесса запуск
+    // прекращает работу между доставками.
+    const { sent, failed, retried, cancelled } = await dispatchWebhooks(actor('webhooks.dispatch'), { stopped: () => stopping });
+    if (sent + failed + retried + cancelled > 0) console.info(`Вебхуки: доставлено ${sent}, ждут повтора ${retried}, не доставлено ${failed}, отменено ${cancelled}`);
   }));
   await boss.work('ops.watch', polling, () => timedJob('ops.watch', async () => {
     const sent = await opsWatch(actor('ops.watch'));
@@ -155,6 +173,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Срабатывания правил автоматизации хранятся 90 суток (план M8, задача 3).
     const runs = await cleanupRuleRuns(system);
     if (runs > 0) console.info(`Ночная очистка: срабатывания правил старше 90 суток ${runs}`);
+    // Журнал доставок вебхуков хранится 30 суток (план M8, решение 10).
+    const hooks = await cleanupWebhookDeliveries(system);
+    if (hooks > 0) console.info(`Ночная очистка: доставки вебхуков старше 30 суток ${hooks}`);
     const audit = await cleanupAudit(system);
     if (audit > 0) console.info(`Ночная очистка: записи журнала аудита старше 3 лет ${audit}`);
     console.info(

@@ -6,7 +6,7 @@ import { env } from '@/env';
 // В задачах только идентификаторы, без текстов клиентов. Задачи идемпотентны: повтор безопасен.
 // Схему и очереди создаёт скрипт миграций (scripts/db/pgboss.mjs): у hub_app нет прав на объекты схемы.
 
-export const JOB_NAMES = ['attachment.scan', 'attachment.sweep', 'automation.process', 'email.inbound', 'maintenance.cleanup', 'ops.watch', 'outbox.dispatch', 'tickets.minute'] as const;
+export const JOB_NAMES = ['attachment.scan', 'attachment.sweep', 'automation.process', 'email.inbound', 'maintenance.cleanup', 'ops.watch', 'outbox.dispatch', 'tickets.minute', 'webhooks.dispatch'] as const;
 export type JobName = (typeof JOB_NAMES)[number];
 export type JobData = Record<string, string | number | boolean | null>;
 

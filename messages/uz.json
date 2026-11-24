@@ -603,6 +603,10 @@
         "rules": {
           "title": "Avtomatlashtirish qoidalari",
           "text": "Portal o'zi bajaradigan ishlar: hodisa, shartlar va amallar. Sinov ishga tushirish va ishga tushishlar jurnali."
+        },
+        "webhooks": {
+          "title": "Vebhuklar",
+          "text": "Portal murojaat hodisalari haqida xabar beradigan manzillar: imzo siri, sinov yuborish, yetkazishlar jurnali."
         }
       },
       "servers": {
@@ -815,7 +819,9 @@
           "playbook": "Birinchi liniya eslatmasi",
           "reply_template": "Javob shabloni",
           "tag": "Teg",
-          "rule": "Avtomatlashtirish qoidasi"
+          "rule": "Avtomatlashtirish qoidasi",
+          "webhook": "Vebhuk manzili",
+          "webhook_secret": "Vebhuk sirlari"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -940,6 +946,13 @@
             "applied": "Avtomatlashtirish qoidasi ishga tushdi",
             "disabled_loop": "Avtomatlashtirish qoidasi takrorlanishdan himoya tufayli o'chirildi",
             "dry_run": "Avtomatlashtirish qoidasining sinov ishga tushirilishi"
+          },
+          "webhook": {
+            "created": "Vebhuk manzili qo'shildi",
+            "updated": "Vebhuk manzili o'zgartirildi",
+            "deleted": "Vebhuk manzili o'chirildi",
+            "secret_rotated": "Vebhuk siri almashtirildi",
+            "test_sent": "Vebhukka sinov yuborildi"
           }
         },
         "words": {
@@ -989,7 +1002,11 @@
           "resealed": "Qayta shifrlandi",
           "failed": "Ochilmadi",
           "number": "Raqam",
-          "ticketId": "Murojaat"
+          "ticketId": "Murojaat",
+          "host": "Tugun",
+          "events": "Hodisalar",
+          "urlChanged": "Manzil o'zgardi",
+          "isEnabled": "Yoqilgan"
         }
       },
       "sla": {
@@ -1278,8 +1295,7 @@
           "orgAdd": "{name} tashkilotini qo'shish",
           "stop": "Keyingi qoidalarni qayta ishlashni to'xtatish",
           "save": "Saqlash",
-          "newDisabled": "Yangi qoida o'chiq holda saqlanadi. Uni qoidalar ro'yxatida yoqish mumkin.",
-          "webhookSoon": "Vebhuk chaqiruvi vebhuklar bo'limida sozlanadi."
+          "newDisabled": "Yangi qoida o'chiq holda saqlanadi. Uni qoidalar ro'yxatida yoqish mumkin."
         },
         "fields": {
           "priority": "Ustuvorlik",
@@ -1335,7 +1351,8 @@
           "reply_template": "Shablon",
           "notify": "Kimni xabardor qilish",
           "snooze": "Necha soatga",
-          "set_status": "Holat"
+          "set_status": "Holat",
+          "webhook": "Vebhuk manzili"
         },
         "targets": {
           "oncall": "Navbatchilar: chat va pochta",
@@ -1382,10 +1399,11 @@
           "template_missing": "shablon yo'q yoki unda matn yo'q",
           "transition_refused": "bunday o'tish taqiqlangan",
           "user_missing": "xodim topilmadi",
-          "webhooks_not_ready": "vebhuklar hali sozlanmagan",
           "no_recipients": "qabul qiluvchilar yo'q",
           "webhook_failed": "vebhuk javob bermadi",
-          "unknown": "sabab ko'rsatilmagan"
+          "unknown": "sabab ko'rsatilmagan",
+          "endpoint_missing": "vebhuk manzili o'chirilgan",
+          "endpoint_disabled": "vebhuk manzili o'chirib qo'yilgan"
         },
         "runs": {
           "title": "Ishga tushishlar jurnali",
@@ -1416,6 +1434,121 @@
           "confirm": "O'chirib tashlash",
           "cancel": "Bekor qilish",
           "close": "Yopish"
+        },
+        "webhookDisabled": "{name} (o'chirilgan)"
+      },
+      "webhooks": {
+        "title": "Vebhuklar",
+        "intro": "Murojaatda hodisa yuz berganda yoki vebhukni avtomatlashtirish qoidasi chaqirganda portal shu ro'yxatdagi manzilga POST so'rovini yuboradi. So'rov tanasida murojaat raqami, holati, ustuvorligi, turi, navbati, moduli va teglari bor. Mavzu, tavsif va yozishmalar unda yo'q.",
+        "newWebhook": "Yangi manzil",
+        "emptyTitle": "Hozircha manzillar yo'q",
+        "emptyText": "Qabul qiluvchi manzilini qo'shing. Imzo sirini portal bir marta, yaratilgandan so'ng darhol ko'rsatadi.",
+        "listLabel": "Vebhuk manzillari",
+        "columns": {
+          "name": "Nomi",
+          "url": "Manzil",
+          "events": "Hodisalar",
+          "state": "Holati",
+          "actions": "Amallar"
+        },
+        "states": {
+          "enabled": "Yoqilgan",
+          "disabled": "O'chirilgan"
+        },
+        "eventsNone": "Faqat avtomatlashtirish qoidasi bo'yicha",
+        "open": "Ochish",
+        "openOf": "{name} manzilini ochish",
+        "reauth": "Qayta kirish",
+        "form": {
+          "newTitle": "Yangi vebhuk manzili",
+          "editTitle": "Manzil va obunalar",
+          "name": "Nomi",
+          "nameHint": "Uni administrator shu ro'yxatda va qoidalar muharririda ko'radi.",
+          "url": "Qabul qiluvchi manzili",
+          "urlHint": "Faqat https va faqat tashqi tugun. Ichki tarmoq manzillarini portal qabul qilmaydi.",
+          "events": "Hodisalar",
+          "eventsHint": "Portal har bir belgilangan hodisada manzilni chaqiradi. Hech biri belgilanmagan bo'lsa, manzilni faqat qoidaning «Vebhukni chaqirish» amali chaqiradi.",
+          "enabled": "Manzil yoqilgan",
+          "create": "Manzil qo'shish",
+          "save": "Saqlash"
+        },
+        "secret": {
+          "title": "Imzo siri",
+          "text": "Sirni hozir saqlab oling: portal uni bir marta ko'rsatadi. Yo'qolgan sirni faqat almashtirish mumkin.",
+          "label": "Sir",
+          "copy": "Sirni nusxalash",
+          "copied": "Nusxalandi",
+          "openEndpoint": "Manzilga o'tish",
+          "howTitle": "So'rovni qanday tekshirish kerak",
+          "how": "X-Hub-Signature sarlavhasi «t=vaqt,v1=imzo» ko'rinishida, vaqt soniyalarda. Imzo: shu sir bilan «vaqt.so'rov tanasi» satridan olingan HMAC-SHA256, o'n oltilik ko'rinishda. X-Hub-Delivery sarlavhasi bitta yetkazishning takrorlarida o'zgarmaydi.",
+          "set": "Sir berilgan. Portal uni ko'rsatmaydi."
+        },
+        "rotate": {
+          "open": "Sirni almashtirish",
+          "title": "{name} manzilining siri almashtirilsinmi?",
+          "text": "Avvalgi sir darhol kuchini yo'qotadi. So'rovlar yangi sir bilan imzolanadi: uni qabul qiluvchi tomonda yangilang.",
+          "confirm": "Almashtirish",
+          "cancel": "Bekor qilish",
+          "close": "Yopish"
+        },
+        "test": {
+          "title": "Sinov yuborish",
+          "text": "Portal namunaviy tana bilan test hodisasini yuboradi. Unda murojaatlar ma'lumoti yo'q. Natija yetkazishlar jurnalida ko'rinadi.",
+          "send": "Sinov so'rovini yuborish"
+        },
+        "delete": {
+          "open": "Manzilni o'chirish",
+          "title": "{name} manzili o'chirilsinmi?",
+          "text": "Manzil bilan birga uning siri va yetkazishlar jurnali o'chiriladi. Bu vebhukni chaqirgan qoidalar amalni bajarilmagan deb yozadi.",
+          "confirm": "O'chirish",
+          "cancel": "Bekor qilish",
+          "close": "Yopish"
+        },
+        "deliveries": {
+          "title": "Yetkazishlar jurnali",
+          "intro": "Yetkazishlar 30 kun saqlanadi. Muvaffaqiyatsizlikdan so'ng portal so'rovni 1, 5, 15, 60 va 240 daqiqadan keyin takrorlaydi.",
+          "empty": "Hozircha yetkazishlar yo'q.",
+          "columns": {
+            "event": "Hodisa",
+            "ticket": "Murojaat",
+            "status": "Natija",
+            "attempts": "Urinishlar",
+            "error": "Sabab",
+            "time": "Vaqt"
+          },
+          "statuses": {
+            "queued": "Yuborishni kutmoqda",
+            "retry": "Takrorni kutmoqda",
+            "sent": "Yetkazildi",
+            "failed": "Yetkazilmadi"
+          },
+          "testEvent": "Sinov yuborish",
+          "noTicket": "yo'q",
+          "next": "Keyingi 50 ta yozuv",
+          "first": "Jurnal boshiga",
+          "errors": {
+            "timeout": "qabul qiluvchi 10 soniyada javob bermadi",
+            "unreachable": "qabul qiluvchiga ulanib bo'lmadi",
+            "blocked_address": "manzil ichki tarmoqqa olib boradi",
+            "secret_unreadable": "sir ochilmayapti, uni almashtiring",
+            "endpoint_disabled": "manzil o'chirilgan",
+            "http": "javob {status}",
+            "unknown": "sabab ko'rsatilmagan"
+          }
+        },
+        "done": {
+          "saved": "Manzil saqlandi",
+          "deleted": "Manzil o'chirildi",
+          "tested": "Sinov so'rovi navbatga qo'yildi. Natija yetkazishlar jurnalida ko'rinadi."
+        },
+        "errors": {
+          "forbidden": "Vebhuklarni portal administratori sozlaydi.",
+          "stale_session": "Bu amal uchun yaqinda kirgan bo'lish kerak.",
+          "invalid_input": "Nomni tekshiring: 1 dan 120 belgigacha.",
+          "invalid_url": "Manzil qabul qilinmadi. Tashqi tugundagi https manzili kerak, login va parolsiz.",
+          "not_found": "Manzil topilmadi. Ehtimol, u allaqachon o'chirilgan.",
+          "endpoint_disabled": "Manzil o'chirilgan. Sinov so'rovini yuborish uchun uni yoqing.",
+          "too_many": "Ro'yxatda 50 ta manzil bor. Keraksizini o'chiring."
         }
       }
     },

@@ -3,7 +3,7 @@ import { connect, createServer as createTcpServer } from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { afterEach, expect, test } from 'vitest';
 import { safeFetchJson } from '@/modules/hdu/url-safety';
-import { BlockedAddressError, createGuardedFetch, guardedLookup, isPrivateAddress } from '@/security/outbound';
+import { BlockedAddressError, createGuardedFetch, guardedLookup, guardedPostJson, isPrivateAddress, OutboundTimeoutError, publicUrlOrNull } from '@/security/outbound';
 
 // Общий сетевой слой исходящих запросов (аудит 23.11.2026, находки S14 и S15): имя узла разрешается и проверяется
 // в момент соединения, а не только до запроса. Подмена ответа DNS между проверкой и соединением не уводит
@@ -123,4 +123,102 @@ test('адреса IPv6 с внутренним адресом IPv4 и уста�
   for (const address of ['::7f00:1', '::127.0.0.1', '::a00:5', 'fec0::1', 'feff::1', '::ffff:0:7f00:1', '::ffff:0:10.0.0.5'])
     expect(isPrivateAddress(address), address).toBe(true);
   for (const address of ['2001:db8::10', '2a00:1450:4001::1', '203.0.113.10']) expect(isPrivateAddress(address), address).toBe(false);
+});
+
+// --- Запрос с телом для исходящих вебхуков (FR-AUTO-10; план M8, задача 5, решение 10) ---
+
+test('вебхук: запрос POST несёт тело и заголовки, ответ отдаёт только код', async () => {
+  const seen: { method?: string; type?: string; sign?: string; body: string }[] = [];
+  const srv = await httpServer((req, res) => {
+    let body = '';
+    req.on('data', (piece) => (body += String(piece)));
+    req.on('end', () => {
+      seen.push({ method: req.method, type: req.headers['content-type'], sign: String(req.headers['x-hub-signature']), body });
+      res.writeHead(204).end();
+    });
+  });
+  const result = await guardedPostJson({ allowLoopback: true }, `http://127.0.0.1:${srv.port}/hook`, { body: '{"event":"test"}', headers: { 'X-Hub-Signature': 't=1,v1=ab' } });
+  expect(result).toEqual({ status: 204 });
+  expect(seen).toEqual([{ method: 'POST', type: 'application/json', sign: 't=1,v1=ab', body: '{"event":"test"}' }]);
+});
+
+test('вебхук: http, адрес с учётной записью и адрес цифрами из внутренней сети отклоняются до соединения', async () => {
+  const srv = await httpServer((_req, res) => res.writeHead(200).end());
+  const body = { body: '{}' };
+  // Вне локального режима http не допускается даже на localhost.
+  await expect(guardedPostJson({ allowLoopback: false }, `http://127.0.0.1:${srv.port}/hook`, body)).rejects.toBeInstanceOf(BlockedAddressError);
+  // В локальном режиме http допускается только на localhost: внешний узел по http отклоняется.
+  await expect(guardedPostJson({ allowLoopback: true, resolve: async () => ['203.0.113.10'] }, 'http://hooks.partner.example/hook', body)).rejects.toBeInstanceOf(BlockedAddressError);
+  await expect(guardedPostJson({ allowLoopback: true }, `http://user:pass@127.0.0.1:${srv.port}/hook`, body)).rejects.toBeInstanceOf(BlockedAddressError);
+  for (const host of ['10.0.0.5', '127.0.0.1', '169.254.169.254', '100.64.0.1', '192.168.1.1', '[::1]', '[::ffff:10.0.0.5]', '[fe80::1]'])
+    await expect(guardedPostJson({ allowLoopback: false }, `https://${host}:${srv.port}/hook`, body), host).rejects.toBeInstanceOf(BlockedAddressError);
+  await expect(guardedPostJson({ allowLoopback: false }, 'не адрес', body)).rejects.toBeInstanceOf(BlockedAddressError);
+  expect(srv.hits()).toBe(0);
+});
+
+test('вебхук: имя, которое при соединении ведёт во внутреннюю сеть, отклоняется до соединения (подмена DNS)', async () => {
+  const inner = await tcpCounter();
+  for (const answer of [['127.0.0.1'], ['10.0.0.5'], ['169.254.169.254'], ['100.64.0.1'], ['::ffff:10.0.0.5'], ['::1'], ['203.0.113.10', '192.168.0.7'], []]) {
+    await expect(guardedPostJson({ allowLoopback: false, resolve: async () => answer }, `https://rebind.partner.example:${inner.port}/hook`, { body: '{}' }), JSON.stringify(answer)).rejects.toBeInstanceOf(
+      BlockedAddressError,
+    );
+  }
+  expect(inner.connections()).toBe(0);
+});
+
+test('вебхук: переадресация не выполняется, ответ 307 возвращается кодом', async () => {
+  const target = await httpServer((_req, res) => res.writeHead(200).end('secret'));
+  const srv = await httpServer((_req, res) => res.writeHead(307, { location: `http://127.0.0.1:${target.port}/` }).end());
+  expect(await guardedPostJson({ allowLoopback: true }, `http://127.0.0.1:${srv.port}/hook`, { body: '{}' })).toEqual({ status: 307 });
+  expect(target.hits()).toBe(0);
+});
+
+test('вебхук: приёмник молчит дольше отведённого времени: запрос обрывается', async () => {
+  const srv = await httpServer(() => {});
+  const started = Date.now();
+  await expect(guardedPostJson({ allowLoopback: true }, `http://127.0.0.1:${srv.port}/hook`, { body: '{}', timeoutMs: 150 })).rejects.toBeInstanceOf(OutboundTimeoutError);
+  expect(Date.now() - started).toBeLessThan(2000);
+});
+
+test('вебхук: тело ответа не читается дальше предела, соединение закрывается', async () => {
+  let closed = false;
+  let written = 0;
+  const srv = await httpServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain' });
+    const piece = 'x'.repeat(16_384);
+    // Бесконечный ответ: без предела чтение не закончилось бы.
+    const timer = setInterval(() => {
+      written += piece.length;
+      res.write(piece);
+    }, 5);
+    res.on('close', () => {
+      closed = true;
+      clearInterval(timer);
+    });
+  });
+  expect(await guardedPostJson({ allowLoopback: true }, `http://127.0.0.1:${srv.port}/hook`, { body: '{}', maxResponseBytes: 1024, timeoutMs: 3000 })).toEqual({ status: 200 });
+  await new Promise((done) => setTimeout(done, 100));
+  expect(closed).toBe(true);
+  expect(written).toBeLessThan(5_000_000);
+});
+
+test('адрес вебхука при сохранении: только https, без учётной записи, узел внешний и разрешается во внешние адреса', async () => {
+  const outer = async () => ['203.0.113.10'];
+  expect((await publicUrlOrNull('https://hooks.partner.example/in', { allowLoopback: false, resolve: outer }))?.hostname).toBe('hooks.partner.example');
+  expect(await publicUrlOrNull('https://203.0.113.10/in', { allowLoopback: false })).not.toBeNull();
+  for (const raw of ['http://hooks.partner.example/in', 'https://user:pass@hooks.partner.example/in', 'https://localhost/in', 'https://db.internal/in', 'https://10.0.0.5/in', 'https://[::1]/in', 'ftp://hooks.partner.example/in', 'не адрес'])
+    expect(await publicUrlOrNull(raw, { allowLoopback: false, resolve: outer }), raw).toBeNull();
+  expect(await publicUrlOrNull('https://hooks.partner.example/in', { allowLoopback: false, resolve: async () => ['203.0.113.10', '10.0.0.5'] })).toBeNull();
+  expect(await publicUrlOrNull('https://hooks.partner.example/in', { allowLoopback: false, resolve: async () => [] })).toBeNull();
+  expect(
+    await publicUrlOrNull('https://hooks.partner.example/in', {
+      allowLoopback: false,
+      resolve: async () => {
+        throw new Error('нет такого имени');
+      },
+    }),
+  ).toBeNull();
+  // Портал на localhost (разработка и тесты): локальный приёмник допускается.
+  expect(await publicUrlOrNull('http://127.0.0.1:9000/in', { allowLoopback: true })).not.toBeNull();
+  expect(await publicUrlOrNull('http://127.0.0.1:9000/in', { allowLoopback: false })).toBeNull();
 });

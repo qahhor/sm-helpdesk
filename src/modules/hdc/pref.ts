@@ -104,6 +104,12 @@ export const AUDIT_ACTIONS = [
   'rule.applied',
   'rule.disabled_loop',
   'rule.dry_run',
+  // Исходящие вебхуки (веха M8): список адресов, смена секрета, проверочная отправка. Секрета в журнале нет.
+  'webhook.created',
+  'webhook.updated',
+  'webhook.deleted',
+  'webhook.secret_rotated',
+  'webhook.test_sent',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

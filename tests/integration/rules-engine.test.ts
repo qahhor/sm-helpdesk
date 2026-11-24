@@ -66,6 +66,9 @@ const auditOf = (objectId: string) =>
 const messagesOf = (ticketId: string) =>
   pools.root.query(`select message_id, author_type, author_id, body, is_internal, is_auto from hdt_ticket_messages where ticket_id = $1 order by created_on, message_id`, [ticketId]).then((r) => r.rows);
 const tag = (name: string) => pools.root.query(`insert into hdr_tags (name) values ($1) returning tag_id`, [name]).then((r) => r.rows[0].tag_id as string);
+const ENDPOINT = '019a1111-1111-7111-8111-111111111111';
+/** Адрес вебхука в списке администратора: без него правило с действием "вызвать вебхук" не сохраняется. */
+const endpoint = () => pools.root.query(`insert into hdw_webhook_endpoints (endpoint_id, name, url) values ($1, 'Учёт', 'https://hooks.partner.example/in')`, [ENDPOINT]);
 const template = (body: Record<string, string>, enabled = true) =>
   pools.root
     .query(`insert into hdr_reply_templates (shortcut, title, body, is_enabled) values ($1, 'Запрос версии', $2, $3) returning template_id`, [`t${Math.random().toString(36).slice(2, 10)}`, JSON.stringify(body), enabled])
@@ -411,6 +414,7 @@ test('ссылка на удалённое: действие с удалённы
   const tagId = await tag('Временный');
   const templateId = await template({ ru: 'Текст шаблона' });
   const gone = await staffWithRole('agent_l1');
+  await endpoint();
   const ruleId = await rule({
     actions: [
       { action: 'add_tag', tagId },
@@ -422,6 +426,7 @@ test('ссылка на удалённое: действие с удалённы
     ],
   });
   await pools.root.query(`delete from hdr_tags where tag_id = $1`, [tagId]);
+  await pools.root.query(`delete from hdw_webhook_endpoints where endpoint_id = $1`, [ENDPOINT]);
   await pools.root.query(`update hdr_reply_templates set is_enabled = false where template_id = $1`, [templateId]);
   await pools.root.query(`update hdu_staff set state = 'passive' where user_id = $1`, [gone.userId]);
   await emit(t, f.orgA.orgId);
@@ -434,27 +439,29 @@ test('ссылка на удалённое: действие с удалённы
     { action: 'reply_template', ok: false, detail: 'template_disabled' },
     { action: 'assign', ok: false, detail: 'user_missing' },
     { action: 'notify', ok: false, detail: 'user_missing' },
-    // Доставку вебхуков подключает задача 5 вехи: до неё действие записывается невыполненным.
-    { action: 'webhook', ok: false, detail: 'webhooks_not_ready' },
+    // Адреса с таким идентификатором в списке администратора нет: доставка не ставится.
+    { action: 'webhook', ok: false, detail: 'endpoint_missing' },
     { action: 'set_priority', ok: true, from: 'p2', to: 'p4' },
   ]);
   expect(await ticketRow(t.ticketId)).toMatchObject({ priority: 'p4', assignee_id: null });
   expect((await messagesOf(t.ticketId)).filter((m) => m.is_auto)).toEqual([]);
 
-  // Подключённая доставка получает идентификаторы обращения, организации и правила.
+  // Постановка доставки получает идентификаторы обращения, организации и правила, вид и идентификатор события.
   const calls: unknown[] = [];
   setWebhookDeliverer(async (_tx, input) => {
     calls.push(input);
     return { ok: true };
   });
+  await endpoint();
   const hook = await rule({ name: 'Вебхук', event: 'rated', actions: [{ action: 'webhook', endpointId: '019a1111-1111-7111-8111-111111111111' }] });
-  await fire(t, f.orgA.orgId, 'rated');
-  expect(calls).toEqual([{ endpointId: '019a1111-1111-7111-8111-111111111111', ticketId: t.ticketId, orgId: f.orgA.orgId, ruleId: hook }]);
+  const ratedId = await fire(t, f.orgA.orgId, 'rated');
+  expect(calls).toEqual([{ endpointId: '019a1111-1111-7111-8111-111111111111', ticketId: t.ticketId, orgId: f.orgA.orgId, ruleId: hook, event: 'rated', eventId: ratedId, now: expect.any(Date) }]);
   expect((await runs(hook))[0]).toMatchObject({ result: 'applied', actions_done: [{ action: 'webhook', ok: true }] });
 });
 
 test('сбой внутри действия откатывает только это действие: остальные действия и отметка разбора события сохраняются', async () => {
   const t = f.tickets.aOrg;
+  await endpoint();
   setWebhookDeliverer(async (tx) => {
     // Запись в середине действия, затем сбой: точка сохранения откатывает и запись.
     await tx.execute(`insert into hdt_ticket_messages (org_id, ticket_id, author_type, body, is_internal, is_auto) values ('${f.orgA.orgId}', '${t.ticketId}', 'system', 'Наполовину', true, true)`);

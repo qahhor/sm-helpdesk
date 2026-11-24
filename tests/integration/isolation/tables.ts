@@ -89,4 +89,9 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // пишет и удаляет только система. Клиент не видит ни правил, ни срабатываний.
   hdw_rules: { client: 'none', app: IUD },
   hdw_rule_runs: { client: 'none', app: ['insert', 'delete'] },
+  // Исходящие вебхуки (веха M8): адреса ведёт администратор; секрет подписи читает только система; доставки ставит,
+  // отправляет и удаляет только система. Клиент не видит ничего, из сотрудников читает только администратор.
+  hdw_webhook_endpoints: { client: 'none', app: IUD },
+  hdw_webhook_secrets: { client: 'none', app: IU },
+  hdw_webhook_deliveries: { client: 'none', app: IUD },
 };

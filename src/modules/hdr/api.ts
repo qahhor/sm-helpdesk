@@ -1,6 +1,7 @@
 import 'server-only';
 import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from '@/modules/hdc/api';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import type { Tx } from '@/db/client';
 import { type Actor, withActor } from '@/db/with-actor';
 import { findPlaybookTx, listPlaybooksTx, type Playbook, PLAYBOOK_KEEPERS, savePlaybookTx } from './core/playbooks';
 import { deleteTagTx, listTagsTx, type Tag, updateTagTx } from './core/tags';
@@ -37,6 +38,14 @@ export async function listActiveModules(actor: Actor, locale: string): Promise<M
       .orderBy(asc(productModules.code)),
   );
   return rows.map((row) => ({ moduleId: row.moduleId, code: row.code, name: row.name[locale] ?? row.name.ru }));
+}
+
+/** Коды модулей по идентификаторам в транзакции вызывающего: тело исходящего вебхука несёт код, а не название. */
+export async function moduleCodesTx(tx: Tx, moduleIds: readonly string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(moduleIds)];
+  if (ids.length === 0) return new Map();
+  const rows = await tx.select({ moduleId: productModules.moduleId, code: productModules.code }).from(productModules).where(inArray(productModules.moduleId, ids));
+  return new Map(rows.map((row) => [row.moduleId, row.code]));
 }
 
 // --- Сроки SLA и рабочий календарь (план M3, задача 2) ---

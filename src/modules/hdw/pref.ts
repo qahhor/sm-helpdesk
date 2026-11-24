@@ -50,3 +50,29 @@ export const MAX_SNOOZE_HOURS = 720;
 /** Причина, по которой система выключила правило (ограничение hdw_rules_c5). */
 export const DISABLED_REASONS = ['loop'] as const;
 export type DisabledReason = (typeof DISABLED_REASONS)[number];
+
+// --- Исходящие вебхуки (FR-AUTO-10, FR-ADM-11; план M8, задача 5, решения 9-11) ---
+
+/** Виды событий, на которые можно подписать адрес: события обращения из hdc_domain_events, у которых уже есть данные. */
+export const WEBHOOK_EVENTS = ['ticket_created', 'client_replied', 'staff_replied', 'status_changed', 'priority_changed', 'rated', 'sla_soon', 'sla_breached'] as const;
+export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
+/** Вид доставки: событие обращения, событие правила "нет активности" или проверочная отправка. */
+export type DeliveryKind = RuleEventKind | 'test';
+export const DELIVERY_STATUSES = ['queued', 'sent', 'failed'] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+
+/** Паузы перед повторами после неудачи, минут (решение 10): как у очереди исходящих. После шестой неудачи доставка получает failed. */
+export const WEBHOOK_RETRY_MINUTES = [1, 5, 15, 60, 240] as const;
+export const WEBHOOK_MAX_ATTEMPTS = WEBHOOK_RETRY_MINUTES.length + 1;
+/** Приёмник отвечает не дольше этого. */
+export const WEBHOOK_TIMEOUT_MS = 10_000;
+/** Журнал доставок хранится столько суток. */
+export const DELIVERIES_KEEP_DAYS = 30;
+/** Страница журнала доставок. */
+export const DELIVERIES_PAGE = 50;
+export const WEBHOOK_NAME_MAX = 120;
+export const WEBHOOK_URL_MAX = 2000;
+/** Адресов в списке не больше этого: каждый подписанный адрес получает доставку на каждое событие. */
+export const MAX_WEBHOOKS = 50;
+/** Длина секрета подписи, байт. */
+export const WEBHOOK_SECRET_BYTES = 32;

@@ -603,6 +603,10 @@
         "rules": {
           "title": "Automation rules",
           "text": "What the portal does by itself: event, conditions and actions. Dry run and run log."
+        },
+        "webhooks": {
+          "title": "Webhooks",
+          "text": "Addresses the portal notifies about request events: signing secret, test delivery, delivery log."
         }
       },
       "servers": {
@@ -815,7 +819,9 @@
           "playbook": "First-line playbook",
           "reply_template": "Reply template",
           "tag": "Tag",
-          "rule": "Automation rule"
+          "rule": "Automation rule",
+          "webhook": "Webhook address",
+          "webhook_secret": "Webhook secrets"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -940,6 +946,13 @@
             "applied": "Automation rule fired",
             "disabled_loop": "Automation rule turned off by loop protection",
             "dry_run": "Automation rule dry run"
+          },
+          "webhook": {
+            "created": "Webhook address added",
+            "updated": "Webhook address changed",
+            "deleted": "Webhook address deleted",
+            "secret_rotated": "Webhook secret rotated",
+            "test_sent": "Webhook test delivery"
           }
         },
         "words": {
@@ -989,7 +1002,11 @@
           "resealed": "Re-encrypted",
           "failed": "Could not be opened",
           "number": "Number",
-          "ticketId": "Ticket"
+          "ticketId": "Ticket",
+          "host": "Host",
+          "events": "Events",
+          "urlChanged": "Address changed",
+          "isEnabled": "Enabled"
         }
       },
       "sla": {
@@ -1278,8 +1295,7 @@
           "orgAdd": "Add organization {name}",
           "stop": "Stop processing the next rules",
           "save": "Save",
-          "newDisabled": "A new rule is saved turned off. You can turn it on in the list of rules.",
-          "webhookSoon": "Webhook calls are set up in the webhooks section."
+          "newDisabled": "A new rule is saved turned off. You can turn it on in the list of rules."
         },
         "fields": {
           "priority": "Priority",
@@ -1335,7 +1351,8 @@
           "reply_template": "Template",
           "notify": "Whom to notify",
           "snooze": "For how many hours",
-          "set_status": "Status"
+          "set_status": "Status",
+          "webhook": "Webhook address"
         },
         "targets": {
           "oncall": "On-call: chat and email",
@@ -1382,10 +1399,11 @@
           "template_missing": "the template is missing or has no text",
           "transition_refused": "this transition is not allowed",
           "user_missing": "staff member not found",
-          "webhooks_not_ready": "webhooks are not set up yet",
           "no_recipients": "no recipients",
           "webhook_failed": "the webhook did not respond",
-          "unknown": "no reason given"
+          "unknown": "no reason given",
+          "endpoint_missing": "webhook address deleted",
+          "endpoint_disabled": "webhook address is off"
         },
         "runs": {
           "title": "Run log",
@@ -1416,6 +1434,121 @@
           "confirm": "Delete",
           "cancel": "Cancel",
           "close": "Close"
+        },
+        "webhookDisabled": "{name} (off)"
+      },
+      "webhooks": {
+        "title": "Webhooks",
+        "intro": "The portal sends a POST request to an address from this list when an event happens to a request or when an automation rule calls the webhook. The body carries the number, status, priority, type, queue, module and tags of the request. It has no subject, description or messages.",
+        "newWebhook": "New address",
+        "emptyTitle": "No addresses yet",
+        "emptyText": "Add a receiver address. The portal shows the signing secret once, right after creation.",
+        "listLabel": "Webhook addresses",
+        "columns": {
+          "name": "Name",
+          "url": "Address",
+          "events": "Events",
+          "state": "State",
+          "actions": "Actions"
+        },
+        "states": {
+          "enabled": "On",
+          "disabled": "Off"
+        },
+        "eventsNone": "Only by automation rule",
+        "open": "Open",
+        "openOf": "Open address {name}",
+        "reauth": "Sign in again",
+        "form": {
+          "newTitle": "New webhook address",
+          "editTitle": "Address and subscriptions",
+          "name": "Name",
+          "nameHint": "The administrator sees it in this list and in the rule editor.",
+          "url": "Receiver address",
+          "urlHint": "Only https and only a public host. The portal does not accept internal network addresses.",
+          "events": "Events",
+          "eventsHint": "The portal calls the address on every checked event. With none checked, only the rule action \"Call webhook\" calls it.",
+          "enabled": "Address is on",
+          "create": "Add address",
+          "save": "Save"
+        },
+        "secret": {
+          "title": "Signing secret",
+          "text": "Save the secret now: the portal shows it once. A lost secret can only be rotated.",
+          "label": "Secret",
+          "copy": "Copy secret",
+          "copied": "Copied",
+          "openEndpoint": "Go to the address",
+          "howTitle": "How to verify a request",
+          "how": "The X-Hub-Signature header looks like \"t=time,v1=signature\", time in seconds. The signature is HMAC-SHA256 of the string \"time.request body\" with this secret, in hex. The X-Hub-Delivery header stays the same across retries of one delivery.",
+          "set": "The secret is set. The portal does not show it."
+        },
+        "rotate": {
+          "open": "Rotate secret",
+          "title": "Rotate the secret of {name}?",
+          "text": "The previous secret stops working at once. Requests will be signed with the new secret: update it on the receiver side.",
+          "confirm": "Rotate",
+          "cancel": "Cancel",
+          "close": "Close"
+        },
+        "test": {
+          "title": "Test delivery",
+          "text": "The portal sends the test event with a sample body. It carries no request data. The result appears in the delivery log.",
+          "send": "Send test request"
+        },
+        "delete": {
+          "open": "Delete address",
+          "title": "Delete address {name}?",
+          "text": "The secret and the delivery log are deleted with the address. Rules that called this webhook will record the action as not done.",
+          "confirm": "Delete",
+          "cancel": "Cancel",
+          "close": "Close"
+        },
+        "deliveries": {
+          "title": "Delivery log",
+          "intro": "Deliveries are kept for 30 days. After a failure the portal retries in 1, 5, 15, 60 and 240 minutes.",
+          "empty": "No deliveries yet.",
+          "columns": {
+            "event": "Event",
+            "ticket": "Request",
+            "status": "Result",
+            "attempts": "Attempts",
+            "error": "Reason",
+            "time": "Time"
+          },
+          "statuses": {
+            "queued": "Waiting to send",
+            "retry": "Waiting to retry",
+            "sent": "Delivered",
+            "failed": "Not delivered"
+          },
+          "testEvent": "Test delivery",
+          "noTicket": "none",
+          "next": "Next 50 records",
+          "first": "Back to the start",
+          "errors": {
+            "timeout": "the receiver did not answer in 10 seconds",
+            "unreachable": "the receiver is unreachable",
+            "blocked_address": "the address leads to an internal network",
+            "secret_unreadable": "the secret cannot be decrypted, rotate it",
+            "endpoint_disabled": "the address is off",
+            "http": "response {status}",
+            "unknown": "no reason given"
+          }
+        },
+        "done": {
+          "saved": "Address saved",
+          "deleted": "Address deleted",
+          "tested": "The test request is queued. The result will appear in the delivery log."
+        },
+        "errors": {
+          "forbidden": "Webhooks are set up by the portal administrator.",
+          "stale_session": "This action needs a recent sign-in.",
+          "invalid_input": "Check the name: 1 to 120 characters.",
+          "invalid_url": "The address was not accepted. It must be an https address on a public host, without a user name or password.",
+          "not_found": "Address not found. It may have been deleted already.",
+          "endpoint_disabled": "The address is off. Turn it on to send a test request.",
+          "too_many": "The list already has 50 addresses. Delete one you do not need."
         }
       }
     },

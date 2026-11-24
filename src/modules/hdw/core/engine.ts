@@ -87,7 +87,7 @@ async function applyRuleTx(tx: Tx, rule: RuleRecord, snapshot: TicketSnapshot, s
   if (!ticket) return 'failed';
   const done: ActionDone[] = [];
   for (const action of rule.actions) {
-    const { error, ...item } = await executeAction({ tx, ticket, snapshot, rule, now: run.now(), roster: run.roster }, action);
+    const { error, ...item } = await executeAction({ tx, ticket, snapshot, rule, eventId: source.eventId, now: run.now(), roster: run.roster }, action);
     done.push(item);
     if (error) {
       // Действие откатилось в точке сохранения: состояние обращения перечитывается из базы.

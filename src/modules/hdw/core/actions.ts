@@ -21,13 +21,15 @@ import {
 import { canTransition, type Queue, TRANSFERABLE_STATUSES } from '@/modules/hdt/pref';
 import type { StaffMember } from '@/modules/hdu/api/automation';
 import type { TicketSnapshot } from '../evaluate';
-import { LINE_ROLES } from '../pref';
+import { LINE_ROLES, type RuleEventKind } from '../pref';
 import type { RuleAction } from '../rule-schema';
 import type { ActionDone } from '../schema';
+import { enqueueRuleDelivery } from './deliveries';
+import { endpointsByIdTx } from './webhooks';
 
 // Модуль hdw, слой core: действия правила (FR-AUTO-04, 07, 10, 11; план M8, задача 3). Обращение меняют функции
 // модуля обращений: с теми же проверками, историей и журналом, что у действий сотрудника. Здесь выбор исполнителя,
-// текст шаблона, получатели уведомления и вебхук. Ссылка на удалённый тег, шаблон или сотрудника даёт отказ
+// текст шаблона, получатели уведомления и постановка доставки вебхука. Ссылка на удалённый тег, шаблон или сотрудника даёт отказ
 // действия с кодом, а не сбой срабатывания: остальные действия правила выполняются.
 
 /** Действующие сотрудники: читаются один раз на запуск разбора (другое подключение, роль hub_auth). */
@@ -38,24 +40,28 @@ export type ActionContext = {
   ticket: LockedTicket;
   /** Снимок обращения до действий правила: язык, тема и номер для ответа и уведомлений. */
   snapshot: TicketSnapshot;
-  rule: { ruleId: string; name: string };
+  rule: { ruleId: string; name: string; event: RuleEventKind };
+  /** Событие hdc_domain_events, которое разбирает правило. Пусто: событие "нет активности". */
+  eventId: string | null;
   now: Date;
   roster: Roster;
 };
 
 /**
- * Доставка исходящего вебхука. Доставки пока нет: её подключает задача 5 вехи M8 (setWebhookDeliverer), до тех пор
- * действие записывается невыполненным с кодом webhooks_not_ready.
+ * Действие "вызвать вебхук": ставит доставку в транзакции правила (core/deliveries.ts, enqueueRuleDelivery).
+ * Тесты подменяют постановку, чтобы проверить откат действия в точке сохранения.
  */
-export type WebhookDeliverer = (tx: Tx, input: { endpointId: string; ticketId: string; orgId: string; ruleId: string }) => Promise<{ ok: boolean; detail?: string }>;
-const notReady: WebhookDeliverer = async () => ({ ok: false, detail: 'webhooks_not_ready' });
+export type WebhookDeliverer = (
+  tx: Tx,
+  input: { endpointId: string; ticketId: string; orgId: string; ruleId: string; event: RuleEventKind; eventId: string | null; now: Date },
+) => Promise<{ ok: boolean; detail?: string; name?: string }>;
 const hooks = globalThis as typeof globalThis & { __hubWebhookDeliverer?: WebhookDeliverer };
 
-/** Подключить доставку вебхуков (задача 5 вехи M8). null возвращает заглушку. */
+/** Подмена постановки доставки в тестах. null возвращает настоящую. */
 export function setWebhookDeliverer(deliver: WebhookDeliverer | null): void {
   hooks.__hubWebhookDeliverer = deliver ?? undefined;
 }
-export const deliverWebhook: WebhookDeliverer = (tx, input) => (hooks.__hubWebhookDeliverer ?? notReady)(tx, input);
+export const deliverWebhook: WebhookDeliverer = (tx, input) => (hooks.__hubWebhookDeliverer ?? enqueueRuleDelivery)(tx, input);
 
 const WRITER_ROLES: readonly string[] = ['agent_l1', 'agent_l2', 'care', 'admin'];
 const HOUR_MS = 3_600_000;
@@ -118,8 +124,8 @@ async function run(c: ActionContext, tx: Tx, action: RuleAction): Promise<RuleAc
     case 'set_status':
       return ruleSetStatusTx(tx, ticket, action.status);
     case 'webhook': {
-      const result = await deliverWebhook(tx, { endpointId: action.endpointId, ticketId: ticket.ticketId, orgId: ticket.orgId, ruleId: c.rule.ruleId });
-      return result.ok ? { ok: true } : { ok: false, detail: result.detail ?? 'webhook_failed' };
+      const result = await deliverWebhook(tx, { endpointId: action.endpointId, ticketId: ticket.ticketId, orgId: ticket.orgId, ruleId: c.rule.ruleId, event: c.rule.event, eventId: c.eventId, now: c.now });
+      return result.ok ? { ok: true, ...(result.name !== undefined ? { to: result.name } : {}) } : { ok: false, detail: result.detail ?? 'webhook_failed' };
     }
   }
 }
@@ -172,13 +178,14 @@ export async function executeAction(c: ActionContext, action: RuleAction): Promi
 
 // --- Пробный прогон: что действие сделало бы, без записи ---
 
-export type DryRunRefs = { roster: readonly StaffMember[]; tags: Map<string, Tag>; templates: Map<string, ReplyTemplate> };
+export type DryRunRefs = { roster: readonly StaffMember[]; tags: Map<string, Tag>; templates: Map<string, ReplyTemplate>; endpoints: Map<string, { name: string; isEnabled: boolean }> };
 
-/** Справочники для описания действий правила в пробном прогоне: теги и шаблоны, на которые правило ссылается. */
+/** Справочники для описания действий правила в пробном прогоне: теги, шаблоны и адреса вебхуков, на которые правило ссылается. */
 export async function dryRunRefsTx(tx: Tx, actions: readonly RuleAction[], roster: readonly StaffMember[]): Promise<DryRunRefs> {
   const tagIds = actions.flatMap((item) => (item.action === 'add_tag' || item.action === 'remove_tag' ? [item.tagId] : []));
   const templateIds = actions.flatMap((item) => (item.action === 'reply_template' ? [item.templateId] : []));
-  return { roster, tags: await tagsByIdTx(tx, tagIds), templates: await templatesByIdTx(tx, templateIds) };
+  const endpointIds = actions.flatMap((item) => (item.action === 'webhook' ? [item.endpointId] : []));
+  return { roster, tags: await tagsByIdTx(tx, tagIds), templates: await templatesByIdTx(tx, templateIds), endpoints: await endpointsByIdTx(tx, endpointIds) };
 }
 
 /**
@@ -240,7 +247,10 @@ export function describeAction(action: RuleAction, snapshot: TicketSnapshot, ref
     case 'set_status':
       if (snapshot.status === action.status) return same(action.status);
       return canTransition(snapshot.status, action.status) ? { action: action.action, ok: true, from: snapshot.status, to: action.status } : fail('transition_refused');
-    case 'webhook':
-      return hooks.__hubWebhookDeliverer ? { action: action.action, ok: true } : fail('webhooks_not_ready');
+    case 'webhook': {
+      const endpoint = refs.endpoints.get(action.endpointId);
+      if (!endpoint) return fail('endpoint_missing');
+      return endpoint.isEnabled ? { action: action.action, ok: true, to: endpoint.name } : fail('endpoint_disabled');
+    }
   }
 }

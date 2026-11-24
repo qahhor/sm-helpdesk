@@ -47,6 +47,7 @@ export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | nu
       remove_tag: lists.tags.map((tag) => ({ value: tag.tagId, label: tag.name })),
       reply_template: lists.templates.map((item) => ({ value: item.templateId, label: item.isEnabled ? item.title : r('templateDisabled', { title: item.title }) })),
       set_status: lists.statusTargets.map((value) => ({ value, label: t(`queues.statuses.${value}`) })),
+      webhook: lists.webhooks.map((item) => ({ value: item.endpointId, label: item.isEnabled ? item.name : r('webhookDisabled', { name: item.name }) })),
     },
     notify: {
       oncall: { value: 'oncall', label: r('targets.oncall') },
@@ -97,10 +98,9 @@ export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | nu
     stop: e('stop'),
     save: e('save'),
     newDisabled: e('newDisabled'),
-    webhookSoon: e('webhookSoon'),
     reauth: r('reauth'),
     ops: Object.fromEntries([...new Set(Object.values(FIELD_OPS).flat())].map((op) => [op, r(`ops.${op}`)])),
-    actionValues: Object.fromEntries(['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status'].map((key) => [key, r(`actionValues.${key}`)])),
+    actionValues: Object.fromEntries(['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status', 'webhook'].map((key) => [key, r(`actionValues.${key}`)])),
     targets: { roles: r('targets.roles'), staff: r('targets.staff') },
     issues: {
       event_not_ready: r('issues.event_not_ready'),

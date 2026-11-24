@@ -265,6 +265,41 @@ test('завершено за период: по дате решения, а б�
   expect([view.overview.created, view.overview.finished]).toEqual([0, 3]);
 });
 
+test('решено и открыто заново: дата решения остаётся в обращении, но в "решено", в "завершено" и во время решения оно не входит (проверка M8, m8)', async () => {
+  // Дата решения при повторном открытии не очищается (так устроено действие клиента и сотрудника): счётчики
+  // опираются на текущий статус. Два обращения созданы и решены в периоде; второе клиент открыл заново.
+  const make = async (title: string, status: string) => {
+    const client = await pools.root.connect();
+    try {
+      await client.query(`set session_replication_role = replica`);
+      await client.query(
+        `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source, status, created_on, modified_on, first_responded_on, resolved_on, resolution_due_on)
+         values ($1, $2, 'question', 'minor', 'p3', 'org', $3, 'Текст', 'ru', 'portal', $4, '${at('03', '05:00')}', '${at('03', '05:00')}', '${at('03', '05:30')}', '${at('03', '07:00')}', '2026-12-30T05:00:00Z')`,
+        [f.orgA.orgId, f.aUser.userId, title, status],
+      );
+    } finally {
+      await client.query(`set session_replication_role = origin`).catch(() => undefined);
+      client.release();
+    }
+  };
+  await make('R-1', 'resolved');
+  await make('R-2', 'in_progress');
+  const reopened = (await pools.root.query(`select status, resolved_on from hdt_tickets where title = 'R-2'`)).rows[0];
+  expect([reopened.status, reopened.resolved_on !== null]).toEqual(['in_progress', true]);
+  const view = await getMetrics(staffCtx(f.l1), WEEK, NOW);
+  // Создано два, решено и завершено одно; время решения считается по одному обращению (120 рабочих минут).
+  expect([view.overview.created, view.overview.resolved, view.overview.finished]).toEqual([2, 1, 1]);
+  expect(view.overview.resolutionTime).toMatchObject({ count: 1, averageMinutes: 120 });
+  // Срок решения у открытого заново ещё не вышел: исход по сроку известен только у решённого.
+  expect(view.overview.resolution).toMatchObject({ total: 1 });
+  expect(view.lines.resolved).toBe(1);
+  // В выгрузке у открытого заново времени решения нет.
+  const csv = await exportMetrics(staffCtx(f.care), { ...WEEK, report: 'requests' });
+  const minutes = (csv.columns as readonly string[]).indexOf('resolutionMinutes');
+  expect(minutes).toBeGreaterThan(-1);
+  expect(csv.rows.map((row) => row[minutes])).toEqual([120, null]);
+});
+
 test('источники: портал 120, почта 60, сотрудник 20; источников без обращений в списке нет', async () => {
   await seedMetrics();
   const view = await getMetrics(staffCtx(f.care), WEEK, NOW);

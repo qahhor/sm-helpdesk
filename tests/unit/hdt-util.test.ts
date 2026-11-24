@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { formatNumber, parseNumber, titleFromDescription } from '@/modules/hdt/util';
+import { earlierLink, formatNumber, parseNumber, titleFromDescription } from '@/modules/hdt/util';
 
 test('тема из первого предложения описания', () => {
   expect(titleFromDescription('При сохранении заказа выходит ошибка: нет остатка на складе. Что делать?')).toBe(
@@ -27,4 +27,13 @@ test('номер обращения SUP-<номер> пишется и разб�
     null,
   ]);
   expect(parseNumber('99999999999999999999')).toBeNull();
+});
+
+test('история на пределе: дальше тысячи записей ссылки "Показать раньше" нет (проверка волны 2, мелкое 6)', () => {
+  expect(earlierLink(50, true)).toBe('link');
+  expect(earlierLink(950, true)).toBe('link');
+  // Предел окна: ссылка вела бы на ту же страницу, вместо неё текст.
+  expect(earlierLink(1000, true)).toBe('limit');
+  expect(earlierLink(1000, false)).toBe('none');
+  expect(earlierLink(50, false)).toBe('none');
 });

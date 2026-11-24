@@ -219,6 +219,7 @@
         "related": "Follow-up to request {number}",
         "history": "Conversation and history",
         "showEarlier": "Show earlier",
+        "earlierLimit": "The last {count} entries are shown. Earlier entries are not shown here.",
         "events": {
           "created": "Request created",
           "status": "Status: {from} > {to}",
@@ -899,7 +900,8 @@
           },
           "settings": {
             "changed": "Setting changed",
-            "oncall_changed": "On-call settings changed"
+            "oncall_changed": "On-call settings changed",
+            "oncall_bot_replaced": "On-call bot token replaced"
           },
           "notify": {
             "channels_changed": "Notification channels changed"
@@ -1313,6 +1315,7 @@
       "snoozeReturned": "Back from snooze",
       "lastVisit": "Your last visit: {time}. Everything new since then is marked.",
       "showEarlier": "Show earlier",
+      "earlierLimit": "The last {count} entries are shown. Earlier entries are not shown here.",
       "details": "Ticket details",
       "clientTitle": "CLIENT",
       "inn": "TIN {inn}",

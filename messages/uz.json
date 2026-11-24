@@ -219,6 +219,7 @@
         "related": "{number} murojaatining davomi",
         "history": "Yozishma va tarix",
         "showEarlier": "Oldingilarini ko'rsatish",
+        "earlierLimit": "Oxirgi {count} ta yozuv ko'rsatilgan. Undan oldingi yozuvlar bu yerda ko'rsatilmaydi.",
         "events": {
           "created": "Murojaat yaratildi",
           "status": "Holati: {from} > {to}",
@@ -899,7 +900,8 @@
           },
           "settings": {
             "changed": "Sozlama o'zgartirildi",
-            "oncall_changed": "Navbatchilar sozlamalari o'zgartirildi"
+            "oncall_changed": "Navbatchilar sozlamalari o'zgartirildi",
+            "oncall_bot_replaced": "Navbatchilar boti tokeni almashtirildi"
           },
           "notify": {
             "channels_changed": "Bildirishnoma kanallari o'zgartirildi"
@@ -1313,6 +1315,7 @@
       "snoozeReturned": "Qoldirilganlardan qaytdi",
       "lastVisit": "Oldingi tashrifingiz: {time}. O'shandan beri yangilari belgilangan.",
       "showEarlier": "Oldingilarini ko'rsatish",
+      "earlierLimit": "Oxirgi {count} ta yozuv ko'rsatilgan. Undan oldingi yozuvlar bu yerda ko'rsatilmaydi.",
       "details": "Murojaat ma'lumotlari",
       "clientTitle": "MIJOZ",
       "inn": "STIR {inn}",

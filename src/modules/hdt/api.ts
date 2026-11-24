@@ -95,7 +95,7 @@ export { type SnoozePreset, snoozeTarget, zonedToDate } from './sla';
 // Каждая функция принимает проверенный контекст клиента и разбирает вход схемой (ТЗ 9.4, правило 7).
 
 export { HDT_ERROR_CODES, type HdtErrorCode, HdtError, isHdtError } from './error';
-export { formatNumber, parseNumber } from './util';
+export { earlierLink, formatNumber, parseNumber } from './util';
 // Значения для форм и фильтров кабинета: страницы берут модуль только через api.
 export {
   allowedStaffTransitions,

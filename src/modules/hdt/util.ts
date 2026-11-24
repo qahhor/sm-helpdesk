@@ -2,7 +2,7 @@
 
 import type { DetectedType } from '@/modules/hdc/api';
 import { searchable } from '@/modules/hdc/pref';
-import { ACCEPTED_TYPES, ALLOWED_FILES, ENCRYPTED_OFFICE_SIGNATURE, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES, type RejectReason } from './pref';
+import { ACCEPTED_TYPES, ALLOWED_FILES, ENCRYPTED_OFFICE_SIGNATURE, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES, type RejectReason, TIMELINE_MAX } from './pref';
 
 // Тема из описания нужна и форме в браузере (подстановка при вводе): общая функция лежит в src/lib/subject.ts.
 export { titleFromDescription } from '@/lib/subject';
@@ -109,4 +109,13 @@ export function pickupMinutes(priority: string, setting: unknown, firstResponseM
     if (typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 100_000) return value;
   }
   return firstResponseMinutes;
+}
+
+/**
+ * Что показать над историей обращения: ссылку "Показать раньше", текст о пределе или ничего. Окно истории не больше
+ * TIMELINE_MAX записей: на пределе ссылка вела бы на ту же страницу (итоговая проверка волны 2, мелкое 6).
+ */
+export function earlierLink(shown: number, hasEarlier: boolean): 'link' | 'limit' | 'none' {
+  if (!hasEarlier) return 'none';
+  return shown >= TIMELINE_MAX ? 'limit' : 'link';
 }

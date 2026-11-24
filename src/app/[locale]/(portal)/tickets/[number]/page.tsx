@@ -10,6 +10,7 @@ import {
   MAX_FILES_PER_MESSAGE,
   parseNumber,
   TIMELINE_PAGE,
+  earlierLink,
 } from '@/modules/hdt/api';
 import { requireClientActor } from '@/modules/hdu/api';
 import { Link } from '@/i18n/navigation';
@@ -237,11 +238,12 @@ export default async function TicketPage({
       <Card>
         <CardContent className="flex flex-col gap-5 pt-4">
           <h2 className="sr-only">{t('page.history')}</h2>
-          {ticket.hasEarlier && (
+          {earlierLink(ticket.shown, ticket.hasEarlier) === 'link' && (
             <Link href={`/tickets/SUP-${ticket.number}?shown=${ticket.shown + TIMELINE_PAGE}`} className="self-start text-sm text-link underline-offset-2 hover:underline">
               {t('page.showEarlier')}
             </Link>
           )}
+          {earlierLink(ticket.shown, ticket.hasEarlier) === 'limit' && <p className="text-sm text-muted-foreground">{t('page.earlierLimit', { count: ticket.shown })}</p>}
           {entries.map((entry) => (
             <div key={entry.key}>{entry.node}</div>
           ))}

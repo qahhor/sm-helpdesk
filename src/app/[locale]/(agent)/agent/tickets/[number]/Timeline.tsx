@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { getFormatter, getTranslations } from 'next-intl/server';
-import { type AgentFileView, type AgentTicketView, type AgentTimelineEntry, TIMELINE_PAGE } from '@/modules/hdt/api';
+import { type AgentFileView, type AgentTicketView, type AgentTimelineEntry, earlierLink, TIMELINE_PAGE } from '@/modules/hdt/api';
 import { Link } from '@/i18n/navigation';
 import { Card, CardContent } from '@/ui/components/card';
 import { Markdown } from '@/ui/components/markdown';
@@ -130,7 +130,8 @@ export async function TicketTimeline({ ticket, from }: Props) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-4 pt-6">
-        {ticket.hasEarlier && (
+        {earlierLink(ticket.shown, ticket.hasEarlier) === 'limit' && <p className="text-sm text-muted-foreground">{t('ticket.earlierLimit', { count: ticket.shown })}</p>}
+        {earlierLink(ticket.shown, ticket.hasEarlier) === 'link' && (
           // История читается частями (аудит 23.11.2026, находка P11): ссылка добавляет ещё 50 записей.
           <Link
             href={`/agent/tickets/SUP-${ticket.number}?${new URLSearchParams({ ...(from.queue ? { queue: from.queue } : {}), ...(from.sort ? { sort: from.sort } : {}), shown: String(ticket.shown + TIMELINE_PAGE) })}`}

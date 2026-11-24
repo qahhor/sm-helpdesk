@@ -19,9 +19,9 @@ const withDatabase = (url: string, db: string): string => {
   return parsed.toString();
 };
 
-// База нужна проверке /api/ready. В CI её поднимает сама задача и задаёт адреса.
-// На машине разработчика адреса лежат в .env, базу из compose.yaml готовит tests/e2e/global-setup.ts.
-if (!process.env.CI) {
+// База нужна проверке /api/ready. Адреса лежат в .env, базу из compose.yaml готовит tests/e2e/global-setup.ts.
+// Путь один для машины разработчика и для CI: два способа подготовки расходились (решение 0041, пункт 8).
+{
   // Здесь создаётся только файл .env, если его нет. Базу поднимает tests/e2e/global-setup.ts:
   // чтение настроек (список тестов, среда разработки) не запускает Docker.
   if (!existsSync('.env')) execFileSync(process.execPath, ['scripts/dev-up.mjs', '--env-only'], { stdio: 'inherit' });

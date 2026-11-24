@@ -63,6 +63,7 @@ async function waitForQueues(boss: PgBoss, attempts: number): Promise<void> {
 }
 
 export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): Promise<void> }> {
+  let stopping = false;
   const boss = new PgBoss(bossOptions(opts.connectionString ?? getEnv().DATABASE_URL_APP, 'worker'));
   boss.on('error', (error) => console.error(`Фоновый процесс: ${error.message}`));
   await boss.start({ attempts: opts.startAttempts ?? START_ATTEMPTS });
@@ -103,7 +104,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     if (requeued > 0) console.info(`Входящие письма: снова на разборе ${requeued}`);
   }));
   await boss.work('outbox.dispatch', polling, () => timedJob('outbox.dispatch', async () => {
-    const { sent, failed, skipped } = await dispatchOutbox(actor('outbox.dispatch'), new Date());
+    // При остановке процесса запуск прекращает работу между письмами: захваченные строки не ждут 5 минут.
+    const { sent, failed, skipped } = await dispatchOutbox(actor('outbox.dispatch'), new Date(), undefined, undefined, { stopped: () => stopping });
     if (sent + failed + skipped > 0) console.info(`Очередь писем: отправлено ${sent}, не отправлено ${failed}, без адреса ${skipped}`);
     // Состояние очереди для наблюдения: ждущие, не отправленные, задержка. Пустая очередь пишется только на debug.
     const state = await outboxState(actor('outbox.dispatch'), new Date());
@@ -129,6 +131,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
 
   return {
     async stop() {
+      stopping = true;
       setJobQueue(null);
       await boss.stop({ graceful: true, timeout: 30_000 });
     },

@@ -52,6 +52,10 @@ function concurrentStatements(name, sql) {
     throw new Error(
       `Миграция ${name}: вне транзакции допускаются только CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS и DROP INDEX CONCURRENTLY IF EXISTS`,
     );
+  // Имя без кавычек база приводит к строчным буквам, а поиск недостроенного индекса идёт по имени как в файле:
+  // имя с заглавными буквами осталось бы ненайденным (итоговая проверка волны 2).
+  const mixed = parsed.find((statement) => statement && statement.index !== statement.index.toLowerCase());
+  if (mixed) throw new Error(`Миграция ${name}: имя индекса ${mixed.index} пишется строчными буквами`);
   return /** @type {{ text: string; index: string; schema: string; creates: boolean }[]} */ (parsed);
 }
 

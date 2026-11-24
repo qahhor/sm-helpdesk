@@ -290,7 +290,8 @@ const DISPATCH_CONCURRENCY = 4;
 /** Бюджет времени запуска: задача по расписанию идёт раз в минуту, следующий запуск не должен догнать этот. */
 const DISPATCH_BUDGET_MS = 50_000;
 
-export type DispatchOptions = { budgetMs?: number; concurrency?: number; clock?: () => number };
+/** stopped: процесс останавливается; запуск прекращает работу между строками и возвращает нетронутые в очередь. */
+export type DispatchOptions = { budgetMs?: number; concurrency?: number; clock?: () => number; stopped?: () => boolean };
 
 /**
  * Отправляет очередь: берёт пачку, шлёт несколько писем одновременно и повторяет, пока очередь не опустеет или не
@@ -308,11 +309,13 @@ export async function dispatchOutbox(
   const clock = opts.clock ?? Date.now;
   const deadline = clock() + (opts.budgetMs ?? DISPATCH_BUDGET_MS);
   const concurrency = Math.max(1, opts.concurrency ?? DISPATCH_CONCURRENCY);
+  // Время вышло или процесс останавливается: новые строки не начинаются.
+  const done = () => clock() >= deadline || opts.stopped?.() === true;
   const result = { sent: 0, failed: 0, skipped: 0 };
   const run = runMemo(oncall);
   let email: EmailProvider | undefined = provider;
 
-  while (clock() < deadline) {
+  while (!done()) {
     const claimed = await claimBatch(actor, now);
     if (claimed.length === 0) break;
     email ??= await getEmailProvider();
@@ -323,7 +326,7 @@ export async function dispatchOutbox(
       await Promise.all(
         Array.from({ length: Math.min(concurrency, waiting.length) }, async () => {
           for (let row = waiting.shift(); row; row = waiting.shift()) {
-            if (clock() >= deadline) untouched.push(row.outboxId);
+            if (done()) untouched.push(row.outboxId);
             else await sendRow(actor, now, row, mailer, run, result);
           }
         }),

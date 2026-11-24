@@ -83,3 +83,12 @@ test('сбой посреди файла не отмечает его приме
     { indexname: 'w2_probe_i2', valid: true },
   ]);
 });
+
+test('имя индекса с заглавными буквами отклоняется: недостроенный индекс с таким именем остался бы незамеченным (проверка волны 2)', async () => {
+  const dir = await dirWith({
+    '9001_w2_probe_table.sql': TABLE,
+    '9003_w2_probe_bad.sql': `-- hub:no-transaction\nCREATE INDEX CONCURRENTLY IF NOT EXISTS W2_Probe_I1 ON w2_probe (tag);`,
+  });
+  await expect(migrate({ dir })).rejects.toThrow(/строчными/);
+  expect((await indexes()).map((row) => row.indexname)).toEqual([]);
+});

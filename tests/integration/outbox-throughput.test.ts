@@ -129,3 +129,25 @@ test('сбой чтения получателя не запоминается �
   }
   expect(await statuses()).toEqual({ sent: 2, queued: 1 });
 });
+
+test('остановка процесса прерывает запуск между строками: нетронутые письма не теряют попытку (проверка волны 2)', async () => {
+  await queue(120);
+  let stopped = false;
+  const slow: EmailProvider = {
+    ...provider,
+    send: async (mail, key) => {
+      const sent = await provider.send(mail, key);
+      // Сигнал остановки приходит во время отправки первых писем.
+      if (provider.sent.length >= 3) stopped = true;
+      return sent;
+    },
+  };
+  const result = await dispatchOutbox(SYSTEM, new Date(), slow, null, { concurrency: 1, stopped: () => stopped });
+  expect(result.sent).toBe(3);
+  // Остальные ждут следующего запуска сразу и с нулём попыток: захват первой пачки снят.
+  const rows = (await pools.root.query(`select status, attempts, next_attempt_on <= now() as due from hdn_outbox where template = 'ticket_resolved'`)).rows;
+  expect(rows.filter((row) => row.status === 'sent')).toHaveLength(3);
+  const waiting = rows.filter((row) => row.status === 'queued');
+  expect(waiting).toHaveLength(117);
+  expect(waiting.every((row) => row.attempts === 0 && row.due)).toBe(true);
+});

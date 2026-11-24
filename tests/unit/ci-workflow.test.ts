@@ -2,9 +2,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { parse } from 'yaml';
 
-// Настройка CI готова, но выключена по решению владельца продукта (docs/decisions/0011).
-// GitHub запускает только файлы из .github/workflows, поэтому файл лежит рядом, в другой папке.
-const wf = parse(readFileSync('.github/workflows-disabled/ci.yml', 'utf8'));
+// Проверки GitHub Actions включены решением владельца от 24.11.2026 (решение 0041, пункт 6; до этого решение 0011).
+const wf = parse(readFileSync('.github/workflows/ci.yml', 'utf8'));
 const dockerfile = readFileSync('Dockerfile', 'utf8');
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 
@@ -19,9 +18,9 @@ test('сторонние действия закреплены по хешу', (
   expect(uses.filter((u) => !/@[0-9a-f]{40}$/.test(u))).toEqual([]);
 });
 
-test('GitHub Actions выключен: в папке .github/workflows нет ни одного файла', () => {
-  const active = existsSync('.github/workflows') ? readdirSync('.github/workflows') : [];
-  expect(active).toEqual([]);
+test('GitHub Actions включён: настройка лежит в .github/workflows, выключенной копии нет', () => {
+  expect(readdirSync('.github/workflows')).toEqual(['ci.yml']);
+  expect(existsSync('.github/workflows-disabled')).toBe(false);
 });
 
 test('у задач только право чтения репозитория', () => {

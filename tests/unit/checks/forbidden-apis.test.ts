@@ -93,3 +93,21 @@ test('свои таблицы, комментарии, схема и код вн
   expect(rules('tests/integration/x.test.ts', 'pools.root.query(`select 1 from hdt_tickets`)')).toEqual([]);
   expect(rules('src/worker/main.ts', "console.info('hdn_outbox');")).toEqual([]);
 });
+
+// Шаблон поиска собирает только код (решение 0041, вопрос 19 владельца). Оператор ILIKE отмечен в базе как
+// безопасный для выполнения раньше политик RLS. Это честно, пока шаблон не может кончаться знаком экранирования:
+// такая ошибка зависела бы от содержимого невидимой строки. Поэтому файл с поиском по шаблону обязан экранировать.
+
+test('поиск по шаблону без функции экранирования запрещён', () => {
+  const bad = "const rows = await tx.select().from(t).where(ilike(t.title, `%${query}%`));";
+  expect(findForbiddenApis('src/modules/hdt/core/x.ts', bad).map((v) => v.rule)).toEqual(['like-pattern']);
+  expect(findForbiddenApis('src/modules/hdt/core/x.ts', "where(like(t.title, pattern))").map((v) => v.rule)).toEqual(['like-pattern']);
+  expect(findForbiddenApis('src/modules/hdt/core/x.ts', 'sql`${t.title} ilike ${pattern}`').map((v) => v.rule)).toEqual(['like-pattern']);
+  const good = "const pattern = `%${likeEscape(query)}%`;\nconst rows = await tx.select().from(t).where(ilike(t.title, pattern));";
+  expect(findForbiddenApis('src/modules/hdt/core/x.ts', good)).toEqual([]);
+  expect(findForbiddenApis('src/modules/hdt/core/y.ts', "const p = likeText(q);\nwhere(ilike(t.title, p))")).toEqual([]);
+  // Шаблон, записанный в коде строкой, от человека не приходит.
+  expect(findForbiddenApis('src/modules/hdt/core/z.ts', "where(like(attachments.storageKey, 'files/%'))")).toEqual([]);
+  // Слово в комментарии и в тексте интерфейса правилом не считается.
+  expect(findForbiddenApis('src/modules/hdt/core/z.ts', '// оператор ILIKE не отмечен как безопасный')).toEqual([]);
+});

@@ -8,8 +8,9 @@
 
 // - модуль не называет таблицу другого модуля в тексте запроса: нужное даёт api модуля-владельца (аудит
 //   23.11.2026, находка A2). Линтер импортов такую связь не видит.
+// - поиск по шаблону (LIKE, ILIKE) только с функцией экранирования likeEscape или likeText (решение 0041).
 
-/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql' | 'system-actor' | 'cross-module-sql'} ForbiddenRule */
+/** @typedef {'use-cache' | 'unstable-cache' | 'cache-api' | 'inner-html' | 'inline-style' | 'raw-sql' | 'system-actor' | 'cross-module-sql' | 'like-pattern'} ForbiddenRule */
 
 // Единственный файл, где разрешена вставка разметки: скрипт темы до первой отрисовки.
 const INNER_HTML_ALLOWED = new Set(['src/ui/theme/ThemeScript.tsx']);
@@ -35,6 +36,10 @@ function namesForeignTable(owner, line) {
   for (const match of code.matchAll(TABLE_NAME)) if (match[1] !== owner) return true;
   return owner !== 'hdu' && AUTH_TABLE.test(code);
 }
+
+// Поиск по шаблону: функции ilike и like построителя запросов или оператор в тексте запроса.
+const LIKE_USE = /\b(?:ilike|like)\(|\s(?:i?like)\s+\$\{/i;
+const LIKE_CONSTANT = /\b(?:ilike|like)\([^,()]+,\s*'[^'$]*'\)/;
 
 /** @type {{ rule: ForbiddenRule; test: RegExp }[]} */
 const RULES = [
@@ -65,6 +70,7 @@ export function findForbiddenApis(path, text) {
   /** @type {{ line: number; rule: ForbiddenRule }[]} */
   const found = [];
   const lines = text.split('\n');
+  const escapesPatterns = /\b(?:likeEscape|likeText)\(/.test(text);
   for (let i = 0; i < lines.length; i++) {
     /** @type {Set<ForbiddenRule>} */
     const seen = new Set();
@@ -77,6 +83,11 @@ export function findForbiddenApis(path, text) {
     if (REQUEST_CODE.test(path) && SYSTEM_ACTOR.test(lines[i])) found.push({ line: i + 1, rule: 'system-actor' });
     const owner = MODULE_FILE.exec(path)?.[1];
     if (owner && namesForeignTable(owner, lines[i])) found.push({ line: i + 1, rule: 'cross-module-sql' });
+    // Поиск по шаблону в файле без функции экранирования (решение 0041): шаблон из текста человека мог бы
+    // кончаться знаком экранирования, а оператор ILIKE отмечен в базе как безопасный для политик RLS.
+    // Шаблон, записанный в коде строкой ('files/%'), от человека не приходит и правилом не считается.
+    if (!escapesPatterns && LIKE_USE.test(lines[i].replace(/\/\/.*$/, '')) && !LIKE_CONSTANT.test(lines[i]) && !/^\s*(\/\/|\*|\/\*)/.test(lines[i]))
+      found.push({ line: i + 1, rule: 'like-pattern' });
   }
   return found;
 }

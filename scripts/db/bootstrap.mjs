@@ -98,6 +98,13 @@ export async function bootstrap(opts = {}) {
     await db.query('CREATE SCHEMA IF NOT EXISTS ops');
     await db.query('REVOKE ALL ON SCHEMA ops FROM PUBLIC');
     await db.query('CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA ops');
+    // Поиск по тексту под политиками RLS (решение 0041, вопрос 19 владельца). PostgreSQL выполняет раньше условий
+    // политики только операторы, отмеченные как безопасные (leakproof): иначе индекс по тексту не используется и
+    // поиск просматривает таблицу целиком (4,4 секунды на миллионе обращений). Оператор ILIKE так не отмечен.
+    // Отметка честна при одном условии, которое держит портал: шаблон поиска собирает код (likeText), знаки
+    // "\", "%" и "_" из текста человека экранируются, поэтому ошибки "шаблон кончается знаком экранирования",
+    // по которой можно было бы судить о невидимой строке, не бывает. Данных строки функция в ошибках не выдаёт.
+    await db.query('ALTER FUNCTION pg_catalog.texticlike(text, text) LEAKPROOF');
     // Схема public закрыта для всех, кроме явно названных ролей.
     await db.query('REVOKE ALL ON SCHEMA public FROM PUBLIC');
     await db.query('GRANT USAGE ON SCHEMA public TO hub_app, hub_auth');

@@ -185,3 +185,21 @@ test('строки с одним временем изменения на гра
   expect(same).toHaveLength(130);
   for (const number of same) expect(seen, `SUP-${number}`).toContain(number);
 });
+
+// --- Поиск по тексту идёт по индексу (вопрос 19, решение владельца 24.11.2026; план W4, задача 2) ---
+
+test('поиск сотрудника по тексту в очереди "Все" не просматривает таблицу обращений целиком', async () => {
+  const l1 = staffCtx(f.l1);
+  const { result, queries } = await captureQueries(() => listQueue(l1, { queue: 'all', sort: 'updated', q: 'обращение 4242' }));
+  expect(result.items.length).toBeGreaterThan(0);
+  const plans = await plansFor(f.l1.actor, queries, 'hdt_tickets');
+  expect(plans.length).toBeGreaterThan(0);
+  for (const plan of plans) expect(plan, plan).not.toMatch(SEQ_SCAN);
+});
+
+test('поиск клиента по тексту в своей организации не просматривает таблицу обращений целиком', async () => {
+  const ctx = await clientCtx(f.aUser);
+  const { queries } = await captureQueries(() => listTickets(ctx, { q: 'нагрузочное' }));
+  const plans = await plansFor(f.aUser.actor, queries, 'hdt_tickets');
+  for (const plan of plans) expect(plan, plan).not.toMatch(SEQ_SCAN);
+});

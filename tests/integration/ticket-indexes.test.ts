@@ -20,10 +20,11 @@ test('лишний индекс по сроку решения убран, ин�
   expect(all.hdt_tickets_i18).toMatch(/\(error_signature\) WHERE \(error_signature IS NOT NULL\)/);
   expect(all.hdt_tickets_i19).toMatch(/\(merged_into_id\) WHERE \(merged_into_id IS NOT NULL\)/);
   expect(all.hdt_tickets_i20).toMatch(/\(related_ticket_id\) WHERE \(related_ticket_id IS NOT NULL\)/);
-  expect(Object.keys(all)).toHaveLength(19);
+  // Плюс два индекса поиска по тексту темы и описания (миграция 0052, решение владельца о поиске от 24.11.2026).
+  expect(Object.keys(all)).toHaveLength(21);
 });
 
-test('обычное обращение без подписи ошибки и связей входит не больше чем в 13 индексов из 19 (было 17 из 20)', async () => {
+test('обычное обращение без подписи ошибки и связей входит не больше чем в 15 индексов из 21: 13 прежних и два индекса поиска по тексту (было 17 из 20)', async () => {
   const f = await seedTwoOrgs();
   // Сколько индексов получают запись при обновлении этой строки: полные и те частичные, условию которых строка отвечает.
   const partial = (await pools.root.query(`select c.relname as name, pg_get_expr(i.indpred, i.indrelid) as pred from pg_index i join pg_class c on c.oid = i.indexrelid where i.indrelid = 'hdt_tickets'::regclass`)).rows;
@@ -32,7 +33,7 @@ test('обычное обращение без подписи ошибки и с
     if (!index.pred) included += 1;
     else if ((await pools.root.query(`select 1 from hdt_tickets where ticket_id = $1 and (${index.pred})`, [f.tickets.aOrg.ticketId])).rowCount) included += 1;
   }
-  expect(included).toBeLessThanOrEqual(13);
+  expect(included).toBeLessThanOrEqual(15);
 });
 
 test('поиск дублей основного обращения и связанных идёт по частичным индексам', async () => {

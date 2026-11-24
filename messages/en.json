@@ -1151,6 +1151,7 @@
       },
       "lineL2": "second line",
       "snoozed": "snoozed until {time}",
+      "snoozeReturned": "back from snooze",
       "unassigned": "unassigned",
       "sla": {
         "minutes": "{value} min",
@@ -1301,6 +1302,7 @@
       },
       "priorityUnconfirmed": "priority not confirmed",
       "snoozed": "snoozed until {time}",
+      "snoozeReturned": "Back from snooze",
       "lastVisit": "Your last visit: {time}. Everything new since then is marked.",
       "showEarlier": "Show earlier",
       "details": "Ticket details",

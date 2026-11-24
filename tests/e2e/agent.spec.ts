@@ -421,6 +421,16 @@ test('обращение рядом со списком: последняя за
   await expect(pane.locator('[data-internal]')).toContainText('Заметка');
 });
 
+test('вернувшееся из отложенных помечено в очереди и на странице обращения (FR-AG-13)', async ({ page, browser }) => {
+  const stamp = `Возврат из отложенных ${Date.now()}`;
+  const number = await clientTicket(browser, stamp);
+  await dbRows(`update hdt_tickets set snooze_returned_on = now() where number = $1`, [number]);
+  await page.goto(`/ru/agent/queues?queue=all&sort=updated&q=${encodeURIComponent(stamp)}`);
+  await expect(main(page).locator('[data-snooze-returned]')).toHaveText('вернулось из отложенных');
+  await page.goto(`/ru/agent/tickets/SUP-${number}`);
+  await expect(main(page).getByText('Вернулось из отложенных')).toBeVisible();
+});
+
 /** Нет прокрутки вбок: содержимое помещается в окно (UX-C-12 для рабочего места). */
 const noSideScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 const seriousViolations = async (page: Page) =>

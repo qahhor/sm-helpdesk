@@ -1151,6 +1151,7 @@
       },
       "lineL2": "ikkinchi liniya",
       "snoozed": "{time} gacha qoldirilgan",
+      "snoozeReturned": "qoldirilganlardan qaytdi",
       "unassigned": "tayinlanmagan",
       "sla": {
         "minutes": "{value} daq",
@@ -1301,6 +1302,7 @@
       },
       "priorityUnconfirmed": "ustuvorlik tasdiqlanmagan",
       "snoozed": "{time} gacha qoldirilgan",
+      "snoozeReturned": "Qoldirilganlardan qaytdi",
       "lastVisit": "Oldingi tashrifingiz: {time}. O'shandan beri yangilari belgilangan.",
       "showEarlier": "Oldingilarini ko'rsatish",
       "details": "Murojaat ma'lumotlari",

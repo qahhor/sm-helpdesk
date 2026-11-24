@@ -28,6 +28,7 @@ export type QueueRecord = {
   firstRespondedOn: Date | null;
   dueOn: Date | null;
   snoozedUntil: Date | null;
+  snoozeReturnedOn: Date | null;
   clientWaitingSince: Date | null;
 };
 
@@ -109,6 +110,7 @@ export async function queueRowsTx(
         firstRespondedOn: tickets.firstRespondedOn,
         dueOn,
         snoozedUntil: tickets.snoozedUntil,
+        snoozeReturnedOn: tickets.snoozeReturnedOn,
         clientWaitingSince: tickets.clientWaitingSince,
       })
       .from(tickets)

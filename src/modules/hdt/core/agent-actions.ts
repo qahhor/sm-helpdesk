@@ -33,6 +33,7 @@ export type LockedTicket = {
   assigneeId: string | null;
   queue: string;
   snoozedUntil: Date | null;
+  snoozeReturnedOn: Date | null;
   mergedIntoId: string | null;
 };
 
@@ -55,6 +56,7 @@ export async function lockAgentTicket(tx: Tx, number: number): Promise<LockedTic
       assigneeId: tickets.assigneeId,
       queue: tickets.queue,
       snoozedUntil: tickets.snoozedUntil,
+      snoozeReturnedOn: tickets.snoozeReturnedOn,
       mergedIntoId: tickets.mergedIntoId,
     })
     .from(tickets)
@@ -85,10 +87,13 @@ export function stageTicket(ticket: LockedTicket, set: TicketPatch, opts: { sla?
  */
 export async function flushTicketTx(tx: Tx, ticket: LockedTicket): Promise<void> {
   const pending = staged.get(ticket);
-  if (!pending) return;
   staged.delete(ticket);
-  if (pending.sla) await refreshSla(tx, ticket.ticketId, new Date(), pending.set);
-  else await tx.update(tickets).set(pending.set).where(eq(tickets.ticketId, ticket.ticketId));
+  // Действие сотрудника снимает пометку "вернулось из отложенных" тем же обновлением (FR-AG-13).
+  const set: TicketPatch = { ...(pending?.set ?? {}), ...(ticket.snoozeReturnedOn ? { snoozeReturnedOn: null } : {}) };
+  if (Object.keys(set).length === 0) return;
+  ticket.snoozeReturnedOn = null;
+  if (pending?.sla) await refreshSla(tx, ticket.ticketId, new Date(), set);
+  else await tx.update(tickets).set(set).where(eq(tickets.ticketId, ticket.ticketId));
 }
 
 /** Событие истории и запись журнала в транзакции действия. Видимо клиенту только событие статуса. */
@@ -233,7 +238,7 @@ export async function snoozeTx(actor: StaffActor, number: number, until: Date | 
   assertCanWrite(actor);
   await withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
-    await tx.update(tickets).set({ snoozedUntil: until }).where(eq(tickets.ticketId, ticket.ticketId));
+    await tx.update(tickets).set({ snoozedUntil: until, snoozeReturnedOn: null }).where(eq(tickets.ticketId, ticket.ticketId));
     await recordChange(tx, actor, ticket, { kind: 'snooze', payload: { until: until?.toISOString() ?? null }, audit: 'ticket.snoozed' });
   });
 }

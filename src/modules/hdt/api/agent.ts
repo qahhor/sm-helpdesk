@@ -47,6 +47,8 @@ export type QueueRow = {
   /** Рабочих минут до срока; у нарушенного 0. */
   minutesLeft: number | null;
   snoozedUntil: Date | null;
+  /** Вернулось из отложенных, и сотрудник с ним ещё ничего не сделал (FR-AG-13). */
+  snoozeReturned: boolean;
   clientWaitingSince: Date | null;
 };
 
@@ -94,6 +96,7 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
         slaPhase: row.status === 'waiting_customer' || row.status === 'resolved' || row.status === 'closed' ? 'calm' : slaPhase(row.dueOn, row.createdOn, now, cal),
         minutesLeft: row.dueOn ? workingMinutesBetween(now, row.dueOn, cal) : null,
         snoozedUntil: row.snoozedUntil && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil : null,
+        snoozeReturned: row.snoozeReturnedOn !== null,
         clientWaitingSince: row.clientWaitingSince,
       };
     }),
@@ -184,6 +187,8 @@ export type AgentTicketView = {
   resolutionType: string | null;
   resolvedVersion: string | null;
   snoozedUntil: Date | null;
+  /** Вернулось из отложенных, и сотрудник с ним ещё ничего не сделал (FR-AG-13). */
+  snoozeReturned: boolean;
   /** Открытая передача на вторую линию (FR-LINE-06): срок "взять в работу", пока вторая линия не взялась. */
   pickup: { dueOn: Date } | null;
   /** Дубль объединён с основным (решение 4 плана M3). */
@@ -303,6 +308,7 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
     resolutionType: ticket.resolutionType,
     resolvedVersion: ticket.resolvedVersion,
     snoozedUntil: ticket.snoozedUntil && ticket.snoozedUntil.getTime() > now.getTime() ? ticket.snoozedUntil : null,
+    snoozeReturned: ticket.snoozeReturnedOn !== null,
     mergedInto: found.mergedIntoNumber !== null ? { number: found.mergedIntoNumber } : null,
     pickup:
       found.transfer && found.transfer.toLine !== 'l1' && !found.transfer.pickedUpOn && found.transfer.pickupDueOn && ticket.queue !== 'l1'

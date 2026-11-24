@@ -70,6 +70,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
             {!ticket.priorityConfirmed && <span className="text-muted-foreground">{t('ticket.priorityUnconfirmed')}</span>}
             <span className="text-muted-foreground">{t(`ticket.lines.${ticket.line}`)}</span>
             {ticket.snoozedUntil && <span className="text-muted-foreground">{t('ticket.snoozed', { time: when(ticket.snoozedUntil) })}</span>}
+            {ticket.snoozeReturned && <StatusLabel tone="orange">{t('ticket.snoozeReturned')}</StatusLabel>}
             {ticket.senderUnconfirmed && <StatusLabel tone="orange">{t('ticket.senderUnconfirmed')}</StatusLabel>}
           </div>
           {ticket.guestSender && (

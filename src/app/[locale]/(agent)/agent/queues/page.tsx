@@ -16,6 +16,7 @@ import {
 import { listAssignableStaff, requireStaffActor } from '@/modules/hdu/api';
 import { SlaBadge, slaLabelKey } from '@/ui/agent/SlaBadge';
 import { Alert } from '@/ui/components/alert';
+import { StatusLabel } from '@/ui/components/StatusLabel';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card } from '@/ui/components/card';
 import { EmptyState } from '@/ui/components/EmptyState';
@@ -196,6 +197,12 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                           {row.line === 'l2' && ` · ${t('queues.lineL2')}`}
                           {row.snoozedUntil && ` · ${t('queues.snoozed', { time: format.dateTime(row.snoozedUntil, { dateStyle: 'short', timeStyle: 'short' }) })}`}
                         </span>
+                        {/* Вернулось из отложенных: пометка стоит до первого действия сотрудника (FR-AG-13). */}
+                        {row.snoozeReturned && (
+                          <span data-snooze-returned className="mt-1 block">
+                            <StatusLabel tone="orange">{t('queues.snoozeReturned')}</StatusLabel>
+                          </span>
+                        )}
                       </td>
                       <td className={cell}>{row.orgName}</td>
                       <td className={cn(cell, 'font-semibold')}>{row.priority.toUpperCase()}</td>

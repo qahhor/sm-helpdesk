@@ -111,6 +111,8 @@ export async function postStaffMessageTx(
         await tx.insert(mentions).values(mentioned.map((userId) => ({ messageId: message.messageId, userId })));
         await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'mention', actorUserId: actor.userId, mentioned, authorName: people.myName });
       }
+      // Заметка это действие с обращением: пометка "вернулось из отложенных" снимается.
+      await flushTicketTx(tx, ticket);
     } else {
       stageTicket(ticket, { firstRespondedOn: sql`coalesce(${tickets.firstRespondedOn}, now())`, clientWaitingSince: null });
       // Ответ берёт новое обращение на своей линии (решение 6): ответ первой линии на переданное второй не забирает его.

@@ -1151,6 +1151,7 @@
       },
       "lineL2": "вторая линия",
       "snoozed": "отложено до {time}",
+      "snoozeReturned": "вернулось из отложенных",
       "unassigned": "не назначено",
       "sla": {
         "minutes": "{value} мин",
@@ -1301,6 +1302,7 @@
       },
       "priorityUnconfirmed": "приоритет не подтверждён",
       "snoozed": "отложено до {time}",
+      "snoozeReturned": "Вернулось из отложенных",
       "lastVisit": "Ваш прошлый визит: {time}. Новое с тех пор отмечено.",
       "showEarlier": "Показать раньше",
       "details": "Сведения об обращении",

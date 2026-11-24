@@ -82,6 +82,9 @@ export const tickets = pgTable('hdt_tickets', {
   updateRemindedOn: moment('update_reminded_on'),
   // Миграция 0035 (веха M4): письмо с домена организации от неподтверждённого адреса (FR-EM-06).
   senderUnconfirmed: boolean('sender_unconfirmed').notNull().default(false),
+  // Миграция 0049 (волна 3): пометка "вернулось из отложенных".
+  /** Когда обращение вернулось из отложенных (FR-AG-13). Пусто после первого действия сотрудника. */
+  snoozeReturnedOn: moment('snooze_returned_on'),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {

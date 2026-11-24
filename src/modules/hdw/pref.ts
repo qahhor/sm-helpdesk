@@ -47,6 +47,18 @@ export const MAX_ACTIONS = 10;
 export const MAX_HOURS = 8760;
 export const MAX_SNOOZE_HOURS = 720;
 
+// --- Предустановленные правила (FR-AUTO-12; план M8, задача 10, решения 1 и 2) ---
+
+/**
+ * Действия только предустановленных правил: прежние встроенные уведомления портала с их получателями, шаблонами и
+ * однократностью. Обычное правило и макрос их не принимают; значения у них нет.
+ */
+export const BUILTIN_ACTIONS = ['notify_oncall_p1', 'notify_sla_breach', 'notify_csat_low'] as const;
+export type BuiltinAction = (typeof BUILTIN_ACTIONS)[number];
+
+/** Кто получает уведомление о низкой оценке: сотрудники этой роли (план M8, "Что нужно от владельца"). */
+export const CSAT_LOW_ROLE = 'care';
+
 /** Причина, по которой система выключила правило (ограничение hdw_rules_c5). */
 export const DISABLED_REASONS = ['loop'] as const;
 export type DisabledReason = (typeof DISABLED_REASONS)[number];

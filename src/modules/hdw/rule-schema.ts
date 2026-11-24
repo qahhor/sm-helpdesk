@@ -1,14 +1,16 @@
 import * as z from 'zod';
 import { cleanUserText } from '@/modules/hdc/pref';
 import { IMPACTS, PRIORITIES, QUEUES, TICKET_SOURCES, TICKET_STATUSES, TICKET_TYPES } from '@/modules/hdt/pref';
-import { MAX_ACTIONS, MAX_CONDITIONS, MAX_HOURS, MAX_SNOOZE_HOURS, NOTIFY_ROLES, ORG_CATEGORIES, RULE_EVENT_KINDS, RULE_NAME_MAX, RULE_NOTE_MAX, RULE_STATUS_TARGETS } from './pref';
+import { BUILTIN_ACTIONS, type BuiltinAction, MAX_ACTIONS, MAX_CONDITIONS, MAX_HOURS, MAX_SNOOZE_HOURS, NOTIFY_ROLES, ORG_CATEGORIES, RULE_EVENT_KINDS, RULE_NAME_MAX, RULE_NOTE_MAX, RULE_STATUS_TARGETS } from './pref';
 
 // Модуль hdw: схема правила автоматизации (FR-AUTO-01, 03, 04, 05; план M8, задача 3). Правило это данные: событие,
 // условия ("все" или "любое") и действия из закрытого перечня. Формул, скриптов и регулярных выражений нет.
 // Чистый файл без базы: существование очередей, людей, тегов и шаблонов проверяет слой api при сохранении.
 
 /** Коды отказов схемы: слой api отдаёт их редактору вместе с путём до поля. */
-export const RULE_ISSUE_CODES = ['event_not_ready', 'condition_not_ready', 'hours_required', 'hours_not_allowed', 'reference_missing', 'invalid'] as const;
+// builtin_only: действие предустановленного правила в другом правиле; builtin_event: у предустановленного правила
+// меняют событие. Обе проверки делает слой api: схема не знает, какое правило сохраняется.
+export const RULE_ISSUE_CODES = ['event_not_ready', 'condition_not_ready', 'hours_required', 'hours_not_allowed', 'reference_missing', 'builtin_only', 'builtin_event', 'invalid'] as const;
 export type RuleIssueCode = (typeof RULE_ISSUE_CODES)[number];
 export type RuleIssue = { path: string; code: RuleIssueCode };
 
@@ -71,6 +73,11 @@ export const actionSchemas = {
   snooze: z.strictObject({ action: z.literal('snooze'), hours: z.number().int().min(1).max(MAX_SNOOZE_HOURS) }),
   set_status: z.strictObject({ action: z.literal('set_status'), status: z.enum(RULE_STATUS_TARGETS) }),
   webhook: z.strictObject({ action: z.literal('webhook'), endpointId: z.uuid() }),
+  // Действия только предустановленных правил (FR-AUTO-12; план M8, задача 10): прежние встроенные уведомления с их
+  // получателями и шаблонами. Значения у них нет. В каком правиле действие допустимо, проверяет слой api.
+  notify_oncall_p1: z.strictObject({ action: z.literal('notify_oncall_p1') }),
+  notify_sla_breach: z.strictObject({ action: z.literal('notify_sla_breach') }),
+  notify_csat_low: z.strictObject({ action: z.literal('notify_csat_low') }),
 };
 
 const action = z.discriminatedUnion('action', [
@@ -86,11 +93,18 @@ const action = z.discriminatedUnion('action', [
   actionSchemas.snooze,
   actionSchemas.set_status,
   actionSchemas.webhook,
+  actionSchemas.notify_oncall_p1,
+  actionSchemas.notify_sla_breach,
+  actionSchemas.notify_csat_low,
 ]);
 export type RuleAction = z.infer<typeof action>;
 export type RuleActionKind = RuleAction['action'];
 
 const actions = z.array(action).min(1).max(MAX_ACTIONS);
+
+const BUILTIN_ACTION_SET: ReadonlySet<string> = new Set(BUILTIN_ACTIONS);
+/** Действие только предустановленного правила. */
+export const isBuiltinAction = (item: { action: string }): item is { action: BuiltinAction } => BUILTIN_ACTION_SET.has(item.action);
 
 /** Условия и действия сохранённого правила: той же схемой читает их применение, негодное правило не выполняется. */
 export const storedRule = z.object({ conditions, actions });

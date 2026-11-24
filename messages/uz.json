@@ -86,7 +86,8 @@
         "telegram_linked": "Telegram hisobi bog'landi. Agar bu siz bo'lmasangiz, uni profilda uzing.",
         "rule": "«{rule}» qoidasi: SUP-{number} murojaati",
         "rule_disabled": "«{rule}» qoidasi o'chirildi: u juda tez-tez ishga tushdi",
-        "dev_task_closed": "Ishlab chiqish vazifasi yopildi: tekshiring va mijozga xabar bering. SUP-{number} murojaati"
+        "dev_task_closed": "Ishlab chiqish vazifasi yopildi: tekshiring va mijozga xabar bering. SUP-{number} murojaati",
+        "csat_low": "Mijoz SUP-{number} murojaatiga {score} baho qo'ydi"
       },
       "settings": {
         "title": "Xatlar",
@@ -952,6 +953,7 @@
             "disabled": "Avtomatlashtirish qoidasi o'chirildi",
             "moved": "Avtomatlashtirish qoidalari tartibi o'zgartirildi",
             "deleted": "Avtomatlashtirish qoidasi o'chirib tashlandi",
+            "restored": "Avtomatlashtirish qoidasi dastlabki ko'rinishiga qaytarildi",
             "applied": "Avtomatlashtirish qoidasi ishga tushdi",
             "disabled_loop": "Avtomatlashtirish qoidasi takrorlanishdan himoya tufayli o'chirildi",
             "dry_run": "Avtomatlashtirish qoidasining sinov ishga tushirilishi"
@@ -1256,14 +1258,16 @@
           "enabled": "Qoida yoqildi",
           "disabled": "Qoida o'chirildi",
           "moved": "Tartib o'zgartirildi",
-          "deleted": "Qoida o'chirib tashlandi"
+          "deleted": "Qoida o'chirib tashlandi",
+          "restored": "Qoida dastlabki ko'rinishiga qaytarildi."
         },
         "errors": {
           "forbidden": "Qoidalarni portal administratori o'zgartiradi.",
           "stale_session": "Qoidalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak.",
           "invalid_input": "Qoidaning belgilangan maydonlarini tekshiring.",
           "not_found": "Qoida topilmadi. Balki u allaqachon o'chirilgan.",
-          "builtin_rule": "Oldindan o'rnatilgan qoidani o'chirib tashlab bo'lmaydi. Uni o'chirib qo'yish mumkin."
+          "builtin_rule": "Oldindan o'rnatilgan qoidani o'chirib tashlab bo'lmaydi. Uni o'chirib qo'yish mumkin.",
+          "not_builtin": "Dastlabki ko'rinish faqat oldindan o'rnatilgan qoidada bor."
         },
         "reauth": "Qayta kirish",
         "loopNote": "Qoidani takrorlanishdan himoya o'chirdi: u bitta murojaatda bir soatda 10 martadan ko'p ishga tushdi. Shartlar va amallarni tekshiring va qoidani qayta yoqing.",
@@ -1319,7 +1323,9 @@
           "orgAdd": "{name} tashkilotini qo'shish",
           "stop": "Keyingi qoidalarni qayta ishlashni to'xtatish",
           "save": "Saqlash",
-          "newDisabled": "Yangi qoida o'chiq holda saqlanadi. Uni qoidalar ro'yxatida yoqish mumkin."
+          "newDisabled": "Yangi qoida o'chiq holda saqlanadi. Uni qoidalar ro'yxatida yoqish mumkin.",
+          "builtinEvent": "Oldindan o'rnatilgan qoidaning hodisasi o'zgarmaydi.",
+          "alsoOn": "Qoida «{event}» hodisasida ham ishga tushadi."
         },
         "fields": {
           "priority": "Ustuvorlik",
@@ -1363,7 +1369,10 @@
           "notify": "Xabardor qilish",
           "snooze": "Kechiktirish",
           "set_status": "Holatni almashtirish",
-          "webhook": "Vebhukni chaqirish"
+          "webhook": "Vebhukni chaqirish",
+          "notify_oncall_p1": "Navbatchilarga P1 haqida xabar berish (bir marta, birinchi javobgacha)",
+          "notify_sla_breach": "Liniya rahbarlarini muddat o'tgani haqida xabardor qilish",
+          "notify_csat_low": "Customer Care ni past baho haqida xabardor qilish"
         },
         "actionValues": {
           "set_queue": "Navbat",
@@ -1400,7 +1409,9 @@
           "name": "Nomni kiriting: 1 dan 120 gacha belgi.",
           "actions": "Kamida bitta amal qo'shing, ko'pi bilan 10 ta.",
           "conditions": "Shartlar ko'pi bilan 20 ta bo'lishi mumkin.",
-          "general": "Qoidani tekshiring va takrorlang."
+          "general": "Qoidani tekshiring va takrorlang.",
+          "builtin_only": "Bu amal faqat o'zining oldindan o'rnatilgan qoidasida bo'ladi.",
+          "builtin_event": "Oldindan o'rnatilgan qoidaning hodisasi o'zgarmaydi."
         },
         "dry": {
           "title": "Sinov ishga tushirish",
@@ -1434,7 +1445,9 @@
           "invalid_input": "qiymat qabul qilinmadi",
           "rate_limited": "ketma-ket juda ko'p amal",
           "resolution_required": "yechim yakuni kerak",
-          "refused": "amal rad etildi"
+          "refused": "amal rad etildi",
+          "event_mismatch": "hodisada muddat yo'q",
+          "not_low_rating": "baho yo'q yoki u 2 dan yuqori"
         },
         "runs": {
           "title": "Ishga tushishlar jurnali",
@@ -1466,7 +1479,11 @@
           "cancel": "Bekor qilish",
           "close": "Yopish"
         },
-        "webhookDisabled": "{name} (o'chirilgan)"
+        "webhookDisabled": "{name} (o'chirilgan)",
+        "restore": {
+          "open": "Dastlabki ko'rinishga qaytarish",
+          "hint": "Nom, shartlar va amallar portal bilan yetkazilgan ko'rinishga qaytadi. Yoqilganligi va tartibi o'zgarmaydi."
+        }
       },
       "webhooks": {
         "title": "Vebhuklar",
@@ -1844,7 +1861,10 @@
         "snooze": "kechiktirildi",
         "set_status": "holat {from} > {to}",
         "webhook": "vebhuk chaqirildi",
-        "unchanged": "o'zgarishsiz"
+        "unchanged": "o'zgarishsiz",
+        "notify_oncall_p1": "navbatchilarga P1 haqida xabar yuborildi",
+        "notify_sla_breach": "liniya rahbarlariga muddat o'tgani haqida bildirishnoma yuborildi",
+        "notify_csat_low": "Customer Care ga {to} baho haqida bildirishnoma yuborildi"
       },
       "ruleActionNames": {
         "set_queue": "navbatni almashtirish",
@@ -1858,7 +1878,10 @@
         "notify": "bildirishnoma",
         "snooze": "kechiktirish",
         "set_status": "holatni almashtirish",
-        "webhook": "vebhuk"
+        "webhook": "vebhuk",
+        "notify_oncall_p1": "navbatchilarga P1 haqida xabar",
+        "notify_sla_breach": "muddat o'tgani haqida bildirishnoma",
+        "notify_csat_low": "past baho haqida bildirishnoma"
       },
       "ruleActionFailed": "{name}: bajarilmadi",
       "dueKinds": {
@@ -2680,6 +2703,10 @@
     "staffDevTaskClosed": {
       "heading": "Ishlab chiqish vazifasi yopildi",
       "text": "{ref} ishlab chiqish vazifasi yopildi: tekshiring va mijozga xabar bering. SUP-{number} «{title}» murojaati siz o'zgartirmaguningizcha «Ishlab chiqishda» holatida qoladi."
+    },
+    "staffCsatLow": {
+      "heading": "Mijozning past bahosi",
+      "text": "«{orgName}» tashkiloti mijozi SUP-{number} «{title}» murojaatiga {score} baho qo'ydi. Murojaatni oching: baho sababi uning sahifasida ko'rinadi."
     }
   },
   "bot": {
@@ -2724,7 +2751,8 @@
       "infected_files": "Smartup Hub: bir soatda topilgan zararlangan fayllar: {count}.",
       "archive_failing": "Smartup Hub: baza jurnali arxivi saqlanmayapti, muvaffaqiyatsiz urinishlar: {count}. Arxiv katalogi va diskdagi joyni tekshiring.",
       "inbound_held": "Smartup Hub: bir soat ichida tezlik chegarasi {count} ta kiruvchi xatni to'xtatdi. Ular murojaatlarga tushmadi: bitta manzildan yoki bitta murojaatga juda ko'p xat keldi.",
-      "unidentified_flood": "Smartup Hub: bir soat ichida noma'lum manzillardan kelgan xatlardan {count} ta murojaat yaratildi. Xatlar oqimi bo'lishi mumkin. \"Aniqlanmaganlar\" va pochta sozlamalarini ko'ring."
+      "unidentified_flood": "Smartup Hub: bir soat ichida noma'lum manzillardan kelgan xatlardan {count} ta murojaat yaratildi. Xatlar oqimi bo'lishi mumkin. \"Aniqlanmaganlar\" va pochta sozlamalarini ko'ring.",
+      "automation_dropped": "Smartup Hub: bir soat ichida {count} ta avtomatlashtirish hodisasi qayta ishlanmadi. Ular bo'yicha qoidalar va bildirishnomalar bajarilmadi, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring."
     }
   },
   "dev": {

@@ -53,6 +53,8 @@ export async function macroEditorProps(staff: StaffContext): Promise<{ options: 
       hours_required: r('issues.hours_required'),
       hours_not_allowed: r('issues.hours_not_allowed'),
       reference_missing: r('issues.reference_missing'),
+      builtin_only: r('issues.builtin_only'),
+      builtin_event: r('issues.builtin_event'),
       invalid: r('issues.invalid'),
       name: r('issues.name'),
       actions: r('issues.actions'),

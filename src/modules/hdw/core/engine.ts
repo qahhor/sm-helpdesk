@@ -11,6 +11,7 @@ import { staffRoster } from '@/modules/hdu/api/automation';
 import { evaluate, type TicketSnapshot } from '../evaluate';
 import { LOOP_LIMIT, LOOP_WINDOW_MIN, RULE_EVENTS, type RuleEventKind, type RunResult } from '../pref';
 import { type ActionDone, ruleRuns, rules } from '../schema';
+import { isBuiltinAction } from '../rule-schema';
 import { executeAction, type Roster } from './actions';
 import { enabledRulesTx, type RuleRecord, ruleGateTx } from './rules';
 import { snapshotsTx, snapshotTx } from './snapshot';
@@ -20,11 +21,14 @@ import { snapshotsTx, snapshotTx } from './snapshot';
 // Событие обращения разбирает задача automation.process: одна транзакция системы на событие. Правила события идут
 // по порядку; условия проверяются на снимке обращения, который перечитывается после каждого сработавшего правила
 // (следующее правило видит изменения предыдущего); флаг "остановить" прекращает разбор следующих правил. Событие,
-// порождённое правилом, не разбирается вовсе, а всё, что пишут действия, помечено как порождённое правилом:
-// правила не запускают правила.
+// порождённое правилом, правилам администратора не достаётся, а всё, что пишут действия, помечено как порождённое
+// правилом: правила не запускают правила. Исключение одно: уведомления предустановленных правил (FR-AUTO-12)
+// срабатывают и на событие, порождённое правилом или макросом. Это прежние встроенные уведомления портала (дежурным
+// о P1 при любом поднятии приоритета): они обращение не меняют и цепочку породить не могут.
 //
 // Каждое срабатывание пишет строку hdw_rule_runs, одну внутреннюю запись истории обращения и запись журнала аудита
-// в той же транзакции. Одиннадцатое срабатывание правила на обращении за час выключает правило.
+// в той же транзакции (уведомление предустановленного правила историю обращения не пополняет: см. applyRuleTx).
+// Одиннадцатое срабатывание правила на обращении за час, которое что-то сделало, выключает правило.
 
 /** Состояние одного запуска разбора: счётчики для журнала процесса и сотрудники, прочитанные один раз. */
 export type RuleRun = { now: () => Date; roster: Roster; applied: number; failed: number; loops: number };
@@ -41,7 +45,8 @@ export function createRuleRun(opts: { now?: () => Date } = {}): RuleRun {
   };
 }
 
-type Source = { eventId: string | null; marker: string | null };
+/** kind: вид разбираемого события. У предустановленного правила он бывает не его собственным событием (extraEvents). */
+type Source = { eventId: string | null; marker: string | null; payload?: Record<string, unknown>; kind?: RuleEventKind };
 
 const RULE_EVENT_SET: ReadonlySet<string> = new Set(RULE_EVENTS);
 
@@ -77,6 +82,10 @@ async function applyRuleTx(tx: Tx, rule: RuleRecord, snapshot: TicketSnapshot, s
         eq(ruleRuns.ruleId, rule.ruleId),
         inArray(ruleRuns.result, ['applied', 'partial']),
         gt(ruleRuns.createdOn, sql`now() - make_interval(mins => ${LOOP_WINDOW_MIN})`),
+        // Считаются срабатывания, которые что-то сделали. Срабатывание, где менять было нечего (тег уже стоит,
+        // дежурные о P1 уже извещены), цепочку не продолжает: иначе приоритет, который десять раз за час подняли до
+        // P1 и опустили, выключил бы уведомление дежурных для всех обращений.
+        sql`jsonb_path_exists(${ruleRuns.actionsDone}, '$[*] ? (@.ok == true && !(exists(@.unchanged)))')`,
       ),
     );
   if ((recent?.n ?? 0) >= LOOP_LIMIT) {
@@ -87,7 +96,10 @@ async function applyRuleTx(tx: Tx, rule: RuleRecord, snapshot: TicketSnapshot, s
   if (!ticket) return 'failed';
   const done: ActionDone[] = [];
   for (const action of rule.actions) {
-    const { error, ...item } = await executeAction({ tx, ticket, snapshot, rule, eventId: source.eventId, now: run.now(), roster: run.roster }, action);
+    const { error, ...item } = await executeAction(
+      { tx, ticket, snapshot, rule: { ruleId: rule.ruleId, name: rule.name, event: source.kind ?? rule.event }, eventId: source.eventId, eventPayload: source.payload ?? null, now: run.now(), roster: run.roster },
+      action,
+    );
     done.push(item);
     if (error) {
       // Действие откатилось в точке сохранения: состояние обращения перечитывается из базы.
@@ -102,21 +114,38 @@ async function applyRuleTx(tx: Tx, rule: RuleRecord, snapshot: TicketSnapshot, s
     run.failed++;
     return result;
   }
-  // Одна внутренняя запись истории на срабатывание (FR-AUTO-09): клиент её не видит.
-  await ruleHistoryTx(tx, ticket, { ruleId: rule.ruleId, ruleName: rule.name, actions: done });
+  // Одна внутренняя запись истории на срабатывание (FR-AUTO-09): клиент её не видит. Срабатывание предустановленного
+  // правила, в котором выполнялись только его уведомления, историю обращения не пополняет: эти уведомления и раньше
+  // не оставляли в ней записи, обращение они не меняют. След остаётся в журнале срабатываний и в журнале аудита.
+  const onlyBuiltinNotices = rule.pcode !== null && done.every((item) => isBuiltinAction(item));
+  if (!onlyBuiltinNotices) await ruleHistoryTx(tx, ticket, { ruleId: rule.ruleId, ruleName: rule.name, actions: done });
   await writeAudit(tx, { action: 'rule.applied', objectType: 'ticket', objectId: snapshot.ticketId, orgId: snapshot.orgId, diff: { ruleId: rule.ruleId, ruleName: rule.name, result, actions: done } });
   run.applied++;
   return result;
 }
 
 /**
- * Обработчик события для processEvents: работает в транзакции события вместе с отметкой разбора. Событие,
- * порождённое правилом или макросом, пропускается целиком (FR-AUTO-07). Правила применяются только к обращению
- * события.
+ * Правила, которым достаётся событие, порождённое правилом или макросом (FR-AUTO-07): только предустановленные и
+ * только их собственные уведомления. Остальные действия такого правила на этом событии не выполняются, правила
+ * администратора не срабатывают вовсе: цепочек правил нет.
+ */
+function builtinOnly(list: readonly RuleRecord[]): RuleRecord[] {
+  return list.flatMap((rule) => {
+    if (rule.pcode === null || !rule.isValid) return [];
+    const actions = rule.actions.filter(isBuiltinAction);
+    return actions.length > 0 ? [{ ...rule, actions }] : [];
+  });
+}
+
+/**
+ * Обработчик события для processEvents: работает в транзакции события вместе с отметкой разбора. На событие,
+ * порождённое правилом или макросом, правила администратора не срабатывают (FR-AUTO-07): выполняются только
+ * уведомления предустановленных правил (builtinOnly). Правила применяются только к обращению события.
  */
 export async function handleRuleEventTx(tx: Tx, event: DomainEvent, run: RuleRun): Promise<void> {
-  if (event.isByRule || !RULE_EVENT_SET.has(event.kind) || event.kind === 'no_activity') return;
-  const list = await enabledRulesTx(tx, event.kind as RuleEventKind);
+  if (!RULE_EVENT_SET.has(event.kind) || event.kind === 'no_activity') return;
+  const enabled = await enabledRulesTx(tx, event.kind as RuleEventKind);
+  const list = event.isByRule ? builtinOnly(enabled) : enabled;
   if (list.length === 0) return;
   // Блокировка обращения на всё событие: правила и сотрудник не меняют его одновременно.
   const locked = await lockRuleTicketTx(tx, event.ticketId);
@@ -129,7 +158,7 @@ export async function handleRuleEventTx(tx: Tx, event: DomainEvent, run: RuleRun
       continue;
     }
     if (!evaluate(rule, snapshot, run.now())) continue;
-    const result = await applyRuleTx(tx, rule, snapshot, { eventId: event.eventId, marker: null }, run);
+    const result = await applyRuleTx(tx, rule, snapshot, { eventId: event.eventId, marker: null, payload: event.payload, kind: event.kind as RuleEventKind }, run);
     if (result === 'skipped_loop') continue;
     // Следующее правило видит изменения этого.
     snapshot = await snapshotTx(tx, event.ticketId, run.now());

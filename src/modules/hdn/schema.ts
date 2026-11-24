@@ -59,6 +59,8 @@ export const NOTIFICATION_KINDS = [
   'rule_disabled',
   // Задача разработки закрыта (веха M8, FR-DEV-05): исполнителю пора проверить и сообщить клиенту.
   'dev_task_closed',
+  // Клиент поставил оценку 1 или 2 (веха M8, FR-AUTO-12): предустановленное правило уведомляет Customer Care.
+  'csat_low',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

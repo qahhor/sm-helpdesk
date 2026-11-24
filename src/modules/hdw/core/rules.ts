@@ -1,9 +1,10 @@
 import 'server-only';
-import { and, asc, desc, eq, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
 import { ticketNumbersTx } from '@/modules/hdt/api/automation';
+import { builtinCodesForExtraEvent, builtinRule } from '../builtin';
 import { HdwError } from '../error';
 import { type DisabledReason, type RuleEventKind, RUNS_KEEP_DAYS, RUNS_PAGE, type RunResult } from '../pref';
 import { type Conditions, type RuleAction, type RuleDefinition, storedRule } from '../rule-schema';
@@ -72,9 +73,14 @@ export async function readRuleTx(actor: StaffActor, ruleId: string): Promise<Rul
   return row ? toRecord(row) : null;
 }
 
-/** Включённые правила события по порядку: в транзакции разбора события. */
+/**
+ * Включённые правила события по порядку: в транзакции разбора события. Вместе с правилами самого события идут
+ * предустановленные правила, которые срабатывают на него сверх своего (сообщение дежурным о P1 при смене приоритета).
+ */
 export async function enabledRulesTx(tx: Tx, event: RuleEventKind): Promise<RuleRecord[]> {
-  const rows = await tx.select(columns).from(rules).where(and(eq(rules.event, event), eq(rules.isEnabled, true))).orderBy(...inOrder);
+  const extra = builtinCodesForExtraEvent(event);
+  const matches = extra.length > 0 ? or(eq(rules.event, event), inArray(rules.pcode, extra)) : eq(rules.event, event);
+  const rows = await tx.select(columns).from(rules).where(and(matches, eq(rules.isEnabled, true))).orderBy(...inOrder);
   return rows.map(toRecord);
 }
 
@@ -97,6 +103,34 @@ const summary = (rule: RuleDefinition) => ({
   actions: rule.actions.map((item) => item.action),
   isStop: rule.isStop,
 });
+
+/** Код предустановленного правила по идентификатору. Правило обычное: null. Нет правила: undefined. */
+export async function rulePcodeTx(actor: StaffActor, ruleId: string): Promise<string | null | undefined> {
+  const [row] = await withActor(actor, (tx) => tx.select({ pcode: rules.pcode }).from(rules).where(eq(rules.ruleId, ruleId)).limit(1));
+  return row ? row.pcode : undefined;
+}
+
+/**
+ * Вернуть предустановленному правилу поставочный вид (решение 2 плана M8): название, условия, действия и флаг
+ * "остановить". Включение, порядок и журнал срабатываний не меняются. Обычное правило: not_builtin. Нет правила:
+ * not_found.
+ */
+export async function restoreBuiltinRuleTx(actor: StaffActor, ruleId: string): Promise<void> {
+  requireAdmin(actor);
+  await withActor(actor, async (tx) => {
+    const [before] = await tx.select({ name: rules.name, pcode: rules.pcode }).from(rules).where(eq(rules.ruleId, ruleId)).limit(1).for('update');
+    if (!before) throw new HdwError('not_found');
+    const shipped = builtinRule(before.pcode);
+    if (!shipped) throw new HdwError('not_builtin');
+    await tx.update(rules).set({ name: shipped.name, hours: null, conditions: shipped.conditions, actions: shipped.actions, isStop: shipped.isStop }).where(eq(rules.ruleId, ruleId));
+    await writeAudit(tx, {
+      action: 'rule.restored',
+      objectType: 'rule',
+      objectId: ruleId,
+      diff: { pcode: before.pcode, was: before.name, name: shipped.name, conditions: shipped.conditions.items.map((item) => item.field), actions: shipped.actions.map((item) => item.action) },
+    });
+  });
+}
 
 /** Новое правило (выключено, последним по порядку) или правка существующего. Нет правила: not_found. */
 export async function saveRuleTx(actor: StaffActor, rule: RuleDefinition): Promise<{ ruleId: string }> {

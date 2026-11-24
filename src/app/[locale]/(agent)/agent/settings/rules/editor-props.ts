@@ -1,7 +1,7 @@
 import 'server-only';
 import { getLocale, getTranslations } from 'next-intl/server';
 import type { StaffContext } from '@/modules/hdu/api';
-import { type RuleRecord, ruleOptions } from '@/modules/hdw/api';
+import { builtinRule, type RuleRecord, ruleOptions } from '@/modules/hdw/api';
 import type { RuleEditorLabels, RuleEditorOptions } from './RuleEditor';
 import { ACTION_KINDS, CONDITION_FIELDS, FIELD_OPS, NO_MODULE } from './rule-draft';
 
@@ -12,18 +12,20 @@ import { ACTION_KINDS, CONDITION_FIELDS, FIELD_OPS, NO_MODULE } from './rule-dra
 /** Событие "AI передал обращение" редактор не предлагает: данных нет до вехи M5b. */
 const HIDDEN_EVENTS = new Set(['ai_handoff']);
 
-export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | null): Promise<{ options: RuleEditorOptions; labels: RuleEditorLabels }> {
+export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | null): Promise<{ options: RuleEditorOptions; labels: RuleEditorLabels; eventLock: string | null }> {
   const t = await getTranslations('agent');
   const tc = await getTranslations('client.tickets');
   const r = await getTranslations('agent.settings.rules');
   const orgIds = (rule?.conditions.items ?? []).flatMap((item) => (item.field === 'org' ? item.values : []));
   const lists = await ruleOptions(staff, { locale: await getLocale(), orgIds: [...new Set(orgIds)].slice(0, 200) });
   const upper = (value: string) => ({ value, label: value.toUpperCase() });
+  // Предустановленное правило (FR-AUTO-12): его собственное действие есть только в его редакторе, событие не меняется.
+  const shipped = builtinRule(rule?.pcode ?? null);
 
   const options: RuleEditorOptions = {
     events: lists.events.filter((event) => !HIDDEN_EVENTS.has(event)).map((value) => ({ value, label: r(`events.${value}`) })),
     fields: CONDITION_FIELDS.map((value) => ({ value, label: r(`fields.${value}`) })),
-    actions: ACTION_KINDS.map((value) => ({ value, label: r(`actions.${value}`) })),
+    actions: [...ACTION_KINDS, ...(shipped ? [shipped.action] : [])].map((value) => ({ value, label: r(`actions.${value}`) })),
     values: {
       type: lists.types.map((value) => ({ value, label: t(`ticket.types.${value}`) })),
       module: [{ value: NO_MODULE, label: r('moduleNone') }, ...lists.modules.map((item) => ({ value: item.moduleId, label: item.name }))],
@@ -108,6 +110,8 @@ export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | nu
       hours_required: r('issues.hours_required'),
       hours_not_allowed: r('issues.hours_not_allowed'),
       reference_missing: r('issues.reference_missing'),
+      builtin_only: r('issues.builtin_only'),
+      builtin_event: r('issues.builtin_event'),
       invalid: r('issues.invalid'),
       name: r('issues.name'),
       actions: r('issues.actions'),
@@ -126,5 +130,6 @@ export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | nu
       more: template('dry.more', 'shown', 'count'),
     },
   };
-  return { options, labels };
+  const eventLock = shipped ? [e('builtinEvent'), ...shipped.extraEvents.map((event) => r('editor.alsoOn', { event: r(`events.${event}`) }))].join(' ') : null;
+  return { options, labels, eventLock };
 }

@@ -22,7 +22,7 @@ export { outboxFailedSince, outboxState } from '../core/outbox';
 
 const MESSAGES = { ru, uz, en } as const;
 
-export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing', 'inbound_held', 'unidentified_flood'] as const;
+export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing', 'inbound_held', 'unidentified_flood', 'automation_dropped'] as const;
 export type OpsAlertCode = (typeof OPS_ALERT_CODES)[number];
 export type OpsAlert = { code: OpsAlertCode; count: number; minutes?: number };
 

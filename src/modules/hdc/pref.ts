@@ -101,6 +101,7 @@ export const AUDIT_ACTIONS = [
   'rule.disabled',
   'rule.moved',
   'rule.deleted',
+  'rule.restored',
   'rule.applied',
   'rule.disabled_loop',
   'rule.dry_run',

@@ -3,7 +3,7 @@
 // превращаются в ввод схемы правила (src/modules/hdw/rule-schema.ts). Проверяет ввод только сервер: черновик отдаёт
 // и неполные строки, отказ схемы возвращается с путём до строки.
 
-export type IssueCode = 'event_not_ready' | 'condition_not_ready' | 'hours_required' | 'hours_not_allowed' | 'reference_missing' | 'invalid';
+export type IssueCode = 'event_not_ready' | 'condition_not_ready' | 'hours_required' | 'hours_not_allowed' | 'reference_missing' | 'builtin_only' | 'builtin_event' | 'invalid';
 export type Issue = { path: string; code: IssueCode };
 
 /** Строка условия. values: выбранные значения списка; text: слова через запятую, число часов, оценка или вид времени. */

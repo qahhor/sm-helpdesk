@@ -27,6 +27,7 @@ export { AUDIT_ACTIONS, type AuditAction } from './pref';
 export {
   cleanupDomainEvents,
   type DomainEvent,
+  droppedEventsSince,
   emitEventTx,
   EVENT_MAX_ATTEMPTS,
   type EventHandler,

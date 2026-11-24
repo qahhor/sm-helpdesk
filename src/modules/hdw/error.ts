@@ -4,6 +4,7 @@ import type { RuleIssue } from './rule-schema';
 // Сервис возвращает код, а не текст: текст на языке пользователя подставляет страница из messages/*.json.
 
 // builtin_rule: предустановленное правило нельзя удалить (решение 2 плана M8).
+// not_builtin: "вернуть исходное" есть только у предустановленного правила.
 // stale_session: правила меняет только свежий вход администратора (ТЗ 14.3).
 // invalid_url: адрес вебхука не https, несёт учётную запись или ведёт не на внешний узел (FR-AUTO-10).
 // endpoint_disabled: проверочная отправка на выключенный адрес. too_many: достигнут предел числа адресов или макросов.
@@ -16,6 +17,7 @@ export const HDW_ERROR_CODES = [
   'invalid_input',
   'not_found',
   'builtin_rule',
+  'not_builtin',
   'invalid_url',
   'endpoint_disabled',
   'too_many',

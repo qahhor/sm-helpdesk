@@ -34,7 +34,8 @@ export type TicketNotice = {
     | 'sla_breach'
     | 'snooze_returned'
     | 'update_due'
-    | 'dev_task_closed';
+    | 'dev_task_closed'
+    | 'csat_low';
   /** Кто действовал: он не получает уведомления о своём действии. Система: null. */
   actorUserId: string | null;
   messageId?: string;
@@ -51,6 +52,8 @@ export type TicketNotice = {
   leads?: string[];
   /** Закрытая задача разработки: её номер в таск-менеджере. Получатели в leads: исполнитель или руководители линии. */
   devTaskRef?: string;
+  /** Низкая оценка: сама оценка. Получатели в leads. */
+  score?: number;
 };
 
 /** Смены статуса, о которых клиенту уходит письмо (решение 6). "Решено" идёт отдельным письмом. */
@@ -268,15 +271,30 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
       return tellStaff(tx, e.ticketId, ticket, e.leads ?? [], 'dev_task_closed', { template: 'staff_dev_task_closed', ...staffRef, ref: e.devTaskRef ?? '' }, null, {
         ref: e.devTaskRef ?? '',
       });
+    case 'csat_low':
+      // Оценка 1 или 2 (FR-AUTO-12): сотрудникам Customer Care уведомление в портале и письмо. В письме оценка, номер,
+      // тема и организация; комментария и причины клиента нет, их читают на странице обращения.
+      return tellStaff(
+        tx,
+        e.ticketId,
+        ticket,
+        e.leads ?? [],
+        'csat_low',
+        { template: 'staff_csat_low', ...staffRef, score: e.score ?? 0, orgName: (await organizationName(ticket.orgId)) ?? '' },
+        null,
+        { score: String(e.score ?? 0) },
+      );
   }
 }
 
 /**
  * Сообщение дежурным о P1 (FR-SLA-07, решение 8): одно на обращение, пока нет первого ответа. Письмо списку дежурных
  * и сообщение в служебный чат ставятся строками очереди; адреса, бот и чат берутся из настроек при отправке.
- * alreadyMarked: отметку oncall_notified_on уже поставила вставка обращения (клиент колонку не обновляет).
+ * Вызывает его действие предустановленного правила "P1: сообщение дежурным" из транзакции системы (план M8,
+ * задача 10): отметку oncall_notified_on ставит оно же. Возвращает, ушло ли сообщение: ложь значит, что обращение
+ * не P1, первый ответ уже дан или сообщение по этому обращению уже уходило.
  */
-export async function oncallP1Tx(tx: Tx, ticketId: string, opts: { alreadyMarked?: boolean } = {}): Promise<void> {
+export async function oncallP1Tx(tx: Tx, ticketId: string): Promise<boolean> {
   const t = (
     await tx
       .select({
@@ -291,12 +309,10 @@ export async function oncallP1Tx(tx: Tx, ticketId: string, opts: { alreadyMarked
       .where(eq(tickets.ticketId, ticketId))
       .limit(1)
   )[0];
-  if (!t || t.priority !== 'p1' || t.firstRespondedOn) return;
-  if (!opts.alreadyMarked) {
-    if (t.oncallNotifiedOn) return;
-    await tx.update(tickets).set({ oncallNotifiedOn: sql`now()` }).where(eq(tickets.ticketId, ticketId));
-  }
+  if (!t || t.priority !== 'p1' || t.firstRespondedOn || t.oncallNotifiedOn) return false;
+  await tx.update(tickets).set({ oncallNotifiedOn: sql`now()` }).where(eq(tickets.ticketId, ticketId));
   const payload = { template: 'oncall_p1' as const, number: t.number, title: t.title, url: `/agent/tickets/SUP-${t.number}`, orgName: (await organizationName(t.orgId)) ?? '' };
   for (const channel of ['email', 'telegram'] as const)
     await enqueueTx(tx, { channel, recipient: { kind: 'oncall' }, template: 'oncall_p1', payload, ticketId, locale: 'ru' });
+  return true;
 }

@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { tagsByIdTx } from '@/modules/hdr/api';
+import { lineLeads } from '@/modules/hdu/api/recipients';
 import { canTransition, type Impact, type Priority, type Queue, type TicketSource, type TicketStatus, type TicketType, TRANSFERABLE_STATUSES } from '../pref';
 import { ticketEvents, ticketMessages, tickets, ticketTags } from '../schema';
 import { type LockedTicket } from './agent-actions';
@@ -123,8 +124,9 @@ export async function rulePickRoundRobinTx(tx: Tx, candidates: readonly string[]
 }
 
 /**
- * Сменить приоритет: сроки пересчитаны от создания (FR-SLA-03), дежурным сообщение о P1 до первого ответа
- * (FR-SLA-07). Отметку "приоритет подтверждён сотрудником" правило не ставит: это решение человека.
+ * Сменить приоритет: сроки пересчитаны от создания (FR-SLA-03). Отметку "приоритет подтверждён сотрудником" правило
+ * не ставит: это решение человека. Сообщение дежурным о P1 (FR-SLA-07) ставит предустановленное правило по событию
+ * priority_changed: его уведомление срабатывает и на событие, порождённое правилом (план M8, задача 10).
  */
 export async function ruleSetPriorityTx(tx: Tx, ticket: LockedTicket, priority: Priority): Promise<RuleActionResult> {
   const from = ticket.priority;
@@ -133,7 +135,6 @@ export async function ruleSetPriorityTx(tx: Tx, ticket: LockedTicket, priority: 
   await refreshSla(tx, ticket.ticketId, new Date(), { priority });
   await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'priority_changed', payload: { from, to: priority }, byRule: true });
   ticket.priority = priority;
-  await oncallP1Tx(tx, ticket.ticketId);
   return done(from, priority);
 }
 
@@ -207,6 +208,42 @@ export async function ruleSetStatusTx(tx: Tx, ticket: LockedTicket, to: TicketSt
   ticket.status = to;
   await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'status', actorUserId: null, to });
   return done(from, to);
+}
+
+// --- Уведомления предустановленных правил (FR-AUTO-12; план M8, задача 10) ---
+// Прежние встроенные уведомления: те же получатели, шаблоны и однократность, что были у прямых вызовов из действий
+// над обращением. Изменился только запуск: их вызывает действие предустановленного правила.
+
+/**
+ * Сообщение дежурным о P1 (FR-SLA-07): одно на обращение, пока нет первого ответа. Обращение не P1, первый ответ дан
+ * или сообщение уже уходило: менять нечего.
+ */
+export async function ruleOncallP1Tx(tx: Tx, ticket: LockedTicket): Promise<RuleActionResult> {
+  return (await oncallP1Tx(tx, ticket.ticketId)) ? done(null, 'oncall') : unchanged();
+}
+
+/**
+ * Нарушение срока (FR-SLA-06): руководителям линии обращения уведомление в портале и письмо по их настройке.
+ * Линия берётся по очереди обращения, как раньше в задаче раз в минуту. Руководителей нет: отказ no_recipients.
+ */
+export async function ruleNotifyBreachTx(tx: Tx, ticket: LockedTicket, deadline: 'first_response' | 'resolution'): Promise<RuleActionResult> {
+  const leads = await lineLeads(ticket.queue === 'l1' ? 'l1' : 'l2');
+  if (leads.length === 0) return refused('no_recipients');
+  await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'sla_breach', actorUserId: null, breach: deadline, leads });
+  return done();
+}
+
+/**
+ * Низкая оценка (FR-AUTO-12): сотрудникам из списка уведомление в портале и письмо. Получателей (роль care) выбирает
+ * модуль правил по справочнику сотрудников. Оценка читается из обращения: нет оценки или она выше 2, отказ.
+ */
+export async function ruleNotifyCsatLowTx(tx: Tx, ticket: LockedTicket, recipients: readonly string[]): Promise<RuleActionResult> {
+  const [row] = await tx.select({ score: tickets.csatScore }).from(tickets).where(eq(tickets.ticketId, ticket.ticketId)).limit(1);
+  const score = row?.score ?? null;
+  if (score === null || score > 2) return refused('not_low_rating');
+  if (recipients.length === 0) return refused('no_recipients');
+  await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'csat_low', actorUserId: null, leads: [...recipients], score });
+  return done(null, String(score));
 }
 
 /**

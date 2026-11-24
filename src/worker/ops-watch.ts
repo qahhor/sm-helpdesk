@@ -1,6 +1,6 @@
 import type { SystemActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
-import { archiveFailing, archiveState, claimOpsAlert, failedJobsSince, failedStaffSignIns } from '@/modules/hdc/api';
+import { archiveFailing, archiveState, claimOpsAlert, droppedEventsSince, failedJobsSince, failedStaffSignIns } from '@/modules/hdc/api';
 import { heldInboundCount, type OpsAlert, type OpsAlertCode, outboxFailedSince, outboxState, sendOpsAlert, staleInboundCount } from '@/modules/hdn/api/ops';
 import { infectedSince, unidentifiedSince } from '@/modules/hdt/api/jobs';
 
@@ -22,7 +22,7 @@ type Deps = Parameters<typeof sendOpsAlert>[2];
 
 export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<OpsAlert[]> {
   const hourAgo = new Date(now.getTime() - 60 * MINUTE);
-  const [jobs, failed, state, stuck, signIns, infected, archive, held, unidentified] = await Promise.all([
+  const [jobs, failed, state, stuck, signIns, infected, archive, held, unidentified, dropped] = await Promise.all([
     failedJobsSince(actor, hourAgo),
     outboxFailedSince(actor, hourAgo),
     outboxState(actor, now),
@@ -32,6 +32,7 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
     archiveState(actor),
     heldInboundCount(actor, hourAgo),
     unidentifiedSince(actor, hourAgo),
+    droppedEventsSince(actor, hourAgo),
   ]);
   const alerts: OpsAlert[] = [];
   if (jobs > 0) alerts.push({ code: 'jobs_failed', count: jobs });
@@ -46,6 +47,9 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
   if (held >= INBOUND_HELD_ALERT) alerts.push({ code: 'inbound_held', count: held });
   // Поток писем с неизвестных адресов: письма не теряются, но очередь "Неопознанные" растёт. Решает человек.
   if (unidentified >= UNIDENTIFIED_FLOOD_ALERT) alerts.push({ code: 'unidentified_flood', count: unidentified });
+  // Событие обращения снято с очереди после пяти сбоев разбора: его правила и уведомления не выполнены. Среди них
+  // может быть сообщение дежурным о P1 (предустановленное правило; план M8, задача 10), поэтому сигнал от одного события.
+  if (dropped > 0) alerts.push({ code: 'automation_dropped', count: dropped });
   return alerts;
 }
 

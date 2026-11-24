@@ -86,7 +86,8 @@
         "telegram_linked": "A Telegram account was linked. If it was not you, unlink it in your profile.",
         "rule": "Rule \"{rule}\": request SUP-{number}",
         "rule_disabled": "Rule \"{rule}\" was turned off: it fired too often",
-        "dev_task_closed": "Development task closed: check and tell the client. Request SUP-{number}"
+        "dev_task_closed": "Development task closed: check and tell the client. Request SUP-{number}",
+        "csat_low": "The client rated request SUP-{number} with {score}"
       },
       "settings": {
         "title": "Emails",
@@ -952,6 +953,7 @@
             "disabled": "Automation rule turned off",
             "moved": "Automation rule order changed",
             "deleted": "Automation rule deleted",
+            "restored": "Automation rule restored to default",
             "applied": "Automation rule fired",
             "disabled_loop": "Automation rule turned off by loop protection",
             "dry_run": "Automation rule dry run"
@@ -1256,14 +1258,16 @@
           "enabled": "Rule turned on",
           "disabled": "Rule turned off",
           "moved": "Order changed",
-          "deleted": "Rule deleted"
+          "deleted": "Rule deleted",
+          "restored": "The rule is back to its default."
         },
         "errors": {
           "forbidden": "Rules are changed by the portal administrator.",
           "stale_session": "Changing rules needs a sign-in no older than 15 minutes.",
           "invalid_input": "Check the marked fields of the rule.",
           "not_found": "Rule not found. It may have been deleted already.",
-          "builtin_rule": "A built-in rule cannot be deleted. You can turn it off."
+          "builtin_rule": "A built-in rule cannot be deleted. You can turn it off.",
+          "not_builtin": "Only a built-in rule has a default to restore."
         },
         "reauth": "Sign in again",
         "loopNote": "Loop protection turned this rule off: it fired on one ticket more than 10 times in an hour. Check the conditions and actions and turn the rule on again.",
@@ -1319,7 +1323,9 @@
           "orgAdd": "Add organization {name}",
           "stop": "Stop processing the next rules",
           "save": "Save",
-          "newDisabled": "A new rule is saved turned off. You can turn it on in the list of rules."
+          "newDisabled": "A new rule is saved turned off. You can turn it on in the list of rules.",
+          "builtinEvent": "The event of a built-in rule cannot be changed.",
+          "alsoOn": "The rule also fires on the event \"{event}\"."
         },
         "fields": {
           "priority": "Priority",
@@ -1363,7 +1369,10 @@
           "notify": "Notify",
           "snooze": "Snooze",
           "set_status": "Change status",
-          "webhook": "Call webhook"
+          "webhook": "Call webhook",
+          "notify_oncall_p1": "Message on-call about P1 (once, until the first response)",
+          "notify_sla_breach": "Notify line leads about a missed deadline",
+          "notify_csat_low": "Notify Customer Care about a low rating"
         },
         "actionValues": {
           "set_queue": "Queue",
@@ -1400,7 +1409,9 @@
           "name": "Enter a name: 1 to 120 characters.",
           "actions": "Add at least one action, 10 at most.",
           "conditions": "There can be 20 conditions at most.",
-          "general": "Check the rule and try again."
+          "general": "Check the rule and try again.",
+          "builtin_only": "This action belongs only to its own built-in rule.",
+          "builtin_event": "The event of a built-in rule cannot be changed."
         },
         "dry": {
           "title": "Dry run",
@@ -1434,7 +1445,9 @@
           "invalid_input": "value not accepted",
           "rate_limited": "too many actions in a row",
           "resolution_required": "a resolution is required",
-          "refused": "action refused"
+          "refused": "action refused",
+          "event_mismatch": "the event has no deadline",
+          "not_low_rating": "no rating or it is above 2"
         },
         "runs": {
           "title": "Run log",
@@ -1466,7 +1479,11 @@
           "cancel": "Cancel",
           "close": "Close"
         },
-        "webhookDisabled": "{name} (off)"
+        "webhookDisabled": "{name} (off)",
+        "restore": {
+          "open": "Restore default",
+          "hint": "The name, conditions and actions return to what the portal ships. On or off and the order stay as they are."
+        }
       },
       "webhooks": {
         "title": "Webhooks",
@@ -1844,7 +1861,10 @@
         "snooze": "snoozed",
         "set_status": "status {from} > {to}",
         "webhook": "webhook called",
-        "unchanged": "no changes"
+        "unchanged": "no changes",
+        "notify_oncall_p1": "P1 message sent to on-call",
+        "notify_sla_breach": "missed deadline notification sent to line leads",
+        "notify_csat_low": "rating {to} notification sent to Customer Care"
       },
       "ruleActionNames": {
         "set_queue": "queue change",
@@ -1858,7 +1878,10 @@
         "notify": "notification",
         "snooze": "snooze",
         "set_status": "status change",
-        "webhook": "webhook"
+        "webhook": "webhook",
+        "notify_oncall_p1": "P1 message to on-call",
+        "notify_sla_breach": "missed deadline notification",
+        "notify_csat_low": "low rating notification"
       },
       "ruleActionFailed": "{name}: not done",
       "dueKinds": {
@@ -2680,6 +2703,10 @@
     "staffDevTaskClosed": {
       "heading": "Development task closed",
       "text": "Development task {ref} is closed: check and tell the client. Request SUP-{number} \"{title}\" stays in development until you change its status."
+    },
+    "staffCsatLow": {
+      "heading": "Low client rating",
+      "text": "A client of {orgName} rated request SUP-{number} \"{title}\" with {score}. Open the request: the reason for the rating is on its page."
     }
   },
   "bot": {
@@ -2724,7 +2751,8 @@
       "infected_files": "Smartup Hub: infected files found in the last hour: {count}.",
       "archive_failing": "Smartup Hub: the database log archive is not being saved, failed attempts: {count}. Check the archive directory and disk space.",
       "inbound_held": "Smartup Hub: the rate limit stopped {count} inbound emails within an hour. They were not added to requests: too many emails from one address or to one request.",
-      "unidentified_flood": "Smartup Hub: {count} requests were created from emails from unknown addresses within an hour. A flood is possible. Check \"Unidentified\" and the mail settings."
+      "unidentified_flood": "Smartup Hub: {count} requests were created from emails from unknown addresses within an hour. A flood is possible. Check \"Unidentified\" and the mail settings.",
+      "automation_dropped": "Smartup Hub: {count} automation events were not processed within an hour. Their rules and notifications did not run, an on-call message about a P1 request may be among them. Check the background process log."
     }
   },
   "dev": {

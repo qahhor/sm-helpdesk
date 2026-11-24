@@ -10,7 +10,7 @@ import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } fr
 import { finalMainNumberTx } from './merged-into';
 import { timelineWindowTx } from './timeline';
 import { refreshSla } from './sla';
-import { notifyTicketTx, oncallP1Tx } from './notify';
+import { notifyTicketTx } from './notify';
 
 // Модуль hdt, слой core: обращения. Операции с данными внутри withActor под ролью hub_app.
 // Организация и автор берутся из актора; политики RLS и триггер t_hdt_tickets_client_guard страхуют.
@@ -71,8 +71,6 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
           moduleId: input.moduleId ?? null,
           relatedTicketId,
           source: 'portal',
-          // P1 от клиента: отметка сообщения дежурным ставится вставкой, клиент колонку не обновляет (FR-SLA-07).
-          oncallNotifiedOn: priority === 'p1' ? sql`now()` : null,
         })
         .returning({ ticketId: tickets.ticketId, number: tickets.number })
     )[0] as { ticketId: string; number: number };
@@ -97,7 +95,8 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
     await emitEventTx(tx, { orgId: actor.orgId, ticketId: row.ticketId, kind: 'ticket_created', payload: { source: 'portal', type: input.type, priority } });
     await writeAudit(tx, { action: 'ticket.created', objectType: 'ticket', objectId: row.ticketId, orgId: actor.orgId, diff: { type: input.type, priority } });
     await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: null });
-    if (priority === 'p1') await oncallP1Tx(tx, row.ticketId, { alreadyMarked: true });
+    // Сообщение дежурным о P1 (FR-SLA-07) ставит предустановленное правило по событию ticket_created (план M8,
+    // задача 10): слой api будит разбор событий сразу после фиксации.
     return row;
   });
 }
@@ -159,7 +158,6 @@ export async function createTicketForClientTx(
     });
     await refreshSla(tx, row.ticketId, new Date());
     await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: actor.userId });
-    await oncallP1Tx(tx, row.ticketId);
     return row;
   });
 }

@@ -30,6 +30,8 @@ export const MAIL_TEMPLATES = [
   // Уведомления правил автоматизации (веха M8): сотруднику и дежурным.
   'staff_rule',
   'oncall_rule',
+  // Оценка 1 или 2 (веха M8, FR-AUTO-12): уведомление предустановленного правила сотрудникам Customer Care.
+  'staff_csat_low',
   'inbound_test',
   'ops_alert',
 ] as const;
@@ -58,6 +60,8 @@ export type MailPayload =
   | ({ template: 'staff_rule'; rule: string } & TicketRef)
   // Дежурным без темы обращения: это текст клиента (решение 0041). Только номер и название правила.
   | { template: 'oncall_rule'; rule: string; number: number; url: string }
+  // Низкая оценка: только оценка, номер, тема и организация. Комментария и причины клиента в письме нет.
+  | ({ template: 'staff_csat_low'; score: number; orgName: string } & TicketRef)
   | { template: 'inbound_test'; address: string; token: string }
   // Сигнал дежурным о состоянии портала (ТЗ 13.8): готовый текст с числами, без данных клиентов.
   | { template: 'ops_alert'; text: string; url: string };
@@ -241,6 +245,15 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
         heading: t('oncallRule.subject'),
         text: t('oncallRule.text', { rule: noLinks(payload.rule, TITLE_MAX), number: payload.number }),
         button: { label: t('oncallRule.button'), url: payload.url },
+        reply: false,
+        signature: false,
+      };
+    case 'staff_csat_low':
+      return {
+        subject: ticketSubject(payload.number, payload.title),
+        heading: t('staffCsatLow.heading'),
+        text: t('staffCsatLow.text', { score: payload.score, orgName: noLinks(payload.orgName, NAME_MAX), number: payload.number, title: noLinks(payload.title, TITLE_MAX) }),
+        button: open(payload.url),
         reply: false,
         signature: false,
       };

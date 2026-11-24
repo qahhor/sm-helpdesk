@@ -75,6 +75,8 @@ type Props = {
   reauthHref: string;
   /** Состояние правила под кнопкой "Сохранить": метка для существующего, пояснение для нового. */
   state: ReactNode;
+  /** Предустановленное правило: событие не меняется, под полем это пояснение. */
+  eventLock?: string | null;
 };
 
 const RATINGS = ['1', '2', '3', '4', '5'];
@@ -225,7 +227,7 @@ function OrgPick({
   );
 }
 
-export function RuleEditor({ initial, options, labels, reauthHref, state }: Props) {
+export function RuleEditor({ initial, options, labels, reauthHref, state, eventLock }: Props) {
   const [draft, setDraft] = useState<RuleDraft>(initial);
   const [orgs, setOrgs] = useState<Option[]>(options.values.org ?? []);
   const [feedback, setFeedback] = useState<RuleFormState>({});
@@ -325,8 +327,9 @@ export function RuleEditor({ initial, options, labels, reauthHref, state }: Prop
                 <Select
                   id="rule-event"
                   value={draft.event}
+                  disabled={Boolean(eventLock)}
                   aria-invalid={eventIssues.length > 0 || undefined}
-                  aria-describedby={eventIssues.length > 0 ? 'rule-event-error' : undefined}
+                  aria-describedby={[eventLock ? 'rule-event-lock' : '', eventIssues.length > 0 ? 'rule-event-error' : ''].filter(Boolean).join(' ') || undefined}
                   onChange={(event) => patch({ event: event.target.value })}
                 >
                   {options.events.map((option) => (
@@ -335,6 +338,11 @@ export function RuleEditor({ initial, options, labels, reauthHref, state }: Prop
                     </option>
                   ))}
                 </Select>
+                {eventLock && (
+                  <p id="rule-event-lock" className="text-sm text-muted-foreground">
+                    {eventLock}
+                  </p>
+                )}
                 <RowIssues id="rule-event-error" codes={eventIssues} labels={labels} />
               </div>
               {draft.event === 'no_activity' && (

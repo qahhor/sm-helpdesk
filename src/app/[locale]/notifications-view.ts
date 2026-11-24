@@ -11,7 +11,8 @@ export async function notificationItems(rows: NotificationRow[]): Promise<Notifi
   return rows.map((row) => ({
     id: row.notificationId,
     // rule: название правила автоматизации в уведомлениях правил (веха M8).
-    text: t(row.kind, { number: row.ticketNumber ?? 0, year: Number(row.payload.year ?? 0), rule: String(row.payload.rule ?? '') }),
+    // score: оценка клиента в уведомлении о низкой оценке (веха M8).
+    text: t(row.kind, { number: row.ticketNumber ?? 0, year: Number(row.payload.year ?? 0), rule: String(row.payload.rule ?? ''), score: Number(row.payload.score ?? 0) }),
     time: format.dateTime(row.createdOn, { dateStyle: 'medium', timeStyle: 'short' }),
     unread: row.readOn === null,
   }));

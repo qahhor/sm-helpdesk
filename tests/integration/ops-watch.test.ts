@@ -242,3 +242,28 @@ test('смена токена бота дежурных оставляет за�
   ).rows[0].same;
   expect(same).toBe(true);
 });
+
+test('событие автоматизации снято после пяти сбоев разбора: дежурным сигнал "событие не разобрано", только число', async () => {
+  // Событие создания P1, разбор которого упал пять раз: сообщение дежурным о P1 по нему не ушло (план M8, задача 10).
+  const { processEvents, emitEventTx, EVENT_MAX_ATTEMPTS } = await import('@/modules/hdc/api');
+  const { withActor } = await import('@/db/with-actor');
+  const automation = { type: 'system', job: 'automation.process' } as const;
+  await withActor(automation, (tx) => emitEventTx(tx, { orgId: f.orgA.orgId, ticketId: f.tickets.aOrg.ticketId, kind: 'ticket_created', payload: { priority: 'p1' } }));
+  const failing = async () => {
+    throw new Error('база недоступна: секретный текст');
+  };
+  // Четыре сбоя: событие ещё в очереди, сигнала нет.
+  for (let attempt = 1; attempt < EVENT_MAX_ATTEMPTS; attempt++) await processEvents(automation, failing);
+  expect(await watch()).toEqual([]);
+  await processEvents(automation, failing);
+  expect((await collectOpsAlerts(SYSTEM, new Date())).filter((alert) => alert.code === 'automation_dropped')).toEqual([{ code: 'automation_dropped', count: 1 }]);
+  expect(await watch()).toEqual(['automation_dropped']);
+  expect(chat).toHaveLength(1);
+  expect(chat[0]).toBe(opsAlertText({ code: 'automation_dropped', count: 1 }));
+  expect(chat[0]).toContain('1');
+  expect(chat[0]).not.toContain('секретный');
+  expect(mail.sent.map((s) => s.message.to)).toEqual(['duty@smartup24.com']);
+  // Успешно разобранное событие сигнала не даёт; снятое больше часа назад тоже.
+  await pools.root.query(`update hdc_ops_alerts set last_sent_on = now() - interval '2 hours'`);
+  expect(await watch(new Date(Date.now() + 61 * 60_000))).toEqual([]);
+});

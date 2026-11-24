@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, eq, isNull, lt, notInArray, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
@@ -165,6 +165,23 @@ async function noteFailure(actor: SystemActor, eventId: string, error: string): 
   );
   if (!row) return;
   logEvent(row.processedOn ? 'error' : 'warn', row.processedOn ? 'automation.event_dropped' : 'automation.event_failed', { eventId, kind: row.kind, attempts: row.attempts, error });
+  // Снятое событие могло быть сообщением дежурным о P1 (план M8, задача 10): проверка состояния портала будится
+  // сразу, а не ждёт своего запуска раз в 5 минут, и дежурные получают сигнал "событие не разобрано".
+  if (row.processedOn) await enqueue('ops.watch', {});
+}
+
+/**
+ * События, снятые с очереди после EVENT_MAX_ATTEMPTS сбоев разбора, с указанного времени: правила и уведомления по
+ * ним не выполнены. Читается по частичному индексу разобранных событий hdc_domain_events_i3.
+ */
+export async function droppedEventsSince(actor: SystemActor, since: Date): Promise<number> {
+  const [row] = await withActor(actor, (tx) =>
+    tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(domainEvents)
+      .where(and(isNotNull(domainEvents.processedOn), gt(domainEvents.processedOn, since), gte(domainEvents.attempts, EVENT_MAX_ATTEMPTS))),
+  );
+  return row?.n ?? 0;
 }
 
 /** Состояние очереди событий для наблюдения: сколько ждёт разбора и сколько секунд ждёт самое старое. */

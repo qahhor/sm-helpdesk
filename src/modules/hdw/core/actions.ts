@@ -10,6 +10,9 @@ import {
   ruleAddNoteTx,
   ruleAddTagTx,
   ruleAssignTx,
+  ruleNotifyBreachTx,
+  ruleNotifyCsatLowTx,
+  ruleOncallP1Tx,
   rulePickRoundRobinTx,
   ruleRemoveTagTx,
   ruleReplyTx,
@@ -21,7 +24,7 @@ import {
 import { canTransition, type Queue, TRANSFERABLE_STATUSES } from '@/modules/hdt/pref';
 import type { StaffMember } from '@/modules/hdu/api/automation';
 import type { TicketSnapshot } from '../evaluate';
-import { LINE_ROLES, type RuleEventKind } from '../pref';
+import { CSAT_LOW_ROLE, LINE_ROLES, type RuleEventKind } from '../pref';
 import type { RuleAction } from '../rule-schema';
 import type { ActionDone } from '../schema';
 import { enqueueRuleDelivery } from './deliveries';
@@ -43,6 +46,8 @@ export type ActionContext = {
   rule: { ruleId: string; name: string; event: RuleEventKind };
   /** Событие hdc_domain_events, которое разбирает правило. Пусто: событие "нет активности". */
   eventId: string | null;
+  /** Подробности события: какой срок нарушен. Пусто: событие "нет активности". */
+  eventPayload?: Record<string, unknown> | null;
   now: Date;
   roster: Roster;
 };
@@ -127,6 +132,17 @@ async function run(c: ActionContext, tx: Tx, action: RuleAction): Promise<RuleAc
       const result = await deliverWebhook(tx, { endpointId: action.endpointId, ticketId: ticket.ticketId, orgId: ticket.orgId, ruleId: c.rule.ruleId, event: c.rule.event, eventId: c.eventId, now: c.now });
       return result.ok ? { ok: true, ...(result.name !== undefined ? { to: result.name } : {}) } : { ok: false, detail: result.detail ?? 'webhook_failed' };
     }
+    // Действия предустановленных правил (FR-AUTO-12): прежние встроенные уведомления модуля обращений.
+    case 'notify_oncall_p1':
+      return ruleOncallP1Tx(tx, ticket);
+    case 'notify_sla_breach': {
+      // Какой срок нарушен, говорит событие sla_breached. Другое событие срока не несёт: уведомлять не о чем.
+      const deadline = c.eventPayload?.deadline;
+      if (deadline !== 'first_response' && deadline !== 'resolution') return { ok: false, detail: 'event_mismatch' };
+      return ruleNotifyBreachTx(tx, ticket, deadline);
+    }
+    case 'notify_csat_low':
+      return ruleNotifyCsatLowTx(tx, ticket, (await c.roster()).filter((item) => item.role === CSAT_LOW_ROLE).map((item) => item.userId));
   }
 }
 
@@ -252,5 +268,14 @@ export function describeAction(action: RuleAction, snapshot: TicketSnapshot, ref
       if (!endpoint) return fail('endpoint_missing');
       return endpoint.isEnabled ? { action: action.action, ok: true, to: endpoint.name } : fail('endpoint_disabled');
     }
+    // Уведомления предустановленных правил. Однократность сообщения дежурным и то, какой срок нарушен, знает только
+    // само срабатывание: прогон показывает, что уведомление было бы отправлено.
+    case 'notify_oncall_p1':
+      return snapshot.priority === 'p1' ? { action: action.action, ok: true, to: 'oncall' } : same(null);
+    case 'notify_sla_breach':
+      return { action: action.action, ok: true };
+    case 'notify_csat_low':
+      if (snapshot.rating === null || snapshot.rating > 2) return fail('not_low_rating');
+      return refs.roster.some((item) => item.role === CSAT_LOW_ROLE) ? { action: action.action, ok: true, to: String(snapshot.rating) } : fail('no_recipients');
   }
 }

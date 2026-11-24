@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { isHduError, requireStaffActor, searchOrganizations, type StaffContext } from '@/modules/hdu/api';
-import { deleteRule, dryRunRule, isHdwError, moveRule, saveRule, setRuleEnabled } from '@/modules/hdw/api';
+import { deleteRule, dryRunRule, isHdwError, moveRule, restoreBuiltinRule, saveRule, setRuleEnabled } from '@/modules/hdw/api';
 import type { Issue } from './rule-draft';
 import { actionTexts } from './run-text';
 
@@ -11,7 +11,7 @@ import { actionTexts } from './run-text';
 // проверяет модуль hdw: правило приходит одной строкой JSON и разбирается схемой модуля. Отказ схемы возвращается
 // редактору с путём до поля, остальные итоги показываются кодом в адресе страницы.
 
-const KNOWN_ERRORS = new Set(['forbidden', 'stale_session', 'invalid_input', 'not_found', 'builtin_rule']);
+const KNOWN_ERRORS = new Set(['forbidden', 'stale_session', 'invalid_input', 'not_found', 'builtin_rule', 'not_builtin']);
 /** Правило из двадцати условий и десяти действий с заметками по 2000 знаков заведомо меньше. */
 const RULE_JSON_MAX = 100_000;
 const DRY_RUN_SHOWN = 20;
@@ -110,4 +110,19 @@ export async function deleteRuleAction(form: FormData): Promise<void> {
   const ruleId = text(form, 'ruleId');
   // Отказ показывается на странице правила, если идентификатор похож на настоящий.
   await run((staff) => deleteRule(staff, { ruleId }), 'deleted', /^[0-9a-f-]{36}$/.test(ruleId) ? ruleId : undefined);
+}
+
+/** "Вернуть исходное" у предустановленного правила (решение 2 плана M8): итог показывается на странице правила. */
+export async function restoreBuiltinRuleAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor({ roles: ['admin'] });
+  const ruleId = text(form, 'ruleId');
+  const list = `/${await getLocale()}/agent/settings/rules`;
+  const page = /^[0-9a-f-]{36}$/.test(ruleId) ? `${list}/${ruleId}` : list;
+  try {
+    await restoreBuiltinRule(staff, { ruleId });
+  } catch (error) {
+    if (!isHdwError(error)) throw error;
+    redirect(`${page}?error=${KNOWN_ERRORS.has(error.code) ? error.code : 'invalid_input'}`);
+  }
+  redirect(`${page}?done=restored`);
 }

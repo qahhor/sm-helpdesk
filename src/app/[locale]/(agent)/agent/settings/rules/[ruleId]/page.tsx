@@ -5,13 +5,14 @@ import { firstParam } from '@/lib/search-params';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { listRuleRuns, readRule } from '@/modules/hdw/api';
 import { Alert } from '@/ui/components/alert';
+import { Button } from '@/ui/components/button';
 import { Card, CardContent } from '@/ui/components/card';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { settingsNav } from '../../sections';
 import { ConfirmDelete } from '../../ConfirmDelete';
-import { deleteRuleAction } from '../actions';
+import { deleteRuleAction, restoreBuiltinRuleAction } from '../actions';
 import { ruleEditorProps } from '../editor-props';
 import { RuleEditor } from '../RuleEditor';
 import { draftOf } from '../rule-draft';
@@ -20,8 +21,8 @@ import { actionTexts } from '../run-text';
 // Правило автоматизации: редактор, пробный прогон и журнал срабатываний (FR-AUTO-01, 08, 09; план M8, задача 4).
 // Журнал показывает итог и действия каждого срабатывания, по 50 строк, новые сверху.
 
-const DONE = new Set(['created', 'saved']);
-const ERRORS = new Set(['forbidden', 'stale_session', 'invalid_input', 'not_found', 'builtin_rule']);
+const DONE = new Set(['created', 'saved', 'restored']);
+const ERRORS = new Set(['forbidden', 'stale_session', 'invalid_input', 'not_found', 'builtin_rule', 'not_builtin']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const RESULT_TONES = { applied: 'green', partial: 'orange', failed: 'danger', skipped_loop: 'danger', no_match: 'gray' } as const;
 
@@ -40,7 +41,7 @@ export default async function RulePage({ params, searchParams }: PageProps<'/[lo
   const format = await getFormatter();
   const locale = await getLocale();
   const here = `/agent/settings/rules/${rule.ruleId}`;
-  const [{ options, labels }, runs, describe] = await Promise.all([ruleEditorProps(staff, rule), listRuleRuns(staff, { ruleId: rule.ruleId, cursor }), actionTexts()]);
+  const [{ options, labels, eventLock }, runs, describe] = await Promise.all([ruleEditorProps(staff, rule), listRuleRuns(staff, { ruleId: rule.ruleId, cursor }), actionTexts()]);
   const state = rule.isEnabled ? (
     <StatusLabel tone="green">{r('states.enabled')}</StatusLabel>
   ) : rule.disabledReason === 'loop' ? (
@@ -73,6 +74,7 @@ export default async function RulePage({ params, searchParams }: PageProps<'/[lo
           labels={labels}
           reauthHref={`/${locale}/staff/login?reauth=1&next=${encodeURIComponent(`/${locale}${here}`)}`}
           state={state}
+          eventLock={eventLock}
         />
         <Card>
           <CardContent className="flex flex-col gap-3 pt-4">
@@ -137,7 +139,18 @@ export default async function RulePage({ params, searchParams }: PageProps<'/[lo
             labels={{ open: r('delete.open'), title: r('delete.title', { name: rule.name }), text: r('delete.text'), confirm: r('delete.confirm'), cancel: r('delete.cancel'), close: r('delete.close') }}
           />
         ) : (
-          <p className="text-sm text-muted-foreground">{r('errors.builtin_rule')}</p>
+          <Card>
+            <CardContent className="flex flex-col gap-3 pt-4">
+              <p className="text-sm text-muted-foreground">{r('errors.builtin_rule')}</p>
+              <p className="text-sm text-secondary-foreground">{r('restore.hint')}</p>
+              <form action={restoreBuiltinRuleAction}>
+                <input type="hidden" name="ruleId" value={rule.ruleId} />
+                <Button type="submit" variant="secondary">
+                  {r('restore.open')}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         )}
       </SettingsLayout>
     </>

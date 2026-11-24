@@ -8,10 +8,11 @@ import { orgFactsTx, type StaffMember, staffRoster } from '@/modules/hdu/api/aut
 import { type DryRunResult, dryRunTx } from '../core/dry-run';
 import { missingActionRefs } from '../core/references';
 import { listWebhooksTx } from '../core/webhooks';
-import { deleteRuleTx, listRuleRunsTx, listRulesTx, moveRuleTx, readRuleTx, type RuleRecord, type RuleRunRecord, saveRuleTx, setRuleEnabledTx } from '../core/rules';
+import { deleteRuleTx, listRuleRunsTx, listRulesTx, moveRuleTx, readRuleTx, restoreBuiltinRuleTx, type RuleRecord, rulePcodeTx, type RuleRunRecord, saveRuleTx, setRuleEnabledTx } from '../core/rules';
+import { builtinRule } from '../builtin';
 import { HdwError } from '../error';
 import { NOTIFY_ROLES, ORG_CATEGORIES, RULE_EVENTS, RULE_STATUS_TARGETS } from '../pref';
-import { parseRule, type RuleDefinition, type RuleIssue } from '../rule-schema';
+import { isBuiltinAction, parseRule, type RuleDefinition, type RuleIssue } from '../rule-schema';
 
 // Модуль hdw, слой api: правила автоматизации для экрана администратора (FR-AUTO-01, 06, 08, FR-ADM-10; план M8,
 // задачи 3 и 4). Сотрудник из проверенной сессии, вход по схеме. Читает и меняет правила только администратор;
@@ -23,6 +24,8 @@ export type { RuleRecord, RuleRunRecord } from '../core/rules';
 export { HdwError, type HdwErrorCode, isHdwError } from '../error';
 export type { Condition, Conditions, NotifyTarget, RuleAction, RuleActionKind, RuleDefinition, RuleIssue, RuleIssueCode } from '../rule-schema';
 export type { ActionDone } from '../schema';
+export { BUILTIN_RULES, type BuiltinCode, builtinRule } from '../builtin';
+export { BUILTIN_ACTIONS, type BuiltinAction } from '../pref';
 export { DRY_RUN_TICKETS, LOOP_LIMIT, MAX_ACTIONS, MAX_CONDITIONS, MAX_HOURS, MAX_SNOOZE_HOURS, RULE_EVENTS, RULE_NAME_MAX, RULE_NOTE_MAX, RUNS_PAGE, type RuleEvent, type RunResult } from '../pref';
 
 function requireAdmin(ctx: StaffContext): void {
@@ -108,9 +111,33 @@ export async function readRule(ctx: StaffContext, ruleId: unknown): Promise<Rule
 export async function saveRule(ctx: StaffContext, input: unknown): Promise<{ ruleId: string }> {
   requireFreshAdmin(ctx);
   const rule = definitionOf(input);
-  const issues = await missingReferences(ctx, rule);
+  const issues = [...(await builtinIssues(ctx, rule)), ...(await missingReferences(ctx, rule))];
   if (issues.length > 0) throw new HdwError('invalid_input', issues);
   return saveRuleTx(ctx.actor, rule);
+}
+
+/**
+ * Ограничения предустановленных правил (решение 2 плана M8). Действие предустановленного правила принимает только
+ * само это правило: в другом правиле оно получает отказ builtin_only. Событие предустановленного правила не
+ * меняется (builtin_event): на событие завязано само действие и дополнительные события правила. Условия, остальные
+ * действия, название и флаг "остановить" администратор меняет свободно.
+ */
+async function builtinIssues(ctx: StaffContext, rule: RuleDefinition): Promise<RuleIssue[]> {
+  const shipped = rule.ruleId ? builtinRule((await rulePcodeTx(ctx.actor, rule.ruleId)) ?? null) : null;
+  const issues: RuleIssue[] = [];
+  if (shipped && rule.event !== shipped.event) issues.push({ path: 'event', code: 'builtin_event' });
+  for (const [index, item] of rule.actions.entries())
+    if (isBuiltinAction(item) && item.action !== shipped?.action) issues.push({ path: `actions.${index}`, code: 'builtin_only' });
+  return issues;
+}
+
+/**
+ * "Вернуть исходное" (решение 2 плана M8): предустановленное правило получает поставочные название, условия и
+ * действия. Включение и порядок не меняются. Обычное правило: not_builtin. Запись в журнал аудита в той же транзакции.
+ */
+export async function restoreBuiltinRule(ctx: StaffContext, input: unknown): Promise<void> {
+  requireFreshAdmin(ctx);
+  await restoreBuiltinRuleTx(ctx.actor, parse(idInput, input).ruleId);
 }
 
 /** Включить или выключить правило. Включение снимает отметку "выключено защитой от зацикливания". */

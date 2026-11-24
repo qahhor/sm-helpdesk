@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { parseRule } from '@/modules/hdw/rule-schema';
+import { BUILTIN_CODES, BUILTIN_RULES, builtinCodesForExtraEvent, builtinRule } from '@/modules/hdw/builtin';
+import { parseMacro } from '@/modules/hdw/macro-schema';
+import { BUILTIN_ACTIONS } from '@/modules/hdw/pref';
+import { isBuiltinAction, parseRule, storedRule } from '@/modules/hdw/rule-schema';
 
 // Схема правила автоматизации (FR-AUTO-01, 03, 04, 05; план M8, задача 3): закрытый перечень событий, условий и действий.
 
@@ -151,4 +154,37 @@ test('лишние поля правила и пустое название от
   expect(ok({ name: '   ' }).ok).toBe(false);
   expect(ok({ name: 'а'.repeat(121) }).ok).toBe(false);
   expect(ok({ ruleId: 'x' }).ok).toBe(false);
+});
+
+describe('предустановленные правила (FR-AUTO-12)', () => {
+  test('действия предустановленных правил схема принимает без значения, с лишним полем отклоняет; макрос их не принимает', () => {
+    for (const action of BUILTIN_ACTIONS) {
+      expect(withAction({ action }).ok, action).toBe(true);
+      expect(isBuiltinAction({ action }), action).toBe(true);
+      expect(withAction({ action, target: { kind: 'oncall' } }).ok, action).toBe(false);
+      expect(parseMacro({ name: 'Макрос', actions: [{ action }] }).ok, action).toBe(false);
+    }
+    expect(isBuiltinAction({ action: 'notify' })).toBe(false);
+  });
+
+  test('поставочный вид каждого правила проходит схему правила и содержит своё действие', () => {
+    expect(BUILTIN_CODES).toEqual(['p1_oncall', 'sla_breach_lead', 'csat_low_manager']);
+    for (const code of BUILTIN_CODES) {
+      const rule = BUILTIN_RULES[code];
+      expect(parseRule({ name: rule.name, event: rule.event, conditions: rule.conditions, actions: rule.actions, isStop: rule.isStop }), code).toMatchObject({ ok: true, rule: { hours: null } });
+      expect(storedRule.safeParse({ conditions: rule.conditions, actions: rule.actions }).success, code).toBe(true);
+      expect(rule.actions.map((item) => item.action), code).toContain(rule.action);
+      expect(code).toMatch(/^[a-z][a-z0-9_]{1,39}$/);
+    }
+  });
+
+  test('сообщение дежурным о P1 срабатывает и при создании, и при смене приоритета; у остальных одно событие', () => {
+    expect(builtinCodesForExtraEvent('priority_changed')).toEqual(['p1_oncall']);
+    expect(builtinCodesForExtraEvent('ticket_created')).toEqual([]);
+    expect(builtinCodesForExtraEvent('rated')).toEqual([]);
+    expect(builtinRule('p1_oncall')?.event).toBe('ticket_created');
+    expect(builtinRule(null)).toBeNull();
+    expect(builtinRule('oncall_p1')).toBeNull();
+    expect(builtinRule('constructor')).toBeNull();
+  });
 });

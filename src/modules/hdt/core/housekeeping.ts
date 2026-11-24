@@ -5,7 +5,7 @@ import { type SystemActor, withActor } from '@/db/with-actor';
 import { emitEventTx, readSetting, writeAudit } from '@/modules/hdc/api';
 import { holidaysReminderSentTx, notifyTx } from '@/modules/hdn/api/notifications';
 import { enqueueTx } from '@/modules/hdn/api/outbox';
-import { adminIds, lineLeads } from '@/modules/hdu/api/recipients';
+import { adminIds } from '@/modules/hdu/api/recipients';
 import { readSlaConfig } from '@/modules/hdr/api';
 import {
   AUTOCLOSE_RESOLVED_SETTING,
@@ -66,7 +66,6 @@ async function refreshStale(actor: SystemActor, now: Date): Promise<number> {
 
 /** Нарушение срока отмечается один раз колонкой и внутренним событием "срок нарушен" (решение 8). */
 async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
-  const leads = { l1: await lineLeads('l1'), l2: await lineLeads('l2') };
   return withActor(actor, async (tx) => {
     const first = await tx
       .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, queue: tickets.queue })
@@ -107,13 +106,8 @@ async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
       [resolution, 'resolution'],
     ] as const)
       for (const t of list) await emitEventTx(tx, { orgId: t.orgId, ticketId: t.ticketId, kind: 'sla_breached', payload: { deadline } });
-    // Руководителям линии обращения (FR-SLA-06, решение 7 вехи M4): одно уведомление на нарушение.
-    for (const [list, breach] of [
-      [first, 'first_response'],
-      [resolution, 'resolution'],
-    ] as const)
-      for (const t of list)
-        await notifyTicketTx(tx, { ticketId: t.ticketId, kind: 'sla_breach', actorUserId: null, breach, leads: t.queue === 'l1' ? leads.l1 : leads.l2 });
+    // Руководителей линии (FR-SLA-06, решение 7 вехи M4) уведомляет предустановленное правило по этому событию
+    // (план M8, задача 10): одно уведомление на нарушение, слой api будит разбор событий после фиксации.
     return events.length;
   });
 }

@@ -85,6 +85,11 @@ export const tickets = pgTable('hdt_tickets', {
   // Миграция 0049 (волна 3): пометка "вернулось из отложенных".
   /** Когда обращение вернулось из отложенных (FR-AG-13). Пусто после первого действия сотрудника. */
   snoozeReturnedOn: moment('snooze_returned_on'),
+  // Миграция 0056 (веха M8): момент, когда срок станет близким. Задача раз в минуту пишет событие и очищает колонку.
+  /** Когда срок первого ответа станет близким. Пусто: события "срок скоро" не ждём. */
+  firstResponseSoonOn: moment('first_response_soon_on'),
+  /** Когда срок решения станет близким. Пусто: события "срок скоро" не ждём. */
+  resolutionSoonOn: moment('resolution_soon_on'),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {

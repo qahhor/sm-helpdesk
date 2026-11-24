@@ -27,6 +27,7 @@ import { type AuthorType, type EventKind, type Impact, INLINE_IMAGE_TYPES, type 
 import { workingMinutesBetween } from '../sla';
 import { parseNumber, parseSearch, rejectReasonOf } from '../util';
 import * as z from 'zod';
+import { wakeAutomation } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Модуль hdt, слой api: рабочее место сотрудника (план M3). Контекст сотрудника строит requireStaffActor:
@@ -353,6 +354,7 @@ export async function takeTicket(ctx: StaffContext, number: unknown): Promise<vo
   const parsed = parseInput(numberInput, number);
   try {
     await takeTx(ctx.actor, parsed, ctx.user.name);
+    await wakeAutomation();
   } catch (error) {
     if (isHdtError(error) && error.code === 'already_taken' && error.holderId) {
       const name = (await namesOf(ctx.actor, [error.holderId])).get(error.holderId);
@@ -379,6 +381,7 @@ export async function setStatus(ctx: StaffContext, input: unknown): Promise<void
   const data = parseInput(statusInput, input);
   await setStatusTx(ctx.actor, data.number, data.to, { resolution: data.resolution, version: data.version, seen: data.seenVersion ? new Date(data.seenVersion) : undefined });
   await wakeOutbox();
+  await wakeAutomation();
 }
 
 /** Приоритет с причиной (FR-SLA-03). Пустая причина: reason_required. */
@@ -387,6 +390,7 @@ export async function setPriority(ctx: StaffContext, input: unknown): Promise<vo
   const data = parseInput(priorityInput, input);
   if (!data.reason) throw new HdtError('reason_required');
   await setPriorityTx(ctx.actor, data.number, data.priority, data.reason, data.seenVersion ? new Date(data.seenVersion) : undefined);
+  await wakeAutomation();
 }
 
 export async function setTicketType(ctx: StaffContext, input: unknown): Promise<void> {

@@ -78,6 +78,9 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date, set: Ticke
       pausedMinutes: tickets.slaPausedMinutes,
       firstResponseDueOn: tickets.firstResponseDueOn,
       resolutionDueOn: tickets.resolutionDueOn,
+      firstRespondedOn: tickets.firstRespondedOn,
+      firstResponseSoonOn: tickets.firstResponseSoonOn,
+      resolutionSoonOn: tickets.resolutionSoonOn,
     })
     .from(tickets)
     .where(eq(tickets.ticketId, ticketId))
@@ -106,11 +109,21 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date, set: Ticke
   const same = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
   const slaChanged =
     !same(next.firstResponseDueOn, t.firstResponseDueOn) || !same(next.resolutionDueOn, t.resolutionDueOn) || !same(pausedOn, t.pausedOn) || pausedMinutes !== t.pausedMinutes;
+  // Момент "срок скоро" (событие sla_soon, FR-AUTO-02) взводится заново, когда срок сдвинулся, и снимается у
+  // решённого, закрытого и после первого ответа. Срок не менялся: момент остаётся как есть (уже записанное событие
+  // повторно не придёт). Пауза момент не трогает: на паузе задача его не берёт, а выход из паузы сдвигает срок.
+  const responded = t.firstRespondedOn !== null || set.firstRespondedOn !== undefined;
+  const soon = {
+    firstResponseSoonOn:
+      settled || responded ? null : same(next.firstResponseDueOn, t.firstResponseDueOn) ? t.firstResponseSoonOn : soonMoment(t.createdOn, next.firstResponseDueOn, cal),
+    resolutionSoonOn: settled ? null : same(next.resolutionDueOn, t.resolutionDueOn) ? t.resolutionSoonOn : soonMoment(t.createdOn, next.resolutionDueOn, cal),
+  };
+  const soonChanged = !same(soon.firstResponseSoonOn, t.firstResponseSoonOn) || !same(soon.resolutionSoonOn, t.resolutionSoonOn);
   // Сроки не изменились и действию нечего писать: строка не переписывается.
-  if (slaChanged || Object.keys(set).length > 0)
+  if (slaChanged || soonChanged || Object.keys(set).length > 0)
     await tx
       .update(tickets)
-      .set({ ...set, ...(slaChanged ? { ...next, slaPausedOn: pausedOn, slaPausedMinutes: pausedMinutes } : {}) })
+      .set({ ...set, ...(slaChanged ? { ...next, slaPausedOn: pausedOn, slaPausedMinutes: pausedMinutes } : {}), ...(soonChanged ? soon : {}) })
       .where(eq(tickets.ticketId, ticketId));
   return { ...next, pausedSince: pausedOn };
 }
@@ -134,11 +147,27 @@ export async function needsSlaRefreshTx(tx: Tx, limit: number): Promise<string[]
 
 export type SlaPhase = 'calm' | 'soon' | 'breached';
 
+/** Доля рабочего времени срока, после которой срок считается близким: осталось меньше 20% (FR-SLA-06). */
+const SOON_SHARE = 0.2;
+
+/**
+ * Момент, с которого срок близок (slaPhase отвечает 'soon'): от создания прошло больше 80% рабочего времени срока.
+ * Лишняя минута делает неравенство строгим: в этот момент и позже, до самого срока, осталось меньше 20%.
+ * Срока нет или он короче минуты: null.
+ */
+export function soonMoment(start: Date, due: Date | null, cal: Calendar): Date | null {
+  if (!due) return null;
+  const total = workingMinutesBetween(start, due, cal);
+  if (total <= 1) return null;
+  const at = addWorkingMinutes(start, Math.floor(total * (1 - SOON_SHARE)) + 1, cal);
+  return at.getTime() < due.getTime() ? at : null;
+}
+
 /** Состояние срока (UX-A-08): нарушен, скоро (осталось меньше 20% рабочего времени срока, FR-SLA-06), спокойно. */
 export function slaPhase(due: Date | null, start: Date, now: Date, cal: Calendar): SlaPhase {
   if (!due) return 'calm';
   if (now.getTime() >= due.getTime()) return 'breached';
   const total = workingMinutesBetween(start, due, cal);
   const left = workingMinutesBetween(now, due, cal);
-  return total > 0 && left < total * 0.2 ? 'soon' : 'calm';
+  return total > 0 && left < total * SOON_SHARE ? 'soon' : 'calm';
 }

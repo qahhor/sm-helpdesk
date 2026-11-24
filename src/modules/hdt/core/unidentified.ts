@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, desc, eq, gt, ne, sql } from 'drizzle-orm';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
-import { writeAudit } from '@/modules/hdc/api';
+import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { blockSenderTx } from '@/modules/hdn/api/inbound';
 import { SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
 import { HdtError } from '../error';
@@ -79,6 +79,7 @@ export async function closeUnidentifiedTx(actor: StaffActor, number: number, rea
     const payload = { from: ticket.status, to: 'closed', reason };
     await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status', actorType: 'staff', actorId: actor.userId, payload });
     await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: payload });
+    await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status_changed', payload: { from: ticket.status, to: 'closed' } });
     if (address) {
       await blockSenderTx(tx, address, actor.userId);
       await writeAudit(tx, { action: 'sender.blocked', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId });

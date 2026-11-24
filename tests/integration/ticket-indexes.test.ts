@@ -21,7 +21,10 @@ test('лишний индекс по сроку решения убран, ин�
   expect(all.hdt_tickets_i19).toMatch(/\(merged_into_id\) WHERE \(merged_into_id IS NOT NULL\)/);
   expect(all.hdt_tickets_i20).toMatch(/\(related_ticket_id\) WHERE \(related_ticket_id IS NOT NULL\)/);
   // Плюс два индекса поиска по тексту темы и описания (миграция 0052, решение владельца о поиске от 24.11.2026).
-  expect(Object.keys(all)).toHaveLength(21);
+  // Плюс два частичных индекса момента "срок скоро" (миграция 0057, веха M8): в них только обращения, которые ждут события.
+  expect(all.hdt_tickets_i23).toMatch(/\(first_response_soon_on\) WHERE \(first_response_soon_on IS NOT NULL\)/);
+  expect(all.hdt_tickets_i24).toMatch(/\(resolution_soon_on\) WHERE \(resolution_soon_on IS NOT NULL\)/);
+  expect(Object.keys(all)).toHaveLength(23);
 });
 
 test('обычное обращение без подписи ошибки и связей входит не больше чем в 15 индексов из 21: 13 прежних и два индекса поиска по тексту (было 17 из 20)', async () => {

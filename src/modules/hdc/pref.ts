@@ -204,3 +204,21 @@ export function cleanUserText(value: string): string {
       .replace(/[\u200C\u200D]{2,}/gu, (run) => run.charAt(0))
   );
 }
+
+/**
+ * Виды событий предметной области (FR-AUTO-02; план M8, задача 2). Перечень повторяет ограничение
+ * hdc_domain_events_c1. no_activity и ai_handoff пишут следующие задачи вехи и веха M5b.
+ */
+export const DOMAIN_EVENT_KINDS = [
+  'ticket_created',
+  'client_replied',
+  'staff_replied',
+  'status_changed',
+  'priority_changed',
+  'rated',
+  'sla_soon',
+  'sla_breached',
+  'no_activity',
+  'ai_handoff',
+] as const;
+export type DomainEventKind = (typeof DOMAIN_EVENT_KINDS)[number];

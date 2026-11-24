@@ -5,6 +5,7 @@ import { isHdtError } from '../error';
 import { bulkInput, mergeInput, parseInput } from '../input';
 import { assignTicket } from './agent';
 import { returnToL1, transferToL2 } from './lines';
+import { wakeAutomation } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Объединение дублей и массовые действия (FR-AG-07, FR-AG-20, UX-A-10; план M3, задача 11). Массовое действие
@@ -16,6 +17,7 @@ export async function mergeTicket(ctx: StaffContext, input: unknown): Promise<{ 
   const data = parseInput(mergeInput, input);
   const intoNumber = await mergeTx(ctx.actor, data.number, data.intoNumber);
   await wakeOutbox();
+  await wakeAutomation();
   return { intoNumber };
 }
 
@@ -37,6 +39,9 @@ export async function bulkAction(ctx: StaffContext, input: unknown): Promise<Bul
       result.refused.push({ number, code: error.code });
     }
   }
-  if (result.done.length > 0) await wakeOutbox();
+  if (result.done.length > 0) {
+    await wakeOutbox();
+    await wakeAutomation();
+  }
   return result;
 }

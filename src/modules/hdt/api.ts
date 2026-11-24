@@ -1,6 +1,6 @@
 import 'server-only';
 import { type ClientContext, namesOf, otherOrganizationActors } from '@/modules/hdu/api';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
+import { consumeRateLimit, rateKey, wakeAutomation } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule, loadSlaConfig } from '@/modules/hdr/api';
 import { refreshSlaAfterClient } from './api/jobs';
@@ -134,8 +134,9 @@ export async function createTicket(ctx: ClientContext, input: unknown): Promise<
     attachmentIds: [...new Set(data.attachmentIds)],
   });
   await refreshSlaAfterClient(ticketId);
-  // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации.
+  // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации. Событие для правил тоже записано.
   await wakeOutbox();
+  await wakeAutomation();
   return { number };
 }
 
@@ -370,6 +371,7 @@ export async function replyToTicket(ctx: ClientContext, input: unknown): Promise
   const limit = await consumeRateLimit(rateKey('ticket-reply:user', ctx.actor.userId), RATE_RULES.ticketReplyPerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
   await refreshSlaAfterClient(await replyTx(ctx.actor, data.number, data.body, ids));
+  await wakeAutomation();
 }
 
 /** Общий предел действий с обращением на пользователя (вторая проверка M2): каждое пишет событие и журнал. */
@@ -383,6 +385,7 @@ export async function confirmResolution(ctx: ClientContext, number: unknown): Pr
   const parsed = parseInput(numberInput, number);
   await consumeAction(ctx);
   await confirmTx(ctx.actor, parsed);
+  await wakeAutomation();
 }
 
 /** Открыть заново (FR-TK-12): решённое или закрытое в пределах срока из настройки. */
@@ -390,6 +393,7 @@ export async function reopenTicket(ctx: ClientContext, input: unknown): Promise<
   const data = parseInput(reopenInput, input);
   await consumeAction(ctx);
   await refreshSlaAfterClient(await reopenTx(ctx.actor, data.number, await reopenDays(), data.body));
+  await wakeAutomation();
 }
 
 /** Оценка закрытого обращения (FR-TK-11). */
@@ -397,6 +401,7 @@ export async function rateTicket(ctx: ClientContext, input: unknown): Promise<vo
   const data = parseInput(rateInput, input);
   await consumeAction(ctx);
   await rateTx(ctx.actor, data.number, { score: data.score, reason: data.reason, comment: data.comment });
+  await wakeAutomation();
 }
 
 /** Видимость обращения (FR-TK-04). */

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
-import { inet, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, inet, integer, jsonb, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
+import type { DomainEventKind } from './pref';
 
 // Модуль hdc: ядро. Таблицы, ограничения и политики RLS создают миграции
 // drizzle/0002_hdr_hdc_tables.sql и drizzle/0004_hdc_audit_rate.sql. Здесь только описание колонок для запросов.
@@ -53,4 +54,23 @@ export const rateLimits = pgTable('hdc_rate_limits', {
   code: text('code').notNull(),
   windowOn: timestamp('window_on', { withTimezone: true }).notNull(),
   hits: integer('hits').notNull(),
+});
+
+/**
+ * События предметной области для правил автоматизации (FR-AUTO-02, миграция 0056). Писать через emitEventTx,
+ * разбирать через processEvents (src/modules/hdc/events.ts).
+ */
+export const domainEvents = pgTable('hdc_domain_events', {
+  orgId: uuid('org_id').notNull(),
+  eventId: uuid('event_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ticketId: uuid('ticket_id').notNull(),
+  kind: text('kind').$type<DomainEventKind>().notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+  isByRule: boolean('is_by_rule').notNull().default(false),
+  attempts: smallint('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  processedOn: timestamp('processed_on', { withTimezone: true }),
+  createdOn: timestamp('created_on', { withTimezone: true }).notNull().defaultNow(),
 });

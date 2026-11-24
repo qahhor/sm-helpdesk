@@ -2,6 +2,7 @@ import 'server-only';
 import { and, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
+import { emitEventTx } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, DEVELOPMENT_ROLES, type PresenceMode, PRESENCE_TTL_SEC, type TicketStatus } from '../pref';
 import { attachments, mentions, replyDrafts, ticketMessages, ticketPresence, tickets } from '../schema';
@@ -97,6 +98,8 @@ export async function postStaffMessageTx(
       await markPickedUpTx(tx, actor, ticket);
       // Одно письмо об ответе, даже если тем же действием поставлено "Ждём вашего ответа" (решение 6).
       await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'staff_reply', actorUserId: actor.userId, messageId: message.messageId });
+      // Событие для правил автоматизации (FR-AUTO-02): только публичный ответ, заметка событий не пишет.
+      await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'staff_replied', payload: { messageId: message.messageId } });
     }
     await tx.delete(replyDrafts).where(and(eq(replyDrafts.ticketId, ticket.ticketId), eq(replyDrafts.userId, actor.userId)));
     return { ok: true, ticketId: ticket.ticketId };

@@ -2,7 +2,7 @@ import 'server-only';
 import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
-import { readSetting, writeAudit } from '@/modules/hdc/api';
+import { emitEventTx, readSetting, writeAudit } from '@/modules/hdc/api';
 import { holidaysReminderSentTx, notifyTx } from '@/modules/hdn/api/notifications';
 import { enqueueTx } from '@/modules/hdn/api/outbox';
 import { adminIds, lineLeads } from '@/modules/hdu/api/recipients';
@@ -22,7 +22,7 @@ import { ticketEvents, ticketMessages, ticketPresence, tickets } from '../schema
 import { addWorkingDays } from '../sla';
 import { systemText, type SystemTextKey } from '../system-text';
 import { notifyTicketTx } from './notify';
-import { needsSlaRefreshTx, refreshSla } from './sla';
+import { calendarFor, needsSlaRefreshTx, refreshSla, slaPhase, soonMoment } from './sla';
 import { logEvent } from '@/lib/log';
 
 // Модуль hdt, слой core: задача раз в минуту (решения 2, 8, 13, 14 плана M3; FR-TK-10, FR-TK-15, 10.5). Каждый шаг
@@ -35,6 +35,8 @@ export type MinuteResult = {
   unsnoozed: number;
   closed: number;
   refreshed: number;
+  /** Сколько событий "срок скоро" записано для правил автоматизации (план M8, задача 2). */
+  soon: number;
   presenceRemoved: number;
   reminded: number;
   updateDue: number;
@@ -99,6 +101,12 @@ async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
       ...resolution.map((t) => ({ ...t, kind: 'resolution' })),
     ].map((t) => ({ orgId: t.orgId, ticketId: t.ticketId, kind: 'due' as const, actorType: 'system' as const, payload: { kind: t.kind }, isInternal: true }));
     if (events.length > 0) await tx.insert(ticketEvents).values(events);
+    // Событие для правил автоматизации там же, где ставится отметка нарушения (FR-AUTO-02): одно на срок.
+    for (const [list, deadline] of [
+      [first, 'first_response'],
+      [resolution, 'resolution'],
+    ] as const)
+      for (const t of list) await emitEventTx(tx, { orgId: t.orgId, ticketId: t.ticketId, kind: 'sla_breached', payload: { deadline } });
     // Руководителям линии обращения (FR-SLA-06, решение 7 вехи M4): одно уведомление на нарушение.
     for (const [list, breach] of [
       [first, 'first_response'],
@@ -107,6 +115,48 @@ async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
       for (const t of list)
         await notifyTicketTx(tx, { ticketId: t.ticketId, kind: 'sla_breach', actorUserId: null, breach, leads: t.queue === 'l1' ? leads.l1 : leads.l2 });
     return events.length;
+  });
+}
+
+/**
+ * Событие "срок SLA скоро" для правил автоматизации (FR-AUTO-02; план M8, задача 2). Момент, когда срок становится
+ * близким, считает пересчёт сроков (soonMoment) и хранит в колонке обращения; здесь берутся обращения, у которых он
+ * наступил: по частичным индексам hdt_tickets_i23 и i24, пачками, как отметки нарушений. Колонка очищается вместе с
+ * записью события, поэтому событие приходит один раз на срок и снова, когда срок сдвинулся и момент взведён заново.
+ * Срок решения на паузе ("Ждём вашего ответа") не берётся: момент ждёт выхода из паузы.
+ */
+async function markSoon(actor: SystemActor, now: Date): Promise<number> {
+  return withActor(actor, async (tx) => {
+    const pick = (soonOn: typeof tickets.firstResponseSoonOn, dueOn: typeof tickets.firstResponseDueOn, extra?: ReturnType<typeof or>) =>
+      tx
+        .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, priority: tickets.priority, status: tickets.status, createdOn: tickets.createdOn, firstRespondedOn: tickets.firstRespondedOn, dueOn })
+        .from(tickets)
+        .where(and(lte(soonOn, now), extra))
+        .orderBy(asc(soonOn))
+        .limit(SWEEP_BATCH)
+        .for('update', { skipLocked: true });
+    const first = await pick(tickets.firstResponseSoonOn, tickets.firstResponseDueOn);
+    const resolution = await pick(tickets.resolutionSoonOn, tickets.resolutionDueOn, or(isNull(tickets.slaPausedOn), inArray(tickets.status, SETTLED)));
+    if (first.length + resolution.length === 0) return 0;
+    const config = await readSlaConfig(tx);
+    let emitted = 0;
+    for (const [list, deadline, column] of [
+      [first, 'first_response', 'firstResponseSoonOn'],
+      [resolution, 'resolution', 'resolutionSoonOn'],
+    ] as const)
+      for (const t of list) {
+        const cal = calendarFor(config, t.priority);
+        // Срока уже не ждут: решено, закрыто, первый ответ дан. Момент снимается без события.
+        const waiting = !SETTLED.includes(t.status) && (deadline === 'resolution' || t.firstRespondedOn === null);
+        const phase = waiting ? slaPhase(t.dueOn, t.createdOn, now, cal) : 'calm';
+        // Календарь изменили после расчёта момента, и срок ещё не близок: момент переносится на новый расчёт.
+        const later = waiting && phase === 'calm' ? soonMoment(t.createdOn, t.dueOn, cal) : null;
+        await tx.update(tickets).set({ [column]: later && later.getTime() > now.getTime() ? later : null }).where(eq(tickets.ticketId, t.ticketId));
+        if (phase !== 'soon') continue;
+        await emitEventTx(tx, { orgId: t.orgId, ticketId: t.ticketId, kind: 'sla_soon', payload: { deadline } });
+        emitted++;
+      }
+    return emitted;
   });
 }
 
@@ -147,6 +197,7 @@ async function closeBySystem(
   await tx.insert(ticketEvents).values({ orgId: t.orgId, ticketId: t.ticketId, kind: 'status', actorType: 'system', payload: { from, to: 'closed' } });
   await tx.insert(ticketMessages).values({ orgId: t.orgId, ticketId: t.ticketId, authorType: 'system', body: systemText(t.locale, text, { days }) });
   await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: t.ticketId, orgId: t.orgId, diff: { from, to: 'closed', auto: true } });
+  await emitEventTx(tx, { orgId: t.orgId, ticketId: t.ticketId, kind: 'status_changed', payload: { from, to: 'closed' } });
   await refreshSla(tx, t.ticketId, now);
   await notifyTicketTx(tx, { ticketId: t.ticketId, kind: 'auto_closed', actorUserId: null });
 }
@@ -337,6 +388,8 @@ async function step(name: string, run: () => Promise<number>): Promise<number> {
 
 export async function ticketsMinuteTx(actor: SystemActor, now: Date): Promise<MinuteResult> {
   const refreshed = await step('refresh', () => refreshStale(actor, now));
+  // Сначала "срок скоро", затем нарушения: после простоя процесса по уже нарушенному сроку придёт только нарушение.
+  const soon = await step('soon', () => markSoon(actor, now));
   const breached = await step('breaches', () => markBreaches(actor, now));
   const unsnoozed = await step('snoozed', () => returnSnoozed(actor, now));
   const reminded = await step('reminder', () => remindWaiting(actor, now));
@@ -344,5 +397,5 @@ export async function ticketsMinuteTx(actor: SystemActor, now: Date): Promise<Mi
   await step('holidays', () => holidaysReminderTx(actor, now));
   const closed = await step('auto-close', () => autoClose(actor, now));
   const presenceRemoved = await step('presence', () => removePresence(actor, now));
-  return { breached, unsnoozed, closed, refreshed, presenceRemoved, reminded, updateDue };
+  return { breached, unsnoozed, closed, refreshed, soon, presenceRemoved, reminded, updateDue };
 }

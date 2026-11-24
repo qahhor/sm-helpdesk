@@ -4,6 +4,7 @@ import { assertCanWrite } from '../core/agent-actions';
 import { type ChangeSummary, listPresenceTx, loadDraftTx, postStaffMessageTx, saveDraftTx, syncPresenceTx, touchPresenceTx } from '../core/agent-messages';
 import { draftInput, numberInput, parseInput, presenceInput, staffMessageInput } from '../input';
 import type { PresenceMode } from '../pref';
+import { wakeAutomation } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Ответ клиенту, заметка, черновик и присутствие на рабочем месте (план M3, задача 8). Сотрудник только из
@@ -21,7 +22,11 @@ export async function postStaffMessage(ctx: StaffContext, input: unknown): Promi
   const data = parseInput(staffMessageInput, input);
   const mentionable = data.internal ? await listStaffDirectory(ctx) : [];
   const result = await postStaffMessageTx(ctx.actor, { ...data, seenVersion: new Date(data.seenVersion) }, { myName: ctx.user.name, mentionable });
-  if (result.ok) await wakeOutbox();
+  if (result.ok) {
+    await wakeOutbox();
+    // Событие ответа сотрудника записано в транзакции действия: разбор правил будится после фиксации.
+    if (!data.internal) await wakeAutomation();
+  }
   return result.ok ? { ok: true } : { ok: false, changed: result.changed, version: result.version };
 }
 

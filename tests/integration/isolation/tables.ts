@@ -26,6 +26,8 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Удаление: только ночная очистка под системным актором и только записи старше 3 лет (срок хранения журнала,
   // решение владельца 24.11.2026, решение 0041). Свежую запись политика не отдаёт ни одному актору: retention.test.ts.
   hdc_audit_log: { client: 'none', app: ['insert', 'delete'], auth: ['insert'] },
+  // События предметной области (веха M8): пишет действие над обращением, разбирает и удаляет система, клиент не видит.
+  hdc_domain_events: { client: 'none', app: IUD },
   hdc_ops_alerts: { client: 'none', app: IU },
   hdc_rate_limits: { client: 'none', app: IUD },
   hdc_settings: { client: 'none', app: IUD },

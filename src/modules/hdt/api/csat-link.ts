@@ -2,7 +2,7 @@ import 'server-only';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
-import { consumeRateLimit } from '@/modules/hdc/api';
+import { consumeRateLimit, wakeAutomation } from '@/modules/hdc/api';
 import { cleanUserText, RATE_RULES } from '@/modules/hdc/pref';
 import { replyConfig } from '@/modules/hdn/api/inbound';
 import { replyRole } from '@/modules/hdu/api/recipients';
@@ -71,5 +71,6 @@ export async function rateByLink(input: unknown, request: { ip: string | null })
     if (error.code === 'transition_refused') return { ok: false, code: 'not_closed' };
     return { ok: false, code: 'link_invalid' };
   }
+  await wakeAutomation();
   return { ok: true, number: parsed.number };
 }

@@ -2,7 +2,7 @@ import 'server-only';
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
-import { writeAudit } from '@/modules/hdc/api';
+import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ticketEvents, tickets } from '../schema';
 import { assertCanWrite } from './agent-actions';
@@ -69,6 +69,7 @@ export async function mergeTx(actor: StaffActor, number: number, intoNumber: num
       { orgId: dup.orgId, ticketId: dup.ticketId, kind: 'merge', actorType: 'staff', actorId: actor.userId, payload: {} },
       { orgId: main.orgId, ticketId: main.ticketId, kind: 'merge', actorType: 'staff', actorId: actor.userId, payload: { from: dup.number }, isInternal: true },
     ]);
+    await emitEventTx(tx, { orgId: dup.orgId, ticketId: dup.ticketId, kind: 'status_changed', payload: { from: dup.status, to: 'closed' } });
     await writeAudit(tx, { action: 'ticket.merged', objectType: 'ticket', objectId: dup.ticketId, orgId: dup.orgId, diff: { into: main.number } });
     await writeAudit(tx, { action: 'ticket.merged', objectType: 'ticket', objectId: main.ticketId, orgId: main.orgId, diff: { from: dup.number } });
     await refreshSla(tx, dup.ticketId, new Date());

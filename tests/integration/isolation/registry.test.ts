@@ -55,6 +55,7 @@ async function seedEverything() {
     [f.aUser.userId],
   );
   await pools.root.query(`insert into hdn_telegram_updates (update_id) values (1)`);
+  await pools.root.query(`insert into hdc_domain_events (org_id, ticket_id, kind) values ($1, $2, 'ticket_created')`, [f.orgA.orgId, f.tickets.aOrg.ticketId]);
   await pools.root.query(
     `with tag as (insert into hdr_tags (name, color) values ('Срочно', 'red') returning tag_id)
      insert into hdt_ticket_tags (org_id, ticket_id, tag_id, added_by) select $1, $2, tag_id, $3 from tag`,

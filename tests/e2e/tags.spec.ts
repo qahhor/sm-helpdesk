@@ -51,9 +51,13 @@ test('сотрудник ставит тег, видит его в очеред�
   expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
 
   // Очередь "Все": тег виден в строке обращения, фильтр по тегу оставляет только его.
-  await page.goto('/ru/agent/queues?queue=all');
+  // Строки ищутся по номеру: база браузерных тестов общая, первая страница очереди занята чужими обращениями.
+  await page.goto(`/ru/agent/queues?queue=all&q=SUP-${tagged}`);
   await expect(main(page).locator(`tr[data-number="${tagged}"] [data-row-tags]`)).toContainText(tag);
+  await page.goto(`/ru/agent/queues?queue=all&q=SUP-${plain}`);
   await expect(main(page).locator(`tr[data-number="${plain}"]`)).toBeVisible();
+  await expect(main(page).locator(`tr[data-number="${plain}"] [data-row-tags]`)).toHaveCount(0);
+  await page.goto('/ru/agent/queues?queue=all');
   await main(page).getByLabel('Тег', { exact: true }).selectOption({ label: tag });
   await main(page).getByRole('button', { name: 'Показать' }).click();
   await expect(page).toHaveURL(/tag=[0-9a-f-]{36}/);

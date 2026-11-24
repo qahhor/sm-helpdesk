@@ -2,7 +2,7 @@ import 'server-only';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
-import { type AuditAction, writeAudit } from '@/modules/hdc/api';
+import { type AuditAction, emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import {
   canTransition,
@@ -143,6 +143,8 @@ export async function changeStatusTx(
   const payload: Record<string, unknown> = { from: ticket.status, to };
   if (to === 'resolved') payload.resolution = opts.resolution;
   await recordChange(tx, actor, ticket, { kind: 'status', payload, audit: 'ticket.status_changed' });
+  // Событие для правил автоматизации в той же транзакции (FR-AUTO-02).
+  await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status_changed', payload: { from: ticket.status, to } });
   ticket.status = to;
 }
 
@@ -216,6 +218,8 @@ export async function setPriorityTx(actor: StaffActor, number: number, priority:
     await assertUnchangedTx(tx, ticket.ticketId, seen, actor.userId);
     stageTicket(ticket, { priority, priorityConfirmed: true }, { sla: true });
     await recordChange(tx, actor, ticket, { kind: 'priority', payload: { from: ticket.priority, to: priority, reason }, audit: 'ticket.priority_changed' });
+    // Тот же приоритет это подтверждение, а не изменение: события для правил нет. Причина в событие не идёт: это текст сотрудника.
+    if (ticket.priority !== priority) await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'priority_changed', payload: { from: ticket.priority, to: priority } });
     await flushTicketTx(tx, ticket);
     // Поднятие до P1 до первого ответа: дежурным одно сообщение (FR-SLA-07).
     await oncallP1Tx(tx, ticket.ticketId);

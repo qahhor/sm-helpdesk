@@ -4,7 +4,7 @@ import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import { configureLog, logEvent, timedJob } from '@/lib/log';
-import { bossOptions, cleanupAudit, cleanupRateLimits, createPgBossQueue, JOB_NAMES, setJobQueue } from '@/modules/hdc/api';
+import { bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, createPgBossQueue, eventsState, JOB_NAMES, processEvents, setJobQueue } from '@/modules/hdc/api';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
@@ -20,11 +20,12 @@ import { opsWatch } from './ops-watch';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок, задача обращений и отправка очереди писем раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений, отправка очереди писем и разбор событий раз в минуту, ночная очистка в 03:00 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
   { name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' },
+  { name: 'automation.process', cron: '* * * * *', tz: 'UTC' },
   { name: 'ops.watch', cron: '*/5 * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
@@ -111,6 +112,15 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const state = await outboxState(actor('outbox.dispatch'), new Date());
     logEvent(state.failed > 0 || state.lagSec > 60 ? 'warn' : state.queued > 0 ? 'info' : 'debug', 'outbox.state', state);
   }));
+  await boss.work('automation.process', polling, () => timedJob('automation.process', async () => {
+    // Разбор событий предметной области (план M8, задача 2). Пока событие только отмечается разобранным: правила
+    // подключает следующая задача вехи. При остановке процесса разбор прекращается между событиями.
+    const system = actor('automation.process');
+    const { processed, failed } = await processEvents(system, async () => {}, { stopped: () => stopping });
+    if (failed > 0) console.info(`События: разобрано ${processed}, со сбоем ${failed}`);
+    const state = await eventsState(system);
+    logEvent(state.lagSec > 120 ? 'warn' : state.pending > 0 ? 'info' : 'debug', 'automation.state', state);
+  }));
   await boss.work('ops.watch', polling, () => timedJob('ops.watch', async () => {
     const sent = await opsWatch(actor('ops.watch'));
     if (sent.length > 0) logEvent('warn', 'ops.alerts_sent', { codes: sent });
@@ -124,6 +134,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const sentMail = await cleanupOutbox(system);
     const letters = await cleanupInbound(system);
     // Журнал аудита хранится 3 года (ТЗ 14.6, решение владельца 24.11.2026).
+    // Разобранные события предметной области хранятся 30 суток (план M8, задача 2).
+    const events = await cleanupDomainEvents(system);
+    if (events > 0) console.info(`Ночная очистка: разобранные события старше 30 суток ${events}`);
     const audit = await cleanupAudit(system);
     if (audit > 0) console.info(`Ночная очистка: записи журнала аудита старше 3 лет ${audit}`);
     console.info(

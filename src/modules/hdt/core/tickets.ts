@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, isNull, or, type SQL, sql } from 'drizzle-
 import { containsText } from '@/db/contains';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
-import { writeAudit } from '@/modules/hdc/api';
+import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, type Impact, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
@@ -93,6 +93,8 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
     }
     await tx.insert(ticketWatchers).values({ orgId: actor.orgId, ticketId: row.ticketId, userId: actor.userId, source: 'author' });
     await tx.insert(ticketEvents).values({ orgId: actor.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: actor.userId });
+    // Событие для правил автоматизации в той же транзакции (FR-AUTO-02).
+    await emitEventTx(tx, { orgId: actor.orgId, ticketId: row.ticketId, kind: 'ticket_created', payload: { source: 'portal', type: input.type, priority } });
     await writeAudit(tx, { action: 'ticket.created', objectType: 'ticket', objectId: row.ticketId, orgId: actor.orgId, diff: { type: input.type, priority } });
     await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: null });
     if (priority === 'p1') await oncallP1Tx(tx, row.ticketId, { alreadyMarked: true });
@@ -147,6 +149,7 @@ export async function createTicketForClientTx(
     }
     await tx.insert(ticketWatchers).values({ orgId: input.orgId, ticketId: row.ticketId, userId: input.authorId, source: 'author' });
     await tx.insert(ticketEvents).values({ orgId: input.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'staff', actorId: actor.userId });
+    await emitEventTx(tx, { orgId: input.orgId, ticketId: row.ticketId, kind: 'ticket_created', payload: { source: 'staff', type: input.type, priority } });
     await writeAudit(tx, {
       action: 'ticket.created',
       objectType: 'ticket',
@@ -189,6 +192,7 @@ export async function createEmailTicketTx(
   if (!row) throw new Error('hdt: обращение из письма не создано');
   await tx.insert(ticketWatchers).values({ orgId: input.orgId, ticketId: row.ticketId, userId: input.authorId, source: 'author' });
   await tx.insert(ticketEvents).values({ orgId: input.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: input.authorId });
+  await emitEventTx(tx, { orgId: input.orgId, ticketId: row.ticketId, kind: 'ticket_created', payload: { source: 'email', type: 'question', priority: PRIORITY_BY_IMPACT.minor } });
   await writeAudit(tx, {
     action: 'ticket.created',
     objectType: 'ticket',

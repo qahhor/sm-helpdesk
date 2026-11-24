@@ -2,7 +2,7 @@ import 'server-only';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
-import { readSetting, writeAudit } from '@/modules/hdc/api';
+import { emitEventTx, readSetting, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, canTransition, type CsatReason, REOPEN_DAYS_DEFAULT, REOPEN_DAYS_SETTING, type TicketStatus, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
@@ -60,6 +60,7 @@ async function changeStatus(tx: Tx, actor: ClientActor, ticket: Locked, to: Tick
   const diff = { from: ticket.status, to };
   await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status', actorType: 'client', actorId: actor.userId, payload: diff });
   await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff });
+  await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status_changed', payload: diff });
 }
 
 /** Сообщение клиента с прикреплением его загрузок. Чужая или уже прикреплённая загрузка: invalid_input. */
@@ -85,6 +86,8 @@ async function addClientMessage(tx: Tx, actor: ClientActor, ticket: Locked, body
       .returning({ attachmentId: attachments.attachmentId });
     if (attached.length !== attachmentIds.length) throw new HdtError('file_unavailable');
   }
+  // Событие для правил автоматизации (FR-AUTO-02): без текста сообщения. Благодарность на решённое помечена.
+  await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'client_replied', payload: { source: 'portal', ...(isThanks ? { thanks: true } : {}) } });
 }
 
 /**
@@ -164,6 +167,7 @@ export async function rateTx(
       .set({ csatScore: rating.score, csatReason: rating.reason ?? null, csatComment: rating.comment ?? null })
       .where(eq(tickets.ticketId, ticket.ticketId));
     await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'rated', actorType: 'client', actorId: actor.userId, payload: { score: rating.score } });
+    await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'rated', payload: { score: rating.score } });
     if (via) await writeAudit(tx, { action: 'ticket.rated_by_link', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: { score: rating.score }, ...(via.ip ? { ip: via.ip } : {}) });
   });
 }

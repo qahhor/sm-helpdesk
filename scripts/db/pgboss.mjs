@@ -18,6 +18,9 @@ export const QUEUES = {
   'tickets.minute': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Отправка очереди писем (веха M4, решение 1): раз в минуту и после действия, повторы ведёт сама очередь писем.
   'outbox.dispatch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
+  // Разбор событий предметной области для правил (веха M8, решение 3): раз в минуту и после действия. Повторы
+  // ведёт сама очередь событий (счётчик попыток в hdc_domain_events).
+  'automation.process': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Сигналы дежурным о состоянии портала (план W0, задача 4): раз в 5 минут, без повторов.
   'ops.watch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Разбор входящего письма (веха M4, решение 10): одна задача на письмо, повторы при сбое сервиса почты.

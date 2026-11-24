@@ -454,7 +454,15 @@ export async function ticketsWithEventTx(tx: Tx, ticketIds: readonly string[], k
   const rows = await tx
     .selectDistinct({ ticketId: ticketEvents.ticketId })
     .from(ticketEvents)
-    .where(and(inArray(ticketEvents.ticketId, ids), eq(ticketEvents.kind, CHANGE_KINDS[kind]), sql`not (${ticketEvents.payload} ? 'byRule')`));
+    .where(
+      and(
+        inArray(ticketEvents.ticketId, ids),
+        eq(ticketEvents.kind, CHANGE_KINDS[kind]),
+        sql`not (${ticketEvents.payload} ? 'byRule')`,
+        // Подтверждение приоритета пишет событие истории без смены значения, а событие правил не пишет (проверка волны 5, I1).
+        sql`(not (${ticketEvents.payload} ? 'from') or (${ticketEvents.payload} ->> 'from') is distinct from (${ticketEvents.payload} ->> 'to'))`,
+      ),
+    );
   return new Set(rows.map((row) => row.ticketId));
 }
 

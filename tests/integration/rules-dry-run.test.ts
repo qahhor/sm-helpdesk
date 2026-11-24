@@ -57,6 +57,9 @@ test('событие обращения: совпадений пробного �
   await postStaffMessage(l1, { number: f.tickets.aMine.number, body: 'Заметка для коллег', internal: true, seenVersion: seen() });
   await setPriority(l1, { number: f.tickets.aMine.number, priority: 'p1', reason: 'Стоит склад' });
   await setStatus(l1, { number: f.tickets.aPrivate.number, to: 'in_progress' });
+  // Подтверждение приоритета без смены пишет событие истории, но не событие правил: в пробный прогон не входит.
+  const kept = (await pools.root.query(`select priority from hdt_tickets where ticket_id = $1`, [f.tickets.bOrg.ticketId])).rows[0].priority;
+  await setPriority(l1, { number: f.tickets.bOrg.number, priority: kept, reason: 'Приоритет подтверждён' });
 
   const events = ['client_replied', 'staff_replied', 'status_changed', 'priority_changed', 'rated'] as const;
   const dry = new Map<string, Awaited<ReturnType<typeof dryRunRule>>>();

@@ -8,18 +8,22 @@ import {
   readServerForCheck,
   readServers,
   resealServerSecrets as resealCore,
+  rotateContextSecret,
   saveServer,
   saveServerCheck,
   type ServerCheckResult,
   type ServerDetails,
   type ServerRow,
   setServerState,
+  type ServerWidget,
   updateServerRow,
+  updateWidgetRow,
 } from '../core/servers';
 import { HduError } from '../error';
 import { parseInput } from '../input';
-import { CLIENT_ROLES, SERVER_CODE_PATTERN, type ServerIssue } from '../pref';
+import { CLIENT_ROLES, CONTEXT_KEY_MODES, EMBED_ORIGINS_MAX, SERVER_CODE_PATTERN, type ServerIssue } from '../pref';
 import { assertPublicUrl, isLocalPortal, SafeFetchError, safeFetchJson } from '../url-safety';
+import { LOOPBACK_HOSTS } from '@/security/outbound';
 import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './session';
 
 // Реестр серверов Smartup (FR-ID-02, FR-ADM-01). Этот файл не тянет библиотеку входа:
@@ -42,7 +46,7 @@ const serverInput = z.object({
 const codeInput = z.string().regex(SERVER_CODE_PATTERN);
 
 export type ServerView = ServerRow;
-export type { ServerDetails, ServerIssue };
+export type { ServerDetails, ServerIssue, ServerWidget };
 export type ServerCheck = ServerCheckResult;
 
 function assertCanManageServers(actor: SystemActor | StaffActor): void {
@@ -156,6 +160,96 @@ export async function getServer(actor: SystemActor | StaffActor, code: unknown):
 /** Адрес возврата портала на сервере Smartup: его передают разработчикам Smartup при регистрации портала. */
 export function serverCallbackUrl(code: string): string {
   return new URL(`/api/auth/sso/callback/${code}`, getEnv().HUB_URL).toString();
+}
+
+// --- Виджет: токен контекста и встраивание (план M6, задача 1; решения 2, 4 и 6) ---
+
+const widgetInput = z
+  .object({
+    code: codeInput,
+    // Пустое значение формы: виджет с сервером выключен.
+    mode: z.enum(CONTEXT_KEY_MODES).nullable(),
+    contextIssuer: urlText.optional(),
+    jwksUrl: urlText.nullable().optional(),
+    embedOrigins: z.array(z.string().trim().min(1).max(200)).max(EMBED_ORIGINS_MAX * 2),
+  })
+  .strict();
+
+/**
+ * Издатель токена контекста: адрес со схемой https (http только у локального портала и только для localhost),
+ * без учётной записи, параметров и якоря. Портал по нему никуда не ходит: это строка для сравнения с iss.
+ */
+function checkedIssuer(raw: string, allowLoopback: boolean): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new HduError('invalid_input');
+  }
+  const loopbackHttp = allowLoopback && url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname);
+  if ((url.protocol !== 'https:' && !loopbackHttp) || url.username || url.password || url.search || url.hash) throw new HduError('invalid_input');
+  // Сравнивается с iss буква в букву: сохраняется то, что ввёл администратор, без нормализации URL.
+  return raw;
+}
+
+/**
+ * Адрес встраивания: ровно схема, узел и порт. https; http только у локального портала и только для localhost и
+ * 127.0.0.1 (решение 0015). Значение попадает в заголовок frame-ancestors, поэтому сверяется с разобранным началом адреса.
+ */
+function checkedOrigin(raw: string, allowLoopback: boolean): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new HduError('invalid_input');
+  }
+  const loopbackHttp = allowLoopback && url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname);
+  if ((url.protocol !== 'https:' && !loopbackHttp) || url.origin !== raw) throw new HduError('invalid_input');
+  return url.origin;
+}
+
+/**
+ * Настройки виджета сервера: режим подписи токена контекста, издатель, адрес ключей и адреса встраивания.
+ * Только admin со свежим входом. Адрес ключей проверяется по правилам T16 (внешний узел, https). Переход в режим
+ * secret без секрета создаёт секрет и возвращает его один раз: администратор передаёт его разработчикам Smartup.
+ */
+export async function updateWidgetSettings(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<{ secret: string | null }> {
+  const actor = managingActor(ctx, now);
+  const data = parseInput(widgetInput, input);
+  const allowLoopback = isLocalPortal(getEnv().HUB_URL);
+  const contextIssuer = data.contextIssuer === undefined ? undefined : checkedIssuer(data.contextIssuer, allowLoopback);
+  const jwksUrl = data.jwksUrl ? (await assertPublicUrl(data.jwksUrl, { allowLoopback })).toString() : data.jwksUrl;
+  const embedOrigins = [...new Set(data.embedOrigins.map((origin) => checkedOrigin(origin, allowLoopback)))];
+  if (embedOrigins.length > EMBED_ORIGINS_MAX) throw new HduError('invalid_input');
+  const result = await updateWidgetRow(actor, data.code, { mode: data.mode, contextIssuer, jwksUrl, embedOrigins });
+  if (!result) throw new HduError('not_found');
+  return result;
+}
+
+/** Новый общий секрет токена контекста вместо прежнего. Только admin со свежим входом. Секрет показывается один раз. */
+export async function createContextSecret(ctx: StaffContext, code: unknown, now: Date = new Date()): Promise<{ secret: string }> {
+  const actor = managingActor(ctx, now);
+  const result = await rotateContextSecret(actor, parseInput(codeInput, code));
+  if (!result) throw new HduError('not_found');
+  return result;
+}
+
+/**
+ * Фрагмент подключения виджета для разработчиков Smartup (ТЗ 11.9): загрузчик с адреса портала и вызов init с ключом
+ * встраивания сервера. Имена currentLocale и requestContextToken обозначают код Smartup Web.
+ */
+export function widgetSnippet(embedKey: string): string {
+  const hub = getEnv().HUB_URL;
+  return [
+    `<script src="${hub}/widget/v1/hub-widget.js" async></script>`,
+    '',
+    'window.SmartupHub.init({',
+    `  hubUrl: '${hub}',`,
+    `  embedKey: '${embedKey}',`,
+    '  locale: currentLocale(),',
+    '  getContextToken: () => requestContextToken(),',
+    '});',
+  ].join('\n');
 }
 
 // --- Проверка связи (FR-ADM-01) ---

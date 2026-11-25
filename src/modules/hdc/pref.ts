@@ -18,6 +18,9 @@ export const AUDIT_ACTIONS = [
   'server.disabled',
   'server.enabled',
   'server.updated',
+  // Настройки виджета сервера и новый секрет токена контекста (план M6, задача 1). Секрета в журнале нет.
+  'server.widget_updated',
+  'server.context_secret_created',
   // Организации и участники
   'org.provisioned',
   'org.updated',

@@ -746,7 +746,45 @@
           "not_found": "Server topilmadi."
         },
         "reauth": "Qayta kirish",
-        "formTitle": "Kirish sozlamalari"
+        "formTitle": "Kirish sozlamalari",
+        "widget": {
+          "title": "Vidjet",
+          "intro": "Vidjet Smartup Web ichida portalga kirmasdan ochiladi: Smartup serveri kontekst tokenini imzolaydi, portal imzoni tekshiradi va mijozga panelni ochadi.",
+          "mode": "Kontekst tokeni imzosi",
+          "modes": {
+            "none": "Vidjet o'chirilgan",
+            "jwks": "Manzildagi ochiq kalitlar (JWKS): ES256, EdDSA yoki RS256",
+            "secret": "Umumiy sir: HS256"
+          },
+          "modeHint": "Ochiq kalitlarni tavsiya qilamiz: yopiq kalit faqat Smartup serverida qoladi. Boshqa algoritmlarni portal qabul qilmaydi.",
+          "contextIssuer": "Token chiqaruvchisi (iss)",
+          "contextIssuerHint": "Smartup serveri iss maydoniga qo'yadigan qator. Odatda kirish serveri manzili. Har bir serverda o'ziniki.",
+          "jwksUrl": "Ochiq kalitlar manzili",
+          "jwksUrlHint": "Faqat https va faqat tashqi tugun. Ochiq kalitlar bilan imzolash uchun kerak.",
+          "embedOrigins": "Qo'shimcha joylashtirish manzillari",
+          "embedOriginsHint": "Har bir manzil alohida qatorda, beshtagacha: sxema, tugun va port, yo'lsiz, masalan https://web2.smartup.example.uz. Smartup Web manziliga doim ruxsat bor.",
+          "embedKey": "Joylashtirish kaliti",
+          "embedKeyHint": "Sir emas. Uni quyidagi parcha bilan birga Smartup dasturchilariga bering: u orqali portal vidjetni faqat shu server manzillarida ko'rsatadi.",
+          "audience": "Qabul qiluvchi (aud)",
+          "lifetime": "Token muddati",
+          "lifetimeValue": "5 daqiqadan oshmaydi, jti bir martalik",
+          "snippet": "Smartup Web ga ulash",
+          "secret": "Umumiy sir",
+          "secretSet": "Sir berilgan",
+          "secretMissing": "Sir yo'q. Umumiy sir bilan imzolashni tanlaganingizda paydo bo'ladi.",
+          "secretShownTitle": "Yangi umumiy sir",
+          "secretShownText": "Uni hozir nusxalang va Smartup dasturchilariga himoyalangan kanal orqali bering. Portal uni boshqa ko'rsatmaydi.",
+          "rotate": "Yangi sir yaratish",
+          "rotateHint": "Oldingi sir darhol amal qilmay qoladi: u bilan imzolangan tokenlarni portal qabul qilmaydi.",
+          "save": "Vidjet sozlamalarini saqlash",
+          "saved": "Vidjet sozlamalari saqlandi.",
+          "errors": {
+            "invalid_input": "Maydonlarni tekshiring: chiqaruvchi va kalitlar manzili (faqat https, kalitlar faqat tashqi tugunda), joylashtirish manzillari (beshtagacha, yo'lsiz). Ochiq kalitlar uchun kalitlar manzili kerak.",
+            "server_taken": "Bu token chiqaruvchisi boshqa serverda allaqachon yozilgan."
+          },
+          "copy": "Sirni nusxalash",
+          "copied": "Nusxa olindi"
+        }
       },
       "staff": {
         "title": "Xodimlar",
@@ -894,7 +932,9 @@
             "added": "Server qo'shildi",
             "disabled": "Server o'chirildi",
             "enabled": "Server yoqildi",
-            "updated": "Server o'zgartirildi"
+            "updated": "Server o'zgartirildi",
+            "widget_updated": "Server vidjeti sozlamalari o'zgartirildi",
+            "context_secret_created": "Kontekst tokeni uchun yangi sir yaratildi"
           },
           "org": {
             "provisioned": "Tashkilot yaratildi",

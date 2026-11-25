@@ -746,7 +746,45 @@
           "not_found": "Server not found."
         },
         "reauth": "Sign in again",
-        "formTitle": "Sign-in settings"
+        "formTitle": "Sign-in settings",
+        "widget": {
+          "title": "Widget",
+          "intro": "The widget opens inside Smartup Web without signing in to the portal: the Smartup server signs a context token, the portal checks the signature and opens the panel for the client.",
+          "mode": "Context token signature",
+          "modes": {
+            "none": "Widget off",
+            "jwks": "Public keys at an address (JWKS): ES256, EdDSA or RS256",
+            "secret": "Shared secret: HS256"
+          },
+          "modeHint": "We recommend public keys: the private key stays on the Smartup server only. The portal accepts no other algorithms.",
+          "contextIssuer": "Token issuer (iss)",
+          "contextIssuerHint": "The value the Smartup server puts in the iss field. By default the sign-in server address. Each server has its own.",
+          "jwksUrl": "Public keys address",
+          "jwksUrlHint": "https and a public host only. Needed for signing with public keys.",
+          "embedOrigins": "Extra embedding addresses",
+          "embedOriginsHint": "One address per line, up to five: scheme, host and port without a path, for example https://web2.smartup.example.uz. The Smartup Web address is always allowed.",
+          "embedKey": "Embedding key",
+          "embedKeyHint": "Not a secret. Give it to the Smartup developers with the snippet below: with it the portal shows the widget only on this server addresses.",
+          "audience": "Audience (aud)",
+          "lifetime": "Token lifetime",
+          "lifetimeValue": "no more than 5 minutes, jti used once",
+          "snippet": "Connecting in Smartup Web",
+          "secret": "Shared secret",
+          "secretSet": "Secret is set",
+          "secretMissing": "No secret yet. It appears when you choose signing with a shared secret.",
+          "secretShownTitle": "New shared secret",
+          "secretShownText": "Copy it now and give it to the Smartup developers over a secure channel. The portal will not show it again.",
+          "rotate": "Create a new secret",
+          "rotateHint": "The old secret stops working at once: the portal will not accept tokens signed with it.",
+          "save": "Save widget settings",
+          "saved": "Widget settings saved.",
+          "errors": {
+            "invalid_input": "Check the fields: issuer and keys address (https only, keys on a public host only), embedding addresses (up to five, no path). Public keys need a keys address.",
+            "server_taken": "This token issuer is already used by another server."
+          },
+          "copy": "Copy the secret",
+          "copied": "Copied"
+        }
       },
       "staff": {
         "title": "Staff",
@@ -894,7 +932,9 @@
             "added": "Server added",
             "disabled": "Server disabled",
             "enabled": "Server enabled",
-            "updated": "Server changed"
+            "updated": "Server changed",
+            "widget_updated": "Server widget settings changed",
+            "context_secret_created": "New context token secret created"
           },
           "org": {
             "provisioned": "Organization created",

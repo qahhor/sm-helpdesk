@@ -79,6 +79,7 @@ async function seedEverything() {
     [f.orgA.orgId, f.tickets.aOrg.ticketId],
   );
   await pools.root.query(`insert into hdu_server_checks (server_id, is_ok, issues) values ($1, false, '{timeout}')`, [f.server.serverId]);
+  await pools.root.query(`insert into hdu_context_token_uses (server_id, jti, expires_on) values ($1, 'jti-1', now() + interval '5 minutes')`, [f.server.serverId]);
   // Знания: по решению для клиентов и "только через сотрудника", чтобы проверка аудитории что-то значила.
   for (const audience of ['clients', 'internal']) {
     const a = (await pools.root.query(`insert into hdk_articles (audience, original_locale) values ($1, 'ru') returning article_id, number`, [audience])).rows[0];

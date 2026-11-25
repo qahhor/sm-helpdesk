@@ -5,12 +5,14 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import {
   addServer,
   checkServer,
+  createContextSecret,
   disableServer,
   enableServer,
   isHduError,
   requireStaffActor,
   type StaffContext,
   updateServer,
+  updateWidgetSettings,
 } from '@/modules/hdu/api';
 
 // Действия реестра серверов в разделе "Настройки". Права и свежесть входа проверяет модуль:
@@ -116,4 +118,56 @@ export async function disableServerAction(formData: FormData): Promise<void> {
 /** Включение отключённого сервера. */
 export async function enableServerAction(formData: FormData): Promise<void> {
   await run(formData, (staff, code) => enableServer(staff, code), 'enabled');
+}
+
+// --- Виджет сервера (план M6, задача 1) ---
+
+export type WidgetFormValues = Record<'mode' | 'contextIssuer' | 'jwksUrl' | 'embedOrigins', string>;
+/** secret: новый общий секрет, показывается один раз и больше нигде не хранится в открытом виде. */
+export type WidgetFormState = { error?: string; reauth?: boolean; saved?: boolean; secret?: string; values?: WidgetFormValues };
+
+const WIDGET_ERRORS = new Set(['invalid_input', 'server_taken']);
+
+/** Сообщение об ошибке виджета: свои тексты для полей виджета, остальные общие для реестра. */
+async function widgetError(code: string): Promise<WidgetFormState> {
+  const t = await getTranslations('agent.settings.servers');
+  const known = KNOWN_ERRORS.has(code) ? code : 'invalid_input';
+  return { error: WIDGET_ERRORS.has(known) ? t(`widget.errors.${known}`) : t(`errors.${known}`), reauth: known === 'stale_session' };
+}
+
+/** Сохранение настроек виджета: режим подписи, издатель, адрес ключей, адреса встраивания. */
+export async function saveWidgetAction(_previous: WidgetFormState, formData: FormData): Promise<WidgetFormState> {
+  const staff = await requireStaffActor({ roles: ['admin'] });
+  const values: WidgetFormValues = {
+    mode: field(formData, 'mode'),
+    contextIssuer: field(formData, 'contextIssuer'),
+    jwksUrl: field(formData, 'jwksUrl'),
+    embedOrigins: field(formData, 'embedOrigins'),
+  };
+  const input = {
+    code: field(formData, 'code'),
+    mode: values.mode === '' ? null : values.mode,
+    contextIssuer: values.contextIssuer.trim() === '' ? undefined : values.contextIssuer.trim(),
+    jwksUrl: values.jwksUrl.trim() === '' ? null : values.jwksUrl.trim(),
+    embedOrigins: values.embedOrigins.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+  };
+  try {
+    const { secret } = await updateWidgetSettings(staff, input);
+    return { saved: true, ...(secret && { secret }), values };
+  } catch (error) {
+    if (!isHduError(error)) throw error;
+    return { ...(await widgetError(error.code)), values };
+  }
+}
+
+/** Новый общий секрет токена контекста. Секрет возвращается странице один раз. */
+export async function rotateContextSecretAction(_previous: WidgetFormState, formData: FormData): Promise<WidgetFormState> {
+  const staff = await requireStaffActor({ roles: ['admin'] });
+  try {
+    const { secret } = await createContextSecret(staff, field(formData, 'code'));
+    return { secret };
+  } catch (error) {
+    if (!isHduError(error)) throw error;
+    return widgetError(error.code);
+  }
 }

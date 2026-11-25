@@ -81,16 +81,20 @@ export {
 export {
   addServer,
   checkServer,
+  createContextSecret,
   disableServer,
   enableServer,
   getServer,
   listServers,
   serverCallbackUrl,
   updateServer,
+  updateWidgetSettings,
+  widgetSnippet,
   type ServerCheck,
   type ServerDetails,
   type ServerIssue,
   type ServerView,
+  type ServerWidget,
 } from './api/servers';
 export { describeLoginServer, forgetServer, type LoginServerState, rememberServer, startSmartupSignIn } from './api/sso';
 export {

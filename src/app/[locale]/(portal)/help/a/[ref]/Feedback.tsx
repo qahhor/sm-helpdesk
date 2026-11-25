@@ -6,8 +6,8 @@ import { Link } from '@/i18n/navigation';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { solutionFeedbackAction } from './actions';
 
-// Кнопки "Помогло" и "Не помогло" (экран "Страница решения", ТЗ 8.3). После "Не помогло" предлагается новое обращение;
-// возврат к форме с сохранённым описанием (FR-SOL-11) добавит подсказка задачи 10.
+// Кнопки "Помогло" и "Не помогло" (экран "Страница решения", ТЗ 8.3). После "Не помогло" кнопка ведёт обратно к форме
+// обращения: описание там из черновика на устройстве, поля раскрыты, сессия подсказки та же (FR-SOL-11).
 
 export function Feedback({
   number,
@@ -34,7 +34,7 @@ export function Feedback({
     return (
       <div role="status" className="flex flex-col items-start gap-2">
         <p>{labels.sorry}</p>
-        <Link href="/tickets/new" className={buttonVariants()}>
+        <Link href={`/tickets/new?${sessionId ? `s=${sessionId}&` : ''}open=1`} className={buttonVariants()}>
           {labels.newRequest}
         </Link>
       </div>

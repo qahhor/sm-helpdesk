@@ -174,3 +174,59 @@ export async function maxAppConnections<T>(fn: () => Promise<T>): Promise<{ resu
     (pool as unknown as { connect: unknown }).connect = original;
   }
 }
+
+/**
+ * Заливает опубликованные решения прямо в копию для читателей и поисковый индекс (замер подсказки FR-SOL-14, план M5,
+ * задача 10): статья, версия, копия и строки индекса на трёх языках с векторами заглушки. Без триггеров, поэтому tsv
+ * считается здесь тем же выражением, что у триггера миграции 0074. Тексты собираются из словаря, чтобы запросы
+ * находили разные решения.
+ */
+export async function seedBulkSolutions(count: number, vectorOf: (text: string) => number[]): Promise<void> {
+  const subjects = ['заказ', 'накладная', 'отчёт', 'касса', 'склад', 'возврат', 'оплата', 'договор', 'прайс', 'маршрут', 'визит', 'остаток', 'акт сверки', 'счёт', 'бонус'];
+  const problems = ['не сохраняется', 'не проводится', 'печатается пустым', 'выдаёт ошибку', 'не загружается', 'показывает старые данные', 'зависает', 'не отправляется'];
+  const reasons = ['закрыт период', 'нет прав у роли', 'не хватает остатка', 'не заполнен склад', 'устарел курс валюты', 'нет связи с сервером', 'не указан договор'];
+  const rows: { title: string; body: string; locale: string }[] = [];
+  for (let i = 0; i < count; i++) {
+    const title = `${subjects[i % subjects.length]} ${problems[(i * 7) % problems.length]}: ${reasons[(i * 3) % reasons.length]} (${i})`;
+    const body = `При работе ${subjects[i % subjects.length]} ${problems[(i * 7) % problems.length]}. Причина: ${reasons[(i * 3) % reasons.length]}. Откройте настройки и проверьте раздел ${subjects[(i + 3) % subjects.length]}.`;
+    for (const locale of ['ru', 'uz', 'en']) rows.push({ title, body, locale });
+  }
+  const client = await pools.root.connect();
+  try {
+    await client.query(`set session_replication_role = replica`);
+    const articles = await client.query<{ article_id: string; number: string }>(
+      `insert into hdk_articles (original_locale, audience) select 'ru', case when g % 10 = 0 then 'internal' else 'clients' end from generate_series(1, $1::int) g returning article_id, number`,
+      [count],
+    );
+    for (let start = 0; start < rows.length; start += 600) {
+      const batch = rows.slice(start, start + 600);
+      const articleIds = batch.map((_, j) => articles.rows[Math.floor((start + j) / 3)]!.article_id);
+      await client.query(
+        `with input as (
+           select * from unnest($1::uuid[], $2::text[], $3::text[], $4::text[], $5::text[]) as t(article_id, locale, title, body, vec)
+         ), v as (
+           insert into hdk_article_versions (article_id, locale, number, title, doc, state)
+           select article_id, locale, 1, title, '{"version":1,"blocks":[]}', 'published' from input returning version_id, article_id, locale
+         ), p as (
+           insert into hdk_published (article_id, version_id, article_number, locale, audience, title, doc, body_text, slug, original_locale)
+           select i.article_id, v.version_id, a.number, i.locale, a.audience, i.title, '{"version":1,"blocks":[]}', i.body, 'bulk-' || a.number, 'ru'
+             from input i join v on v.article_id = i.article_id and v.locale = i.locale join hdk_articles a on a.article_id = i.article_id
+           returning published_id, article_id, locale, audience, title, body_text
+         )
+         insert into hdk_search_documents (published_id, ref_id, kind, article_type, locale, title, body_text, audience, tsv, embedding)
+         select p.published_id, p.article_id, 'article', 'solution', p.locale, p.title, p.body_text, p.audience,
+                setweight(to_tsvector(app.hdk_text_config(p.locale), app.hdk_search_text(p.locale, p.title)), 'A')
+                || setweight(to_tsvector(app.hdk_text_config(p.locale), app.hdk_search_text(p.locale, p.body_text)), 'B'),
+                i.vec::vector
+           from p join input i on i.article_id = p.article_id and i.locale = p.locale`,
+        [articleIds, batch.map((r) => r.locale), batch.map((r) => r.title), batch.map((r) => r.body), batch.map((r) => `[${vectorOf(`${r.title}\n${r.body}`).join(',')}]`)],
+      );
+    }
+    await client.query(`set session_replication_role = origin`);
+    await client.query(`analyze hdk_search_documents`);
+    await client.query(`analyze hdk_published`);
+  } finally {
+    await client.query(`set session_replication_role = origin`).catch(() => undefined);
+    client.release();
+  }
+}

@@ -229,6 +229,10 @@ export const RATE_RULES = {
   kbFeedbackOnce: { limit: 1, windowSec: 86_400 },
   /** Те же кнопки: 30 нажатий в час на пользователя по всем решениям. */
   kbFeedbackPerUser: { limit: 30, windowSec: 3600 },
+  /** Подсказка решений на форме обращения (план M5, решение 13): 60 запросов в минуту на пользователя. */
+  kbSuggestPerUser: { limit: 60, windowSec: 60 },
+  /** Та же подсказка: 600 в час на организацию, чтобы предел не обходился числом пользователей. */
+  kbSuggestPerOrg: { limit: 600, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

@@ -60,3 +60,27 @@ export const fileStorageKey = (articleId: string, fileId: string): string => `fi
 export const ALLOWED_DOMAINS_SETTING = 'kb.allowed_domains';
 /** Сколько доменов принимает настройка. */
 export const ALLOWED_DOMAINS_MAX = 50;
+
+// --- Подсказка решений (план M5, задача 10; ТЗ 11.6, FR-SOL-08..14, решения 5, 8, 13, 17) ---
+
+/** Сколько мест даёт каждый из трёх списков гибридного поиска (ТЗ 11.6). */
+export const SEARCH_LIST_LIMIT = 20;
+/** Смысловой список: косинусное расстояние меньше порога (начальный 0.45, решение 17; подбирается в задаче 11). */
+export const SEMANTIC_MAX_DISTANCE = 0.45;
+/** Смысловое совпадение настолько близкое, что документ уверенный и из одного списка (решение 17). */
+export const SEMANTIC_STRONG_DISTANCE = 0.25;
+/** Триграммный список: сходство заголовка и запроса не ниже порога. */
+export const TRIGRAM_MIN_SIMILARITY = 0.5;
+/** Прибавка за совпадение модуля: множитель к оценке (решение 17). */
+export const MODULE_BOOST = 1.1;
+/** Не больше трёх решений в подсказке (FR-SOL-08). */
+export const SUGGEST_MAX = 3;
+/** Длина запроса подсказки: от 3 до 500 знаков (решение 13). */
+export const SUGGEST_QUERY_MIN = 3;
+export const SUGGEST_QUERY_MAX = 500;
+/** Блок подсказки появляется через 400 мс после последнего символа (экран 8.3). */
+export const SUGGEST_DEBOUNCE_MS = 400;
+/** Вектор запроса ждём не дольше 150 мс, потом подсказка идёт без смыслового поиска (решение 5). */
+export const QUERY_EMBED_TIMEOUT_MS = 150;
+/** "Встречалось у N клиентов" показывается от трёх организаций (решение 8). */
+export const ORG_COUNT_MIN = 3;

@@ -13,9 +13,13 @@ import { browserDrafts, browserSession, clearDraft, type Draft, draftKey, forget
 import { createTicketAction, type NewTicketState } from './actions';
 import { ModulePicker } from './ModulePicker';
 import { Select } from '@/ui/components/select';
+import { type SuggestLabels, Suggestions } from './Suggestions';
 
 // Форма нового обращения (ТЗ 8.3, FR-TK-02): описание, тема из описания, тип, модуль, влияние, видимость, файлы.
 // Черновик сохраняется на устройстве (UX-C-02), ошибка показывается у поля, введённое не теряется (UX-C-10).
+// Под описанием подсказка решений (план M5, задача 10): пока она показана, остальные поля свёрнуты и раскрываются
+// после "Не помогло" (экран 8.3); без подсказок поля видны сразу. Возврат со страницы решения после "Не помогло"
+// открывает форму с раскрытыми полями и описанием из черновика (FR-SOL-11).
 
 export type NewTicketLabels = {
   description: string;
@@ -37,12 +41,17 @@ export type NewTicketLabels = {
   busy: string;
   errors: Record<string, string>;
   files: FilePickerLabels;
+  suggest: SuggestLabels & { sendAnyway: string };
 };
 
 const INITIAL: NewTicketState = { error: null, field: null };
 
 type FormProps = {
   userId: string;
+  /** Сессия формы для исходов подсказки: выдаёт сервер (решение 12). */
+  sessionId: string;
+  /** Поля раскрыты сразу: возврат после "Не помогло". */
+  initialOpen: boolean;
   relatedNumber: number | null;
   modules: RadioOption[];
   types: RadioOption[];
@@ -64,6 +73,8 @@ const pick = (value: string | undefined, options: RadioOption[], fallback: strin
 
 function Fields({
   userId,
+  sessionId,
+  initialOpen,
   relatedNumber,
   modules,
   types,
@@ -85,6 +96,10 @@ function Fields({
   const [visibility, setVisibility] = useState(pick(draft?.visibility, visibilities, 'org'));
   const [moduleId, setModuleId] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
+  const [suggested, setSuggested] = useState(false);
+  // Поля свёрнуты, пока показана подсказка и клиент не нажал "Не помогло". Ошибка отправки поля раскрывает.
+  const collapsed = suggested && !open && !state.error;
 
   // Текст сохраняется при каждом изменении, в том числе после ошибки отправки. До гидратации не трогаем хранилище.
   const current = useMemo<Draft>(
@@ -143,6 +158,20 @@ function Fields({
         )}
       </div>
 
+      <input type="hidden" name="suggestSession" value={sessionId} />
+      <Suggestions
+        text={description}
+        moduleId={moduleId}
+        sessionId={sessionId}
+        open={open}
+        labels={labels.suggest}
+        onChange={setSuggested}
+        onNotHelped={() => setOpen(true)}
+      />
+
+      {/* Клиент уже заполняет поля: подсказка, пришедшая позже, их не сворачивает. */}
+      <div hidden={collapsed} onFocus={() => setOpen(true)} className="flex flex-col gap-5">
+      {suggested && <h2 className="font-semibold">{labels.suggest.sendAnyway}</h2>}
       <div className="flex flex-col gap-1">
         <Label htmlFor="field-title">{labels.subject}</Label>
         <Input
@@ -193,6 +222,7 @@ function Fields({
       <Button type="submit" disabled={pending || uploading} className="tablet:self-start">
         {labels.submit}
       </Button>
+      </div>
     </form>
   );
 }

@@ -182,7 +182,14 @@
         "submit": "Send request",
         "moduleSearch": "Search modules",
         "moduleRecent": "Recent",
-        "moduleAll": "All modules"
+        "moduleAll": "All modules",
+        "suggest": {
+          "title": "Looks like this has been solved before",
+          "exact": "Exact match for the error",
+          "notHelped": "Didn't help, send a request",
+          "sendAnyway": "Didn't help? Send a request",
+          "orgCount": "{count, plural, one {Seen by # client} other {Seen by # clients}}"
+        }
       },
       "list": {
         "new": "New request",
@@ -2246,6 +2253,12 @@
         "open": "Solution {number}",
         "hint": "A solution draft from this request's conversation: AI removes client data, you review and publish it.",
         "create": "Create solution"
+      },
+      "related": {
+        "title": "Related solutions",
+        "exact": "Exact match for the error",
+        "internal": "Staff only: explain it to the client in your own words",
+        "insert": "Insert link into reply"
       }
     },
     "playbooks": {

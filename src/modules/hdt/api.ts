@@ -148,7 +148,7 @@ export const ALLOWED_FILE_EXTENSIONS: readonly string[] = Object.keys(ALLOWED_FI
  * Новое обращение клиента (FR-TK-01..05). Организация и автор из контекста, поля организации во входе
  * отбрасываются. Не больше 10 обращений в час на пользователя (раздел 14.5).
  */
-export async function createTicket(ctx: ClientContext, input: unknown): Promise<{ number: number }> {
+export async function createTicket(ctx: ClientContext, input: unknown): Promise<{ number: number; ticketId: string }> {
   const data = parseInput(createTicketInput, input);
   if (new Set(data.attachmentIds).size > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
   if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
@@ -163,7 +163,7 @@ export async function createTicket(ctx: ClientContext, input: unknown): Promise<
   // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации. Событие для правил тоже записано.
   await wakeOutbox();
   await wakeAutomation();
-  return { number };
+  return { number, ticketId };
 }
 
 // --- Список и страница (FR-TK-06, FR-TK-07, FR-TK-17) ---

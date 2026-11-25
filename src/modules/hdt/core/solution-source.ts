@@ -60,3 +60,17 @@ export async function solutionSourceOf(actor: StaffActor | SystemActor, where: {
     return { ...ticket, messages: rows as SolutionSourceMessage[] };
   });
 }
+
+export type TicketSearchKey = { title: string; errorSignature: string | null; moduleId: string | null; locale: string };
+
+/** Ключ поиска связанных решений: без описания и переписки, они в поиск не нужны. */
+export async function ticketSearchKeyOf(actor: StaffActor, ticketId: string): Promise<TicketSearchKey | null> {
+  return withActor(actor, async (tx) => {
+    const [row] = await tx
+      .select({ title: tickets.title, errorSignature: tickets.errorSignature, moduleId: tickets.moduleId, locale: tickets.locale })
+      .from(tickets)
+      .where(eq(tickets.ticketId, ticketId))
+      .limit(1);
+    return row ?? null;
+  });
+}

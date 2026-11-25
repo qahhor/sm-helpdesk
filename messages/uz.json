@@ -182,7 +182,14 @@
         "submit": "Murojaatni yuborish",
         "moduleSearch": "Modulni qidirish",
         "moduleRecent": "Yaqinda tanlanganlar",
-        "moduleAll": "Barcha modullar"
+        "moduleAll": "Barcha modullar",
+        "suggest": {
+          "title": "Ehtimol, bu allaqachon hal qilingan",
+          "exact": "Xato bo'yicha aniq moslik",
+          "notHelped": "Yordam bermadi, murojaat yuborish",
+          "sendAnyway": "Yordam bermadimi? Murojaat yuboring",
+          "orgCount": "{count} ta mijozda uchragan"
+        }
       },
       "list": {
         "new": "Yangi murojaat",
@@ -2246,6 +2253,12 @@
         "open": "Yechim {number}",
         "hint": "Ushbu murojaat yozishmasi bo'yicha yechim qoralamasi: AI mijoz ma'lumotlarini olib tashlaydi, siz tekshirib e'lon qilasiz.",
         "create": "Yechim yaratish"
+      },
+      "related": {
+        "title": "Tegishli yechimlar",
+        "exact": "Xato bo'yicha aniq moslik",
+        "internal": "Faqat xodim orqali: mijozga o'z so'zlaringiz bilan tushuntiring",
+        "insert": "Havolani javobga qo'yish"
       }
     },
     "playbooks": {

@@ -54,6 +54,7 @@ const listInput = z.strictObject({
   moduleId: z.uuid().optional(),
   locale: locale.optional(),
   mine: z.boolean().optional(),
+  review: z.boolean().optional(),
 });
 const saveInput = z.strictObject({
   number,
@@ -79,6 +80,7 @@ export async function listSolutions(ctx: StaffContext, input: unknown): Promise<
       ...(data.moduleId ? { moduleId: data.moduleId } : {}),
       ...(data.locale ? { locale: data.locale } : {}),
       ...(data.mine ? { mineOf: ctx.actor.userId } : {}),
+      ...(data.review ? { review: true } : {}),
     }),
   );
 }

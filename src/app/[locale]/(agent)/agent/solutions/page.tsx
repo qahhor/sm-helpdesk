@@ -14,7 +14,8 @@ import { Select } from '@/ui/components/select';
 import { StatusLabel, type StatusTone } from '@/ui/components/StatusLabel';
 
 // Решения (план M5, задача 3; UX-W-10): "Мои задачи" (мои черновики и мои решения на пересмотре) и список всех
-// решений с фильтрами по статусу, модулю и языку. Читают все сотрудники, новое решение создают роли черновиков.
+// решений с фильтрами по статусу, модулю, языку и "На пересмотр" (FR-SOL-19, решение 18); у каждого решения показы и
+// исходы (задача 11). Читают все сотрудники, новое решение создают роли черновиков.
 
 const TONE: Record<SolutionListStatus, StatusTone> = {
   draft: 'gray',
@@ -23,7 +24,7 @@ const TONE: Record<SolutionListStatus, StatusTone> = {
 };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function SolutionsPage({ searchParams }: { searchParams: Promise<{ status?: string; module?: string; lang?: string }> }) {
+export default async function SolutionsPage({ searchParams }: { searchParams: Promise<{ status?: string; module?: string; lang?: string; review?: string }> }) {
   const staff = await requireStaffActor();
   const t = await getTranslations('agent');
   const s = await getTranslations('agent.solutions');
@@ -33,12 +34,14 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
   const status = (SOLUTION_LIST_STATUSES as readonly string[]).includes(query.status ?? '') ? (query.status as SolutionListStatus) : undefined;
   const moduleId = query.module && UUID.test(query.module) ? query.module : undefined;
   const lang: Locale | undefined = query.lang && isLocale(query.lang) ? query.lang : undefined;
+  const review = query.review === '1';
   const [mine, all, modules] = await Promise.all([
     listSolutions(staff, { mine: true }),
     listSolutions(staff, {
       ...(status ? { status } : {}),
       ...(moduleId ? { moduleId } : {}),
       ...(lang ? { locale: lang } : {}),
+      ...(review ? { review: true } : {}),
     }),
     listActiveModules(staff.actor, locale),
   ]);
@@ -50,7 +53,7 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
       <table className="w-full text-sm" aria-label={label} data-testid={testId}>
         <thead>
           <tr className="border-b border-border text-muted-foreground">
-            {(['number', 'title', 'module', 'language', 'status', 'updated'] as const).map((column) => (
+            {(['number', 'title', 'module', 'language', 'status', 'shown', 'helped', 'notHelped', 'updated'] as const).map((column) => (
               <th key={column} scope="col" className="px-3 py-2 text-start font-medium">
                 {s(`columns.${column}`)}
               </th>
@@ -76,6 +79,9 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
                   {row.needsReview && <StatusLabel tone="danger">{s('needsReview')}</StatusLabel>}
                 </span>
               </td>
+              <td className="px-3 py-3 tabular-nums" data-column="shown">{format.number(row.shownCount)}</td>
+              <td className="px-3 py-3 tabular-nums" data-column="helped">{format.number(row.helpedCount)}</td>
+              <td className="px-3 py-3 tabular-nums" data-column="not-helped">{format.number(row.notHelpedCount)}</td>
               <td className="px-3 py-3 whitespace-nowrap">
                 {format.dateTime(row.updatedOn, {
                   dateStyle: 'medium',
@@ -156,10 +162,15 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
                 ))}
               </Select>
             </div>
+            <label className="flex items-center gap-2 self-center text-sm">
+              <input type="checkbox" name="review" value="1" defaultChecked={review} className="size-4 accent-primary" />
+              {s('filters.review')}
+            </label>
             <Button type="submit" variant="secondary">
               {s('filters.apply')}
             </Button>
           </form>
+          <p className="text-sm text-secondary-foreground">{s('all.countsHint')}</p>
           {all.length === 0 ? (
             <Card>
               <EmptyState title={s('all.emptyTitle')} text={s('all.emptyText')} />

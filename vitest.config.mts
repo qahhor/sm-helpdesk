@@ -34,6 +34,20 @@ export default defineConfig({
         },
       },
       {
+        // Проверочный набор поиска (ТЗ 15.4; план M5, задача 11): pnpm eval:search. Не входит в CI: отчёт, а не проверка.
+        extends: true,
+        test: {
+          name: 'eval',
+          environment: 'node',
+          include: ['tests/eval/**/*.test.ts'],
+          globalSetup: ['tests/integration/setup/global-setup.ts'],
+          setupFiles: ['tests/integration/setup/each.ts'],
+          fileParallelism: false,
+          testTimeout: 600_000,
+          hookTimeout: 900_000,
+        },
+      },
+      {
         // Замеры под нагрузкой (FR-SOL-14): не входят в CI, запуск pnpm exec vitest run --project perf.
         extends: true,
         test: {

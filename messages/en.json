@@ -2513,6 +2513,28 @@
         "forbidden": "The review note is written by Customer Care and the administrator.",
         "invalid_input": "The note is not saved: it needs a text of up to 2000 characters for a request rated 1 to 3.",
         "not_found": "Request not found."
+      },
+      "knowledge": {
+        "title": "Solution suggestions",
+        "selfService": "Solved on their own",
+        "selfServiceHint": "\"Helped\" in {helped} of {shown} suggestion views",
+        "shown": "Suggestion views",
+        "helped": "Helped",
+        "notHelped": "Did not help",
+        "tickets": "Requests created",
+        "left": "Left without an answer",
+        "hint": "A view is counted once per opening of the request form. \"Left without an answer\": the suggestion was seen, but neither \"Helped\" nor \"Did not help\" was pressed and no request was created; they are not counted as solved.",
+        "byOrgTitle": "Suggestions by organization",
+        "unsolvedTitle": "Frequent errors without a solution",
+        "unsolvedHint": "What to describe first: errors seen in the period that have no active solution. Sample text has no customer data, organizations are counted without names.",
+        "unsolvedEmpty": "No errors without a solution in the period.",
+        "code": "Code",
+        "sample": "Sample text",
+        "orgs": "Organizations",
+        "times": "Times",
+        "noCode": "no code",
+        "noSample": "no text",
+        "create": "Create a solution"
       }
     },
     "solutions": {
@@ -2536,6 +2558,9 @@
         "module": "Module",
         "language": "Language",
         "status": "Status",
+        "shown": "Views",
+        "helped": "Helped",
+        "notHelped": "Did not help",
         "updated": "Changed"
       },
       "locales": {
@@ -2557,7 +2582,8 @@
       "all": {
         "title": "All solutions",
         "emptyTitle": "No solutions found",
-        "emptyText": "Change the filters or create a new solution."
+        "emptyText": "Change the filters or create a new solution.",
+        "countsHint": "Views: how many times the solution was in a suggestion. Customers mark \"Helped\" and \"Did not help\" on the solution page. A solution needs review when \"did not help\" is above 40% with 10 or more marks."
       },
       "filters": {
         "label": "Solution filters",
@@ -2565,7 +2591,8 @@
         "module": "Module",
         "language": "Language",
         "any": "Any",
-        "apply": "Show"
+        "apply": "Show",
+        "review": "Needs review"
       },
       "fields": {
         "title": "Title",

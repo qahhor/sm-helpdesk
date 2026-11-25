@@ -2513,6 +2513,28 @@
         "forbidden": "Tahlil qaydini Customer Care va administrator yozadi.",
         "invalid_input": "Qayd saqlanmadi: 1 dan 3 gacha baholangan murojaatga 2000 belgigacha matn kerak.",
         "not_found": "Murojaat topilmadi."
+      },
+      "knowledge": {
+        "title": "Yechim maslahatlari",
+        "selfService": "Mustaqil hal qilingan",
+        "selfServiceHint": "Maslahatning {shown} ta ko'rsatilishidan {helped} tasida «Yordam berdi»",
+        "shown": "Maslahat ko'rsatilgan",
+        "helped": "Yordam berdi",
+        "notHelped": "Yordam bermadi",
+        "tickets": "Murojaatlar yaratildi",
+        "left": "Javobsiz chiqib ketdi",
+        "hint": "Ko'rsatish murojaat shaklini har ochishda bir marta hisoblanadi. «Javobsiz chiqib ketdi»: maslahat ko'rilgan, lekin «Yordam berdi» ham, «Yordam bermadi» ham bosilmagan va murojaat yaratilmagan; ular hal qilinganlar ulushiga kirmaydi.",
+        "byOrgTitle": "Tashkilotlar bo'yicha maslahatlar",
+        "unsolvedTitle": "Yechimi yo'q tez-tez uchraydigan xatolar",
+        "unsolvedHint": "Birinchi navbatda nimani yozish kerak: davrda uchragan va amaldagi yechimi yo'q xatolar. Matn namunasi mijoz ma'lumotlarisiz, tashkilotlar soni nomlarsiz.",
+        "unsolvedEmpty": "Davrda yechimi yo'q xatolar yo'q.",
+        "code": "Kod",
+        "sample": "Matn namunasi",
+        "orgs": "Tashkilotlar",
+        "times": "Marta",
+        "noCode": "kodsiz",
+        "noSample": "matn yo'q",
+        "create": "Yechim yaratish"
       }
     },
     "solutions": {
@@ -2536,6 +2558,9 @@
         "module": "Modul",
         "language": "Til",
         "status": "Holat",
+        "shown": "Ko'rsatilgan",
+        "helped": "Yordam berdi",
+        "notHelped": "Yordam bermadi",
         "updated": "O'zgartirilgan"
       },
       "locales": {
@@ -2557,7 +2582,8 @@
       "all": {
         "title": "Barcha yechimlar",
         "emptyTitle": "Yechim topilmadi",
-        "emptyText": "Filtrlarni o'zgartiring yoki yangi yechim yarating."
+        "emptyText": "Filtrlarni o'zgartiring yoki yangi yechim yarating.",
+        "countsHint": "Ko'rsatilgan: yechim maslahatda necha marta bo'lgani. «Yordam berdi» va «Yordam bermadi»ni mijozlar yechim sahifasida belgilaydi. 10 va undan ortiq belgida «yordam bermadi» 40% dan oshsa, yechim qayta ko'rib chiqishga tushadi."
       },
       "filters": {
         "label": "Yechimlar filtrlari",
@@ -2565,7 +2591,8 @@
         "module": "Modul",
         "language": "Til",
         "any": "Istalgan",
-        "apply": "Ko'rsatish"
+        "apply": "Ko'rsatish",
+        "review": "Qayta ko'rib chiqish"
       },
       "fields": {
         "title": "Sarlavha",

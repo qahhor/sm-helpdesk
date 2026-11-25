@@ -254,6 +254,8 @@ export type ListFilters = {
   moduleId?: string;
   locale?: Locale;
   mineOf?: string;
+  /** Только решения на пересмотре (FR-SOL-19, решение 18; задача 11). */
+  review?: boolean;
 };
 
 export type ListRow = {
@@ -266,6 +268,10 @@ export type ListRow = {
   status: SolutionListStatus;
   hasDraft: boolean;
   needsReview: boolean;
+  /** Показы в подсказке и исходы со страницы решения (FR-SOL-19). */
+  shownCount: number;
+  helpedCount: number;
+  notHelpedCount: number;
   ownerId: string | null;
   updatedOn: Date;
 };
@@ -275,6 +281,7 @@ export type ListRow = {
  * решение 18: "не помогло" больше 40% при 10 исходах и больше).
  */
 export async function listArticlesTx(tx: Tx, filters: ListFilters): Promise<ListRow[]> {
+  // То же правило, что needsReview в review.ts (тест tests/unit/hdk-review.test.ts).
   const review = sql`(a.helped_count + a.not_helped_count >= ${REVIEW_MIN_OUTCOMES} and a.not_helped_count * 100 > ${REVIEW_NOT_HELPED_PERCENT} * (a.helped_count + a.not_helped_count))`;
   const where = [sql`true`];
   if (filters.status === 'archived') where.push(sql`a.status = 'archived'`);
@@ -282,6 +289,7 @@ export async function listArticlesTx(tx: Tx, filters: ListFilters): Promise<List
   if (filters.status === 'draft') where.push(sql`a.status = 'active' and p.version_id is null`);
   if (filters.moduleId) where.push(sql`a.module_id = ${filters.moduleId}::uuid`);
   if (filters.locale) where.push(sql`exists (select 1 from hdk_article_versions v where v.article_id = a.article_id and v.locale = ${filters.locale})`);
+  if (filters.review) where.push(review);
   if (filters.mineOf) where.push(sql`a.owner_id = ${filters.mineOf}::uuid and a.status = 'active' and (d.version_id is not null or ${review})`);
   const result = await tx.execute<{
     article_id: string;
@@ -294,12 +302,15 @@ export async function listArticlesTx(tx: Tx, filters: ListFilters): Promise<List
     is_published: boolean;
     has_draft: boolean;
     needs_review: boolean;
+    shown_count: number;
+    helped_count: number;
+    not_helped_count: number;
     owner_id: string | null;
     updated_on: Date;
   }>(sql`
     select a.article_id, a.number, coalesce(nullif(d.title, ''), p.title, '') as title, a.module_id, a.original_locale, a.audience,
            a.status as article_status, p.version_id is not null as is_published, d.version_id is not null as has_draft,
-           ${review} as needs_review, a.owner_id,
+           ${review} as needs_review, a.shown_count, a.helped_count, a.not_helped_count, a.owner_id,
            greatest(a.modified_on, coalesce(d.modified_on, a.modified_on), coalesce(p.modified_on, a.modified_on)) as updated_on
       from hdk_articles a
       left join hdk_article_versions d on d.article_id = a.article_id and d.locale = a.original_locale and d.state = 'draft'
@@ -317,6 +328,9 @@ export async function listArticlesTx(tx: Tx, filters: ListFilters): Promise<List
     status: row.article_status === 'archived' ? 'archived' : row.is_published ? 'published' : 'draft',
     hasDraft: row.has_draft,
     needsReview: row.needs_review,
+    shownCount: Number(row.shown_count),
+    helpedCount: Number(row.helped_count),
+    notHelpedCount: Number(row.not_helped_count),
     ownerId: row.owner_id,
     updatedOn: new Date(row.updated_on),
   }));

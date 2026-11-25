@@ -1,0 +1,11 @@
+[
+  { "id": "ru-01", "locale": "ru", "query": "при сохранении заказа ошибка: не хватает остатка на складе", "expected": "order-stock" },
+  { "id": "ru-02", "locale": "ru", "query": "не могу изменить накладную, пишет что период закрыт", "expected": "period-closed" },
+  { "id": "ru-03", "locale": "ru", "query": "как подключить интернет-магазин к системе", "expected": null },
+  { "id": "uz-01", "locale": "uz", "query": "buyurtmani saqlab bo'lmayapti, omborda qoldiq yetarli emas", "expected": "order-stock-uz" },
+  { "id": "uz-02", "locale": "uz", "query": "savdo hisoboti bo'sh chiqyapti", "expected": "report-uz" },
+  { "id": "uz-03", "locale": "uz", "query": "yangi filial qanday ochiladi", "expected": null },
+  { "id": "en-01", "locale": "en", "query": "price list not active when creating order", "expected": "price-list" },
+  { "id": "en-02", "locale": "en", "query": "cash register freezes when paying by card", "expected": "cash-register" },
+  { "id": "en-03", "locale": "en", "query": "how to export data to accounting software", "expected": null }
+]

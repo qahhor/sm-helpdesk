@@ -16,6 +16,7 @@
     "check": "pnpm typecheck && pnpm lint && node scripts/checks/run-all.mjs",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "eval:search": "vitest run --project eval --silent=false",
     "db:bootstrap": "node --env-file-if-exists=.env scripts/db/bootstrap.mjs",
     "db:migrate": "node --env-file-if-exists=.env scripts/db/migrate.mjs",
     "test:e2e": "playwright test --trace off",

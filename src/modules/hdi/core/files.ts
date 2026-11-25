@@ -6,7 +6,7 @@ import type { ClientActor, SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { getStorage, type QuarantineResult, scanQuarantinedImage, writeAudit } from '@/modules/hdc/api';
 import { ideaQuarantineKey, type IdeaScanStatus, ideaStorageKey } from '../pref';
-import { ideaAttachments } from '../schema';
+import { ideaAttachments, ideas } from '../schema';
 
 // Модуль hdi, слой core: изображения идеи (план M7, решение 10). Та же загрузка, что у вложений обращений и
 // изображений решений (решения 0027, 0048): строка в карантине, подписанная ссылка, "загрузка завершена" ставит
@@ -81,4 +81,16 @@ export async function rejectUpload(actor: SystemActor, attachmentId: string): Pr
   await withActor(actor, (tx) =>
     tx.update(ideaAttachments).set({ scanStatus: 'rejected' }).where(and(eq(ideaAttachments.attachmentId, attachmentId), eq(ideaAttachments.scanStatus, 'pending'))),
   );
+}
+
+/** Файл видимой актору идеи для показа: идея по номеру, вложение этой идеи. Невидимые: null. */
+export async function ideaFileTx(tx: Tx, number: number, attachmentId: string): Promise<{ storageKey: string; mime: string; size: number; fileName: string; scanStatus: IdeaScanStatus } | null> {
+  const [idea] = await tx.select({ ideaId: ideas.ideaId }).from(ideas).where(eq(ideas.number, number)).limit(1);
+  if (!idea) return null;
+  const [file] = await tx
+    .select({ storageKey: ideaAttachments.storageKey, mime: ideaAttachments.mime, size: ideaAttachments.size, fileName: ideaAttachments.fileName, scanStatus: ideaAttachments.scanStatus })
+    .from(ideaAttachments)
+    .where(and(eq(ideaAttachments.attachmentId, attachmentId), eq(ideaAttachments.ideaId, idea.ideaId)))
+    .limit(1);
+  return file ?? null;
 }

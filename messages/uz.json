@@ -386,7 +386,9 @@
         "invalid_input": "Sarlavha va tavsifni tekshiring",
         "rate_limited": "Juda tez-tez. Keyinroq urinib ko'ring",
         "not_found": "G'oya topilmadi yoki rasmlardan biri mavjud emas",
-        "forbidden": "Bu amal siz uchun mavjud emas"
+        "forbidden": "Bu amal siz uchun mavjud emas",
+        "voting_closed": "Bu g'oya bo'yicha ovoz berish yopilgan",
+        "not_editable": "G'oyani endi o'zgartirib bo'lmaydi"
       },
       "ticketLink": "Bu yaxshilash taklifimi?",
       "ticketLinkAction": "G'oya taklif qiling",
@@ -397,7 +399,70 @@
         "voted": "Siz ovoz berdingiz",
         "error": "Ovoz hisobga olinmadi. Yana urinib ko'ring"
       },
-      "machine": "Mashina tarjimasi"
+      "machine": "Mashina tarjimasi",
+      "statuses": {
+        "pending_review": "Tekshiruvda",
+        "open": "Ovoz berish",
+        "shortlisted": "Saralash beshligida",
+        "selected": "Tanlandi",
+        "in_development": "Ishlab chiqilmoqda",
+        "released": "Chiqarildi",
+        "declined": "Rad etildi",
+        "merged": "Birlashtirildi"
+      },
+      "board": {
+        "title": "G'oyalar",
+        "new": "+ G'oya",
+        "tabsLabel": "G'oyalar ro'yxatlari",
+        "tabs": {
+          "popular": "Ommabop",
+          "new": "Yangi",
+          "in_work": "Ishda",
+          "released": "Chiqarilgan"
+        },
+        "module": "Modul",
+        "moduleAll": "Hammasi",
+        "search": "Sarlavha bo'yicha qidirish",
+        "find": "Topish",
+        "countdown": "{month} saralashi: {days, plural, one {# kun qoldi} other {# kun qoldi}}",
+        "votes": "Ovozlar: {count}",
+        "comments": "{count, plural, =0 {izohsiz} one {# izoh} other {# izoh}}",
+        "selectedIn": "Tanlandi, {month} saralashi",
+        "releasedIn": "{version} versiyada chiqarildi",
+        "more": "Yana ko'rsatish",
+        "notFound": "Hech narsa topilmadi",
+        "notFoundText": "Boshqa so'zlar yoki boshqa modulni sinab ko'ring."
+      },
+      "page": {
+        "author": "Muallif: {name}",
+        "authorOrg": "Muallif: {name}, {org}",
+        "pending": "G'oya Smartup jamoasi tekshiruvida. Hozircha uni faqat siz ko'rasiz.",
+        "merged": "G'oya {ref} bilan birlashtirildi: ovozlar o'sha yerga o'tkazildi.",
+        "openTarget": "{ref} ni ochish",
+        "declined": "G'oya Smartup jamoasi tomonidan rad etildi.",
+        "declineReason": "Sabab: {reason}",
+        "translationUnavailable": "Sizning tilingizga tarjima hali yo'q, asl matn ko'rsatildi.",
+        "showOriginal": "Asl matnni ko'rsatish",
+        "images": "Rasmlar",
+        "history": "Tarix",
+        "publishedOn": "{date} e'lon qilindi",
+        "releasedOn": "{version} versiyada chiqarildi, {date}",
+        "follow": "Kuzatish",
+        "unfollow": "Kuzatmaslik",
+        "edit": "O'zgartirish",
+        "editTitle": "G'oyani o'zgartirish",
+        "save": "Saqlash",
+        "cancel": "Bekor qilish",
+        "done": {
+          "followed": "Siz g'oyani kuzatyapsiz: har bir holat o'zgarishi haqida xabar beramiz.",
+          "unfollowed": "Siz endi g'oyani kuzatmayapsiz.",
+          "saved": "Saqlandi.",
+          "edited": "O'zgarishlar saqlandi."
+        }
+      },
+      "month": {
+        "title": "Oy g'oyasi"
+      }
     },
     "org": {
       "switch": "Tashkilotni almashtirish",

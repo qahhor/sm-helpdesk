@@ -80,3 +80,17 @@ export const BLOCKING_FINDINGS = ['phone', 'email', 'inn', 'pinfl', 'server'] as
 
 /** Показ номера идеи: I-204 (решение 1). */
 export const ideaRef = (number: number): string => `I-${number}`;
+
+/** Вкладки доски (FR-IDEA-14, решение 22). */
+export const BOARD_TABS = ['popular', 'new', 'in_work', 'released'] as const;
+export type BoardTab = (typeof BOARD_TABS)[number];
+export const BOARD_TAB_STATUSES: Readonly<Record<BoardTab, readonly IdeaStatus[]>> = {
+  popular: ['open', 'shortlisted'],
+  new: ['open', 'shortlisted'],
+  in_work: ['selected', 'in_development'],
+  released: ['released'],
+};
+/** Карточек на странице доски. */
+export const BOARD_PAGE = 20;
+/** Длина строки поиска по доске. */
+export const BOARD_QUERY_MAX = 100;

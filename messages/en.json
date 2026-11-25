@@ -386,7 +386,9 @@
         "invalid_input": "Check the title and description",
         "rate_limited": "Too often. Try again later",
         "not_found": "The idea was not found or one of the images is unavailable",
-        "forbidden": "This action is not available to you"
+        "forbidden": "This action is not available to you",
+        "voting_closed": "Voting on this idea is closed",
+        "not_editable": "The idea can no longer be changed"
       },
       "ticketLink": "Is this a suggestion for improvement?",
       "ticketLinkAction": "Suggest an idea",
@@ -397,7 +399,70 @@
         "voted": "You voted",
         "error": "Your vote was not counted. Try again"
       },
-      "machine": "Machine translation"
+      "machine": "Machine translation",
+      "statuses": {
+        "pending_review": "In review",
+        "open": "Voting",
+        "shortlisted": "Shortlisted",
+        "selected": "Selected",
+        "in_development": "In development",
+        "released": "Released",
+        "declined": "Declined",
+        "merged": "Merged"
+      },
+      "board": {
+        "title": "Ideas",
+        "new": "+ Idea",
+        "tabsLabel": "Idea lists",
+        "tabs": {
+          "popular": "Popular",
+          "new": "New",
+          "in_work": "In progress",
+          "released": "Released"
+        },
+        "module": "Module",
+        "moduleAll": "All",
+        "search": "Search by title",
+        "find": "Find",
+        "countdown": "{month} selection: {days, plural, one {# day left} other {# days left}}",
+        "votes": "Votes: {count}",
+        "comments": "{count, plural, =0 {no comments} one {# comment} other {# comments}}",
+        "selectedIn": "Selected in the {month} selection",
+        "releasedIn": "Released in {version}",
+        "more": "Show more",
+        "notFound": "Nothing found",
+        "notFoundText": "Try other words or another module."
+      },
+      "page": {
+        "author": "Author: {name}",
+        "authorOrg": "Author: {name}, {org}",
+        "pending": "The Smartup team is reviewing this idea. For now only you can see it.",
+        "merged": "This idea was merged into {ref}: the votes were moved there.",
+        "openTarget": "Open {ref}",
+        "declined": "The Smartup team declined this idea.",
+        "declineReason": "Reason: {reason}",
+        "translationUnavailable": "There is no translation into your language yet, the original is shown.",
+        "showOriginal": "Show original",
+        "images": "Images",
+        "history": "History",
+        "publishedOn": "Published on {date}",
+        "releasedOn": "Released in version {version}, {date}",
+        "follow": "Follow",
+        "unfollow": "Unfollow",
+        "edit": "Edit",
+        "editTitle": "Edit idea",
+        "save": "Save",
+        "cancel": "Cancel",
+        "done": {
+          "followed": "You follow this idea: we will tell you about every status change.",
+          "unfollowed": "You no longer follow this idea.",
+          "saved": "Saved.",
+          "edited": "Changes saved."
+        }
+      },
+      "month": {
+        "title": "Idea of the month"
+      }
     },
     "org": {
       "switch": "Switch organization",

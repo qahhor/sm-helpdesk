@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
+import type { Tx } from '@/db/client';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import type { TicketStatus } from '../pref';
 import { ticketMessages, tickets } from '../schema';
@@ -73,4 +74,12 @@ export async function ticketSearchKeyOf(actor: StaffActor, ticketId: string): Pr
       .limit(1);
     return row ?? null;
   });
+}
+
+/**
+ * Сигнатура ошибки обращения (план M5, задача 8, решение 7) в транзакции системы модуля знаний. Сигнатуру считает
+ * сервер после создания обращения: клиент её не задаёт (триггер t_hdt_tickets_client_guard).
+ */
+export async function setErrorSignatureTx(tx: Tx, ticketId: string, signature: string): Promise<void> {
+  await tx.update(tickets).set({ errorSignature: signature }).where(eq(tickets.ticketId, ticketId));
 }

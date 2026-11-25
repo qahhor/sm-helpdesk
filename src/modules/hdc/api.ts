@@ -46,6 +46,7 @@ export { type ArchiveState, archiveFailing, archiveState, claimOpsAlert, failedJ
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';
 // Общие понятия для модулей ниже hdu (аудит 23.11.2026, находка A1): справочник контактов и контекст сотрудника.
 export { type ContactDirectory, contacts, type MailContact, registerContactDirectory, type TelegramContact } from './contacts';
+export { recordTicketSignature, registerTicketSignatureRecorder, type TicketSignatureInput, type TicketSignatureRecorder } from './ticket-signatures';
 export { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './staff-session';
 
 /**

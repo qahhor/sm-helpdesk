@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
 import { runCli } from '@/cli/commands';
 import { MemoryTelegramBot, setTelegramBotForTests } from '@/modules/hdn/telegram';
@@ -49,7 +52,7 @@ test('неизвестная команда, лишний ключ и нехва
 test('справка перечисляет все команды', async () => {
   const { io, lines } = fakeIo();
   expect(await runCli(['--help'], io)).toBe(0);
-  for (const name of ['staff:create', 'staff:reset', 'server:add', 'server:list', 'server:disable']) expect(lines.join('\n')).toContain(name);
+  for (const name of ['staff:create', 'staff:reset', 'server:add', 'server:list', 'server:disable', 'signatures:test']) expect(lines.join('\n')).toContain(name);
 });
 
 // --- Бот Telegram (задача 16) ---
@@ -76,4 +79,32 @@ test('без токена бота команда вебхука отказыв�
   expect(await runCli(['telegram:set-webhook'], io)).toBe(1);
   expect(errors.join('\n')).toContain('TELEGRAM_BOT_TOKEN');
   expect(bot.webhooks).toEqual([]);
+});
+
+// --- Сигнатуры ошибок на корпусе (план M5, задача 8) ---
+
+test('signatures:test: синтетический корпус каталога tests/fixtures/errors группируется по меткам, код 0', async () => {
+  const { io, lines } = fakeIo();
+  expect(await runCli(['signatures:test'], io)).toBe(0);
+  const out = lines.join('\n');
+  expect(out).toContain('Корпус tests/fixtures/errors: файлов 1, текстов 15.');
+  expect(out).toContain('ORA-20001 | документ №<n> от <n>.<n> не найден');
+  expect(out).toContain('Итог: текстов 15, групп 7, без сигнатуры 1.');
+  expect(out).toContain('Метки и сигнатуры совпадают.');
+});
+
+test('signatures:test: распавшаяся и смешанная метки дают код 1 и названы в сводке; нет каталога: код 1', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'corpus-'));
+  try {
+    writeFileSync(join(dir, 'a.txt'), '[x] ORA-20001: Документ 1 не найден\n\n[x] ORA-20001: Период 1 закрыт\n\n[y] ORA-20001: Документ 2 не найден\n');
+    const { io, lines } = fakeIo();
+    expect(await runCli(['signatures:test', '--dir', dir], io)).toBe(1);
+    expect(lines.join('\n')).toContain('Одна ошибка дала несколько сигнатур, метки: x.');
+    expect(lines.join('\n')).toContain('Разные ошибки дали одну сигнатуру:');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  const { io, errors } = fakeIo();
+  expect(await runCli(['signatures:test', '--dir', join(tmpdir(), 'нет-такого-каталога-corpus')], io)).toBe(1);
+  expect(errors.join('\n')).toContain('Каталог не прочитан');
 });

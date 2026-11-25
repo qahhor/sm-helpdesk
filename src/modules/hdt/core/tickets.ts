@@ -268,10 +268,11 @@ export async function ticketExists(actor: ClientActor, number: number): Promise<
 }
 
 /**
- * Колонки обращения, которые читает клиент: все, кроме заметки руководителя о разборе оценки (FR-MET-07). Политики
- * RLS закрывают строки, а не колонки, поэтому внутренние колонки запрос клиента не выбирает вовсе.
+ * Колонки обращения, которые читает клиент: все, кроме заметки руководителя о разборе оценки (FR-MET-07) и сигнатуры
+ * ошибки (план M5, задача 8: по сигнатуре видно, у кого ещё та же ошибка). Политики RLS закрывают строки, а не
+ * колонки, поэтому внутренние колонки запрос клиента не выбирает вовсе.
  */
-export const STAFF_ONLY_TICKET_COLUMNS = ['csatReviewNote', 'csatReviewedBy', 'csatReviewedOn'] as const;
+export const STAFF_ONLY_TICKET_COLUMNS = ['csatReviewNote', 'csatReviewedBy', 'csatReviewedOn', 'errorSignature'] as const;
 type StaffOnlyColumn = (typeof STAFF_ONLY_TICKET_COLUMNS)[number];
 const allTicketColumns = getTableColumns(tickets);
 const clientTicketColumns = Object.fromEntries(

@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { SystemActor } from '@/db/with-actor';
 import { addServer, checkServer, disableServer, listServers, resealServerSecrets, type ServerIssue } from '@/modules/hdu/api/servers';
@@ -10,9 +11,10 @@ import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { cleanupRateLimits } from '@/modules/hdc/api';
 import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
+import { type CorpusEntry, groupCorpus, parseCorpus } from '@/modules/hdk/api/signatures';
 
 // Команда hub для консоли сервера (FR-ID-12, решение 0015): первый администратор, сброс доступа
-// сотрудника, реестр серверов Smartup. Работает от актора system, каждое изменение пишется в журнал аудита.
+// сотрудника, реестр серверов Smartup, проверка правил сигнатур ошибок на корпусе (план M5, задача 8). Работает от актора system, каждое изменение пишется в журнал аудита.
 // Пароли и секреты в аргументах не принимаются: аргументы видны в списке процессов и в истории оболочки.
 
 export type CliIo = {
@@ -65,6 +67,12 @@ const HELP = `Использование: hub <команда> [ключи]
       с этим адресом, журнал аудита называет его. Модули добавляются и обновляются по коду, отсутствующие
       в файле скрываются. При ошибке справочник не меняется, команда называет запись и строку файла.
 
+  signatures:test [--dir <каталог>]
+      Проверить правила сигнатур ошибок (ТЗ 11.5) на корпусе текстов: файлы *.txt каталога, записи через пустую
+      строку, строки с # пропускаются, метка ожидаемой группы в начале записи: [метка]. По умолчанию каталог
+      tests/fixtures/errors. Печатает группы "сигнатура: тексты" и сводку. База не нужна.
+      Код завершения 1, если одна метка распалась на несколько сигнатур или в одну сигнатуру попали разные метки.
+
   maintenance:cleanup
       Удалить просроченные служебные строки: счётчики частоты, номера событий Telegram, сессии
       и одноразовые значения входа. Запускать раз в сутки, пока нет фоновых задач (решение 0023).
@@ -106,7 +114,51 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'maintenance:cleanup': { options: {}, required: [] },
   'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
+  'signatures:test': { options: { dir: { type: 'string' } }, required: [] },
 };
+
+/** Каталог корпуса сигнатур по умолчанию (план M5, задача 8). */
+const CORPUS_DIR = 'tests/fixtures/errors';
+/** Сколько знаков текста печатается в строке группы. */
+const CORPUS_LINE_MAX = 160;
+
+const corpusLine = (entry: CorpusEntry) => {
+  const first = entry.text.split('\n')[0] ?? '';
+  const text = first.length > CORPUS_LINE_MAX ? `${first.slice(0, CORPUS_LINE_MAX)}...` : first;
+  return `    ${entry.label ? `[${entry.label}] ` : ''}${text}`;
+};
+
+/** Группы корпуса и сводка. Код 1: метки распались или смешались. */
+async function signaturesTest(dir: string, io: CliIo): Promise<number> {
+  let files: string[];
+  try {
+    files = (await readdir(dir)).filter((name) => name.endsWith('.txt')).sort();
+  } catch {
+    io.err(`Каталог не прочитан: ${dir}`);
+    return 1;
+  }
+  const entries: CorpusEntry[] = [];
+  for (const name of files) entries.push(...parseCorpus(await readFile(join(dir, name), 'utf8')));
+  const report = groupCorpus(entries);
+  io.out(`Корпус ${dir}: файлов ${files.length}, текстов ${report.total}.`);
+  report.groups.forEach((group, index) => {
+    io.out('');
+    io.out(`Группа ${index + 1}, сигнатура ${group.signature}: ${group.code || 'без кода'} | ${group.message || 'без текста'}`);
+    io.out(`  текстов ${group.texts.length}${group.labels.length > 0 ? `, метки: ${group.labels.join(', ')}` : ''}`);
+    for (const entry of group.texts) io.out(corpusLine(entry));
+  });
+  if (report.unrecognized.length > 0) {
+    io.out('');
+    io.out(`Без сигнатуры (строка ошибки не найдена): ${report.unrecognized.length}`);
+    for (const entry of report.unrecognized) io.out(corpusLine(entry));
+  }
+  io.out('');
+  io.out(`Итог: текстов ${report.total}, групп ${report.groups.length}, без сигнатуры ${report.unrecognized.length}.`);
+  if (report.splitLabels.length > 0) io.out(`Одна ошибка дала несколько сигнатур, метки: ${report.splitLabels.join(', ')}.`);
+  if (report.mixedGroups.length > 0) io.out(`Разные ошибки дали одну сигнатуру: ${report.mixedGroups.join(', ')}.`);
+  if (report.splitLabels.length === 0 && report.mixedGroups.length === 0) io.out('Метки и сигнатуры совпадают.');
+  return report.splitLabels.length > 0 || report.mixedGroups.length > 0 ? 1 : 0;
+}
 
 class UsageError extends Error {}
 
@@ -301,6 +353,8 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         io.out(`Справочник модулей загружен: добавлено ${result.added}, обновлено ${result.updated}, скрыто ${result.passive}.`);
         return 0;
       }
+      case 'signatures:test':
+        return await signaturesTest(typeof values.dir === 'string' && values.dir !== '' ? values.dir : CORPUS_DIR, io);
       case 'telegram:info': {
         const info = await telegramInfo();
         io.out(info.enabled ? `Бот включён: @${info.username}` : 'Бот выключен: TELEGRAM_BOT_TOKEN не задан.');

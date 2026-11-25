@@ -15,17 +15,20 @@ import { Select } from '@/ui/components/select';
 import { createSolutionAction } from '../actions';
 
 // Новое решение (план M5, задача 3; UX-W-01): язык оригинала, модуль, заголовок и флаг "только через сотрудника".
-// После создания открывается редактор с тремя блоками формы.
+// После создания открывается редактор с тремя блоками формы. Из списка частых ошибок без решения (FR-MET-05)
+// страница открывается с сигнатурой: новое решение сразу к ней привязывается.
 
 const ERRORS = new Set(['forbidden', 'invalid_input']);
 
-export default async function NewSolutionPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function NewSolutionPage({ searchParams }: { searchParams: Promise<{ error?: string; signature?: string }> }) {
   const staff = await requireStaffActor();
   if (!canWriteSolutions(staff)) notFound();
   const t = await getTranslations('agent');
   const s = await getTranslations('agent.solutions');
   const locale = await getLocale();
-  const { error } = await searchParams;
+  const { error, signature } = await searchParams;
   const modules = await listActiveModules(staff.actor, locale);
   return (
     <>
@@ -38,6 +41,8 @@ export default async function NewSolutionPage({ searchParams }: { searchParams: 
       <Card className="max-w-prose">
         <CardContent className="pt-6">
           <form action={createSolutionAction} className="flex flex-col gap-4">
+            {/* "Создать решение" из списка частых ошибок без решения (FR-MET-05): сигнатура привяжется после создания. */}
+            {signature && UUID.test(signature) && <input type="hidden" name="signatureId" value={signature} />}
             <div className="flex flex-col gap-1">
               <Label htmlFor="new-title">{s('fields.title')}</Label>
               <Input id="new-title" name="title" maxLength={TITLE_MAX} autoComplete="off" />

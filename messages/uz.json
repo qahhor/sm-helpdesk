@@ -1031,7 +1031,9 @@
             "version_restored": "Yechimning oldingi versiyasi qaytarildi",
             "text_read": "Belgilandi: AI yozgan yechim matni o'qildi",
             "file_infected": "Antivirus yechim rasmida virus topdi",
-            "created_from_ticket": "Yechim murojaatdan yaratildi"
+            "created_from_ticket": "Yechim murojaatdan yaratildi",
+            "signature_bound": "Yechim xato imzosiga bog'landi",
+            "signature_unbound": "Yechim xato imzosidan uzildi"
           }
         },
         "words": {
@@ -2751,6 +2753,29 @@
           "client": "Mijoz",
           "staff": "Xodim"
         }
+      },
+      "signatures": {
+        "title": "Xato imzolari",
+        "hint": "Shu xatosi bor mijoz bu yechimni birinchi bo'lib, aniq moslik belgisi bilan ko'radi. Matn namunasi mijoz ma'lumotlarisiz: raqamlar, qo'shtirnoqdagi nomlar va identifikatorlar almashtirilgan.",
+        "empty": "Hozircha imzolar yo'q. Xato matnini Smartup foydalanuvchisi ko'rganidek qo'shing.",
+        "code": "Kod",
+        "sample": "Matn namunasi",
+        "seen": "Uchragan",
+        "seenValue": "{orgs, plural, other {# ta tashkilotda}}, {times, plural, other {# marta}}",
+        "noCode": "kodsiz",
+        "noSample": "matn yo'q",
+        "unbind": "Uzish",
+        "unbindOf": "{code} imzosini uzish",
+        "addTitle": "Imzo qo'shish",
+        "codeLabel": "Xato kodi, agar bo'lsa",
+        "codeHint": "Masalan, ORA-20001. Bo'sh qoldirib, xato satrini to'liq qo'yish mumkin.",
+        "textLabel": "Xato matni",
+        "textHint": "Smartup'dagi xabarni qo'ying. Raqamlar, sanalar va nomlarni olib tashlash shart emas: imzo ularni hisobga olmaydi.",
+        "add": "Qo'shish",
+        "bound": "Imzo yechimga bog'landi.",
+        "unbound": "Imzo uzildi.",
+        "taken": "Bu imzo allaqachon {number} yechimiga bog'langan. Avval uni o'sha yerda uzing.",
+        "invalid": "Xato kodi yoki matnini kiriting."
       }
     }
   },

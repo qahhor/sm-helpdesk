@@ -12,6 +12,7 @@ import { archiveSolution, markSolutionTextRead, publishSolution, type PublishOut
 import { completeSolutionFile, presignSolutionFile, type PresignedFile, solutionFileStatus } from '@/modules/hdk/api/files';
 import type { FileScanStatus } from '@/modules/hdk/pref';
 import { requestMachineTranslation, startManualTranslation } from '@/modules/hdk/api/translations';
+import { bindSolutionSignature, unbindSolutionSignature } from '@/modules/hdk/api/signatures';
 import { requireStaffActor } from '@/modules/hdu/api';
 
 // Действия раздела "Решения" (план M5, задача 3). Права, данные и версию строки проверяет модуль hdk; страница
@@ -47,6 +48,7 @@ export async function createSolutionAction(form: FormData): Promise<void> {
     locale,
     namespace: 'agent.solutions.template',
   });
+  const signatureId = String(form.get('signatureId') ?? '');
   let number: number;
   try {
     ({ number } = await createDraftArticle(staff, {
@@ -60,7 +62,52 @@ export async function createSolutionAction(form: FormData): Promise<void> {
     if (!isHdkError(error)) throw error;
     redirect(`/${page}/agent/solutions/new?error=${error.code}`);
   }
-  redirect(`/${page}/agent/solutions/${number}`);
+  // "Создать решение" из списка частых ошибок без решения (FR-MET-05): новое решение сразу привязано к сигнатуре.
+  let signature = '';
+  if (signatureId) {
+    try {
+      const bound = await bindSolutionSignature(staff, { number, signatureId });
+      signature = bound.status === 'bound' ? '?signature=bound' : `?signature=taken&taken=${bound.number}`;
+    } catch (error) {
+      if (!isHdkError(error)) throw error;
+      signature = '?signature=invalid';
+    }
+  }
+  redirect(`/${page}/agent/solutions/${number}${signature}`);
+}
+
+/** Привязка сигнатуры ошибки в редакторе (задача 8): страница открывается заново с итогом. */
+export async function bindSignatureAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const number = String(form.get('number') ?? '');
+  const safeNumber = /^\d{1,12}$/.test(number) ? number : '';
+  const code = String(form.get('errorCode') ?? '').trim();
+  let result: string;
+  try {
+    const bound = await bindSolutionSignature(staff, { number, ...(code ? { errorCode: code } : {}), errorText: String(form.get('errorText') ?? '') });
+    result = bound.status === 'bound' ? 'signature=bound' : `signature=taken&taken=${bound.number}`;
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    result = error.code === 'invalid_input' ? 'signature=invalid' : `error=${error.code}`;
+  }
+  redirect(`/${page}/agent/solutions/${safeNumber}?${result}#solution-signatures`);
+}
+
+/** Отвязка сигнатуры от решения. */
+export async function unbindSignatureAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const number = String(form.get('number') ?? '');
+  const safeNumber = /^\d{1,12}$/.test(number) ? number : '';
+  let result = 'signature=unbound';
+  try {
+    await unbindSolutionSignature(staff, { number, signatureId: String(form.get('signatureId') ?? '') });
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    result = `error=${error.code}`;
+  }
+  redirect(`/${page}/agent/solutions/${safeNumber}?${result}#solution-signatures`);
 }
 
 /** Автосохранение (UX-W-04). Конфликт версии строки приходит итогом, а не ошибкой. */

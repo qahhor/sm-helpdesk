@@ -8,6 +8,7 @@ import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { createDraftTx } from '../core/articles';
 import { articleByNumberTx } from '../core/editor';
 import { articleOfTicketTx, insertSourceTx, sourceTicketIdsTx } from '../core/from-ticket';
+import { bindSignatureTx } from '../core/signatures';
 import { setAiStatusTx } from '../core/translations';
 import { HdkError } from '../error';
 import { ARTICLE_NUMBER_MAX, KB_WRITER_ROLES, TITLE_MAX } from '../pref';
@@ -20,7 +21,8 @@ import { solutionTemplate, type TemplateLabels } from '../template';
 // фоновый процесс заполнит черновик текстом модели с пометкой "AI, не проверено". Без AI-обработки или без ключа
 // сотрудник пишет сам по заготовке. Публикация только сотрудником с правом публикации и после "Текст прочитан".
 //
-// Задача 8 (сигнатуры): здесь же сигнатура обращения (ticket.errorSignature) будет привязана к решению.
+// Сигнатура ошибки обращения (задача 8) привязывается к новому решению в той же транзакции, если она ещё ни к
+// какому решению не привязана: следующий клиент с той же ошибкой увидит решение точным совпадением (S5, шаг 5).
 
 const input = z.strictObject({ number: z.coerce.number().int().positive().max(ARTICLE_NUMBER_MAX) });
 
@@ -60,6 +62,13 @@ export async function createSolutionFromTicket(ctx: StaffContext, value: unknown
       orgId: ticket.orgId,
       diff: { number: article.number, ticket: ticket.number, ai: aiAllowed },
     });
+    if (ticket.errorSignature) {
+      // Строка сигнатуры есть с момента создания обращения; пример уже очищен там. Занятая сигнатура остаётся у
+      // своего решения.
+      const bound = await bindSignatureTx(tx, article.articleId, { signature: ticket.errorSignature, code: '', sample: '' });
+      if (bound.status === 'bound' && bound.changed)
+        await writeAudit(tx, { action: 'solution.signature_bound', objectType: 'solution', objectId: article.articleId, diff: { number: article.number, signature: bound.signature } });
+    }
     return { number: article.number, created: true, articleId: article.articleId };
   });
   if (result.articleId && aiAllowed) await enqueue('kb.draft', { articleId: result.articleId });

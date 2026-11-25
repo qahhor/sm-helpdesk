@@ -7,7 +7,7 @@ import { HdtError } from '../error';
 import { parseInput, staffCreateInput } from '../input';
 import { MAX_FILES_PER_MESSAGE } from '../pref';
 import { titleFromDescription } from '../util';
-import { wakeAutomation } from '@/modules/hdc/api';
+import { recordTicketSignature, wakeAutomation } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
 // Обращение от имени клиента (FR-AG-08; план M3, задача 12). Организация и участник выбраны сотрудником,
@@ -20,11 +20,13 @@ export async function createTicketForClient(ctx: StaffContext, input: unknown): 
   if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
   const members = await listMembersForStaff(ctx, data.orgId).catch(() => []);
   if (!members.some((member) => member.userId === data.authorId && member.state === 'active')) throw new HdtError('invalid_input');
-  const { number } = await createTicketForClientTx(ctx.actor, {
+  const { number, ticketId } = await createTicketForClientTx(ctx.actor, {
     ...data,
     title: data.title ?? titleFromDescription(data.description),
     attachmentIds: [...new Set(data.attachmentIds)],
   });
+  // Сигнатура ошибки из описания (план M5, задача 8), как у обращения клиента.
+  await recordTicketSignature({ ticketId, orgId: data.orgId, authorId: data.authorId, description: data.description, context: null, moduleId: data.moduleId ?? null });
   await wakeOutbox();
   await wakeAutomation();
   return { number };

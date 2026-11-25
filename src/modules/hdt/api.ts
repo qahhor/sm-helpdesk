@@ -1,6 +1,6 @@
 import 'server-only';
 import { type ClientContext, namesOf, otherOrganizationActors } from '@/modules/hdu/api';
-import { consumeRateLimit, rateKey, wakeAutomation } from '@/modules/hdc/api';
+import { consumeRateLimit, rateKey, recordTicketSignature, wakeAutomation } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule, loadSlaConfig } from '@/modules/hdr/api';
 import { refreshSlaAfterClient } from './api/jobs';
@@ -160,6 +160,9 @@ export async function createTicket(ctx: ClientContext, input: unknown): Promise<
     attachmentIds: [...new Set(data.attachmentIds)],
   });
   await refreshSlaAfterClient(ticketId);
+  // Сигнатура ошибки из описания (план M5, задача 8): считает сервер от имени системы до разбора правил, клиент её
+  // не задаёт. Сбой сигнатуры обращение не отменяет.
+  await recordTicketSignature({ ticketId, orgId: ctx.actor.orgId, authorId: ctx.actor.userId, description: data.description, context: null, moduleId: data.moduleId ?? null });
   // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации. Событие для правил тоже записано.
   await wakeOutbox();
   await wakeAutomation();

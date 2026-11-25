@@ -134,6 +134,9 @@ export const AUDIT_ACTIONS = [
   'solution.text_read',
   'solution.file_infected',
   'solution.created_from_ticket',
+  // Привязка решения к сигнатуре ошибки (веха M5, задача 8): с ней решение показывается точным совпадением.
+  'solution.signature_bound',
+  'solution.signature_unbound',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -1,7 +1,8 @@
 import 'server-only';
 import * as z from 'zod';
+import type { Tx } from '@/db/client';
 import type { StaffActor, SystemActor } from '@/db/with-actor';
-import { type SolutionSource, solutionSourceOf, type TicketSearchKey, ticketSearchKeyOf } from '../core/solution-source';
+import { setErrorSignatureTx, type SolutionSource, solutionSourceOf, type TicketSearchKey, ticketSearchKeyOf } from '../core/solution-source';
 import { HdtError } from '../error';
 
 // Модуль hdt, слой api: публичная переписка обращения для решения (план M5, задачи 5 и 7; FR-SOL-02, 03, ТЗ 14.3).
@@ -28,4 +29,16 @@ export async function ticketSearchKey(actor: StaffActor, input: unknown): Promis
   const parsed = z.strictObject({ ticketId: z.uuid() }).safeParse(input);
   if (!parsed.success) throw new HdtError('invalid_input');
   return ticketSearchKeyOf(actor, parsed.data.ticketId);
+}
+
+const signatureInput = z.strictObject({ ticketId: z.uuid(), signature: z.string().regex(/^[0-9a-f]{32}$/) });
+
+/**
+ * Записывает сигнатуру ошибки в обращение (план M5, задача 8). Вызывает модуль знаний в своей транзакции от имени
+ * системы; политика RLS не даёт клиенту менять обращение, триггер не пускает сигнатуру во вставку клиента.
+ */
+export async function setTicketErrorSignatureTx(tx: Tx, input: unknown): Promise<void> {
+  const parsed = signatureInput.safeParse(input);
+  if (!parsed.success) throw new HdtError('invalid_input');
+  await setErrorSignatureTx(tx, parsed.data.ticketId, parsed.data.signature);
 }

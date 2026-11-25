@@ -4,17 +4,21 @@ import { Link } from '@/i18n/navigation';
 import { isLocale } from '@/i18n/locales';
 import { solutionEditorState, solutionLanguages } from '@/modules/hdk/api/editor';
 import { solutionSourceThreads } from '@/modules/hdk/api/from-ticket';
+import { solutionSignatures } from '@/modules/hdk/api/signatures';
 import { listActiveModules } from '@/modules/hdr/api';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
-import { Card } from '@/ui/components/card';
+import { Card, CardContent } from '@/ui/components/card';
+import { Input } from '@/ui/components/input';
+import { Label } from '@/ui/components/label';
+import { Textarea } from '@/ui/components/textarea';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { DocView } from '@/ui/doc/DocView';
 import type { SolutionEditorLabels } from '@/ui/doc/editor/SolutionEditor';
 import type { ScreenshotLabels } from '@/ui/doc/ScreenshotMarkup';
-import { archiveAction, restoreVersionAction } from '../actions';
+import { archiveAction, bindSignatureAction, restoreVersionAction, unbindSignatureAction } from '../actions';
 import type { ReviewLabels } from './ReviewPanel';
 import { LanguageTabs, TranslationControls } from './Languages';
 import { PendingRefresh } from './PendingRefresh';
@@ -73,11 +77,11 @@ const SCREENSHOT_KEYS = [
 const ERRORS = new Set(['forbidden', 'invalid_input', 'not_found', 'no_original']);
 const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link'] as const;
 
-export default async function SolutionEditorPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<{ done?: string; error?: string; locale?: string }> }) {
+export default async function SolutionEditorPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<{ done?: string; error?: string; locale?: string; signature?: string; taken?: string }> }) {
   const staff = await requireStaffActor();
   const { number } = await params;
   if (!/^\d{1,12}$/.test(number)) notFound();
-  const { done, error, locale: requested } = await searchParams;
+  const { done, error, locale: requested, signature: signatureResult, taken } = await searchParams;
   const lang = requested && isLocale(requested) ? requested : undefined;
   const state = await solutionEditorState(staff, { number, ...(lang ? { locale: lang } : {}) });
   const t = await getTranslations('agent');
@@ -118,6 +122,9 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
   const languageRow = state.languages.find((l) => l.locale === state.locale);
   // Исходная переписка обращения рядом с текстом модели (поправка 101, пункт 8; задача 7).
   const threads = translation ? [] : await solutionSourceThreads(staff, { number: state.number });
+  // Сигнатуры ошибок решения (задача 8): у статьи, а не у языка, поэтому только на экране оригинала.
+  const signatures = translation ? [] : await solutionSignatures(staff, { number: state.number });
+  const takenNumber = taken && /^\d{1,12}$/.test(taken) ? taken : null;
   const draftAi = translation ? null : (languageRow?.aiStatus ?? null);
   const viewLabels = { warning: s('view.warning'), info: s('view.info'), step: (n: number) => s('view.step', { n }) };
   const editorLabels = Object.fromEntries(TOOLBAR_KEYS.map((key) => [key, toolbar(key)])) as SolutionEditorLabels;
@@ -335,6 +342,82 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
               {s('archive.submit')}
             </Button>
           </form>
+        )}
+
+        {!translation && (
+          <section id="solution-signatures" aria-labelledby="solution-signatures-title" className="flex flex-col gap-3" data-testid="solution-signatures">
+            <h2 id="solution-signatures-title" className="text-lg font-semibold">
+              {s('signatures.title')}
+            </h2>
+            <p className="text-sm text-secondary-foreground">{s('signatures.hint')}</p>
+            {signatureResult === 'bound' && <Alert tone="success">{s('signatures.bound')}</Alert>}
+            {signatureResult === 'unbound' && <Alert tone="success">{s('signatures.unbound')}</Alert>}
+            {signatureResult === 'taken' && takenNumber && <Alert tone="danger">{s('signatures.taken', { number: takenNumber })}</Alert>}
+            {signatureResult === 'invalid' && <Alert tone="danger">{s('signatures.invalid')}</Alert>}
+            {signatures.length === 0 ? (
+              <p className="text-sm text-secondary-foreground">{s('signatures.empty')}</p>
+            ) : (
+              <Card className="overflow-x-auto">
+                <table className="w-full text-sm" aria-label={s('signatures.title')}>
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground">
+                      <th scope="col" className="px-3 py-2 text-start font-medium">{s('signatures.code')}</th>
+                      <th scope="col" className="px-3 py-2 text-start font-medium">{s('signatures.sample')}</th>
+                      <th scope="col" className="px-3 py-2 text-start font-medium">{s('signatures.seen')}</th>
+                      {state.canWrite && <th scope="col" className="px-3 py-2" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {signatures.map((row) => (
+                      <tr key={row.signatureId} data-signature={row.signatureId} className="border-b border-border align-top last:border-b-0">
+                        <td className="px-3 py-3 font-mono whitespace-nowrap">{row.sampleCode ?? s('signatures.noCode')}</td>
+                        <td className="px-3 py-3 break-words">{row.sampleMessage ?? s('signatures.noSample')}</td>
+                        <td className="px-3 py-3">{s('signatures.seenValue', { orgs: row.orgCount, times: row.occurrences })}</td>
+                        {state.canWrite && (
+                          <td className="px-3 py-3">
+                            <form action={unbindSignatureAction}>
+                              <input type="hidden" name="number" value={state.number} />
+                              <input type="hidden" name="signatureId" value={row.signatureId} />
+                              <Button type="submit" variant="secondary" size="small" aria-label={s('signatures.unbindOf', { code: row.sampleCode ?? s('signatures.noCode') })}>
+                                {s('signatures.unbind')}
+                              </Button>
+                            </form>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
+            )}
+            {state.canWrite && !state.archived && (
+              <Card>
+                <CardContent className="pt-4">
+                  <form action={bindSignatureAction} className="flex flex-col gap-3" aria-label={s('signatures.addTitle')}>
+                    <h3 className="text-base font-semibold">{s('signatures.addTitle')}</h3>
+                    <input type="hidden" name="number" value={state.number} />
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor="signature-code">{s('signatures.codeLabel')}</Label>
+                      <Input id="signature-code" name="errorCode" maxLength={80} autoComplete="off" aria-describedby="signature-code-hint" className="max-w-xs" />
+                      <p id="signature-code-hint" className="text-sm text-muted-foreground">
+                        {s('signatures.codeHint')}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor="signature-text">{s('signatures.textLabel')}</Label>
+                      <Textarea id="signature-text" name="errorText" maxLength={2000} aria-describedby="signature-text-hint" className="min-h-20" />
+                      <p id="signature-text-hint" className="text-sm text-muted-foreground">
+                        {s('signatures.textHint')}
+                      </p>
+                    </div>
+                    <Button type="submit" variant="secondary" size="small" className="self-start">
+                      {s('signatures.add')}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+          </section>
         )}
 
         <section aria-labelledby="solution-versions" className="flex flex-col gap-3">

@@ -1031,7 +1031,9 @@
             "version_restored": "Earlier solution version restored",
             "text_read": "Marked: AI solution text read",
             "file_infected": "Antivirus found an infected solution image",
-            "created_from_ticket": "Solution created from a request"
+            "created_from_ticket": "Solution created from a request",
+            "signature_bound": "Solution linked to an error signature",
+            "signature_unbound": "Solution unlinked from an error signature"
           }
         },
         "words": {
@@ -2751,6 +2753,29 @@
           "client": "Client",
           "staff": "Staff"
         }
+      },
+      "signatures": {
+        "title": "Error signatures",
+        "hint": "A customer with this error sees this solution first, marked as an exact match. The sample text has no customer data: numbers, quoted names and identifiers are replaced.",
+        "empty": "No signatures yet. Add the error text as a Smartup user sees it.",
+        "code": "Code",
+        "sample": "Sample text",
+        "seen": "Seen",
+        "seenValue": "at {orgs, plural, one {# organization} other {# organizations}}, {times, plural, one {# time} other {# times}}",
+        "noCode": "no code",
+        "noSample": "no text",
+        "unbind": "Unlink",
+        "unbindOf": "Unlink signature {code}",
+        "addTitle": "Add a signature",
+        "codeLabel": "Error code, if any",
+        "codeHint": "For example, ORA-20001. You can leave it empty and paste the whole error line.",
+        "textLabel": "Error text",
+        "textHint": "Paste the message from Smartup. Numbers, dates and names can stay: the signature ignores them.",
+        "add": "Add",
+        "bound": "The signature is linked to the solution.",
+        "unbound": "The signature is unlinked.",
+        "taken": "This signature is already linked to solution {number}. Unlink it there first.",
+        "invalid": "Enter an error code or text."
       }
     }
   },

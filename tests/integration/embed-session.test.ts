@@ -407,3 +407,13 @@ test('ключи сервера недоступны: 503, адрес не за�
   expect((await exchange(await contextToken(), { ip })).status).toBe(200);
   expect(fetched).toHaveLength(2);
 });
+
+test('виджет у сервера выключен: живой токен виджета перестаёт действовать сразу (проверка M6, M3)', async () => {
+  const { ctx } = await setup();
+  const { embedToken } = (await (await exchange(await contextToken())).json()) as { embedToken: string };
+  expect((await requireEmbedActor(withBearer(embedToken))).serverCode).toBe('cloud');
+  await updateWidgetSettings(ctx, { code: 'cloud', mode: null, embedOrigins: [] });
+  await expect(requireEmbedActor(withBearer(embedToken))).rejects.toMatchObject({ code: 'forbidden' });
+  await updateWidgetSettings(ctx, { code: 'cloud', mode: 'jwks', jwksUrl: JWKS_URL, embedOrigins: [] });
+  expect((await requireEmbedActor(withBearer(embedToken))).serverCode).toBe('cloud');
+});

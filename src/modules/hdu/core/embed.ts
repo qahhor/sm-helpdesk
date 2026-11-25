@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
 import { authAccount, authUser } from '../auth-schema';
@@ -66,7 +66,8 @@ export async function findOrCreateSmartupUser(serverCode: string, sub: string, n
 
 /**
  * Роль действующего участника действующей организации, если организация принадлежит этому действующему серверу
- * и человек не сотрудник. Иначе null. Проверяется на каждом запросе виджета: отключение действует сразу (решение 16).
+ * с включённым виджетом и человек не сотрудник. Иначе null. Проверяется на каждом запросе виджета: отключение
+ * действует сразу (решение 16).
  */
 export async function embedMembership(userId: string, orgId: string, serverId: string): Promise<{ role: ClientRole; serverCode: string } | null> {
   return withIdentity(SYSTEM, async (tx) => {
@@ -86,6 +87,8 @@ export async function embedMembership(userId: string, orgId: string, serverId: s
           eq(organizations.kind, 'client'),
           eq(organizations.serverId, serverId),
           eq(servers.state, 'active'),
+          // Виджет у сервера выключен: живые токены виджета перестают действовать сразу (замечание M3 проверки M6).
+          isNotNull(servers.contextKeyMode),
         ),
       )
       .limit(1);

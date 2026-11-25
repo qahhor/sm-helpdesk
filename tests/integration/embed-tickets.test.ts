@@ -17,6 +17,8 @@ let f: Fixture;
 
 beforeEach(async () => {
   f = await seedTwoOrgs();
+  // Виджет у сервера набора включён: без режима ключей токены виджета не действуют (проверка M6, M3).
+  await pools.root.query(`update hdu_servers set context_key_mode = 'jwks', context_jwks_url = 'https://keys.smartup.example/jwks' where server_id = $1`, [f.server.serverId]);
   setStorageForTests(new MemoryStorage());
   setJobQueueForTests(new MemoryJobQueue());
 });

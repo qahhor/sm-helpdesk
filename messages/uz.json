@@ -3314,7 +3314,9 @@
       "panelTitle": "Smartup qo'llab-quvvatlash",
       "toastTitle": "Xato yuz berdi. Xabar bering, yechim qidiraman.",
       "toastReport": "Xabar berish",
-      "toastDismiss": "Yashirish"
+      "toastDismiss": "Yashirish",
+      "portalTitle": "Formani bu yerda ochib bo'lmadi. Uni portalda oching.",
+      "openPortal": "Portalni ochish"
     },
     "panel": {
       "title": "Smartup qo'llab-quvvatlash",

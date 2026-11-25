@@ -264,12 +264,20 @@ describe('протокол (решение 8)', () => {
 });
 
 describe('режим B и уведомление об ошибке', () => {
-  test('getContextToken вернул ошибку: портал в новой вкладке, подсказки только после #', async () => {
+  test('getContextToken вернул ошибку: портал открывается только по нажатию кнопки, подсказки только после # (проверка M6, I2)', async () => {
     initHub({ getContextToken: async () => Promise.reject(new Error('нет сервера')) });
     hub(env).reportError({ code: 'ORA-20001', message: 'нет остатка на складе' });
     hub(env).open();
     dispatch(env, { origin: HUB, source: (frameOf(env) as FakeElement).contentWindow, data: { hub: 1, type: 'ready' } });
     await flush();
+    // Ответ getContextToken пришёл в обработчике сообщения, а не в нажатии: браузер заблокировал бы такое окно.
+    expect(env.open).not.toHaveBeenCalled();
+    expect(panelOf(env)?.hidden).toBe(true);
+    const toast = env.created.findLast((el) => el.className === 'toast') as FakeElement;
+    expect(toast.hidden).toBe(false);
+    const portal = toast.all().find((el) => el.className === 'primary') as FakeElement;
+    expect(portal.textContent).toBe('Portalni ochish');
+    portal.click();
     expect(env.open).toHaveBeenCalledTimes(1);
     const [url, target, features] = env.open.mock.calls[0] as [string, string, string];
     expect(target).toBe('_blank');
@@ -278,6 +286,15 @@ describe('режим B и уведомление об ошибке', () => {
     expect(`${parsed.origin}${parsed.pathname}${parsed.search}`).toBe(`${HUB}/uz/tickets/new`);
     expect(JSON.parse(new URLSearchParams(parsed.hash.slice(1)).get('hints') as string)).toMatchObject({ errorCode: 'ORA-20001', errorText: 'нет остатка на складе' });
     expect(posted(env)).toEqual([]);
+    expect(toast.hidden).toBe(true);
+  });
+
+  test('кнопка "Открыть портал" на всех трёх языках из messages/*.json', () => {
+    for (const locale of ['ru', 'uz', 'en']) {
+      const messages = JSON.parse(readFileSync(resolve(`messages/${locale}.json`), 'utf8'));
+      expect(messages.widget.loader.openPortal, locale).toBeTruthy();
+      expect(source).toContain(JSON.stringify(messages.widget.loader.openPortal));
+    }
   });
 
   test('без getContextToken open сразу открывает режим B', () => {

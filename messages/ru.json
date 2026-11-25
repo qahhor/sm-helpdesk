@@ -3314,7 +3314,9 @@
       "panelTitle": "Поддержка Smartup",
       "toastTitle": "Произошла ошибка. Сообщите, и я поищу решение.",
       "toastReport": "Сообщить",
-      "toastDismiss": "Скрыть"
+      "toastDismiss": "Скрыть",
+      "portalTitle": "Не получилось открыть форму здесь. Откройте её в портале.",
+      "openPortal": "Открыть портал"
     },
     "panel": {
       "title": "Поддержка Smartup",

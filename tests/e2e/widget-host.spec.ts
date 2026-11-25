@@ -162,14 +162,30 @@ test('S1 режим B: без getContextToken меню "Помощь" откры
   expect(row).toEqual({ source: 'widget_web', context: { moduleCode: MODULE_CODE, ...DEMO_ERROR } });
 });
 
-test('режим B и при ошибке getContextToken: портал в новой вкладке с подсказками во фрагменте', async ({ page }, info) => {
+test('режим B и при ошибке getContextToken: портал по кнопке "Открыть портал" в новой вкладке с подсказками во фрагменте', async ({ page }, info) => {
   only(['desktop'])(undefined, info);
+  // Shadow DOM загрузчика закрыт, локаторы Playwright в него не заходят: только в этом тесте он открывается, чтобы
+  // нажать кнопку настоящим нажатием (окно портала браузер открывает только из нажатия, замечание I2 проверки M6).
+  await page.addInitScript(() => {
+    const attach = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (init: ShadowRootInit) {
+      return attach.call(this, { ...init, mode: 'open' });
+    };
+  });
   await openHost(page, { key, persona: widgetPersona(), mode: 'fail' });
   await page.getByRole('button', { name: 'Вызвать ошибку' }).click();
-  const popupPromise = page.waitForEvent('popup');
+  let popups = 0;
+  page.on('popup', () => popups++);
   await helpMenu(page, 'Сообщить о проблеме');
-  const popup = await popupPromise;
+  const openPortal = page.getByRole('button', { name: 'Открыть портал' });
+  await expect(openPortal).toBeVisible();
   expect(await page.evaluate(() => (window as Window & { __tokens?: number }).__tokens)).toBe(1);
+  // Без нажатия окно не открывается.
+  expect(popups).toBe(0);
+  const popupPromise = page.waitForEvent('popup');
+  await openPortal.click();
+  const popup = await popupPromise;
+  await expect(openPortal).toBeHidden();
   await expect(popup).toHaveURL(/\/ru\/login\?next=/);
   // Фрагмент перенесён в хранилище вкладки и убран из адреса.
   await expect.poll(() => popup.evaluate(() => window.location.hash)).toBe('');

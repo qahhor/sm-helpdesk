@@ -13,7 +13,8 @@
 // Токен контекста загрузчик только передаёт: он не хранит его и не пишет в localStorage и куки. Продление просит
 // страница виджета (need-token) за минуту до истечения токена виджета.
 // Стили задаются через adoptedStyleSheets и свойства CSSOM: встроенные стили страницы хозяина (unsafe-inline) не нужны.
-// Без getContextToken или при его ошибке виджет открывает портал в новой вкладке (режим B, задача 8 плана M6).
+// Без getContextToken виджет открывает портал в новой вкладке (режим B, задача 8 плана M6). При ошибке getContextToken
+// после открытия панели портал открывается по кнопке в уведомлении: окно открывается только из нажатия (решение 0061).
 
 (function () {
   'use strict';
@@ -276,6 +277,22 @@
       win.open(url, '_blank', 'noopener,noreferrer');
     }
 
+    /**
+     * Токен контекста не получен после ready: ответ пришёл в обработчике сообщения, а не в нажатии пользователя, и
+     * window.open отсюда браузер заблокировал бы (Safari всегда, Chrome после окна активации). Панель закрывается,
+     * уведомление предлагает кнопку "Открыть портал": окно открывается уже из её нажатия (замечание I2 проверки M6).
+     * @param {Hints} hints
+     */
+    function offerModeB(hints) {
+      close();
+      showToast([t('portalTitle')], t('openPortal'), function () {
+        hideToast();
+        openModeB(hints);
+      }, function () {
+        hideToast();
+      });
+    }
+
     /** @param {MessageEvent} event */
     function onMessage(event) {
       // Строгая проверка источника: только адрес портала и только окно нашего iframe (решение 8).
@@ -290,7 +307,7 @@
             send({ type: 'init', token: token, hints: hints, theme: theme(), locale: config ? config.locale : 'ru' });
           },
           function () {
-            openModeB(hints);
+            offerModeB(hints);
           },
         );
       } else if (message.type === 'need-token') {
@@ -381,6 +398,32 @@
     }
 
     /**
+     * Уведомление в Shadow DOM: строки текста, главная кнопка и "Скрыть". Прежнее уведомление заменяется.
+     * @param {string[]} lines @param {string} primaryText @param {() => void} onPrimary @param {() => void} onDismiss
+     */
+    function showToast(lines, primaryText, onPrimary, onDismiss) {
+      var shadow = ensureRoot();
+      applyTheme();
+      if (toast) shadow.removeChild(toast);
+      toast = el('div', 'toast');
+      toast.setAttribute('role', 'status');
+      for (var i = 0; i < lines.length; i++) toast.appendChild(el('p', i === 0 ? '' : 'muted', lines[i]));
+      var row = el('div', 'row');
+      var primary = el('button', 'primary', primaryText);
+      primary.setAttribute('type', 'button');
+      primary.addEventListener('click', onPrimary);
+      var dismiss = el('button', '', t('toastDismiss'));
+      dismiss.setAttribute('type', 'button');
+      dismiss.addEventListener('click', onDismiss);
+      row.appendChild(primary);
+      row.appendChild(dismiss);
+      toast.appendChild(row);
+      shadow.appendChild(toast);
+      if (toastTimer) win.clearTimeout(toastTimer);
+      toastTimer = win.setTimeout(hideToast, 20000);
+    }
+
+    /**
      * Ошибка в Smartup (FR-WG-07): уведомление с кнопкой "Сообщить". Панель сама не открывается.
      * @param {{ code?: unknown, message?: unknown }} [error]
      */
@@ -388,32 +431,13 @@
       if (!config) return;
       lastError = { code: error && error.code, message: error && error.message };
       if (panel && !panel.hidden) return;
-      var shadow = ensureRoot();
-      applyTheme();
-      if (toast) shadow.removeChild(toast);
-      toast = el('div', 'toast');
-      toast.setAttribute('role', 'status');
-      toast.appendChild(el('p', '', t('toastTitle')));
       var text = hint(lastError.message, 200);
-      if (text) toast.appendChild(el('p', 'muted', text));
-      var row = el('div', 'row');
-      var report = el('button', 'primary', t('toastReport'));
-      report.setAttribute('type', 'button');
-      report.addEventListener('click', function () {
+      showToast(text ? [t('toastTitle'), text] : [t('toastTitle')], t('toastReport'), function () {
         open({ mode: 'report' });
-      });
-      var dismiss = el('button', '', t('toastDismiss'));
-      dismiss.setAttribute('type', 'button');
-      dismiss.addEventListener('click', function () {
+      }, function () {
         lastError = null;
         hideToast();
       });
-      row.appendChild(report);
-      row.appendChild(dismiss);
-      toast.appendChild(row);
-      shadow.appendChild(toast);
-      if (toastTimer) win.clearTimeout(toastTimer);
-      toastTimer = win.setTimeout(hideToast, 20000);
     }
 
     /** @param {InitOptions} opts */

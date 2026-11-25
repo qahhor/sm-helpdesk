@@ -109,5 +109,7 @@ test('проект webkit не получает флаги запуска Chromi
   const { default: config } = await import('../../playwright.config');
   const webkit = config.projects?.find((p) => p.name === 'webkit');
   expect(webkit).toBeDefined();
-  expect(webkit?.use?.launchOptions?.args ?? []).not.toContain('--font-render-hinting=none');
+  // Свои параметры проекта заменяют общие целиком: смотрим то, что получит браузер.
+  const args = (webkit?.use?.launchOptions ?? config.use?.launchOptions)?.args ?? [];
+  expect(args).not.toContain('--font-render-hinting=none');
 });

@@ -1,4 +1,5 @@
-import { registerContactDirectory } from '@/modules/hdc/api';
+import { registerContactDirectory, registerTicketSignatureRecorder } from '@/modules/hdc/api';
+import { ticketSignatureRecorder } from '@/modules/hdk/api/signatures';
 import { contactDirectory } from '@/modules/hdu/api/contacts';
 
 // Сборка процесса: связи между модулями, которые идут через интерфейсы общего модуля (аудит 23.11.2026,
@@ -8,3 +9,5 @@ import { contactDirectory } from '@/modules/hdu/api/contacts';
 // tests/unit/wiring.test.ts проверяет, что ни одна точка входа его не потеряла.
 
 registerContactDirectory(contactDirectory);
+// Сигнатуру ошибки нового обращения (план M5, задача 8) считает модуль знаний hdk: hdt знает только интерфейс в hdc.
+registerTicketSignatureRecorder(ticketSignatureRecorder);

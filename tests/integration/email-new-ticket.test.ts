@@ -181,3 +181,15 @@ test('повтор разбора того же письма предел час
   box.storage.put = put;
   expect(await intakeEmail(SYSTEM, inboundId)).toBe('new');
 });
+
+test('письмо неподтверждённого отправителя с домена организации: сигнатура у обращения есть, организация в число клиентов сигнатуры не входит (0057, M7m)', async () => {
+  await pools.root.query(`insert into hdu_org_email_domains (org_id, domain, added_by) values ($1, 'company-a.uz', $2)`, [f.orgA.orgId, f.care.userId]);
+  const { inboundId } = await deliver({ from: 'Dilnoza <dilnoza@company-a.uz>', subject: 'Ошибка', text: 'Не проводится.\nORA-20001: Документ №4512 от 12.03.2026 не найден' });
+  const t = await ticketOf(inboundId);
+  expect(t).toMatchObject({ org_id: f.orgA.orgId, sender_unconfirmed: true });
+  const signature = (await pools.root.query(`select error_signature from hdt_tickets where ticket_id = $1`, [t.ticket_id])).rows[0].error_signature as string | null;
+  expect(signature).toMatch(/^[0-9a-f]{32}$/);
+  const row = (await pools.root.query(`select signature_id, org_count, occurrences from hdk_error_signatures where signature = $1`, [signature])).rows[0];
+  expect(row).toMatchObject({ org_count: 0, occurrences: 1 });
+  expect((await pools.root.query(`select 1 from hdk_signature_orgs where signature_id = $1`, [row.signature_id])).rowCount).toBe(0);
+});

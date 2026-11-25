@@ -1,12 +1,12 @@
 import 'server-only';
-import { and, asc, eq, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
 import { containsText } from '@/db/contains';
-import { type StaffActor, withActor } from '@/db/with-actor';
+import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
 import { authSession, authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
-import { memberships, organizations, servers, staff } from '../schema';
+import { memberships, organizations, servers, staff, userProfiles } from '../schema';
 import { signInMemberships } from './access';
 
 // Модуль hdu, слой core: организации пользователя и активная организация сессии (ТЗ 11.1, FR-ID-05).
@@ -136,5 +136,36 @@ export async function updateOrgSettings(actor: StaffActor, orgId: string, settin
       .where(eq(organizations.orgId, orgId));
     await writeAudit(tx, { action: 'org.updated', objectType: 'organization', objectId: orgId, orgId, diff });
     return true;
+  });
+}
+
+/** memberNames: имена всех участников организации, и тех, кто в переписке не писал (0057, I3s). */
+export type OrgAiProfile = { name: string; inn: string | null; isAiEnabled: boolean; people: { userId: string; name: string; isStaff: boolean }[]; memberNames: string[] };
+
+/** Сколько имён участников организации берётся для вырезания: у организации их обычно десятки. */
+const MEMBER_NAMES_MAX = 2000;
+
+/**
+ * Что нужно отбору данных для модели (ТЗ 14.3; план M5, задача 5): включена ли AI-обработка организации, её название
+ * и ИНН, имена участников переписки. Название, ИНН и имена в модель не уходят: по ним они вырезаются из текста.
+ */
+export async function orgAiProfileOf(actor: SystemActor | StaffActor, orgId: string, userIds: readonly string[]): Promise<OrgAiProfile | null> {
+  return withActor(actor, async (tx) => {
+    const [org] = await tx
+      .select({ name: organizations.name, inn: organizations.inn, isAiEnabled: organizations.isAiEnabled })
+      .from(organizations)
+      .where(eq(organizations.orgId, orgId))
+      .limit(1);
+    if (!org) return null;
+    const ids = [...new Set(userIds)];
+    const people = ids.length === 0 ? [] : await tx.select({ userId: userProfiles.userId, name: userProfiles.name, isStaff: userProfiles.isStaff }).from(userProfiles).where(inArray(userProfiles.userId, ids));
+    // Участники организации в любом состоянии: имя бывшего сотрудника клиента тоже его данные.
+    const members = await tx
+      .select({ name: userProfiles.name })
+      .from(memberships)
+      .innerJoin(userProfiles, eq(userProfiles.userId, memberships.userId))
+      .where(eq(memberships.orgId, orgId))
+      .limit(MEMBER_NAMES_MAX);
+    return { ...org, people, memberNames: members.map((m) => m.name).filter((name): name is string => Boolean(name)) };
   });
 }

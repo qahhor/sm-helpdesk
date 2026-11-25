@@ -1,7 +1,11 @@
 'use server';
 
+import { randomBytes } from 'node:crypto';
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { LOCALES, type Locale } from '@/i18n/locales';
+import { isHdkError } from '@/modules/hdk/api/errors';
+import { createSolutionFromTicket } from '@/modules/hdk/api/from-ticket';
 import { loadSlaConfig } from '@/modules/hdr/api';
 import {
   addTicketTag,
@@ -39,7 +43,8 @@ import { actionTexts } from '../../settings/rules/run-text';
 
 const text = (form: FormData, name: string) => String(form.get(name) ?? '').trim();
 
-async function run(form: FormData, action: (staff: StaffContext, number: number) => Promise<void>, done: string): Promise<never> {
+/** after: что сделать после удачного действия; вернёт адрес, куда перейти вместо страницы обращения. */
+async function run(form: FormData, action: (staff: StaffContext, number: number) => Promise<void>, done: string, after?: (staff: StaffContext, number: number) => Promise<string>): Promise<never> {
   const staff = await requireStaffActor();
   const number = Number(text(form, 'number'));
   const page = `/${await getLocale()}/agent/tickets/SUP-${Number.isInteger(number) ? number : 0}`;
@@ -56,7 +61,44 @@ async function run(form: FormData, action: (staff: StaffContext, number: number)
     // Кто взял обращение, страница покажет сама из текущего исполнителя: имя в адресе не передаётся.
     redirect(`${page}?error=${error.code}`);
   }
+  if (after) redirect(await after(staff, number));
   redirect(`${page}?done=${done}`);
+}
+
+/** Подписи трёх блоков формы решения на каждом языке (UX-W-01): решение получает язык обращения. */
+async function templateLabels(): Promise<Record<Locale, { what: string; why: string; do: string }>> {
+  const entries = await Promise.all(
+    LOCALES.map(async (locale) => {
+      const t = await getTranslations({ locale, namespace: 'agent.solutions.template' });
+      return [locale, { what: t('what'), why: t('why'), do: t('do') }] as const;
+    }),
+  );
+  return Object.fromEntries(entries) as Record<Locale, { what: string; why: string; do: string }>;
+}
+
+const newBlockId = () => randomBytes(12).toString('base64url');
+
+/**
+ * Решение из обращения (план M5, задача 7; UX-W-09, S5): статья с источником, черновик от модели готовит фоновый
+ * процесс. Итог: страница решения; отказ модуля решений: страница обращения с кодом.
+ */
+async function solutionFromTicket(staff: StaffContext, number: number): Promise<string> {
+  const locale = await getLocale();
+  try {
+    const labels = await templateLabels();
+    const result = await createSolutionFromTicket(staff, { number }, (lang) => labels[lang], newBlockId);
+    return `/${locale}/agent/solutions/${result.number}${result.created ? '?done=from_ticket' : ''}`;
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    return `/${locale}/agent/tickets/SUP-${number}?error=solution_${error.code}`;
+  }
+}
+
+/** Кнопка "Создать решение" на странице решённого или закрытого обращения. */
+export async function createSolutionAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const number = Number(text(form, 'number'));
+  redirect(await solutionFromTicket(staff, Number.isInteger(number) ? number : 0));
 }
 
 export async function takeAction(form: FormData): Promise<void> {
@@ -79,6 +121,8 @@ export async function statusAction(form: FormData): Promise<void> {
         seenVersion: text(form, 'seen') || undefined,
       }),
     'status',
+    // "Опубликовать как решение" в окне закрытия (S5): после решения или закрытия сразу черновик решения.
+    form.get('publishSolution') === 'on' && ['resolved', 'closed'].includes(text(form, 'to')) ? solutionFromTicket : undefined,
   );
 }
 

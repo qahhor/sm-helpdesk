@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { clientIpHeaderOf, EnvError, parseEnv } from '@/env';
+import { clientIpHeaderOf, EnvError, parseAiEnv, parseEnv } from '@/env';
 import { missingInEnvExample } from '../../scripts/checks/env-example.mjs';
 
 const ok = {
@@ -256,6 +256,19 @@ test('антивирус: CLAMAV_PORT по умолчанию 3310, на нас�
   expect(parseEnv({ ...prod, CLAMAV_HOST: undefined, FILE_STORAGE: 'local', HUB_URL: 'http://localhost:3100', HUB_DOMAIN: 'localhost' }).CLAMAV_HOST).toBeUndefined();
 });
 
+test('векторы подсказки: по умолчанию заглушка, tei требует внутренний адрес EMBEDDINGS_URL (план M5, решения 5 и 6)', () => {
+  expect(parseEnv(ok)).toMatchObject({ EMBEDDINGS: 'stub' });
+  expect(parseEnv(ok).EMBEDDINGS_URL).toBeUndefined();
+  expect(parseEnv({ ...ok, EMBEDDINGS: 'tei', EMBEDDINGS_URL: 'http://tei:80' })).toMatchObject({ EMBEDDINGS: 'tei', EMBEDDINGS_URL: 'http://tei:80' });
+  expect(parseEnv({ ...prod, EMBEDDINGS: 'tei', EMBEDDINGS_URL: 'http://10.0.3.7:8080' }).EMBEDDINGS_URL).toBe('http://10.0.3.7:8080');
+  expect(parseEnv({ ...ok, EMBEDDINGS: 'tei', EMBEDDINGS_URL: 'http://localhost:8081' }).EMBEDDINGS_URL).toBe('http://localhost:8081');
+  expect(() => parseEnv({ ...ok, EMBEDDINGS: 'openai' })).toThrowError(/EMBEDDINGS/);
+  expect(problems({ ...ok, EMBEDDINGS: 'tei' }).map((p) => p.name)).toEqual(['EMBEDDINGS_URL']);
+  // Текст запроса клиента не уходит за пределы сервера: внешний адрес, адрес с учётной записью или путём отклоняются.
+  for (const url of ['https://api.example.com', 'http://tei.example.com', 'http://8.8.8.8', 'http://user:pw@tei:80', 'http://tei:80/embed?x=1', 'ftp://tei'])
+    expect(problems({ ...ok, EMBEDDINGS: 'tei', EMBEDDINGS_URL: url }).map((p) => p.name), url).toEqual(['EMBEDDINGS_URL']);
+});
+
 test('проверка "не робот": на настоящем адресе в production ключи Turnstile обязательны, локально нет', () => {
   expect(problems({ ...prod, TURNSTILE_SITE_KEY: undefined, TURNSTILE_SECRET: undefined }).map((p) => p.name)).toEqual(['TURNSTILE_SITE_KEY']);
   expect(
@@ -358,4 +371,38 @@ test('таск-менеджер разработки: адрес только ht
   } catch (error) {
     expect(String(error)).not.toMatch(/short-secret|secret token value/);
   }
+});
+
+// Клиент Claude (план M5, задача 5, решения 3 и 4): ключ и модели только у фонового процесса.
+test('Claude: окружение портала не содержит ключа и моделей, даже если они заданы', () => {
+  const e = parseEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-test-0123456789', AI_MODEL_FAST: 'model-fast' }) as Record<string, unknown>;
+  expect(e.ANTHROPIC_API_KEY).toBeUndefined();
+  expect(e.AI_MODEL_FAST).toBeUndefined();
+});
+
+test('Claude: без ключа фоновый процесс работает без AI; с ключом модели обязательны; значение ключа в ошибку не попадает', () => {
+  expect(parseAiEnv(ok)).toEqual({ mode: 'none' });
+  const error = (() => {
+    try {
+      parseAiEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-secret-value-0123' });
+    } catch (e) {
+      return e as EnvError;
+    }
+    return null;
+  })();
+  expect(error).toBeInstanceOf(EnvError);
+  expect(error?.problems.map((p) => p.name).sort()).toEqual(['AI_MODEL_FAST', 'AI_MODEL_QUALITY']);
+  expect(error?.message).not.toContain('sk-ant-secret-value-0123');
+  expect(parseAiEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-secret-value-0123', AI_MODEL_FAST: 'm-fast', AI_MODEL_QUALITY: 'm-quality' })).toEqual({
+    mode: 'anthropic',
+    apiKey: 'sk-ant-secret-value-0123',
+    models: { fast: 'm-fast', quality: 'm-quality' },
+  });
+});
+
+test('Claude: заглушка только для портала на localhost и не вместе с ключом', () => {
+  const local = { ...ok, HUB_URL: 'http://localhost:3000', HUB_DOMAIN: 'localhost' };
+  expect(parseAiEnv({ ...local, AI_STUB: '1' })).toEqual({ mode: 'stub' });
+  expect(() => parseAiEnv({ ...ok, AI_STUB: '1' })).toThrow(/AI_STUB/);
+  expect(() => parseAiEnv({ ...local, AI_STUB: '1', ANTHROPIC_API_KEY: 'sk-ant-x-0123456789', AI_MODEL_FAST: 'a', AI_MODEL_QUALITY: 'b' })).toThrow(/AI_STUB/);
 });

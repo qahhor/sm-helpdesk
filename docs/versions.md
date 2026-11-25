@@ -16,6 +16,22 @@
 |---|---|---|
 | `@better-auth/sso` | 1.7.22 | MIT |
 | `@formatjs/icu-messageformat-parser` | 3.5.23 | MIT |
+| `@tiptap/core` | 3.34.0 | MIT |
+| `@tiptap/extension-bold` | 3.34.0 | MIT |
+| `@tiptap/extension-code` | 3.34.0 | MIT |
+| `@tiptap/extension-document` | 3.34.0 | MIT |
+| `@tiptap/extension-hard-break` | 3.34.0 | MIT |
+| `@tiptap/extension-heading` | 3.34.0 | MIT |
+| `@tiptap/extension-image` | 3.34.0 | MIT |
+| `@tiptap/extension-italic` | 3.34.0 | MIT |
+| `@tiptap/extension-link` | 3.34.0 | MIT |
+| `@tiptap/extension-list` | 3.34.0 | MIT |
+| `@tiptap/extension-paragraph` | 3.34.0 | MIT |
+| `@tiptap/extension-table` | 3.34.0 | MIT |
+| `@tiptap/extension-text` | 3.34.0 | MIT |
+| `@tiptap/extensions` | 3.34.0 | MIT |
+| `@tiptap/pm` | 3.34.0 | MIT |
+| `@tiptap/react` | 3.34.0 | MIT |
 | `aws4fetch` | 1.0.20 | MIT |
 | `better-auth` | 1.7.22 | MIT |
 | `class-variance-authority` | 0.7.1 | Apache-2.0 |

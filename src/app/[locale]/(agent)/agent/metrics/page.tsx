@@ -17,6 +17,7 @@ import {
   type MetricsView,
   splitMinutes,
 } from '@/modules/hdt/api';
+import { getKnowledgeMetrics, type KnowledgeMetrics } from '@/modules/hdk/api/metrics';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
@@ -32,7 +33,8 @@ import { saveCsatReviewAction } from './actions';
 // "Показатели" (FR-MET-01, 03, 04, 07, 10, FR-LINE-08; план M8, задача 9, решения 14-16). Страницу видят все
 // сотрудники; срез по организациям и модулям и выгрузку видят Customer Care, продукт, администратор и руководители
 // линий. Период выбирается обычной формой GET и работает без скриптов. Числа считаются при каждом показе, кеша нет.
-// Графиков нет: доли показаны числом и полосой <progress>.
+// Графиков нет: доли показаны числом и полосой <progress>. Блоки знаний (FR-MET-02, 05; план M5, задача 11) считает
+// модуль hdk за тот же период: подсказка решений и частые ошибки без решения.
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3 py-2 align-top';
@@ -68,6 +70,7 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
     invalid = true;
     view = await getMetrics(staff, {});
   }
+  const knowledge: KnowledgeMetrics = await getKnowledgeMetrics(staff, { from: view.period.from, to: view.period.to });
   const t = await getTranslations('agent');
   const format = await getFormatter();
   const locale = await getLocale();
@@ -398,6 +401,107 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
           </Card>
         </>
       )}
+
+      <section aria-labelledby="metrics-deflection" className="flex flex-col gap-3" data-block="deflection">
+        <h2 id="metrics-deflection" className="text-base font-semibold">
+          {t('metrics.knowledge.title')}
+        </h2>
+        {knowledge.deflection.shown === 0 ? (
+          <p className="text-sm text-secondary-foreground" data-deflection-empty>
+            {t('metrics.knowledge.empty')}
+          </p>
+        ) : (
+          <dl className="grid grid-cols-1 gap-3 tablet:grid-cols-2 lg:grid-cols-4">
+            <Stat id="deflection-self" label={t('metrics.knowledge.selfService')} value={share(knowledge.deflection.selfServicePercent)}>
+              {t('metrics.knowledge.selfServiceHint', { helped: knowledge.deflection.helped, shown: knowledge.deflection.shown })}
+            </Stat>
+            <Stat id="deflection-shown" label={t('metrics.knowledge.shown')} value={format.number(knowledge.deflection.shown)} />
+            <Stat id="deflection-helped" label={t('metrics.knowledge.helped')} value={format.number(knowledge.deflection.helped)} />
+            <Stat id="deflection-not-helped" label={t('metrics.knowledge.notHelped')} value={format.number(knowledge.deflection.notHelped)} />
+            <Stat id="deflection-tickets" label={t('metrics.knowledge.tickets')} value={format.number(knowledge.deflection.ticketCreated)}>
+              {share(knowledge.deflection.ticketPercent)}
+            </Stat>
+            <Stat id="deflection-left" label={t('metrics.knowledge.left')} value={format.number(knowledge.deflection.left)} />
+          </dl>
+        )}
+        <p className="text-sm text-muted-foreground">{t('metrics.knowledge.hint')}</p>
+        {knowledge.byOrg && knowledge.byOrg.length > 0 && (
+          <Card className="overflow-x-auto" data-breakdown="deflection-org">
+            <CardHeader>
+              <h3 className="text-base font-semibold">{t('metrics.knowledge.byOrgTitle')}</h3>
+            </CardHeader>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className={head}>{t('metrics.breakdown.org')}</th>
+                  <th scope="col" className={head}>{t('metrics.knowledge.shown')}</th>
+                  <th scope="col" className={head}>{t('metrics.knowledge.helped')}</th>
+                  <th scope="col" className={head}>{t('metrics.knowledge.notHelped')}</th>
+                  <th scope="col" className={head}>{t('metrics.knowledge.tickets')}</th>
+                  <th scope="col" className={head}>{t('metrics.knowledge.selfService')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {knowledge.byOrg.map((row) => (
+                  <tr key={row.orgId} className="border-b border-border last:border-b-0">
+                    <th scope="row" className={`${cell} text-start font-medium wrap-anywhere`}>
+                      <Link href={`/agent/organizations/${row.orgId}`} className="text-link underline-offset-2 hover:underline">
+                        {row.name ?? t('metrics.breakdown.unknown')}
+                      </Link>
+                    </th>
+                    <td className={numeric}>{format.number(row.shown)}</td>
+                    <td className={numeric}>{format.number(row.helped)}</td>
+                    <td className={numeric}>{format.number(row.notHelped)}</td>
+                    <td className={numeric}>{format.number(row.ticketCreated)}</td>
+                    <td className={numeric}>{share(row.selfServicePercent)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )}
+      </section>
+
+      <Card className="overflow-x-auto" data-block="unsolved">
+        <CardHeader>
+          <h2 className="text-base font-semibold">{t('metrics.knowledge.unsolvedTitle')}</h2>
+          <p className="text-sm text-muted-foreground">{t('metrics.knowledge.unsolvedHint')}</p>
+        </CardHeader>
+        {knowledge.unsolved.length === 0 ? (
+          <CardContent>
+            <p className="text-sm text-secondary-foreground">{t('metrics.knowledge.unsolvedEmpty')}</p>
+          </CardContent>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th scope="col" className={head}>{t('metrics.knowledge.code')}</th>
+                <th scope="col" className={head}>{t('metrics.knowledge.sample')}</th>
+                <th scope="col" className={head}>{t('metrics.knowledge.orgs')}</th>
+                <th scope="col" className={head}>{t('metrics.knowledge.times')}</th>
+                {knowledge.canCreate && <th scope="col" className={head} />}
+              </tr>
+            </thead>
+            <tbody>
+              {knowledge.unsolved.map((row) => (
+                <tr key={row.signatureId} className="border-b border-border last:border-b-0" data-unsolved={row.signatureId}>
+                  <td className={`${cell} font-mono whitespace-nowrap`}>{row.sampleCode ?? t('metrics.knowledge.noCode')}</td>
+                  <td className={`${cell} wrap-anywhere`}>{row.sampleMessage ?? t('metrics.knowledge.noSample')}</td>
+                  <td className={numeric}>{format.number(row.orgCount)}</td>
+                  <td className={numeric}>{format.number(row.occurrences)}</td>
+                  {knowledge.canCreate && (
+                    <td className={cell}>
+                      <Link href={`/agent/solutions/new?signature=${row.signatureId}`} className={buttonVariants({ variant: 'secondary', size: 'small' })}>
+                        {t('metrics.knowledge.create')}
+                      </Link>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
     </>
   );
 }

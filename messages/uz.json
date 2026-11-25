@@ -182,7 +182,14 @@
         "submit": "Murojaatni yuborish",
         "moduleSearch": "Modulni qidirish",
         "moduleRecent": "Yaqinda tanlanganlar",
-        "moduleAll": "Barcha modullar"
+        "moduleAll": "Barcha modullar",
+        "suggest": {
+          "title": "Ehtimol, bu allaqachon hal qilingan",
+          "exact": "Xato bo'yicha aniq moslik",
+          "notHelped": "Yordam bermadi, murojaat yuborish",
+          "sendAnyway": "Yordam bermadimi? Murojaat yuboring",
+          "orgCount": "{count} ta mijozda uchragan"
+        }
       },
       "list": {
         "new": "Yangi murojaat",
@@ -422,6 +429,37 @@
     },
     "footer": {
       "support": "Qo'llab-quvvatlash: <address></address>"
+    },
+    "solution": {
+      "module": "Modul: {module}",
+      "updated": "Yangilangan: {date}",
+      "newRequest": "Murojaat yaratish",
+      "notTranslated": "Yechim hali tilingizga tarjima qilinmagan. Matn shu tilda ko'rsatilgan: {language}.",
+      "machine": "Mashina tarjimasi.",
+      "outdated": "Tarjima asl nusxadan orqada qolishi mumkin.",
+      "original": "Asl nusxa: {language}",
+      "languages": {
+        "ru": "rus tili",
+        "uz": "o'zbek tili",
+        "en": "ingliz tili"
+      },
+      "archived": {
+        "title": "Yechim endi amal qilmaydi",
+        "text": "Bu yechim olib tashlangan. Muammo qolgan bo'lsa, murojaat yarating: yordam beramiz."
+      },
+      "view": {
+        "warning": "Diqqat",
+        "info": "Eslatma",
+        "step": "{n}-qadam"
+      },
+      "feedback": {
+        "question": "Yechim yordam berdimi?",
+        "helped": "Yordam berdi",
+        "notHelped": "Yordam bermadi",
+        "thanks": "Rahmat! Hal bo'lganidan xursandmiz.",
+        "sorry": "Afsus. Murojaat yarating: birga hal qilamiz.",
+        "failed": "Javobni yuborib bo'lmadi. Keyinroq urinib ko'ring."
+      }
     }
   },
   "agent": {
@@ -614,6 +652,10 @@
         "macros": {
           "title": "Makroslar",
           "text": "Murojaat bilan bir necha amal bir bosishda: javob shabloni, holat, teg, ijrochi."
+        },
+        "knowledge": {
+          "title": "Yechimlar",
+          "text": "Yechimlar havola qila oladigan domenlar."
         }
       },
       "servers": {
@@ -981,6 +1023,17 @@
           },
           "metrics": {
             "exported": "Ko'rsatkichlar CSV ga eksport qilindi"
+          },
+          "solution": {
+            "published": "Yechim e'lon qilindi",
+            "archived": "Yechim arxivga olindi",
+            "audience_changed": "Yechim kimga ko'rinishi o'zgartirildi",
+            "version_restored": "Yechimning oldingi versiyasi qaytarildi",
+            "text_read": "Belgilandi: AI yozgan yechim matni o'qildi",
+            "file_infected": "Antivirus yechim rasmida virus topdi",
+            "created_from_ticket": "Yechim murojaatdan yaratildi",
+            "signature_bound": "Yechim xato imzosiga bog'landi",
+            "signature_unbound": "Yechim xato imzosidan uzildi"
           }
         },
         "words": {
@@ -1670,6 +1723,30 @@
           "not_found": "Makros topilmadi. Ehtimol, u allaqachon o'chirilgan.",
           "too_many": "Ro'yxatda 50 ta makros bor. Keraksizini o'chiring."
         }
+      },
+      "knowledge": {
+        "title": "Yechimlar",
+        "intro": "Yechim faqat shu domenlar va ularning subdomenlariga havola qila oladi. Boshqa manzilga havola e'lon qilinmaydi, portal ichidagi havolalarga doim ruxsat bor.",
+        "label": "Ruxsat etilgan domenlar",
+        "hint": "Har birini alohida qatorda, vergul yoki bo'sh joy bilan. Manzil ham mos keladi: undan domen olinadi.",
+        "save": "Saqlash",
+        "saved": "Domenlar ro'yxati saqlandi.",
+        "empty": "Ro'yxat bo'sh: tashqi havolali yechimlar e'lon qilinmaydi.",
+        "reauth": "Qayta kirish",
+        "errors": {
+          "domain": "Bu domen emas: {value}. Hech narsa saqlanmadi.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
+          "forbidden": "Sozlamani faqat administrator o'zgartiradi.",
+          "invalid_input": "Domenlar juda ko'p: 50 tadan oshmasin."
+        },
+        "aiLimit": {
+          "title": "AI chaqiruvlari chegarasi",
+          "intro": "AI bir sutkada yechim qoralamalari va tarjimalarni birgalikda necha marta tayyorlashi mumkin. Chegara tugaganda qoralama va tarjimani xodim yozadi, Toshkent vaqti bilan keyingi sutkagacha.",
+          "label": "Sutkadagi chaqiruvlar",
+          "save": "Chegarani belgilash",
+          "saved": "AI chaqiruvlari chegarasi saqlandi.",
+          "invalid": "0 dan 10 000 gacha butun son kiriting."
+        }
       }
     },
     "queues": {
@@ -2011,8 +2088,14 @@
           "task_closed": "Bu raqamli vazifa allaqachon yopilgan. Boshqa vazifani ko'rsating.",
           "not_manual": "Bu vazifaning holati task-menejerdan keladi: uni qo'lda o'zgartirib bo'lmaydi.",
           "task_not_found": "Task-menejerda bunday raqamli vazifa yo'q.",
-          "tracker_unavailable": "Task-menejer javob bermadi. Murojaat o'zgarmadi: keyinroq yana urinib ko'ring."
-        }
+          "tracker_unavailable": "Task-menejer javob bermadi. Murojaat o'zgarmadi: keyinroq yana urinib ko'ring.",
+          "solution_not_resolved": "Yechim faqat hal qilingan yoki yopilgan murojaatdan yaratiladi.",
+          "solution_forbidden": "Yechimlarni birinchi va ikkinchi liniya, Customer Care va administrator yaratadi.",
+          "solution_not_found": "Murojaat topilmadi.",
+          "solution_invalid_input": "Yechim yaratib bo'lmadi. Qayta urinib ko'ring."
+        },
+        "publishSolution": "Yechim sifatida e'lon qilish",
+        "publishSolutionHint": "Hal qilingandan yoki yopilgandan keyin yechim qoralamasi ochiladi: AI uni yozishma bo'yicha tayyorlaydi, xodim e'lon qiladi."
       },
       "presence": {
         "viewing": "{name} murojaatni ochgan",
@@ -2166,6 +2249,18 @@
         "existingRefHint": "Ixtiyoriy. Yangi vazifa yaratish uchun bo'sh qoldiring.",
         "submitApi": "Vazifa yaratish va berish",
         "synced": "Vazifa holati task-menejerdan keladi."
+      },
+      "solution": {
+        "title": "Yechim",
+        "open": "Yechim {number}",
+        "hint": "Ushbu murojaat yozishmasi bo'yicha yechim qoralamasi: AI mijoz ma'lumotlarini olib tashlaydi, siz tekshirib e'lon qilasiz.",
+        "create": "Yechim yaratish"
+      },
+      "related": {
+        "title": "Tegishli yechimlar",
+        "exact": "Xato bo'yicha aniq moslik",
+        "internal": "Faqat xodim orqali: mijozga o'z so'zlaringiz bilan tushuntiring",
+        "insert": "Havolani javobga qo'yish"
       }
     },
     "playbooks": {
@@ -2418,6 +2513,305 @@
         "forbidden": "Tahlil qaydini Customer Care va administrator yozadi.",
         "invalid_input": "Qayd saqlanmadi: 1 dan 3 gacha baholangan murojaatga 2000 belgigacha matn kerak.",
         "not_found": "Murojaat topilmadi."
+      },
+      "knowledge": {
+        "title": "Yechim maslahatlari",
+        "selfService": "Mustaqil hal qilingan",
+        "selfServiceHint": "Maslahatning {shown} ta ko'rsatilishidan {helped} tasida «Yordam berdi»",
+        "shown": "Maslahat ko'rsatilgan",
+        "helped": "Yordam berdi",
+        "notHelped": "Yordam bermadi",
+        "tickets": "Murojaatlar yaratildi",
+        "left": "Javobsiz chiqib ketdi",
+        "hint": "Ko'rsatish murojaat shaklini har ochishda bir marta hisoblanadi. «Javobsiz chiqib ketdi»: maslahat ko'rilgan, lekin «Yordam berdi» ham, «Yordam bermadi» ham bosilmagan va murojaat yaratilmagan; ular hal qilinganlar ulushiga kirmaydi.",
+        "byOrgTitle": "Tashkilotlar bo'yicha maslahatlar",
+        "unsolvedTitle": "Yechimi yo'q tez-tez uchraydigan xatolar",
+        "unsolvedHint": "Birinchi navbatda nimani yozish kerak: davrda uchragan va amaldagi yechimi yo'q xatolar. Matn namunasi mijoz ma'lumotlarisiz, tashkilotlar soni nomlarsiz.",
+        "unsolvedEmpty": "Davrda yechimi yo'q xatolar yo'q.",
+        "code": "Kod",
+        "sample": "Matn namunasi",
+        "orgs": "Tashkilotlar",
+        "times": "Marta",
+        "noCode": "kodsiz",
+        "noSample": "matn yo'q",
+        "create": "Yechim yaratish",
+        "empty": "Bu davrda yechim maslahatlari ko'rsatilmagan."
+      }
+    },
+    "solutions": {
+      "title": "Yechimlar",
+      "new": "Yangi yechim",
+      "newTitle": "Yangi yechim",
+      "create": "Yaratish",
+      "untitled": "Sarlavhasiz",
+      "noModule": "Modul tanlanmagan",
+      "moduleInactive": "Modul o'chirilgan",
+      "hasChanges": "Tuzatishlar bor",
+      "internalOnly": "Faqat xodim orqali",
+      "needsReview": "Qayta ko'rib chiqish",
+      "numberLabel": "Yechim {number}",
+      "languageOf": "Til: {language}",
+      "archivedNotice": "Yechim arxivda: mijozlar uni ko'rmaydi. Uni yangi e'lon bilan qaytarish mumkin.",
+      "readOnly": "Yechim faqat o'qish uchun ochiq: uni birinchi va ikkinchi liniya, Customer Care va administrator tuzatadi.",
+      "columns": {
+        "number": "Raqam",
+        "title": "Sarlavha",
+        "module": "Modul",
+        "language": "Til",
+        "status": "Holat",
+        "shown": "Ko'rsatilgan",
+        "helped": "Yordam berdi",
+        "notHelped": "Yordam bermadi",
+        "updated": "O'zgartirilgan"
+      },
+      "locales": {
+        "ru": "Ruscha",
+        "uz": "O'zbekcha",
+        "en": "Inglizcha"
+      },
+      "statuses": {
+        "draft": "Qoralama",
+        "published": "E'lon qilingan",
+        "archived": "Arxivda"
+      },
+      "mine": {
+        "title": "Mening vazifalarim",
+        "intro": "Qoralamalaringiz va mijozlarga ko'pincha yordam bermaydigan yechimlaringiz.",
+        "emptyTitle": "Vazifa yo'q",
+        "emptyText": "Bu yerda qoralamalaringiz va qayta ko'rib chiqiladigan yechimlar chiqadi."
+      },
+      "all": {
+        "title": "Barcha yechimlar",
+        "emptyTitle": "Yechim topilmadi",
+        "emptyText": "Filtrlarni o'zgartiring yoki yangi yechim yarating.",
+        "countsHint": "Ko'rsatilgan: yechim maslahatda necha marta bo'lgani. «Yordam berdi» va «Yordam bermadi»ni mijozlar yechim sahifasida belgilaydi. 10 va undan ortiq belgida «yordam bermadi» 40% dan oshsa, yechim qayta ko'rib chiqishga tushadi."
+      },
+      "filters": {
+        "label": "Yechimlar filtrlari",
+        "status": "Holat",
+        "module": "Modul",
+        "language": "Til",
+        "any": "Istalgan",
+        "apply": "Ko'rsatish",
+        "review": "Qayta ko'rib chiqish"
+      },
+      "fields": {
+        "title": "Sarlavha",
+        "locale": "Asl til",
+        "module": "Modul",
+        "internal": "Faqat xodim orqali",
+        "internalHint": "Mijozlar yechimni ko'rmaydi: uni xodim qo'llaydi."
+      },
+      "errors": {
+        "forbidden": "Bu amal uchun huquq yetarli emas.",
+        "invalid_input": "Maydonlarni tekshirib, qayta urinib ko'ring.",
+        "not_found": "Yechim yoki versiya topilmadi.",
+        "meta": "Modul va ko'rinishni saqlab bo'lmadi. Qayta urinib ko'ring.",
+        "metaForbidden": "E'lon qilingan yechimni mijozlarga faqat ikkinchi liniya, Customer Care yoki administrator ochadi.",
+        "no_original": "Avval asl matnni e'lon qiling: tarjima e'lon qilingan matndan qilinadi."
+      },
+      "template": {
+        "what": "Foydalanuvchi nimani ko'radi",
+        "why": "Nega shunday bo'ladi",
+        "do": "Nima qilish kerak"
+      },
+      "save": {
+        "saved": "Barcha o'zgarishlar saqlandi",
+        "savedAt": "{time} da saqlandi",
+        "dirty": "Saqlanmagan o'zgarishlar bor",
+        "saving": "Saqlanmoqda...",
+        "offline": "Aloqa yo'q. O'zgarishlar aloqa tiklanganda saqlanadi.",
+        "conflict": "Qoralamani boshqa oynada yoki boshqa xodim o'zgartirdi. Matningiz saqlanmadi va sahifada qoldi: keraklisini nusxalab, oxirgi versiyani oching.",
+        "error": "Saqlab bo'lmadi",
+        "restored": "Saqlanib ulgurmagan matn tiklandi.",
+        "reload": "Oxirgi versiyani ochish",
+        "stale": "Qoralamaning boshqa versiyasidan saqlanmagan matn bor. U muharrirga qo'yilmadi.",
+        "staleShow": "Ko'rsatish",
+        "staleHide": "Yashirish",
+        "staleCopy": "Nusxa olish",
+        "staleCopied": "Nusxa olindi",
+        "staleDiscard": "Tashlab yuborish"
+      },
+      "screenshot": {
+        "title": "Ekran surati",
+        "description": "Suratni qo'ying, kerakli joyni belgilang va shaxsiy ma'lumotlarni xiralashtiring.",
+        "close": "Yopish",
+        "pasteHint": "Ekran suratini qo'ying: Ctrl+V.",
+        "chooseFile": "Faylni tanlash",
+        "tools": "Surat belgilari",
+        "arrow": "Strelka",
+        "frame": "Ramka",
+        "number": "Qadam raqami",
+        "blur": "Xiralashtirish",
+        "undo": "Bekor qilish",
+        "alt": "Suratda nima bor",
+        "altHint": "Rasmni ko'rmaydiganlar uchun qisqacha.",
+        "insert": "Qo'yish",
+        "uploading": "Yuklanmoqda va tekshirilmoqda...",
+        "failed": "Suratni yuklab bo'lmadi. Qayta urinib ko'ring.",
+        "notImage": "PNG, JPEG yoki WebP surat mos keladi.",
+        "canvas": "Belgilangan ekran surati"
+      },
+      "view": {
+        "warning": "Diqqat",
+        "info": "Eslatma",
+        "step": "{n}-qadam"
+      },
+      "versions": {
+        "title": "Versiyalar tarixi",
+        "columns": {
+          "number": "Versiya",
+          "state": "Holat",
+          "title": "Sarlavha",
+          "modified": "O'zgartirilgan",
+          "actions": "Amallar"
+        },
+        "states": {
+          "draft": "Qoralama",
+          "published": "E'lon qilingan",
+          "superseded": "Oldingi"
+        },
+        "machine": "AI, tekshirilmagan",
+        "restore": "Qaytarish",
+        "restoreOf": "{number}-versiyani qaytarish",
+        "restored": "Oldingi versiya matni qoralamaga aylandi.",
+        "hint": "Qaytarish tarixni o'zgartirmaydi: tanlangan versiya matni qoralamaga aylanadi."
+      },
+      "preview": {
+        "open": "Oldindan ko'rish",
+        "title": "Oldindan ko'rish",
+        "devices": "Ekran kengligi",
+        "phone": "Telefon",
+        "desktop": "Kompyuter",
+        "hint": "Oxirgi saqlangan matn mijoz ko'radigan ko'rinishda."
+      },
+      "review": {
+        "title": "E'lon qilishga tayyorlik",
+        "items": {
+          "title": "Sarlavha",
+          "module": "Modul",
+          "steps": "Kamida bitta matnli qadam",
+          "checks": "Matn tekshiruvida topilma yo'q",
+          "textRead": "AI matni o'qildi",
+          "translations": "Tarjimalar dolzarb (ma'lumot uchun)"
+        },
+        "findingsTitle": "Tekshiruv topilmalari",
+        "noFindings": "Topilma yo'q.",
+        "kinds": {
+          "phone": "Telefon",
+          "email": "Email",
+          "inn": "STIR",
+          "pinfl": "JShShIR",
+          "digits": "Uzun raqam",
+          "server": "Server manzili",
+          "internal": "Ichki nom",
+          "link": "Ro'yxatdan tashqari havola"
+        },
+        "inTitle": "sarlavhada",
+        "show": "Ko'rsatish",
+        "blocking": "e'lon qilinmaydi",
+        "filesNotClean": "Matnda hali tekshirilmagan yoki tekshiruvdan o'tmagan rasm bor. Uni o'chiring yoki tekshiruvni kuting.",
+        "machine": "Matnni AI tayyorladi. E'lon qilishdan oldin uni to'liq o'qing.",
+        "textRead": "Matn o'qildi",
+        "confirm": "Topilmalarni tekshirdim: bu mijoz ma'lumotlari emas, ular bilan e'lon qilinsin",
+        "publish": "E'lon qilish",
+        "publishing": "E'lon qilinmoqda...",
+        "republish": "Arxivdan qaytarish",
+        "saveFirst": "Saqlanishini kuting: saqlangan matn e'lon qilinadi.",
+        "notReady": "Yechim hali e'lon qilishga tayyor emas: yuqoridagi bandlarni ko'ring.",
+        "conflict": "Matn boshqa oynada o'zgartirildi. Oxirgi versiyani oching.",
+        "failed": "E'lon qilib bo'lmadi. Qayta urinib ko'ring.",
+        "published": "Yechim e'lon qilindi."
+      },
+      "archive": {
+        "hint": "Olingan yechimni mijozlar ko'rmaydi, eski havola yechim endi amal qilmasligini ko'rsatadi.",
+        "confirm": "Ha, portaldan olish",
+        "submit": "Arxivga olish",
+        "done": "Yechim arxivga olindi."
+      },
+      "translations": {
+        "tabsLabel": "Yechim tillari",
+        "original": "asl matn",
+        "statuses": {
+          "machine": "Mashina tarjimasi",
+          "reviewed": "Tekshirilgan",
+          "outdated": "Eskirgan",
+          "draft": "Qoralama",
+          "none": "Tarjima yo'q"
+        },
+        "emptyTitle": "«{language}» tiliga tarjima hali yo'q",
+        "pending": "Tarjima tayyorlanmoqda. Sahifa o'zi yangilanadi.",
+        "ai": {
+          "failed": "AI bilan tarjima qilib bo'lmadi. Portal yana urinib ko'radi, o'zingiz ham tarjima qilishingiz mumkin.",
+          "limited": "AI chaqiruvlarining sutkalik chegarasi tugadi. O'zingiz tarjima qiling yoki ertaga urinib ko'ring.",
+          "unavailable": "AI ulanmagan. O'zingiz tarjima qiling."
+        },
+        "translateAi": "AI bilan tarjima qilish",
+        "translateAiAgain": "AI bilan qayta tarjima qilish",
+        "translateAiHint": "Yangi mashina tarjimasi joriy tarjima qoralamasini almashtiradi.",
+        "translateManual": "O'zim tarjima qilaman",
+        "started": "Tarjima qoralamasi asl matndan yaratildi.",
+        "requested": "AI bilan tarjima navbatga qo'yildi.",
+        "originalTitle": "Asl matn: {language}",
+        "changed": "Asl matnda o'zgargan",
+        "changedHint": "Tarjimadan keyin asl matnning {count} ta bloki o'zgardi: ular ajratib ko'rsatilgan.",
+        "machineHint": "Tarjimani AI tayyorladi. Uni asl matn bilan yonma-yon o'qing.",
+        "confirm": "Tarjima tekshirildi",
+        "invariants": {
+          "title": "Tarjima asl matndan farq qiladi",
+          "hint": "Farqi bor mashina tarjimasi siz tekshirmaguningizcha e'lon qilinmaydi.",
+          "kinds": {
+            "links": "Havolalar",
+            "numbers": "Raqamlar",
+            "quotes": "Qo'shtirnoqdagi qismlar",
+            "steps": "Qadamlar soni",
+            "data": "Asl matnda yo'q ma'lumotlar"
+          },
+          "original": "Asl matnda",
+          "translation": "Tarjimada"
+        }
+      },
+      "fromTicket": {
+        "created": "Yechim murojaatdan yaratildi.",
+        "pending": "AI murojaat yozishmasi bo'yicha qoralama tayyorlamoqda. Sahifa o'zi yangilanadi, hozirdan yozishingiz mumkin: shunda AI qoralamasi matningizni almashtirmaydi.",
+        "machineHint": "Matnni AI murojaat yozishmasi bo'yicha tayyorladi. Uni o'ngdagi yozishma bilan solishtiring, ortiqchasini olib tashlang va «Matn o'qildi» deb belgilang.",
+        "ai": {
+          "not_confident": "AI yechimga ishonchi komil emas: yozishmadan u aniq emas. Har bir qadamni tekshiring.",
+          "failed": "AI qoralama tayyorlay olmadi. Portal yana urinib ko'radi, yechimni o'zingiz ham yozishingiz mumkin.",
+          "limited": "AI chaqiruvlarining sutkalik chegarasi tugadi: yechimni o'zingiz yozing.",
+          "unavailable": "AI ulanmagan: yechimni yozishma bo'yicha o'zingiz yozing.",
+          "disabled": "Murojaat AIga berilmaydi: tashkilot uchun ishlov o'chirilgan. Yechimni yozishma bo'yicha o'zingiz yozing.",
+          "skipped": "Siz AIdan oldin yoza boshladingiz: AI qoralamasi matningizni almashtirmadi."
+        },
+        "sourceTitle": "Murojaat yozishmasi",
+        "sourceHint": "Faqat xodimlarga ko'rinadi. Bu yerda ichki izohlar va ilovalar yo'q.",
+        "roles": {
+          "client": "Mijoz",
+          "staff": "Xodim"
+        }
+      },
+      "signatures": {
+        "title": "Xato imzolari",
+        "hint": "Shu xatosi bor mijoz bu yechimni birinchi bo'lib, aniq moslik belgisi bilan ko'radi. Matn namunasi mijoz ma'lumotlarisiz: raqamlar, qo'shtirnoqdagi nomlar va identifikatorlar almashtirilgan.",
+        "empty": "Hozircha imzolar yo'q. Xato matnini Smartup foydalanuvchisi ko'rganidek qo'shing.",
+        "code": "Kod",
+        "sample": "Matn namunasi",
+        "seen": "Uchragan",
+        "seenValue": "{orgs, plural, other {# ta tashkilotda}}, {times, plural, other {# marta}}",
+        "noCode": "kodsiz",
+        "noSample": "matn yo'q",
+        "unbind": "Uzish",
+        "unbindOf": "{code} imzosini uzish",
+        "addTitle": "Imzo qo'shish",
+        "codeLabel": "Xato kodi, agar bo'lsa",
+        "codeHint": "Masalan, ORA-20001. Bo'sh qoldirib, xato satrini to'liq qo'yish mumkin.",
+        "textLabel": "Xato matni",
+        "textHint": "Smartup'dagi xabarni qo'ying. Raqamlar, sanalar va nomlarni olib tashlash shart emas: imzo ularni hisobga olmaydi.",
+        "add": "Qo'shish",
+        "bound": "Imzo yechimga bog'landi.",
+        "unbound": "Imzo uzildi.",
+        "taken": "Bu imzo allaqachon {number} yechimiga bog'langan. Avval uni o'sha yerda uzing.",
+        "invalid": "Xato kodi yoki matnini kiriting."
       }
     }
   },
@@ -2796,6 +3190,59 @@
       "teal": "Hal qilindi",
       "danger": "Muddat o'tdi"
     },
-    "numbers": "1 250 000 so'm, 10.11.2026"
+    "numbers": "1 250 000 so'm, 10.11.2026",
+    "editor": {
+      "title": "Yechimlar muharririni sinash",
+      "intro": "Dasturchilar uchun sahifa: muharrirni tanlashdan oldin Tiptap sinovi. Hujjat tuzilma sifatida saqlanadi va komponentlar bilan koʻrsatiladi.",
+      "editorHeading": "Muharrir",
+      "previewHeading": "Mijoz qanday koʻradi",
+      "save": "Saqlash",
+      "saved": "Hujjat saqlandi va sxema boʻyicha tekshirildi.",
+      "invalid": "Hujjat sxema tekshiruvidan oʻtmadi. Namuna koʻrsatilgan.",
+      "toolbar": {
+        "area": "Yechim matni",
+        "toolbar": "Matnni bezash",
+        "bold": "Qalin",
+        "italic": "Kursiv",
+        "code": "Kod",
+        "link": "Havola",
+        "linkPrompt": "Havola manzili: https, mailto yoki portal yoʻli. Boʻsh manzil havolani olib tashlaydi.",
+        "heading2": "Sarlavha",
+        "heading3": "Kichik sarlavha",
+        "paragraph": "Oddiy matn",
+        "bulletList": "Roʻyxat",
+        "orderedList": "Raqamli roʻyxat",
+        "step": "Qadam",
+        "calloutWarning": "Ogohlantirish",
+        "calloutInfo": "Eslatma",
+        "image": "Rasm",
+        "table": "Jadval",
+        "addRow": "Qator qoʻshish",
+        "addColumn": "Ustun qoʻshish",
+        "deleteTable": "Jadvalni oʻchirish",
+        "moveUp": "Yuqoriga surish (Alt+Shift+↑)",
+        "moveDown": "Pastga surish (Alt+Shift+↓)",
+        "undo": "Bekor qilish",
+        "redo": "Qaytarish"
+      },
+      "view": {
+        "warning": "Diqqat",
+        "info": "Eslatma",
+        "step": "{n}-qadam"
+      },
+      "imageAlt": "Qadamga ekran surati",
+      "sample": {
+        "whatHeading": "Foydalanuvchi nimani koʻradi",
+        "what": "Hujjatni oʻtkazishda qoldiq yetishmasligi haqida xato chiqadi.",
+        "doHeading": "Nima qilish kerak",
+        "step1": "Ombor boʻlimini, keyin Qoldiqlarni oching.",
+        "step2": "Tovar qoldigʻini tekshiring va hujjatni qayta oʻtkazing.",
+        "warning": "Hujjat sanasini oʻtgan sanaga oʻzgartirmang.",
+        "codeHeader": "Kod",
+        "meaningHeader": "Maʼnosi",
+        "code": "ORA-20001",
+        "meaning": "Qoldiq yetishmaydi"
+      }
+    }
   }
 }

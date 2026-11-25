@@ -98,6 +98,28 @@ const httpsOrigin = required().refine(
   { error: 'ожидается адрес вида https://<счёт>.r2.cloudflarestorage.com без пути' },
 );
 
+/**
+ * Адрес TEI (план M5, решение 6): только внутренний, потому что вызывается мимо защиты исходящих запросов, а в запросе
+ * текст клиента. Имя службы compose без точек, localhost или частный IPv4; без учётной записи, пути и параметров.
+ */
+const embeddingsUrl = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      const url = toUrl(value);
+      if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password || url.search || url.hash) return false;
+      if (url.pathname !== '/' && url.pathname !== '') return false;
+      const host = url.hostname;
+      if (LOCAL_HOSTS.has(host) || /^[a-z0-9][a-z0-9-]{0,62}$/i.test(host)) return true;
+      const ip = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+      if (!ip) return false;
+      const [a, b] = [Number(ip[1]), Number(ip[2])];
+      return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+    },
+    { error: 'ожидается внутренний адрес вида http://tei:80: имя службы, localhost или частный IPv4, без пути' },
+  );
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production'], {
@@ -193,6 +215,10 @@ const schema = z
       .regex(/^[A-Za-z0-9.-]{1,253}$/, { error: 'ожидается имя узла или адрес IPv4' })
       .optional(),
     CLAMAV_PORT: z.coerce.number({ error: 'ожидается номер порта' }).int().min(1, { error: 'ожидается номер порта' }).max(65535, { error: 'ожидается номер порта' }).default(3310),
+    // Смысловые векторы подсказки (ТЗ 11.11 EmbeddingProvider; план M5, решения 5 и 6): stub считает детерминированный
+    // вектор по буквосочетаниям прямо в процессе, tei ходит в локальный контейнер TEI с моделью BGE-M3.
+    EMBEDDINGS: z.enum(['stub', 'tei'], { error: 'ожидается stub или tei' }).default('stub'),
+    EMBEDDINGS_URL: embeddingsUrl.optional(),
     // Таск-менеджер разработки (ТЗ 7.9, решение 13 вехи M8): manual значит, что номер и ссылку задачи вводит сотрудник;
     // smartup: задачи создаёт портал через API таск-менеджера Smartup (docs/integrations/dev-tracker.md).
     DEV_TRACKER: z.enum(['manual', 'smartup'], { error: 'ожидается manual или smartup' }).default('manual'),
@@ -278,6 +304,8 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SITE_KEY'], message: 'не задан: на настоящем адресе в production формы входа защищает Cloudflare Turnstile' });
     if (!value.CLAMAV_HOST && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({ code: 'custom', path: ['CLAMAV_HOST'], message: 'не задан: на настоящем адресе в production файлы проверяет ClamAV' });
+    if (value.EMBEDDINGS === 'tei' && !value.EMBEDDINGS_URL)
+      ctx.addIssue({ code: 'custom', path: ['EMBEDDINGS_URL'], message: 'не задан, а EMBEDDINGS равен tei' });
     if (value.DEV_TRACKER === 'smartup')
       for (const name of ['DEV_TRACKER_URL', 'DEV_TRACKER_TOKEN', 'DEV_TRACKER_WEBHOOK_SECRET'] as const)
         if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а DEV_TRACKER равен smartup' });
@@ -316,6 +344,49 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   throw new EnvError(
     result.error.issues.map((issue) => ({ name: String(issue.path[0] ?? 'окружение'), reason: issue.message })),
   );
+}
+
+// --- Клиент Claude: только фоновый процесс (ТЗ 13.5, решение 97; план M5, решения 3 и 4) ---
+//
+// Ключ Anthropic задаётся только контейнеру worker (compose.prod.yaml, файл .env.worker). Схема портала выше его не
+// содержит: веб-процесс ключа не требует и не читает, даже если переменная попала в его окружение. Разбирает эту схему
+// только фабрика клиента модели (src/modules/hda/client/index.ts), её вызывают задачи фонового процесса.
+// Имён моделей в коде нет: они задаются переменными (решение 4), рекомендованные значения в .env.example.
+
+const aiSchema = z
+  .object({
+    HUB_URL: hubUrl,
+    ANTHROPIC_API_KEY: z
+      .string()
+      .trim()
+      .regex(/^[\x21-\x7e]{16,256}$/, { error: 'ожидается ключ API: от 16 до 256 печатных знаков без пробелов' })
+      .optional(),
+    AI_MODEL_FAST: z.string().trim().regex(/^[a-z0-9][a-z0-9.@:_-]{1,99}$/, { error: 'ожидается идентификатор модели, например из .env.example' }).optional(),
+    AI_MODEL_QUALITY: z.string().trim().regex(/^[a-z0-9][a-z0-9.@:_-]{1,99}$/, { error: 'ожидается идентификатор модели, например из .env.example' }).optional(),
+    // Заглушка модели с заготовленными ответами: разработка и браузерные тесты на localhost.
+    AI_STUB: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
+  })
+  .superRefine((value, ctx) => {
+    if (value.ANTHROPIC_API_KEY)
+      for (const name of ['AI_MODEL_FAST', 'AI_MODEL_QUALITY'] as const)
+        if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а ANTHROPIC_API_KEY задан' });
+    if (value.AI_STUB === '1' && !LOCAL_HOSTS.has(new URL(value.HUB_URL).hostname))
+      ctx.addIssue({ code: 'custom', path: ['AI_STUB'], message: 'заглушка модели допускается только для localhost и 127.0.0.1' });
+    else if (value.AI_STUB === '1' && value.ANTHROPIC_API_KEY)
+      ctx.addIssue({ code: 'custom', path: ['AI_STUB'], message: 'заглушка и ANTHROPIC_API_KEY не задаются вместе' });
+  });
+
+/** Как фоновый процесс вызывает модель: без AI, заглушкой (localhost) или настоящим API. */
+export type AiEnv = { mode: 'none' } | { mode: 'stub' } | { mode: 'anthropic'; apiKey: string; models: { fast: string; quality: string } };
+
+export function parseAiEnv(source: Record<string, string | undefined>): AiEnv {
+  const result = aiSchema.safeParse(source);
+  if (!result.success)
+    throw new EnvError(result.error.issues.map((issue) => ({ name: String(issue.path[0] ?? 'окружение'), reason: issue.message })));
+  const value = result.data;
+  if (value.AI_STUB === '1') return { mode: 'stub' };
+  if (!value.ANTHROPIC_API_KEY || !value.AI_MODEL_FAST || !value.AI_MODEL_QUALITY) return { mode: 'none' };
+  return { mode: 'anthropic', apiKey: value.ANTHROPIC_API_KEY, models: { fast: value.AI_MODEL_FAST, quality: value.AI_MODEL_QUALITY } };
 }
 
 let cached: Env | undefined;

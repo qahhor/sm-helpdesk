@@ -6,7 +6,23 @@ import { env } from '@/env';
 // В задачах только идентификаторы, без текстов клиентов. Задачи идемпотентны: повтор безопасен.
 // Схему и очереди создаёт скрипт миграций (scripts/db/pgboss.mjs): у hub_app нет прав на объекты схемы.
 
-export const JOB_NAMES = ['attachment.scan', 'attachment.sweep', 'automation.process', 'devtasks.sync', 'email.inbound', 'maintenance.cleanup', 'ops.watch', 'outbox.dispatch', 'tickets.minute', 'webhooks.dispatch'] as const;
+export const JOB_NAMES = [
+  'attachment.scan',
+  'attachment.sweep',
+  'automation.process',
+  'devtasks.sync',
+  'email.inbound',
+  'kb.draft',
+  'kb.index',
+  'kb.reconcile',
+  'kb.scan',
+  'kb.translate',
+  'maintenance.cleanup',
+  'ops.watch',
+  'outbox.dispatch',
+  'tickets.minute',
+  'webhooks.dispatch',
+] as const;
 export type JobName = (typeof JOB_NAMES)[number];
 export type JobData = Record<string, string | number | boolean | null>;
 
@@ -34,12 +50,12 @@ export function bossOptions(connectionString: string, role: 'sender' | 'worker')
     : { ...common, supervise: true, schedule: true, instanceName: 'worker', max: 5 };
 }
 
-/** Очередь поверх запущенного pg-boss. Ключ singletonKey: для одного объекта не больше одной задачи (политика exclusive). */
+/** Очередь поверх запущенного pg-boss. Ключ singletonKey: для одного объекта не больше одной задачи (политики exclusive и stately). */
 export function createPgBossQueue(boss: PgBoss): JobQueue {
   return {
     async send(name, data) {
-      // Одна задача на файл или на входящее письмо (политика exclusive).
-      const key = typeof data.attachmentId === 'string' ? data.attachmentId : typeof data.inboundId === 'string' ? data.inboundId : undefined;
+      // Одна задача на файл или входящее письмо (exclusive); на решение одна ждущая и одна выполняемая (stately, kb.index).
+      const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId].find((value): value is string => typeof value === 'string');
       await boss.send(name, data, key ? { singletonKey: key } : {});
     },
   };

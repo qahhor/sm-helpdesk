@@ -2,7 +2,7 @@ import 'server-only';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
-import { consumeRateLimit, emitEventTx, enqueue, getStorage, rateKey, wakeAutomation, writeAudit } from '@/modules/hdc/api';
+import { consumeRateLimit, emitEventTx, enqueue, getStorage, rateKey, recordTicketSignature, wakeAutomation, writeAudit } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import {
   classifyAuto,
@@ -373,29 +373,39 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
   const queued: string[] = [];
   const staged = await stageFiles(actor, { orgId: sender.orgId, uploaderId: sender.userId }, files);
   let attached = false;
+  let created: { ticketId: string; body: string } | null = null;
   const result = await withActor(actor, async (tx) => {
     const done = await alreadyDone(tx, row);
     if (done) return done;
-    const created = await createEmailTicketTx(tx, {
+    const body = cut(letter.fullText, BODY_MAX) || title;
+    const ticket = await createEmailTicketTx(tx, {
       orgId: sender.orgId,
       authorId: sender.userId,
       title,
       // Пересланное письмо и есть суть нового обращения: цитата не отрезается (итоговая проверка M4).
-      body: cut(letter.fullText, BODY_MAX) || title,
+      body,
       locale: sender.locale,
       visibility: sender.visibility,
       senderUnconfirmed: sender.senderUnconfirmed,
     });
+    created = { ticketId: ticket.ticketId, body };
     for (const userId of watchers)
-      await tx.insert(ticketWatchers).values({ orgId: sender.orgId, ticketId: created.ticketId, userId, source: 'manual' }).onConflictDoNothing();
-    queued.push(...(await attachStagedTx(tx, { ticketId: created.ticketId, messageId: null }, staged)));
+      await tx.insert(ticketWatchers).values({ orgId: sender.orgId, ticketId: ticket.ticketId, userId, source: 'manual' }).onConflictDoNothing();
+    queued.push(...(await attachStagedTx(tx, { ticketId: ticket.ticketId, messageId: null }, staged)));
     attached = true;
-    if (sender.identified) await notifyTicketTx(tx, { ticketId: created.ticketId, kind: 'created', actorUserId: null, viaEmail: true });
-    else if (ack) await notifyTicketTx(tx, { ticketId: created.ticketId, kind: 'unidentified_ack', actorUserId: null });
-    if (row.messageId) await recordThreadTx(tx, { ticketId: created.ticketId, messageId: row.messageId, inReplyTo: inReplyToOf(letter.headers), direction: 'in' });
-    await markInboundTx(tx, row.inboundId, { classification: 'new', ticketId: created.ticketId, headers: letter.headers, dmarcAligned: letter.aligned });
+    if (sender.identified) await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'created', actorUserId: null, viaEmail: true });
+    else if (ack) await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'unidentified_ack', actorUserId: null });
+    if (row.messageId) await recordThreadTx(tx, { ticketId: ticket.ticketId, messageId: row.messageId, inReplyTo: inReplyToOf(letter.headers), direction: 'in' });
+    await markInboundTx(tx, row.inboundId, { classification: 'new', ticketId: ticket.ticketId, headers: letter.headers, dmarcAligned: letter.aligned });
     return 'new' as const;
   });
+  // Сигнатура ошибки из текста письма (план M5, задача 8) после фиксации, до разбора правил. Письмо неизвестного
+  // отправителя (служебная организация) сигнатуру не получает: оно не прибавило бы организацию к числу клиентов.
+  const fresh = created as { ticketId: string; body: string } | null;
+  // Неподтверждённый отправитель с домена организации сигнатуру получает, но организацию к числу клиентов не
+  // прибавляет: письмо с её домена ещё не значит, что ошибка встретилась у неё (0057, M7m).
+  if (result === 'new' && fresh && sender.orgId !== SERVICE_ORG_ID)
+    await recordTicketSignature({ ticketId: fresh.ticketId, orgId: sender.orgId, authorId: sender.userId, description: fresh.body, context: null, moduleId: null, countOrg: !sender.senderUnconfirmed });
   await afterCommit(attached ? queued : []);
   return result;
 }

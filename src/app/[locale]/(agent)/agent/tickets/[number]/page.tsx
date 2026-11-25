@@ -20,6 +20,8 @@ import { PresenceBar } from './PresenceBar';
 import { SeenMark } from './SeenMark';
 import { ReturnDialog } from './ReturnDialog';
 import { TicketControls } from './TicketControls';
+import { SolutionBlock } from './SolutionBlock';
+import { RelatedSolutions } from './RelatedSolutions';
 import { loadTicketPage, type TicketPageSearch } from './loader';
 import { TicketKeys } from './TicketKeys';
 import { TicketTags } from './TicketTags';
@@ -190,6 +192,8 @@ export default async function AgentTicketPage({ params, searchParams }: { params
           <TicketControls ticket={ticket} me={staff.user.id} role={staff.actor.staffRole} staff={assignable} modules={modules} />
           <TicketTags number={ticket.number} tags={ticket.tags} known={knownTags} canWrite={canWrite} />
           <DevTaskBlock number={ticket.number} devTask={devTask} canManage={canDevelop} canHandOver={canHandOver} mode={devMode} />
+          <SolutionBlock staff={staff} ticketId={ticket.ticketId} number={ticket.number} status={ticket.status} />
+          <RelatedSolutions staff={staff} ticketId={ticket.ticketId} locale={ticket.locale} canWrite={canWrite} />
           <Card>
             <CardContent className="flex flex-col gap-1 pt-6 text-sm">
               <h2 className="text-xs font-medium text-secondary-foreground">{t('ticket.clientTitle')}</h2>

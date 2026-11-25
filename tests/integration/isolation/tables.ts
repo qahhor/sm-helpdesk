@@ -10,11 +10,13 @@
 //   org-people  клиент видит только людей своей организации и сотрудников портала;
 //   all         справочник: строки одинаковы для всех организаций;
 //   own-user    клиент видит только строки, где user_id его собственный, и хотя бы одну видит.
+//   clients-audience  общее содержимое для клиентов всех организаций: клиент видит только строки с audience = 'clients'
+//               (и хотя бы одну), строки internal не видит (знания, план M5, задача 2).
 //
 // app, auth: какие изменения разрешены ролям hub_app и hub_auth. Тест сверяет с правами в базе,
 // а остальные проверки берут отсюда, что должно быть закрыто (проверка main, Q2).
 
-export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user';
+export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience';
 export type Write = 'insert' | 'update' | 'delete';
 export type DomainObject = { client: ClientAccess; app?: Write[]; auth?: Write[] };
 
@@ -22,6 +24,9 @@ const IU: Write[] = ['insert', 'update'];
 const IUD: Write[] = ['insert', 'update', 'delete'];
 
 export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
+  // AI (веха M5, задача 5). Журнал вызовов модели без текста: пишет только фоновый процесс, читают сотрудники,
+  // строки не меняются и не удаляются (поправка 101).
+  hda_runs: { client: 'none', app: ['insert'] },
   // Ядро. Журнал аудита только пополняется (решение 0019).
   // Удаление: только ночная очистка под системным актором и только записи старше 3 лет (срок хранения журнала,
   // решение владельца 24.11.2026, решение 0041). Свежую запись политика не отдаёт ни одному актору: retention.test.ts.
@@ -31,6 +36,25 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdc_ops_alerts: { client: 'none', app: IU },
   hdc_rate_limits: { client: 'none', app: IUD },
   hdc_settings: { client: 'none', app: IUD },
+  // Знания (веха M5, задача 2). Клиент получает текст решения только из копии опубликованного hdk_published и
+  // находит его только через индекс hdk_search_documents, в обоих только audience = clients, одинаково для всех
+  // организаций. Черновики, версии, языки, источник (обращение), файлы, сигнатуры и исходы ему закрыты.
+  // Статьи, версии и языки пишут роли черновиков (agent_l1, agent_l2, care, admin), публикуют и архивируют agent_l2,
+  // care, admin (решение 10); удаления нет: история остаётся.
+  hdk_articles: { client: 'none', app: IU },
+  hdk_article_versions: { client: 'none', app: IU },
+  hdk_article_translations: { client: 'none', app: IU },
+  // Источник решения ставится один раз и не меняется.
+  hdk_article_sources: { client: 'none', app: ['insert'] },
+  // Копию пишут и снимают публикация и архив (публикующие роли и система).
+  hdk_published: { client: 'clients-audience', app: IUD },
+  // Файлы загружают роли черновиков, итог антивируса и удаление за системой.
+  hdk_article_files: { client: 'none', app: IUD },
+  hdk_error_signatures: { client: 'none', app: IU },
+  // Организации сигнатуры и исходы подсказки пишет только система; исходы удаляет ночная очистка (13 месяцев).
+  hdk_signature_orgs: { client: 'none', app: IU },
+  hdk_search_documents: { client: 'clients-audience', app: IUD },
+  hdk_deflection_events: { client: 'none', app: IUD },
   // Уведомления
   // Очередь исходящих (веха M4): ставит действие, отправляет система, клиент не видит.
   hdn_outbox: { client: 'none', app: IUD },

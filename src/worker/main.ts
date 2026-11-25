@@ -2,12 +2,16 @@ import '@/wiring';
 import { PgBoss } from 'pg-boss';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
-import { getEnv } from '@/env';
+import { getEnv, parseAiEnv } from '@/env';
 import { configureLog, logEvent, timedJob } from '@/lib/log';
 import { bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, createPgBossQueue, eventsState, JOB_NAMES, processEvents, setJobQueue } from '@/modules/hdc/api';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
+import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
+import { scanSolutionFile } from '@/modules/hdk/api/files';
+import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
+import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
@@ -23,7 +27,7 @@ import { opsWatch } from './ops-watch';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 и сверка индекса решений в 03:30 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
@@ -34,10 +38,13 @@ export const SCHEDULES = [
   { name: 'devtasks.sync', cron: '*/15 * * * *', tz: 'UTC' },
   { name: 'ops.watch', cron: '*/5 * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
+  // Сверка поискового индекса подсказки (план M5, задача 9): после ночной очистки.
+  { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
 
 const scanJob = z.object({ attachmentId: z.uuid() }).strict();
 const inboundJob = z.object({ inboundId: z.uuid() }).strict();
+const kbFileJob = z.object({ fileId: z.uuid() }).strict();
 const actor = (job: string): SystemActor => ({ type: 'system', job });
 
 /**
@@ -139,6 +146,32 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
       throw error;
     }
   }));
+  await boss.work('kb.scan', { ...polling, localConcurrency: 2 }, ([job]) => timedJob('kb.scan', async () => {
+    // Изображение решения (план M5, задача 3): в задаче только идентификатор файла.
+    const { fileId } = kbFileJob.parse(job?.data);
+    await scanSolutionFile(actor('kb.scan'), fileId);
+  }));
+  await boss.work('kb.index', polling, ([job]) => timedJob('kb.index', async () => {
+    // Строки поискового индекса и векторы решения (план M5, задача 9). Сервис векторов недоступен: строки с текстом уже
+    // записаны, задача бросает ошибку, pg-boss повторяет её; пропущенное найдёт ночная сверка kb.reconcile.
+    await runIndexJob(actor('kb.index'), job?.data);
+  }));
+  await boss.work('kb.reconcile', polling, () => timedJob('kb.reconcile', async () => {
+    const { articles, failed, deflections } = await reconcileSearchIndex(actor('kb.reconcile'));
+    if (articles + deflections > 0) console.info(`Сверка индекса решений: переиндексировано ${articles}, без вектора осталось ${failed}, исходов подсказки старше 13 месяцев удалено ${deflections}`);
+    // Потерянные сигнатуры обращений последних трёх суток (0057, M7m).
+    const signatures = await repairTicketSignatures(actor('kb.reconcile'));
+    if (signatures.repaired > 0) console.info(`Сверка сигнатур: дописано ${signatures.repaired} из ${signatures.checked}`);
+  }));
+  // Номер попытки и предел повторов нужны задачам модели: failed ставится только после последней попытки (0057).
+  await boss.work('kb.translate', { ...polling, includeMetadata: true }, ([job]) => timedJob('kb.translate', async () => {
+    // Машинный перевод решения (план M5, задача 6): модель вызывает только фоновый процесс (решение 3).
+    await runTranslationJob(actor('kb.translate'), job?.data, job ? { retryCount: job.retryCount, retryLimit: job.retryLimit } : undefined);
+  }));
+  await boss.work('kb.draft', { ...polling, includeMetadata: true }, ([job]) => timedJob('kb.draft', async () => {
+    // Черновик решения из закрытого обращения (план M5, задача 7): модель вызывает только фоновый процесс.
+    await runDraftJob(actor('kb.draft'), job?.data, job ? { retryCount: job.retryCount, retryLimit: job.retryLimit } : undefined);
+  }));
   await boss.work('email.inbound', polling, ([job]) => timedJob('email.inbound', async () => {
     // В задаче только идентификатор письма: сведения о нём в базе, текст и файлы у почтового сервиса.
     const { inboundId } = inboundJob.parse(job?.data);
@@ -228,9 +261,11 @@ if (import.meta.main) {
   try {
     // Неверное окружение останавливает процесс сразу, как и портал (src/instrumentation.ts).
     const env = getEnv();
+    // Ключ Claude есть только у фонового процесса (план M5, решение 3): неверный набор останавливает процесс сразу.
+    const ai = parseAiEnv(process.env);
     configureLog({ level: env.LOG_LEVEL, json: (env.LOG_FORMAT ?? (process.env.NODE_ENV === 'production' ? 'json' : 'text')) === 'json' });
     const worker = await startWorker();
-    console.info('Фоновый процесс запущен');
+    console.info(`Фоновый процесс запущен, модель: ${ai.mode === 'anthropic' ? 'Claude API' : ai.mode === 'stub' ? 'заглушка' : 'без AI'}`);
     let stopping = false;
     const shutdown = async () => {
       if (stopping) return;

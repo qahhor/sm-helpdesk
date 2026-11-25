@@ -11,7 +11,7 @@ import { getEmailProvider, type InboundAttachment, type InboundContent, parseMai
 // вехи M4). Узкий файл: его берёт фоновый процесс. hdn обращения не знает: решает, что делать с письмом, модуль hdt.
 
 export { classifyAuto } from '../inbound/classify';
-export { cleanSubject, emailToText, SUBJECT_MAX } from '../inbound/email-text';
+export { cleanSubject, emailToText, stripQuote, SUBJECT_MAX } from '../inbound/email-text';
 export {
   blockSenderTx,
   findThreadTicket,

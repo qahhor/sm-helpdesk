@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { listActiveModules } from '@/modules/hdr/api';
 import { ALLOWED_FILE_EXTENSIONS, IMPACTS, MAX_FILES_PER_MESSAGE, parseNumber, TICKET_TYPES, VISIBILITIES } from '@/modules/hdt/api';
@@ -6,12 +7,17 @@ import { Link } from '@/i18n/navigation';
 import { acceptOf } from '../status';
 import { NewTicketForm } from './NewTicketForm';
 
-// Новое обращение (ТЗ 8.3, без блока подсказки решений: он появится в M5). Сначала описание, затем поля.
-export default async function NewTicketPage({ searchParams }: { searchParams: Promise<{ related?: string }> }) {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Новое обращение (ТЗ 8.3): описание, подсказка решений, затем поля. Сессию формы для исходов подсказки выдаёт сервер
+// (план M5, решение 12); со страницы решения после "Не помогло" она возвращается в адресе (?s=, open=1, FR-SOL-11).
+export default async function NewTicketPage({ searchParams }: { searchParams: Promise<{ related?: string; s?: string; open?: string }> }) {
   const client = await requireClientActor();
   const locale = await getLocale();
   const t = await getTranslations('client.tickets');
-  const related = parseNumber(String((await searchParams).related ?? ''));
+  const search = await searchParams;
+  const related = parseNumber(String(search.related ?? ''));
+  const sessionId = search.s && UUID.test(search.s) ? search.s.toLowerCase() : randomUUID();
   const modules = await listActiveModules(client.actor, locale);
   return (
     <>
@@ -21,6 +27,8 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
       <h1 className="text-2xl font-bold">{t('new.title')}</h1>
       <NewTicketForm
         userId={client.actor.userId}
+        sessionId={sessionId}
+        initialOpen={search.open === '1'}
         relatedNumber={related}
         modules={modules.map((m) => ({ value: m.moduleId, label: m.name }))}
         types={TICKET_TYPES.map((value) => ({ value, label: t(`types.${value}`) }))}
@@ -45,6 +53,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
           related: related ? t('new.related', { number: `SUP-${related}` }) : '',
           hours: t('new.hours'),
           submit: t('new.submit'),
+          suggest: { title: t('new.suggest.title'), exact: t('new.suggest.exact'), notHelped: t('new.suggest.notHelped'), sendAnyway: t('new.suggest.sendAnyway') },
           busy: t('files.busy'),
           errors: Object.fromEntries(
             ['description', 'invalid_input', 'rate_limited', 'too_many_files', 'file_not_allowed', 'file_too_large', 'file_unavailable', 'upload'].map((code) => [code, t(`errors.${code}`)]),

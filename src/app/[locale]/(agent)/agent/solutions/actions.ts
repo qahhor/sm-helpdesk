@@ -1,0 +1,210 @@
+'use server';
+
+import { randomBytes } from 'node:crypto';
+import { redirect } from 'next/navigation';
+import { getLocale, getTranslations } from 'next-intl/server';
+import { isLocale } from '@/i18n/locales';
+import { createDraftArticle } from '@/modules/hdk/api/articles';
+import { solutionTemplate } from '@/modules/hdk/api/doc';
+import { restoreSolutionVersion, saveSolutionDraft, saveSolutionMeta, type SaveResult } from '@/modules/hdk/api/editor';
+import { isHdkError } from '@/modules/hdk/api/errors';
+import { archiveSolution, markSolutionTextRead, publishSolution, type PublishOutcome } from '@/modules/hdk/api/publish';
+import { completeSolutionFile, presignSolutionFile, type PresignedFile, solutionFileStatus } from '@/modules/hdk/api/files';
+import type { FileScanStatus } from '@/modules/hdk/pref';
+import { requestMachineTranslation, startManualTranslation } from '@/modules/hdk/api/translations';
+import { bindSolutionSignature, unbindSolutionSignature } from '@/modules/hdk/api/signatures';
+import { requireStaffActor } from '@/modules/hdu/api';
+
+// Действия раздела "Решения" (план M5, задача 3). Права, данные и версию строки проверяет модуль hdk; страница
+// получает итог кодом. Ошибки модуля не бросаются наружу: автосохранение показывает их строкой состояния.
+
+export type ActionResult<T = object> = ({ ok: true } & T) | { ok: false; code: string; retryAfterSec?: number };
+
+async function attempt<T extends object>(run: () => Promise<T>): Promise<ActionResult<T>> {
+  try {
+    return { ok: true, ...(await run()) };
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    return {
+      ok: false,
+      code: error.code,
+      ...(error.retryAfterSec ? { retryAfterSec: error.retryAfterSec } : {}),
+    };
+  }
+}
+
+/** Идентификатор блока заготовки: 16 знаков base64url. */
+const newBlockId = () => randomBytes(12).toString('base64url');
+
+/** Новое решение: статья и черновик с тремя блоками формы на языке решения (UX-W-01). */
+export async function createSolutionAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const lang = String(form.get('locale') ?? '');
+  const moduleId = String(form.get('moduleId') ?? '');
+  const title = String(form.get('title') ?? '').trim();
+  const locale = isLocale(lang) ? lang : page;
+  const t = await getTranslations({
+    locale,
+    namespace: 'agent.solutions.template',
+  });
+  const signatureId = String(form.get('signatureId') ?? '');
+  let number: number;
+  try {
+    ({ number } = await createDraftArticle(staff, {
+      locale,
+      title,
+      audience: form.get('internal') === 'on' ? 'internal' : 'clients',
+      ...(moduleId ? { moduleId } : {}),
+      doc: solutionTemplate({ what: t('what'), why: t('why'), do: t('do') }, newBlockId),
+    }));
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    redirect(`/${page}/agent/solutions/new?error=${error.code}`);
+  }
+  // "Создать решение" из списка частых ошибок без решения (FR-MET-05): новое решение сразу привязано к сигнатуре.
+  let signature = '';
+  if (signatureId) {
+    try {
+      const bound = await bindSolutionSignature(staff, { number, signatureId });
+      signature = bound.status === 'bound' ? '?signature=bound' : `?signature=taken&taken=${bound.number}`;
+    } catch (error) {
+      if (!isHdkError(error)) throw error;
+      signature = '?signature=invalid';
+    }
+  }
+  redirect(`/${page}/agent/solutions/${number}${signature}`);
+}
+
+/** Привязка сигнатуры ошибки в редакторе (задача 8): страница открывается заново с итогом. */
+export async function bindSignatureAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const number = String(form.get('number') ?? '');
+  const safeNumber = /^\d{1,12}$/.test(number) ? number : '';
+  const code = String(form.get('errorCode') ?? '').trim();
+  let result: string;
+  try {
+    const bound = await bindSolutionSignature(staff, { number, ...(code ? { errorCode: code } : {}), errorText: String(form.get('errorText') ?? '') });
+    result = bound.status === 'bound' ? 'signature=bound' : `signature=taken&taken=${bound.number}`;
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    result = error.code === 'invalid_input' ? 'signature=invalid' : `error=${error.code}`;
+  }
+  redirect(`/${page}/agent/solutions/${safeNumber}?${result}#solution-signatures`);
+}
+
+/** Отвязка сигнатуры от решения. */
+export async function unbindSignatureAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const number = String(form.get('number') ?? '');
+  const safeNumber = /^\d{1,12}$/.test(number) ? number : '';
+  let result = 'signature=unbound';
+  try {
+    await unbindSolutionSignature(staff, { number, signatureId: String(form.get('signatureId') ?? '') });
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    result = `error=${error.code}`;
+  }
+  redirect(`/${page}/agent/solutions/${safeNumber}?${result}#solution-signatures`);
+}
+
+/** Автосохранение (UX-W-04). Конфликт версии строки приходит итогом, а не ошибкой. */
+export async function saveDraftAction(input: unknown): Promise<ActionResult<{ result: SaveResult }>> {
+  const staff = await requireStaffActor();
+  return attempt(async () => ({
+    result: await saveSolutionDraft(staff, input),
+  }));
+}
+
+/** Модуль и флаг "только через сотрудника". */
+export async function saveMetaAction(input: unknown): Promise<ActionResult> {
+  const staff = await requireStaffActor();
+  return attempt(async () => {
+    await saveSolutionMeta(staff, input);
+    return {};
+  });
+}
+
+/** Возврат к прежней версии: страница открывается заново с новым черновиком. */
+export async function restoreVersionAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const number = String(form.get('number') ?? '');
+  const safeNumber = /^\d{1,12}$/.test(number) ? number : '';
+  try {
+    await restoreSolutionVersion(staff, {
+      number,
+      locale: String(form.get('locale') ?? ''),
+      versionId: String(form.get('versionId') ?? ''),
+    });
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    redirect(`/${page}/agent/solutions/${safeNumber}?error=${error.code}`);
+  }
+  redirect(`/${page}/agent/solutions/${safeNumber}?done=restored`);
+}
+
+export async function presignFileAction(input: unknown): Promise<ActionResult<PresignedFile>> {
+  const staff = await requireStaffActor();
+  return attempt(() => presignSolutionFile(staff, input));
+}
+
+export async function completeFileAction(input: unknown): Promise<ActionResult<{ status: FileScanStatus }>> {
+  const staff = await requireStaffActor();
+  return attempt(() => completeSolutionFile(staff, input));
+}
+
+export async function fileStatusAction(input: unknown): Promise<ActionResult<{ status: FileScanStatus }>> {
+  const staff = await requireStaffActor();
+  return attempt(() => solutionFileStatus(staff, input));
+}
+
+/** Публикация (задача 4): только agent_l2, care, admin; итог not_ready несёт находки и панель готовности. */
+export async function publishAction(input: unknown): Promise<ActionResult<{ outcome: PublishOutcome }>> {
+  const staff = await requireStaffActor();
+  return attempt(async () => ({ outcome: await publishSolution(staff, input) }));
+}
+
+/** "Текст прочитан" для текста модели (решение 15). */
+export async function markReadAction(input: unknown): Promise<ActionResult<{ result: Awaited<ReturnType<typeof markSolutionTextRead>> }>> {
+  const staff = await requireStaffActor();
+  return attempt(async () => ({ result: await markSolutionTextRead(staff, input) }));
+}
+
+/** Архив (решение 11): страница открывается заново с пометкой. */
+export async function archiveAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const number = String(form.get('number') ?? '');
+  const safeNumber = /^\d{1,12}$/.test(number) ? number : '';
+  try {
+    await archiveSolution(staff, { number });
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    redirect(`/${page}/agent/solutions/${safeNumber}?error=${error.code}`);
+  }
+  redirect(`/${page}/agent/solutions/${safeNumber}?done=archived`);
+}
+
+/** Перевод (задача 6, UX-W-06): "Перевести с AI" ставит задачу, "Перевести самому" создаёт черновик копией оригинала. */
+export async function translationAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const number = String(form.get('number') ?? '');
+  const locale = String(form.get('locale') ?? '');
+  const safeNumber = /^\d{1,12}$/.test(number) ? number : '';
+  const safeLocale = isLocale(locale) ? locale : '';
+  const back = `/${page}/agent/solutions/${safeNumber}?locale=${safeLocale}`;
+  let done: string;
+  try {
+    const run = form.get('mode') === 'ai' ? requestMachineTranslation : startManualTranslation;
+    const result = await run(staff, { number, locale });
+    done = result === 'no_original' ? 'error=no_original' : `done=${form.get('mode') === 'ai' ? 'requested' : 'started'}`;
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    redirect(`${back}&error=${error.code}`);
+  }
+  redirect(`${back}&${done}`);
+}

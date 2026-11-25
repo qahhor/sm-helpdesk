@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "blocks": [
+    { "type": "heading", "attrs": { "id": "h2what00001", "level": 2 }, "content": [{ "type": "text", "text": "Что видит пользователь" }] },
+    {
+      "type": "paragraph",
+      "attrs": { "id": "pwhat000001" },
+      "content": [
+        { "type": "text", "text": "При проведении документа появляется ошибка " },
+        { "type": "text", "text": "ORA-20001", "marks": [{ "type": "code" }] },
+        { "type": "text", "text": ". Это " },
+        { "type": "text", "text": "не сбой", "marks": [{ "type": "bold" }] },
+        { "type": "text", "text": ", а " },
+        { "type": "text", "text": "проверка остатка", "marks": [{ "type": "italic" }] },
+        { "type": "hardBreak" },
+        { "type": "text", "text": "Подробнее в " },
+        { "type": "text", "text": "документации", "marks": [{ "type": "link", "attrs": { "href": "https://smartup.uz/docs" } }] },
+        { "type": "text", "text": " и в " },
+        { "type": "text", "text": "соседнем решении", "marks": [{ "type": "link", "attrs": { "href": "/help/a/12-ostatki" } }] },
+        { "type": "text", "text": "." }
+      ]
+    },
+    { "type": "heading", "attrs": { "id": "h3why000001", "level": 3 }, "content": [{ "type": "text", "text": "Почему так происходит" }] },
+    {
+      "type": "bulletList",
+      "attrs": { "id": "ulwhy000001" },
+      "content": [
+        { "type": "listItem", "content": [{ "type": "paragraph", "attrs": { "id": "pli00000001" }, "content": [{ "type": "text", "text": "Остаток на складе меньше количества в документе" }] }] },
+        {
+          "type": "listItem",
+          "content": [
+            { "type": "paragraph", "attrs": { "id": "pli00000002" }, "content": [{ "type": "text", "text": "Склад закрыт для списания" }] },
+            {
+              "type": "orderedList",
+              "attrs": { "id": "olnested001", "start": 1 },
+              "content": [{ "type": "listItem", "content": [{ "type": "paragraph", "attrs": { "id": "pli00000003" }, "content": [{ "type": "text", "text": "Вложенный пункт" }] }] }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "orderedList",
+      "attrs": { "id": "olwhy000001", "start": 3 },
+      "content": [{ "type": "listItem", "content": [{ "type": "paragraph", "attrs": { "id": "pli00000004" }, "content": [{ "type": "text", "text": "Третий пункт" }] }] }]
+    },
+    {
+      "type": "step",
+      "attrs": { "id": "step0000001" },
+      "content": [
+        { "type": "paragraph", "attrs": { "id": "pstep000001" }, "content": [{ "type": "text", "text": "Откройте раздел Склад, затем Остатки" }] },
+        { "type": "image", "attrs": { "id": "img00000001", "fileId": "019ab8c0-0000-7000-8000-000000000001", "alt": "Раздел Остатки" } }
+      ]
+    },
+    {
+      "type": "step",
+      "attrs": { "id": "step0000002" },
+      "content": [{ "type": "paragraph", "attrs": { "id": "pstep000002" }, "content": [{ "type": "text", "text": "Проверьте остаток товара" }] }]
+    },
+    {
+      "type": "callout",
+      "attrs": { "id": "callout0001", "tone": "warning" },
+      "content": [{ "type": "paragraph", "attrs": { "id": "pcallout001" }, "content": [{ "type": "text", "text": "Не меняйте дату документа задним числом" }] }]
+    },
+    {
+      "type": "callout",
+      "attrs": { "id": "callout0002", "tone": "info" },
+      "content": [{ "type": "paragraph", "attrs": { "id": "pcallout002" }, "content": [{ "type": "text", "text": "Остаток пересчитывается раз в минуту" }] }]
+    },
+    {
+      "type": "table",
+      "attrs": { "id": "table000001" },
+      "content": [
+        {
+          "type": "tableRow",
+          "content": [
+            { "type": "tableHeader", "attrs": { "colspan": 1, "rowspan": 1 }, "content": [{ "type": "paragraph", "attrs": { "id": "pth00000001" }, "content": [{ "type": "text", "text": "Код" }] }] },
+            { "type": "tableHeader", "attrs": { "colspan": 1, "rowspan": 1 }, "content": [{ "type": "paragraph", "attrs": { "id": "pth00000002" }, "content": [{ "type": "text", "text": "Что значит" }] }] }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "content": [
+            { "type": "tableCell", "attrs": { "colspan": 1, "rowspan": 1 }, "content": [{ "type": "paragraph", "attrs": { "id": "ptd00000001" }, "content": [{ "type": "text", "text": "ORA-20001" }] }] },
+            { "type": "tableCell", "attrs": { "colspan": 1, "rowspan": 1 }, "content": [{ "type": "paragraph", "attrs": { "id": "ptd00000002" }, "content": [{ "type": "text", "text": "Не хватает остатка" }] }] }
+          ]
+        }
+      ]
+    },
+    { "type": "image", "attrs": { "id": "img00000002", "fileId": "019ab8c0-0000-7000-8000-000000000002", "alt": "" } },
+    { "type": "paragraph", "attrs": { "id": "pempty00001" } }
+  ]
+}

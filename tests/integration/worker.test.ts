@@ -9,7 +9,7 @@ import { MemoryJobQueue, MemoryStorage, setJobQueueForTests, setScannerForTests,
 import { createStubScanner } from '@/modules/hdc/antivirus/stub';
 import { completeUpload, createTicket, presignUpload, SWEEP_BATCH, sweepAttachments } from '@/modules/hdt/api';
 import { SCHEDULES, startWorker } from '@/worker/main';
-import { QUEUES } from '../../scripts/db/pgboss.mjs';
+import { installPgBoss, QUEUES } from '../../scripts/db/pgboss.mjs';
 import { clientCtx } from './helpers/auth';
 import { appUrl, pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
@@ -77,6 +77,51 @@ test('migrate ставит схему pgboss от hub_owner, hub_app стави�
     await boss.complete('attachment.scan', jobs.map((job) => job.id));
   } finally {
     await boss.stop({ graceful: false });
+  }
+});
+
+test('kb.index: задача, поставленная, пока задача того же решения выполняется, не теряется (0057, I2c)', async () => {
+  const boss = new PgBoss(bossOptions(appUrl, 'sender'));
+  boss.on('error', () => {});
+  await boss.start();
+  try {
+    expect(await boss.getQueue('kb.index')).toMatchObject({ policy: 'stately' });
+    const queue = createPgBossQueue(boss);
+    const articleId = '0192d2a4-0000-7000-8000-0000000000a1';
+    await queue.send('kb.index', { articleId });
+    const [active] = await boss.fetch('kb.index');
+    expect(active?.data).toEqual({ articleId });
+    // Публикация, пока первая задача в работе: вторая встаёт в очередь; третья к ждущей не добавляется.
+    await queue.send('kb.index', { articleId });
+    await queue.send('kb.index', { articleId });
+    await boss.complete('kb.index', active!.id);
+    const next = await boss.fetch('kb.index', { batchSize: 10 });
+    expect(next.map((job) => job.data)).toEqual([{ articleId }]);
+    await boss.complete('kb.index', next.map((job) => job.id));
+  } finally {
+    await boss.stop({ graceful: false });
+  }
+});
+
+test('миграции пересоздают очередь, у которой сменилась политика (kb.index: exclusive -> stately)', async () => {
+  const ownerUrl = process.env.DATABASE_URL_OWNER!;
+  const owner = new PgBoss({ connectionString: ownerUrl, schema: 'pgboss', migrate: false, supervise: false, schedule: false, registerInstance: false, max: 1 });
+  owner.on('error', () => {});
+  await owner.start();
+  try {
+    await owner.deleteQueue('kb.index');
+    await owner.createQueue('kb.index', { policy: 'exclusive' });
+  } finally {
+    await owner.stop({ graceful: false });
+  }
+  await installPgBoss(ownerUrl);
+  const check = new PgBoss(bossOptions(appUrl, 'sender'));
+  check.on('error', () => {});
+  await check.start();
+  try {
+    expect(await check.getQueue('kb.index')).toMatchObject({ policy: 'stately', retryLimit: 5 });
+  } finally {
+    await check.stop({ graceful: false });
   }
 });
 
@@ -280,6 +325,7 @@ test('собранный worker.mjs запускается без каталог
     { name: 'attachment.sweep', cron: '* * * * *', timezone: 'UTC' },
     { name: 'automation.process', cron: '* * * * *', timezone: 'UTC' },
     { name: 'devtasks.sync', cron: '*/15 * * * *', timezone: 'UTC' },
+    { name: 'kb.reconcile', cron: '30 3 * * *', timezone: 'Asia/Tashkent' },
     { name: 'maintenance.cleanup', cron: '0 3 * * *', timezone: 'Asia/Tashkent' },
     { name: 'ops.watch', cron: '*/5 * * * *', timezone: 'UTC' },
     { name: 'outbox.dispatch', cron: '* * * * *', timezone: 'UTC' },

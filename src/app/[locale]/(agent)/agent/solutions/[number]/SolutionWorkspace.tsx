@@ -1,0 +1,565 @@
+'use client';
+
+import dynamic from 'next/dynamic';
+import { usePathname, useRouter } from 'next/navigation';
+import { type ComponentProps, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { SolutionDoc } from '@/modules/hdk/api/doc';
+import type { SolutionReview } from '@/modules/hdk/api/editor';
+import { AUTOSAVE_INTERVAL_MS, TITLE_MAX } from '@/modules/hdk/api/constants';
+import { Alert } from '@/ui/components/alert';
+import { Button } from '@/ui/components/button';
+import { Input } from '@/ui/components/input';
+import { Label } from '@/ui/components/label';
+import { Select } from '@/ui/components/select';
+import { loadImageFile } from '@/ui/doc/markup';
+import type { ScreenshotLabels } from '@/ui/doc/ScreenshotMarkup';
+import type { SolutionEditorLabels } from '@/ui/doc/editor/SolutionEditor';
+import { completeFileAction, fileStatusAction, markReadAction, presignFileAction, publishAction, saveDraftAction, saveMetaAction } from '../actions';
+import { type ReviewLabels, ReviewPanel } from './ReviewPanel';
+
+// Рабочая область редактора решения (план M5, задача 3; UX-W-01..04): заголовок, модуль, флаг "только через
+// сотрудника", документ и автосохранение раз в 5 секунд с проверкой версии строки.
+//
+// Нет сети: правки копятся, строка состояния говорит об этом, сохранение повторяется на следующем шаге и сразу,
+// когда связь вернулась. Несохранённый текст лежит и в браузере (localStorage): перезагрузка страницы без сети его не
+// теряет. Конфликт (черновик изменили в другой вкладке): текст остаётся на странице и в браузере, сохранение
+// останавливается до перезагрузки, ничего не затирается.
+//
+// Под редактором панель готовности и находки проверки (задача 4): они обновляются после каждого сохранения.
+//
+// Редактор и окно разметки снимка грузятся отдельными файлами после показа страницы (решение 0046): первый экран
+// рабочего места укладывается в бюджет скриптов.
+
+const SolutionEditor = dynamic(() => import('@/ui/doc/editor/SolutionEditor').then((m) => m.SolutionEditor), {
+  ssr: false,
+  loading: () => <div className="min-h-row rounded-card border border-border bg-card" aria-busy="true" />,
+});
+const ScreenshotMarkup = dynamic(() => import('@/ui/doc/ScreenshotMarkup').then((m) => m.ScreenshotMarkup), { ssr: false });
+
+export type WorkspaceLabels = {
+  editor: SolutionEditorLabels;
+  screenshot: ScreenshotLabels;
+  title: string;
+  module: string;
+  noModule: string;
+  internal: string;
+  internalHint: string;
+  status: {
+    saved: string;
+    savedAt: string;
+    dirty: string;
+    saving: string;
+    offline: string;
+    conflict: string;
+    error: string;
+    restored: string;
+  };
+  /** Копия в браузере от другой версии черновика (0057, I4c): показать, скопировать, отбросить. */
+  stale: { text: string; show: string; hide: string; copy: string; copied: string; discard: string };
+  reload: string;
+  metaError: string;
+  metaForbidden: string;
+  review: ReviewLabels;
+};
+
+type Version = { versionId: string; revision: string };
+type Backup = Version & { title: string; doc: SolutionDoc };
+type Status = 'saved' | 'dirty' | 'saving' | 'offline' | 'conflict' | 'error';
+
+/** Готовность после смены модуля: тот же расчёт, что у readiness() модуля, без повторного запроса. */
+function withModule(review: SolutionReview, hasModule: boolean): SolutionReview {
+  const items = { ...review.readiness.items, module: hasModule };
+  return { ...review, readiness: { ...review.readiness, items, ready: items.title && items.module && items.steps && items.textRead && !review.readiness.blocked } };
+}
+
+const POLL_MS = 1000;
+const POLL_LIMIT = 60;
+
+function readBackup(key: string): Backup | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as Backup) : null;
+  } catch {
+    return null;
+  }
+}
+function writeBackup(key: string, value: Backup | null) {
+  try {
+    if (value) window.localStorage.setItem(key, JSON.stringify(value));
+    else window.localStorage.removeItem(key);
+  } catch {
+    // Хранилище браузера закрыто (приватный режим): текст сохраняется на сервер как обычно.
+  }
+}
+
+const noSubscribe = () => () => {};
+
+/**
+ * Рабочая область рисуется только в браузере: текст, который не успел сохраниться, лежит в localStorage, и с ним
+ * сразу собирается первое состояние. Сервер отдаёт заглушку той же высоты.
+ */
+export function SolutionWorkspace(props: ComponentProps<typeof WorkspaceBody>) {
+  const client = useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  );
+  if (!client) return <div className="min-h-row rounded-card border border-border bg-card" aria-busy="true" />;
+  return <WorkspaceBody {...props} />;
+}
+
+/** Ключ копии от другой версии строки: её не затирает копия текущей правки. */
+const staleKeyOf = (key: string) => `${key}:stale`;
+
+/**
+ * Первое состояние: копия из браузера, если она сделана от той же версии строки, что пришла с сервера. Копия от другой
+ * версии (черновик успели изменить или опубликовать) в редактор не подставляется, но и не удаляется: она переезжает
+ * под свой ключ, и страница предлагает её показать, скопировать или отбросить (повторная проверка M5, 0057, I4c).
+ */
+function bootState(key: string, initial: Backup, canWrite: boolean): { doc: SolutionDoc; title: string; restored: boolean; stale: Backup | null } {
+  const backup = canWrite ? readBackup(key) : null;
+  if (backup && backup.versionId === initial.versionId && backup.revision === initial.revision)
+    return { doc: backup.doc, title: backup.title, restored: true, stale: canWrite ? readBackup(staleKeyOf(key)) : null };
+  if (backup) {
+    writeBackup(staleKeyOf(key), backup);
+    writeBackup(key, null);
+  }
+  return { doc: initial.doc, title: initial.title, restored: false, stale: canWrite ? readBackup(staleKeyOf(key)) : null };
+}
+
+/** Текст копии для показа и копирования: заголовок и текст блоков через перевод строки. */
+function backupText(backup: Backup): string {
+  const lines: string[] = [backup.title];
+  const walk = (node: { type?: string; text?: string; content?: unknown[] }) => {
+    if (node.type === 'paragraph' || node.type === 'heading') {
+      lines.push((node.content ?? []).map((child) => (child as { text?: string }).text ?? '').join(''));
+      return;
+    }
+    for (const child of node.content ?? []) if (child && typeof child === 'object') walk(child as typeof node);
+  };
+  for (const block of backup.doc?.blocks ?? []) walk(block as unknown as { type?: string; content?: unknown[] });
+  return lines.filter((line) => line.trim() !== '').join('\n');
+}
+
+/** Копия от другой версии черновика: показать, скопировать, отбросить. */
+function StaleBackup({ storageKey, backup, labels }: { storageKey: string; backup: Backup; labels: WorkspaceLabels['stale'] }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [gone, setGone] = useState(false);
+  if (gone) return null;
+  const text = backupText(backup);
+  return (
+    <Alert tone="info">
+      <div className="flex flex-col gap-2" data-testid="stale-backup">
+        <span>{labels.text}</span>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="small" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+            {open ? labels.hide : labels.show}
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              void navigator.clipboard
+                ?.writeText(text)
+                .then(() => setCopied(true))
+                .catch(() => setCopied(false));
+            }}
+          >
+            {copied ? labels.copied : labels.copy}
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              writeBackup(storageKey, null);
+              setGone(true);
+            }}
+          >
+            {labels.discard}
+          </Button>
+        </div>
+        {open && (
+          <pre className="whitespace-pre-wrap break-words rounded-card border border-border bg-card p-3 text-sm" data-testid="stale-backup-text">
+            {text}
+          </pre>
+        )}
+      </div>
+    </Alert>
+  );
+}
+
+function WorkspaceBody({
+  number,
+  locale,
+  initial,
+  canWrite,
+  modules,
+  meta,
+  labels,
+  filePath,
+  review: initialReview,
+  isMachine: initialMachine,
+  canPublish,
+  archived,
+}: {
+  number: number;
+  locale: string;
+  initial: Backup;
+  canWrite: boolean;
+  review: SolutionReview;
+  isMachine: boolean;
+  canPublish: boolean;
+  archived: boolean;
+  modules: { moduleId: string; name: string }[];
+  meta: {
+    moduleId: string | null;
+    audience: 'clients' | 'internal';
+    editable: boolean;
+  };
+  labels: WorkspaceLabels;
+  /** Адрес файлов решения для сотрудника: /<язык>/agent/solutions/<номер>/files. */
+  filePath: string;
+}) {
+  const backupKey = `hub:solution-draft:${number}:${locale}`;
+  const [start] = useState(() => bootState(backupKey, initial, canWrite));
+  const [title, setTitle] = useState(start.title);
+  const [status, setStatus] = useState<Status>(start.restored ? 'dirty' : 'saved');
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [moduleId, setModuleId] = useState(meta.moduleId ?? '');
+  const [internal, setInternal] = useState(meta.audience === 'internal');
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [review, setReview] = useState(initialReview);
+  const [isMachine, setIsMachine] = useState(initialMachine);
+  const [shot, setShot] = useState<{
+    open: boolean;
+    image: HTMLImageElement | null;
+  }>({ open: false, image: null });
+  const shotDone = useRef<((result: { fileId: string; alt: string } | null) => void) | null>(null);
+  const editorApi = useRef<{
+    insertImage: (image: { fileId: string; alt: string }) => void;
+  } | null>(null);
+
+  // Последнее, что ввёл сотрудник, и версия строки, от которой он правит.
+  const latest = useRef<{ title: string; doc: SolutionDoc }>({
+    title: start.title,
+    doc: start.doc,
+  });
+  const version = useRef<Version>({
+    versionId: initial.versionId,
+    revision: initial.revision,
+  });
+  const editSeq = useRef(0);
+  const saving = useRef(false);
+  const stopped = useRef(false);
+  const dirty = useRef(start.restored);
+
+  const save = useCallback(async () => {
+    if (!canWrite || saving.current || stopped.current || !dirty.current) return;
+    saving.current = true;
+    const seq = editSeq.current;
+    const snapshot = latest.current;
+    setStatus('saving');
+    try {
+      const response = await saveDraftAction({
+        number,
+        locale,
+        versionId: version.current.versionId,
+        revision: version.current.revision,
+        title: snapshot.title,
+        doc: snapshot.doc,
+      });
+      if (!response.ok) {
+        setErrorCode(response.code);
+        setStatus('error');
+        return;
+      }
+      if (response.result.status === 'conflict') {
+        stopped.current = true;
+        setStatus('conflict');
+        return;
+      }
+      version.current = {
+        versionId: response.result.versionId,
+        revision: response.result.revision,
+      };
+      setSavedAt(new Date());
+      setReview(response.result.review);
+      if (editSeq.current === seq) {
+        dirty.current = false;
+        writeBackup(backupKey, null);
+        setStatus('saved');
+      } else {
+        // Пока шло сохранение, сотрудник продолжал писать: копия в браузере от новой версии строки.
+        writeBackup(backupKey, { ...version.current, ...latest.current });
+        setStatus('dirty');
+      }
+    } catch {
+      // Запрос не дошёл (нет сети): правки остаются, следующий шаг повторит.
+      setStatus('offline');
+    } finally {
+      saving.current = false;
+    }
+  }, [backupKey, canWrite, locale, number]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => void save(), AUTOSAVE_INTERVAL_MS);
+    const online = () => void save();
+    const offline = () => dirty.current && setStatus('offline');
+    window.addEventListener('online', online);
+    window.addEventListener('offline', offline);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', online);
+      window.removeEventListener('offline', offline);
+    };
+  }, [save]);
+
+  const changed = (next: Partial<{ title: string; doc: SolutionDoc }>) => {
+    latest.current = { ...latest.current, ...next };
+    editSeq.current += 1;
+    dirty.current = true;
+    writeBackup(backupKey, { ...version.current, ...latest.current });
+    if (!stopped.current) setStatus((current) => (current === 'offline' || current === 'saving' ? current : 'dirty'));
+  };
+
+  const saveMeta = async (next: { moduleId: string; internal: boolean }) => {
+    setMetaError(null);
+    try {
+      const response = await saveMetaAction({
+        number,
+        moduleId: next.moduleId || null,
+        audience: next.internal ? 'internal' : 'clients',
+      });
+      if (!response.ok) {
+        setMetaError(response.code === 'forbidden' ? labels.metaForbidden : labels.metaError);
+        setModuleId(meta.moduleId ?? '');
+        setInternal(meta.audience === 'internal');
+      } else setReview((current) => withModule(current, next.moduleId !== ''));
+    } catch {
+      setMetaError(labels.metaError);
+    }
+  };
+
+  const upload = useCallback(
+    async (blob: Blob, fileName: string): Promise<{ fileId: string } | { error: string }> => {
+      const presigned = await presignFileAction({
+        number,
+        fileName,
+        mime: blob.type,
+        size: blob.size,
+      });
+      if (!presigned.ok) return { error: presigned.code };
+      const put = await fetch(presigned.url, {
+        method: 'PUT',
+        headers: presigned.headers,
+        body: blob,
+      });
+      if (!put.ok) return { error: 'upload_failed' };
+      const completed = await completeFileAction({ fileId: presigned.fileId });
+      if (!completed.ok) return { error: completed.code };
+      // Проверку антивирусом делает фоновый процесс: окно ждёт итога.
+      for (let i = 0; i < POLL_LIMIT; i++) {
+        const state = await fileStatusAction({ fileId: presigned.fileId });
+        if (!state.ok) return { error: state.code };
+        if (state.status === 'clean') return { fileId: presigned.fileId };
+        if (state.status !== 'pending') return { error: state.status };
+        await new Promise((resolve) => window.setTimeout(resolve, POLL_MS));
+      }
+      return { error: 'scan_timeout' };
+    },
+    [number],
+  );
+
+  const requestImage = useCallback(
+    () =>
+      new Promise<{ fileId: string; alt: string } | null>((resolve) => {
+        shotDone.current = resolve;
+        setShot({ open: true, image: null });
+      }),
+    [],
+  );
+  const onPasteImage = useCallback((file: File) => {
+    void loadImageFile(file).then((image) => {
+      if (!image) return;
+      shotDone.current = (result) => result && editorApi.current?.insertImage(result);
+      setShot({ open: true, image });
+    });
+  }, []);
+  const onReady = useCallback((api: { insertImage: (image: { fileId: string; alt: string }) => void }) => {
+    editorApi.current = api;
+  }, []);
+
+  const showFinding = (blockId: string | null) => {
+    if (blockId === null) return document.getElementById('solution-title')?.focus();
+    const element = document.querySelector<HTMLElement>(`.doc-editor [data-id="${CSS.escape(blockId)}"]`);
+    element?.scrollIntoView({ block: 'center' });
+  };
+
+  const publish = async (confirmFindings: boolean) => {
+    const response = await publishAction({ number, locale, ...version.current, confirmFindings });
+    if (!response.ok) return 'failed' as const;
+    const outcome = response.outcome;
+    if (outcome.status === 'published') {
+      // Страница открывается заново: опубликованная версия, история и метки из базы.
+      router.replace(`${pathname}?done=published`);
+      router.refresh();
+      return 'published' as const;
+    }
+    if (outcome.status === 'not_ready') {
+      setReview({
+        findings: outcome.findings,
+        readiness: outcome.readiness,
+        filesNotClean: outcome.filesNotClean,
+        invariants: outcome.invariants,
+        translationsCurrent: outcome.translationsCurrent,
+      });
+      return 'not_ready' as const;
+    }
+    return 'conflict' as const;
+  };
+
+  const textRead = async () => {
+    const response = await markReadAction({ number, locale, ...version.current });
+    if (!response.ok || response.result.status !== 'read') return false;
+    version.current = { ...version.current, revision: response.result.revision };
+    setIsMachine(false);
+    setReview((current) => {
+      const items = { ...current.readiness.items, textRead: true };
+      return { ...current, readiness: { ...current.readiness, items, ready: items.title && items.module && items.steps && !current.readiness.blocked } };
+    });
+    return true;
+  };
+
+  const statusText =
+    status === 'saved'
+      ? savedAt
+        ? labels.status.savedAt.replace(
+            '{time}',
+            savedAt.toLocaleTimeString(locale === 'en' ? 'en-GB' : 'ru-RU', {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            }),
+          )
+        : labels.status.saved
+      : status === 'error'
+        ? `${labels.status.error} (${errorCode ?? ''})`
+        : labels.status[status];
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="solution-workspace" data-save-status={status}>
+      <div className="grid gap-3 laptop:grid-cols-3">
+        <div className="flex flex-col gap-1 laptop:col-span-3">
+          <Label htmlFor="solution-title">{labels.title}</Label>
+          <Input
+            id="solution-title"
+            value={title}
+            maxLength={TITLE_MAX}
+            readOnly={!canWrite}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              changed({ title: event.target.value });
+            }}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="solution-module">{labels.module}</Label>
+          <Select
+            id="solution-module"
+            value={moduleId}
+            disabled={!meta.editable}
+            onChange={(event) => {
+              setModuleId(event.target.value);
+              void saveMeta({ moduleId: event.target.value, internal });
+            }}
+          >
+            <option value="">{labels.noModule}</option>
+            {modules.map((m) => (
+              <option key={m.moduleId} value={m.moduleId}>
+                {m.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <label className="flex items-start gap-2 text-sm laptop:col-span-2 laptop:self-end">
+          <input
+            type="checkbox"
+            checked={internal}
+            disabled={!meta.editable}
+            className="mt-1 size-4 accent-primary"
+            onChange={(event) => {
+              setInternal(event.target.checked);
+              void saveMeta({ moduleId, internal: event.target.checked });
+            }}
+          />
+          <span>
+            <span className="font-medium">{labels.internal}</span>
+            <span className="block text-secondary-foreground">{labels.internalHint}</span>
+          </span>
+        </label>
+      </div>
+      {metaError && <Alert tone="danger">{metaError}</Alert>}
+      {start.restored && <Alert tone="info">{labels.status.restored}</Alert>}
+      {start.stale && <StaleBackup storageKey={staleKeyOf(backupKey)} backup={start.stale} labels={labels.stale} />}
+      {status === 'conflict' ? (
+        <Alert tone="danger">
+          {labels.status.conflict}{' '}
+          <Button variant="secondary" size="small" onClick={() => window.location.reload()}>
+            {labels.reload}
+          </Button>
+        </Alert>
+      ) : (
+        canWrite && (
+          <p role="status" aria-live="polite" className="text-sm text-secondary-foreground" data-testid="save-status">
+            {statusText}
+          </p>
+        )
+      )}
+      {
+        <SolutionEditor
+          initial={start.doc}
+          labels={labels.editor}
+          editable={canWrite}
+          imageSrc={(fileId) => `${filePath}/${fileId}`}
+          insertImage={requestImage}
+          onPasteImage={canWrite ? onPasteImage : undefined}
+          onReady={onReady}
+          findingIds={review.findings.flatMap((finding) => (finding.blockId ? [finding.blockId] : []))}
+          // Узлы ProseMirror несут атрибуты не простыми объектами: серверное действие их не передаёт. Копия через JSON
+          // даёт простые данные, те же, что лягут в базу и в копию браузера.
+          onChange={(doc) => changed({ doc: JSON.parse(JSON.stringify(doc)) as SolutionDoc })}
+        />
+      }
+      <ReviewPanel
+        review={review}
+        isMachine={isMachine}
+        canWrite={canWrite}
+        canPublish={canPublish}
+        archived={archived}
+        saved={status === 'saved'}
+        labels={labels.review}
+        onShow={showFinding}
+        onPublish={publish}
+        onTextRead={textRead}
+      />
+      {/* Окно разметки грузится при первом открытии: его файл не входит в первый экран. */}
+      {canWrite && shot.open && (
+        <ScreenshotMarkup
+          open={shot.open}
+          initialImage={shot.image}
+          labels={labels.screenshot}
+          upload={upload}
+          onDone={(result) => {
+            setShot({ open: false, image: null });
+            shotDone.current?.(result);
+            shotDone.current = null;
+          }}
+        />
+      )}
+    </div>
+  );
+}

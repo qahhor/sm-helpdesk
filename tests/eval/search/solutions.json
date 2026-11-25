@@ -1,0 +1,10 @@
+[
+  { "ref": "order-stock", "locale": "ru", "title": "Заказ не сохраняется: нет остатка на складе", "what": "При сохранении заказа выходит ошибка о нехватке остатка товара на складе", "steps": ["Откройте Склад и проверьте остаток товара", "Оформите приход или уменьшите количество в заказе"] },
+  { "ref": "period-closed", "locale": "ru", "title": "Документ не меняется: период закрыт", "what": "При изменении накладной выходит сообщение, что период закрыт для изменений", "steps": ["Попросите бухгалтера открыть период"] },
+  { "ref": "invoice-print", "locale": "ru", "title": "Накладная печатается пустым листом", "what": "При печати накладной принтер выдаёт пустую страницу", "steps": ["Выберите шаблон печати накладной заново"] },
+  { "ref": "order-stock-uz", "locale": "uz", "title": "Buyurtma saqlanmaydi: omborda qoldiq yetarli emas", "what": "Buyurtmani saqlashda ombor qoldig'i yetarli emasligi haqida xato chiqadi", "steps": ["Omborni oching va mahsulot qoldig'ini tekshiring"] },
+  { "ref": "password-uz", "locale": "uz", "title": "Parolni qanday almashtirish mumkin", "what": "Tizimga kirish paroli eskirgan yoki unutilgan", "steps": ["Profil sahifasida parolni almashtiring"] },
+  { "ref": "report-uz", "locale": "uz", "title": "Savdo hisoboti bo'sh chiqadi", "what": "Tanlangan oy uchun savdo hisoboti bo'sh ko'rinadi", "steps": ["Hisobot davrini tekshiring"] },
+  { "ref": "price-list", "locale": "en", "title": "Price list is not active", "what": "When creating an order the price list is reported as not active for the date", "steps": ["Open price lists and set the active period"] },
+  { "ref": "cash-register", "locale": "en", "title": "Cash register freezes during card payment", "what": "The cash register stops responding when paying by card", "steps": ["Restart the payment terminal service"] }
+]

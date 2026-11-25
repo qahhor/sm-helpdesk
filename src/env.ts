@@ -318,6 +318,49 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   );
 }
 
+// --- Клиент Claude: только фоновый процесс (ТЗ 13.5, решение 97; план M5, решения 3 и 4) ---
+//
+// Ключ Anthropic задаётся только контейнеру worker (compose.prod.yaml, файл .env.worker). Схема портала выше его не
+// содержит: веб-процесс ключа не требует и не читает, даже если переменная попала в его окружение. Разбирает эту схему
+// только фабрика клиента модели (src/modules/hda/client/index.ts), её вызывают задачи фонового процесса.
+// Имён моделей в коде нет: они задаются переменными (решение 4), рекомендованные значения в .env.example.
+
+const aiSchema = z
+  .object({
+    HUB_URL: hubUrl,
+    ANTHROPIC_API_KEY: z
+      .string()
+      .trim()
+      .regex(/^[\x21-\x7e]{16,256}$/, { error: 'ожидается ключ API: от 16 до 256 печатных знаков без пробелов' })
+      .optional(),
+    AI_MODEL_FAST: z.string().trim().regex(/^[a-z0-9][a-z0-9.@:_-]{1,99}$/, { error: 'ожидается идентификатор модели, например из .env.example' }).optional(),
+    AI_MODEL_QUALITY: z.string().trim().regex(/^[a-z0-9][a-z0-9.@:_-]{1,99}$/, { error: 'ожидается идентификатор модели, например из .env.example' }).optional(),
+    // Заглушка модели с заготовленными ответами: разработка и браузерные тесты на localhost.
+    AI_STUB: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
+  })
+  .superRefine((value, ctx) => {
+    if (value.ANTHROPIC_API_KEY)
+      for (const name of ['AI_MODEL_FAST', 'AI_MODEL_QUALITY'] as const)
+        if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а ANTHROPIC_API_KEY задан' });
+    if (value.AI_STUB === '1' && !LOCAL_HOSTS.has(new URL(value.HUB_URL).hostname))
+      ctx.addIssue({ code: 'custom', path: ['AI_STUB'], message: 'заглушка модели допускается только для localhost и 127.0.0.1' });
+    else if (value.AI_STUB === '1' && value.ANTHROPIC_API_KEY)
+      ctx.addIssue({ code: 'custom', path: ['AI_STUB'], message: 'заглушка и ANTHROPIC_API_KEY не задаются вместе' });
+  });
+
+/** Как фоновый процесс вызывает модель: без AI, заглушкой (localhost) или настоящим API. */
+export type AiEnv = { mode: 'none' } | { mode: 'stub' } | { mode: 'anthropic'; apiKey: string; models: { fast: string; quality: string } };
+
+export function parseAiEnv(source: Record<string, string | undefined>): AiEnv {
+  const result = aiSchema.safeParse(source);
+  if (!result.success)
+    throw new EnvError(result.error.issues.map((issue) => ({ name: String(issue.path[0] ?? 'окружение'), reason: issue.message })));
+  const value = result.data;
+  if (value.AI_STUB === '1') return { mode: 'stub' };
+  if (!value.ANTHROPIC_API_KEY || !value.AI_MODEL_FAST || !value.AI_MODEL_QUALITY) return { mode: 'none' };
+  return { mode: 'anthropic', apiKey: value.ANTHROPIC_API_KEY, models: { fast: value.AI_MODEL_FAST, quality: value.AI_MODEL_QUALITY } };
+}
+
 let cached: Env | undefined;
 
 /** Разбирает `process.env` при первом обращении и запоминает результат. */

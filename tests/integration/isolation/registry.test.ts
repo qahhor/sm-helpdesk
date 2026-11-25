@@ -109,6 +109,8 @@ async function seedEverything() {
     }
   }
   await pools.root.query(`insert into hdk_deflection_events (org_id, user_id, session_id, query_hash) values ($1, $2, uuidv7(), repeat('f', 64))`, [f.orgA.orgId, f.aUser.userId]);
+  // Журнал вызовов модели (веха M5, задача 5): вызов по обращению организации A, без текста.
+  await pools.root.query(`insert into hda_runs (org_id, purpose, model, outcome) values ($1, 'solution_draft', 'stub-model', 'ok')`, [f.orgA.orgId]);
   return f;
 }
 

@@ -2,7 +2,7 @@ import '@/wiring';
 import { PgBoss } from 'pg-boss';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
-import { getEnv } from '@/env';
+import { getEnv, parseAiEnv } from '@/env';
 import { configureLog, logEvent, timedJob } from '@/lib/log';
 import { bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, createPgBossQueue, eventsState, JOB_NAMES, processEvents, setJobQueue } from '@/modules/hdc/api';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
@@ -241,9 +241,11 @@ if (import.meta.main) {
   try {
     // Неверное окружение останавливает процесс сразу, как и портал (src/instrumentation.ts).
     const env = getEnv();
+    // Ключ Claude есть только у фонового процесса (план M5, решение 3): неверный набор останавливает процесс сразу.
+    const ai = parseAiEnv(process.env);
     configureLog({ level: env.LOG_LEVEL, json: (env.LOG_FORMAT ?? (process.env.NODE_ENV === 'production' ? 'json' : 'text')) === 'json' });
     const worker = await startWorker();
-    console.info('Фоновый процесс запущен');
+    console.info(`Фоновый процесс запущен, модель: ${ai.mode === 'anthropic' ? 'Claude API' : ai.mode === 'stub' ? 'заглушка' : 'без AI'}`);
     let stopping = false;
     const shutdown = async () => {
       if (stopping) return;

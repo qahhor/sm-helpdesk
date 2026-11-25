@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { clientIpHeaderOf, EnvError, parseEnv } from '@/env';
+import { clientIpHeaderOf, EnvError, parseAiEnv, parseEnv } from '@/env';
 import { missingInEnvExample } from '../../scripts/checks/env-example.mjs';
 
 const ok = {
@@ -358,4 +358,38 @@ test('таск-менеджер разработки: адрес только ht
   } catch (error) {
     expect(String(error)).not.toMatch(/short-secret|secret token value/);
   }
+});
+
+// Клиент Claude (план M5, задача 5, решения 3 и 4): ключ и модели только у фонового процесса.
+test('Claude: окружение портала не содержит ключа и моделей, даже если они заданы', () => {
+  const e = parseEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-test-0123456789', AI_MODEL_FAST: 'model-fast' }) as Record<string, unknown>;
+  expect(e.ANTHROPIC_API_KEY).toBeUndefined();
+  expect(e.AI_MODEL_FAST).toBeUndefined();
+});
+
+test('Claude: без ключа фоновый процесс работает без AI; с ключом модели обязательны; значение ключа в ошибку не попадает', () => {
+  expect(parseAiEnv(ok)).toEqual({ mode: 'none' });
+  const error = (() => {
+    try {
+      parseAiEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-secret-value-0123' });
+    } catch (e) {
+      return e as EnvError;
+    }
+    return null;
+  })();
+  expect(error).toBeInstanceOf(EnvError);
+  expect(error?.problems.map((p) => p.name).sort()).toEqual(['AI_MODEL_FAST', 'AI_MODEL_QUALITY']);
+  expect(error?.message).not.toContain('sk-ant-secret-value-0123');
+  expect(parseAiEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-secret-value-0123', AI_MODEL_FAST: 'm-fast', AI_MODEL_QUALITY: 'm-quality' })).toEqual({
+    mode: 'anthropic',
+    apiKey: 'sk-ant-secret-value-0123',
+    models: { fast: 'm-fast', quality: 'm-quality' },
+  });
+});
+
+test('Claude: заглушка только для портала на localhost и не вместе с ключом', () => {
+  const local = { ...ok, HUB_URL: 'http://localhost:3000', HUB_DOMAIN: 'localhost' };
+  expect(parseAiEnv({ ...local, AI_STUB: '1' })).toEqual({ mode: 'stub' });
+  expect(() => parseAiEnv({ ...ok, AI_STUB: '1' })).toThrow(/AI_STUB/);
+  expect(() => parseAiEnv({ ...local, AI_STUB: '1', ANTHROPIC_API_KEY: 'sk-ant-x-0123456789', AI_MODEL_FAST: 'a', AI_MODEL_QUALITY: 'b' })).toThrow(/AI_STUB/);
 });

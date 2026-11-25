@@ -1728,6 +1728,14 @@
           "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
           "forbidden": "Sozlamani faqat administrator o'zgartiradi.",
           "invalid_input": "Domenlar juda ko'p: 50 tadan oshmasin."
+        },
+        "aiLimit": {
+          "title": "AI chaqiruvlari chegarasi",
+          "intro": "AI bir sutkada yechim qoralamalari va tarjimalarni birgalikda necha marta tayyorlashi mumkin. Chegara tugaganda qoralama va tarjimani xodim yozadi, Toshkent vaqti bilan keyingi sutkagacha.",
+          "label": "Sutkadagi chaqiruvlar",
+          "save": "Chegarani saqlash",
+          "saved": "AI chaqiruvlari chegarasi saqlandi.",
+          "invalid": "0 dan 10 000 gacha butun son kiriting."
         }
       }
     },

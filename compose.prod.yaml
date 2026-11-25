@@ -67,7 +67,12 @@ services:
     image: ${HUB_IMAGE:?задайте HUB_IMAGE}
     restart: unless-stopped
     command: ['node', 'worker.mjs']
-    env_file: ['.env']
+    # Ключ Claude API только у фонового процесса (ТЗ 13.5, решение 97; план M5, решение 3): файл .env.worker с
+    # ANTHROPIC_API_KEY, AI_MODEL_FAST и AI_MODEL_QUALITY получает один этот контейнер. Нет файла: работа без AI.
+    env_file:
+      - path: .env
+      - path: .env.worker
+        required: false
     user: '1001:1001'
     read_only: true
     mem_limit: ${WORKER_MEM_LIMIT:-768m}

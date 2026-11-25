@@ -1728,6 +1728,14 @@
           "stale_session": "Sign in again to change settings.",
           "forbidden": "Only an admin changes this setting.",
           "invalid_input": "Too many domains: 50 at most."
+        },
+        "aiLimit": {
+          "title": "AI call limit",
+          "intro": "How many times a day AI may prepare solution drafts and translations combined. When the limit is used up, staff write drafts and translations until the next day, Tashkent time.",
+          "label": "Calls per day",
+          "save": "Save limit",
+          "saved": "AI call limit saved.",
+          "invalid": "Enter a whole number from 0 to 10,000."
         }
       }
     },

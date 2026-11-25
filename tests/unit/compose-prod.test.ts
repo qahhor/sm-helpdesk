@@ -54,7 +54,9 @@ test('фоновый процесс с теми же ограничениями,
   // Тот же образ, что у портала и миграций.
   expect(String(worker.image)).toMatch(/^\$\{HUB_IMAGE:\?/);
   expect(worker.command).toEqual(['node', 'worker.mjs']);
-  expect(worker.env_file).toEqual(['.env']);
+  // Ключ Claude API только у фонового процесса (план M5, решение 3): необязательный файл .env.worker, у портала его нет.
+  expect(worker.env_file).toEqual([{ path: '.env' }, { path: '.env.worker', required: false }]);
+  expect(JSON.stringify(services.web?.env_file)).not.toContain('.env.worker');
   expect(worker.user).toBe('1001:1001');
   expect(worker.read_only).toBe(true);
   expect(worker.tmpfs).toEqual(['/tmp']);

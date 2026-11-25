@@ -1,10 +1,12 @@
 import 'server-only';
 import { searchable } from '@/modules/hdc/pref';
-import type { ClientActor } from '@/db/with-actor';
+import type { ClientActor, StaffActor, SystemActor } from '@/db/with-actor';
 import type { Locale } from '@/i18n/locales';
 import { z } from 'zod';
 import {
   getOrgRow,
+  type OrgAiProfile,
+  orgAiProfileOf,
   loadClientAccess,
   type MyOrganization,
   type OrgRow,
@@ -199,4 +201,15 @@ export async function removeOrgDomain(ctx: StaffContext, input: unknown): Promis
   if (!isFresh(ctx, new Date(), FRESH_SIGN_IN_SEC)) throw new HduError('stale_session');
   const { orgId, domain } = parseInput(domainInput.extend({ domain: z.string().trim().toLowerCase().max(253) }), input);
   await removeOrgDomainTx(ctx.actor, orgId, domain);
+}
+
+/**
+ * Профиль организации для отбора данных модели (план M5, задача 5): признак AI-обработки, название и ИНН, имена
+ * участников. Только система (задачи фонового процесса) и сотрудник; клиенту функция не дана.
+ */
+export async function orgAiProfile(actor: SystemActor | StaffActor, input: { orgId: string; userIds: readonly string[] }): Promise<OrgAiProfile | null> {
+  if (actor.type !== 'system' && actor.type !== 'staff') throw new HduError('forbidden');
+  const orgId = z.uuid().parse(input.orgId);
+  const userIds = z.array(z.uuid()).max(500).parse(input.userIds);
+  return orgAiProfileOf(actor, orgId, userIds);
 }

@@ -240,13 +240,27 @@ test('панель инструментов: подписи, клавиатур�
   // Одна остановка Tab, дальше стрелки.
   await expect(toolbar.locator('button[tabindex="0"]')).toHaveCount(1);
   await page.locator('.doc-editor p').first().dblclick();
+  // Выделение слова двойным щелчком ProseMirror забирает из события selectionchange, а оно приходит отдельной
+  // задачей после щелчка. Если фокус ушёл на панель раньше, редактор без фокуса это событие пропускает и
+  // остаётся со старым курсором: "Жирный" ставит отметку для будущего ввода, кнопка нажата, а в документе
+  // жирного нет. Человек так быстро не успевает, поэтому тест, как человек, ждёт, пока редактор увидит
+  // выделенное слово, и только потом переходит на панель.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const { state } = (window as unknown as { __solutionEditor: { state: { selection: { from: number; to: number }; doc: { textBetween(a: number, b: number): string } } } }).__solutionEditor;
+        return state.doc.textBetween(state.selection.from, state.selection.to);
+      }),
+    )
+    .toBe('появляется');
   await buttons.first().focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.locator(':focus')).toHaveAttribute('aria-label', 'Курсив');
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.press('Enter');
   await expect(buttons.first()).toHaveAttribute('aria-pressed', 'true');
-  expect(JSON.stringify(await savedDoc(page))).toContain('"type":"bold"');
+  // Жирным стало именно выделенное слово, а не отметка у курсора.
+  expect(JSON.stringify(await savedDoc(page))).toContain('{"type":"text","text":"появляется","marks":[{"type":"bold"}]}');
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
 });

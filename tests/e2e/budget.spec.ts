@@ -36,3 +36,18 @@ test('новое обращение на телефоне загружает н�
   console.log(`Скрипты нового обращения: ${Math.round(total / 1024)} КБ из ${Math.round(BUDGET_BYTES / 1024)}`);
   expect(total).toBeLessThanOrEqual(BUDGET_BYTES);
 });
+
+test('новая идея на телефоне загружает не больше 170 КБ скриптов (план M7, задача 2)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'бюджет считается для телефона');
+  const pending: Promise<{ url: string; resourceType: string; encodedBytes: number }>[] = [];
+  page.on('requestfinished', (request) => {
+    pending.push(
+      request.sizes().then((sizes) => ({ url: request.url(), resourceType: request.resourceType(), encodedBytes: sizes.responseBodySize })),
+    );
+  });
+  await page.goto('/ru/ideas/new', { waitUntil: 'networkidle' });
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Новая идея');
+  const total = sumScriptBytes(await Promise.all(pending));
+  console.log(`Скрипты новой идеи: ${Math.round(total / 1024)} КБ из ${Math.round(BUDGET_BYTES / 1024)}`);
+  expect(total).toBeLessThanOrEqual(BUDGET_BYTES);
+});

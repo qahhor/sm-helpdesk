@@ -197,7 +197,8 @@ function Fields({
         )}
         <p className="text-sm text-muted-foreground">
           {labels.ideaLink}{' '}
-          <Link href="/ideas/new" className="text-link underline-offset-2 hover:underline">
+          {/* Ссылка внутри текста подчёркнута всегда: её отличает не только цвет (axe, link-in-text-block). */}
+          <Link href="/ideas/new" className="text-link underline underline-offset-2">
             {labels.ideaLinkAction}
           </Link>
         </p>

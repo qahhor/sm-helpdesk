@@ -63,6 +63,36 @@ export const SMARTUP_CLAIMS = {
   contactEmail: 'email',
 } as const;
 
+// --- Виджет (план M6, решения 2, 4, 6 и 16) ---
+
+/** Чем сервер Smartup подписывает токен контекста: ключи по адресу JWKS или общий секрет (решение 2). */
+export const CONTEXT_KEY_MODES = ['jwks', 'secret'] as const;
+export type ContextKeyMode = (typeof CONTEXT_KEY_MODES)[number];
+
+/**
+ * Допустимые алгоритмы подписи токена контекста по режиму. Режим задаёт их жёстко: HS256 у сервера jwks (открытый ключ
+ * вместо секрета) и alg none отклоняются при любом заголовке токена (подмена алгоритма).
+ */
+export const CONTEXT_ALGORITHMS = { jwks: ['ES256', 'EdDSA', 'RS256'], secret: ['HS256'] } as const satisfies Record<ContextKeyMode, readonly string[]>;
+
+/** Получатель токена контекста (aud), ТЗ 11.4. */
+export const CONTEXT_AUDIENCE = 'smartup-hub';
+/** Наибольший срок токена контекста (exp - iat) и допуск часов, секунды (решение 4). */
+export const CONTEXT_MAX_TTL_SEC = 300;
+export const CONTEXT_CLOCK_TOLERANCE_SEC = 60;
+/** Платформы токена контекста (ТЗ 11.4). */
+export const CONTEXT_PLATFORMS = ['web', 'android', 'ios'] as const;
+export type ContextPlatform = (typeof CONTEXT_PLATFORMS)[number];
+
+/** Дополнительных адресов встраивания у сервера не больше пяти (решение 6). */
+export const EMBED_ORIGINS_MAX = 5;
+/** Ключ встраивания: 32 шестнадцатеричных знака (128 бит), как в hdu_servers_c15. */
+export const EMBED_KEY_PATTERN = /^[0-9a-f]{32}$/;
+
+/** Токен виджета (решение 16): получатель и срок. */
+export const EMBED_AUDIENCE = 'hub-embed';
+export const EMBED_TOKEN_TTL_SEC = 15 * 60;
+
 /** Образец кода сервера Smartup. Тот же, что в ограничении таблицы hdu_servers. */
 export const SERVER_CODE_PATTERN = /^[a-z0-9][a-z0-9-]{1,30}$/;
 

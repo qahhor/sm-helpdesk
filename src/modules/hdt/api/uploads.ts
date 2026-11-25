@@ -4,6 +4,7 @@ import { consumeRateLimit, enqueue, getStorage, isSameOriginJson, problemRespons
 import { RATE_RULES } from '@/modules/hdc/pref';
 import type { ClientActor, StaffActor } from '@/db/with-actor';
 import { type ClientContext, currentClient, currentStaff, orgSummaries, type StaffContext } from '@/modules/hdu/api';
+import { embedRequestActor, hasBearer } from '@/modules/hdu/api/embed';
 import { assertCanWrite } from '../core/agent-actions';
 import { createStaffUploadTx, createUploadTx, findOwnUpload, rejectUploadTx } from '../core/attachments';
 import { HdtError, isHdtError } from '../error';
@@ -34,7 +35,7 @@ async function presignFor(
   return { attachmentId, url, headers };
 }
 
-export async function presignUpload(ctx: ClientContext, input: unknown): Promise<Presigned> {
+export async function presignUpload(ctx: Pick<ClientContext, 'actor'>, input: unknown): Promise<Presigned> {
   const data = parseInput(presignUploadInput, input);
   return presignFor(ctx.actor.userId, data, (upload) => createUploadTx(ctx.actor, upload));
 }
@@ -51,7 +52,7 @@ export async function presignStaffUpload(ctx: StaffContext, input: unknown): Pro
  * Браузер закончил загрузку. Файла нет или размер не совпал с заявленным: файл удаляется, загрузка rejected.
  * Совпал: ставится задача проверки, загрузка остаётся pending. Повторный вызов безопасен.
  */
-export async function completeUpload(ctx: ClientContext, attachmentId: unknown): Promise<{ status: ScanStatus }> {
+export async function completeUpload(ctx: Pick<ClientContext, 'actor'>, attachmentId: unknown): Promise<{ status: ScanStatus }> {
   return completeFor(ctx.actor, attachmentId);
 }
 
@@ -105,8 +106,15 @@ const STATUS_BY_CODE: Partial<Record<string, number>> = {
  */
 export async function handleUploadRequest(request: Request, op: 'presign' | 'complete'): Promise<Response> {
   if (!isSameOriginJson(request, env.HUB_URL)) return problemResponse(403, 'forbidden');
-  const client = await currentClient();
-  const staff = client ? null : await currentStaff();
+  // Страница виджета (план M6) несёт токен виджета в заголовке Authorization: тогда сессия портала не читается совсем,
+  // актор клиента строится по токену. Неверный токен не превращается в вход по куке.
+  let client: Pick<ClientContext, 'actor'> | null = null;
+  if (hasBearer(request)) {
+    const embed = await embedRequestActor(request);
+    if ('denied' in embed) return embed.denied;
+    client = embed;
+  } else client = await currentClient();
+  const staff = client || hasBearer(request) ? null : await currentStaff();
   if (!client && !staff) return problemResponse(401, 'unauthenticated');
   const text = await readLimited(request, 4096);
   if (text === null) return problemResponse(413, 'too_large');

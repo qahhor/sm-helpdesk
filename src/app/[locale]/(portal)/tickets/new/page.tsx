@@ -31,6 +31,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
         initialOpen={search.open === '1'}
         relatedNumber={related}
         modules={modules.map((m) => ({ value: m.moduleId, label: m.name }))}
+        moduleCodes={Object.fromEntries(modules.map((m) => [m.moduleId, m.code]))}
         types={TICKET_TYPES.map((value) => ({ value, label: t(`types.${value}`) }))}
         impacts={IMPACTS.map((value) => ({ value, label: t(`impacts.${value}`) }))}
         visibilities={VISIBILITIES.map((value) => ({ value, label: t(`visibilities.${value}`) }))}
@@ -51,6 +52,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
           visibility: t('new.visibility'),
           visibilityHint: t('new.visibilityHint'),
           related: related ? t('new.related', { number: `SUP-${related}` }) : '',
+          fromWidget: t('new.fromWidget'),
           hours: t('new.hours'),
           submit: t('new.submit'),
           suggest: { title: t('new.suggest.title'), exact: t('new.suggest.exact'), notHelped: t('new.suggest.notHelped'), sendAnyway: t('new.suggest.sendAnyway') },

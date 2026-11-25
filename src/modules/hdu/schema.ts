@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { boolean, jsonb, pgTable, pgView, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
-import type { ClientRole, MembershipSource, RecordState, ServerIssue, StaffRole } from './pref';
+import type { ClientRole, ContextKeyMode, MembershipSource, RecordState, ServerIssue, StaffRole } from './pref';
 
 // Модуль hdu: идентичность. Таблицы, ограничения, триггеры и политики RLS создаёт миграция
 // drizzle/0005_hdu_tables.sql. Здесь только описание колонок для запросов.
@@ -29,7 +29,29 @@ export const servers = pgTable('hdu_servers', {
   state: text('state').$type<RecordState>().notNull().default('active'),
   code: text('code').notNull(),
   ...stampColumns,
+  // Виджет (миграция 0078, план M6, задача 1). Секрет токена контекста зашифрован и под ролью hub_app не читается.
+  contextIssuer: text('context_issuer').notNull(),
+  contextKeyMode: text('context_key_mode').$type<ContextKeyMode>(),
+  contextJwksUrl: text('context_jwks_url'),
+  contextSecret: text('context_secret'),
+  // Значение по умолчанию задаёт база (миграция 0078): 128 случайных бит.
+  embedKey: text('embed_key')
+    .notNull()
+    .default(sql`substr(encode(sha256(convert_to(gen_random_uuid()::text || gen_random_uuid()::text, 'UTF8')), 'hex'), 1, 32)`),
+  embedOrigins: text('embed_origins').array().notNull().default(sql`'{}'`),
 });
+
+/** Использованные токены контекста виджета (миграция 0078): повторный jti того же сервера отклоняется. Только система. */
+export const contextTokenUses = pgTable(
+  'hdu_context_token_uses',
+  {
+    serverId: uuid('server_id').notNull(),
+    jti: text('jti').notNull(),
+    expiresOn: moment('expires_on').notNull(),
+    ...stampColumns,
+  },
+  (table) => [primaryKey({ name: 'hdu_context_token_uses_pk', columns: [table.serverId, table.jti] })],
+);
 
 /** Результат последней проверки связи с сервером (FR-ADM-01). Отдельно от реестра: проверка не меняет настройки входа. */
 export const serverChecks = pgTable('hdu_server_checks', {

@@ -66,6 +66,8 @@ const APP_ENV = {
   REPLY_HMAC_SECRET: 'e2e-reply-hmac-secret-0123456789abcdef',
   // Заголовок Authentication-Results, которому верит разбор писем (решение 11 вехи M4): его вписывают тесты.
   INBOUND_AUTHSERV_ID: 'e2e.inbound.test',
+  // Секрет токена виджета (план M6, решение 16): страницы виджета меняют на него токен контекста ложного сервера.
+  EMBED_TOKEN_SECRET: 'e2e-embed-token-secret-0123456789abcdef',
   // Заглушка модели с заготовленными ответами (план M5, задачи 6 и 7): черновик из обращения и перевод без ключа.
   AI_STUB: '1',
 };
@@ -85,6 +87,7 @@ export default defineConfig({
     timezoneId: 'Asia/Tashkent',
     // Отрисовка букв не должна зависеть от системных настроек шрифтов машины: без хинтинга и без
     // сглаживания по субпикселям. Иначе эталонные снимки витрины расходятся между машинами (решение 0041, пункт 8).
+    // Флаги Chromium: WebKit их не принимает и не запускается, поэтому у проекта webkit свой пустой список.
     launchOptions: { args: ['--font-render-hinting=none', '--disable-lcd-text'] },
   },
   projects: [
@@ -97,6 +100,11 @@ export default defineConfig({
     },
     { name: 'desktop', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
     { name: 'narrow', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1100, height: 800 } } },
+    // WebKit (движок Safari) только для виджета на странице хозяина (план M6, задача 9): сторонний iframe без кук
+    // третьей стороны. Только в CI или с PW_WEBKIT=1: браузер ставит pnpm exec playwright install webkit (решение 0060).
+    ...(process.env.CI || process.env.PW_WEBKIT
+      ? [{ name: 'webkit', dependencies: ['setup'], testMatch: /widget-host\.spec\.ts$/, use: { browserName: 'webkit' as const, viewport: { width: 1280, height: 800 }, launchOptions: { args: [] } } }]
+      : []),
   ],
   webServer: [
     // Ложные серверы Smartup для входа клиента (scripts/mock-oidc.mjs).
@@ -105,6 +113,15 @@ export default defineConfig({
       url: 'http://localhost:3190/.well-known/openid-configuration',
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
+    },
+    // Демонстрационная страница Smartup Web для виджета (scripts/mock-smartup-host.mjs, план M6, задача 9): свой сайт
+    // 127.0.0.1:3195 и посторонний 127.0.0.1:3196. Загрузчик она берёт у портала браузерных тестов.
+    {
+      command: 'node scripts/mock-smartup-host.mjs',
+      url: 'http://127.0.0.1:3195/__health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+      env: { HUB_URL: baseURL, MOCK_ISSUER_URL: 'http://localhost:3190' },
     },
     // Ложный Telegram Bot API для привязки и входа из бота (scripts/mock-telegram.mjs).
     {

@@ -3,7 +3,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { formatDateTime } from '@/i18n/format';
 import type { Locale } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
-import { getServer, requireStaffActor, serverCallbackUrl } from '@/modules/hdu/api';
+import { getServer, requireStaffActor, serverCallbackUrl, widgetSnippet } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
@@ -12,8 +12,9 @@ import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { settingsNav } from '../../sections';
 import { checkServerAction, disableServerAction, enableServerAction } from '../actions';
-import { serverFormLabels } from '../form-labels';
+import { serverFormLabels, widgetFormLabels } from '../form-labels';
 import { ServerForm } from '../ServerForm';
+import { WidgetForm } from '../WidgetForm';
 import { firstParam } from '@/lib/search-params';
 
 const ERRORS = new Set(['invalid_input', 'server_taken', 'stale_session', 'forbidden', 'not_found']);
@@ -159,6 +160,48 @@ export default async function ServerPage({ params, searchParams }: PageProps<'/[
                 ...endpoints,
               }}
               labels={await serverFormLabels('edit')}
+              reauthHref={reauthHref}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <h2 className="text-base font-semibold">{ts('widget.title')}</h2>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <p className="text-sm text-secondary-foreground">{ts('widget.intro')}</p>
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm tablet:grid-cols-[max-content_1fr]">
+              <dt className="text-secondary-foreground">{ts('widget.embedKey')}</dt>
+              <dd className="flex flex-col gap-1">
+                <code className="wrap-anywhere rounded-control bg-card-soft px-2 py-1" data-testid="embed-key">
+                  {server.widget.embedKey}
+                </code>
+                <span className="text-secondary-foreground">{ts('widget.embedKeyHint')}</span>
+              </dd>
+              <dt className="text-secondary-foreground">{ts('widget.contextIssuer')}</dt>
+              <dd className="wrap-anywhere">{server.widget.contextIssuer}</dd>
+              <dt className="text-secondary-foreground">{ts('widget.audience')}</dt>
+              <dd>smartup-hub</dd>
+              <dt className="text-secondary-foreground">{ts('widget.lifetime')}</dt>
+              <dd>{ts('widget.lifetimeValue')}</dd>
+              <dt className="text-secondary-foreground">{ts('widget.snippet')}</dt>
+              <dd className="min-w-0">
+                <pre className="whitespace-pre-wrap wrap-anywhere rounded-control bg-card-soft px-2 py-1 text-sm">
+                  <code>{widgetSnippet(server.widget.embedKey)}</code>
+                </pre>
+              </dd>
+            </dl>
+            <WidgetForm
+              code={server.code}
+              hasSecret={server.widget.hasContextSecret}
+              defaults={{
+                mode: server.widget.contextKeyMode ?? '',
+                contextIssuer: server.widget.contextIssuer,
+                jwksUrl: server.widget.contextJwksUrl ?? '',
+                embedOrigins: server.widget.embedOrigins.join('\n'),
+              }}
+              labels={await widgetFormLabels()}
               reauthHref={reauthHref}
             />
           </CardContent>

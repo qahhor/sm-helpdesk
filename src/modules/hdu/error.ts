@@ -27,6 +27,8 @@ export const HDU_ERROR_CODES = [
   'domain_taken',
   // Пароль сотрудника из частых: Password12345, проход по клавиатуре, повтор (аудит 23.11.2026, S11).
   'weak_password',
+  // Запрос виджета без действующего токена виджета (план M6, решение 16): ответ 401, страница просит новый токен.
+  'unauthenticated',
 ] as const;
 
 export type HduErrorCode = (typeof HDU_ERROR_CODES)[number];

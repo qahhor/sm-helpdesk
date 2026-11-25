@@ -5,6 +5,7 @@ import { localizedPath, resolveLocale } from '@/i18n/resolve-locale';
 import { routing } from '@/i18n/routing';
 import { sessionCookieRefresh } from '@/modules/hdu/api/session-cookie';
 import { buildCsp, createNonce, CSP_HEADER, storageOriginOf } from '@/security/csp';
+import { EMBED_KEY_PARAM, embedAncestors, isEmbedPath, isWidgetPath } from '@/security/embed-frame';
 import { isPublicPath } from '@/security/public-paths';
 
 // Выполняется перед каждым запросом страницы (в Next.js 16 файл называется proxy, раньше middleware).
@@ -13,6 +14,9 @@ import { isPublicPath } from '@/security/public-paths';
 // 3. Приложению передаётся путь запроса: по нему страница входа знает, куда вернуть человека.
 // 4. На запросе страницы кука сессии ставится заново на 30 дней (FR-ID-10). В базу прокси не ходит:
 //    действительна ли сессия, решает только база. На страницах открытой зоны кука не трогается (ТЗ 18.10).
+// 5. Страницы виджета /{язык}/embed встраиваются только адресами сервера Smartup, чей ключ встраивания стоит в адресе
+//    (план M6, задача 3, решение 6); остальные страницы нигде. Страницы виджета и мобильного приложения (/{язык}/m)
+//    сессию портала не используют: прокси не продлевает её куку и не передаёт куки странице (решение 1 плана M6).
 
 const withLocale = createMiddleware(routing);
 
@@ -26,7 +30,30 @@ function isMalformedPath(pathname: string): boolean {
   }
 }
 
-export function proxy(request: NextRequest): NextResponse {
+const isLocalPortal = (hubUrl: string | undefined): boolean => {
+  try {
+    return ['localhost', '127.0.0.1'].includes(new URL(hubUrl ?? '').hostname);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Политика страницы. Страница виджета с ключом встраивания: frame-ancestors адресами этого сервера, иначе 'none'.
+ * Адрес, который политика не принимает (испорченная строка реестра), запрещает встраивание, а не ломает страницу.
+ */
+async function pageCsp(request: NextRequest, nonce: string): Promise<string> {
+  const base = { nonce, dev: process.env.NODE_ENV === 'development', storageOrigin: storageOriginOf(process.env) };
+  if (!isEmbedPath(request.nextUrl.pathname)) return buildCsp(base);
+  const frameAncestors = await embedAncestors(request.nextUrl.searchParams.get(EMBED_KEY_PARAM));
+  try {
+    return buildCsp({ ...base, frameAncestors, allowLoopbackAncestors: isLocalPortal(process.env.HUB_URL) });
+  } catch {
+    return buildCsp(base);
+  }
+}
+
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const target = localizedPath(request.nextUrl.pathname, () =>
     resolveLocale({
       userPref: request.cookies.get(LOCALE_COOKIE)?.value,
@@ -50,7 +77,10 @@ export function proxy(request: NextRequest): NextResponse {
   }
 
   const nonce = createNonce();
-  const csp = buildCsp({ nonce, dev: process.env.NODE_ENV === 'development', storageOrigin: storageOriginOf(process.env) });
+  const csp = await pageCsp(request, nonce);
+  const widget = isWidgetPath(request.nextUrl.pathname);
+  // Страница виджета не видит сессию портала, даже если кука есть в браузере (раздел "На что смотреть", пункт 6).
+  if (widget) request.headers.delete('cookie');
 
   // Приложение получает код только от прокси: значения, присланные клиентом, затираются.
   // Next.js берёт код для своих скриптов из заголовка политики в запросе.
@@ -63,7 +93,7 @@ export function proxy(request: NextRequest): NextResponse {
   const response = withLocale(request);
   response.headers.set(CSP_HEADER, csp);
   // Только чтение страницы: ответ на серверное действие (POST) может как раз удалять куку при выходе.
-  if (request.method === 'GET' && !isPublicPath(request.nextUrl.pathname)) {
+  if (request.method === 'GET' && !isPublicPath(request.nextUrl.pathname) && !widget) {
     const refresh = sessionCookieRefresh(request.headers.get('cookie'));
     if (refresh) response.headers.append('set-cookie', refresh);
   }

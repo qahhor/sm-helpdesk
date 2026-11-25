@@ -7,7 +7,8 @@ import { refreshSlaAfterClient } from './api/jobs';
 import { confirmTx, rateTx, reopenDays, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
 import { createTicketTx, listTicketRows, readTicket, ticketExists } from './core/tickets';
 import { HdtError } from './error';
-import { createTicketInput, listTicketsInput, numberInput, parseInput, rateInput, reopenInput, replyInput, visibilityInput } from './input';
+import { createTicketInput, listTicketsInput, modeBContext, numberInput, parseInput, rateInput, reopenInput, replyInput, visibilityInput, widgetTicketInput } from './input';
+import type { TicketContext } from './schema';
 import {
   ALLOWED_FILES,
   type AuthorType,
@@ -52,6 +53,7 @@ export {
   buildCsv,
   canReviewCsat,
   canSeeBreakdown,
+  type ChannelRow,
   CSAT_REVIEW_MAX,
   CSV_MAX_ROWS,
   exportFileName,
@@ -70,6 +72,8 @@ export {
   type MetricsView,
   saveCsatReview,
   splitMinutes,
+  TICKET_CHANNELS,
+  type TicketChannel,
 } from './api/metrics';
 export { type PickupMinutes, readPickup, readTimings, savePickup, saveTimings, type Timings, TIMINGS_DEFAULT } from './api/timings';
 export {
@@ -145,29 +149,90 @@ export type { CsatReason, Impact, Priority, ResolutionType, ScanStatus, TicketSt
 export const ALLOWED_FILE_EXTENSIONS: readonly string[] = Object.keys(ALLOWED_FILES);
 
 /**
+ * Достаточно актора клиента: так операции клиента вызывают и страницы портала (сессия), и виджет (токен виджета,
+ * план M6). Организация и автор всегда из актора.
+ */
+type ClientActorContext = Pick<ClientContext, 'actor'>;
+
+/**
  * Новое обращение клиента (FR-TK-01..05). Организация и автор из контекста, поля организации во входе
  * отбрасываются. Не больше 10 обращений в час на пользователя (раздел 14.5).
  */
-export async function createTicket(ctx: ClientContext, input: unknown): Promise<{ number: number; ticketId: string }> {
+export async function createTicket(ctx: ClientActorContext, input: unknown): Promise<{ number: number; ticketId: string }> {
   const data = parseInput(createTicketInput, input);
   if (new Set(data.attachmentIds).size > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
   if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
   const limit = await consumeRateLimit(rateKey('ticket-create:user', ctx.actor.userId), RATE_RULES.ticketCreatePerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
+  // Режим B виджета (план M6, задача 8; решения 11 и 12): форма открыта из загрузчика. Источник widget_web и контекст
+  // из подсказок; платформы нет, её знает только проверенный токен. Признак влияет только на показатели.
+  const { widget, context: rawContext, ...fields } = data;
+  const context: TicketContext | null = widget ? modeBContext(rawContext) : null;
+  const hasContext = context !== null && Object.keys(context).length > 0;
   const { number, ticketId } = await createTicketTx(ctx.actor, {
-    ...data,
+    ...fields,
     title: data.title ?? titleFromDescription(data.description),
     attachmentIds: [...new Set(data.attachmentIds)],
+    ...(widget && { source: 'widget_web' as const, context: hasContext ? context : null }),
   });
   await refreshSlaAfterClient(ticketId);
   // Сигнатура ошибки из описания (план M5, задача 8): считает сервер от имени системы до разбора правил, клиент её
-  // не задаёт. Сбой сигнатуры обращение не отменяет.
-  await recordTicketSignature({ ticketId, orgId: ctx.actor.orgId, authorId: ctx.actor.userId, description: data.description, context: null, moduleId: data.moduleId ?? null });
+  // не задаёт. У режима B, как в панели виджета, из кода и текста ошибки (решение 0055). Сбой сигнатуры обращение не отменяет.
+  await recordTicketSignature({
+    ticketId,
+    orgId: ctx.actor.orgId,
+    authorId: ctx.actor.userId,
+    description: data.description,
+    context: hasContext ? { errorCode: context.errorCode, errorText: context.errorText } : null,
+    moduleId: data.moduleId ?? null,
+  });
   // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации. Событие для правил тоже записано.
   await wakeOutbox();
   await wakeAutomation();
   return { number, ticketId };
 }
+
+/**
+ * Обращение из виджета (план M6, задача 5; решения 10, 11 и 12). Та же операция, что на портале: проверка модуля,
+ * предел 10 обращений в час на пользователя, сроки, сигнатура, письмо и правила. Источник по платформе проверенного
+ * токена: web даёт widget_web, android и ios widget_mobile. Платформа в контексте тоже из токена, а не из подсказок.
+ * Сигнатура считается по коду и тексту ошибки контекста (решение 0055), модуль в неё не входит (решение 10).
+ */
+export async function createWidgetTicket(ctx: ClientActorContext, input: unknown, opts: { platform: 'web' | 'android' | 'ios' }): Promise<{ number: number; ticketId: string }> {
+  const data = parseInput(widgetTicketInput, input);
+  if (new Set(data.attachmentIds).size > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
+  if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
+  const limit = await consumeRateLimit(rateKey('ticket-create:user', ctx.actor.userId), RATE_RULES.ticketCreatePerUser);
+  if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
+  const context: TicketContext = { ...stripUndefined(data.context), platform: opts.platform };
+  const { number, ticketId } = await createTicketTx(ctx.actor, {
+    description: data.description,
+    title: titleFromDescription(data.description),
+    type: data.type,
+    impact: data.impact,
+    visibility: data.visibility,
+    moduleId: data.moduleId,
+    attachmentIds: [...new Set(data.attachmentIds)],
+    locale: data.locale,
+    source: opts.platform === 'web' ? 'widget_web' : 'widget_mobile',
+    context,
+  });
+  await refreshSlaAfterClient(ticketId);
+  await recordTicketSignature({
+    ticketId,
+    orgId: ctx.actor.orgId,
+    authorId: ctx.actor.userId,
+    description: data.description,
+    context: { errorCode: context.errorCode, errorText: context.errorText },
+    moduleId: data.moduleId ?? null,
+  });
+  await wakeOutbox();
+  await wakeAutomation();
+  return { number, ticketId };
+}
+
+const stripUndefined = <T extends Record<string, unknown>>(value: T): Partial<T> =>
+  Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
 
 // --- Список и страница (FR-TK-06, FR-TK-07, FR-TK-17) ---
 
@@ -191,7 +256,7 @@ function decodeCursor(cursor: string): { modifiedOn: string; ticketId: string } 
  * Обращения клиента: организации (видимые ему) или только свои, с фильтром по статусу и типу и поиском по
  * номеру или тексту темы и описания. По 20 строк, новые изменения первыми, курсор на следующую страницу.
  */
-export async function listTickets(ctx: ClientContext, input: unknown): Promise<{ items: TicketRow[]; nextCursor: string | null; searchTooShort: boolean; searchLimited: boolean }> {
+export async function listTickets(ctx: ClientActorContext, input: unknown): Promise<{ items: TicketRow[]; nextCursor: string | null; searchTooShort: boolean; searchLimited: boolean }> {
   const data = parseInput(listTicketsInput, input);
   const search = data.q !== undefined ? parseSearch(data.q) : { tooShort: false };
   // Текст короче трёх знаков не ищется: список пуст, страница просит уточнить запрос (аудит 23.11.2026, находка P9).
@@ -320,7 +385,7 @@ export const withinReopen = (closedOn: Date | null, days: number, now: Date = ne
   closedOn !== null && now.getTime() - closedOn.getTime() <= days * 86_400_000;
 
 /** Страница обращения по номеру (SUP-1042 или 1042). Чужое, невидимое и несуществующее: пусто, без различия. */
-export async function getTicket(ctx: ClientContext, numberRaw: unknown, opts: { shown?: unknown } = {}): Promise<TicketView | null> {
+export async function getTicket(ctx: ClientActorContext, numberRaw: unknown, opts: { shown?: unknown } = {}): Promise<TicketView | null> {
   const number = typeof numberRaw === 'string' ? parseNumber(numberRaw) : typeof numberRaw === 'number' ? numberRaw : null;
   if (number === null) return null;
   const shown = timelineLimit(opts.shown);
@@ -395,7 +460,7 @@ export async function getTicket(ctx: ClientContext, numberRaw: unknown, opts: { 
 // --- Действия клиента (FR-TK-08..12). Отказ: HdtError с кодом из error.ts. ---
 
 /** Ответ на портале с файлами (FR-TK-08). Не больше 60 ответов в час на пользователя. */
-export async function replyToTicket(ctx: ClientContext, input: unknown): Promise<void> {
+export async function replyToTicket(ctx: ClientActorContext, input: unknown): Promise<void> {
   const data = parseInput(replyInput, input);
   const ids = [...new Set(data.attachmentIds)];
   if (ids.length > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
@@ -406,13 +471,13 @@ export async function replyToTicket(ctx: ClientContext, input: unknown): Promise
 }
 
 /** Общий предел действий с обращением на пользователя (вторая проверка M2): каждое пишет событие и журнал. */
-async function consumeAction(ctx: ClientContext): Promise<void> {
+async function consumeAction(ctx: ClientActorContext): Promise<void> {
   const limit = await consumeRateLimit(rateKey('ticket-action:user', ctx.actor.userId), RATE_RULES.ticketActionPerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
 }
 
 /** "Решение подошло" (FR-TK-10). */
-export async function confirmResolution(ctx: ClientContext, number: unknown): Promise<void> {
+export async function confirmResolution(ctx: ClientActorContext, number: unknown): Promise<void> {
   const parsed = parseInput(numberInput, number);
   await consumeAction(ctx);
   await confirmTx(ctx.actor, parsed);
@@ -420,7 +485,7 @@ export async function confirmResolution(ctx: ClientContext, number: unknown): Pr
 }
 
 /** Открыть заново (FR-TK-12): решённое или закрытое в пределах срока из настройки. */
-export async function reopenTicket(ctx: ClientContext, input: unknown): Promise<void> {
+export async function reopenTicket(ctx: ClientActorContext, input: unknown): Promise<void> {
   const data = parseInput(reopenInput, input);
   await consumeAction(ctx);
   await refreshSlaAfterClient(await reopenTx(ctx.actor, data.number, await reopenDays(), data.body));
@@ -428,7 +493,7 @@ export async function reopenTicket(ctx: ClientContext, input: unknown): Promise<
 }
 
 /** Оценка закрытого обращения (FR-TK-11). */
-export async function rateTicket(ctx: ClientContext, input: unknown): Promise<void> {
+export async function rateTicket(ctx: ClientActorContext, input: unknown): Promise<void> {
   const data = parseInput(rateInput, input);
   await consumeAction(ctx);
   await rateTx(ctx.actor, data.number, { score: data.score, reason: data.reason, comment: data.comment });
@@ -436,20 +501,20 @@ export async function rateTicket(ctx: ClientContext, input: unknown): Promise<vo
 }
 
 /** Видимость обращения (FR-TK-04). */
-export async function setTicketVisibility(ctx: ClientContext, input: unknown): Promise<void> {
+export async function setTicketVisibility(ctx: ClientActorContext, input: unknown): Promise<void> {
   const data = parseInput(visibilityInput, input);
   await consumeAction(ctx);
   await visibilityTx(ctx.actor, data.number, data.visibility);
 }
 
 /** Подписка на обращение коллеги (FR-TK-09). */
-export async function watchTicket(ctx: ClientContext, number: unknown): Promise<void> {
+export async function watchTicket(ctx: ClientActorContext, number: unknown): Promise<void> {
   const parsed = parseInput(numberInput, number);
   await consumeAction(ctx);
   await watchTx(ctx.actor, parsed);
 }
 
-export async function unwatchTicket(ctx: ClientContext, number: unknown): Promise<void> {
+export async function unwatchTicket(ctx: ClientActorContext, number: unknown): Promise<void> {
   const parsed = parseInput(numberInput, number);
   await consumeAction(ctx);
   await unwatchTx(ctx.actor, parsed);

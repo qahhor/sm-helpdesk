@@ -40,6 +40,17 @@ function safeDecode(value: string): string | null {
 }
 
 
+/** Поля контекста из Smartup в порядке показа. Только строки: остальное в колонке не показывается. */
+const CONTEXT_FIELDS = ['moduleCode', 'screen', 'version', 'platform', 'errorCode', 'errorText'] as const;
+function contextLines(context: unknown): [(typeof CONTEXT_FIELDS)[number], string][] {
+  if (typeof context !== 'object' || context === null) return [];
+  const source = context as Record<string, unknown>;
+  return CONTEXT_FIELDS.flatMap((field) => {
+    const value = source[field];
+    return typeof value === 'string' && value.trim() !== '' ? [[field, value] as [(typeof CONTEXT_FIELDS)[number], string]] : [];
+  });
+}
+
 export default async function AgentTicketPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<TicketPageSearch> }) {
   const staff = await requireStaffActor();
   const search = await searchParams;
@@ -229,6 +240,12 @@ export default async function AgentTicketPage({ params, searchParams }: { params
               {ticket.pickup && <p data-pickup>{t('ticket.pickupDue', { time: when(ticket.pickup.dueOn) })}</p>}
               <p>{t('ticket.assignee', { name: ticket.assignee?.name ?? t('queues.unassigned') })}</p>
               <p>{t('ticket.source', { source: t(`ticket.sources.${ticket.source}`) })}</p>
+              {/* Контекст из Smartup (виджет, план M6): подсказки не подписаны, поэтому только текстом (решение 11). */}
+              {contextLines(ticket.context).map(([field, value]) => (
+                <p key={field} className="break-words" data-context={field}>
+                  {t(`ticket.context.${field}`, { value })}
+                </p>
+              ))}
               {canTransfer && (
                 <TransferDialog
                   number={ticket.number}

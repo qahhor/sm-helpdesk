@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { SystemActor } from '@/db/with-actor';
-import { addServer, checkServer, disableServer, listServers, resealServerSecrets, type ServerIssue } from '@/modules/hdu/api/servers';
+import { addServer, checkServer, disableServer, getServer, listServers, resealServerSecrets, type ServerIssue, updateWidgetSettings } from '@/modules/hdu/api/servers';
 import { adminActorByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
@@ -49,6 +49,11 @@ const HELP = `Использование: hub <команда> [ключи]
 
   server:disable --code <код>
       Отключить сервер: вход через него закрывается.
+
+  server:widget --code <код> --key-mode <jwks|secret> [--jwks-url <адрес ключей>] [--embed-origins <адрес,адрес>]
+      Настройки виджета сервера (план M6): режим подписи токена контекста, адрес открытых ключей (режим jwks)
+      и дополнительные адреса, которым можно встраивать виджет. Печатает ключ встраивания. Режим secret
+      при первом включении печатает общий секрет один раз: его передают разработчикам Smartup.
 
   server:check --code <код>
       Проверить связь с сервером: документ discovery, адреса входа, ключи и PKCE S256.
@@ -109,6 +114,10 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'server:list': { options: {}, required: [] },
   'server:disable': { options: { code: { type: 'string' } }, required: ['code'] },
   'server:check': { options: { code: { type: 'string' } }, required: ['code'] },
+  'server:widget': {
+    options: { code: { type: 'string' }, 'key-mode': { type: 'string' }, 'jwks-url': { type: 'string' }, 'embed-origins': { type: 'string' } },
+    required: ['code', 'key-mode'],
+  },
   'telegram:set-webhook': { options: {}, required: [] },
   'telegram:info': { options: {}, required: [] },
   'maintenance:cleanup': { options: {}, required: [] },
@@ -283,6 +292,21 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
       case 'server:disable': {
         await disableServer(ACTOR, text('code'));
         io.out(`Сервер ${text('code')} отключён.`);
+        return 0;
+      }
+      case 'server:widget': {
+        // Без флага --embed-origins адреса встраивания не меняются; пустое значение флага очищает список.
+        const origins = values['embed-origins'];
+        const { secret } = await updateWidgetSettings(ACTOR, {
+          code: text('code'),
+          mode: text('key-mode'),
+          ...(typeof values['jwks-url'] === 'string' && { jwksUrl: values['jwks-url'] }),
+          ...(typeof origins === 'string' && { embedOrigins: origins.split(',').map((item) => item.trim()).filter(Boolean) }),
+        });
+        const server = await getServer(ACTOR, text('code'));
+        io.out(`Виджет сервера ${text('code')} настроен.`);
+        if (server) io.out(`Ключ встраивания: ${server.widget.embedKey}`);
+        if (secret) io.out(`Общий секрет токена контекста (показывается один раз): ${secret}`);
         return 0;
       }
       case 'server:check': {

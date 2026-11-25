@@ -58,7 +58,14 @@ const CLIENT_EDITOR_BOUNDARY = 'Редактор решения только д�
 const EDITOR_PACKAGES = { group: ['@tiptap/*', 'prosemirror-*'], message: EDITOR_BOUNDARY };
 const EDITOR_UI = { group: ['@/ui/doc/editor', '@/ui/doc/editor/*', '**/ui/doc/editor/*'], message: CLIENT_EDITOR_BOUNDARY };
 
+// Ключи серверов Smartup скачивает только сетевой слой исходящих запросов src/security/outbound.ts (угроза T16,
+// план M6, решение 3). Функции jose, которые ходят в сеть сами, запрещены везде: и прямым импортом, и через объект модуля.
+const JOSE_REMOTE =
+  'Открытые ключи скачиваются только через src/security/outbound.ts (src/modules/hdu/core/context-keys.ts), createRemoteJWKSet ходит в сеть мимо него (план M6, решение 3)';
+const JOSE_REMOTE_NAMES = '/^(createRemoteJWKSet|customFetch|jwksCache)$/';
+
 const PUBLIC_BOUNDARY = 'Открытые страницы (public) не читают сессию и не берут актора, кроме public (CLAUDE.md)';
+const EMBED_BOUNDARY = 'Страницы виджета (embed) не читают сессию портала: актор только из токена виджета в API (план M6, решение 1)';
 
 // Общие запреты для страниц, обработчиков, интерфейса и команды консоли.
 const APP_PATHS = [
@@ -121,6 +128,33 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // Группа маршрутов (embed): страницы виджета и мобильного приложения без сессии портала и кук. Данные приходят
+    // из API виджета по токену в памяти страницы. Правило заменяет общее, поэтому общие запреты повторены.
+    files: ['src/app/**/\\(embed\\)/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [...APP_PATHS, { name: '@/modules/hdu/api', message: EMBED_BOUNDARY }],
+          patterns: [...APP_PATTERNS, EDITOR_PACKAGES, EDITOR_UI, { group: ['@/modules/hdu/**', '**/modules/hdu/**'], message: EMBED_BOUNDARY }],
+        },
+      ],
+    },
+  },
+  {
+    // Во всём репозитории: исходники, сценарии, тесты.
+    files: ['**/*.{ts,tsx,js,mjs,cjs}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        { selector: `ImportDeclaration[source.value='jose'] ImportSpecifier[imported.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
+        { selector: `ExportNamedDeclaration[source.value='jose'] ExportSpecifier[local.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
+        { selector: `MemberExpression[property.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
+        { selector: "ImportDeclaration[source.value=/^jose\\/.+/]", message: JOSE_REMOTE },
+      ],
+    },
+  },
   // Модули: только api и pref других модулей (проверка main, Q6). Кроме hdu, модули работают с базой
   // только под ролью hub_app.
   ...MODULES.map((name) => ({
@@ -138,6 +172,8 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     // Собранная команда консоли (scripts/build-cli.mjs).
     'dist/**',
+    // Собранный загрузчик виджета (pnpm widget:build): исходник src/widget/loader.js проверяется.
+    'public/widget/**',
   ]),
 ]);
 

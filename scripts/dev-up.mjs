@@ -1,7 +1,8 @@
 // Запуск проекта одной командой: pnpm dev:up.
 // 1. Создаёт .env из .env.example со случайными паролями. В существующий файл дописывает недостающие переменные.
 // 2. Поднимает PostgreSQL (docker compose) и ждёт его готовности.
-// 3. Создаёт роли и базу, применяет миграции, записывает ложные серверы Smartup для входа (только на localhost).
+// 3. Создаёт роли и базу, применяет миграции, записывает ложные серверы Smartup для входа (только на localhost)
+//    и настройки виджета сервера mock: ключи токена контекста и адрес демонстрационной страницы (pnpm dev:host).
 // 4. Запускает приложение для разработки.
 //
 // С ключом --prepare выполняются только шаги 1-3: так базу готовят браузерные тесты.
@@ -113,7 +114,24 @@ export function registerMockServers() {
       [resolve(root, 'dist/hub.mjs'), 'server:add', '--code', code, '--name', name, '--base-url', url, '--issuer', url, '--client-id', 'hub', ...extra],
       { cwd: root, stdio: 'ignore', env: { ...process.env, HUB_OAUTH_CLIENT_SECRET: 'mock-client-secret' } },
     );
+  // Виджет (план M6, задача 9): сервер mock подписывает токен контекста ES256 и отдаёт ключи сам (режим jwks),
+  // демонстрационная страница scripts/mock-smartup-host.mjs работает на своём адресе и записана в адреса встраивания.
+  const widget = execFileSync(
+    process.execPath,
+    [resolve(root, 'dist/hub.mjs'), 'server:widget', '--code', 'mock', '--key-mode', 'jwks', '--jwks-url', 'http://localhost:3190/context-jwks.json', '--embed-origins', MOCK_HOST_ORIGIN],
+    { cwd: root, encoding: 'utf8', env: process.env },
+  );
+  mockEmbedKey = /Ключ встраивания: ([0-9a-f]{32})/.exec(widget)?.[1] ?? null;
   return true;
+}
+
+/** Адрес демонстрационной страницы Smartup Web (scripts/mock-smartup-host.mjs): его можно встраивать виджетом. */
+const MOCK_HOST_ORIGIN = 'http://127.0.0.1:3195';
+/** Ключ встраивания сервера mock после registerMockServers: его печатает подсказка про pnpm dev:host. */
+let mockEmbedKey = /** @type {string | null} */ (null);
+
+function hostHint() {
+  if (mockEmbedKey) console.log(`Виджет: pnpm dev:host, затем ${MOCK_HOST_ORIGIN}/?key=${mockEmbedKey}`);
 }
 
 /** Поднимает базу, создаёт роли, применяет миграции и записывает ложные серверы Smartup. Повторный вызов безопасен. */
@@ -132,6 +150,7 @@ if (import.meta.main && process.argv.includes('--mocks-only')) {
     process.exit(1);
   }
   console.log('Ложные серверы Smartup записаны в реестр');
+  hostHint();
   process.exit(0);
 }
 
@@ -141,6 +160,7 @@ if (import.meta.main) {
     if (process.argv.includes('--env-only')) process.exit(0);
     const { applied } = await prepareDatabase();
     console.log(applied > 0 ? `База готова, применено миграций: ${applied}` : 'База готова, новых миграций нет');
+    hostHint();
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

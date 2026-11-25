@@ -10,6 +10,7 @@ import { Label } from '@/ui/components/label';
 import { RadioGroup, type RadioOption } from '@/ui/components/radio-group';
 import { Textarea } from '@/ui/components/textarea';
 import { browserDrafts, browserSession, clearDraft, type Draft, draftKey, forgetSent, rememberSent, saveDraft, useDraft } from '@/ui/drafts';
+import { handoffDescription, takeBrowserHandoff, type WidgetHandoff } from '@/ui/widget/handoff';
 import { createTicketAction, type NewTicketState } from './actions';
 import { ModulePicker } from './ModulePicker';
 import { Select } from '@/ui/components/select';
@@ -20,6 +21,8 @@ import { type SuggestLabels, Suggestions } from './Suggestions';
 // Под описанием подсказка решений (план M5, задача 10): пока она показана, остальные поля свёрнуты и раскрываются
 // после "Не помогло" (экран 8.3); без подсказок поля видны сразу. Возврат со страницы решения после "Не помогло"
 // открывает форму с раскрытыми полями и описанием из черновика (FR-SOL-11).
+// Режим B виджета (план M6, задача 8): форма, открытая загрузчиком с #widget=1&hints=..., подставляет ошибку Smartup в
+// пустое описание и модуль по коду, а признак виджета и подсказки уходят телом формы, не адресом (решения 11, 12).
 
 export type NewTicketLabels = {
   description: string;
@@ -36,6 +39,7 @@ export type NewTicketLabels = {
   visibility: string;
   visibilityHint: string;
   related: string;
+  fromWidget: string;
   hours: string;
   submit: string;
   busy: string;
@@ -54,6 +58,8 @@ type FormProps = {
   initialOpen: boolean;
   relatedNumber: number | null;
   modules: RadioOption[];
+  /** Код модуля из справочника по идентификатору: подсказка режима B называет модуль кодом. */
+  moduleCodes: Record<string, string>;
   types: RadioOption[];
   impacts: RadioOption[];
   visibilities: RadioOption[];
@@ -65,9 +71,25 @@ type FormProps = {
 export function NewTicketForm(props: FormProps) {
   const key = useMemo(() => draftKey(props.userId, props.relatedNumber ? `new-ticket-${props.relatedNumber}` : 'new-ticket'), [props.userId, props.relatedNumber]);
   const { hydrated, draft } = useDraft(key);
-  // После гидратации поля пересоздаются уже с черновиком.
-  return <Fields key={hydrated ? 'client' : 'server'} {...props} draftKey={key} hydrated={hydrated} draft={draft} />;
+  // Подсказки режима B забираются один раз после гидратации: фрагмент убирается из адреса, запись из sessionStorage.
+  const [handoff, setHandoff] = useState<WidgetHandoff | null | undefined>(undefined);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- хранилище вкладки есть только в браузере, а запись забирается один раз
+    setHandoff(takeBrowserHandoff());
+  }, []);
+  const ready = hydrated && handoff !== undefined;
+  // После гидратации поля пересоздаются уже с черновиком и подсказками.
+  return <Fields key={ready ? 'client' : 'server'} {...props} draftKey={key} hydrated={ready} draft={draft} handoff={handoff ?? null} />;
 }
+
+/** Подсказки режима B в поля контекста обращения: те же имена, что у обращения из панели виджета. */
+const contextOf = ({ hints }: WidgetHandoff) => ({
+  moduleCode: hints.module,
+  screen: hints.form,
+  version: hints.appVersion,
+  errorCode: hints.errorCode,
+  errorText: hints.errorText,
+});
 
 const pick = (value: string | undefined, options: RadioOption[], fallback: string) => (value && options.some((o) => o.value === value) ? value : fallback);
 
@@ -77,6 +99,7 @@ function Fields({
   initialOpen,
   relatedNumber,
   modules,
+  moduleCodes,
   types,
   impacts,
   visibilities,
@@ -86,15 +109,18 @@ function Fields({
   draftKey: key,
   hydrated,
   draft,
-}: FormProps & { draftKey: string; hydrated: boolean; draft: Draft | null }) {
+  handoff,
+}: FormProps & { draftKey: string; hydrated: boolean; draft: Draft | null; handoff: WidgetHandoff | null }) {
   const [state, action, pending] = useActionState(createTicketAction, INITIAL);
-  const [description, setDescription] = useState(draft?.description ?? '');
+  const hints = handoff?.hints;
+  // Черновик клиента важнее: ошибка подставляется только в пустое описание, контекст уходит в любом случае.
+  const [description, setDescription] = useState(draft?.description || (hints ? handoffDescription(hints) : ''));
   const [title, setTitle] = useState(draft?.title ?? '');
   const [titleEdited, setTitleEdited] = useState(Boolean(draft?.title));
   const [type, setType] = useState(pick(draft?.type, types, types[0]?.value ?? 'bug'));
   const [impact, setImpact] = useState(pick(draft?.impact, impacts, 'major'));
   const [visibility, setVisibility] = useState(pick(draft?.visibility, visibilities, 'org'));
-  const [moduleId, setModuleId] = useState('');
+  const [moduleId, setModuleId] = useState(() => (hints?.module ? (Object.keys(moduleCodes).find((id) => moduleCodes[id] === hints.module) ?? '') : ''));
   const [uploading, setUploading] = useState(false);
   const [open, setOpen] = useState(initialOpen);
   const [suggested, setSuggested] = useState(false);
@@ -134,6 +160,15 @@ function Fields({
     >
       {labels.related && <Alert>{labels.related}</Alert>}
       {relatedNumber && <input type="hidden" name="relatedNumber" value={relatedNumber} />}
+      {handoff && (
+        <>
+          <div data-testid="from-widget">
+            <Alert>{labels.fromWidget}</Alert>
+          </div>
+          <input type="hidden" name="widget" value="1" />
+          <input type="hidden" name="context" value={JSON.stringify(contextOf(handoff))} />
+        </>
+      )}
       {formError && <Alert tone="danger">{formError}</Alert>}
 
       <div className="flex flex-col gap-1">

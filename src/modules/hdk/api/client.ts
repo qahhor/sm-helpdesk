@@ -34,7 +34,7 @@ export type ClientSolutionPage =
   | null;
 
 /** Решение по адресу /help/a/{ref} на языке страницы или по цепочке языков; архивное: страница "больше не действует". */
-export async function clientSolutionPage(ctx: ClientContext, input: { ref: string; locale: string }): Promise<ClientSolutionPage> {
+export async function clientSolutionPage(ctx: Pick<ClientContext, 'actor'>, input: { ref: string; locale: string }): Promise<ClientSolutionPage> {
   const ref = parseSolutionRef(input.ref);
   const requested = z.enum(LOCALES).safeParse(input.locale);
   if (!ref || !requested.success) return null;
@@ -81,7 +81,7 @@ const feedbackInput = z.strictObject({
  * решение и пользователя. Пришли с подсказки (сессия формы): исход этой сессии обновляется, если решение было в
  * показанных. Без сессии строка исходов не создаётся: она про показы подсказки, а не про чтение страницы.
  */
-export async function recordSolutionFeedback(ctx: ClientContext, input: unknown): Promise<{ counted: boolean }> {
+export async function recordSolutionFeedback(ctx: Pick<ClientContext, 'actor'>, input: unknown): Promise<{ counted: boolean }> {
   const parsed = feedbackInput.safeParse(input);
   if (!parsed.success) throw new HdkError('invalid_input');
   const data = parsed.data;

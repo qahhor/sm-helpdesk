@@ -189,7 +189,8 @@
           "notHelped": "Yordam bermadi, murojaat yuborish",
           "sendAnyway": "Yordam bermadimi? Murojaat yuboring",
           "orgCount": "{count} ta mijozda uchragan"
-        }
+        },
+        "fromWidget": "Smartup'dagi xatoni qo'shib qo'ydik. Undan oldin nima qilganingizni yozing."
       },
       "list": {
         "new": "Yangi murojaat",
@@ -746,7 +747,45 @@
           "not_found": "Server topilmadi."
         },
         "reauth": "Qayta kirish",
-        "formTitle": "Kirish sozlamalari"
+        "formTitle": "Kirish sozlamalari",
+        "widget": {
+          "title": "Vidjet",
+          "intro": "Vidjet Smartup Web ichida portalga kirmasdan ochiladi: Smartup serveri kontekst tokenini imzolaydi, portal imzoni tekshiradi va mijozga panelni ochadi.",
+          "mode": "Kontekst tokeni imzosi",
+          "modes": {
+            "none": "Vidjet o'chirilgan",
+            "jwks": "Manzildagi ochiq kalitlar (JWKS): ES256, EdDSA yoki RS256",
+            "secret": "Umumiy sir: HS256"
+          },
+          "modeHint": "Ochiq kalitlarni tavsiya qilamiz: yopiq kalit faqat Smartup serverida qoladi. Boshqa algoritmlarni portal qabul qilmaydi.",
+          "contextIssuer": "Token chiqaruvchisi (iss)",
+          "contextIssuerHint": "Smartup serveri iss maydoniga qo'yadigan qator. Odatda kirish serveri manzili. Har bir serverda o'ziniki.",
+          "jwksUrl": "Ochiq kalitlar manzili",
+          "jwksUrlHint": "Faqat https va faqat tashqi tugun. Ochiq kalitlar bilan imzolash uchun kerak.",
+          "embedOrigins": "Qo'shimcha joylashtirish manzillari",
+          "embedOriginsHint": "Har bir manzil alohida qatorda, beshtagacha: sxema, tugun va port, yo'lsiz, masalan https://web2.smartup.example.uz. Smartup Web manziliga doim ruxsat bor.",
+          "embedKey": "Joylashtirish kaliti",
+          "embedKeyHint": "Sir emas. Uni quyidagi parcha bilan birga Smartup dasturchilariga bering: u orqali portal vidjetni faqat shu server manzillarida ko'rsatadi.",
+          "audience": "Qabul qiluvchi (aud)",
+          "lifetime": "Token muddati",
+          "lifetimeValue": "5 daqiqadan oshmaydi, jti bir martalik",
+          "snippet": "Smartup Web ga ulash",
+          "secret": "Umumiy sir",
+          "secretSet": "Sir berilgan",
+          "secretMissing": "Sir yo'q. Umumiy sir bilan imzolashni tanlaganingizda paydo bo'ladi.",
+          "secretShownTitle": "Yangi umumiy sir",
+          "secretShownText": "Uni hozir nusxalang va Smartup dasturchilariga himoyalangan kanal orqali bering. Portal uni boshqa ko'rsatmaydi.",
+          "rotate": "Yangi sir yaratish",
+          "rotateHint": "Oldingi sir darhol amal qilmay qoladi: u bilan imzolangan tokenlarni portal qabul qilmaydi.",
+          "save": "Vidjet sozlamalarini saqlash",
+          "saved": "Vidjet sozlamalari saqlandi.",
+          "errors": {
+            "invalid_input": "Maydonlarni tekshiring: chiqaruvchi va kalitlar manzili (faqat https, kalitlar faqat tashqi tugunda), joylashtirish manzillari (beshtagacha, yo'lsiz). Ochiq kalitlar uchun kalitlar manzili kerak.",
+            "server_taken": "Bu token chiqaruvchisi boshqa serverda allaqachon yozilgan."
+          },
+          "copy": "Sirni nusxalash",
+          "copied": "Nusxa olindi"
+        }
       },
       "staff": {
         "title": "Xodimlar",
@@ -894,7 +933,9 @@
             "added": "Server qo'shildi",
             "disabled": "Server o'chirildi",
             "enabled": "Server yoqildi",
-            "updated": "Server o'zgartirildi"
+            "updated": "Server o'zgartirildi",
+            "widget_updated": "Server vidjeti sozlamalari o'zgartirildi",
+            "context_secret_created": "Kontekst tokeni uchun yangi sir yaratildi"
           },
           "org": {
             "provisioned": "Tashkilot yaratildi",
@@ -1034,6 +1075,9 @@
             "created_from_ticket": "Yechim murojaatdan yaratildi",
             "signature_bound": "Yechim xato imzosiga bog'landi",
             "signature_unbound": "Yechim xato imzosidan uzildi"
+          },
+          "client": {
+            "embed_session": "Smartup ichidagi vidjet seansi"
           }
         },
         "words": {
@@ -2261,6 +2305,14 @@
         "exact": "Xato bo'yicha aniq moslik",
         "internal": "Faqat xodim orqali: mijozga o'z so'zlaringiz bilan tushuntiring",
         "insert": "Havolani javobga qo'yish"
+      },
+      "context": {
+        "moduleCode": "Smartup'dagi modul: {value}",
+        "screen": "Ekran: {value}",
+        "version": "Smartup versiyasi: {value}",
+        "platform": "Platforma: {value}",
+        "errorCode": "Xato kodi: {value}",
+        "errorText": "Xato matni: {value}"
       }
     },
     "playbooks": {
@@ -2406,8 +2458,19 @@
         "shareOf": "{name} manbasining ulushi",
         "names": {
           "portal": "Portal",
-          "widget_web": "Smartup ichidagi vidjet",
-          "widget_mobile": "Mobil ilova",
+          "widget_web": "Smartup Web ichidagi vidjet",
+          "widget_mobile": "Mobil ilovadagi vidjet",
+          "email": "Pochta",
+          "staff": "Xodim tomonidan yaratilgan"
+        }
+      },
+      "channels": {
+        "title": "Kanallar: portal, vidjet, pochta",
+        "hint": "Vidjet Smartup Web va mobil ilovani birlashtiradi. Xodim yaratgan murojaatlar alohida ko'rsatiladi, shunda ulushlar 100% ni tashkil qiladi.",
+        "channel": "Kanal",
+        "names": {
+          "portal": "Portal",
+          "widget": "Vidjet",
           "email": "Pochta",
           "staff": "Xodim tomonidan yaratilgan"
         }
@@ -3243,6 +3306,69 @@
         "code": "ORA-20001",
         "meaning": "Qoldiq yetishmaydi"
       }
+    }
+  },
+  "widget": {
+    "loader": {
+      "button": "Muammo haqida xabar berish",
+      "panelTitle": "Smartup qo'llab-quvvatlash",
+      "toastTitle": "Xato yuz berdi. Xabar bering, yechim qidiraman.",
+      "toastReport": "Xabar berish",
+      "toastDismiss": "Yashirish",
+      "portalTitle": "Formani bu yerda ochib bo'lmadi. Uni portalda oching.",
+      "openPortal": "Portalni ochish"
+    },
+    "panel": {
+      "title": "Smartup qo'llab-quvvatlash",
+      "close": "Panelni yopish",
+      "tabs": "Qo'llab-quvvatlash bo'limlari",
+      "tabReport": "Xabar berish",
+      "tabTickets": "Murojaatlarim",
+      "waiting": "Smartup bilan ulanmoqda.",
+      "offline": "Aloqa yo'q. Matn saqlandi, aloqa paydo bo'lishi bilan yuboraman.",
+      "refused": "Bu sahifani faqat Smartup ichidan ochish mumkin.",
+      "denied": "Qo'llab-quvvatlash siz uchun mavjud emas. Tashkilotingiz administratoriga murojaat qiling.",
+      "expired": "Seans tugadi. Panelni yoping va qaytadan oching.",
+      "unavailable": "Qo'llab-quvvatlash hozir mavjud emas. Keyinroq urinib ko'ring.",
+      "openPortal": "Portalda ochish"
+    },
+    "report": {
+      "title": "Xato haqida xabar berish",
+      "errorIn": "{module} modulida xato",
+      "error": "Smartup'da xato",
+      "known": "Bu xatoni bilamiz",
+      "similar": "Ehtimol, bu allaqachon hal qilingan",
+      "orgCount": "Mijozlarda uchragan: {count}",
+      "openSolution": "Yechimni ochish",
+      "notHelped": "Yordam bermadi, murojaat yuborish",
+      "description": "Xatodan oldin nima qilayotgan edingiz?",
+      "descriptionHint": "Bir-ikki gap: qaysi hujjatni ochdingiz va nimani bosdingiz.",
+      "module": "Modul",
+      "moduleNone": "Bilmayman",
+      "submit": "Murojaatni yuborish",
+      "sending": "Yuborilmoqda.",
+      "created": "{number} murojaati yaratildi. Ish vaqtida javob beramiz.",
+      "toTickets": "Murojaatlarimni ochish",
+      "another": "Boshqa xato haqida xabar berish",
+      "errors": {
+        "description": "Xatodan oldin nima qilganingizni yozing",
+        "failed": "Yuborib bo'lmadi. Aloqani tekshiring va qayta urining."
+      }
+    },
+    "solution": {
+      "back": "Formaga qaytish",
+      "archived": "Bu yechim olib tashlangan. Muammo qolgan bo'lsa, murojaat yuboring."
+    },
+    "tickets": {
+      "title": "Murojaatlarim",
+      "emptyTitle": "Hozircha murojaatlar yo'q",
+      "emptyText": "Savolni yozing, yechim qidiraman.",
+      "back": "Murojaatlarga qaytish",
+      "notFound": "Murojaat topilmadi.",
+      "more": "Yana ko'rsatish"
+    },
+    "mobile": {
+      "reopen": "Bu sahifani Smartup ilovasidan qaytadan oching."
     }
   }
 }

@@ -93,6 +93,34 @@ test('server:disable отключает сервер', async () => {
   expect((await pools.root.query(`select state from hdu_servers where code = 'off'`)).rows[0].state).toBe('passive');
 });
 
+test('server:widget задаёт режим подписи, адрес ключей и адреса встраивания, печатает ключ встраивания (план M6, задача 9)', async () => {
+  await runCli(['server:add', '--code', 'wdg', '--name', 'W', '--base-url', 'https://wdg.example', '--issuer', 'https://id.wdg.example', '--client-id', 'hub'], fakeIo({ HUB_OAUTH_CLIENT_SECRET: 's' }).io);
+  const jwks = fakeIo();
+  expect(
+    await runCli(['server:widget', '--code', 'wdg', '--key-mode', 'jwks', '--jwks-url', 'https://id.wdg.example/context-jwks.json', '--embed-origins', 'https://web.wdg.example,https://m.wdg.example'], jwks.io),
+  ).toBe(0);
+  const { rows } = await pools.root.query(`select context_key_mode, context_jwks_url, embed_origins, embed_key from hdu_servers where code = 'wdg'`);
+  expect(rows[0]).toMatchObject({ context_key_mode: 'jwks', context_jwks_url: 'https://id.wdg.example/context-jwks.json', embed_origins: ['https://web.wdg.example', 'https://m.wdg.example'] });
+  expect(jwks.lines.join('\n')).toContain(`Ключ встраивания: ${rows[0].embed_key}`);
+  expect((await pools.root.query(`select actor_type, diff from hdc_audit_log where action = 'server.widget_updated' and object_id = 'wdg'`)).rows).toEqual([
+    { actor_type: 'system', diff: { changed: ['contextKeyMode', 'contextJwksUrl', 'embedOrigins'] } },
+  ]);
+  // Режим secret печатает новый общий секрет один раз; в базе он только зашифрован.
+  const secret = fakeIo();
+  expect(await runCli(['server:widget', '--code', 'wdg', '--key-mode', 'secret'], secret.io)).toBe(0);
+  const printed = /Общий секрет токена контекста \(показывается один раз\): (\S+)/.exec(secret.lines.join('\n'))?.[1];
+  expect(printed).toMatch(/^[\w-]{43}$/);
+  expect(JSON.stringify((await pools.root.query(`select * from hdu_servers where code = 'wdg'`)).rows)).not.toContain(printed);
+  // Без флага --embed-origins адреса встраивания остаются прежними (проверка M6, M2).
+  expect((await pools.root.query(`select embed_origins from hdu_servers where code = 'wdg'`)).rows[0].embed_origins).toEqual(['https://web.wdg.example', 'https://m.wdg.example']);
+  // Пустой флаг очищает список явно.
+  expect(await runCli(['server:widget', '--code', 'wdg', '--key-mode', 'secret', '--embed-origins', ''], fakeIo().io)).toBe(0);
+  expect((await pools.root.query(`select embed_origins from hdu_servers where code = 'wdg'`)).rows[0].embed_origins).toEqual([]);
+  // Адрес встраивания с путём и сервер, которого нет: ошибка.
+  expect(await runCli(['server:widget', '--code', 'wdg', '--key-mode', 'secret', '--embed-origins', 'https://web.wdg.example/path'], fakeIo().io)).toBe(1);
+  expect(await runCli(['server:widget', '--code', 'nope', '--key-mode', 'secret'], fakeIo().io)).toBe(1);
+});
+
 test('server:check печатает итог проверки связи, код 1 при найденных проблемах', async () => {
   const add = fakeIo({ HUB_OAUTH_CLIENT_SECRET: 's' });
   await runCli(['server:add', '--code', 'chk', '--name', 'Chk', '--base-url', 'https://chk.example', '--issuer', 'https://id.chk.example', '--client-id', 'hub'], add.io);

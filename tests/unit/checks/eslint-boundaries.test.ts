@@ -120,3 +120,15 @@ test('пакеты редактора только в src/ui/doc/editor, сам 
   expect(await lint('src/app/[locale]/(agent)/agent/solutions/x.tsx', editor)).not.toContain('no-restricted-imports');
   expect(await lint('src/app/[locale]/(dev)/dev/editor/TrialEditor.tsx', editor)).not.toContain('no-restricted-imports');
 }, 30_000);
+
+test('ключи серверов Smartup скачиваются только через outbound.ts: функции jose с сетью запрещены везде (план M6, решение 3)', async () => {
+  for (const file of ['src/modules/hdu/core/context-keys.ts', 'src/app/api/x/route.ts', 'scripts/mock-oidc.mjs', 'tests/integration/x.test.ts']) {
+    expect(await lint(file, "import { createRemoteJWKSet } from 'jose';"), file).toContain('no-restricted-syntax');
+    expect(await lint(file, "import { createRemoteJWKSet as remote } from 'jose';"), file).toContain('no-restricted-syntax');
+    expect(await lint(file, "import * as jose from 'jose';\njose.createRemoteJWKSet(new URL('https://x.example'));"), file).toContain('no-restricted-syntax');
+    expect(await lint(file, "import { customFetch, jwksCache } from 'jose';"), file).toContain('no-restricted-syntax');
+    expect(await lint(file, "export { createRemoteJWKSet } from 'jose';"), file).toContain('no-restricted-syntax');
+    expect(await lint(file, "import { createRemoteJWKSet } from 'jose/jwks/remote';"), file).toContain('no-restricted-syntax');
+  }
+  expect(await lint('src/modules/hdu/core/context-keys.ts', "import { createLocalJWKSet, jwtVerify, SignJWT } from 'jose';")).not.toContain('no-restricted-syntax');
+}, 60_000);

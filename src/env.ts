@@ -138,6 +138,9 @@ const schema = z
       .trim()
       .refine((value) => /^[A-Za-z0-9+/]{43}=$/.test(value) && Buffer.from(value, 'base64').length === 32, { error: 'ожидается 32 байта в base64' })
       .optional(),
+    // Секрет подписи токена виджета (ТЗ 13.5, 11.4; план M6, решение 16). Без него виджет не работает; на настоящем
+    // адресе в production обязателен.
+    EMBED_TOKEN_SECRET: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
     // Письма со ссылками входа: none, console и file для разработки, resend для настоящей отправки (решение 0018).
     MAIL_TRANSPORT: z.enum(['none', 'console', 'file', 'resend'], { error: 'ожидается none, console, file или resend' }).default('none'),
     MAIL_FILE_DIR: z.string().trim().min(1, { error: 'не задана' }).optional(),
@@ -252,6 +255,10 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['CLIENT_IP_HEADER'], message: 'не задан: за Cloudflare задайте cf-connecting-ip' });
     if (value.ENCRYPTION_KEY_PREVIOUS && value.ENCRYPTION_KEY_PREVIOUS === value.ENCRYPTION_KEY)
       ctx.addIssue({ code: 'custom', path: ['ENCRYPTION_KEY_PREVIOUS'], message: 'совпадает с ENCRYPTION_KEY: прежний ключ должен отличаться от текущего' });
+    if (!value.EMBED_TOKEN_SECRET && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({ code: 'custom', path: ['EMBED_TOKEN_SECRET'], message: 'не задан: без него виджет в Smartup Web не работает' });
+    if (value.EMBED_TOKEN_SECRET && [value.BETTER_AUTH_SECRET, value.ENCRYPTION_KEY].includes(value.EMBED_TOKEN_SECRET))
+      ctx.addIssue({ code: 'custom', path: ['EMBED_TOKEN_SECRET'], message: 'не должен совпадать с BETTER_AUTH_SECRET и ENCRYPTION_KEY' });
     if (value.REPLY_HMAC_SECRET_PREVIOUS && !value.REPLY_HMAC_SECRET)
       ctx.addIssue({ code: 'custom', path: ['REPLY_HMAC_SECRET_PREVIOUS'], message: 'задан без REPLY_HMAC_SECRET' });
     if (value.BETTER_AUTH_SECRET === value.ENCRYPTION_KEY)

@@ -18,6 +18,9 @@ export const AUDIT_ACTIONS = [
   'server.disabled',
   'server.enabled',
   'server.updated',
+  // Настройки виджета сервера и новый секрет токена контекста (план M6, задача 1). Секрета в журнале нет.
+  'server.widget_updated',
+  'server.context_secret_created',
   // Организации и участники
   'org.provisioned',
   'org.updated',
@@ -41,6 +44,8 @@ export const AUDIT_ACTIONS = [
   'user.signed_in_telegram',
   // Вход клиента любым способом (волна 1, задача 8). Способ в описании: smartup, email_link, invitation, telegram.
   'user.signed_in',
+  // Новая сессия виджета (план M6, решение 15): сервер и платформа. Продление по таймеру пишется только в журнал работы.
+  'client.embed_session',
   // Обращения (веха M2): создание, смена статуса и видимости. Текста обращения в журнале нет.
   'ticket.created',
   'ticket.status_changed',
@@ -198,6 +203,12 @@ export const RATE_RULES = {
   trackerWebhookPerIp: { limit: 600, windowSec: 60 },
   /** Выгрузка показателей в CSV (веха M8, решение 16): 20 в час на сотрудника. Каждая выгрузка читает до 50 тысяч обращений. */
   metricsExportPerUser: { limit: 20, windowSec: 3600 },
+  /** Обмен токена контекста на токен виджета (план M6, решение 14): 30 в минуту на пользователя (раздел 14.5). */
+  embedSessionPerUser: { limit: 30, windowSec: 60 },
+  /** Тот же обмен: 120 в минуту с адреса до проверки подписи. */
+  embedSessionPerIp: { limit: 120, windowSec: 60 },
+  /** Неудачные обмены: после 20 за 10 минут с адреса обмен закрыт до конца окна. */
+  embedSessionFailuresPerIp: { limit: 20, windowSec: 600 },
   /** Создание обращения: 10 в час на пользователя (раздел 14.5). */
   ticketCreatePerUser: { limit: 10, windowSec: 3600 },
   /** Ответы в обращениях: 60 в час на пользователя (предложение плана M2, в ТЗ предела нет). */

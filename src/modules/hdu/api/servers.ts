@@ -4,22 +4,28 @@ import type { StaffActor, SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import {
   readActiveServers,
+  readEmbedOrigins,
   readServer,
   readServerForCheck,
   readServers,
   resealServerSecrets as resealCore,
+  rotateContextSecret,
   saveServer,
   saveServerCheck,
   type ServerCheckResult,
   type ServerDetails,
   type ServerRow,
   setServerState,
+  type ServerWidget,
   updateServerRow,
+  updateWidgetRow,
 } from '../core/servers';
 import { HduError } from '../error';
 import { parseInput } from '../input';
-import { CLIENT_ROLES, SERVER_CODE_PATTERN, type ServerIssue } from '../pref';
+import { CLIENT_ROLES, CONTEXT_KEY_MODES, EMBED_ORIGINS_MAX, SERVER_CODE_PATTERN, type ServerIssue } from '../pref';
 import { assertPublicUrl, isLocalPortal, SafeFetchError, safeFetchJson } from '../url-safety';
+import { refreshEmbedOrigins } from '@/security/embed-frame';
+import { LOOPBACK_HOSTS } from '@/security/outbound';
 import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './session';
 
 // Реестр серверов Smartup (FR-ID-02, FR-ADM-01). Этот файл не тянет библиотеку входа:
@@ -42,7 +48,7 @@ const serverInput = z.object({
 const codeInput = z.string().regex(SERVER_CODE_PATTERN);
 
 export type ServerView = ServerRow;
-export type { ServerDetails, ServerIssue };
+export type { ServerDetails, ServerIssue, ServerWidget };
 export type ServerCheck = ServerCheckResult;
 
 function assertCanManageServers(actor: SystemActor | StaffActor): void {
@@ -76,6 +82,19 @@ export function resealServerSecrets(actor: SystemActor): Promise<{ resealed: num
   return resealCore(actor);
 }
 
+/**
+ * Правка реестра в этом процессе сразу обновляет список адресов встраивания прокси (план M6, задача 3, решение 6).
+ * Другие процессы обновят его сами не позже чем через 60 секунд. Сбой загрузки не мешает правке: прежний список остаётся.
+ */
+function afterRegistryChange(): void {
+  void refreshEmbedOrigins().catch(() => {});
+}
+
+/** Адреса встраивания по ключу встраивания действующих серверов: загрузчик для прокси (src/wiring.ts). */
+export function embedOriginsByKey(): Promise<Map<string, string[]>> {
+  return readEmbedOrigins();
+}
+
 /** Адреса сервера по правилам реестра: внешние узлы по https, адрес Smartup Web без пути (угроза T16). */
 async function checkedBaseUrl(raw: string, allowLoopback: boolean): Promise<string> {
   const baseUrl = await assertPublicUrl(raw, { allowLoopback });
@@ -98,6 +117,7 @@ export async function addServer(who: ServerManager, input: unknown, ip: string |
   await assertPublicUrl(data.issuer, { allowLoopback });
   if (data.endpoints) for (const url of Object.values(data.endpoints)) await assertPublicUrl(url, { allowLoopback });
   await saveServer(actor, { ...data, baseUrl }, ip, { createOnly: 'actor' in who });
+  afterRegistryChange();
   return { code: data.code };
 }
 
@@ -126,18 +146,21 @@ export async function updateServer(ctx: StaffContext, input: unknown, now: Date 
   if (data.endpoints) for (const url of Object.values(data.endpoints)) await assertPublicUrl(url, { allowLoopback });
   const patch = { ...data, baseUrl, clientSecret: clientSecret ? clientSecret : undefined };
   if (!(await updateServerRow(actor, code, patch))) throw new HduError('not_found');
+  afterRegistryChange();
 }
 
 /** Отключает сервер: начать вход через него нельзя. */
 export async function disableServer(who: ServerManager, code: unknown, ip: string | null = null): Promise<void> {
   const actor = managingActor(who, new Date());
   if (!(await setServerState(actor, parseInput(codeInput, code), 'passive', ip))) throw new HduError('not_found');
+  afterRegistryChange();
 }
 
 /** Включает отключённый сервер снова. */
 export async function enableServer(ctx: StaffContext, code: unknown, now: Date = new Date()): Promise<void> {
   const actor = managingActor(ctx, now);
   if (!(await setServerState(actor, parseInput(codeInput, code), 'active'))) throw new HduError('not_found');
+  afterRegistryChange();
 }
 
 /** Список серверов для администратора и команды консоли: без секрета и идентификатора клиента. */
@@ -156,6 +179,98 @@ export async function getServer(actor: SystemActor | StaffActor, code: unknown):
 /** Адрес возврата портала на сервере Smartup: его передают разработчикам Smartup при регистрации портала. */
 export function serverCallbackUrl(code: string): string {
   return new URL(`/api/auth/sso/callback/${code}`, getEnv().HUB_URL).toString();
+}
+
+// --- Виджет: токен контекста и встраивание (план M6, задача 1; решения 2, 4 и 6) ---
+
+const widgetInput = z
+  .object({
+    code: codeInput,
+    // Пустое значение формы: виджет с сервером выключен.
+    mode: z.enum(CONTEXT_KEY_MODES).nullable(),
+    contextIssuer: urlText.optional(),
+    jwksUrl: urlText.nullable().optional(),
+    // Не задан: прежние адреса остаются (команда консоли без флага --embed-origins).
+    embedOrigins: z.array(z.string().trim().min(1).max(200)).max(EMBED_ORIGINS_MAX * 2).optional(),
+  })
+  .strict();
+
+/**
+ * Издатель токена контекста: адрес со схемой https (http только у локального портала и только для localhost),
+ * без учётной записи, параметров и якоря. Портал по нему никуда не ходит: это строка для сравнения с iss.
+ */
+function checkedIssuer(raw: string, allowLoopback: boolean): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new HduError('invalid_input');
+  }
+  const loopbackHttp = allowLoopback && url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname);
+  if ((url.protocol !== 'https:' && !loopbackHttp) || url.username || url.password || url.search || url.hash) throw new HduError('invalid_input');
+  // Сравнивается с iss буква в букву: сохраняется то, что ввёл администратор, без нормализации URL.
+  return raw;
+}
+
+/**
+ * Адрес встраивания: ровно схема, узел и порт. https; http только у локального портала и только для localhost и
+ * 127.0.0.1 (решение 0015). Значение попадает в заголовок frame-ancestors, поэтому сверяется с разобранным началом адреса.
+ */
+function checkedOrigin(raw: string, allowLoopback: boolean): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new HduError('invalid_input');
+  }
+  const loopbackHttp = allowLoopback && url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname);
+  if ((url.protocol !== 'https:' && !loopbackHttp) || url.origin !== raw) throw new HduError('invalid_input');
+  return url.origin;
+}
+
+/**
+ * Настройки виджета сервера: режим подписи токена контекста, издатель, адрес ключей и адреса встраивания.
+ * Только admin со свежим входом или команда консоли hub server:widget. Адрес ключей проверяется по правилам T16 (внешний узел, https). Переход в режим
+ * secret без секрета создаёт секрет и возвращает его один раз: администратор передаёт его разработчикам Smartup.
+ */
+export async function updateWidgetSettings(who: ServerManager, input: unknown, now: Date = new Date()): Promise<{ secret: string | null }> {
+  const actor = managingActor(who, now);
+  const data = parseInput(widgetInput, input);
+  const allowLoopback = isLocalPortal(getEnv().HUB_URL);
+  const contextIssuer = data.contextIssuer === undefined ? undefined : checkedIssuer(data.contextIssuer, allowLoopback);
+  const jwksUrl = data.jwksUrl ? (await assertPublicUrl(data.jwksUrl, { allowLoopback })).toString() : data.jwksUrl;
+  const embedOrigins = data.embedOrigins && [...new Set(data.embedOrigins.map((origin) => checkedOrigin(origin, allowLoopback)))];
+  if (embedOrigins && embedOrigins.length > EMBED_ORIGINS_MAX) throw new HduError('invalid_input');
+  const result = await updateWidgetRow(actor, data.code, { mode: data.mode, contextIssuer, jwksUrl, embedOrigins });
+  if (!result) throw new HduError('not_found');
+  afterRegistryChange();
+  return result;
+}
+
+/** Новый общий секрет токена контекста вместо прежнего. Только admin со свежим входом. Секрет показывается один раз. */
+export async function createContextSecret(ctx: StaffContext, code: unknown, now: Date = new Date()): Promise<{ secret: string }> {
+  const actor = managingActor(ctx, now);
+  const result = await rotateContextSecret(actor, parseInput(codeInput, code));
+  if (!result) throw new HduError('not_found');
+  return result;
+}
+
+/**
+ * Фрагмент подключения виджета для разработчиков Smartup (ТЗ 11.9): загрузчик с адреса портала и вызов init с ключом
+ * встраивания сервера. Имена currentLocale и requestContextToken обозначают код Smartup Web.
+ */
+export function widgetSnippet(embedKey: string): string {
+  const hub = getEnv().HUB_URL;
+  return [
+    `<script src="${hub}/widget/v1/hub-widget.js" async></script>`,
+    '',
+    'window.SmartupHub.init({',
+    `  hubUrl: '${hub}',`,
+    `  embedKey: '${embedKey}',`,
+    '  locale: currentLocale(),',
+    '  getContextToken: () => requestContextToken(),',
+    '});',
+  ].join('\n');
 }
 
 // --- Проверка связи (FR-ADM-01) ---

@@ -52,6 +52,21 @@ export async function consumeRateLimit(
   return { allowed: false, retryAfterSec: Math.max(1, Math.ceil((until - now.getTime()) / 1000)) };
 }
 
+/**
+ * Закрыт ли счётчик, без учёта попытки: для пределов неудач (план M6, решение 14). Попытка проверяется до работы,
+ * а неудача учитывается потом consumeRateLimit. Закрыт, когда в текущем окне набрано не меньше limit.
+ */
+export async function peekRateLimit(key: string, rule: RateRule, now: Date = new Date()): Promise<{ allowed: boolean; retryAfterSec: number }> {
+  const rows = await withActor(SYSTEM, (tx) =>
+    tx.select({ hits: rateLimits.hits, windowOn: rateLimits.windowOn }).from(rateLimits).where(eq(rateLimits.code, key)).limit(1),
+  );
+  const row = rows[0];
+  if (!row) return { allowed: true, retryAfterSec: 0 };
+  const until = row.windowOn.getTime() + rule.windowSec * 1000;
+  if (until <= now.getTime() || row.hits < rule.limit) return { allowed: true, retryAfterSec: 0 };
+  return { allowed: false, retryAfterSec: Math.max(1, Math.ceil((until - now.getTime()) / 1000)) };
+}
+
 /** Обнуляет счётчик, например после успешного входа. */
 export async function resetRateLimit(key: string): Promise<void> {
   await withActor(SYSTEM, (tx) => tx.delete(rateLimits).where(eq(rateLimits.code, key)));

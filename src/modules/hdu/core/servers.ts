@@ -1,12 +1,13 @@
 import 'server-only';
-import { and, asc, eq, ne, sql } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
+import { and, asc, eq, isNotNull, ne, sql } from 'drizzle-orm';
 import type { Actor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
 import { getSecretBox } from '@/security/secret-box';
 import { HduError } from '../error';
 import type { SsoServer } from '../auth/sso-providers';
-import type { ClientRole, RecordState, ServerIssue } from '../pref';
+import { CONTEXT_ALGORITHMS, type ClientRole, type ContextKeyMode, type RecordState, type ServerIssue } from '../pref';
 import { type OidcEndpoints, serverChecks, servers } from '../schema';
 
 // Модуль hdu, слой core: реестр серверов Smartup. Операции с данными под ролью hub_auth.
@@ -27,6 +28,8 @@ async function uniqueAddresses<T>(work: Promise<T>): Promise<T> {
 
 /** Место хранения секрета: входит в проверку подлинности зашифрованной строки. */
 export const secretContext = (code: string) => `hdu_servers:${code}`;
+/** Место хранения секрета токена контекста: строку секрета OAuth нельзя подставить вместо него и наоборот. */
+export const contextSecretContext = (code: string) => `hdu_servers:${code}:context`;
 
 /**
  * Действующие серверы с расшифрованным секретом. Только для библиотеки входа: наружу не отдаётся.
@@ -67,21 +70,31 @@ export async function listSsoServers(): Promise<SsoServer[]> {
 export async function resealServerSecrets(actor: Actor): Promise<{ resealed: number; failed: string[] }> {
   const box = getSecretBox();
   return withIdentity(actor, async (tx) => {
-    const rows = await tx.select({ code: servers.code, sealed: servers.oauthClientSecret }).from(servers).orderBy(asc(servers.code));
+    const rows = await tx
+      .select({ code: servers.code, sealed: servers.oauthClientSecret, contextSealed: servers.contextSecret })
+      .from(servers)
+      .orderBy(asc(servers.code));
     let resealed = 0;
     const failed: string[] = [];
-    for (const row of rows) {
-      const context = secretContext(row.code);
-      // Под try только шифрование: ошибка базы не должна выглядеть как "секрет не открывается" (итоговая проверка W1, F9).
-      let next: string | null;
+    // Под try только шифрование: ошибка базы не должна выглядеть как "секрет не открывается" (итоговая проверка W1, F9).
+    const resealOne = (sealed: string, context: string): string | null | 'failed' => {
       try {
-        next = box.needsReseal(row.sealed, context) ? box.reseal(row.sealed, context) : null;
+        return box.needsReseal(sealed, context) ? box.reseal(sealed, context) : null;
       } catch {
-        failed.push(row.code);
-        continue;
+        return 'failed';
       }
-      if (next === null) continue;
-      await tx.update(servers).set({ oauthClientSecret: next }).where(eq(servers.code, row.code));
+    };
+    for (const row of rows) {
+      // Секрет клиента OAuth и секрет токена контекста (план M6, задача 1): оба шифруются ключом ENCRYPTION_KEY.
+      const oauth = resealOne(row.sealed, secretContext(row.code));
+      const context = row.contextSealed === null ? null : resealOne(row.contextSealed, contextSecretContext(row.code));
+      if (oauth === 'failed' || context === 'failed') failed.push(row.code);
+      const patch = {
+        ...(oauth !== null && oauth !== 'failed' && { oauthClientSecret: oauth }),
+        ...(context !== null && context !== 'failed' && { contextSecret: context }),
+      };
+      if (Object.keys(patch).length === 0) continue;
+      await tx.update(servers).set(patch).where(eq(servers.code, row.code));
       resealed += 1;
     }
     // В журнал идут только числа: ни секрет, ни зашифрованная строка.
@@ -144,7 +157,8 @@ export async function saveServer(
     // Форма "Добавить сервер" существующий сервер не перезаписывает: его меняют на карточке.
     if (existing.length > 0 && opts.createOnly) throw new HduError('server_taken');
     if (existing.length > 0) await tx.update(servers).set(values).where(eq(servers.code, input.code));
-    else await tx.insert(servers).values({ ...values, code: input.code });
+    // Издатель токена контекста нового сервера: адрес сервера входа (решение 4 плана M6), его можно сменить на карточке.
+    else await tx.insert(servers).values({ ...values, code: input.code, contextIssuer: input.issuer });
     await writeAudit(tx, {
       action: 'server.added',
       objectType: 'server',
@@ -209,23 +223,53 @@ export async function readServers(actor: Actor): Promise<ServerRow[]> {
   return rows.map(toRow);
 }
 
+/** Настройки виджета сервера для карточки администратора (план M6, задача 1). Секрета нет: только признак, что он задан. */
+export type ServerWidget = {
+  contextIssuer: string;
+  contextKeyMode: ContextKeyMode | null;
+  contextJwksUrl: string | null;
+  hasContextSecret: boolean;
+  embedKey: string;
+  embedOrigins: string[];
+};
+
 export type ServerDetails = ServerRow & {
   issuer: string;
   clientId: string;
   roleMap: Record<string, ClientRole>;
   endpoints: OidcEndpoints | null;
+  widget: ServerWidget;
 };
 
-/** Один сервер для карточки администратора: всё, кроме секрета. */
+/** Один сервер для карточки администратора: всё, кроме секретов. */
 export async function readServer(actor: Actor, code: string): Promise<ServerDetails | null> {
-  const columns = { ...rowColumns, issuer: servers.issuer, clientId: servers.oauthClientId, roleMap: servers.roleMap, endpoints: servers.oidcEndpoints };
+  const columns = {
+    ...rowColumns,
+    issuer: servers.issuer,
+    clientId: servers.oauthClientId,
+    roleMap: servers.roleMap,
+    endpoints: servers.oidcEndpoints,
+    contextIssuer: servers.contextIssuer,
+    contextKeyMode: servers.contextKeyMode,
+    contextJwksUrl: servers.contextJwksUrl,
+    hasContextSecret: sql<boolean>`${servers.contextSecret} is not null`,
+    embedKey: servers.embedKey,
+    embedOrigins: servers.embedOrigins,
+  };
   const rows = await withIdentity(actor, (tx) =>
     tx.select(columns).from(servers).leftJoin(serverChecks, eq(serverChecks.serverId, servers.serverId)).where(eq(servers.code, code)).limit(1),
   );
   const row = rows[0];
   if (!row) return null;
-  const { issuer, clientId, roleMap, endpoints, ...rest } = row;
-  return { ...toRow(rest), issuer, clientId, roleMap, endpoints };
+  const { issuer, clientId, roleMap, endpoints, contextIssuer, contextKeyMode, contextJwksUrl, hasContextSecret, embedKey, embedOrigins, ...rest } = row;
+  return {
+    ...toRow(rest),
+    issuer,
+    clientId,
+    roleMap,
+    endpoints,
+    widget: { contextIssuer, contextKeyMode, contextJwksUrl, hasContextSecret, embedKey, embedOrigins },
+  };
 }
 
 export type ServerPatch = Partial<{
@@ -336,4 +380,147 @@ export async function readActiveServers(): Promise<{ code: string; name: string;
       .from(servers)
       .where(eq(servers.state, 'active')),
   );
+}
+
+// --- Виджет: токен контекста и встраивание (план M6, задачи 1-3; решения 2, 4 и 6) ---
+
+export type WidgetPatch = {
+  /** null: виджет с этим сервером выключен. */
+  mode: ContextKeyMode | null;
+  /** Не задан: прежний издатель остаётся. */
+  contextIssuer?: string;
+  /** Адрес ключей для режима jwks. null снимает адрес. Не задан: прежний остаётся. */
+  jwksUrl?: string | null;
+  /** Адреса встраивания. Не задан: прежние остаются (команда консоли без флага, замечание M2 проверки M6). */
+  embedOrigins?: string[];
+};
+
+/** Новый общий секрет токена контекста: 32 случайных байта в base64url, для HS256 этого достаточно. */
+function newContextSecret(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+const WIDGET_FIELDS = ['contextKeyMode', 'contextIssuer', 'contextJwksUrl', 'embedOrigins'] as const;
+
+/**
+ * Меняет настройки виджета сервера. Переход в режим secret без секрета создаёт секрет: его открытый текст
+ * возвращается один раз, в базе он только зашифрован. В журнал идут имена изменённых полей, без значений.
+ * Ничего не изменилось: ни записи, ни журнала. Сервера нет: not_found. Издатель занят другим сервером: server_taken.
+ */
+export async function updateWidgetRow(actor: Actor, code: string, patch: WidgetPatch, ip: string | null = null): Promise<{ secret: string | null } | null> {
+  return uniqueAddresses(
+    withIdentity(actor, async (tx) => {
+      const found = await tx
+        .select({
+          contextKeyMode: servers.contextKeyMode,
+          contextIssuer: servers.contextIssuer,
+          contextJwksUrl: servers.contextJwksUrl,
+          embedOrigins: servers.embedOrigins,
+          hasSecret: sql<boolean>`${servers.contextSecret} is not null`,
+        })
+        .from(servers)
+        .where(eq(servers.code, code))
+        .limit(1)
+        .for('update');
+      const current = found[0];
+      if (!current) return null;
+      const next = {
+        contextKeyMode: patch.mode,
+        contextIssuer: patch.contextIssuer ?? current.contextIssuer,
+        contextJwksUrl: patch.jwksUrl === undefined ? current.contextJwksUrl : patch.jwksUrl,
+        embedOrigins: patch.embedOrigins ?? current.embedOrigins,
+      };
+      if (next.contextKeyMode === 'jwks' && !next.contextJwksUrl) throw new HduError('invalid_input');
+      const secret = next.contextKeyMode === 'secret' && !current.hasSecret ? newContextSecret() : null;
+      const changed: string[] = WIDGET_FIELDS.filter((key) => canonical(next[key]) !== canonical(current[key]));
+      if (secret !== null) changed.push('contextSecret');
+      if (changed.length === 0) return { secret: null };
+      await tx
+        .update(servers)
+        .set({ ...next, ...(secret !== null && { contextSecret: getSecretBox().seal(secret, contextSecretContext(code)) }) })
+        .where(eq(servers.code, code));
+      await writeAudit(tx, { action: 'server.widget_updated', objectType: 'server', objectId: code, diff: { changed }, ip });
+      return { secret };
+    }),
+  );
+}
+
+/** Создаёт новый общий секрет токена контекста вместо прежнего. Открытый текст возвращается один раз. */
+export async function rotateContextSecret(actor: Actor, code: string, ip: string | null = null): Promise<{ secret: string } | null> {
+  const secret = newContextSecret();
+  const sealed = getSecretBox().seal(secret, contextSecretContext(code));
+  return withIdentity(actor, async (tx) => {
+    const updated = await tx.update(servers).set({ contextSecret: sealed }).where(eq(servers.code, code)).returning({ code: servers.code });
+    if (updated.length === 0) return null;
+    // В журнале только факт замены: ни секрета, ни зашифрованной строки.
+    await writeAudit(tx, { action: 'server.context_secret_created', objectType: 'server', objectId: code, ip });
+    return { secret };
+  });
+}
+
+/** Сервер для проверки токена контекста: действующий, с выбранным режимом. Секрет расшифрован и наружу не отдаётся. */
+export type ContextServer = {
+  serverId: string;
+  code: string;
+  contextIssuer: string;
+  mode: ContextKeyMode;
+  algorithms: readonly string[];
+  jwksUrl: string | null;
+  secret: string | null;
+};
+
+/**
+ * Действующий сервер с настроенным виджетом по издателю токена контекста. Отключённый сервер, сервер без режима и
+ * неизвестный издатель: null. Секрет, который не расшифровывается, тоже даёт null с записью в журнал работы.
+ */
+export async function readContextServer(contextIssuer: string): Promise<ContextServer | null> {
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({
+        serverId: servers.serverId,
+        code: servers.code,
+        contextIssuer: servers.contextIssuer,
+        mode: servers.contextKeyMode,
+        jwksUrl: servers.contextJwksUrl,
+        sealed: servers.contextSecret,
+      })
+      .from(servers)
+      .where(and(eq(servers.contextIssuer, contextIssuer), eq(servers.state, 'active'), isNotNull(servers.contextKeyMode)))
+      .limit(1),
+  );
+  const row = rows[0];
+  if (!row?.mode) return null;
+  let secret: string | null = null;
+  if (row.mode === 'secret') {
+    if (!row.sealed) return null;
+    try {
+      secret = getSecretBox().open(row.sealed, contextSecretContext(row.code));
+    } catch {
+      console.error(`Сервер Smartup ${row.code}: секрет токена контекста не расшифровывается. Создайте новый секрет на карточке сервера`);
+      return null;
+    }
+  }
+  return {
+    serverId: row.serverId,
+    code: row.code,
+    contextIssuer: row.contextIssuer,
+    mode: row.mode,
+    algorithms: CONTEXT_ALGORITHMS[row.mode],
+    jwksUrl: row.mode === 'jwks' ? row.jwksUrl : null,
+    secret,
+  };
+}
+
+/**
+ * Адреса встраивания по ключу встраивания действующих серверов (решение 6): начало адреса Smartup Web и дополнительные
+ * адреса. Отключённого сервера в ответе нет. Это настройки реестра, а не данные клиентов: их можно держать в памяти.
+ */
+export async function readEmbedOrigins(): Promise<Map<string, string[]>> {
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ embedKey: servers.embedKey, baseUrl: servers.baseUrl, embedOrigins: servers.embedOrigins })
+      .from(servers)
+      .where(eq(servers.state, 'active')),
+  );
+  return new Map(rows.map((row) => [row.embedKey, [...new Set([new URL(row.baseUrl).origin, ...row.embedOrigins])]]));
 }

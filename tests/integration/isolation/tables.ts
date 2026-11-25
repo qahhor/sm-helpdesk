@@ -79,6 +79,9 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdr_tags: { client: 'none', app: IUD },
   // Идентичность: меняет только hub_auth, удаляет только отвязка контакта.
   hdu_contact_identities: { client: 'own-user', auth: IUD },
+  // Использованные токены контекста виджета (веха M6): пишет обмен токена от имени системы, удаляет ночная очистка
+  // только строки с вышедшим сроком. Изменить строку нельзя никому: иначе повтор токена открылся бы.
+  hdu_context_token_uses: { client: 'none', auth: ['insert', 'delete'] },
   // Ссылки и коды удаляет только ночная очистка системой (решение 0023, дополнение M2).
   hdu_email_tokens: { client: 'none', auth: IUD },
   // Слияние гостя (веха M4): записывает hub_auth, отметку применения ставит hub_app (только колонка applied_on).

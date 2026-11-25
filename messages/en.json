@@ -189,7 +189,8 @@
           "notHelped": "Didn't help, send a request",
           "sendAnyway": "Didn't help? Send a request",
           "orgCount": "{count, plural, one {Seen by # client} other {Seen by # clients}}"
-        }
+        },
+        "fromWidget": "We added the error from Smartup. Tell us what you were doing before it appeared."
       },
       "list": {
         "new": "New request",
@@ -746,7 +747,45 @@
           "not_found": "Server not found."
         },
         "reauth": "Sign in again",
-        "formTitle": "Sign-in settings"
+        "formTitle": "Sign-in settings",
+        "widget": {
+          "title": "Widget",
+          "intro": "The widget opens inside Smartup Web without signing in to the portal: the Smartup server signs a context token, the portal checks the signature and opens the panel for the client.",
+          "mode": "Context token signature",
+          "modes": {
+            "none": "Widget off",
+            "jwks": "Public keys at an address (JWKS): ES256, EdDSA or RS256",
+            "secret": "Shared secret: HS256"
+          },
+          "modeHint": "We recommend public keys: the private key stays on the Smartup server only. The portal accepts no other algorithms.",
+          "contextIssuer": "Token issuer (iss)",
+          "contextIssuerHint": "The value the Smartup server puts in the iss field. By default the sign-in server address. Each server has its own.",
+          "jwksUrl": "Public keys address",
+          "jwksUrlHint": "https and a public host only. Needed for signing with public keys.",
+          "embedOrigins": "Extra embedding addresses",
+          "embedOriginsHint": "One address per line, up to five: scheme, host and port without a path, for example https://web2.smartup.example.uz. The Smartup Web address is always allowed.",
+          "embedKey": "Embedding key",
+          "embedKeyHint": "Not a secret. Give it to the Smartup developers with the snippet below: with it the portal shows the widget only on this server addresses.",
+          "audience": "Audience (aud)",
+          "lifetime": "Token lifetime",
+          "lifetimeValue": "no more than 5 minutes, jti used once",
+          "snippet": "Connecting in Smartup Web",
+          "secret": "Shared secret",
+          "secretSet": "Secret is set",
+          "secretMissing": "No secret yet. It appears when you choose signing with a shared secret.",
+          "secretShownTitle": "New shared secret",
+          "secretShownText": "Copy it now and give it to the Smartup developers over a secure channel. The portal will not show it again.",
+          "rotate": "Create a new secret",
+          "rotateHint": "The old secret stops working at once: the portal will not accept tokens signed with it.",
+          "save": "Save widget settings",
+          "saved": "Widget settings saved.",
+          "errors": {
+            "invalid_input": "Check the fields: issuer and keys address (https only, keys on a public host only), embedding addresses (up to five, no path). Public keys need a keys address.",
+            "server_taken": "This token issuer is already used by another server."
+          },
+          "copy": "Copy the secret",
+          "copied": "Copied"
+        }
       },
       "staff": {
         "title": "Staff",
@@ -894,7 +933,9 @@
             "added": "Server added",
             "disabled": "Server disabled",
             "enabled": "Server enabled",
-            "updated": "Server changed"
+            "updated": "Server changed",
+            "widget_updated": "Server widget settings changed",
+            "context_secret_created": "New context token secret created"
           },
           "org": {
             "provisioned": "Organization created",
@@ -1034,6 +1075,9 @@
             "created_from_ticket": "Solution created from a request",
             "signature_bound": "Solution linked to an error signature",
             "signature_unbound": "Solution unlinked from an error signature"
+          },
+          "client": {
+            "embed_session": "Widget session inside Smartup"
           }
         },
         "words": {
@@ -2261,6 +2305,14 @@
         "exact": "Exact match for the error",
         "internal": "Staff only: explain it to the client in your own words",
         "insert": "Insert link into reply"
+      },
+      "context": {
+        "moduleCode": "Module in Smartup: {value}",
+        "screen": "Screen: {value}",
+        "version": "Smartup version: {value}",
+        "platform": "Platform: {value}",
+        "errorCode": "Error code: {value}",
+        "errorText": "Error text: {value}"
       }
     },
     "playbooks": {
@@ -2406,8 +2458,19 @@
         "shareOf": "Share of source {name}",
         "names": {
           "portal": "Portal",
-          "widget_web": "Widget in Smartup",
-          "widget_mobile": "Mobile app",
+          "widget_web": "Widget in Smartup Web",
+          "widget_mobile": "Widget in the mobile app",
+          "email": "Email",
+          "staff": "Created by staff"
+        }
+      },
+      "channels": {
+        "title": "Channels: portal, widget, email",
+        "hint": "The widget combines Smartup Web and the mobile app. Requests created by staff are shown separately so that shares add up to 100%.",
+        "channel": "Channel",
+        "names": {
+          "portal": "Portal",
+          "widget": "Widget",
           "email": "Email",
           "staff": "Created by staff"
         }
@@ -3243,6 +3306,69 @@
         "code": "ORA-20001",
         "meaning": "Not enough stock"
       }
+    }
+  },
+  "widget": {
+    "loader": {
+      "button": "Report a problem",
+      "panelTitle": "Smartup support",
+      "toastTitle": "Something went wrong. Report it and I will look for a solution.",
+      "toastReport": "Report",
+      "toastDismiss": "Dismiss",
+      "portalTitle": "Could not open the form here. Open it in the portal.",
+      "openPortal": "Open portal"
+    },
+    "panel": {
+      "title": "Smartup support",
+      "close": "Close the panel",
+      "tabs": "Support sections",
+      "tabReport": "Report",
+      "tabTickets": "My requests",
+      "waiting": "Connecting to Smartup.",
+      "offline": "No connection. The text is saved, I will send it when the network is back.",
+      "refused": "This page opens only from Smartup.",
+      "denied": "Support is not available to you. Contact the administrator of your organization.",
+      "expired": "The session has expired. Close the panel and open it again.",
+      "unavailable": "Support is not available right now. Try again later.",
+      "openPortal": "Open in the portal"
+    },
+    "report": {
+      "title": "Report an error",
+      "errorIn": "Error in the {module} module",
+      "error": "Error in Smartup",
+      "known": "We know this error",
+      "similar": "Looks like this was solved before",
+      "orgCount": "Seen by clients: {count}",
+      "openSolution": "Open the solution",
+      "notHelped": "Did not help, send a request",
+      "description": "What were you doing before the error?",
+      "descriptionHint": "A couple of sentences: which document you opened and what you clicked.",
+      "module": "Module",
+      "moduleNone": "Not sure",
+      "submit": "Send the request",
+      "sending": "Sending.",
+      "created": "Request {number} created. We will reply during working hours.",
+      "toTickets": "Open my requests",
+      "another": "Report another error",
+      "errors": {
+        "description": "Describe what you were doing before the error",
+        "failed": "Could not send. Check the connection and try again."
+      }
+    },
+    "solution": {
+      "back": "Back to the form",
+      "archived": "This solution was withdrawn. If the problem remains, send a request."
+    },
+    "tickets": {
+      "title": "My requests",
+      "emptyTitle": "No requests yet",
+      "emptyText": "Describe your question and I will look for a solution.",
+      "back": "Back to requests",
+      "notFound": "Request not found.",
+      "more": "Show more"
+    },
+    "mobile": {
+      "reopen": "Open this page again from the Smartup app."
     }
   }
 }

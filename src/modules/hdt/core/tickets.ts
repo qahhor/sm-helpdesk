@@ -6,7 +6,7 @@ import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ATTACHABLE_SCAN_STATUSES, type Impact, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
-import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
+import { attachments, type TicketContext, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { finalMainNumberTx } from './merged-into';
 import { timelineWindowTx } from './timeline';
 import { refreshSla } from './sla';
@@ -39,6 +39,10 @@ export type NewTicket = {
   relatedNumber?: number;
   attachmentIds: string[];
   locale: string;
+  /** Откуда пришло обращение клиента: портал или виджет (план M6, решение 12). По умолчанию портал. */
+  source?: 'portal' | 'widget_web' | 'widget_mobile';
+  /** Контекст из Smartup: только у обращения из виджета. */
+  context?: TicketContext | null;
 };
 
 /**
@@ -70,7 +74,8 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
           locale: input.locale,
           moduleId: input.moduleId ?? null,
           relatedTicketId,
-          source: 'portal',
+          source: input.source ?? 'portal',
+          context: input.context ?? null,
         })
         .returning({ ticketId: tickets.ticketId, number: tickets.number })
     )[0] as { ticketId: string; number: number };
@@ -92,8 +97,14 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
     await tx.insert(ticketWatchers).values({ orgId: actor.orgId, ticketId: row.ticketId, userId: actor.userId, source: 'author' });
     await tx.insert(ticketEvents).values({ orgId: actor.orgId, ticketId: row.ticketId, kind: 'created', actorType: 'client', actorId: actor.userId });
     // Событие для правил автоматизации в той же транзакции (FR-AUTO-02).
-    await emitEventTx(tx, { orgId: actor.orgId, ticketId: row.ticketId, kind: 'ticket_created', payload: { source: 'portal', type: input.type, priority } });
-    await writeAudit(tx, { action: 'ticket.created', objectType: 'ticket', objectId: row.ticketId, orgId: actor.orgId, diff: { type: input.type, priority } });
+    await emitEventTx(tx, { orgId: actor.orgId, ticketId: row.ticketId, kind: 'ticket_created', payload: { source: input.source ?? 'portal', type: input.type, priority } });
+    await writeAudit(tx, {
+      action: 'ticket.created',
+      objectType: 'ticket',
+      objectId: row.ticketId,
+      orgId: actor.orgId,
+      diff: { type: input.type, priority, ...(input.source && input.source !== 'portal' ? { source: input.source } : {}) },
+    });
     await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: null });
     // Сообщение дежурным о P1 (FR-SLA-07) ставит предустановленное правило по событию ticket_created (план M8,
     // задача 10): слой api будит разбор событий сразу после фиксации.

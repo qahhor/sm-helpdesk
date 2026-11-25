@@ -9,6 +9,7 @@ import { orgFactsTx } from '@/modules/hdu/api/automation';
 import {
   auditAsStaff,
   breakdownTx,
+  channelsTx,
   type Counters,
   lineEventsTx,
   lowRatingsTx,
@@ -24,14 +25,14 @@ import {
 import { calendarFor } from '../core/sla';
 import { HdtError } from '../error';
 import { numberInput, parseInput } from '../input';
-import { average, CSV_MAX_ROWS, type CsvValue, decimal, type Line, LINES, lineUsage, localMinute, median, parsePeriod, percent, type Period } from '../metrics-util';
+import { average, CSV_MAX_ROWS, type CsvValue, decimal, type Line, LINES, lineUsage, localMinute, median, parsePeriod, percent, type Period, TICKET_CHANNELS, type TicketChannel } from '../metrics-util';
 import { workingMinutesBetween } from '../sla';
 
 // Модуль hdt, слой api: показатели поддержки (FR-MET-01, 03, 04, 07, 10, FR-LINE-08; план M8, задача 9,
 // решения 14-16). Сотрудник из проверенной сессии, вход по схеме, права проверяются здесь, а не скрытием кнопок.
 // Определения показателей записаны в core/metrics.ts и в подсказках страницы. Кеша нет: каждый показ считает заново.
 
-export { buildCsv, CSV_MAX_ROWS, type Line, LINES, METRICS_MAX_DAYS, METRICS_PRESETS, type Period, splitMinutes } from '../metrics-util';
+export { buildCsv, CSV_MAX_ROWS, type Line, LINES, METRICS_MAX_DAYS, METRICS_PRESETS, type Period, splitMinutes, TICKET_CHANNELS, type TicketChannel } from '../metrics-util';
 
 /** Сколько обращений берётся в расчёт времени и линий. Больше: страница говорит "посчитано по первым N". */
 export const METRICS_ROW_CAP = 20_000;
@@ -79,6 +80,15 @@ export type MetricsOverview = {
   resolutionTime: Timing;
   csat: { count: number; average: number | null; highPercent: number | null };
 };
+export type ChannelRow = {
+  channel: TicketChannel;
+  count: number;
+  percent: number | null;
+  resolved: number;
+  firstResponsePercent: number | null;
+  resolutionPercent: number | null;
+  csatAverage: number | null;
+};
 export type LineRow = { line: Line; resolved: number; percent: number | null; visited: number; averageMinutes: number | null };
 export type LowRating = {
   number: number;
@@ -97,6 +107,8 @@ export type MetricsView = {
   timeZone: string;
   overview: MetricsOverview;
   sources: { source: string; count: number; percent: number | null }[];
+  /** Каналы в постоянном порядке TICKET_CHANNELS, пустые тоже (FR-MET-10). */
+  channels: ChannelRow[];
   lines: { resolved: number; rows: LineRow[]; returns: number };
   lowRatings: { items: LowRating[]; capped: boolean };
   /** Время и линии посчитаны по первым METRICS_ROW_CAP обращениям периода: обращений больше. */
@@ -141,12 +153,13 @@ export async function getMetrics(ctx: StaffContext, input: unknown, now: Date = 
   requireStaff(ctx);
   const { period, config } = await resolvePeriod(ctx, input, now);
   const range: Range = { from: period.from, to: period.to };
-  const { counters, finished, sources, responded, resolved, events, low } = await withActor(ctx.actor, async (tx) => {
+  const { counters, finished, sources, channels, responded, resolved, events, low } = await withActor(ctx.actor, async (tx) => {
     const resolvedRows = await resolvedRowsTx(tx, range, METRICS_ROW_CAP + 1);
     return {
       counters: await overviewTx(tx, range, now),
       finished: await finishedTx(tx, range),
       sources: await sourcesTx(tx, range),
+      channels: await channelsTx(tx, range, now),
       responded: await respondedRowsTx(tx, range, METRICS_ROW_CAP + 1),
       resolved: resolvedRows,
       events: await lineEventsTx(tx, resolvedRows.slice(0, METRICS_ROW_CAP).map((row) => row.ticketId)),
@@ -186,6 +199,18 @@ export async function getMetrics(ctx: StaffContext, input: unknown, now: Date = 
       timing(resolvedRows.map((row) => resolutionMinutes(row, config))),
     ),
     sources: sources.map((row) => ({ ...row, percent: percent(row.count, total) })).sort((a, b) => b.count - a.count || a.source.localeCompare(b.source)),
+    channels: TICKET_CHANNELS.map((channel) => {
+      const row = channels.find((item) => item.channel === channel);
+      return {
+        channel,
+        count: row?.created ?? 0,
+        percent: percent(row?.created ?? 0, total),
+        resolved: row?.resolved ?? 0,
+        firstResponsePercent: row ? percent(row.firstResponseOk, row.firstResponseTotal) : null,
+        resolutionPercent: row ? percent(row.resolutionOk, row.resolutionTotal) : null,
+        csatAverage: row?.csatAverage ?? null,
+      };
+    }),
     lines: {
       resolved: resolvedRows.length,
       rows: LINES.map((line) => {

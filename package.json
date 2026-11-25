@@ -27,7 +27,9 @@
     "hub": "node scripts/build-cli.mjs && node --env-file-if-exists=.env dist/hub.mjs",
     "dev:oidc": "node scripts/mock-oidc.mjs",
     "dev:telegram": "node scripts/mock-telegram.mjs",
-    "dev:tracker": "node scripts/mock-tracker.mjs"
+    "dev:tracker": "node scripts/mock-tracker.mjs",
+    "dev:host": "node --env-file-if-exists=.env scripts/mock-smartup-host.mjs",
+    "widget:build": "node scripts/widget-build.mjs"
   },
   "dependencies": {
     "@better-auth/sso": "1.7.22",
@@ -54,6 +56,7 @@
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.4",
     "get-nonce": "1.0.1",
+    "jose": "6.2.17",
     "kysely": "0.29.9",
     "lucide-react": "1.72.0",
     "next": "16.4.6",

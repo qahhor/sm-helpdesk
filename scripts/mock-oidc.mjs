@@ -5,15 +5,27 @@
 // Запуск: pnpm dev:oidc. Три сервера: mock на порту 3190 (общее облако), mock-dedicated на 3191
 // (выделенный сервер) и mock-spare на 3193 (для проверки реестра в разделе "Настройки").
 // В реестр портала первые два записывает scripts/dev-up.mjs --prepare.
+//
+// Токен контекста виджета (план M6, решение 17): POST /context-token?persona=<ключ>&platform=web|android|ios
+// (persona=custom: сведения из параметров claim_sub, claim_name, claim_company_id и других, как во входе).
+// Сервер mock подписывает его ES256, открытые ключи отдаёт по адресу /context-jwks.json (режим jwks реестра).
+// Сервер mock-dedicated подписывает HS256 общим секретом (режим secret): секрет создаёт портал на карточке сервера,
+// его передают ложному серверу переменной MOCK_CONTEXT_SECRET, как разработчикам Smartup.
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { Events, OAuth2Issuer, OAuth2Service } from 'oauth2-mock-server';
 
 /** @typedef {{ sub: string; name: string; email?: string; company_id?: string; company_name?: string; inn?: string; role?: string; locale?: string }} Persona */
 
-/** @type {Record<string, { port: number; personas: Record<string, Persona & { note: string }> }>} */
+/** @typedef {{ mode: 'jwks' } | { mode: 'secret'; secret?: string }} ContextConfig */
+/** @typedef {{ port: number; personas: Record<string, Persona & { note: string }>; context?: ContextConfig }} MockConfig */
+
+/** @type {Record<string, MockConfig>} */
 export const MOCK_SERVERS = {
   mock: {
     port: 3190,
+    context: { mode: 'jwks' },
     personas: {
       alisher: { sub: '1001', name: 'Алишер', company_id: '501', company_name: 'ACME Trade', note: 'без email' },
       dilnoza: {
@@ -31,6 +43,7 @@ export const MOCK_SERVERS = {
   },
   'mock-dedicated': {
     port: 3191,
+    context: { mode: 'secret' },
     personas: {
       alisher: { sub: '1001', name: 'Алишер', company_id: '501', company_name: 'Initech', note: 'тот же sub на другом сервере' },
     },
@@ -80,11 +93,90 @@ function personaPage(code, url, personas) {
 </html>`;
 }
 
+const CONTEXT_PLATFORMS = ['web', 'android', 'ios'];
+
+/** @param {import('node:http').ServerResponse} res @param {number} status @param {unknown} body */
+function sendJson(res, status, body) {
+  // Демонстрационная страница Smartup Web (другой адрес) берёт токен из браузера, как Smartup Web со своего сервера.
+  res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
+  res.end(JSON.stringify(body));
+}
+
+/**
+ * Выпуск токена контекста (ТЗ 11.4): поля персоны, получатель smartup-hub, срок 2 минуты, новый jti.
+ * @param {{ issuer: string; persona: Record<string, string>; platform: string; sign: (jwt: SignJWT) => Promise<string>; alg: string; kid?: string }} input
+ */
+function contextToken({ issuer, persona, platform, sign, alg, kid }) {
+  const { sub, ...profile } = persona;
+  const now = Math.floor(Date.now() / 1000);
+  const jwt = new SignJWT({ ...profile, platform, app_version: '5.12.0-mock' })
+    .setProtectedHeader(kid ? { alg, kid, typ: 'JWT' } : { alg, typ: 'JWT' })
+    .setIssuer(issuer)
+    .setAudience('smartup-hub')
+    .setSubject(sub ?? '')
+    .setJti(randomUUID())
+    .setIssuedAt(now)
+    .setExpirationTime(now + 120);
+  return sign(jwt);
+}
+
+/**
+ * Обработчик адресов токена контекста. null: адрес не про токен контекста.
+ * @param {string} issuer @param {MockConfig} config
+ */
+async function contextHandler(issuer, config) {
+  const context = config.context;
+  if (!context) return null;
+  const pair = context.mode === 'jwks' ? await generateKeyPair('ES256', { extractable: true }) : null;
+  const jwks = pair ? { keys: [{ ...(await exportJWK(pair.publicKey)), kid: 'mock-context-1', alg: 'ES256', use: 'sig' }] } : null;
+  /** @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res @param {URL} url */
+  return async (req, res, url) => {
+    if (url.pathname === '/context-jwks.json' && jwks) {
+      sendJson(res, 200, jwks);
+      return true;
+    }
+    if (url.pathname !== '/context-token') return false;
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type' });
+      res.end();
+      return true;
+    }
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { error: 'POST' });
+      return true;
+    }
+    // Своя персона полями claim_* адреса, как во входе OAuth: браузерные тесты виджета берут нового человека на прогон.
+    const personaKey = url.searchParams.get('persona') ?? '';
+    const persona =
+      personaKey === 'custom'
+        ? claimsOf(Object.fromEntries(CLAIM_FIELDS.map((field) => [field, url.searchParams.get(`claim_${field}`) ?? undefined])))
+        : claimsOf(config.personas[personaKey] ?? {});
+    const platform = url.searchParams.get('platform') ?? 'web';
+    if (!persona.sub || !CONTEXT_PLATFORMS.includes(platform)) {
+      sendJson(res, 400, { error: 'persona или platform' });
+      return true;
+    }
+    if (pair) {
+      const token = await contextToken({ issuer, persona, platform, alg: 'ES256', kid: 'mock-context-1', sign: (jwt) => jwt.sign(pair.privateKey) });
+      sendJson(res, 200, { token });
+      return true;
+    }
+    const secret = context.mode === 'secret' ? (context.secret ?? process.env.MOCK_CONTEXT_SECRET) : undefined;
+    if (!secret) {
+      sendJson(res, 503, { error: 'Задайте MOCK_CONTEXT_SECRET: общий секрет с карточки сервера в разделе "Настройки"' });
+      return true;
+    }
+    const token = await contextToken({ issuer, persona, platform, alg: 'HS256', sign: (jwt) => jwt.sign(new TextEncoder().encode(secret)) });
+    sendJson(res, 200, { token });
+    return true;
+  };
+}
+
 /**
  * Запускает ложный сервер. Выбор персоны привязывается к коду авторизации, код к токену доступа:
  * одновременные входы разных персон друг другу не мешают.
  * @param {string} code
- * @param {{ port: number; personas: Record<string, Persona & { note: string }> }} config
+ * @param {MockConfig} config
  * @returns {Promise<{ url: string; close(): Promise<void> }>}
  */
 export async function startMockServer(code, config) {
@@ -122,8 +214,10 @@ export async function startMockServer(code, config) {
   });
 
   const handler = service.requestHandler;
-  const server = createServer((req, res) => {
+  const context = await contextHandler(issuer.url, config);
+  const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', issuer.url);
+    if (context && (await context(req, res, url))) return;
     if (url.pathname === '/authorize' && !url.searchParams.has('persona')) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(personaPage(code, url, config.personas));

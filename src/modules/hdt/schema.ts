@@ -22,8 +22,8 @@ import type {
 
 const moment = (name: string) => timestamp(name, { withTimezone: true });
 
-/** Контекст из Smartup (веха M6). */
-export type TicketContext = { screen?: string; version?: string; platform?: string; errorCode?: string; errorText?: string };
+/** Контекст из Smartup (веха M6): экран, версия, платформа, код и текст ошибки, код модуля из подсказки виджета. */
+export type TicketContext = { screen?: string; version?: string; platform?: string; errorCode?: string; errorText?: string; moduleCode?: string };
 
 export const tickets = pgTable('hdt_tickets', {
   ticketId: uuid('ticket_id')

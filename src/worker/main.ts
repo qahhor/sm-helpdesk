@@ -11,6 +11,7 @@ import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
+import { runModerationDigest } from '@/modules/hdi/api/notices';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
@@ -28,7 +29,7 @@ import { opsWatch } from './ops-watch';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 и сверка индекса решений в 03:30 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 , сверка индекса решений в 03:30 и сводка модерации идей в 09:30 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
@@ -41,6 +42,8 @@ export const SCHEDULES = [
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
   // Сверка поискового индекса подсказки (план M5, задача 9): после ночной очистки.
   { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
+  // Сводка модерации идей роли product (план M7, задача 8, решение 15): раз в день в 09:30 по Ташкенту.
+  { name: 'ideas.moderation_digest', cron: '30 9 * * *', tz: 'Asia/Tashkent' },
 ] as const;
 
 const scanJob = z.object({ attachmentId: z.uuid() }).strict();
@@ -163,6 +166,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('ideas.translate', polling, ([job]) => timedJob('ideas.translate', async () => {
     // Машинный перевод идеи (план M7, задача 4): модель вызывает только фоновый процесс, сбой повторяет pg-boss.
     await runIdeaTranslationJob(actor('ideas.translate'), job?.data);
+  }));
+  await boss.work('ideas.moderation_digest', polling, () => timedJob('ideas.moderation_digest', async () => {
+    await runModerationDigest(actor('ideas.moderation_digest'), new Date());
   }));
   await boss.work('kb.index', polling, ([job]) => timedJob('kb.index', async () => {
     // Строки поискового индекса и векторы решения (план M5, задача 9). Сервис векторов недоступен: строки с текстом уже

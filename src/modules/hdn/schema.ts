@@ -63,6 +63,17 @@ export const NOTIFICATION_KINDS = [
   'csat_low',
   // Защита от зацикливания приостановила правило на одном обращении (проверка вехи M8, находка S1).
   'rule_paused',
+  // Идеи (веха M7, задача 8): клиентам о своих идеях и идеях, за которые голосовали или на которые подписаны;
+  // роли product об отборе, о модерации и о закрытой задаче разработки идеи.
+  'idea_published',
+  'idea_declined',
+  'idea_status',
+  'idea_merged',
+  'idea_comment_hidden',
+  'idea_official_reply',
+  'idea_cycle',
+  'idea_moderation_due',
+  'idea_dev_task_closed',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -78,9 +89,11 @@ export const notifications = pgTable('hdn_notifications', {
   payload: jsonb('payload').$type<Record<string, string | number>>().notNull().default({}),
   readOn: moment('read_on'),
   ...stampColumns,
+  /** Идея уведомления (веха M7, миграция 0081): переход из колокольчика. */
+  ideaId: uuid('idea_id'),
 });
 
-export const PREF_KINDS = ['own_tickets', 'watched_tickets', 'staff_mention', 'staff_breach'] as const;
+export const PREF_KINDS = ['own_tickets', 'watched_tickets', 'staff_mention', 'staff_breach', 'ideas'] as const;
 export type PrefKind = (typeof PREF_KINDS)[number];
 
 /** Какие письма и сообщения Telegram получать (10.5 "notification_prefs", FR-NT-04, FR-NT-14). */

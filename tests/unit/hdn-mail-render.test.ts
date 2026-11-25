@@ -30,6 +30,18 @@ const SAMPLES: { [K in MailTemplate]: Omit<Extract<MailData, { template: K }>, k
   staff_csat_low: { template: 'staff_csat_low', ...ticket, url: 'https://hub.example.test/ru/agent/tickets/1042', score: 2, orgName: 'ООО Клиент' },
   inbound_test: { template: 'inbound_test', address: 'support@greenwhite.uz', token: 'chk-7f3a' },
   ops_alert: { template: 'ops_alert', text: 'Smartup Hub: за час не отправлено писем и сообщений: 3.', url: 'https://hub.example.test/ru/agent' },
+  idea_status: {
+    template: 'idea_status',
+    event: 'released',
+    ideaId: '00000000-0000-0000-0000-000000000001',
+    number: 204,
+    title: 'Экспорт заказов в Excel',
+    titles: { ru: 'Экспорт заказов в Excel', en: 'Export orders to Excel' },
+    url: 'https://hub.example.test/ru/ideas/204',
+  },
+  staff_idea_moderation: { template: 'staff_idea_moderation', count: 3, url: 'https://hub.example.test/ru/agent/ideas' },
+  staff_idea_cycle: { template: 'staff_idea_cycle', count: 5, url: 'https://hub.example.test/ru/agent/ideas/cycles' },
+  staff_idea_dev_task_closed: { template: 'staff_idea_dev_task_closed', number: 204, title: 'Экспорт заказов в Excel', ref: 'DEV-501', url: 'https://hub.example.test/ru/agent/ideas/204' },
 };
 
 const TICKET_TEMPLATES: MailTemplate[] = [

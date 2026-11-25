@@ -111,3 +111,9 @@ export async function votesByOrgTx(tx: Tx, ideaId: string): Promise<{ orgId: str
     .groupBy(ideaVotes.orgId)
     .orderBy(desc(sql`count(*)`), asc(ideaVotes.orgId));
 }
+
+/** Когда поданы идеи, которые ждут модерации (сводка модерации, решение 15). */
+export async function pendingSinceTx(tx: Tx): Promise<Date[]> {
+  const rows = await tx.select({ createdOn: ideas.createdOn }).from(ideas).where(eq(ideas.status, 'pending_review'));
+  return rows.map((row) => row.createdOn);
+}

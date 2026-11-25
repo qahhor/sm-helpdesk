@@ -34,6 +34,11 @@ export const MAIL_TEMPLATES = [
   'staff_csat_low',
   'inbound_test',
   'ops_alert',
+  // Идеи (веха M7, задача 8): клиенту о событии идеи; роли product о модерации, отборе и закрытой задаче разработки.
+  'idea_status',
+  'staff_idea_moderation',
+  'staff_idea_cycle',
+  'staff_idea_dev_task_closed',
 ] as const;
 export type MailTemplate = (typeof MAIL_TEMPLATES)[number];
 
@@ -41,6 +46,9 @@ export type MailTemplate = (typeof MAIL_TEMPLATES)[number];
 export type MailCommon = { hubUrl: string; supportAddress: string | null; settingsUrl?: string | null };
 
 type TicketRef = { number: number; title: string; url: string };
+
+/** Событие идеи в письме клиенту (план M7, решение 15). */
+export type IdeaMailEvent = 'published' | 'declined' | 'merged' | 'shortlisted' | 'selected' | 'in_development' | 'released' | 'comment_hidden' | 'official_reply';
 
 export type MailPayload =
   | ({ template: 'ticket_created'; viaEmail: boolean } & TicketRef)
@@ -64,7 +72,13 @@ export type MailPayload =
   | ({ template: 'staff_csat_low'; score: number; orgName: string } & TicketRef)
   | { template: 'inbound_test'; address: string; token: string }
   // Сигнал дежурным о состоянии портала (ТЗ 13.8): готовый текст с числами, без данных клиентов.
-  | { template: 'ops_alert'; text: string; url: string };
+  | { template: 'ops_alert'; text: string; url: string }
+  // Идея: заголовки на языках портала, письмо берёт заголовок на языке получателя (иначе оригинал). ideaId: ключ
+  // правила "одно письмо в сутки по идее". Причин, комментариев и имён в письме нет.
+  | { template: 'idea_status'; event: IdeaMailEvent; ideaId: string; number: number; title: string; titles: Partial<Record<Locale, string>>; url: string; into?: number }
+  | { template: 'staff_idea_moderation'; count: number; url: string }
+  | { template: 'staff_idea_cycle'; count: number; url: string }
+  | { template: 'staff_idea_dev_task_closed'; ref: string; number: number; title: string; url: string };
 
 export type MailData = MailPayload & MailCommon;
 
@@ -81,6 +95,12 @@ export function ticketSubject(number: number, title: string): string {
   const chars = Array.from(text);
   const short = chars.length > SUBJECT_TITLE_MAX ? `${chars.slice(0, SUBJECT_TITLE_MAX - 3).join('')}...` : text;
   return `[SUP-${number}] ${short}`;
+}
+
+/** Тема письма по идее: [I-204] <заголовок>, без ссылок и переводов строк, не длиннее 120 знаков. */
+export function ideaSubject(number: number, title: string): string {
+  const chars = Array.from(noLinks(title, Number.MAX_SAFE_INTEGER));
+  return `[I-${number}] ${chars.length > SUBJECT_TITLE_MAX ? `${chars.slice(0, SUBJECT_TITLE_MAX - 3).join('')}...` : chars.join('')}`;
 }
 
 const translatorOf = (locale: Locale) => createTranslator({ locale, messages: MESSAGES[locale], namespace: 'mail' });
@@ -100,7 +120,7 @@ type Body = {
   rating?: { label: string; url: string };
 };
 
-function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
+function body(payload: MailPayload, t: ReturnType<typeof translatorOf>, locale: Locale): Body {
   const open = (url: string) => ({ label: t('layout.open'), url });
   switch (payload.template) {
     case 'ticket_created': {
@@ -266,6 +286,44 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
         reply: false,
         signature: false,
       };
+    case 'idea_status': {
+      const title = noLinks(payload.titles[locale] ?? payload.title, TITLE_MAX);
+      return {
+        subject: ideaSubject(payload.number, payload.titles[locale] ?? payload.title),
+        heading: t('ideaStatus.heading', { ref: `I-${payload.number}` }),
+        text: t(`ideaStatus.${payload.event}`, { ref: `I-${payload.number}`, title, into: payload.into ? `I-${payload.into}` : '' }),
+        button: { label: t('ideaStatus.button'), url: payload.url },
+        reply: false,
+        signature: false,
+      };
+    }
+    case 'staff_idea_moderation':
+      return {
+        subject: t('staffIdeaModeration.subject', { count: payload.count }),
+        heading: t('staffIdeaModeration.subject', { count: payload.count }),
+        text: t('staffIdeaModeration.text', { count: payload.count }),
+        button: open(payload.url),
+        reply: false,
+        signature: false,
+      };
+    case 'staff_idea_cycle':
+      return {
+        subject: t('staffIdeaCycle.subject'),
+        heading: t('staffIdeaCycle.subject'),
+        text: t('staffIdeaCycle.text', { count: payload.count }),
+        button: open(payload.url),
+        reply: false,
+        signature: false,
+      };
+    case 'staff_idea_dev_task_closed':
+      return {
+        subject: ideaSubject(payload.number, payload.title),
+        heading: t('staffDevTaskClosed.heading'),
+        text: t('staffIdeaDevTaskClosed.text', { ref: noLinks(payload.ref, NAME_MAX), idea: `I-${payload.number}`, title: noLinks(payload.title, TITLE_MAX) }),
+        button: open(payload.url),
+        reply: false,
+        signature: false,
+      };
     case 'ops_alert':
       return {
         subject: t('opsAlert.subject'),
@@ -281,7 +339,7 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>): Body {
 export async function renderMail(template: MailTemplate, locale: Locale, data: MailData): Promise<RenderedMail> {
   if (data.template !== template) throw new Error('почта: шаблон не совпадает с данными');
   const t = translatorOf(locale);
-  const b = body(data, t);
+  const b = body(data, t, locale);
   const layoutText = {
     replyAbove: t('layout.replyAbove'),
     signature: t('layout.signature'),

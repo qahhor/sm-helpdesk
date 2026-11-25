@@ -1,6 +1,6 @@
 import 'server-only';
 import * as z from 'zod';
-import { adminIdsTx, lineLeadsTx, type MailRecipient, mailRecipientTx, markTelegramBlockedTx, organizationNameTx, replyRolesTx, replyRoleTx, telegramChatTx, telegramLinkedManyTx } from '../core/recipients';
+import { adminIdsTx, staffIdsWithRoleTx, lineLeadsTx, type MailRecipient, mailRecipientTx, markTelegramBlockedTx, organizationNameTx, replyRolesTx, replyRoleTx, telegramChatTx, telegramLinkedManyTx } from '../core/recipients';
 import type { Locale } from '@/i18n/locales';
 
 // Модуль hdu, слой api: адрес для письма пользователю (решение 2 вехи M4), руководители линии, администраторы
@@ -20,6 +20,11 @@ export function lineLeads(line: 'l1' | 'l2'): Promise<string[]> {
 
 export function adminIds(): Promise<string[]> {
   return adminIdsTx();
+}
+
+/** Действующие сотрудники с ролью product или admin (сводка модерации идей, план M7, задача 8). */
+export function staffIdsWithRole(role: 'product' | 'admin'): Promise<string[]> {
+  return staffIdsWithRoleTx(role);
 }
 
 export async function organizationName(orgId: string): Promise<string | null> {

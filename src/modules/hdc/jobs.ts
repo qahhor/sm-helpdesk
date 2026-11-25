@@ -13,6 +13,7 @@ export const JOB_NAMES = [
   'devtasks.sync',
   'email.inbound',
   'ideas.index',
+  'ideas.moderation_digest',
   'ideas.scan',
   'ideas.translate',
   'kb.draft',

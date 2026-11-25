@@ -88,7 +88,16 @@
         "rule_disabled": "«{rule}» qoidasi o'chirildi: u juda tez-tez ishga tushdi",
         "rule_paused": "«{rule}» qoidasi SUP-{number} murojaatida to'xtatib turildi: u juda tez-tez ishga tushdi",
         "dev_task_closed": "Ishlab chiqish vazifasi yopildi: tekshiring va mijozga xabar bering. SUP-{number} murojaati",
-        "csat_low": "Mijoz SUP-{number} murojaatiga {score} baho qo'ydi"
+        "csat_low": "Mijoz SUP-{number} murojaatiga {score} baho qo'ydi",
+        "idea_published": "Sizning I-{idea} g'oyangiz e'lon qilindi",
+        "idea_declined": "I-{idea} g'oyasi rad etildi",
+        "idea_status": "I-{idea} g'oyasi: {status, select, shortlisted {saralash beshligida} selected {oy g'oyasi deb tanlandi} in_development {ishlab chiqishga topshirildi} released {chiqarildi} other {yangi holat}}",
+        "idea_merged": "I-{idea} g'oyasi I-{into} bilan birlashtirildi",
+        "idea_comment_hidden": "I-{idea} g'oyasiga izohingizni moderator yashirdi",
+        "idea_official_reply": "I-{idea} g'oyasiga Smartup javobi",
+        "idea_cycle": "Oy g'oyasi saralash beshligi tayyor",
+        "idea_moderation_due": "Ikki ish kunidan ortiq moderatsiya kutayotgan g'oyalar: {count}",
+        "idea_dev_task_closed": "I-{idea} g'oyasining ishlab chiqish vazifasi yopildi"
       },
       "settings": {
         "title": "Xatlar",
@@ -111,6 +120,11 @@
           "telegramLink": "Bog'lashga o'tish",
           "needTelegram": "O'z murojaatlaringiz haqidagi xatlar faqat Telegram bog'langan va shu qatorda yoqilgan bo'lsa o'chadi.",
           "ownFallback": "O'z murojaatlaringiz haqidagi xatlar yana kelmoqda: Telegram hozir ishlamayapti."
+        },
+        "ideas": {
+          "title": "G'oyalar haqida xatlar",
+          "intro": "G'oyalar voqealari haqida qo'ng'iroqcha doim xabar beradi. Bitta g'oya bo'yicha xat sutkasiga bir martadan ko'p kelmaydi, chiqarilgani haqida doim.",
+          "label": "G'oyalar haqida xat yuborish"
         }
       }
     }
@@ -3447,6 +3461,30 @@
     "staffCsatLow": {
       "heading": "Mijozning past bahosi",
       "text": "«{orgName}» tashkiloti mijozi SUP-{number} «{title}» murojaatiga {score} baho qo'ydi. Murojaatni oching: baho sababi uning sahifasida ko'rinadi."
+    },
+    "ideaStatus": {
+      "heading": "{ref} g'oyasi bo'yicha yangiliklar",
+      "button": "G'oyani ochish",
+      "published": "Sizning {ref} «{title}» g'oyangiz tekshiruvdan o'tdi va e'lon qilindi. Endi unga barcha tashkilotlar mijozlari ovoz beradi.",
+      "declined": "{ref} «{title}» g'oyasi rad etildi. Batafsil g'oya sahifasida.",
+      "merged": "{ref} «{title}» g'oyasi o'xshash {into} g'oyasi bilan birlashtirildi: ovozlar o'sha yerga o'tkazildi.",
+      "shortlisted": "{ref} «{title}» g'oyasi oy g'oyasi saralash beshligiga kirdi.",
+      "selected": "{ref} «{title}» g'oyasi oy g'oyasi deb tanlandi.",
+      "in_development": "{ref} «{title}» g'oyasi ishlab chiqishga topshirildi.",
+      "released": "{ref} «{title}» g'oyasi chiqarildi.",
+      "comment_hidden": "Moderator {ref} «{title}» g'oyasiga izohingizni yashirdi. Sabab g'oya sahifasida.",
+      "official_reply": "Smartup {ref} «{title}» g'oyasiga javob berdi."
+    },
+    "staffIdeaModeration": {
+      "subject": "Moderatsiya kutayotgan g'oyalar: {count}",
+      "text": "Ikki ish kunidan ortiq tekshiruvdagi g'oyalar: {count}. Ularni e'lon qiling, rad eting yoki birlashtiring."
+    },
+    "staffIdeaCycle": {
+      "subject": "Oy g'oyasi saralash beshligi tayyor",
+      "text": "Saralash beshligida g'oyalar: {count}. Oy g'oyasini tanlang."
+    },
+    "staffIdeaDevTaskClosed": {
+      "text": "{ref} ishlab chiqish vazifasi yopildi: tekshiring va chiqarilganda {idea} «{title}» g'oyasiga «Chiqarildi» holatini qo'ying."
     }
   },
   "bot": {

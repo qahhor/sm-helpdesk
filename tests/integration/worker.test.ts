@@ -325,6 +325,8 @@ test('собранный worker.mjs запускается без каталог
     { name: 'attachment.sweep', cron: '* * * * *', timezone: 'UTC' },
     { name: 'automation.process', cron: '* * * * *', timezone: 'UTC' },
     { name: 'devtasks.sync', cron: '*/15 * * * *', timezone: 'UTC' },
+    // Сводка модерации идей роли product (план M7, задача 8).
+    { name: 'ideas.moderation_digest', cron: '30 9 * * *', timezone: 'Asia/Tashkent' },
     { name: 'kb.reconcile', cron: '30 3 * * *', timezone: 'Asia/Tashkent' },
     { name: 'maintenance.cleanup', cron: '0 3 * * *', timezone: 'Asia/Tashkent' },
     { name: 'ops.watch', cron: '*/5 * * * *', timezone: 'UTC' },

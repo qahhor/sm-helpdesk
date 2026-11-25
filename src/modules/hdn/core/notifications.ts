@@ -234,3 +234,18 @@ export async function savePrefsTx(actor: PersonActor, input: unknown): Promise<v
 export async function readPrefsTx(actor: PersonActor): Promise<ClientPrefs | StaffPrefs> {
   return withActor(actor, (tx) => readPrefsIn(tx, actor));
 }
+
+/** Письма об идеях (план M7, задача 8, FR-NT-04): у клиентов и сотрудников, отключаются всегда. Нет строки: включены. */
+export async function readIdeaMailPrefTx(actor: PersonActor): Promise<{ email: boolean }> {
+  return withActor(actor, async (tx) => ({ email: (await prefChannels(tx, actor.userId, 'ideas')).email }));
+}
+
+export async function saveIdeaMailPrefTx(actor: PersonActor, input: unknown): Promise<void> {
+  const parsed = z.object({ email: z.boolean() }).strict().safeParse(input);
+  if (!parsed.success) throw new HdnError('invalid_input');
+  await withActor(actor, async (tx) => {
+    if ((await prefChannels(tx, actor.userId, 'ideas')).email === parsed.data.email) return;
+    await upsertPref(tx, actor.userId, 'ideas', parsed.data.email);
+    await writeAudit(tx, { action: 'notify.channels_changed', objectType: 'user', objectId: actor.userId, diff: { ideas: parsed.data.email } });
+  });
+}

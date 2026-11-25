@@ -88,7 +88,16 @@
         "rule_disabled": "Rule \"{rule}\" was turned off: it fired too often",
         "rule_paused": "Rule \"{rule}\" is paused on request SUP-{number}: it fired too often",
         "dev_task_closed": "Development task closed: check and tell the client. Request SUP-{number}",
-        "csat_low": "The client rated request SUP-{number} with {score}"
+        "csat_low": "The client rated request SUP-{number} with {score}",
+        "idea_published": "Your idea I-{idea} is published",
+        "idea_declined": "Idea I-{idea} was declined",
+        "idea_status": "Idea I-{idea}: {status, select, shortlisted {shortlisted} selected {selected as idea of the month} in_development {in development} released {released} other {new status}}",
+        "idea_merged": "Idea I-{idea} was merged into I-{into}",
+        "idea_comment_hidden": "A moderator hid your comment on idea I-{idea}",
+        "idea_official_reply": "Smartup replied on idea I-{idea}",
+        "idea_cycle": "The idea of the month shortlist is ready",
+        "idea_moderation_due": "Ideas waiting for review over two working days: {count}",
+        "idea_dev_task_closed": "The development task of idea I-{idea} is closed"
       },
       "settings": {
         "title": "Emails",
@@ -111,6 +120,11 @@
           "telegramLink": "Go to linking",
           "needTelegram": "Emails about your requests turn off only when Telegram is linked and turned on in this row.",
           "ownFallback": "Emails about your requests arrive again: Telegram is not working right now."
+        },
+        "ideas": {
+          "title": "Emails about ideas",
+          "intro": "The bell tells you about every idea event. Emails about one idea come at most once a day, about a release always.",
+          "label": "Send emails about ideas"
         }
       }
     }
@@ -3447,6 +3461,30 @@
     "staffCsatLow": {
       "heading": "Low client rating",
       "text": "A client of {orgName} rated request SUP-{number} \"{title}\" with {score}. Open the request: the reason for the rating is on its page."
+    },
+    "ideaStatus": {
+      "heading": "News on idea {ref}",
+      "button": "Open idea",
+      "published": "Your idea {ref} “{title}” passed review and is published. Clients of all organizations can vote for it now.",
+      "declined": "Idea {ref} “{title}” was declined. Details are on the idea page.",
+      "merged": "Idea {ref} “{title}” was merged into the similar idea {into}: the votes were moved there.",
+      "shortlisted": "Idea {ref} “{title}” made the idea of the month shortlist.",
+      "selected": "Idea {ref} “{title}” was selected as the idea of the month.",
+      "in_development": "Idea {ref} “{title}” is in development.",
+      "released": "Idea {ref} “{title}” is released.",
+      "comment_hidden": "A moderator hid your comment on idea {ref} “{title}”. The reason is on the idea page.",
+      "official_reply": "Smartup replied on idea {ref} “{title}”."
+    },
+    "staffIdeaModeration": {
+      "subject": "Ideas waiting for review: {count}",
+      "text": "Ideas in review for over two working days: {count}. Publish, decline or merge them."
+    },
+    "staffIdeaCycle": {
+      "subject": "The idea of the month shortlist is ready",
+      "text": "Ideas in the shortlist: {count}. Choose the idea of the month."
+    },
+    "staffIdeaDevTaskClosed": {
+      "text": "Development task {ref} is closed: check it and, once released, set idea {idea} “{title}” to Released."
     }
   },
   "bot": {

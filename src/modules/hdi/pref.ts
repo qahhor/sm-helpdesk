@@ -98,3 +98,6 @@ export const BOARD_QUERY_MAX = 100;
 /** Комментарии (решение 8): правка автором первые 15 минут, по 50 на странице. */
 export const COMMENT_EDIT_MINUTES = 15;
 export const COMMENT_PAGE = 50;
+
+/** Сводка модерации: идея ждёт не меньше двух полных рабочих дней (решение 15). */
+export const MODERATION_DUE_WORKING_DAYS = 2;

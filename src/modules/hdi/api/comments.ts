@@ -8,6 +8,7 @@ import { findInText } from '@/modules/hdk/api/text-checks';
 import type { ClientContext } from '@/modules/hdu/api';
 import { commentByIdTx, commentsTx, ideaNumberTx, type CommentView, editCommentTx, insertCommentTx, type PendingComment, pendingCommentsTx, setCommentStatusTx } from '../core/comments';
 import { ideaByNumberTx } from '../core/ideas';
+import { notifyCommentHiddenTx, notifyOfficialReplyTx } from '../core/notices';
 import { HdiError } from '../error';
 import { ideaNumber, parseInput } from '../input';
 import { COMMENT_MAX, type CommentStatus, DECLINE_REASON_MAX, IDEA_MODERATOR_ROLES, ideaRef } from '../pref';
@@ -63,7 +64,10 @@ export async function addStaffReply(ctx: StaffContext, input: unknown): Promise<
     const idea = await ideaByNumberTx(tx, data.number);
     if (!idea) throw new HdiError('not_found');
     if (idea.status === 'declined' || idea.status === 'merged' || idea.status === 'pending_review') throw new HdiError('comments_closed');
-    return insertCommentTx(tx, { ideaId: idea.ideaId, orgId: null, authorId: ctx.actor.userId, authorName: ctx.user.name, body: data.body, isOfficial: true, status: 'published' });
+    const id = await insertCommentTx(tx, { ideaId: idea.ideaId, orgId: null, authorId: ctx.actor.userId, authorName: ctx.user.name, body: data.body, isOfficial: true, status: 'published' });
+    // Автору и подписчикам, не проголосовавшим (решение 15), той же транзакцией.
+    await notifyOfficialReplyTx(tx, idea.ideaId);
+    return id;
   });
   return { commentId };
 }
@@ -113,6 +117,7 @@ export async function moderateComment(ctx: StaffContext, input: unknown): Promis
       orgId: comment.orgId ?? undefined,
       diff: { idea: ideaRef(number), from: comment.status, to },
     });
+    if (to === 'hidden' && !comment.isOfficial) await notifyCommentHiddenTx(tx, comment.ideaId, number, comment.authorId);
     return { ideaNumber: number };
   });
 }

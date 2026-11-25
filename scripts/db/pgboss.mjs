@@ -48,6 +48,8 @@ export const QUEUES = {
   'ideas.scan': { policy: 'exclusive', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   'ideas.index': { policy: 'stately', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
   'ideas.translate': { policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
+  // Сводка модерации идей роли product раз в день (план M7, задача 8): повтор в тот же день ничего не шлёт.
+  'ideas.moderation_digest': { policy: 'short', retryLimit: 2, retryDelay: 300, expireInSeconds: 600 },
   // Разбор входящего письма (веха M4, решение 10): одна задача на письмо, повторы при сбое сервиса почты.
   'email.inbound': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
 };

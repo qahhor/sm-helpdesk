@@ -10,6 +10,7 @@ import { BLOCKING_FINDINGS, type IdeaStatus, ideaRef, MERGE_TARGET_STATUSES, tra
 import { ideas, ideaSubscriptions, ideaTranslations, ideaVotes } from '../schema';
 import { textHash } from '../util';
 import { ideaByNumberTx, type IdeaRow } from './ideas';
+import { mergeRecipientsTx, notifyDeclinedTx, notifyMergedTx, notifyPublishedTx } from './notices';
 
 // Модуль hdi, слой core: модерация идеи (ТЗ FR-IDEA-03, S6 (2); план M7, задача 4, решения 5, 6, 9, 11, 19, 23).
 // Запросы в транзакции модератора (product, admin): права и переходы ещё раз проверяют политики и триггер
@@ -59,6 +60,8 @@ export async function publishTx(tx: Tx, number: number, findingsChecked: boolean
     .returning({ id: ideas.ideaId });
   if (updated.length === 0) throw new HdiError('bad_transition');
   await writeAudit(tx, { action: 'idea.published', objectType: 'idea', objectId: idea.ideaId, orgId: idea.orgId, diff: { number: ideaRef(number), from: idea.status, to: 'open', findings } });
+  // Автору: колокольчик и письмо той же транзакцией (задача 8, решение 15).
+  await notifyPublishedTx(tx, idea);
   return idea;
 }
 
@@ -97,6 +100,7 @@ export async function declineTx(tx: Tx, number: number, reason: string): Promise
   // Похожими клиент её больше не найдёт сразу, не дожидаясь задания (решение 23).
   await removeIdeaFromIndexTx(tx, idea.ideaId);
   await writeAudit(tx, { action: 'idea.declined', objectType: 'idea', objectId: idea.ideaId, orgId: idea.orgId, diff: { number: ideaRef(number), from: idea.status, to: 'declined' } });
+  await notifyDeclinedTx(tx, { ...idea, wasPublished: idea.publishedOn !== null });
   return idea;
 }
 
@@ -110,6 +114,8 @@ export async function mergeTx(tx: Tx, number: number, into: number): Promise<{ s
   requireTransition(source.status, 'merged');
   const target = await ideaByNumberTx(tx, into);
   if (!target || target.ideaId === source.ideaId || !(MERGE_TARGET_STATUSES as readonly string[]).includes(target.status)) throw new HdiError('bad_merge_target');
+  // Получатели уведомления читаются до переноса: проголосовавшие за источник (решение 15).
+  const recipients = await mergeRecipientsTx(tx, source.ideaId, source.authorId);
   const moved = await tx.execute(sql`
     insert into ${ideaVotes} (org_id, idea_id, user_id)
     select org_id, ${target.ideaId}::uuid, user_id from ${ideaVotes} where idea_id = ${source.ideaId}::uuid
@@ -134,6 +140,7 @@ export async function mergeTx(tx: Tx, number: number, into: number): Promise<{ s
     orgId: source.orgId,
     diff: { number: ideaRef(number), into: ideaRef(target.number), from: source.status, to: 'merged', movedVotes: moved.rowCount ?? 0 },
   });
+  await notifyMergedTx(tx, source, target.number, recipients);
   return { source, target, moved: moved.rowCount ?? 0 };
 }
 

@@ -3352,6 +3352,9 @@
       "back": "Back to requests",
       "notFound": "Request not found.",
       "more": "Show more"
+    },
+    "mobile": {
+      "reopen": "Open this page again from the Smartup app."
     }
   }
 }

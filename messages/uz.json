@@ -3352,6 +3352,9 @@
       "back": "Murojaatlarga qaytish",
       "notFound": "Murojaat topilmadi.",
       "more": "Yana ko'rsatish"
+    },
+    "mobile": {
+      "reopen": "Bu sahifani Smartup ilovasidan qaytadan oching."
     }
   }
 }

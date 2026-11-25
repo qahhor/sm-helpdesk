@@ -140,3 +140,41 @@ test('журнал вызовов: клиент и сотрудник не пи�
   const insert = await asActor(pools.app, f.care.actor, (c) => c.query(`insert into hda_runs (purpose, outcome) values ('translation', 'ok')`)).catch((e: Error) => e);
   expect(String(insert)).toMatch(/row-level security/);
 });
+
+// --- Повторная проверка M5 (docs/decisions/0057) ---
+
+test('I1s: письмо с пересланной цитатой: имя третьего лица и текст цитаты в модель не уходят', async () => {
+  const { ticketId } = f.tickets.aOrg;
+  await pools.root.query(`update hdt_tickets set status = 'resolved', source = 'email', description = $2 where ticket_id = $1`, [
+    ticketId,
+    [
+      'Добрый день, документ не проводится после закрытия периода.',
+      '',
+      '---------- Forwarded message ---------',
+      'From: Бахтиёр Рахимов <bakhtiyor@third-party.uz>',
+      'Date: Mon, 23 Nov 2026 10:00',
+      'Subject: Оборот',
+      '',
+      'Бахтиёр Рахимов пишет: оборот за квартал ЦИТАТА-ТРЕТЬЕГО-ЛИЦА',
+      '> старое письмо ЕЩЁ-ЦИТАТА',
+    ].join('\n'),
+  ]);
+  expect((await requestSolutionDraft(SYSTEM, { ticketId, locale: 'ru', articleId: ARTICLE })).status).toBe('ok');
+  const body = JSON.stringify(stub.calls[0]);
+  expect(body).toContain('документ не проводится после закрытия периода');
+  for (const forbidden of ['Бахтиёр', 'Рахимов', 'ЦИТАТА-ТРЕТЬЕГО-ЛИЦА', 'ЕЩЁ-ЦИТАТА', 'third-party', 'Forwarded']) expect(body, forbidden).not.toContain(forbidden);
+});
+
+test('I3s: имена всех участников организации и исполнителя, слова названия организации в падежах вырезаются', async () => {
+  const { ticketId } = f.tickets.aOrg;
+  // Дильноза: участник организации, в переписке не писала. Камила: исполнитель обращения, тоже не писала.
+  await pools.root.query(`update hdt_tickets set status = 'resolved', assignee_id = $2, description = $3 where ticket_id = $1`, [
+    ticketId,
+    f.care.userId,
+    'Дильноза из бухгалтерии говорит, что у ACMEning склада сбой. Камила обещала помочь, Trade-отдел ждёт.',
+  ]);
+  expect((await requestSolutionDraft(SYSTEM, { ticketId, locale: 'ru', articleId: ARTICLE })).status).toBe('ok');
+  const body = JSON.stringify(stub.calls[0]);
+  expect(body).toContain('из бухгалтерии говорит');
+  for (const forbidden of ['Дильноза', 'Камила', 'ACME', 'Trade']) expect(body, forbidden).not.toContain(forbidden);
+});

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { assembleDraftData, assembleTranslationData } from '@/modules/hda/assemble';
-import { costUsd, extractJson, redactTerms, sanitizeForAi } from '@/modules/hda/util';
+import { costUsd, extractJson, orgNameTerms, redactTerms, sanitizeForAi } from '@/modules/hda/util';
 
 // Отбор и очистка данных для модели (ТЗ 14.3, поправка 101; план M5, задача 5).
 
@@ -61,4 +61,52 @@ test('стоимость по токенам и уровню, JSON из текс
   expect(costUsd('quality', { inputTokens: 1000, outputTokens: 1000 })).toBe(0.018);
   expect(extractJson('текст {"a": 1} хвост')).toEqual({ a: 1 });
   expect(extractJson('нет')).toBeNull();
+});
+
+// Повторная проверка M5 (I2s, docs/decisions/0057): обход очистки цифрами других письменностей, полноширинными знаками,
+// разделителями "/" и "." и невидимыми соединителями внутри числа и адреса.
+const ZWJ = String.fromCodePoint(0x200d);
+const ZWSP = String.fromCodePoint(0x200b);
+const BYPASSES: [string, string][] = [
+  ['звоните +998 ９０ １２３ ４５ ６７', '[phone]'],
+  ['тел ٩٩٨٩٠١٢٣٤٥٦٧', '[phone]'],
+  ['тел 90.123.45.67', '[phone]'],
+  ['тел 90/123/45/67', '[phone]'],
+  ['почта ivan＠mail.ru', '[email]'],
+  [`почта ivan@mail${ZWSP}.ru`, '[email]'],
+  [`почта iv${ZWJ}an@mail.ru`, '[email]'],
+  ['почта ivan @ mail.ru', '[email]'],
+  [`тел 9${ZWJ}0 1${ZWJ}23 45 67`, '[phone]'],
+  ['+998 90 123 45 67', '[phone]'],
+  ['ИНН 3０５１２３４５６', '[phone]'],
+];
+
+test.each(BYPASSES)('обход очистки не проходит: %s', (input, label) => {
+  const out = sanitizeForAi(input);
+  expect(out).toContain(label);
+  expect(out).not.toMatch(/\p{Nd}{2}/u);
+  expect(out).not.toMatch(/ivan|mail\.ru/);
+});
+
+test.each(['Срок 25.11.2026', 'Срок 25/11/2026', 'Срок 25.11.2026 10:30', 'Период 01.11.2026-30.11.2026', 'Версия 5.12.3.1024'])('даты и версии не становятся телефоном: %s', (input) => {
+  expect(sanitizeForAi(input)).toBe(input);
+});
+
+// Повторная проверка M5 (I3s, docs/decisions/0057): название организации вырезается и по значимым словам, в падежах.
+test('слова названия организации вырезаются по основе, слова правовой формы и кавычки не считаются', () => {
+  expect(orgNameTerms('ООО «Ромашка Трейд»')).toEqual(['Ромашк', 'Трейд']);
+  expect(orgNameTerms('"Bahor Savdo" MChJ')).toEqual(['Bahor', 'Savdo']);
+  expect(orgNameTerms('АО "Код"')).toEqual([]);
+  const data = assembleDraftData({
+    locale: 'ru',
+    title: 'Сбой у Ромашки',
+    description: 'Пишет склад Ромашке; у ромашки и Трейда не проводится. Bahorning ombori, Savdoga',
+    messages: [],
+    redaction: { clientNames: [], staffNames: [], orgTerms: ['ООО «Ромашка Трейд»', '"Bahor Savdo" MChJ'] },
+  });
+  expect(data).not.toMatch(/омашк|Трейд|Bahor|Savdo/);
+  expect(data).toContain('Пишет склад Организация');
+  // Обычные слова не задеты.
+  expect(data).toContain('не проводится');
+  expect(data).toContain('ombori');
 });

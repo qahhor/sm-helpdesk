@@ -1,3 +1,4 @@
+import { phoneLike, scanText } from '@/modules/hdc/pref';
 import type { SolutionDoc } from './doc-schema';
 
 // Проверка текста решения перед публикацией (FR-SOL-04; план M5, задача 4, решение 14) и панель готовности (UX-W-07).
@@ -16,7 +17,8 @@ export type Finding = { kind: FindingKind; blockId: string | null; text: string;
 
 type Hit = { kind: Exclude<FindingKind, 'link'>; text: string; start: number };
 
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
+/** Адрес почты; пробел по краям "@" не спасает адрес. */
+const EMAIL = /[\p{L}\p{N}._%+-]+ ?@ ?[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu;
 const URL_IN_TEXT = /\b(?:https?:\/\/|www\.)[^\s<>"'«»]+/gi;
 /** Узел с портом (db.client.local:5432) и адрес IPv4 с портом или без. */
 const HOST_WITH_PORT = /(?<![\w.-])(?:[a-z0-9-]+\.)+[a-z]{2,}:\d{2,5}(?!\d)/gi;
@@ -33,14 +35,16 @@ const PACKAGE_CALL = /(?<![\w.])[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]*\.[A-Za-z][A-Z
 /** z-, x-, y-пакеты и таблицы Biruni и Smartup по приставкам модулей. */
 const TABLE_NAME =
   /(?<![\w.])(?:[zxy]_[A-Za-z0-9]+_[A-Za-z0-9_]+|(?:md|mr|mk|mkr|mkw|mkf|mkcs|href|htt|hes|hln|hpd|hpr|hrm|hper|kauth|biruni|ms|mt|mf|ker|kdyn|kset|bmb|mbi|anor|ui|uit|hdc|hdu|hdr|hdt|hdk|hdn|hdw|hda)_[A-Za-z0-9_]{2,})(?![\w.])/gi;
-/** Телефон: цифры группами через пробел, дефис или скобки, с плюсом или без. */
-const PHONE = /(?<![\w+])\+?\(?\d{1,4}\)?(?:[\s-]?\(?\d{2,4}\)?){2,5}(?![\w])/g;
-const DIGIT_RUN = /(?<!\d)\d{7,}(?!\d)/g;
+/** Телефон: цифры группами через пробел, дефис, скобки, точку или косую черту (правило phoneLike), с плюсом или без. */
+const PHONE = /(?<![\p{L}\p{N}_+])\+?\(?\p{Nd}{1,4}\)?(?:[\s./-]?\(?\p{Nd}{2,4}\)?){2,5}(?![\p{L}\p{N}_])/gu;
+const DIGIT_RUN = /(?<!\p{Nd})\p{Nd}{7,}(?!\p{Nd})/gu;
 
 const TRAILING = /[.,;:!?)\]]+$/;
 
 /** Находки в одном куске текста, по порядку появления. Ссылки здесь не проверяются: это делает checkSolution. */
-export function findInText(text: string): { kind: Exclude<FindingKind, 'link'>; text: string }[] {
+export function findInText(raw: string): { kind: Exclude<FindingKind, 'link'>; text: string }[] {
+  // Полноширинные и другие цифры, "＠", невидимые знаки и соединители внутри числа не прячут находку (0057).
+  const text = scanText(raw);
   const hits: Hit[] = [];
   const taken: [number, number][] = [];
   const free = (start: number, end: number) => !taken.some(([a, b]) => start < b && end > a);
@@ -90,8 +94,8 @@ export function findInText(text: string): { kind: Exclude<FindingKind, 'link'>; 
   scan(TABLE_NAME, (m) => ({ kind: 'internal', text: m[0] }));
   scan(PHONE, (m) => {
     const digits = m[0].replace(/\D/g, '');
-    const separated = /[\s()+-]/.test(m[0]);
-    if (digits.length < 9 || digits.length > 15) return null;
+    const separated = /[\s()+./-]/.test(m[0]);
+    if (digits.length < 9 || digits.length > 15 || !phoneLike(m[0], 9)) return null;
     if (!separated && !(digits.length === 12 && digits.startsWith('998'))) return null;
     return { kind: 'phone', text: m[0].trim() };
   });
@@ -177,7 +181,8 @@ export function checkSolution(input: { title: string; doc: SolutionDoc }, opts: 
     const host = hostOf(href);
     if (!host || !isAllowedDomain(host, opts.allowedDomains)) add({ kind: 'link', blockId, text: host ?? href, blocking: true });
   };
-  const inspect = (blockId: string | null, text: string, hrefs: readonly string[]) => {
+  const inspect = (blockId: string | null, raw: string, hrefs: readonly string[]) => {
+    const text = scanText(raw);
     for (const hit of findInText(text)) add({ ...hit, blockId, blocking: false });
     for (const href of hrefs) {
       linkHost(blockId, href);

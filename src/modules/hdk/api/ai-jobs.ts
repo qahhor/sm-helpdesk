@@ -4,6 +4,7 @@ import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { LOCALES } from '@/i18n/locales';
 import { logEvent } from '@/lib/log';
+import { stripInvisible } from '@/modules/hdc/pref';
 import { requestSolutionDraft } from '@/modules/hda/api/draft';
 import { requestTranslation } from '@/modules/hda/api/translate';
 import { originalPublishedTx } from '../core/publish';
@@ -20,13 +21,19 @@ import { applySegments, textSegments } from '../translation';
 // Модуль hdk, слой api: задачи фонового процесса, которые вызывают модель (план M5, задачи 6 и 7, решения 3, 9, 15).
 // Узкий файл: его тянет фоновый процесс, страниц и Next.js в нём нет. Задача выполняется, только если язык ждёт её
 // (ai_status = pending): повтор после успеха и задача, которую обогнал сотрудник, ничего не меняют. Сбой модели
-// отмечается на странице (failed) и бросается дальше: pg-boss повторит задачу.
+// бросается дальше, и pg-boss повторяет задачу; язык при этом ждёт (pending), иначе повтор ничего бы не сделал.
+// Отметка failed на странице ставится только после последней попытки (повторная проверка M5, 0057).
+
+/** Попытка задачи pg-boss: номер повтора и предел повторов очереди. Без них попытка считается последней. */
+export type JobAttempt = { retryCount: number; retryLimit: number };
+const LAST_ATTEMPT: JobAttempt = { retryCount: 0, retryLimit: 0 };
+const isLastAttempt = (attempt: JobAttempt) => attempt.retryCount >= attempt.retryLimit;
 
 const translateJob = z.strictObject({ articleId: z.uuid(), locale: z.enum(LOCALES) });
 const TITLE_SEGMENT = 'title';
 
 /** kb.translate: перевод опубликованного оригинала в черновик языка с пометкой машинного. */
-export async function runTranslationJob(system: SystemActor, data: unknown): Promise<void> {
+export async function runTranslationJob(system: SystemActor, data: unknown, attempt: JobAttempt = LAST_ATTEMPT): Promise<void> {
   const { articleId, locale } = translateJob.parse(data);
   const source = await withActor(system, async (tx) => {
     const article = await articleByIdTx(tx, articleId);
@@ -42,7 +49,7 @@ export async function runTranslationJob(system: SystemActor, data: unknown): Pro
   try {
     outcome = await requestTranslation(system, { articleId, from: article.originalLocale, to: locale, segments });
   } catch (error) {
-    await withActor(system, (tx) => setAiStatusTx(tx, articleId, locale, 'failed'));
+    if (isLastAttempt(attempt)) await withActor(system, (tx) => setAiStatusTx(tx, articleId, locale, 'failed'));
     throw error;
   }
   if (outcome.status !== 'ok') {
@@ -50,7 +57,9 @@ export async function runTranslationJob(system: SystemActor, data: unknown): Pro
     return;
   }
   const doc = applySegments(original.doc, outcome.value);
-  const title = outcome.value.get(TITLE_SEGMENT)?.trim().slice(0, TITLE_MAX);
+  // Заголовок от модели без невидимых знаков, как и текст документа (0057, M1s).
+  const rawTitle = outcome.value.get(TITLE_SEGMENT);
+  const title = rawTitle === undefined ? undefined : stripInvisible(rawTitle).trim().slice(0, TITLE_MAX);
   if (!doc || !title || !safeParseSolutionDoc(doc).success) {
     // Модель вернула не все куски: машинного текста нет, сотрудник переводит сам или повторяет.
     logEvent('warn', 'kb.translate_incomplete', { articleId, locale });
@@ -69,7 +78,7 @@ const newBlockId = () => randomBytes(12).toString('base64url');
  * черновик помечается "AI, не проверено" (is_machine) и публикуется только после "Текст прочитан" сотрудником с
  * правом публикации. Сотрудник успел начать писать сам: его текст не затирается (skipped).
  */
-export async function runDraftJob(system: SystemActor, data: unknown): Promise<void> {
+export async function runDraftJob(system: SystemActor, data: unknown, attempt: JobAttempt = LAST_ATTEMPT): Promise<void> {
   const { articleId } = draftJob.parse(data);
   const source = await withActor(system, async (tx) => {
     const article = await articleByIdTx(tx, articleId);
@@ -85,7 +94,7 @@ export async function runDraftJob(system: SystemActor, data: unknown): Promise<v
   try {
     outcome = await requestSolutionDraft(system, { ticketId, locale, articleId });
   } catch (error) {
-    await withActor(system, (tx) => setAiStatusTx(tx, articleId, locale, 'failed'));
+    if (isLastAttempt(attempt)) await withActor(system, (tx) => setAiStatusTx(tx, articleId, locale, 'failed'));
     throw error;
   }
   if (outcome.status !== 'ok') {
@@ -101,7 +110,7 @@ export async function runDraftJob(system: SystemActor, data: unknown): Promise<v
     if (!safeParseSolutionDoc(doc).success) return setAiStatusTx(tx, articleId, locale, 'failed');
     await tx
       .update(kbArticleVersions)
-      .set({ title: draft.title.trim().slice(0, TITLE_MAX), doc, isMachine: true })
+      .set({ title: stripInvisible(draft.title).trim().slice(0, TITLE_MAX), doc, isMachine: true })
       .where(eq(kbArticleVersions.versionId, version.versionId));
     await setAiStatusTx(tx, articleId, locale, draft.confident ? 'ready' : 'not_confident');
   });

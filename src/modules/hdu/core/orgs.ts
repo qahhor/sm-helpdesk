@@ -139,7 +139,11 @@ export async function updateOrgSettings(actor: StaffActor, orgId: string, settin
   });
 }
 
-export type OrgAiProfile = { name: string; inn: string | null; isAiEnabled: boolean; people: { userId: string; name: string; isStaff: boolean }[] };
+/** memberNames: имена всех участников организации, и тех, кто в переписке не писал (0057, I3s). */
+export type OrgAiProfile = { name: string; inn: string | null; isAiEnabled: boolean; people: { userId: string; name: string; isStaff: boolean }[]; memberNames: string[] };
+
+/** Сколько имён участников организации берётся для вырезания: у организации их обычно десятки. */
+const MEMBER_NAMES_MAX = 2000;
 
 /**
  * Что нужно отбору данных для модели (ТЗ 14.3; план M5, задача 5): включена ли AI-обработка организации, её название
@@ -155,6 +159,13 @@ export async function orgAiProfileOf(actor: SystemActor | StaffActor, orgId: str
     if (!org) return null;
     const ids = [...new Set(userIds)];
     const people = ids.length === 0 ? [] : await tx.select({ userId: userProfiles.userId, name: userProfiles.name, isStaff: userProfiles.isStaff }).from(userProfiles).where(inArray(userProfiles.userId, ids));
-    return { ...org, people };
+    // Участники организации в любом состоянии: имя бывшего сотрудника клиента тоже его данные.
+    const members = await tx
+      .select({ name: userProfiles.name })
+      .from(memberships)
+      .innerJoin(userProfiles, eq(userProfiles.userId, memberships.userId))
+      .where(eq(memberships.orgId, orgId))
+      .limit(MEMBER_NAMES_MAX);
+    return { ...org, people, memberNames: members.map((m) => m.name).filter((name): name is string => Boolean(name)) };
   });
 }

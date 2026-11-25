@@ -124,3 +124,32 @@ describe('панель готовности', () => {
     expect(readiness({ ...base, doc: withStep, isMachine: true })).toMatchObject({ items: { textRead: false }, ready: false });
   });
 });
+
+// Повторная проверка M5 (I2s, docs/decisions/0057): тот же обход для проверки FR-SOL-04.
+describe('обход проверки другими цифрами, полноширинными знаками и соединителями', () => {
+  const ZWJ = String.fromCodePoint(0x200d);
+  const ZWSP = String.fromCodePoint(0x200b);
+  test.each([
+    ['звоните +998 ９０ １２３ ４５ ６７', 'phone'],
+    ['тел ٩٩٨٩٠١٢٣٤٥٦٧', 'phone'],
+    ['тел 90/123/45/67', 'phone'],
+    ['почта ivan＠mail.ru', 'email'],
+    [`почта ivan@mail${ZWSP}.ru`, 'email'],
+    [`почта iv${ZWJ}an@mail.ru`, 'email'],
+    ['почта ivan @ mail.ru', 'email'],
+    [`тел 9${ZWJ}0 1${ZWJ}23 45 67`, 'phone'],
+    ['+998 90 123 45 67', 'phone'],
+    ['ИНН 3０５１２３４５６', 'inn'],
+  ])('%s находится как %s', (input, kind) => {
+    const found = findInText(input);
+    expect(found.map((f) => f.kind)).toEqual([kind]);
+    // Находка целиком, а не её хвост.
+    if (kind === 'email') expect(found[0]!.text.replace(/\s/g, '')).toBe('ivan@mail.ru');
+  });
+  test('90.123.45.67 остаётся находкой (адрес сервера или телефон)', () => {
+    expect(findInText('тел 90.123.45.67')).toHaveLength(1);
+  });
+  test.each(['Срок 25.11.2026', 'Срок 25/11/2026', 'Срок 25.11.2026 10:30', 'Период 01.11.2026-30.11.2026', 'Версия 5.12.3'])('даты и версии не находка: %s', (input) => {
+    expect(findInText(input)).toEqual([]);
+  });
+});

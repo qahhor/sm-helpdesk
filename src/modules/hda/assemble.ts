@@ -1,4 +1,5 @@
-import { clip, escapeData, REDACTED, redactTerms, sanitizeForAi } from './util';
+import { scanText } from '@/modules/hdc/pref';
+import { clip, escapeData, orgRedactions, REDACTED, redactTerms, sanitizeForAi } from './util';
 
 // Модуль hda: сборка данных для модели из разрешённых полей (ТЗ 14.3, 11.10, поправка 101; план M5, задача 5).
 // Функции принимают только то, что разрешено отправлять: публичные сообщения закрытого обращения (черновик) и
@@ -14,9 +15,11 @@ function cleanText(text: string, redaction: Redaction): string {
   const terms = [
     ...redaction.clientNames.map((term) => ({ term, label: REDACTED.client })),
     ...redaction.staffNames.map((term) => ({ term, label: REDACTED.staff })),
-    ...redaction.orgTerms.map((term) => ({ term, label: REDACTED.org })),
+    // Название целиком и каждое значимое слово по основе: "Ромашке" вместо "Ромашка" тоже вырезается (0057, I3s).
+    ...orgRedactions(redaction.orgTerms, REDACTED.org),
   ];
-  return escapeData(sanitizeForAi(redactTerms(text, terms)));
+  // Сначала та же нормализация, что у sanitizeForAi: имя с невидимым соединителем внутри не уходит мимо замены.
+  return escapeData(sanitizeForAi(redactTerms(scanText(text), terms)));
 }
 
 /**

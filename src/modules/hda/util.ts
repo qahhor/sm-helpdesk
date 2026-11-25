@@ -1,4 +1,4 @@
-import { cleanUserText } from '@/modules/hdc/pref';
+import { phoneLike, scanText } from '@/modules/hdc/pref';
 import { AI_INPUT_MAX_CHARS, AI_PRICE_PER_MTOK, type AiTier } from './pref';
 
 // Модуль hda, слой util: подготовка текста для модели без обращения к базе (ТЗ 14.3, поправка 101; план M5, задача 5).
@@ -13,34 +13,64 @@ import { AI_INPUT_MAX_CHARS, AI_PRICE_PER_MTOK, type AiTier } from './pref';
 /** Метки на месте вырезанного. Модель видит, что здесь что-то было, но не видит что. */
 export const REDACTED = { email: '[email]', phone: '[phone]', client: 'Клиент', staff: 'Сотрудник', org: 'Организация' } as const;
 
-const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu;
-/** Телефон: цифры группами через пробел, дефис или скобки (точка нет: даты и версии), с плюсом или без, от 7 цифр. */
-const PHONE = /(?<![\p{L}\p{N}])\+?\(?\d{1,4}\)?(?:[\s-]?\(?\d{2,4}\)?){2,5}(?![\p{L}\p{N}])/gu;
+/** Адрес почты; пробел по краям "@" не спасает адрес ("ivan @ mail.ru"). */
+const EMAIL = /[\p{L}\p{N}._%+-]+ ?@ ?[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu;
+/**
+ * Телефон: цифры группами через пробел, дефис, скобки, точку или косую черту, с плюсом или без, от 7 цифр. С точкой
+ * или косой чертой только от 9 цифр и с одним и тем же разделителем: так даты (25.11.2026, 25.11.2026 10:30) и версии
+ * остаются текстом (повторная проверка M5, docs/decisions/0057).
+ */
+const PHONE = /(?<![\p{L}\p{N}])\+?\(?\p{Nd}{1,4}\)?(?:[\s./-]?\(?\p{Nd}{2,4}\)?){2,5}(?![\p{L}\p{N}])/gu;
 /** Длинное число подряд: телефон без разделителей, ИНН (9), ПИНФЛ (14), номер карты. */
-const DIGIT_RUN = /(?<!\d)\d{7,}(?!\d)/g;
-/** Соединители и селекторы вариантов, которые cleanUserText оставляет одиночными (они законны в эмодзи). */
-const JOINERS = /[‌‍︀-️]/gu;
+const DIGIT_RUN = /(?<!\p{Nd})\p{Nd}{7,}(?!\p{Nd})/gu;
 
-/** Текст для модели: без невидимых знаков, адресов почты и телефонов. */
+/** Текст для модели: без невидимых знаков и соединителей, в форме NFKC, без адресов почты и телефонов. */
 export function sanitizeForAi(text: string): string {
-  return cleanUserText(text)
-    .replace(JOINERS, '')
+  return scanText(text)
     .replace(EMAIL, REDACTED.email)
-    .replace(PHONE, (match) => (match.replace(/\D/g, '').length >= 7 ? REDACTED.phone : match))
+    .replace(PHONE, (match) => (phoneLike(match, 7) ? REDACTED.phone : match))
     .replace(DIGIT_RUN, REDACTED.phone);
 }
 
-/** Замена известных слов (имена, название организации) меткой, без учёта регистра, только целым словом. */
-export function redactTerms(text: string, terms: readonly { term: string; label: string }[]): string {
+/** Замена известных слов (имена, название организации) меткой, без учёта регистра, только целым словом. stem: слово
+ * с окончанием (основа "Ромашк" ловит "Ромашке", "ромашкой"; "Bahor" ловит "Bahorning"). */
+export function redactTerms(text: string, terms: readonly { term: string; label: string; stem?: boolean }[]): string {
   let out = text;
   // Длинные первыми: "Иван Петров" раньше "Иван".
-  for (const { term, label } of [...terms].sort((a, b) => b.term.length - a.term.length)) {
+  for (const { term, label, stem } of [...terms].sort((a, b) => b.term.length - a.term.length)) {
     const clean = term.trim();
     if (clean.length < 2) continue;
     const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    out = out.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'giu'), label);
+    out = out.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${stem ? '\\p{L}{0,6}' : ''}(?![\\p{L}\\p{N}])`, 'giu'), label);
   }
   return out;
+}
+
+/** Слова правовой формы: в названии организации они не значимы (ООО, MChJ, LLC и так далее). */
+const LEGAL_FORMS = new Set(['ооо', 'оао', 'зао', 'пао', 'ао', 'ип', 'чп', 'мчж', 'хк', 'ук', 'mchj', 'xk', 'qk', 'aj', 'oaj', 'yatt', 'llc', 'ltd', 'inc', 'jsc', 'ojsc', 'corp', 'gmbh', 'co', 'ooo']);
+/** Длина значимого слова названия. */
+const ORG_WORD_MIN = 4;
+
+/**
+ * Значимые слова названия организации для вырезания по основе (повторная проверка M5, docs/decisions/0057): без
+ * кавычек и слов правовой формы, от 4 знаков. У кириллического слова отбрасывается конечная гласная ("Ромашка" даёт
+ * "Ромашк"), и основа ловит падежи; узбекские окончания прибавляются к слову целиком и ловятся без этого.
+ */
+export function orgNameTerms(name: string): string[] {
+  const words = name.match(/[\p{L}\p{N}\u02BB\u02BC-]+/gu) ?? [];
+  const out: string[] = [];
+  for (const word of words) {
+    if (word.length < ORG_WORD_MIN || LEGAL_FORMS.has(word.toLowerCase()) || !/\p{L}/u.test(word)) continue;
+    const stem = /^[\p{Script=Cyrillic}-]+$/u.test(word) ? word.replace(/[аеёиоуыэюяьй]+$/iu, '') : word;
+    const term = stem.length >= ORG_WORD_MIN ? stem : word;
+    if (!out.some((t) => t.toLowerCase() === term.toLowerCase())) out.push(term);
+  }
+  return out;
+}
+
+/** Слова для вырезания названия организации: всё название целиком и его значимые слова по основе. */
+export function orgRedactions(orgTerms: readonly string[], label: string): { term: string; label: string; stem?: boolean }[] {
+  return orgTerms.flatMap((term) => [{ term, label }, ...orgNameTerms(term).map((word) => ({ term: word, label, stem: true }))]);
 }
 
 /** Угловые скобки текстом: данные не закрывают тег, в котором лежат. */

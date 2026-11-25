@@ -2,6 +2,7 @@ import 'server-only';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { ticketSolutionSource } from '@/modules/hdt/api/solution-source';
+import { stripQuote } from '@/modules/hdn/api/inbound';
 import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { assembleDraftData } from '../assemble';
 import { type RunOutcome, runAi } from './run';
@@ -46,16 +47,20 @@ export async function requestSolutionDraft(system: SystemActor, input: { ticketI
   const ticket = await ticketSolutionSource(system, { ticketId: input.ticketId });
   if (!ticket) return { status: 'refused', reason: 'not_found' };
   if (ticket.status !== 'resolved' && ticket.status !== 'closed') return { status: 'refused', reason: 'not_resolved' };
-  const authorIds = [ticket.authorId, ...ticket.messages.flatMap((m) => (m.authorId ? [m.authorId] : []))];
+  // Имена вырезаются у авторов переписки, исполнителя и всех участников организации (0057, I3s).
+  const authorIds = [ticket.authorId, ...(ticket.assigneeId ? [ticket.assigneeId] : []), ...ticket.messages.flatMap((m) => (m.authorId ? [m.authorId] : []))];
   const profile = await orgAiProfile(system, { orgId: ticket.orgId, userIds: authorIds });
   if (!profile || !profile.isAiEnabled) return { status: 'refused', reason: 'ai_disabled' };
-  const names = (staffSide: boolean) => profile.people.filter((p) => p.isStaff === staffSide).flatMap((p) => [p.name, ...p.name.split(/\s+/)]);
+  const split = (name: string) => [name, ...name.split(/\s+/)];
+  const names = (staffSide: boolean) => profile.people.filter((p) => p.isStaff === staffSide).flatMap((p) => split(p.name));
   const data = assembleDraftData({
     locale: input.locale,
     title: ticket.title,
-    description: ticket.description,
+    // Письмо хранится с цитатой (пересланное письмо и есть суть обращения), но в модель письма уходят без цитат
+    // (ТЗ 14.3; 0057, I1s): в цитате чужие имена и текст третьих лиц.
+    description: ticket.source === 'email' ? stripQuote(ticket.description) : ticket.description,
     messages: ticket.messages.map((m) => ({ role: m.authorType, body: m.body })),
-    redaction: { clientNames: names(false), staffNames: names(true), orgTerms: [profile.name, ...(profile.inn ? [profile.inn] : [])] },
+    redaction: { clientNames: [...names(false), ...profile.memberNames.flatMap(split)], staffNames: names(true), orgTerms: [profile.name, ...(profile.inn ? [profile.inn] : [])] },
   });
   return runAi(system, {
     purpose: 'solution_draft',

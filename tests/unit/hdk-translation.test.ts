@@ -41,7 +41,8 @@ test('сверка: тот же перевод без расхождений; л
 
   const phone = applySegments(ORIGINAL, new Map(textSegments(ORIGINAL).map((s) => [s.id, s.id === 's000000001p.0' ? 'Call +998 90 123 45 67 «Склад»' : s.text])))!;
   const issues = compareInvariants({ title: 'Отчёт', doc: ORIGINAL }, { title: 'Report', doc: phone });
-  expect(issues.map((i) => i.kind)).toEqual(['numbers']);
+  // Телефон это и новое число, и находка FR-SOL-04, которой нет в оригинале (0057, M2s).
+  expect(issues.map((i) => i.kind)).toEqual(['numbers', 'data']);
   expect(issues[0]!.translation).toContain('998');
 
   const fewer = doc(...(ORIGINAL.blocks.slice(0, 3) as object[]));
@@ -53,4 +54,36 @@ test('изменившиеся блоки оригинала по идентиф
   next.blocks[1]!.content[0]!.text = 'Ошибка 502';
   const added = doc(...(next.blocks as object[]), step('s000000003', 'Новый шаг'));
   expect(changedBlockIds(ORIGINAL, added)).toEqual(['p000000001', 's000000003']);
+});
+
+// Повторная проверка M5 (docs/decisions/0057).
+test('M1s: невидимые знаки из перевода модели не попадают в документ', () => {
+  const tags = [...'evil'].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join('');
+  const zwj = String.fromCodePoint(0x200d);
+  const out = applySegments(ORIGINAL, new Map(textSegments(ORIGINAL).map((s) => [s.id, `EN${tags} ${s.text}${zwj}`])))!;
+  expect(JSON.stringify(out)).not.toMatch(/[\u{E0000}-\u{E007F}‍]/u);
+  expect(JSON.stringify(out)).toContain('EN Откройте раздел «Склад»');
+});
+
+test('M2s: голый домен и адрес почты в переводе, которых нет в оригинале, дают расхождение', () => {
+  const swap = (id: string, text: string) => applySegments(ORIGINAL, new Map(textSegments(ORIGINAL).map((s) => [s.id, s.id === id ? text : s.text])))!;
+  const domain = compareInvariants({ title: 'Отчёт', doc: ORIGINAL }, { title: 'Report', doc: swap('s000000001p.0', 'откройте evil-smartup.com «Склад»') });
+  expect(domain.map((i) => i.kind)).toContain('links');
+  expect(domain.find((i) => i.kind === 'links')!.translation).toContain('evil-smartup.com');
+  const email = compareInvariants({ title: 'Отчёт', doc: ORIGINAL }, { title: 'Report', doc: swap('s000000001p.0', 'напишите help@evil.example «Склад»') });
+  expect(email.map((i) => i.kind)).toContain('links');
+  // Находка FR-SOL-04, которой нет в оригинале (внутреннее имя), тоже расхождение.
+  const internal = compareInvariants({ title: 'Отчёт', doc: ORIGINAL }, { title: 'Report', doc: swap('s000000001p.0', 'вызовите Mkr_Api.Save_Order «Склад»') });
+  expect(internal.map((i) => i.kind)).toEqual(['data']);
+  expect(internal[0]!.translation).toEqual(['Mkr_Api.Save_Order']);
+});
+
+test('M4m: числа с разделителями разрядов равны числу без них, числа, переставленные между шагами, находятся', () => {
+  const orig = doc(p('p000000001', t('Лимит 1000 строк')), step('s000000001', 'Введите 5'), step('s000000002', 'Введите 7'));
+  const grouped = doc(p('p000000001', t('Limit 1 000 rows')), step('s000000001', 'Enter 5'), step('s000000002', 'Enter 7'));
+  const comma = doc(p('p000000001', t('Limit 1,000 rows')), step('s000000001', 'Enter 5'), step('s000000002', 'Enter 7'));
+  expect(compareInvariants({ title: 'A', doc: orig }, { title: 'A', doc: grouped })).toEqual([]);
+  expect(compareInvariants({ title: 'A', doc: orig }, { title: 'A', doc: comma })).toEqual([]);
+  const swapped = doc(p('p000000001', t('Limit 1000 rows')), step('s000000001', 'Enter 7'), step('s000000002', 'Enter 5'));
+  expect(compareInvariants({ title: 'A', doc: orig }, { title: 'A', doc: swapped }).map((i) => i.kind)).toEqual(['numbers']);
 });

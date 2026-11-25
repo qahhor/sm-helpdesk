@@ -1,3 +1,4 @@
+import { stripInvisible } from '@/modules/hdc/pref';
 import type { Block, SolutionDoc } from './doc-schema';
 
 // Черновик решения из ответа модели (ТЗ 11.10, FR-SOL-03; план M5, задача 7, решение 15). Чистая функция без базы.
@@ -11,7 +12,8 @@ export type DraftContent = { problem: string; steps: readonly string[] };
 const CONTROL = /[\u0000-\u0008\u000B-\u001F\u007F]/g;
 
 const paragraph = (newId: () => string, text: string): Block => {
-  const clean = text.replace(CONTROL, '').replace(/\s+/g, ' ').trim();
+  // Невидимые знаки ответа модели (знаки-теги, соединители) в документ не попадают (0057, M1s).
+  const clean = stripInvisible(text).replace(CONTROL, '').replace(/\s+/g, ' ').trim();
   return { type: 'paragraph', attrs: { id: newId() }, ...(clean ? { content: [{ type: 'text', text: clean.slice(0, 10_000) }] } : {}) } as Block;
 };
 

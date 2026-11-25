@@ -260,6 +260,67 @@ export function cleanUserText(value: string): string {
   );
 }
 
+/** Соединители и селекторы вариантов: законны в эмодзи, но внутри числа или адреса прячут его от поиска. */
+const JOINERS = /[\u200C\u200D\uFE00-\uFE0F]/gu;
+
+/** Текст без невидимых знаков и без соединителей: для текста модели, который ложится в документ (M5, 0057). */
+export function stripInvisible(value: string): string {
+  return cleanUserText(value).replace(JOINERS, '');
+}
+
+/**
+ * Текст для поиска персональных данных (вырезание перед моделью, проверка FR-SOL-04; повторная проверка M5, 0057):
+ * без невидимых знаков и соединителей, с формой NFKC там, где она прячет данные (compatNormalize). Цифры других
+ * письменностей NFKC не меняет: их приводит asciiDigits, правила поиска считают цифры классом \p{Nd}.
+ */
+export function scanText(value: string): string {
+  return asciiDigits(stripInvisible(compatNormalize(value)));
+}
+
+/** Знак, который после NFKC становится цифрой или разделителем адреса и телефона. */
+const COMPAT_TARGET = /^[0-9@./:+()-]$/;
+
+/**
+ * NFKC по знакам, только где он прячет данные: полноширинные формы (U+FF00-FFEF: "９", "＠", "．", "／", буквы) и
+ * знаки, которые NFKC превращает в цифру или разделитель ("①", "﹫", математические цифры). Остальное не трогается:
+ * "№", многоточие и лигатуры остаются как есть, примеры текста ошибок для сотрудников не меняются.
+ */
+export function compatNormalize(value: string): string {
+  return value.replace(/[\u0080-\u{10FFFF}]/gu, (char) => {
+    const code = char.codePointAt(0)!;
+    const normal = char.normalize('NFKC');
+    return (code >= 0xff00 && code <= 0xffef) || COMPAT_TARGET.test(normal) ? normal : char;
+  });
+}
+
+/**
+ * Похоже ли совпадение правила телефона на телефон (вырезание перед моделью и проверка FR-SOL-04, общее правило):
+ * хватает цифр, а с точкой или косой чертой ещё и от 9 цифр с одним и тем же разделителем между группами. Так даты
+ * (25.11.2026, 25.11.2026 10:30, 01.11.2026-30.11.2026) и версии остаются текстом, а 90.123.45.67 нет.
+ */
+export function phoneLike(match: string, minDigits: number): boolean {
+  const digits = match.match(/\p{Nd}/gu)?.length ?? 0;
+  if (!/[./]/.test(match)) return digits >= minDigits;
+  const separators = new Set(match.match(/(?<=\p{Nd}\)?)[\s./-](?=\(?\p{Nd})/gu) ?? []);
+  return digits >= Math.max(9, minDigits) && separators.size === 1;
+}
+
+const DECIMAL_DIGIT = /\p{Nd}/u;
+
+/**
+ * Цифры любой письменности обычными (٣ и ३ становятся 3). Наборы цифр в Юникоде идут подряд по десять, от нуля до
+ * девяти: значение цифры это её место в своём наборе.
+ */
+export function asciiDigits(value: string): string {
+  return value.replace(/\p{Nd}/gu, (digit) => {
+    const code = digit.codePointAt(0)!;
+    if (code >= 0x30 && code <= 0x39) return digit;
+    let offset = 0;
+    while (offset < 60 && DECIMAL_DIGIT.test(String.fromCodePoint(code - offset - 1))) offset++;
+    return String(offset % 10);
+  });
+}
+
 /**
  * Виды событий предметной области (FR-AUTO-02; план M8, задача 2). Перечень повторяет ограничение
  * hdc_domain_events_c1. no_activity и ai_handoff пишут следующие задачи вехи и веха M5b.

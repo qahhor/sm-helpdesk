@@ -406,18 +406,24 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
         <h2 id="metrics-deflection" className="text-base font-semibold">
           {t('metrics.knowledge.title')}
         </h2>
-        <dl className="grid grid-cols-1 gap-3 tablet:grid-cols-2 lg:grid-cols-4">
-          <Stat id="deflection-self" label={t('metrics.knowledge.selfService')} value={share(knowledge.deflection.selfServicePercent)}>
-            {t('metrics.knowledge.selfServiceHint', { helped: knowledge.deflection.helped, shown: knowledge.deflection.shown })}
-          </Stat>
-          <Stat id="deflection-shown" label={t('metrics.knowledge.shown')} value={format.number(knowledge.deflection.shown)} />
-          <Stat id="deflection-helped" label={t('metrics.knowledge.helped')} value={format.number(knowledge.deflection.helped)} />
-          <Stat id="deflection-not-helped" label={t('metrics.knowledge.notHelped')} value={format.number(knowledge.deflection.notHelped)} />
-          <Stat id="deflection-tickets" label={t('metrics.knowledge.tickets')} value={format.number(knowledge.deflection.ticketCreated)}>
-            {share(knowledge.deflection.ticketPercent)}
-          </Stat>
-          <Stat id="deflection-left" label={t('metrics.knowledge.left')} value={format.number(knowledge.deflection.left)} />
-        </dl>
+        {knowledge.deflection.shown === 0 ? (
+          <p className="text-sm text-secondary-foreground" data-deflection-empty>
+            {t('metrics.knowledge.empty')}
+          </p>
+        ) : (
+          <dl className="grid grid-cols-1 gap-3 tablet:grid-cols-2 lg:grid-cols-4">
+            <Stat id="deflection-self" label={t('metrics.knowledge.selfService')} value={share(knowledge.deflection.selfServicePercent)}>
+              {t('metrics.knowledge.selfServiceHint', { helped: knowledge.deflection.helped, shown: knowledge.deflection.shown })}
+            </Stat>
+            <Stat id="deflection-shown" label={t('metrics.knowledge.shown')} value={format.number(knowledge.deflection.shown)} />
+            <Stat id="deflection-helped" label={t('metrics.knowledge.helped')} value={format.number(knowledge.deflection.helped)} />
+            <Stat id="deflection-not-helped" label={t('metrics.knowledge.notHelped')} value={format.number(knowledge.deflection.notHelped)} />
+            <Stat id="deflection-tickets" label={t('metrics.knowledge.tickets')} value={format.number(knowledge.deflection.ticketCreated)}>
+              {share(knowledge.deflection.ticketPercent)}
+            </Stat>
+            <Stat id="deflection-left" label={t('metrics.knowledge.left')} value={format.number(knowledge.deflection.left)} />
+          </dl>
+        )}
         <p className="text-sm text-muted-foreground">{t('metrics.knowledge.hint')}</p>
         {knowledge.byOrg && knowledge.byOrg.length > 0 && (
           <Card className="overflow-x-auto" data-breakdown="deflection-org">

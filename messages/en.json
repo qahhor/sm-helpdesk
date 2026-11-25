@@ -2534,7 +2534,8 @@
         "times": "Times",
         "noCode": "no code",
         "noSample": "no text",
-        "create": "Create a solution"
+        "create": "Create a solution",
+        "empty": "No solution suggestions were shown in this period."
       }
     },
     "solutions": {

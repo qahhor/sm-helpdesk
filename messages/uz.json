@@ -2534,7 +2534,8 @@
         "times": "Marta",
         "noCode": "kodsiz",
         "noSample": "matn yo'q",
-        "create": "Yechim yaratish"
+        "create": "Yechim yaratish",
+        "empty": "Bu davrda yechim maslahatlari ko'rsatilmagan."
       }
     },
     "solutions": {

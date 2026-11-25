@@ -79,3 +79,10 @@ test('страница идеи на телефоне загружает не б
   await expect(page.getByTestId('idea-page')).toBeVisible();
   expect(total).toBeLessThanOrEqual(BUDGET_BYTES);
 });
+
+test('отбор месяца на телефоне загружает не больше 170 КБ скриптов (план M7, задача 10)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'бюджет считается для телефона');
+  const total = await scriptBytes(page, '/ru/ideas/cycles');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Отбор месяца');
+  expect(total).toBeLessThanOrEqual(BUDGET_BYTES);
+});

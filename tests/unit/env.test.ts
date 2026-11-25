@@ -133,6 +133,8 @@ const prod = {
   // Проверка "не робот" на настоящем адресе в production обязательна (защита от перебора).
   TURNSTILE_SITE_KEY: '0x4AAAAAAA-site',
   TURNSTILE_SECRET: '0x4AAAAAAA-secret',
+  // Веха M6: секрет токена виджета на настоящем адресе в production обязателен.
+  EMBED_TOKEN_SECRET: 'embed-token-secret-0123456789abcdef',
 };
 /** Секрет вебхука Resend в формате Svix (решение 10 вехи M4). */
 const WEBHOOK = `whsec_${Buffer.alloc(24, 3).toString('base64')}`;
@@ -405,4 +407,13 @@ test('Claude: заглушка только для портала на localhost
   expect(parseAiEnv({ ...local, AI_STUB: '1' })).toEqual({ mode: 'stub' });
   expect(() => parseAiEnv({ ...ok, AI_STUB: '1' })).toThrow(/AI_STUB/);
   expect(() => parseAiEnv({ ...local, AI_STUB: '1', ANTHROPIC_API_KEY: 'sk-ant-x-0123456789', AI_MODEL_FAST: 'a', AI_MODEL_QUALITY: 'b' })).toThrow(/AI_STUB/);
+});
+
+test('секрет токена виджета: не короче 32 знаков, на настоящем адресе в production обязателен (план M6, решение 16)', () => {
+  expect(parseEnv(ok).EMBED_TOKEN_SECRET).toBeUndefined();
+  expect(problems({ ...prod, EMBED_TOKEN_SECRET: undefined }).map((p) => p.name)).toEqual(['EMBED_TOKEN_SECRET']);
+  expect(problems({ ...ok, EMBED_TOKEN_SECRET: 'short' }).map((p) => p.name)).toEqual(['EMBED_TOKEN_SECRET']);
+  expect(problems({ ...ok, EMBED_TOKEN_SECRET: ok.BETTER_AUTH_SECRET }).map((p) => p.name)).toEqual(['EMBED_TOKEN_SECRET']);
+  // Портал на localhost в production (браузерные тесты, проверка образа в CI) запускается и без секрета.
+  expect(parseEnv({ ...prod, EMBED_TOKEN_SECRET: undefined, FILE_STORAGE: 'local', CLAMAV_HOST: undefined, TURNSTILE_SITE_KEY: undefined, TURNSTILE_SECRET: undefined, HUB_URL: 'http://localhost:3100', HUB_DOMAIN: 'localhost' }).EMBED_TOKEN_SECRET).toBeUndefined();
 });

@@ -1074,6 +1074,9 @@
             "created_from_ticket": "Yechim murojaatdan yaratildi",
             "signature_bound": "Yechim xato imzosiga bog'landi",
             "signature_unbound": "Yechim xato imzosidan uzildi"
+          },
+          "client": {
+            "embed_session": "Smartup ichidagi vidjet seansi"
           }
         },
         "words": {

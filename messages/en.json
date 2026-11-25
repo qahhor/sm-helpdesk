@@ -1074,6 +1074,9 @@
             "created_from_ticket": "Solution created from a request",
             "signature_bound": "Solution linked to an error signature",
             "signature_unbound": "Solution unlinked from an error signature"
+          },
+          "client": {
+            "embed_session": "Widget session inside Smartup"
           }
         },
         "words": {

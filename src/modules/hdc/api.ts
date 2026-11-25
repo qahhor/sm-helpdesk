@@ -10,7 +10,7 @@ export { HdcError, isHdcError } from './error';
 // Для других модулей: запись аудита в транзакции их действия, счётчики частоты, адрес посетителя,
 // ответы обработчиков. Внутренние файлы модуля другим модулям не видны (правило линтера, проверка main, Q6).
 export { type AuditEntry, writeAudit } from './audit';
-export { cleanupRateLimits, consumeRateLimit, resetRateLimit } from './rate-limit';
+export { cleanupRateLimits, consumeRateLimit, peekRateLimit, resetRateLimit } from './rate-limit';
 export { clientIp, clientIpHeader, ipBucket, ipRateKey, isOwnNavigation, isSameOriginJson, problemResponse, rateKey, readLimited } from './util';
 // Приём отчётов о нарушениях CSP (проверка main, S9).
 export { handleCspReport } from './csp-report';

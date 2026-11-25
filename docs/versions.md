@@ -38,6 +38,7 @@
 | `clsx` | 2.1.1 | MIT |
 | `drizzle-orm` | 0.45.4 | Apache-2.0 |
 | `get-nonce` | 1.0.1 | MIT |
+| `jose` | 6.2.17 | MIT |
 | `kysely` | 0.29.9 | MIT |
 | `lucide-react` | 1.72.0 | ISC |
 | `next` | 16.4.6 | MIT |

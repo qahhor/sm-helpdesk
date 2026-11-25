@@ -66,6 +66,8 @@ const APP_ENV = {
   REPLY_HMAC_SECRET: 'e2e-reply-hmac-secret-0123456789abcdef',
   // Заголовок Authentication-Results, которому верит разбор писем (решение 11 вехи M4): его вписывают тесты.
   INBOUND_AUTHSERV_ID: 'e2e.inbound.test',
+  // Секрет токена виджета (план M6, решение 16): страницы виджета меняют на него токен контекста ложного сервера.
+  EMBED_TOKEN_SECRET: 'e2e-embed-token-secret-0123456789abcdef',
   // Заглушка модели с заготовленными ответами (план M5, задачи 6 и 7): черновик из обращения и перевод без ключа.
   AI_STUB: '1',
 };

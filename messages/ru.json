@@ -1074,6 +1074,9 @@
             "created_from_ticket": "Решение создано из обращения",
             "signature_bound": "Решение привязано к сигнатуре ошибки",
             "signature_unbound": "Решение отвязано от сигнатуры ошибки"
+          },
+          "client": {
+            "embed_session": "Сессия виджета внутри Smartup"
           }
         },
         "words": {

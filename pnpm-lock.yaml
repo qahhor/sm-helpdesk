@@ -250,6 +250,9 @@ importers:
       get-nonce:
         specifier: 1.0.1
         version: 1.0.1
+      jose:
+        specifier: 6.2.17
+        version: 6.2.17
       kysely:
         specifier: 0.29.9
         version: 0.29.9

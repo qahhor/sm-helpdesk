@@ -58,6 +58,12 @@ const CLIENT_EDITOR_BOUNDARY = 'Редактор решения только д�
 const EDITOR_PACKAGES = { group: ['@tiptap/*', 'prosemirror-*'], message: EDITOR_BOUNDARY };
 const EDITOR_UI = { group: ['@/ui/doc/editor', '@/ui/doc/editor/*', '**/ui/doc/editor/*'], message: CLIENT_EDITOR_BOUNDARY };
 
+// Ключи серверов Smartup скачивает только сетевой слой исходящих запросов src/security/outbound.ts (угроза T16,
+// план M6, решение 3). Функции jose, которые ходят в сеть сами, запрещены везде: и прямым импортом, и через объект модуля.
+const JOSE_REMOTE =
+  'Открытые ключи скачиваются только через src/security/outbound.ts (src/modules/hdu/core/context-keys.ts), createRemoteJWKSet ходит в сеть мимо него (план M6, решение 3)';
+const JOSE_REMOTE_NAMES = '/^(createRemoteJWKSet|customFetch|jwksCache)$/';
+
 const PUBLIC_BOUNDARY = 'Открытые страницы (public) не читают сессию и не берут актора, кроме public (CLAUDE.md)';
 
 // Общие запреты для страниц, обработчиков, интерфейса и команды консоли.
@@ -118,6 +124,19 @@ const eslintConfig = defineConfig([
           paths: [...APP_PATHS, { name: 'next/headers', message: PUBLIC_BOUNDARY }, { name: '@/modules/hdu/api', message: PUBLIC_BOUNDARY }],
           patterns: [...APP_PATTERNS, EDITOR_PACKAGES, EDITOR_UI, { group: ['@/modules/hdu/**', '**/modules/hdu/**'], message: PUBLIC_BOUNDARY }],
         },
+      ],
+    },
+  },
+  {
+    // Во всём репозитории: исходники, сценарии, тесты.
+    files: ['**/*.{ts,tsx,js,mjs,cjs}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        { selector: `ImportDeclaration[source.value='jose'] ImportSpecifier[imported.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
+        { selector: `ExportNamedDeclaration[source.value='jose'] ExportSpecifier[local.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
+        { selector: `MemberExpression[property.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
+        { selector: "ImportDeclaration[source.value=/^jose\\/.+/]", message: JOSE_REMOTE },
       ],
     },
   },

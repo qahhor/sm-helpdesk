@@ -295,12 +295,13 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         return 0;
       }
       case 'server:widget': {
-        const origins = typeof values['embed-origins'] === 'string' ? values['embed-origins'].split(',').map((item) => item.trim()).filter(Boolean) : [];
+        // Без флага --embed-origins адреса встраивания не меняются; пустое значение флага очищает список.
+        const origins = values['embed-origins'];
         const { secret } = await updateWidgetSettings(ACTOR, {
           code: text('code'),
           mode: text('key-mode'),
           ...(typeof values['jwks-url'] === 'string' && { jwksUrl: values['jwks-url'] }),
-          embedOrigins: origins,
+          ...(typeof origins === 'string' && { embedOrigins: origins.split(',').map((item) => item.trim()).filter(Boolean) }),
         });
         const server = await getServer(ACTOR, text('code'));
         io.out(`Виджет сервера ${text('code')} настроен.`);

@@ -111,6 +111,11 @@ test('server:widget задаёт режим подписи, адрес ключ�
   const printed = /Общий секрет токена контекста \(показывается один раз\): (\S+)/.exec(secret.lines.join('\n'))?.[1];
   expect(printed).toMatch(/^[\w-]{43}$/);
   expect(JSON.stringify((await pools.root.query(`select * from hdu_servers where code = 'wdg'`)).rows)).not.toContain(printed);
+  // Без флага --embed-origins адреса встраивания остаются прежними (проверка M6, M2).
+  expect((await pools.root.query(`select embed_origins from hdu_servers where code = 'wdg'`)).rows[0].embed_origins).toEqual(['https://web.wdg.example', 'https://m.wdg.example']);
+  // Пустой флаг очищает список явно.
+  expect(await runCli(['server:widget', '--code', 'wdg', '--key-mode', 'secret', '--embed-origins', ''], fakeIo().io)).toBe(0);
+  expect((await pools.root.query(`select embed_origins from hdu_servers where code = 'wdg'`)).rows[0].embed_origins).toEqual([]);
   // Адрес встраивания с путём и сервер, которого нет: ошибка.
   expect(await runCli(['server:widget', '--code', 'wdg', '--key-mode', 'secret', '--embed-origins', 'https://web.wdg.example/path'], fakeIo().io)).toBe(1);
   expect(await runCli(['server:widget', '--code', 'nope', '--key-mode', 'secret'], fakeIo().io)).toBe(1);

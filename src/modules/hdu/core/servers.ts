@@ -391,7 +391,8 @@ export type WidgetPatch = {
   contextIssuer?: string;
   /** Адрес ключей для режима jwks. null снимает адрес. Не задан: прежний остаётся. */
   jwksUrl?: string | null;
-  embedOrigins: string[];
+  /** Адреса встраивания. Не задан: прежние остаются (команда консоли без флага, замечание M2 проверки M6). */
+  embedOrigins?: string[];
 };
 
 /** Новый общий секрет токена контекста: 32 случайных байта в base64url, для HS256 этого достаточно. */
@@ -427,7 +428,7 @@ export async function updateWidgetRow(actor: Actor, code: string, patch: WidgetP
         contextKeyMode: patch.mode,
         contextIssuer: patch.contextIssuer ?? current.contextIssuer,
         contextJwksUrl: patch.jwksUrl === undefined ? current.contextJwksUrl : patch.jwksUrl,
-        embedOrigins: patch.embedOrigins,
+        embedOrigins: patch.embedOrigins ?? current.embedOrigins,
       };
       if (next.contextKeyMode === 'jwks' && !next.contextJwksUrl) throw new HduError('invalid_input');
       const secret = next.contextKeyMode === 'secret' && !current.hasSecret ? newContextSecret() : null;

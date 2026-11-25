@@ -190,7 +190,8 @@ const widgetInput = z
     mode: z.enum(CONTEXT_KEY_MODES).nullable(),
     contextIssuer: urlText.optional(),
     jwksUrl: urlText.nullable().optional(),
-    embedOrigins: z.array(z.string().trim().min(1).max(200)).max(EMBED_ORIGINS_MAX * 2),
+    // Не задан: прежние адреса остаются (команда консоли без флага --embed-origins).
+    embedOrigins: z.array(z.string().trim().min(1).max(200)).max(EMBED_ORIGINS_MAX * 2).optional(),
   })
   .strict();
 
@@ -238,8 +239,8 @@ export async function updateWidgetSettings(who: ServerManager, input: unknown, n
   const allowLoopback = isLocalPortal(getEnv().HUB_URL);
   const contextIssuer = data.contextIssuer === undefined ? undefined : checkedIssuer(data.contextIssuer, allowLoopback);
   const jwksUrl = data.jwksUrl ? (await assertPublicUrl(data.jwksUrl, { allowLoopback })).toString() : data.jwksUrl;
-  const embedOrigins = [...new Set(data.embedOrigins.map((origin) => checkedOrigin(origin, allowLoopback)))];
-  if (embedOrigins.length > EMBED_ORIGINS_MAX) throw new HduError('invalid_input');
+  const embedOrigins = data.embedOrigins && [...new Set(data.embedOrigins.map((origin) => checkedOrigin(origin, allowLoopback)))];
+  if (embedOrigins && embedOrigins.length > EMBED_ORIGINS_MAX) throw new HduError('invalid_input');
   const result = await updateWidgetRow(actor, data.code, { mode: data.mode, contextIssuer, jwksUrl, embedOrigins });
   if (!result) throw new HduError('not_found');
   afterRegistryChange();

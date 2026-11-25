@@ -103,3 +103,11 @@ test('контейнер в задаче image получает все обяз�
   for (const name of ['HUB_URL', 'HUB_DOMAIN', 'DATABASE_URL_APP', 'DATABASE_URL_AUTH', 'BETTER_AUTH_SECRET', 'ENCRYPTION_KEY'])
     expect(passed, name).toContain(name);
 });
+
+test('проект webkit не получает флаги запуска Chromium: WebKit с ними не стартует', async () => {
+  process.env.PW_WEBKIT = '1';
+  const { default: config } = await import('../../playwright.config');
+  const webkit = config.projects?.find((p) => p.name === 'webkit');
+  expect(webkit).toBeDefined();
+  expect(webkit?.use?.launchOptions?.args ?? []).not.toContain('--font-render-hinting=none');
+});

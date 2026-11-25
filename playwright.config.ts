@@ -87,6 +87,7 @@ export default defineConfig({
     timezoneId: 'Asia/Tashkent',
     // Отрисовка букв не должна зависеть от системных настроек шрифтов машины: без хинтинга и без
     // сглаживания по субпикселям. Иначе эталонные снимки витрины расходятся между машинами (решение 0041, пункт 8).
+    // Флаги Chromium: WebKit их не принимает и не запускается, поэтому у проекта webkit свой пустой список.
     launchOptions: { args: ['--font-render-hinting=none', '--disable-lcd-text'] },
   },
   projects: [
@@ -102,7 +103,7 @@ export default defineConfig({
     // WebKit (движок Safari) только для виджета на странице хозяина (план M6, задача 9): сторонний iframe без кук
     // третьей стороны. Только в CI или с PW_WEBKIT=1: браузер ставит pnpm exec playwright install webkit (решение 0060).
     ...(process.env.CI || process.env.PW_WEBKIT
-      ? [{ name: 'webkit', dependencies: ['setup'], testMatch: /widget-host\.spec\.ts$/, use: { browserName: 'webkit' as const, viewport: { width: 1280, height: 800 } } }]
+      ? [{ name: 'webkit', dependencies: ['setup'], testMatch: /widget-host\.spec\.ts$/, use: { browserName: 'webkit' as const, viewport: { width: 1280, height: 800 }, launchOptions: { args: [] } } }]
       : []),
   ],
   webServer: [

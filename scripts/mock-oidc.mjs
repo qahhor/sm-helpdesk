@@ -6,7 +6,8 @@
 // (выделенный сервер) и mock-spare на 3193 (для проверки реестра в разделе "Настройки").
 // В реестр портала первые два записывает scripts/dev-up.mjs --prepare.
 //
-// Токен контекста виджета (план M6, решение 17): POST /context-token?persona=<ключ>&platform=web|android|ios.
+// Токен контекста виджета (план M6, решение 17): POST /context-token?persona=<ключ>&platform=web|android|ios
+// (persona=custom: сведения из параметров claim_sub, claim_name, claim_company_id и других, как во входе).
 // Сервер mock подписывает его ES256, открытые ключи отдаёт по адресу /context-jwks.json (режим jwks реестра).
 // Сервер mock-dedicated подписывает HS256 общим секретом (режим secret): секрет создаёт портал на карточке сервера,
 // его передают ложному серверу переменной MOCK_CONTEXT_SECRET, как разработчикам Smartup.
@@ -144,7 +145,12 @@ async function contextHandler(issuer, config) {
       sendJson(res, 405, { error: 'POST' });
       return true;
     }
-    const persona = claimsOf(config.personas[url.searchParams.get('persona') ?? ''] ?? {});
+    // Своя персона полями claim_* адреса, как во входе OAuth: браузерные тесты виджета берут нового человека на прогон.
+    const personaKey = url.searchParams.get('persona') ?? '';
+    const persona =
+      personaKey === 'custom'
+        ? claimsOf(Object.fromEntries(CLAIM_FIELDS.map((field) => [field, url.searchParams.get(`claim_${field}`) ?? undefined])))
+        : claimsOf(config.personas[personaKey] ?? {});
     const platform = url.searchParams.get('platform') ?? 'web';
     if (!persona.sub || !CONTEXT_PLATFORMS.includes(platform)) {
       sendJson(res, 400, { error: 'persona или platform' });

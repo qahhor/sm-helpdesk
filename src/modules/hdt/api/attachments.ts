@@ -1,6 +1,7 @@
 import 'server-only';
 import { getStorage, problemResponse } from '@/modules/hdc/api';
 import { type ClientContext, currentClient, currentStaff, type StaffContext } from '@/modules/hdu/api';
+import { embedRequestActor, hasBearer } from '@/modules/hdu/api/embed';
 import { findDownloadable } from '../core/attachments';
 import { findStaffDownloadableTx } from '../core/agent-ticket';
 import { attachmentIdInput } from '../input';
@@ -15,7 +16,7 @@ export const DOWNLOAD_LINK_TTL_SEC = 60;
 const baseName = (name: string): string => name.split(/[\\/]/).pop()?.trim() || 'file';
 
 /** Ссылка на скачивание на 60 секунд или null: чужое, несуществующее, непроверенное и внутреннее неразличимы. */
-export async function attachmentRedirect(ctx: ClientContext, id: unknown, opts: { inline: boolean }): Promise<string | null> {
+export async function attachmentRedirect(ctx: Pick<ClientContext, 'actor'>, id: unknown, opts: { inline: boolean }): Promise<string | null> {
   const parsed = attachmentIdInput.safeParse(id);
   if (!parsed.success) return null;
   const row = await findDownloadable(ctx.actor, parsed.data);
@@ -48,6 +49,15 @@ export async function staffAttachmentRedirect(ctx: StaffContext, id: unknown, op
 /** Обработчик GET /api/attachments/{id}?inline=1: клиент по правилам кабинета, сотрудник по правилам рабочего места. */
 export async function handleAttachmentRequest(request: Request, id: string): Promise<Response> {
   const inline = new URL(request.url).searchParams.get('inline') === '1';
+  // Виджет (план M6): токен в заголовке, сессия портала не читается. Перейти по ссылке с заголовком браузер не может,
+  // поэтому ссылка хранилища на 60 секунд приходит в ответе JSON, страница виджета открывает её сама.
+  if (hasBearer(request)) {
+    const embed = await embedRequestActor(request);
+    if ('denied' in embed) return embed.denied;
+    const url = await attachmentRedirect(embed, id, { inline });
+    if (!url) return problemResponse(404, 'not_found');
+    return Response.json({ url }, { headers: { 'Cache-Control': 'private, no-store' } });
+  }
   const client = await currentClient();
   if (client) return attachmentResponse(client, id, inline);
   const staff = await currentStaff();

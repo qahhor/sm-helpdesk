@@ -65,6 +65,7 @@ const JOSE_REMOTE =
 const JOSE_REMOTE_NAMES = '/^(createRemoteJWKSet|customFetch|jwksCache)$/';
 
 const PUBLIC_BOUNDARY = 'Открытые страницы (public) не читают сессию и не берут актора, кроме public (CLAUDE.md)';
+const EMBED_BOUNDARY = 'Страницы виджета (embed) не читают сессию портала: актор только из токена виджета в API (план M6, решение 1)';
 
 // Общие запреты для страниц, обработчиков, интерфейса и команды консоли.
 const APP_PATHS = [
@@ -123,6 +124,20 @@ const eslintConfig = defineConfig([
         {
           paths: [...APP_PATHS, { name: 'next/headers', message: PUBLIC_BOUNDARY }, { name: '@/modules/hdu/api', message: PUBLIC_BOUNDARY }],
           patterns: [...APP_PATTERNS, EDITOR_PACKAGES, EDITOR_UI, { group: ['@/modules/hdu/**', '**/modules/hdu/**'], message: PUBLIC_BOUNDARY }],
+        },
+      ],
+    },
+  },
+  {
+    // Группа маршрутов (embed): страницы виджета и мобильного приложения без сессии портала и кук. Данные приходят
+    // из API виджета по токену в памяти страницы. Правило заменяет общее, поэтому общие запреты повторены.
+    files: ['src/app/**/\\(embed\\)/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [...APP_PATHS, { name: '@/modules/hdu/api', message: EMBED_BOUNDARY }],
+          patterns: [...APP_PATTERNS, EDITOR_PACKAGES, EDITOR_UI, { group: ['@/modules/hdu/**', '**/modules/hdu/**'], message: EMBED_BOUNDARY }],
         },
       ],
     },

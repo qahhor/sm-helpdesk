@@ -17,7 +17,7 @@ import { HdkError } from '../error';
 import { type KbAudience, ORG_COUNT_MIN, QUERY_EMBED_TIMEOUT_MS, SHOWN_PER_SESSION_MAX, SUGGEST_QUERY_MAX, SUGGEST_QUERY_MIN } from '../pref';
 import { type ExactHit, rankHits, type RankedHit } from '../ranking';
 import { kbArticles, kbDeflectionEvents, kbErrorSignatures, kbSignatureOrgs } from '../schema';
-import { signatureFromText } from '../signature';
+import { signatureFromText, ticketErrorSignature } from '../signature';
 
 // Модуль hdk, слой api: подсказка решений и связанные решения (план M5, задача 10; ТЗ 11.6, FR-SOL-08..14, FR-AG-05,
 // решения 5, 8, 12, 13, 17).
@@ -127,7 +127,7 @@ function queryHash(text: string): string {
  * запроса. Чужую сессию (другой пользователь или организация) не трогает. Показ решения в сессии считается в его
  * счётчике один раз.
  */
-async function noteShown(actor: ClientActor, sessionId: string, input: { text: string; signature: string | null; articleIds: string[] }): Promise<void> {
+async function noteShown(actor: ClientActor, sessionId: string, input: { text: string; signature: string | null; articleIds: string[]; zone?: 'portal' | 'widget' }): Promise<void> {
   await withActor(SYSTEM, async (tx) => {
     const [prev] = await tx
       .select({ userId: kbDeflectionEvents.userId, orgId: kbDeflectionEvents.orgId, shown: kbDeflectionEvents.shownArticleIds })
@@ -144,7 +144,7 @@ async function noteShown(actor: ClientActor, sessionId: string, input: { text: s
     else {
       const inserted = await tx
         .insert(kbDeflectionEvents)
-        .values({ orgId: actor.orgId, userId: actor.userId, sessionId, zone: 'portal', ...values })
+        .values({ orgId: actor.orgId, userId: actor.userId, sessionId, zone: input.zone ?? 'portal', ...values })
         .onConflictDoNothing()
         .returning({ id: kbDeflectionEvents.deflectionEventId });
       if (inserted.length === 0) return;
@@ -163,7 +163,7 @@ async function noteShown(actor: ClientActor, sessionId: string, input: { text: s
  * пользователя и 600 в час на организацию (решение 13). Сверх предела и при коротком запросе блок просто не
  * показывается: форма обращения работает всегда.
  */
-export async function suggestForClient(ctx: ClientContext, input: unknown): Promise<ClientSuggestResult> {
+export async function suggestForClient(ctx: Pick<ClientContext, 'actor'>, input: unknown): Promise<ClientSuggestResult> {
   const parsed = suggestInput.safeParse(input);
   if (!parsed.success) throw new HdkError('invalid_input');
   const text = parsed.data.text.trim();
@@ -177,10 +177,43 @@ export async function suggestForClient(ctx: ClientContext, input: unknown): Prom
   return { items: items.map(({ number, slug, title, exact, orgCount }) => ({ number, slug, title, exact, orgCount })), limited: false };
 }
 
+// --- Подсказка в виджете (план M6, задача 5; экран "Панель виджета внутри Smartup", решение 10) ---
+
+const widgetSuggestInput = z.strictObject({
+  text: z.string().max(SUGGEST_QUERY_MAX),
+  sessionId: z.uuid(),
+  locale: z.enum(LOCALES),
+  moduleId: z.uuid().nullable().optional(),
+  errorCode: z.string().max(64).optional(),
+  errorText: z.string().max(2000).optional(),
+});
+
+/**
+ * Подсказка в панели виджета: "Мы знаем эту ошибку" и "Похоже, это уже решали". Тот же поиск, те же пределы и счётчики,
+ * что на портале (решение 14). Сигнатура из кода и текста ошибки подсказки хозяина, иначе из описания (решение 0055);
+ * модуль в сигнатуру не входит, а даёт множитель 1.1 (решение 10). Точное совпадение ищется и без описания: ошибка
+ * пришла из Smartup, клиент ещё ничего не написал. Исход пишется с зоной widget.
+ */
+export async function suggestForWidget(ctx: Pick<ClientContext, 'actor'>, input: unknown): Promise<ClientSuggestResult> {
+  const parsed = widgetSuggestInput.safeParse(input);
+  if (!parsed.success) throw new HdkError('invalid_input');
+  const data = parsed.data;
+  const described = data.text.trim();
+  const signature = ticketErrorSignature({ context: { errorCode: data.errorCode, errorText: data.errorText }, description: described })?.signature ?? null;
+  const text = (described.length >= SUGGEST_QUERY_MIN ? described : (data.errorText ?? '').trim()).slice(0, SUGGEST_QUERY_MAX);
+  if (text.length < SUGGEST_QUERY_MIN && !signature) return { items: [], limited: false };
+  const perUser = await consumeRateLimit(rateKey('kb-suggest:user', ctx.actor.userId), RATE_RULES.kbSuggestPerUser);
+  const perOrg = perUser.allowed ? await consumeRateLimit(rateKey('kb-suggest:org', ctx.actor.orgId), RATE_RULES.kbSuggestPerOrg) : perUser;
+  if (!perUser.allowed || !perOrg.allowed) return { items: [], limited: true };
+  const { items } = await searchSolutions(ctx.actor, { text, signature, moduleId: data.moduleId ?? null, locale: data.locale, audiences: ['clients'] });
+  if (items.length > 0) await noteShown(ctx.actor, data.sessionId, { text, signature, articleIds: items.map((i) => i.articleId), zone: 'widget' });
+  return { items: items.map(({ number, slug, title, exact, orgCount }) => ({ number, slug, title, exact, orgCount })), limited: false };
+}
+
 const outcomeInput = z.strictObject({ sessionId: z.uuid() });
 
 /** "Не помогло" в блоке подсказки (решение 12): исход сессии not_helped, если обращение ещё не создано. */
-export async function recordSuggestNotHelped(ctx: ClientContext, input: unknown): Promise<void> {
+export async function recordSuggestNotHelped(ctx: Pick<ClientContext, 'actor'>, input: unknown): Promise<void> {
   const parsed = outcomeInput.safeParse(input);
   if (!parsed.success) throw new HdkError('invalid_input');
   await withActor(SYSTEM, (tx) =>
@@ -199,7 +232,7 @@ export async function recordSuggestNotHelped(ctx: ClientContext, input: unknown)
 }
 
 /** Обращение создано после показа подсказки (решение 12): исход ticket_created и ссылка на обращение. */
-export async function recordSuggestTicket(ctx: ClientContext, input: { sessionId: unknown; ticketId: string }): Promise<void> {
+export async function recordSuggestTicket(ctx: Pick<ClientContext, 'actor'>, input: { sessionId: unknown; ticketId: string }): Promise<void> {
   const parsed = outcomeInput.safeParse({ sessionId: input.sessionId });
   if (!parsed.success) return;
   await withActor(SYSTEM, (tx) =>

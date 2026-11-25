@@ -26,6 +26,39 @@ export const createTicketInput = z.object({
   locale: z.enum(LOCALES),
 });
 
+/** Строка подсказки виджета (решение 11 плана M6): код модуля и экрана из букв, цифр и знаков _.:- до 64 знаков. */
+const HINT_CODE = /^[A-Za-z0-9_.:-]{1,64}$/;
+const hintText = (max: number) => optional(z.string().overwrite(cleanUserText).trim().min(1).max(max));
+
+/**
+ * Контекст обращения из подсказок виджета (план M6, решения 10 и 11). Подсказки не подписаны: они идут только в поля
+ * контекста, сигнатуру и предзаполнение и никогда не влияют на права. Платформу берёт сервер из токена, а не отсюда.
+ */
+export const widgetContextInput = z.strictObject({
+  moduleCode: optional(z.string().regex(HINT_CODE)),
+  screen: optional(z.string().regex(HINT_CODE)),
+  version: hintText(32),
+  errorCode: hintText(64),
+  errorText: hintText(2000),
+});
+
+/**
+ * Обращение из виджета (план M6, задача 5): описание "Что вы делали перед ошибкой?", необязательные модуль, тип и
+ * влияние (по умолчанию ошибка, серьёзно мешает), файлы, контекст. Поля организации и автора не принимаются:
+ * лишний ключ отклоняет схему. Тема строится из описания, как на портале.
+ */
+export const widgetTicketInput = z.strictObject({
+  description: z.string().overwrite(cleanUserText).trim().min(1).max(20000),
+  type: z.enum(TICKET_TYPES).default('bug'),
+  impact: z.enum(IMPACTS).default('major'),
+  visibility: z.enum(VISIBILITIES).default('org'),
+  moduleId: optional(z.uuid()),
+  attachmentIds: z.array(z.uuid()).max(100).default([]),
+  locale: z.enum(LOCALES),
+  context: widgetContextInput.default({}),
+  suggestSession: optional(z.uuid()),
+});
+
 export const listTicketsInput = z.object({
   scope: z.enum(['mine', 'org']).default('org'),
   status: optional(z.enum(TICKET_STATUSES)),

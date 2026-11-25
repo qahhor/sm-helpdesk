@@ -2304,6 +2304,14 @@
         "exact": "Xato bo'yicha aniq moslik",
         "internal": "Faqat xodim orqali: mijozga o'z so'zlaringiz bilan tushuntiring",
         "insert": "Havolani javobga qo'yish"
+      },
+      "context": {
+        "moduleCode": "Smartup'dagi modul: {value}",
+        "screen": "Ekran: {value}",
+        "version": "Smartup versiyasi: {value}",
+        "platform": "Platforma: {value}",
+        "errorCode": "Xato kodi: {value}",
+        "errorText": "Xato matni: {value}"
       }
     },
     "playbooks": {
@@ -3295,6 +3303,47 @@
       "toastTitle": "Xato yuz berdi. Xabar bering, yechim qidiraman.",
       "toastReport": "Xabar berish",
       "toastDismiss": "Yashirish"
+    },
+    "panel": {
+      "title": "Smartup qo'llab-quvvatlash",
+      "close": "Panelni yopish",
+      "tabs": "Qo'llab-quvvatlash bo'limlari",
+      "tabReport": "Xabar berish",
+      "tabTickets": "Murojaatlarim",
+      "waiting": "Smartup bilan ulanmoqda.",
+      "offline": "Aloqa yo'q. Matn saqlandi, aloqa paydo bo'lishi bilan yuboraman.",
+      "refused": "Bu sahifani faqat Smartup ichidan ochish mumkin.",
+      "denied": "Qo'llab-quvvatlash siz uchun mavjud emas. Tashkilotingiz administratoriga murojaat qiling.",
+      "expired": "Seans tugadi. Panelni yoping va qaytadan oching.",
+      "unavailable": "Qo'llab-quvvatlash hozir mavjud emas. Keyinroq urinib ko'ring.",
+      "openPortal": "Portalda ochish"
+    },
+    "report": {
+      "title": "Xato haqida xabar berish",
+      "errorIn": "{module} modulida xato",
+      "error": "Smartup'da xato",
+      "known": "Bu xatoni bilamiz",
+      "similar": "Ehtimol, bu allaqachon hal qilingan",
+      "orgCount": "Mijozlarda uchragan: {count}",
+      "openSolution": "Yechimni ochish",
+      "notHelped": "Yordam bermadi, murojaat yuborish",
+      "description": "Xatodan oldin nima qilayotgan edingiz?",
+      "descriptionHint": "Bir-ikki gap: qaysi hujjatni ochdingiz va nimani bosdingiz.",
+      "module": "Modul",
+      "moduleNone": "Bilmayman",
+      "submit": "Murojaatni yuborish",
+      "sending": "Yuborilmoqda.",
+      "created": "{number} murojaati yaratildi. Ish vaqtida javob beramiz.",
+      "toTickets": "Murojaatlarimni ochish",
+      "another": "Boshqa xato haqida xabar berish",
+      "errors": {
+        "description": "Xatodan oldin nima qilganingizni yozing",
+        "failed": "Yuborib bo'lmadi. Aloqani tekshiring va qayta urining."
+      }
+    },
+    "solution": {
+      "back": "Formaga qaytish",
+      "archived": "Bu yechim olib tashlangan. Muammo qolgan bo'lsa, murojaat yuboring."
     }
   }
 }

@@ -37,8 +37,8 @@ class UploadError extends Error {
 
 const PREVIEW_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 
-async function postJson(url: string, body: unknown): Promise<Record<string, unknown>> {
-  const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+async function postJson(url: string, body: unknown, extraHeaders: Record<string, string>): Promise<Record<string, unknown>> {
+  const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...extraHeaders }, body: JSON.stringify(body) });
   const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) throw new UploadError(typeof data.code === 'string' ? data.code : 'upload');
   return data;
@@ -57,14 +57,14 @@ function put(url: string, headers: Record<string, string>, file: File, onProgres
   });
 }
 
-async function upload(file: File, onProgress: (percent: number) => void, extra: Record<string, unknown>): Promise<string> {
-  const { attachmentId, url, headers } = (await postJson('/api/uploads/presign', { ...extra, fileName: file.name, size: file.size, mime: file.type })) as {
+async function upload(file: File, onProgress: (percent: number) => void, extra: Record<string, unknown>, auth: Record<string, string>): Promise<string> {
+  const { attachmentId, url, headers } = (await postJson('/api/uploads/presign', { ...extra, fileName: file.name, size: file.size, mime: file.type }, auth)) as {
     attachmentId: string;
     url: string;
     headers: Record<string, string>;
   };
   await put(url, headers, file, onProgress);
-  const { status } = (await postJson('/api/uploads/complete', { attachmentId })) as { status: string };
+  const { status } = (await postJson('/api/uploads/complete', { attachmentId }, auth)) as { status: string };
   if (status === 'rejected' || status === 'infected') throw new UploadError('upload');
   return attachmentId;
 }
@@ -76,6 +76,8 @@ export function FilePicker({
   labels,
   onBusyChange,
   presignExtra,
+  requestHeaders,
+  onReadyChange,
 }: {
   name?: string;
   accept: string;
@@ -84,6 +86,10 @@ export function FilePicker({
   onBusyChange?: (busy: boolean) => void;
   /** Дополнительные поля запроса ссылки: сотрудник передаёт номер обращения, организация файла берётся из него. */
   presignExtra?: Record<string, unknown>;
+  /** Заголовки запросов ссылки и завершения: страница виджета передаёт токен виджета (план M6, задача 5). */
+  requestHeaders?: () => Record<string, string>;
+  /** Загруженные файлы для формы без отправки через form action (виджет собирает тело запроса сам). */
+  onReadyChange?: (attachmentIds: string[]) => void;
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -104,12 +110,12 @@ export function FilePicker({
         countRef.current += 1;
         const preview = PREVIEW_TYPES.has(file.type) ? URL.createObjectURL(file) : null;
         setItems((list) => [...list, { key, name: file.name || 'screenshot.png', preview, progress: 0, state: 'uploading' }]);
-        upload(file, (progress) => patch(key, { progress }), presignExtra ?? {})
+        upload(file, (progress) => patch(key, { progress }), presignExtra ?? {}, requestHeaders?.() ?? {})
           .then((attachmentId) => patch(key, { state: 'ready', progress: 100, attachmentId }))
           .catch((error: unknown) => patch(key, { state: 'failed', error: errorText(error instanceof UploadError ? error.code : 'upload') }));
       }
     },
-    [errorText, maxFiles, presignExtra],
+    [errorText, maxFiles, presignExtra, requestHeaders],
   );
 
   // Скриншот из буфера обмена: Ctrl+V в любом месте страницы с этой формой.
@@ -126,6 +132,8 @@ export function FilePicker({
 
   const busy = items.some((item) => item.state === 'uploading');
   useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
+  const readyIds = items.flatMap((item) => (item.state === 'ready' && item.attachmentId ? [item.attachmentId] : [])).join(',');
+  useEffect(() => onReadyChange?.(readyIds ? readyIds.split(',') : []), [readyIds, onReadyChange]);
 
   const remove = (item: Item) => {
     if (item.preview) URL.revokeObjectURL(item.preview);

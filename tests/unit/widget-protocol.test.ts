@@ -74,6 +74,10 @@ describe('входящие сообщения', () => {
       { hub: 1, type: 'token', token: 'a b' },
       { hub: 1, type: 'token', token: 'x'.repeat(9000) },
       { hub: 1, type: 'init', token: 42 },
+      { ...init, orgId: 'другая организация' },
+      { hub: 1, type: 'token', token: TOKEN, origin: '*' },
+      { hub: 1, type: 'toString', token: TOKEN },
+      [1, 'init'],
     ])
       expect(parseHostMessage(data), JSON.stringify(data)?.slice(0, 80)).toBeNull();
   });

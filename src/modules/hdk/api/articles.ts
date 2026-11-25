@@ -61,7 +61,7 @@ export type PublishedSolution = {
  * Опубликованное решение по номеру и языку от имени читателя. Клиенту база отдаёт только решения для клиентов;
  * черновик, архивное и внутреннее решение для него не существуют (null). Документ, не прошедший схему, не отдаётся.
  */
-export async function readPublishedSolution(ctx: ClientContext | StaffContext, input: unknown): Promise<PublishedSolution | null> {
+export async function readPublishedSolution(ctx: Pick<ClientContext, 'actor'> | StaffContext, input: unknown): Promise<PublishedSolution | null> {
   const data = parse(publishedInput, input);
   const row = await withActor(ctx.actor, (tx) => publishedByNumberTx(tx, data.number, data.locale));
   if (!row) return null;

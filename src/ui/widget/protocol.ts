@@ -1,5 +1,3 @@
-import * as z from 'zod/mini';
-
 // Протокол postMessage версии 1 со стороны страницы виджета (план M6, решение 8; ТЗ 11.9). Пара к загрузчику
 // src/widget/loader.js. Каждое сообщение { hub: 1, type, ... }, схема с обеих сторон, неизвестный тип отбрасывается.
 //
@@ -9,6 +7,9 @@ import * as z from 'zod/mini';
 // Страница принимает сообщение, только если event.source это window.parent и event.origin равен адресу хозяина,
 // проверенному по адресам встраивания сервера. Отправляет только на этот точный адрес, адрес "*" не используется.
 // Адрес хозяина: location.ancestorOrigins, где он есть, иначе параметр загрузчика ?origin=, сверенный с тем же списком.
+//
+// Схема записана проверками без библиотеки: Zod (и zod/mini) занял бы 17 КБ из бюджета скриптов страницы виджета
+// 170 КБ на телефоне (ТЗ 8.9, решение 0059). Правила те же: точный набор полей, типы, пределы длины.
 //
 // Подсказки (решение 11) не подписаны и влияют только на предзаполнение, поиск и поля контекста обращения: неверная
 // подсказка отбрасывается, форма работает без неё. Текст подсказки нигде не выводится как HTML или ссылка.
@@ -23,14 +24,15 @@ const CODE = /^[A-Za-z0-9_.:-]{1,64}$/;
 // Управляющие знаки, кроме перевода строки и табуляции, в подсказках не нужны.
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
-const text = (max: number) => z.string().check(z.minLength(1), z.maxLength(max));
-const HINT_RULES = {
-  module: z.string().check(z.regex(CODE)),
-  form: z.string().check(z.regex(CODE)),
+type Rule = (value: string) => boolean;
+const text = (max: number): Rule => (value) => value.length >= 1 && value.length <= max;
+const HINT_RULES: Record<keyof WidgetHints, Rule> = {
+  module: (value) => CODE.test(value),
+  form: (value) => CODE.test(value),
   appVersion: text(32),
   errorCode: text(64),
   errorText: text(2000),
-} as const;
+};
 
 /** Подсказки по решению 11: каждое поле проверяется отдельно, неверное отбрасывается. */
 export function cleanHints(raw: unknown): WidgetHints {
@@ -41,33 +43,36 @@ export function cleanHints(raw: unknown): WidgetHints {
     const value = source[key];
     if (typeof value !== 'string') continue;
     const cleaned = value.replace(CONTROL, '').trim();
-    const parsed = z.safeParse(HINT_RULES[key], cleaned);
-    if (parsed.success) hints[key] = parsed.data;
+    if (HINT_RULES[key](cleaned)) hints[key] = cleaned;
   }
   return hints;
 }
 
-const contextToken = z.string().check(z.minLength(1), z.maxLength(8192), z.regex(/^[A-Za-z0-9_.-]+$/));
-
-const hostMessage = z.discriminatedUnion('type', [
-  z.object({ hub: z.literal(PROTOCOL_VERSION), type: z.literal('init'), token: contextToken, hints: z.optional(z.unknown()), theme: z.optional(z.unknown()), locale: z.optional(z.unknown()) }),
-  z.object({ hub: z.literal(PROTOCOL_VERSION), type: z.literal('token'), token: contextToken }),
-  z.object({ hub: z.literal(PROTOCOL_VERSION), type: z.literal('hints'), hints: z.unknown() }),
-]);
+const TOKEN = /^[A-Za-z0-9_.-]{1,8192}$/;
+const isToken = (value: unknown): value is string => typeof value === 'string' && TOKEN.test(value);
+/** Поля каждого типа сообщения хозяина: другие поля и другие типы не принимаются. */
+const HOST_FIELDS: Record<string, readonly string[]> = {
+  init: ['hub', 'type', 'token', 'hints', 'theme', 'locale'],
+  token: ['hub', 'type', 'token'],
+  hints: ['hub', 'type', 'hints'],
+};
 
 export type HostMessage =
   | { type: 'init'; token: string; hints: WidgetHints; theme: WidgetTheme | null }
   | { type: 'token'; token: string }
   | { type: 'hints'; hints: WidgetHints };
 
-/** Сообщение хозяина после проверки схемы. Неизвестный тип, другая версия, лишнее или неверное: null. */
+/** Сообщение хозяина после проверки схемы. Неизвестный тип, другая версия, лишнее поле или неверное значение: null. */
 export function parseHostMessage(data: unknown): HostMessage | null {
-  const parsed = z.safeParse(hostMessage, data);
-  if (!parsed.success) return null;
-  const message = parsed.data;
-  if (message.type === 'init')
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return null;
+  const message = data as Record<string, unknown>;
+  const fields = typeof message.type === 'string' && Object.hasOwn(HOST_FIELDS, message.type) ? HOST_FIELDS[message.type] : undefined;
+  if (message.hub !== PROTOCOL_VERSION || !fields || Object.keys(message).some((key) => !fields.includes(key))) return null;
+  if (message.type === 'init') {
+    if (!isToken(message.token)) return null;
     return { type: 'init', token: message.token, hints: cleanHints(message.hints), theme: message.theme === 'dark' || message.theme === 'light' ? message.theme : null };
-  if (message.type === 'token') return { type: 'token', token: message.token };
+  }
+  if (message.type === 'token') return isToken(message.token) ? { type: 'token', token: message.token } : null;
   return { type: 'hints', hints: cleanHints(message.hints) };
 }
 

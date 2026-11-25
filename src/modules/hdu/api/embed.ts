@@ -73,6 +73,55 @@ export async function requireEmbedActor(request: Request): Promise<EmbedContext>
   };
 }
 
+/** В запросе есть заголовок Authorization со схемой Bearer: это запрос виджета, сессия портала не читается. */
+export function hasBearer(request: Request): boolean {
+  return /^Bearer\s/i.test(request.headers.get('authorization') ?? '');
+}
+
+const UNAUTHENTICATED_HEADERS = { 'WWW-Authenticate': 'Bearer', 'Cache-Control': 'no-store' };
+
+/**
+ * Актор запроса виджета или готовый ответ отказа: 401 (страница просит у хозяина новый токен контекста) или 403.
+ * Для обработчиков, которые принимают и сессию портала, и токен виджета (загрузки, вложения).
+ */
+export async function embedRequestActor(request: Request): Promise<EmbedContext | { denied: Response }> {
+  try {
+    return await requireEmbedActor(request);
+  } catch (error) {
+    if (!(error instanceof HduError)) throw error;
+    if (error.code === 'forbidden') return { denied: problemResponse(403, 'forbidden', { 'Cache-Control': 'no-store' }) };
+    return { denied: problemResponse(401, 'unauthenticated', UNAUTHENTICATED_HEADERS) };
+  }
+}
+
+const EMBED_BODY_BYTES = 64 * 1024;
+
+/**
+ * Общая часть обработчиков API виджета (/api/embed/*, /api/suggest): токен виджета в заголовке Authorization (сессия
+ * портала и куки не читаются никогда), тело только JSON до 64 КБ, ответ без кеша. Кук обработчики не ставят.
+ * Организация и пользователь только из проверенного токена: тело запроса их не задаёт.
+ */
+export async function withEmbedRequest(request: Request, run: (ctx: EmbedContext, body: unknown) => Promise<Response>): Promise<Response> {
+  const embed = await embedRequestActor(request);
+  if ('denied' in embed) return embed.denied;
+  let body: unknown = null;
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    const type = request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+    if (type !== 'application/json') return problemResponse(415, 'invalid_input');
+    const text = await readLimited(request, EMBED_BODY_BYTES);
+    if (text === null) return problemResponse(413, 'too_large');
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return problemResponse(400, 'invalid_input');
+    }
+  }
+  const response = await run(embed, body);
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.delete('set-cookie');
+  return response;
+}
+
 type Exchange = { embedToken: string } | { denied: 'forbidden' } | { denied: 'rate_limited'; retryAfterSec: number };
 
 /** Обмен проверенного по подписи токена контекста. Отказы проверки бросают ContextRejected. */

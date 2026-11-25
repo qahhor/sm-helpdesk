@@ -2304,6 +2304,14 @@
         "exact": "Exact match for the error",
         "internal": "Staff only: explain it to the client in your own words",
         "insert": "Insert link into reply"
+      },
+      "context": {
+        "moduleCode": "Module in Smartup: {value}",
+        "screen": "Screen: {value}",
+        "version": "Smartup version: {value}",
+        "platform": "Platform: {value}",
+        "errorCode": "Error code: {value}",
+        "errorText": "Error text: {value}"
       }
     },
     "playbooks": {
@@ -3295,6 +3303,47 @@
       "toastTitle": "Something went wrong. Report it and I will look for a solution.",
       "toastReport": "Report",
       "toastDismiss": "Dismiss"
+    },
+    "panel": {
+      "title": "Smartup support",
+      "close": "Close the panel",
+      "tabs": "Support sections",
+      "tabReport": "Report",
+      "tabTickets": "My requests",
+      "waiting": "Connecting to Smartup.",
+      "offline": "No connection. The text is saved, I will send it when the network is back.",
+      "refused": "This page opens only from Smartup.",
+      "denied": "Support is not available to you. Contact the administrator of your organization.",
+      "expired": "The session has expired. Close the panel and open it again.",
+      "unavailable": "Support is not available right now. Try again later.",
+      "openPortal": "Open in the portal"
+    },
+    "report": {
+      "title": "Report an error",
+      "errorIn": "Error in the {module} module",
+      "error": "Error in Smartup",
+      "known": "We know this error",
+      "similar": "Looks like this was solved before",
+      "orgCount": "Seen by clients: {count}",
+      "openSolution": "Open the solution",
+      "notHelped": "Did not help, send a request",
+      "description": "What were you doing before the error?",
+      "descriptionHint": "A couple of sentences: which document you opened and what you clicked.",
+      "module": "Module",
+      "moduleNone": "Not sure",
+      "submit": "Send the request",
+      "sending": "Sending.",
+      "created": "Request {number} created. We will reply during working hours.",
+      "toTickets": "Open my requests",
+      "another": "Report another error",
+      "errors": {
+        "description": "Describe what you were doing before the error",
+        "failed": "Could not send. Check the connection and try again."
+      }
+    },
+    "solution": {
+      "back": "Back to the form",
+      "archived": "This solution was withdrawn. If the problem remains, send a request."
     }
   }
 }

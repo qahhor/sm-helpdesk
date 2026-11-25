@@ -11,6 +11,7 @@ import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
+import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
@@ -158,14 +159,18 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('kb.reconcile', polling, () => timedJob('kb.reconcile', async () => {
     const { articles, failed, deflections } = await reconcileSearchIndex(actor('kb.reconcile'));
     if (articles + deflections > 0) console.info(`Сверка индекса решений: переиндексировано ${articles}, без вектора осталось ${failed}, исходов подсказки старше 13 месяцев удалено ${deflections}`);
+    // Потерянные сигнатуры обращений последних трёх суток (0057, M7m).
+    const signatures = await repairTicketSignatures(actor('kb.reconcile'));
+    if (signatures.repaired > 0) console.info(`Сверка сигнатур: дописано ${signatures.repaired} из ${signatures.checked}`);
   }));
-  await boss.work('kb.translate', polling, ([job]) => timedJob('kb.translate', async () => {
+  // Номер попытки и предел повторов нужны задачам модели: failed ставится только после последней попытки (0057).
+  await boss.work('kb.translate', { ...polling, includeMetadata: true }, ([job]) => timedJob('kb.translate', async () => {
     // Машинный перевод решения (план M5, задача 6): модель вызывает только фоновый процесс (решение 3).
-    await runTranslationJob(actor('kb.translate'), job?.data);
+    await runTranslationJob(actor('kb.translate'), job?.data, job ? { retryCount: job.retryCount, retryLimit: job.retryLimit } : undefined);
   }));
-  await boss.work('kb.draft', polling, ([job]) => timedJob('kb.draft', async () => {
+  await boss.work('kb.draft', { ...polling, includeMetadata: true }, ([job]) => timedJob('kb.draft', async () => {
     // Черновик решения из закрытого обращения (план M5, задача 7): модель вызывает только фоновый процесс.
-    await runDraftJob(actor('kb.draft'), job?.data);
+    await runDraftJob(actor('kb.draft'), job?.data, job ? { retryCount: job.retryCount, retryLimit: job.retryLimit } : undefined);
   }));
   await boss.work('email.inbound', polling, ([job]) => timedJob('email.inbound', async () => {
     // В задаче только идентификатор письма: сведения о нём в базе, текст и файлы у почтового сервиса.

@@ -4,7 +4,8 @@ import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { type StaffContext, type TicketSignatureInput, type TicketSignatureRecorder, writeAudit } from '@/modules/hdc/api';
 import { stripClientData } from '@/modules/hda/api/redact';
-import { setTicketErrorSignatureTx } from '@/modules/hdt/api/solution-source';
+import { setTicketErrorSignatureTx, ticketsMissingSignature } from '@/modules/hdt/api/solution-source';
+import { SERVICE_ORG_ID } from '@/modules/hdu/pref';
 import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { articleByNumberTx } from '../core/editor';
 import { articleSignaturesTx, bindSignatureTx, type SignatureRow, noteSignatureTx, unbindSignatureTx } from '../core/signatures';
@@ -46,11 +47,46 @@ export const ticketSignatureRecorder: TicketSignatureRecorder = {
     });
     await withActor(SYSTEM, async (tx) => {
       await setTicketErrorSignatureTx(tx, { ticketId: input.ticketId, signature: found.signature });
-      await noteSignatureTx(tx, { signature: found.signature, code: found.code, sample, orgId: input.orgId, moduleId: input.moduleId });
+      await noteSignatureTx(tx, { signature: found.signature, code: found.code, sample, orgId: input.orgId, moduleId: input.moduleId, countOrg: input.countOrg ?? true });
     });
     return found.signature;
   },
 };
+
+/** Окно починки сигнатур: обращения не старше трёх суток и не моложе 10 минут (свежее ещё пишет свой процесс). */
+const REPAIR_WINDOW_MS = 3 * 86_400_000;
+const REPAIR_MIN_AGE_MS = 10 * 60_000;
+/** Сколько обращений чинится за один запуск: остальное догонит следующий. */
+const REPAIR_BATCH = 200;
+
+/**
+ * Починка потерянных сигнатур (0057, M7m), ночью вместе с kb.reconcile: обращение записано, а процесс упал до записи
+ * сигнатуры. Берутся обращения окна без сигнатуры со строкой, похожей на ошибку; сигнатура пишется так же, как при
+ * создании. Обращение и сигнатура пишутся одной транзакцией, поэтому повтор ничего не удваивает.
+ */
+export async function repairTicketSignatures(system: SystemActor, now: Date = new Date()): Promise<{ checked: number; repaired: number }> {
+  const rows = await ticketsMissingSignature(system, {
+    from: new Date(now.getTime() - REPAIR_WINDOW_MS),
+    to: new Date(now.getTime() - REPAIR_MIN_AGE_MS),
+    excludeOrgId: SERVICE_ORG_ID,
+    limit: REPAIR_BATCH,
+  });
+  let repaired = 0;
+  for (const row of rows) {
+    const context = row.context && (row.context.errorCode || row.context.errorText) ? { errorCode: row.context.errorCode, errorText: row.context.errorText } : null;
+    const signature = await ticketSignatureRecorder.recordTicket({
+      ticketId: row.ticketId,
+      orgId: row.orgId,
+      authorId: row.authorId,
+      description: row.description,
+      context,
+      moduleId: row.moduleId,
+      countOrg: !row.senderUnconfirmed,
+    });
+    if (signature) repaired++;
+  }
+  return { checked: rows.length, repaired };
+}
 
 // --- Привязка в редакторе (FR-SOL-07) ---
 

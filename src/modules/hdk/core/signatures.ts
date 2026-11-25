@@ -19,9 +19,9 @@ const clipSample = (input: SignatureSample) => ({
 
 /**
  * Встреча сигнатуры в новом обращении (решение 8): строка сигнатуры (пример с первой встречи), организация, число
- * различных организаций и встреч. Транзакция системы.
+ * различных организаций и встреч. countOrg: ложь, и организация не прибавляется. Транзакция системы.
  */
-export async function noteSignatureTx(tx: Tx, input: SignatureSample & { orgId: string; moduleId: string | null }): Promise<string> {
+export async function noteSignatureTx(tx: Tx, input: SignatureSample & { orgId: string; moduleId: string | null; countOrg?: boolean }): Promise<string> {
   const sample = clipSample(input);
   const [row] = await tx
     .insert(kbErrorSignatures)
@@ -38,6 +38,8 @@ export async function noteSignatureTx(tx: Tx, input: SignatureSample & { orgId: 
     })
     .returning({ signatureId: kbErrorSignatures.signatureId });
   const signatureId = (row as { signatureId: string }).signatureId;
+  // Неподтверждённый отправитель письма: встреча считается, организация нет (0057, M7m).
+  if (input.countOrg === false) return signatureId;
   await tx
     .insert(kbSignatureOrgs)
     .values({ signatureId, orgId: input.orgId })

@@ -17,6 +17,11 @@ export type TicketSignatureInput = {
   /** Код и текст ошибки из контекста виджета (M6). На портале пусто: строка ошибки ищется в описании. */
   context: { errorCode?: string; errorText?: string } | null;
   moduleId: string | null;
+  /**
+   * Прибавлять ли организацию к числу клиентов сигнатуры. Ложь у письма неподтверждённого отправителя с домена
+   * организации: его письмо не подтверждает, что ошибка встретилась у этого клиента (0057, M7m). По умолчанию истина.
+   */
+  countOrg?: boolean;
 };
 
 export interface TicketSignatureRecorder {

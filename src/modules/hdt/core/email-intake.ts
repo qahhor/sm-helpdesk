@@ -402,7 +402,10 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
   // Сигнатура ошибки из текста письма (план M5, задача 8) после фиксации, до разбора правил. Письмо неизвестного
   // отправителя (служебная организация) сигнатуру не получает: оно не прибавило бы организацию к числу клиентов.
   const fresh = created as { ticketId: string; body: string } | null;
-  if (result === 'new' && fresh && sender.orgId !== SERVICE_ORG_ID) await recordTicketSignature({ ticketId: fresh.ticketId, orgId: sender.orgId, authorId: sender.userId, description: fresh.body, context: null, moduleId: null });
+  // Неподтверждённый отправитель с домена организации сигнатуру получает, но организацию к числу клиентов не
+  // прибавляет: письмо с её домена ещё не значит, что ошибка встретилась у неё (0057, M7m).
+  if (result === 'new' && fresh && sender.orgId !== SERVICE_ORG_ID)
+    await recordTicketSignature({ ticketId: fresh.ticketId, orgId: sender.orgId, authorId: sender.userId, description: fresh.body, context: null, moduleId: null, countOrg: !sender.senderUnconfirmed });
   await afterCommit(attached ? queued : []);
   return result;
 }

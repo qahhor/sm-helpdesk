@@ -7,7 +7,7 @@ import { solutionEditorState } from '@/modules/hdk/api/editor';
 import { createSolutionFromTicket } from '@/modules/hdk/api/from-ticket';
 import { publishSolution } from '@/modules/hdk/api/publish';
 import { runIndexJob } from '@/modules/hdk/api/search-jobs';
-import { bindSolutionSignature, solutionSignatures, unbindSolutionSignature } from '@/modules/hdk/api/signatures';
+import { bindSolutionSignature, repairTicketSignatures, solutionSignatures, unbindSolutionSignature } from '@/modules/hdk/api/signatures';
 import { suggestForClient } from '@/modules/hdk/api/suggest';
 import { setEmbedderForTests } from '@/modules/hdk/embeddings';
 import { createStubEmbedder } from '@/modules/hdk/embeddings/stub';
@@ -187,4 +187,42 @@ test('решение из обращения получает сигнатуру
   await pools.root.query(`update hdt_tickets set status = 'resolved' where ticket_id = $1`, [again.ticketId]);
   await createSolutionFromTicket(staffCtx(f.l1), { number: again.number }, () => LABELS, newId);
   expect((await signatureRow(signature)).article_id).toBe(article);
+});
+
+// --- Повторная проверка M5 (docs/decisions/0057, M7m) ---
+
+/** Процесс упал между записью обращения и записью сигнатуры: у обращения сигнатуры нет, встреч нет. */
+async function lostSignature(ticketId: string, age: string) {
+  const client = await pools.root.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local session_replication_role = replica');
+    await client.query(`update hdt_tickets set error_signature = null, created_on = now() - $2::interval where ticket_id = $1`, [ticketId, age]);
+    await client.query('commit');
+  } finally {
+    client.release();
+  }
+  await pools.root.query(`delete from hdk_signature_orgs`);
+  await pools.root.query(`delete from hdk_error_signatures`);
+}
+
+test('M7m: сверка дописывает потерянную сигнатуру недавнего обращения; старое, свежее и обращение без строки ошибки не трогает', async () => {
+  const lost = await report(f.aUser, 'Не проводится.\nORA-20001: Документ №4512 от 12.03.2026 не найден');
+  const old = await report(f.bUser, 'ORA-20002: Склад закрыт для документа №1');
+  const plain = await report(f.aAdmin, 'Просто вопрос без ошибки');
+  await lostSignature(lost.ticketId, '2 hours');
+  await lostSignature(old.ticketId, '30 days');
+  const fresh = await report(f.aAdmin, 'ORA-20003: Касса №2 не открыта');
+  await lostSignature(fresh.ticketId, '1 minute');
+  const result = await repairTicketSignatures(SYSTEM);
+  expect(result.repaired).toBe(1);
+  const signature = await ticketSignature(lost.ticketId);
+  expect(signature).toMatch(/^[0-9a-f]{32}$/);
+  expect(await signatureRow(signature!)).toMatchObject({ org_count: 1, occurrences: 1 });
+  expect(await ticketSignature(old.ticketId)).toBeNull();
+  expect(await ticketSignature(fresh.ticketId)).toBeNull();
+  expect(await ticketSignature(plain.ticketId)).toBeNull();
+  // Повтор ничего не удваивает.
+  expect((await repairTicketSignatures(SYSTEM)).repaired).toBe(0);
+  expect(await signatureRow(signature!)).toMatchObject({ org_count: 1, occurrences: 1 });
 });

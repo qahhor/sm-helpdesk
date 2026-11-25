@@ -108,3 +108,22 @@ test('статический запрет встраивания не стави
       expect.arrayContaining(['X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy']),
     );
 });
+
+test('страницы виджета и мобильного приложения без Referer, загрузчик виджета в кеше 5 минут (план M6, задачи 4 и 7)', async () => {
+  const { staticHeaderRules } = await import('@/security/csp');
+  const { getPathMatch } = await import('next/dist/shared/lib/router/utils/path-match');
+  const rules = staticHeaderRules(['ru', 'uz', 'en']).map((rule) => ({ ...rule, match: getPathMatch(rule.source, { strict: true, removeUnnamedParams: true }) }));
+  // Next.js применяет правила по порядку: значение того же заголовка из правила ниже заменяет верхнее.
+  const last = (path: string, key: string) =>
+    rules
+      .filter((rule) => rule.match(path) !== false)
+      .flatMap((rule) => rule.headers)
+      .filter((header) => header.key === key)
+      .at(-1)?.value;
+  for (const path of ['/ru/m/report', '/uz/m/report', '/ru/embed/report', '/en/embed/tickets/12'])
+    expect(last(path, 'Referrer-Policy'), path).toBe('no-referrer');
+  for (const path of ['/ru', '/ru/tickets/new', '/api/embed/session', '/ru/mobile'])
+    expect(last(path, 'Referrer-Policy'), path).toBe('strict-origin-when-cross-origin');
+  expect(last('/widget/v1/hub-widget.js', 'Cache-Control')).toBe('public, max-age=300');
+  expect(last('/ru/tickets', 'Cache-Control')).toBeUndefined();
+});

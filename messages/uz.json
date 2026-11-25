@@ -3287,5 +3287,14 @@
         "meaning": "Qoldiq yetishmaydi"
       }
     }
+  },
+  "widget": {
+    "loader": {
+      "button": "Muammo haqida xabar berish",
+      "panelTitle": "Smartup qo'llab-quvvatlash",
+      "toastTitle": "Xato yuz berdi. Xabar bering, yechim qidiraman.",
+      "toastReport": "Xabar berish",
+      "toastDismiss": "Yashirish"
+    }
   }
 }

@@ -3287,5 +3287,14 @@
         "meaning": "Не хватает остатка"
       }
     }
+  },
+  "widget": {
+    "loader": {
+      "button": "Сообщить о проблеме",
+      "panelTitle": "Поддержка Smartup",
+      "toastTitle": "Произошла ошибка. Сообщите, и я поищу решение.",
+      "toastReport": "Сообщить",
+      "toastDismiss": "Скрыть"
+    }
   }
 }

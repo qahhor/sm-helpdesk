@@ -12,6 +12,7 @@ import { findForbiddenApis } from './forbidden-apis.mjs';
 import { findMissingServerOnly } from './server-only.mjs';
 import { findUiRuleViolations } from './ui-rules.mjs';
 import { fontsOutOfDate } from '../fonts/build.mjs';
+import { widgetOutOfDate } from '../widget-build.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -70,6 +71,11 @@ const extraChecks = [
     // файлы шрифта для веба собраны из шрифта пакета бренда
     name: 'fonts',
     run: async () => (await fontsOutOfDate()).map((name) => `${name}: выполните pnpm fonts:build`),
+  },
+  {
+    // загрузчик виджета собран из исходника, текстов и токенов (план M6, решение 9)
+    name: 'widget',
+    run: () => widgetOutOfDate(),
   },
   {
     // файлы сообщений: полнота, ICU, запрещённые слова

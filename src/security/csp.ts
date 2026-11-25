@@ -112,9 +112,14 @@ export function staticHeaderRules(locales: readonly string[]): { source: string;
   if (!locales.every((locale) => /^[a-z]{2}$/.test(locale))) throw new Error('CSP: код языка из двух строчных букв');
   const embed = `(?:(?:${locales.join('|')})/)?embed(?:/.*)?`;
   const [csp, ...common] = STATIC_SECURITY_HEADERS;
+  // Страницы виджета и мобильного приложения (план M6, задачи 4 и 7): без Referer. Правило стоит ниже общего, и Next.js
+  // берёт его значение того же заголовка. Загрузчик виджета: кеш 5 минут, данных клиентов в нём нет (решение 9).
+  const widgetPages = `(?:${locales.join('|')})/(?:embed|m)(?:/.*)?`;
   return [
     { source: '/:path*', headers: [...common] },
     { source: `/:path((?!${embed}$).*)`, headers: [csp] },
     { source: `/:path(${embed})`, headers: [EMBED_STATIC_CSP] },
+    { source: `/:path(${widgetPages})`, headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+    { source: '/widget/v1/:file*', headers: [{ key: 'Cache-Control', value: 'public, max-age=300' }] },
   ];
 }

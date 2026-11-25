@@ -3287,5 +3287,14 @@
         "meaning": "Not enough stock"
       }
     }
+  },
+  "widget": {
+    "loader": {
+      "button": "Report a problem",
+      "panelTitle": "Smartup support",
+      "toastTitle": "Something went wrong. Report it and I will look for a solution.",
+      "toastReport": "Report",
+      "toastDismiss": "Dismiss"
+    }
   }
 }

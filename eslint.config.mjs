@@ -157,6 +157,8 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     // Собранная команда консоли (scripts/build-cli.mjs).
     'dist/**',
+    // Собранный загрузчик виджета (pnpm widget:build): исходник src/widget/loader.js проверяется.
+    'public/widget/**',
   ]),
 ]);
 

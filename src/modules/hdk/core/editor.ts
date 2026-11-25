@@ -59,6 +59,8 @@ export type VersionRow = {
   doc: unknown;
   isMachine: boolean;
   revision: string;
+  /** У перевода: версия оригинала, с которой он сделан. */
+  sourceVersionId: string | null;
   createdBy: string | null;
   modifiedOn: Date;
 };
@@ -71,6 +73,7 @@ const versionColumns = {
   doc: kbArticleVersions.doc,
   isMachine: kbArticleVersions.isMachine,
   revision: sql<string>`${kbArticleVersions.modifiedOn}::text`,
+  sourceVersionId: kbArticleVersions.sourceVersionId,
   createdBy: kbArticleVersions.createdBy,
   modifiedOn: kbArticleVersions.modifiedOn,
 };
@@ -113,7 +116,7 @@ export async function insertDraftTx(
   tx: Tx,
   articleId: string,
   locale: Locale,
-  content: { title: string; doc: SolutionDoc; isMachine: boolean },
+  content: { title: string; doc: SolutionDoc; isMachine: boolean; sourceVersionId?: string | null },
 ): Promise<{ versionId: string; revision: string }> {
   const number = await nextNumberTx(tx, articleId, locale);
   const [row] = await tx
@@ -125,6 +128,7 @@ export async function insertDraftTx(
       title: content.title,
       doc: content.doc,
       isMachine: content.isMachine,
+      sourceVersionId: content.sourceVersionId ?? null,
     })
     .returning({
       versionId: kbArticleVersions.versionId,
@@ -187,6 +191,8 @@ export async function saveDraftTx(tx: Tx, input: SaveDraft): Promise<{ versionId
     title: input.title,
     doc: input.doc,
     isMachine: false,
+    // Перевод помнит версию оригинала, с которой сделан (подсветка изменившихся блоков, UX-W-06).
+    sourceVersionId: base.sourceVersionId,
   });
 }
 

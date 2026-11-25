@@ -4,7 +4,8 @@ import { withActor } from '@/db/with-actor';
 import { LOCALES, type Locale } from '@/i18n/locales';
 import type { StaffContext } from '@/modules/hdc/api';
 import { articleByNumberTx, currentVersion, foreignFileIdsTx, type ListRow, listArticlesTx, restoreVersionTx, saveDraftTx, updateMetaTx, versionByIdTx, versionsTx } from '../core/editor';
-import { type Review, reviewTx } from '../core/publish';
+import { originalPublishedTx, type Review, reviewTx } from '../core/publish';
+import { changedSinceTx, languagesTx, type LanguageRow } from '../core/translations';
 import { safeParseSolutionDoc, solutionDocSchema, type SolutionDoc } from '../doc-schema';
 import { HdkError } from '../error';
 import { readAllowedDomains } from './publish';
@@ -26,6 +27,8 @@ import {
 
 export type { ListRow as SolutionListRow } from '../core/editor';
 export type { Review as SolutionReview } from '../core/publish';
+export type { LanguageRow as SolutionLanguage } from '../core/translations';
+export type { InvariantIssue } from '../translation';
 
 function parse<T>(schema: z.ZodType<T>, input: unknown): T {
   const parsed = schema.safeParse(input);
@@ -113,6 +116,10 @@ export type SolutionEditorState = {
   canPublish: boolean;
   /** Находки FR-SOL-04 и панель готовности открытой версии (UX-W-07). */
   review: Review;
+  /** Языки статьи: оригинал и переводы с их состоянием (UX-W-06). */
+  languages: LanguageRow[];
+  /** Для перевода: опубликованный оригинал рядом с переводом и его блоки, изменившиеся с версии перевода. */
+  original: { title: string; doc: SolutionDoc; changedBlockIds: string[] } | null;
 };
 
 /** Состояние редактора по номеру решения. Языки переводов появятся в задаче 6: пока язык оригинала. */
@@ -124,6 +131,7 @@ export async function solutionEditorState(ctx: StaffContext, input: unknown): Pr
     if (!article) return null;
     const lang = data.locale ?? article.originalLocale;
     const versions = await versionsTx(tx, article.articleId, lang);
+    const original = lang === article.originalLocale ? null : await originalPublishedTx(tx, article);
     const current = currentVersion(versions);
     if (!current) return null;
     const doc = safeParseSolutionDoc(current.doc);
@@ -157,7 +165,9 @@ export async function solutionEditorState(ctx: StaffContext, input: unknown): Pr
       })),
       canWrite: canWriteSolutions(ctx),
       canPublish: canPublishSolutions(ctx),
-      review: await reviewTx(tx, article, { title: current.title, doc: safeDoc, isMachine: current.isMachine }, allowedDomains),
+      review: await reviewTx(tx, article, { title: current.title, doc: safeDoc, isMachine: current.isMachine }, allowedDomains, original),
+      languages: await languagesTx(tx, article),
+      original: original ? { title: original.title, doc: original.doc, changedBlockIds: await changedSinceTx(tx, article.articleId, current.sourceVersionId, original.doc) } : null,
     };
   });
 }
@@ -189,7 +199,8 @@ export async function saveSolutionDraft(ctx: StaffContext, input: unknown): Prom
       if (saved === 'conflict') return { status: 'conflict' } as const;
       // Находки и готовность по сохранённому тексту: редактор подсвечивает их после каждого сохранения.
       const isMachine = (await versionByIdTx(tx, article.articleId, data.locale, saved.versionId))?.isMachine ?? false;
-      return { status: 'saved', ...saved, review: await reviewTx(tx, article, { title: data.title, doc: data.doc, isMachine }, allowedDomains) } as const;
+      const original = data.locale === article.originalLocale ? null : await originalPublishedTx(tx, article);
+      return { status: 'saved', ...saved, review: await reviewTx(tx, article, { title: data.title, doc: data.doc, isMachine }, allowedDomains, original) } as const;
     });
   } catch (error) {
     // Два первых сохранения после публикации одновременно: второе упирается в единственный черновик на язык.
@@ -232,4 +243,24 @@ export async function saveSolutionMeta(ctx: StaffContext, input: unknown): Promi
     if (pgCode(error) === '23503') throw new HdkError('invalid_input');
     throw error;
   }
+}
+
+
+export type SolutionLanguages = { number: number; originalLocale: Locale; archived: boolean; originalPublished: boolean; canWrite: boolean; languages: LanguageRow[] };
+
+/** Языки решения для переключателя и экрана "перевода пока нет" (UX-W-06). */
+export async function solutionLanguages(ctx: StaffContext, input: unknown): Promise<SolutionLanguages | null> {
+  const data = parse(z.strictObject({ number }), input);
+  return withActor(ctx.actor, async (tx) => {
+    const article = await articleByNumberTx(tx, data.number);
+    if (!article) return null;
+    return {
+      number: article.number,
+      originalLocale: article.originalLocale,
+      archived: article.status === 'archived',
+      originalPublished: (await originalPublishedTx(tx, article)) !== null,
+      canWrite: canWriteSolutions(ctx),
+      languages: await languagesTx(tx, article),
+    };
+  });
 }

@@ -8,6 +8,7 @@ import { bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, crea
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
+import { runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
@@ -151,6 +152,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Публикация ставит задачу после фиксации (план M5, задача 4). Строку индекса и вектор пишет задача 9; до неё
     // задача только принимает идентификатор и ничего не меняет, ночная сверка kb.reconcile задачи 9 найдёт опубликованное без строки индекса.
     kbIndexJob.parse(job?.data);
+  }));
+  await boss.work('kb.translate', polling, ([job]) => timedJob('kb.translate', async () => {
+    // Машинный перевод решения (план M5, задача 6): модель вызывает только фоновый процесс (решение 3).
+    await runTranslationJob(actor('kb.translate'), job?.data);
   }));
   await boss.work('email.inbound', polling, ([job]) => timedJob('email.inbound', async () => {
     // В задаче только идентификатор письма: сведения о нём в базе, текст и файлы у почтового сервиса.

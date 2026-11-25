@@ -2551,7 +2551,8 @@
         "invalid_input": "Check the fields and try again.",
         "not_found": "Solution or version not found.",
         "meta": "Could not save the module and visibility. Try again.",
-        "metaForbidden": "Only second line, Customer Care or an admin can open a published solution to clients."
+        "metaForbidden": "Only second line, Customer Care or an admin can open a published solution to clients.",
+        "no_original": "Publish the original first: translations are made from the published text."
       },
       "template": {
         "what": "What the user sees",
@@ -2664,6 +2665,47 @@
         "confirm": "Yes, remove from the portal",
         "submit": "Archive",
         "done": "Solution archived."
+      },
+      "translations": {
+        "tabsLabel": "Solution languages",
+        "original": "original",
+        "statuses": {
+          "machine": "Machine",
+          "reviewed": "Reviewed",
+          "outdated": "Outdated",
+          "draft": "Draft",
+          "none": "No translation"
+        },
+        "emptyTitle": "No {language} translation yet",
+        "pending": "The translation is being prepared. The page will refresh by itself.",
+        "ai": {
+          "failed": "AI translation failed. The portal will try again, or you can translate it yourself.",
+          "limited": "The daily AI call limit is used up. Translate it yourself or try tomorrow.",
+          "unavailable": "AI is not connected. Translate it yourself."
+        },
+        "translateAi": "Translate with AI",
+        "translateAiAgain": "Translate with AI again",
+        "translateAiHint": "A new machine translation replaces the current translation draft.",
+        "translateManual": "Translate myself",
+        "started": "Translation draft created from the original.",
+        "requested": "AI translation queued.",
+        "originalTitle": "Original: {language}",
+        "changed": "Changed in the original",
+        "changedHint": "{count, plural, one {# block of the original changed} other {# blocks of the original changed}} after translation: they are highlighted.",
+        "machineHint": "AI prepared this translation. Read it next to the original.",
+        "confirm": "Translation reviewed",
+        "invariants": {
+          "title": "The translation differs from the original",
+          "hint": "A machine translation with differences is not published until you review it.",
+          "kinds": {
+            "links": "Links",
+            "numbers": "Numbers",
+            "quotes": "Quoted fragments",
+            "steps": "Number of steps"
+          },
+          "original": "In the original",
+          "translation": "In the translation"
+        }
       }
     }
   },

@@ -335,7 +335,7 @@ function WorkspaceBody({
       return 'published' as const;
     }
     if (outcome.status === 'not_ready') {
-      setReview({ findings: outcome.findings, readiness: outcome.readiness, filesNotClean: outcome.filesNotClean });
+      setReview({ findings: outcome.findings, readiness: outcome.readiness, filesNotClean: outcome.filesNotClean, invariants: outcome.invariants });
       return 'not_ready' as const;
     }
     return 'conflict' as const;

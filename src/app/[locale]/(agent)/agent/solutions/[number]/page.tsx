@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { solutionEditorState } from '@/modules/hdk/api/editor';
+import { isLocale } from '@/i18n/locales';
+import { solutionEditorState, solutionLanguages } from '@/modules/hdk/api/editor';
 import { listActiveModules } from '@/modules/hdr/api';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -14,6 +15,7 @@ import type { SolutionEditorLabels } from '@/ui/doc/editor/SolutionEditor';
 import type { ScreenshotLabels } from '@/ui/doc/ScreenshotMarkup';
 import { archiveAction, restoreVersionAction } from '../actions';
 import type { ReviewLabels } from './ReviewPanel';
+import { LanguageTabs, TranslationControls } from './Languages';
 import { SolutionWorkspace, type WorkspaceLabels } from './SolutionWorkspace';
 
 // Редактор решения (план M5, задача 3; UX-W-01..05): документ с тремя блоками формы, модуль, флаг "только через
@@ -66,23 +68,53 @@ const SCREENSHOT_KEYS = [
   'notImage',
   'canvas',
 ] as const satisfies readonly (keyof ScreenshotLabels)[];
-const ERRORS = new Set(['forbidden', 'invalid_input', 'not_found']);
+const ERRORS = new Set(['forbidden', 'invalid_input', 'not_found', 'no_original']);
 const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link'] as const;
 
-export default async function SolutionEditorPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<{ done?: string; error?: string }> }) {
+export default async function SolutionEditorPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<{ done?: string; error?: string; locale?: string }> }) {
   const staff = await requireStaffActor();
   const { number } = await params;
   if (!/^\d{1,12}$/.test(number)) notFound();
-  const state = await solutionEditorState(staff, { number });
-  if (!state) notFound();
-  const { done, error } = await searchParams;
+  const { done, error, locale: requested } = await searchParams;
+  const lang = requested && isLocale(requested) ? requested : undefined;
+  const state = await solutionEditorState(staff, { number, ...(lang ? { locale: lang } : {}) });
   const t = await getTranslations('agent');
   const s = await getTranslations('agent.solutions');
+  if (!state) {
+    // Языка у решения ещё нет: экран "перевода пока нет" с кнопками перевода (UX-W-06).
+    const langs = lang ? await solutionLanguages(staff, { number }) : null;
+    if (!langs || !lang || lang === langs.originalLocale) notFound();
+    const row = langs.languages.find((l) => l.locale === lang);
+    return (
+      <>
+        <PageHeader
+          title={s('translations.emptyTitle', { language: s(`locales.${lang}`) })}
+          breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: s('title'), href: '/agent/solutions' }, { label: s('numberLabel', { number: langs.number }) }]}
+          breadcrumbsLabel={t('breadcrumbs')}
+        />
+        <div className="flex flex-col gap-4" data-testid="translation-start">
+          <LanguageTabs number={langs.number} current={lang} languages={langs.languages} />
+          {done === 'requested' && <Alert tone="success">{s('translations.requested')}</Alert>}
+          {error && ERRORS.has(error) && <Alert tone="danger">{s(`errors.${error}`)}</Alert>}
+          {langs.archived ? (
+            <Alert tone="info">{s('archivedNotice')}</Alert>
+          ) : !langs.originalPublished ? (
+            <Alert tone="info">{s('errors.no_original')}</Alert>
+          ) : (
+            <TranslationControls number={langs.number} locale={lang} aiStatus={row?.aiStatus ?? null} canWrite={langs.canWrite} hasDraft={false} />
+          )}
+        </div>
+      </>
+    );
+  }
   const toolbar = await getTranslations('dev.editor.toolbar');
   const locale = await getLocale();
   const format = await getFormatter();
   const modules = await listActiveModules(staff.actor, locale);
   const filePath = `/${locale}/agent/solutions/${state.number}/files`;
+  const translation = state.locale !== state.originalLocale;
+  const languageRow = state.languages.find((l) => l.locale === state.locale);
+  const viewLabels = { warning: s('view.warning'), info: s('view.info'), step: (n: number) => s('view.step', { n }) };
   const editorLabels = Object.fromEntries(TOOLBAR_KEYS.map((key) => [key, toolbar(key)])) as SolutionEditorLabels;
   const screenshot = Object.fromEntries(SCREENSHOT_KEYS.map((key) => [key, s(`screenshot.${key}`)])) as ScreenshotLabels;
   const labels: WorkspaceLabels = {
@@ -116,8 +148,8 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
       show: s('review.show'),
       blocking: s('review.blocking'),
       filesNotClean: s('review.filesNotClean'),
-      machine: s('review.machine'),
-      textRead: s('review.textRead'),
+      machine: translation ? s('translations.machineHint') : s('review.machine'),
+      textRead: translation ? s('translations.confirm') : s('review.textRead'),
       confirm: s('review.confirm'),
       publish: s('review.publish'),
       publishing: s('review.publishing'),
@@ -126,6 +158,13 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
       notReady: s('review.notReady'),
       conflict: s('review.conflict'),
       failed: s('review.failed'),
+      invariants: {
+        title: s('translations.invariants.title'),
+        hint: s('translations.invariants.hint'),
+        kinds: { links: s('translations.invariants.kinds.links'), numbers: s('translations.invariants.kinds.numbers'), quotes: s('translations.invariants.kinds.quotes'), steps: s('translations.invariants.kinds.steps') },
+        original: s('translations.invariants.original'),
+        translation: s('translations.invariants.translation'),
+      },
     },
   };
   const title = state.current.title || s('untitled');
@@ -154,10 +193,45 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
         {done === 'restored' && <Alert tone="success">{s('versions.restored')}</Alert>}
         {done === 'published' && <Alert tone="success">{s('review.published')}</Alert>}
         {done === 'archived' && <Alert tone="success">{s('archive.done')}</Alert>}
+        {done === 'started' && <Alert tone="success">{s('translations.started')}</Alert>}
+        {done === 'requested' && <Alert tone="success">{s('translations.requested')}</Alert>}
+        <LanguageTabs number={state.number} current={state.locale} languages={state.languages} />
+        {translation && !state.archived && (
+          <TranslationControls number={state.number} locale={state.locale} aiStatus={languageRow?.aiStatus ?? null} canWrite={state.canWrite} hasDraft={state.current.state === 'draft'} />
+        )}
         {error && ERRORS.has(error) && <Alert tone="danger">{s(`errors.${error}`)}</Alert>}
         {state.archived && <Alert tone="info">{s('archivedNotice')}</Alert>}
         {!state.canWrite && <Alert tone="info">{s('readOnly')}</Alert>}
 
+        <div className={translation && state.original ? 'grid gap-4 laptop:grid-cols-2' : 'contents'}>
+          {translation && state.original && (
+            <section aria-labelledby="solution-original" className="flex flex-col gap-2" data-testid="solution-original">
+              <h2 id="solution-original" className="text-lg font-semibold">
+                {s('translations.originalTitle', { language: s(`locales.${state.originalLocale}`) })}
+              </h2>
+              <p className="font-semibold break-words" lang={state.originalLocale}>
+                {state.original.title}
+              </p>
+              {state.original.changedBlockIds.length > 0 && <Alert tone="info">{s('translations.changedHint', { count: state.original.changedBlockIds.length })}</Alert>}
+              {/* По абзацам: каждый блок оригинала отдельно, изменившиеся с версии перевода подсвечены (UX-W-06). */}
+              <Card className="flex flex-col gap-2 p-4" lang={state.originalLocale}>
+                {state.original.doc.blocks.map((block) => {
+                  const changed = state.original!.changedBlockIds.includes(block.attrs.id);
+                  return (
+                    <div
+                      key={block.attrs.id}
+                      data-block-id={block.attrs.id}
+                      data-changed={changed ? 'yes' : 'no'}
+                      className={changed ? 'rounded-control border-s-4 border-warning bg-card-soft ps-2' : undefined}
+                    >
+                      {changed && <span className="text-xs font-medium text-secondary-foreground">{s('translations.changed')}</span>}
+                      <DocView doc={{ version: 1, blocks: [block] }} labels={viewLabels} imageSrc={(fileId) => `${filePath}/${fileId}`} />
+                    </div>
+                  );
+                })}
+              </Card>
+            </section>
+          )}
         {state.canWrite ? (
           <SolutionWorkspace
             // Новая версия строки (возврат версии, публикация) заново создаёт редактор с её текстом.
@@ -178,7 +252,7 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
             meta={{
               moduleId: state.moduleId,
               audience: state.audience,
-              editable: !state.archived,
+              editable: !state.archived && !translation,
             }}
             labels={labels}
             filePath={filePath}
@@ -200,8 +274,9 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
             />
           </Card>
         )}
+        </div>
 
- {state.canPublish && published && !state.archived && (
+ {state.canPublish && published && !state.archived && !translation && (
           <form action={archiveAction} className="flex flex-wrap items-center gap-3" data-testid="solution-archive">
             <input type="hidden" name="number" value={state.number} />
             <p className="text-sm text-secondary-foreground">{s('archive.hint')}</p>

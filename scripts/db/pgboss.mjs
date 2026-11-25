@@ -34,6 +34,10 @@ export const QUEUES = {
   // Поисковый индекс после публикации (план M5, задача 4 ставит, задача 9 считает вектор). Одна задача на решение,
   // ночная сверка kb.reconcile найдёт пропущенное.
   'kb.index': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
+  // Задачи модели (план M5, задачи 6 и 7, решение 3): машинный перевод языка решения и черновик из обращения. Повтор
+  // при сбое модели с растущей паузой; повторную постановку при уже поставленной задаче отсекает состояние ai_status.
+  'kb.translate': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
+  'kb.draft': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   // Разбор входящего письма (веха M4, решение 10): одна задача на письмо, повторы при сбое сервиса почты.
   'email.inbound': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
 };

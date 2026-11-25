@@ -15,6 +15,9 @@ export const ARTICLE_STATUSES = ['active', 'archived'] as const;
 export type ArticleStatus = (typeof ARTICLE_STATUSES)[number];
 export const VERSION_STATES = ['draft', 'published', 'superseded'] as const;
 export type VersionState = (typeof VERSION_STATES)[number];
+/** Состояние последней задачи модели для языка статьи (миграция 0073; план M5, задачи 6 и 7). */
+export const AI_JOB_STATUSES = ['pending', 'ready', 'not_confident', 'failed', 'limited', 'unavailable', 'disabled', 'skipped'] as const;
+export type AiJobStatus = (typeof AI_JOB_STATUSES)[number];
 export const TRANSLATION_STATUSES = ['machine', 'reviewed', 'outdated'] as const;
 export type TranslationStatus = (typeof TRANSLATION_STATUSES)[number];
 export const FILE_MIMES = ['image/png', 'image/jpeg', 'image/webp'] as const;

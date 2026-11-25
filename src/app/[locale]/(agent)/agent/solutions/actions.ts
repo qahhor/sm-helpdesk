@@ -11,6 +11,7 @@ import { isHdkError } from '@/modules/hdk/api/errors';
 import { archiveSolution, markSolutionTextRead, publishSolution, type PublishOutcome } from '@/modules/hdk/api/publish';
 import { completeSolutionFile, presignSolutionFile, type PresignedFile, solutionFileStatus } from '@/modules/hdk/api/files';
 import type { FileScanStatus } from '@/modules/hdk/pref';
+import { requestMachineTranslation, startManualTranslation } from '@/modules/hdk/api/translations';
 import { requireStaffActor } from '@/modules/hdu/api';
 
 // Действия раздела "Решения" (план M5, задача 3). Права, данные и версию строки проверяет модуль hdk; страница
@@ -138,4 +139,25 @@ export async function archiveAction(form: FormData): Promise<void> {
     redirect(`/${page}/agent/solutions/${safeNumber}?error=${error.code}`);
   }
   redirect(`/${page}/agent/solutions/${safeNumber}?done=archived`);
+}
+
+/** Перевод (задача 6, UX-W-06): "Перевести с AI" ставит задачу, "Перевести самому" создаёт черновик копией оригинала. */
+export async function translationAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const page = await getLocale();
+  const number = String(form.get('number') ?? '');
+  const locale = String(form.get('locale') ?? '');
+  const safeNumber = /^\d{1,12}$/.test(number) ? number : '';
+  const safeLocale = isLocale(locale) ? locale : '';
+  const back = `/${page}/agent/solutions/${safeNumber}?locale=${safeLocale}`;
+  let done: string;
+  try {
+    const run = form.get('mode') === 'ai' ? requestMachineTranslation : startManualTranslation;
+    const result = await run(staff, { number, locale });
+    done = result === 'no_original' ? 'error=no_original' : `done=${form.get('mode') === 'ai' ? 'requested' : 'started'}`;
+  } catch (error) {
+    if (!isHdkError(error)) throw error;
+    redirect(`${back}&error=${error.code}`);
+  }
+  redirect(`${back}&${done}`);
 }

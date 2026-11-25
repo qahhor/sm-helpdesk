@@ -46,8 +46,6 @@ export async function publishSolution(ctx: StaffContext, input: unknown): Promis
   const result = await withActor(ctx.actor, async (tx) => {
     const article = await articleByNumberTx(tx, data.number, { lock: true });
     if (!article) return { outcome: { status: 'not_found' } as const, articleId: null };
-    // Переводы публикует задача 6: здесь только язык оригинала.
-    if (data.locale !== article.originalLocale) throw new HdkError('invalid_input');
     return { outcome: await publishTx(tx, article, { ...data, allowedDomains }), articleId: article.articleId };
   });
   if (result.outcome.status === 'not_found') throw new HdkError('not_found');

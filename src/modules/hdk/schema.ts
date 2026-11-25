@@ -4,6 +4,7 @@ import { stampColumns } from '@/db/columns';
 import type { Locale } from '@/i18n/locales';
 import type {
   ArticleStatus,
+  AiJobStatus,
   ArticleType,
   DeflectionOutcome,
   DeflectionZone,
@@ -77,6 +78,8 @@ export const kbArticleTranslations = pgTable('hdk_article_translations', {
   slug: text('slug').notNull().default(''),
   status: text('status').$type<TranslationStatus>().notNull().default('reviewed'),
   ...stampColumns,
+  // Миграция 0073 (задачи 6 и 7): состояние последней задачи модели для этого языка.
+  aiStatus: text('ai_status').$type<AiJobStatus>(),
 });
 
 /** Обращения, из которых выросло решение (FR-SOL-02). Видны только сотрудникам. */

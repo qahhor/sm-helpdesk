@@ -32,6 +32,8 @@ export type ReviewLabels = {
   notReady: string;
   conflict: string;
   failed: string;
+  /** Сверка перевода с оригиналом (задача 6, поправка 101). */
+  invariants: { title: string; hint: string; kinds: Record<SolutionReview['invariants'][number]['kind'], string>; original: string; translation: string };
 };
 
 export function ReviewPanel({
@@ -61,7 +63,7 @@ export function ReviewPanel({
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const { readiness, findings, filesNotClean } = review;
+  const { readiness, findings, filesNotClean, invariants } = review;
   const items = (['title', 'module', 'steps', 'checks', ...(isMachine ? (['textRead'] as const) : [])] as const).map((key) => ({ key, ok: readiness.items[key] }));
   const canSubmit = canPublish && saved && readiness.ready && filesNotClean.length === 0 && (!readiness.needsConfirm || confirmed) && !busy;
 
@@ -111,6 +113,28 @@ export function ReviewPanel({
         )}
         {filesNotClean.length > 0 && <Alert tone="danger">{labels.filesNotClean}</Alert>}
       </section>
+
+      {invariants.length > 0 && (
+        <section aria-labelledby="review-invariants" className="flex flex-col gap-2" data-testid="solution-invariants">
+          <h3 id="review-invariants" className="font-semibold">
+            {labels.invariants.title}
+          </h3>
+          <p className="text-sm text-secondary-foreground">{labels.invariants.hint}</p>
+          <ul className="flex flex-col gap-1 text-sm">
+            {invariants.map((issue) => (
+              <li key={issue.kind} data-kind={issue.kind} className="flex flex-col">
+                <span className="font-medium text-destructive-on-bg">{labels.invariants.kinds[issue.kind]}</span>
+                <span className="break-all">
+                  {labels.invariants.original}: {issue.original.join(', ') || '-'}
+                </span>
+                <span className="break-all">
+                  {labels.invariants.translation}: {issue.translation.join(', ') || '-'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {isMachine && (
         <Alert tone="info">

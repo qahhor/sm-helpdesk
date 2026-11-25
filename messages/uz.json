@@ -2551,7 +2551,8 @@
         "invalid_input": "Maydonlarni tekshirib, qayta urinib ko'ring.",
         "not_found": "Yechim yoki versiya topilmadi.",
         "meta": "Modul va ko'rinishni saqlab bo'lmadi. Qayta urinib ko'ring.",
-        "metaForbidden": "E'lon qilingan yechimni mijozlarga faqat ikkinchi liniya, Customer Care yoki administrator ochadi."
+        "metaForbidden": "E'lon qilingan yechimni mijozlarga faqat ikkinchi liniya, Customer Care yoki administrator ochadi.",
+        "no_original": "Avval asl matnni e'lon qiling: tarjima e'lon qilingan matndan qilinadi."
       },
       "template": {
         "what": "Foydalanuvchi nimani ko'radi",
@@ -2664,6 +2665,47 @@
         "confirm": "Ha, portaldan olish",
         "submit": "Arxivga olish",
         "done": "Yechim arxivga olindi."
+      },
+      "translations": {
+        "tabsLabel": "Yechim tillari",
+        "original": "asl matn",
+        "statuses": {
+          "machine": "Mashina tarjimasi",
+          "reviewed": "Tekshirilgan",
+          "outdated": "Eskirgan",
+          "draft": "Qoralama",
+          "none": "Tarjima yo'q"
+        },
+        "emptyTitle": "«{language}» tiliga tarjima hali yo'q",
+        "pending": "Tarjima tayyorlanmoqda. Sahifa o'zi yangilanadi.",
+        "ai": {
+          "failed": "AI bilan tarjima qilib bo'lmadi. Portal yana urinib ko'radi, o'zingiz ham tarjima qilishingiz mumkin.",
+          "limited": "AI chaqiruvlarining sutkalik chegarasi tugadi. O'zingiz tarjima qiling yoki ertaga urinib ko'ring.",
+          "unavailable": "AI ulanmagan. O'zingiz tarjima qiling."
+        },
+        "translateAi": "AI bilan tarjima qilish",
+        "translateAiAgain": "AI bilan qayta tarjima qilish",
+        "translateAiHint": "Yangi mashina tarjimasi joriy tarjima qoralamasini almashtiradi.",
+        "translateManual": "O'zim tarjima qilaman",
+        "started": "Tarjima qoralamasi asl matndan yaratildi.",
+        "requested": "AI bilan tarjima navbatga qo'yildi.",
+        "originalTitle": "Asl matn: {language}",
+        "changed": "Asl matnda o'zgargan",
+        "changedHint": "Tarjimadan keyin asl matnning {count} ta bloki o'zgardi: ular ajratib ko'rsatilgan.",
+        "machineHint": "Tarjimani AI tayyorladi. Uni asl matn bilan yonma-yon o'qing.",
+        "confirm": "Tarjima tekshirildi",
+        "invariants": {
+          "title": "Tarjima asl matndan farq qiladi",
+          "hint": "Farqi bor mashina tarjimasi siz tekshirmaguningizcha e'lon qilinmaydi.",
+          "kinds": {
+            "links": "Havolalar",
+            "numbers": "Raqamlar",
+            "quotes": "Qo'shtirnoqdagi qismlar",
+            "steps": "Qadamlar soni"
+          },
+          "original": "Asl matnda",
+          "translation": "Tarjimada"
+        }
       }
     }
   },

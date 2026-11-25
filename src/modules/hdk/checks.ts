@@ -208,13 +208,17 @@ const hasText = (node: { type: string; text?: string; content?: unknown[] }): bo
  * Панель готовности (UX-W-07): заголовок, модуль, хотя бы один шаг с текстом, проверка FR-SOL-04 и отметка "Текст
  * прочитан" для текста модели (решение 15; черновик из обращения появится в задаче 7, флаг уже есть у версии).
  */
-export function readiness(input: { title: string; moduleId: string | null; doc: SolutionDoc; isMachine: boolean; findings: readonly Finding[] }): Readiness {
+/**
+ * machineAllowed: машинный текст можно публиковать без отметки "Текст прочитан" (машинный перевод, сверенный с
+ * оригиналом без расхождений, решение 9). Черновик из обращения такой поблажки не получает никогда (решение 15).
+ */
+export function readiness(input: { title: string; moduleId: string | null; doc: SolutionDoc; isMachine: boolean; findings: readonly Finding[]; machineAllowed?: boolean }): Readiness {
   const items = {
     title: input.title.trim() !== '',
     module: input.moduleId !== null,
     steps: input.doc.blocks.some((block) => block.type === 'step' && hasText(block as { type: string })),
     checks: input.findings.length === 0,
-    textRead: !input.isMachine,
+    textRead: !input.isMachine || input.machineAllowed === true,
   };
   const blocked = input.findings.some((finding) => finding.blocking);
   return {

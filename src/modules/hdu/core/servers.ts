@@ -509,3 +509,17 @@ export async function readContextServer(contextIssuer: string): Promise<ContextS
     secret,
   };
 }
+
+/**
+ * Адреса встраивания по ключу встраивания действующих серверов (решение 6): начало адреса Smartup Web и дополнительные
+ * адреса. Отключённого сервера в ответе нет. Это настройки реестра, а не данные клиентов: их можно держать в памяти.
+ */
+export async function readEmbedOrigins(): Promise<Map<string, string[]>> {
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ embedKey: servers.embedKey, baseUrl: servers.baseUrl, embedOrigins: servers.embedOrigins })
+      .from(servers)
+      .where(eq(servers.state, 'active')),
+  );
+  return new Map(rows.map((row) => [row.embedKey, [...new Set([new URL(row.baseUrl).origin, ...row.embedOrigins])]]));
+}

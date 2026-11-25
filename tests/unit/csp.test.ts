@@ -75,3 +75,36 @@ test('политика действует, а не только пишет от�
   const { CSP_HEADER } = await import('@/security/csp');
   expect(CSP_HEADER).toBe('Content-Security-Policy');
 });
+
+// --- Страницы виджета (план M6, задача 3) ---
+
+test('frame-ancestors с http допускается только для localhost и 127.0.0.1 и только у локального портала', () => {
+  const local = buildCsp({ nonce: 'abc', dev: false, frameAncestors: ['http://127.0.0.1:3192', 'https://a.example'], allowLoopbackAncestors: true });
+  expect(local).toContain('frame-ancestors http://127.0.0.1:3192 https://a.example');
+  expect(() => buildCsp({ nonce: 'abc', dev: false, frameAncestors: ['http://127.0.0.1:3192'] })).toThrow();
+  expect(() => buildCsp({ nonce: 'abc', dev: false, frameAncestors: ['http://evil.example'], allowLoopbackAncestors: true })).toThrow();
+  expect(() => buildCsp({ nonce: 'abc', dev: false, frameAncestors: ['http://127.0.0.1:3192/path'], allowLoopbackAncestors: true })).toThrow();
+});
+
+test('статический запрет встраивания не ставится только на страницы виджета /{язык}/embed', async () => {
+  const { staticHeaderRules } = await import('@/security/csp');
+  const { getPathMatch } = await import('next/dist/shared/lib/router/utils/path-match');
+  const rules = staticHeaderRules(['ru', 'uz', 'en']).map((rule) => ({ ...rule, match: getPathMatch(rule.source, { strict: true, removeUnnamedParams: true }) }));
+  const cspOf = (path: string) =>
+    rules
+      .filter((rule) => rule.match(path) !== false)
+      .flatMap((rule) => rule.headers)
+      .filter((header) => header.key === 'Content-Security-Policy')
+      .map((header) => header.value);
+  for (const path of ['/ru/embed', '/ru/embed/report', '/uz/embed/tickets/SUP-12', '/embed/report']) {
+    expect(cspOf(path), path).toEqual(["base-uri 'none'; object-src 'none'"]);
+  }
+  for (const path of ['/', '/ru', '/ru/tickets', '/ru/m/report', '/api/embed/session', '/api/health', '/ru/embedded', '/ru/agent/embed', '/brand/tez/tez-icon.svg', '/de/embed/report']) {
+    expect(cspOf(path), path).toEqual(["frame-ancestors 'none'; base-uri 'none'; object-src 'none'"]);
+  }
+  // Остальные заголовки на всех адресах.
+  for (const path of ['/ru/embed/report', '/api/health'])
+    expect(rules.filter((rule) => rule.match(path) !== false).flatMap((rule) => rule.headers.map((h) => h.key))).toEqual(
+      expect.arrayContaining(['X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy']),
+    );
+});

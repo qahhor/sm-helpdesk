@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { CLIENT_STATE } from './helpers/client';
+import { dbRows } from './helpers/db';
 import { storageStateOf } from './helpers/staff';
 
 const nonceOf = (headers: Record<string, string>) =>
@@ -127,4 +128,54 @@ test('адрес с точкой и адрес, похожий на /api, про
   const apiLike = await request.get('/api-keys', { maxRedirects: 0 });
   expect(apiLike.status()).toBe(307);
   expect(apiLike.headers().location).toMatch(/\/ru\/api-keys$/);
+});
+
+// --- Страницы виджета (план M6, задача 3; ТЗ 14.4, FR-WG-09, T9; раздел "На что смотреть", пункты 1 и 6) ---
+
+/** Все заголовки CSP ответа: браузер применяет каждый, поэтому проверяется каждый. */
+const cspHeaders = (response: import('@playwright/test').APIResponse) =>
+  response
+    .headersArray()
+    .filter((h) => h.name.toLowerCase() === 'content-security-policy')
+    .map((h) => h.value);
+
+const embedKeys = async () =>
+  Object.fromEntries(
+    (await dbRows<{ code: string; embed_key: string }>(`select code, embed_key from hdu_servers where code in ('mock', 'mock-dedicated')`)).map((r) => [r.code, r.embed_key]),
+  ) as Record<'mock' | 'mock-dedicated', string>;
+
+test('страница виджета с ключом сервера встраивается только адресами этого сервера', async ({ request }) => {
+  const keys = await embedKeys();
+  const own = cspHeaders(await request.get(`/ru/embed/report?key=${keys.mock}`));
+  // Статический заголовок без frame-ancestors и заголовок прокси со списком: запрета 'none' нет ни в одном.
+  expect(own.join('\n')).not.toContain("frame-ancestors 'none'");
+  const ancestors = own.map((v) => /frame-ancestors ([^;]+)/.exec(v)?.[1]).filter(Boolean);
+  expect(ancestors).toEqual(['http://localhost:3190']);
+  // Адрес другого сервера в заголовке не виден.
+  expect(own.join('\n')).not.toContain('3191');
+  const dedicated = cspHeaders(await request.get(`/uz/embed/tickets?key=${keys['mock-dedicated']}`)).join('\n');
+  expect(dedicated).toContain('frame-ancestors http://localhost:3191');
+  expect(dedicated).not.toContain('3190');
+});
+
+test('без ключа, с чужим ключом и на остальных адресах встраивание запрещено', async ({ request }) => {
+  for (const path of ['/ru/embed/report', `/ru/embed/report?key=${'0'.repeat(32)}`, '/ru/embed/report?key=not-a-key', '/ru/m/report', '/ru', '/ru/tickets/new', '/api/embed/session', '/api/health']) {
+    const headers = cspHeaders(await request.get(path, { maxRedirects: 0 }));
+    expect(headers.join('\n'), path).toContain("frame-ancestors 'none'");
+    expect(headers.join('\n'), path).not.toMatch(/frame-ancestors (?!'none')/);
+  }
+  // X-Frame-Options не ставится нигде: он спорил бы со списком адресов.
+  const keys = await embedKeys();
+  for (const path of [`/ru/embed/report?key=${keys.mock}`, '/ru']) expect((await request.get(path)).headers()['x-frame-options'], path).toBeUndefined();
+});
+
+test('страницы виджета и мобильного приложения не продлевают куку сессии портала', async ({ request }) => {
+  const keys = await embedKeys();
+  const cookie = { cookie: 'hub.session_token=abc.def' };
+  // Обычная страница продлевает куку: проверка ниже что-то значит.
+  expect((await request.get('/ru/login', { headers: cookie, maxRedirects: 0 })).headers()['set-cookie']).toContain('hub.session_token=abc.def');
+  for (const path of [`/ru/embed/report?key=${keys.mock}`, '/ru/m/report'])
+    expect((await request.get(path, { headers: cookie, maxRedirects: 0 })).headers()['set-cookie'], path).toBeUndefined();
+  const api = await request.post('/api/embed/session', { headers: { ...cookie, origin: 'http://localhost:3100' }, data: { contextToken: 'x.y.z' } });
+  expect(api.headers()['set-cookie']).toBeUndefined();
 });

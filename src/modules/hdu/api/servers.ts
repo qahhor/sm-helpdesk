@@ -4,6 +4,7 @@ import type { StaffActor, SystemActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
 import {
   readActiveServers,
+  readEmbedOrigins,
   readServer,
   readServerForCheck,
   readServers,
@@ -23,6 +24,7 @@ import { HduError } from '../error';
 import { parseInput } from '../input';
 import { CLIENT_ROLES, CONTEXT_KEY_MODES, EMBED_ORIGINS_MAX, SERVER_CODE_PATTERN, type ServerIssue } from '../pref';
 import { assertPublicUrl, isLocalPortal, SafeFetchError, safeFetchJson } from '../url-safety';
+import { refreshEmbedOrigins } from '@/security/embed-frame';
 import { LOOPBACK_HOSTS } from '@/security/outbound';
 import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './session';
 
@@ -80,6 +82,19 @@ export function resealServerSecrets(actor: SystemActor): Promise<{ resealed: num
   return resealCore(actor);
 }
 
+/**
+ * Правка реестра в этом процессе сразу обновляет список адресов встраивания прокси (план M6, задача 3, решение 6).
+ * Другие процессы обновят его сами не позже чем через 60 секунд. Сбой загрузки не мешает правке: прежний список остаётся.
+ */
+function afterRegistryChange(): void {
+  void refreshEmbedOrigins().catch(() => {});
+}
+
+/** Адреса встраивания по ключу встраивания действующих серверов: загрузчик для прокси (src/wiring.ts). */
+export function embedOriginsByKey(): Promise<Map<string, string[]>> {
+  return readEmbedOrigins();
+}
+
 /** Адреса сервера по правилам реестра: внешние узлы по https, адрес Smartup Web без пути (угроза T16). */
 async function checkedBaseUrl(raw: string, allowLoopback: boolean): Promise<string> {
   const baseUrl = await assertPublicUrl(raw, { allowLoopback });
@@ -102,6 +117,7 @@ export async function addServer(who: ServerManager, input: unknown, ip: string |
   await assertPublicUrl(data.issuer, { allowLoopback });
   if (data.endpoints) for (const url of Object.values(data.endpoints)) await assertPublicUrl(url, { allowLoopback });
   await saveServer(actor, { ...data, baseUrl }, ip, { createOnly: 'actor' in who });
+  afterRegistryChange();
   return { code: data.code };
 }
 
@@ -130,18 +146,21 @@ export async function updateServer(ctx: StaffContext, input: unknown, now: Date 
   if (data.endpoints) for (const url of Object.values(data.endpoints)) await assertPublicUrl(url, { allowLoopback });
   const patch = { ...data, baseUrl, clientSecret: clientSecret ? clientSecret : undefined };
   if (!(await updateServerRow(actor, code, patch))) throw new HduError('not_found');
+  afterRegistryChange();
 }
 
 /** Отключает сервер: начать вход через него нельзя. */
 export async function disableServer(who: ServerManager, code: unknown, ip: string | null = null): Promise<void> {
   const actor = managingActor(who, new Date());
   if (!(await setServerState(actor, parseInput(codeInput, code), 'passive', ip))) throw new HduError('not_found');
+  afterRegistryChange();
 }
 
 /** Включает отключённый сервер снова. */
 export async function enableServer(ctx: StaffContext, code: unknown, now: Date = new Date()): Promise<void> {
   const actor = managingActor(ctx, now);
   if (!(await setServerState(actor, parseInput(codeInput, code), 'active'))) throw new HduError('not_found');
+  afterRegistryChange();
 }
 
 /** Список серверов для администратора и команды консоли: без секрета и идентификатора клиента. */
@@ -223,6 +242,7 @@ export async function updateWidgetSettings(ctx: StaffContext, input: unknown, no
   if (embedOrigins.length > EMBED_ORIGINS_MAX) throw new HduError('invalid_input');
   const result = await updateWidgetRow(actor, data.code, { mode: data.mode, contextIssuer, jwksUrl, embedOrigins });
   if (!result) throw new HduError('not_found');
+  afterRegistryChange();
   return result;
 }
 

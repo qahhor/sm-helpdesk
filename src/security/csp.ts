@@ -6,15 +6,21 @@ const TURNSTILE = 'https://challenges.cloudflare.com';
 export const CSP_REPORT_PATH = '/api/csp-report';
 const NONCE = /^[A-Za-z0-9+/_-]+={0,2}$/;
 
-/** Адрес источника для политики: только схема https, узел и порт. */
-function assertOrigin(value: string, name: string): string {
+const LOOPBACK = new Set(['localhost', '127.0.0.1']);
+
+/**
+ * Адрес источника для политики: только схема https, узел и порт. allowLoopbackHttp: портал сам работает на localhost,
+ * тогда допускается и http для localhost и 127.0.0.1 (демонстрационная страница Smartup Web, решение 0015).
+ */
+function assertOrigin(value: string, name: string, allowLoopbackHttp = false): string {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
     throw new Error(`CSP: ${name} должен быть адресом вида https://узел`);
   }
-  if (url.protocol !== 'https:' || url.origin !== value) throw new Error(`CSP: ${name} должен быть адресом вида https://узел`);
+  const loopbackHttp = allowLoopbackHttp && url.protocol === 'http:' && LOOPBACK.has(url.hostname);
+  if ((url.protocol !== 'https:' && !loopbackHttp) || url.origin !== value) throw new Error(`CSP: ${name} должен быть адресом вида https://узел`);
   return value;
 }
 
@@ -38,21 +44,24 @@ export function createNonce(): string {
  * @param opts.nonce одноразовый код запроса
  * @param opts.dev режим разработки: React использует eval для отладки
  * @param opts.storageOrigin адрес хранилища файлов, появляется вместе с вложениями
- * @param opts.frameAncestors кто может встраивать страницу. Только для страниц виджета /embed:
- *   адреса активных серверов Smartup. Без параметра встраивание запрещено.
+ * @param opts.frameAncestors кто может встраивать страницу. Только для страниц виджета /embed: адреса сервера Smartup,
+ *   чей ключ встраивания стоит в адресе страницы (решение 6 плана M6). Без параметра встраивание запрещено.
+ * @param opts.allowLoopbackAncestors портал работает на localhost: в frameAncestors допускается http для localhost
+ *   и 127.0.0.1.
  */
 export function buildCsp(opts: {
   nonce: string;
   dev: boolean;
   storageOrigin?: string;
   frameAncestors?: readonly string[];
+  allowLoopbackAncestors?: boolean;
 }): string {
   if (!NONCE.test(opts.nonce)) throw new Error('CSP: недопустимый одноразовый код');
   const nonce = `'nonce-${opts.nonce}'`;
   const storage = opts.storageOrigin ? ` ${assertOrigin(opts.storageOrigin, 'storageOrigin')}` : '';
   const ancestors =
     opts.frameAncestors && opts.frameAncestors.length > 0
-      ? opts.frameAncestors.map((origin) => assertOrigin(origin, 'frameAncestors')).join(' ')
+      ? opts.frameAncestors.map((origin) => assertOrigin(origin, 'frameAncestors', opts.allowLoopbackAncestors)).join(' ')
       : "'none'";
 
   return [
@@ -79,12 +88,33 @@ export function buildCsp(opts: {
  */
 export const CSP_HEADER = 'Content-Security-Policy';
 
-/** Заголовки, одинаковые для всех ответов. Их ставит next.config.ts. */
+/** Заголовки, одинаковые для всех ответов, кроме страниц виджета. Их ставит next.config.ts (staticHeaderRules). */
 export const STATIC_SECURITY_HEADERS = [
   // Для ответов, которые не идут через прокси (обработчики /api, файлы): портал нельзя встроить
-  // в чужую страницу. Для страниц виджета /embed запрет заменит список серверов Smartup (веха M4).
+  // в чужую страницу. Для страниц виджета /embed запрет заменяет список адресов сервера Smartup (staticHeaderRules).
   { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'none'; object-src 'none'" },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
 ] as const;
+
+/** Та же статическая политика для страниц виджета: без frame-ancestors, его ставит прокси по ключу сервера. */
+export const EMBED_STATIC_CSP = { key: 'Content-Security-Policy', value: "base-uri 'none'; object-src 'none'" } as const;
+
+/**
+ * Правила заголовков для next.config.ts (план M6, задача 3). Браузер применяет каждый заголовок CSP: статический
+ * frame-ancestors 'none' на странице виджета запретил бы встраивание при любом списке прокси. Поэтому страницы
+ * /{язык}/embed (и адрес без языка, который прокси перенаправляет) получают статическую политику без frame-ancestors,
+ * а все остальные адреса, включая /api/embed/* и /{язык}/m/*, сохраняют запрет. X-Frame-Options портал не ставит
+ * нигде: он не умеет списка адресов и спорил бы с frame-ancestors.
+ */
+export function staticHeaderRules(locales: readonly string[]): { source: string; headers: { key: string; value: string }[] }[] {
+  if (!locales.every((locale) => /^[a-z]{2}$/.test(locale))) throw new Error('CSP: код языка из двух строчных букв');
+  const embed = `(?:(?:${locales.join('|')})/)?embed(?:/.*)?`;
+  const [csp, ...common] = STATIC_SECURITY_HEADERS;
+  return [
+    { source: '/:path*', headers: [...common] },
+    { source: `/:path((?!${embed}$).*)`, headers: [csp] },
+    { source: `/:path(${embed})`, headers: [EMBED_STATIC_CSP] },
+  ];
+}

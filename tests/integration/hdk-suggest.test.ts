@@ -200,3 +200,22 @@ test('связанные решения сотрудника: по теме об
   expect(related.map((r) => r.number).sort()).toEqual([open.number, inner.number].sort());
   expect(related.find((r) => r.number === inner.number)?.audience).toBe('internal');
 });
+
+test('I6c: показанные в сессии решения копятся, показ считается один раз на решение, "Помогло" по решению, показанному раньше, засчитывается (0057)', async () => {
+  const a = await ORDER_STOCK();
+  const b = await solution('Чек не печатается на кассе', 'Касса не печатает чек после оплаты', 'Перезапустите принтер чеков');
+  const session = randomUUID();
+  const first = await ask('при сохранении заказа ошибка: нет остатка на складе', session);
+  expect(first.items.map((i) => i.number)).toContain(a.number);
+  const second = await ask('касса не печатает чек после оплаты', session);
+  expect(second.items.map((i) => i.number)).toContain(b.number);
+  await ask('при сохранении заказа ошибка: нет остатка на складе', session);
+  const row = (await pools.root.query(`select shown_article_ids from hdk_deflection_events where session_id = $1`, [session])).rows[0];
+  expect([...row.shown_article_ids].sort()).toEqual(expect.arrayContaining([a.articleId, b.articleId]));
+  const counts = await pools.root.query(`select article_id, shown_count from hdk_articles where article_id = any($1::uuid[])`, [[a.articleId, b.articleId]]);
+  for (const r of counts.rows) expect(r.shown_count, r.article_id).toBe(1);
+  // Клиент открыл решение B, показанное раньше последнего показа, и нажал "Помогло".
+  await ask('при сохранении заказа ошибка: нет остатка на складе', session);
+  await recordSolutionFeedback(await clientCtx(f.aUser), { number: b.number, outcome: 'helped', sessionId: session });
+  expect((await pools.root.query(`select outcome from hdk_deflection_events where session_id = $1`, [session])).rows[0].outcome).toBe('helped');
+});

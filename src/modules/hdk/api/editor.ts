@@ -167,7 +167,7 @@ export async function solutionEditorState(ctx: StaffContext, input: unknown): Pr
       })),
       canWrite: canWriteSolutions(ctx),
       canPublish: canPublishSolutions(ctx),
-      review: await reviewTx(tx, article, { title: current.title, doc: safeDoc, isMachine: current.isMachine }, allowedDomains, original),
+      review: await reviewTx(tx, article, { title: current.title, doc: safeDoc, isMachine: current.isMachine, sourceVersionId: current.sourceVersionId }, allowedDomains, original),
       languages: await languagesTx(tx, article),
       original: original ? { title: original.title, doc: original.doc, changedBlockIds: await changedSinceTx(tx, article.articleId, current.sourceVersionId, original.doc) } : null,
     };
@@ -200,9 +200,10 @@ export async function saveSolutionDraft(ctx: StaffContext, input: unknown): Prom
       if (saved === null) throw new HdkError('not_found');
       if (saved === 'conflict') return { status: 'conflict' } as const;
       // Находки и готовность по сохранённому тексту: редактор подсвечивает их после каждого сохранения.
-      const isMachine = (await versionByIdTx(tx, article.articleId, data.locale, saved.versionId))?.isMachine ?? false;
+      const savedVersion = await versionByIdTx(tx, article.articleId, data.locale, saved.versionId);
       const original = data.locale === article.originalLocale ? null : await originalPublishedTx(tx, article);
-      return { status: 'saved', ...saved, review: await reviewTx(tx, article, { title: data.title, doc: data.doc, isMachine }, allowedDomains, original) } as const;
+      const content = { title: data.title, doc: data.doc, isMachine: savedVersion?.isMachine ?? false, sourceVersionId: savedVersion?.sourceVersionId ?? null };
+      return { status: 'saved', ...saved, review: await reviewTx(tx, article, content, allowedDomains, original) } as const;
     });
   } catch (error) {
     // Два первых сохранения после публикации одновременно: второе упирается в единственный черновик на язык.

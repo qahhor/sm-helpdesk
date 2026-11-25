@@ -94,6 +94,38 @@ test('перезагрузка до автосохранения: текст в�
   await expect(page.getByText('Восстановлен текст, который не успел сохраниться.')).toHaveCount(0);
 });
 
+test('копия в браузере от другой версии черновика не удаляется: её можно показать, скопировать и отбросить (0057, I4c)', async ({ page, context }) => {
+  const number = await createSolution(page, `Чужая версия ${Date.now()}`);
+  await typeWhatUserSees(page, 'Текст на сервере');
+  await expect(saveStatus(page)).toHaveText(/Сохранено в/, { timeout: 15_000 });
+  // Копия, сделанная от прежней версии строки (черновик с тех пор сохранили из другой вкладки).
+  const key = `hub:solution-draft:${number}:ru`;
+  await page.evaluate((k) => {
+    const doc = { version: 1, blocks: [{ type: 'paragraph', attrs: { id: 'staleblock01' }, content: [{ type: 'text', text: 'Текст из другой версии' }] }] };
+    localStorage.setItem(k, JSON.stringify({ versionId: '00000000-0000-7000-8000-000000000000', revision: 'old', title: 'Старая правка', doc }));
+  }, key);
+  await page.reload();
+  const stale = page.getByTestId('stale-backup');
+  await expect(stale).toContainText('Есть несохранённый текст от другой версии черновика');
+  await expect(editorArea(page)).not.toContainText('Текст из другой версии');
+  await stale.getByRole('button', { name: 'Показать' }).click();
+  await expect(page.getByTestId('stale-backup-text')).toContainText('Старая правка');
+  await expect(page.getByTestId('stale-backup-text')).toContainText('Текст из другой версии');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await stale.getByRole('button', { name: 'Скопировать' }).click();
+  await expect(stale.getByRole('button', { name: 'Скопировано' })).toBeVisible();
+  // Правка текущего черновика копию не затирает: после перезагрузки она на месте.
+  await typeWhatUserSees(page, ' и правка');
+  await expect(saveStatus(page)).toHaveText(/Сохранено в/, { timeout: 15_000 });
+  await page.reload();
+  await expect(page.getByTestId('stale-backup')).toBeVisible();
+  await page.getByTestId('stale-backup').getByRole('button', { name: 'Отбросить' }).click();
+  await expect(page.getByTestId('stale-backup')).toHaveCount(0);
+  await page.reload();
+  await expect(editorArea(page)).toContainText('Текст на сервере и правка');
+  await expect(page.getByTestId('stale-backup')).toHaveCount(0);
+});
+
 test('две вкладки: вторая получает конфликт, её текст остаётся на странице, первая не затёрта', async ({ page, context }) => {
   const number = await createSolution(page, `Две вкладки ${Date.now()}`);
   const second = await context.newPage();

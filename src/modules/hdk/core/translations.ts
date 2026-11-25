@@ -5,7 +5,7 @@ import { LOCALES, type Locale } from '@/i18n/locales';
 import { safeParseSolutionDoc, type SolutionDoc } from '../doc-schema';
 import type { AiJobStatus, TranslationStatus } from '../pref';
 import { kbArticles, kbArticleTranslations, kbArticleVersions } from '../schema';
-import { type ArticleRow, insertDraftTx } from './editor';
+import { type ArticleRow, insertDraftTx, lockArticleTx } from './editor';
 import { changedBlockIds } from '../translation';
 import { originalPublishedTx } from './publish';
 
@@ -117,6 +117,14 @@ export async function aiStatusTx(tx: Tx, articleId: string, locale: Locale): Pro
  * машинным и помнит версию оригинала, с которой переведён. Опубликованный перевод не меняется до публикации.
  */
 export async function writeMachineTranslationTx(tx: Tx, article: ArticleRow, locale: Locale, content: { title: string; doc: SolutionDoc; sourceVersionId: string }): Promise<void> {
+  // Пока модель переводила, решение могли снять в архив: состояние статьи читается заново под блокировкой текста
+  // статьи, черновик архивного решения не пишется (0057, M6m).
+  await lockArticleTx(tx, article.articleId);
+  const fresh = await articleByIdTx(tx, article.articleId);
+  if (fresh?.status !== 'active') {
+    await setAiStatusTx(tx, article.articleId, locale, 'skipped');
+    return;
+  }
   const row = await ensureLanguageTx(tx, article.articleId, locale);
   if (row.draftVersionId)
     await tx

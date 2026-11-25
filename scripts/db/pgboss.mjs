@@ -9,6 +9,7 @@ export const PGBOSS_SCHEMA = 'pgboss';
 /**
  * Очереди и их настройки повтора (раздел 11.10). Имена совпадают с JOB_NAMES в src/modules/hdc/jobs.ts (тест worker).
  * exclusive: для одного файла не больше одной задачи в очереди или в работе. short: не больше одной ждущей.
+ * stately: не больше одной ждущей и одной выполняемой на ключ. Смена политики пересоздаёт очередь.
  */
 export const QUEUES = {
   'attachment.scan': { policy: 'exclusive', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
@@ -31,9 +32,10 @@ export const QUEUES = {
   'ops.watch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Проверка изображения решения (план M5, задача 3): как вложение обращения, одна задача на файл.
   'kb.scan': { policy: 'exclusive', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
-  // Поисковый индекс после публикации (план M5, задача 4 ставит, задача 9 пишет строки и вектор). Одна задача на
-  // решение; сервис векторов недоступен: повтор с растущей паузой, пропущенное найдёт ночная сверка kb.reconcile.
-  'kb.index': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
+  // Поисковый индекс после публикации (план M5, задача 4 ставит, задача 9 пишет строки и вектор). stately: на решение
+  // одна ждущая и одна выполняемая задача, иначе публикация во время выполнения терялась бы (повторная проверка M5,
+  // 0057). Сервис векторов недоступен: повтор с растущей паузой, пропущенное найдёт ночная сверка kb.reconcile.
+  'kb.index': { policy: 'stately', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
   // Ночная сверка индекса (план M5, задача 9): статьи без строки индекса или без вектора, исходы подсказки старше
   // 13 месяцев. Без повторов: следующая ночь догонит.
   'kb.reconcile': { policy: 'short', retryLimit: 0, expireInSeconds: 1800, deleteAfterSeconds: 86_400 },
@@ -69,7 +71,13 @@ export async function installPgBoss(ownerUrl) {
   await boss.start();
   try {
     for (const [name, options] of Object.entries(QUEUES)) {
-      if (await boss.getQueue(name)) {
+      const existing = await boss.getQueue(name);
+      if (existing && existing.policy !== options.policy) {
+        // Политику очереди библиотека не меняет: очередь пересоздаётся. Ждущие задачи пропадают; у очередей, где так
+        // бывает (kb.index), их догоняет ночная сверка (0057).
+        await boss.deleteQueue(name);
+        await boss.createQueue(name, options);
+      } else if (existing) {
         const { policy: _policy, ...updatable } = options;
         void _policy;
         await boss.updateQueue(name, updatable);

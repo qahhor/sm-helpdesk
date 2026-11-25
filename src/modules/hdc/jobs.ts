@@ -50,11 +50,11 @@ export function bossOptions(connectionString: string, role: 'sender' | 'worker')
     : { ...common, supervise: true, schedule: true, instanceName: 'worker', max: 5 };
 }
 
-/** Очередь поверх запущенного pg-boss. Ключ singletonKey: для одного объекта не больше одной задачи (политика exclusive). */
+/** Очередь поверх запущенного pg-boss. Ключ singletonKey: для одного объекта не больше одной задачи (политики exclusive и stately). */
 export function createPgBossQueue(boss: PgBoss): JobQueue {
   return {
     async send(name, data) {
-      // Одна задача на файл, входящее письмо или решение (политика exclusive).
+      // Одна задача на файл или входящее письмо (exclusive); на решение одна ждущая и одна выполняемая (stately, kb.index).
       const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId].find((value): value is string => typeof value === 'string');
       await boss.send(name, data, key ? { singletonKey: key } : {});
     },

@@ -6,7 +6,9 @@ import { runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { createDraftArticle } from '@/modules/hdk/api/articles';
 import { clientSolutionPage } from '@/modules/hdk/api/client';
 import { saveSolutionDraft, solutionEditorState } from '@/modules/hdk/api/editor';
-import { markSolutionTextRead, publishSolution } from '@/modules/hdk/api/publish';
+import { archiveSolution, markSolutionTextRead, publishSolution } from '@/modules/hdk/api/publish';
+import { withActor } from '@/db/with-actor';
+import { articleByIdTx, writeMachineTranslationTx } from '@/modules/hdk/core/translations';
 import { requestMachineTranslation, startManualTranslation } from '@/modules/hdk/api/translations';
 import { defaultStubResponse } from '@/modules/hda/testing';
 import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
@@ -120,7 +122,8 @@ test('пункт 2: машинный перевод с дописанной сс
 test('пункт 2: машинный перевод с телефоном не публикуется, пока сотрудник не подтвердит перевод; затем только с подтверждением находки', async () => {
   const a = await published();
   const s = await machine(a.number, a.articleId, replacing('step000001p.0', 'Qo‘ng‘iroq qiling +998 90 123 45 67 «Ombor»'));
-  expect(s.review.invariants.map((i) => i.kind)).toEqual(['numbers']);
+  // Телефон это и новое число, и находка FR-SOL-04, которой нет в оригинале (0057, M2s).
+  expect(s.review.invariants.map((i) => i.kind)).toEqual(['numbers', 'data']);
   expect(s.review.findings.map((x) => x.kind)).toContain('phone');
   expect(await publishUz(s, true)).toMatchObject({ status: 'not_ready', readiness: { items: { textRead: false } } });
   // Сотрудник прочитал и подтвердил перевод: расхождение остаётся видно, но решает человек; находка требует подтверждения.
@@ -176,12 +179,28 @@ test('перевести самому: черновик копией ориги�
   expect(await startManualTranslation(staffCtx(f.l1), { number: a.number, locale: 'en' })).toBe('exists');
 });
 
-test('сбой модели и суточный предел отмечаются на странице; повтор после готового перевода ничего не меняет', async () => {
+test('сбой модели: повтор задачи снова вызывает модель, failed только после последней попытки; суточный предел; повтор после готового ничего не меняет', async () => {
   const a = await published();
+  const data = { articleId: a.articleId, locale: 'en' };
+  const aiStatus = async () => (await state(a.number, 'ru')).languages.find((l) => l.locale === 'en')?.aiStatus;
   stub.respond = () => new Error('нет сети');
   await requestMachineTranslation(staffCtx(f.l1), { number: a.number, locale: 'en' });
-  await expect(runTranslationJob(SYSTEM, { articleId: a.articleId, locale: 'en' })).rejects.toThrow();
-  expect((await state(a.number, 'ru')).languages.find((l) => l.locale === 'en')?.aiStatus).toBe('failed');
+  // Повтор pg-boss выполняется (0057, I3c): пока попытки есть, язык ждёт, модель вызывается на каждой попытке.
+  await expect(runTranslationJob(SYSTEM, data, { retryCount: 0, retryLimit: 3 })).rejects.toThrow();
+  expect(await aiStatus()).toBe('pending');
+  await expect(runTranslationJob(SYSTEM, data, { retryCount: 1, retryLimit: 3 })).rejects.toThrow();
+  expect(await aiStatus()).toBe('pending');
+  expect(stub.calls).toHaveLength(2);
+  // Последняя попытка: failed на странице.
+  await expect(runTranslationJob(SYSTEM, data, { retryCount: 3, retryLimit: 3 })).rejects.toThrow();
+  expect(stub.calls).toHaveLength(3);
+  expect(await aiStatus()).toBe('failed');
+  // Сбой, после которого повтор удался: перевод готов.
+  await requestMachineTranslation(staffCtx(f.l1), { number: a.number, locale: 'en' });
+  await expect(runTranslationJob(SYSTEM, data, { retryCount: 0, retryLimit: 3 })).rejects.toThrow();
+  stub.respond = null;
+  await runTranslationJob(SYSTEM, data, { retryCount: 1, retryLimit: 3 });
+  expect(await aiStatus()).toBe('ready');
   await pools.root.query(`insert into hdc_settings (code, value) values ('ai.daily_limit', '0')`);
   await requestMachineTranslation(staffCtx(f.l1), { number: a.number, locale: 'en' });
   await runTranslationJob(SYSTEM, { articleId: a.articleId, locale: 'en' });
@@ -190,4 +209,60 @@ test('сбой модели и суточный предел отмечаютс�
   const calls = stub.calls.length;
   await runTranslationJob(SYSTEM, { articleId: a.articleId, locale: 'en' });
   expect(stub.calls.length).toBe(calls);
+});
+
+// --- Повторная проверка M5 (docs/decisions/0057) ---
+
+test('I5c: возврат из архива возвращает и переводы: последняя опубликованная версия каждого языка с пометкой "устарел"', async () => {
+  const a = await published();
+  await publishUz(await machine(a.number, a.articleId));
+  const ctx = await l2();
+  await archiveSolution(ctx, { number: a.number });
+  expect((await pools.root.query(`select 1 from hdk_published where article_id = $1`, [a.articleId])).rowCount).toBe(0);
+  const ru = await state(a.number, 'ru');
+  expect((await publishSolution(ctx, { number: a.number, locale: 'ru', versionId: ru.current.versionId, revision: ru.current.revision, confirmFindings: false })).status).toBe('published');
+  const copies = await pools.root.query(`select locale, is_machine, is_outdated, title from hdk_published where article_id = $1 order by locale`, [a.articleId]);
+  expect(copies.rows.map((r) => [r.locale, r.is_outdated])).toEqual([
+    ['ru', false],
+    ['uz', true],
+  ]);
+  expect(copies.rows[1].is_machine).toBe(true);
+  // Состояние сотрудника то же: язык опубликован и устарел.
+  const uz = (await pools.root.query(`select status, published_version_id is not null as published from hdk_article_translations where article_id = $1 and locale = 'uz'`, [a.articleId])).rows[0];
+  expect(uz).toEqual({ status: 'outdated', published: true });
+  const client = await clientCtx(f.aUser);
+  expect(await clientSolutionPage(client, { ref: String(a.number), locale: 'uz' })).toMatchObject({ solution: { locale: 'uz', isOutdated: true } });
+});
+
+test('M5m: перевод сотрудника, начатый со старого оригинала, публикуется устаревшим и помнит свою версию оригинала', async () => {
+  const a = await published();
+  const v1 = (await state(a.number, 'ru')).current.versionId;
+  expect(await startManualTranslation(staffCtx(f.l1), { number: a.number, locale: 'en' })).toBe('started');
+  // Оригинал изменился и опубликован снова, пока перевод был в работе.
+  const ru = await state(a.number, 'ru');
+  const changed = { ...ORIGINAL, blocks: [ORIGINAL.blocks[0], step('step000001', 'Откройте раздел «Склад» и выберите период'), ORIGINAL.blocks[2]] };
+  const saved = await saveSolutionDraft(staffCtx(f.l1), { number: a.number, locale: 'ru', versionId: ru.current.versionId, revision: ru.current.revision, title: ru.current.title, doc: changed });
+  if (saved.status !== 'saved') throw new Error('не сохранено');
+  expect((await publishSolution(await l2(), { number: a.number, locale: 'ru', versionId: saved.versionId, revision: saved.revision, confirmFindings: false })).status).toBe('published');
+  const en = await state(a.number, 'en');
+  // Пункт панели готовности "переводы актуальны" (UX-W-07): справочный, публикацию не закрывает.
+  expect(en.review.translationsCurrent).toBe(false);
+  expect(en.review.readiness.ready).toBe(true);
+  expect((await publishSolution(await l2(), { number: a.number, locale: 'en', versionId: en.current.versionId, revision: en.current.revision, confirmFindings: false })).status).toBe('published');
+  expect((await pools.root.query(`select status from hdk_article_translations where article_id = $1 and locale = 'en'`, [a.articleId])).rows[0].status).toBe('outdated');
+  expect((await pools.root.query(`select is_outdated from hdk_published where article_id = $1 and locale = 'en'`, [a.articleId])).rows[0].is_outdated).toBe(true);
+  expect((await pools.root.query(`select source_version_id from hdk_article_versions where version_id = $1`, [en.current.versionId])).rows[0].source_version_id).toBe(v1);
+  // Оригинал видит, что перевод отстал.
+  expect((await state(a.number, 'ru')).review.translationsCurrent).toBe(false);
+});
+
+test('M6m: машинный перевод не пишет черновик архивного решения', async () => {
+  const a = await published();
+  const article = await withActor(SYSTEM, (tx) => articleByIdTx(tx, a.articleId));
+  const source = (await state(a.number, 'ru')).current.versionId;
+  expect(await requestMachineTranslation(staffCtx(f.l1), { number: a.number, locale: 'uz' })).toBe('started');
+  // Решение сняли в архив, пока модель переводила.
+  await archiveSolution(await l2(), { number: a.number });
+  await withActor(SYSTEM, (tx) => writeMachineTranslationTx(tx, article!, 'uz', { title: 'Hisobot', doc: ORIGINAL as never, sourceVersionId: source }));
+  expect((await pools.root.query(`select count(*)::int as n from hdk_article_versions where article_id = $1 and locale = 'uz'`, [a.articleId])).rows[0].n).toBe(0);
 });

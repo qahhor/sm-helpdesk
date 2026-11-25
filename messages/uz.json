@@ -2624,7 +2624,13 @@
         "conflict": "Qoralamani boshqa oynada yoki boshqa xodim o'zgartirdi. Matningiz saqlanmadi va sahifada qoldi: keraklisini nusxalab, oxirgi versiyani oching.",
         "error": "Saqlab bo'lmadi",
         "restored": "Saqlanib ulgurmagan matn tiklandi.",
-        "reload": "Oxirgi versiyani ochish"
+        "reload": "Oxirgi versiyani ochish",
+        "stale": "Qoralamaning boshqa versiyasidan saqlanmagan matn bor. U muharrirga qo'yilmadi.",
+        "staleShow": "Ko'rsatish",
+        "staleHide": "Yashirish",
+        "staleCopy": "Nusxa olish",
+        "staleCopied": "Nusxa olindi",
+        "staleDiscard": "Tashlab yuborish"
       },
       "screenshot": {
         "title": "Ekran surati",
@@ -2686,7 +2692,8 @@
           "module": "Modul",
           "steps": "Kamida bitta matnli qadam",
           "checks": "Matn tekshiruvida topilma yo'q",
-          "textRead": "AI matni o'qildi"
+          "textRead": "AI matni o'qildi",
+          "translations": "Tarjimalar dolzarb (ma'lumot uchun)"
         },
         "findingsTitle": "Tekshiruv topilmalari",
         "noFindings": "Topilma yo'q.",
@@ -2757,7 +2764,8 @@
             "links": "Havolalar",
             "numbers": "Raqamlar",
             "quotes": "Qo'shtirnoqdagi qismlar",
-            "steps": "Qadamlar soni"
+            "steps": "Qadamlar soni",
+            "data": "Asl matnda yo'q ma'lumotlar"
           },
           "original": "Asl matnda",
           "translation": "Tarjimada"

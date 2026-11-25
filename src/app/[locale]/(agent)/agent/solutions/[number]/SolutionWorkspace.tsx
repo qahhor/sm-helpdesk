@@ -54,6 +54,8 @@ export type WorkspaceLabels = {
     error: string;
     restored: string;
   };
+  /** Копия в браузере от другой версии черновика (0057, I4c): показать, скопировать, отбросить. */
+  stale: { text: string; show: string; hide: string; copy: string; copied: string; discard: string };
   reload: string;
   metaError: string;
   metaForbidden: string;
@@ -106,12 +108,85 @@ export function SolutionWorkspace(props: ComponentProps<typeof WorkspaceBody>) {
   return <WorkspaceBody {...props} />;
 }
 
-/** Первое состояние: копия из браузера, если она сделана от той же версии строки, что пришла с сервера. */
-function bootState(key: string, initial: Backup, canWrite: boolean): { doc: SolutionDoc; title: string; restored: boolean } {
+/** Ключ копии от другой версии строки: её не затирает копия текущей правки. */
+const staleKeyOf = (key: string) => `${key}:stale`;
+
+/**
+ * Первое состояние: копия из браузера, если она сделана от той же версии строки, что пришла с сервера. Копия от другой
+ * версии (черновик успели изменить или опубликовать) в редактор не подставляется, но и не удаляется: она переезжает
+ * под свой ключ, и страница предлагает её показать, скопировать или отбросить (повторная проверка M5, 0057, I4c).
+ */
+function bootState(key: string, initial: Backup, canWrite: boolean): { doc: SolutionDoc; title: string; restored: boolean; stale: Backup | null } {
   const backup = canWrite ? readBackup(key) : null;
-  if (backup && backup.versionId === initial.versionId && backup.revision === initial.revision) return { doc: backup.doc, title: backup.title, restored: true };
-  if (backup) writeBackup(key, null);
-  return { doc: initial.doc, title: initial.title, restored: false };
+  if (backup && backup.versionId === initial.versionId && backup.revision === initial.revision)
+    return { doc: backup.doc, title: backup.title, restored: true, stale: canWrite ? readBackup(staleKeyOf(key)) : null };
+  if (backup) {
+    writeBackup(staleKeyOf(key), backup);
+    writeBackup(key, null);
+  }
+  return { doc: initial.doc, title: initial.title, restored: false, stale: canWrite ? readBackup(staleKeyOf(key)) : null };
+}
+
+/** Текст копии для показа и копирования: заголовок и текст блоков через перевод строки. */
+function backupText(backup: Backup): string {
+  const lines: string[] = [backup.title];
+  const walk = (node: { type?: string; text?: string; content?: unknown[] }) => {
+    if (node.type === 'paragraph' || node.type === 'heading') {
+      lines.push((node.content ?? []).map((child) => (child as { text?: string }).text ?? '').join(''));
+      return;
+    }
+    for (const child of node.content ?? []) if (child && typeof child === 'object') walk(child as typeof node);
+  };
+  for (const block of backup.doc?.blocks ?? []) walk(block as unknown as { type?: string; content?: unknown[] });
+  return lines.filter((line) => line.trim() !== '').join('\n');
+}
+
+/** Копия от другой версии черновика: показать, скопировать, отбросить. */
+function StaleBackup({ storageKey, backup, labels }: { storageKey: string; backup: Backup; labels: WorkspaceLabels['stale'] }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [gone, setGone] = useState(false);
+  if (gone) return null;
+  const text = backupText(backup);
+  return (
+    <Alert tone="info">
+      <div className="flex flex-col gap-2" data-testid="stale-backup">
+        <span>{labels.text}</span>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="small" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+            {open ? labels.hide : labels.show}
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              void navigator.clipboard
+                ?.writeText(text)
+                .then(() => setCopied(true))
+                .catch(() => setCopied(false));
+            }}
+          >
+            {copied ? labels.copied : labels.copy}
+          </Button>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              writeBackup(storageKey, null);
+              setGone(true);
+            }}
+          >
+            {labels.discard}
+          </Button>
+        </div>
+        {open && (
+          <pre className="whitespace-pre-wrap break-words rounded-card border border-border bg-card p-3 text-sm" data-testid="stale-backup-text">
+            {text}
+          </pre>
+        )}
+      </div>
+    </Alert>
+  );
 }
 
 function WorkspaceBody({
@@ -335,7 +410,13 @@ function WorkspaceBody({
       return 'published' as const;
     }
     if (outcome.status === 'not_ready') {
-      setReview({ findings: outcome.findings, readiness: outcome.readiness, filesNotClean: outcome.filesNotClean, invariants: outcome.invariants });
+      setReview({
+        findings: outcome.findings,
+        readiness: outcome.readiness,
+        filesNotClean: outcome.filesNotClean,
+        invariants: outcome.invariants,
+        translationsCurrent: outcome.translationsCurrent,
+      });
       return 'not_ready' as const;
     }
     return 'conflict' as const;
@@ -423,6 +504,7 @@ function WorkspaceBody({
       </div>
       {metaError && <Alert tone="danger">{metaError}</Alert>}
       {start.restored && <Alert tone="info">{labels.status.restored}</Alert>}
+      {start.stale && <StaleBackup storageKey={staleKeyOf(backupKey)} backup={start.stale} labels={labels.stale} />}
       {status === 'conflict' ? (
         <Alert tone="danger">
           {labels.status.conflict}{' '}

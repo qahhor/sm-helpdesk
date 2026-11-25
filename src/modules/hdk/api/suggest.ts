@@ -14,7 +14,7 @@ import type { ClientContext } from '@/modules/hdu/api/orgs';
 import { hybridSearchTx, publishedForArticleTx } from '../core/search';
 import { EmbeddingUnavailableError, getEmbedder } from '../embeddings';
 import { HdkError } from '../error';
-import { type KbAudience, ORG_COUNT_MIN, QUERY_EMBED_TIMEOUT_MS, SUGGEST_QUERY_MAX, SUGGEST_QUERY_MIN } from '../pref';
+import { type KbAudience, ORG_COUNT_MIN, QUERY_EMBED_TIMEOUT_MS, SHOWN_PER_SESSION_MAX, SUGGEST_QUERY_MAX, SUGGEST_QUERY_MIN } from '../pref';
 import { type ExactHit, rankHits, type RankedHit } from '../ranking';
 import { kbArticles, kbDeflectionEvents, kbErrorSignatures, kbSignatureOrgs } from '../schema';
 import { signatureFromText } from '../signature';
@@ -122,9 +122,10 @@ function queryHash(text: string): string {
 }
 
 /**
- * Строка исходов на сессию формы (решение 12): создаётся при первом показе с исходом left, при следующих показах
- * обновляются показанные решения и HMAC запроса. Чужую сессию (другой пользователь или организация) не трогает.
- * Показ решения в сессии считается в его счётчике один раз.
+ * Строка исходов на сессию формы (решение 12): создаётся при первом показе с исходом left, при следующих показах к
+ * показанным решениям добавляются новые (все решения сессии, а не последний показ: 0057, I6c) и обновляется HMAC
+ * запроса. Чужую сессию (другой пользователь или организация) не трогает. Показ решения в сессии считается в его
+ * счётчике один раз.
  */
 async function noteShown(actor: ClientActor, sessionId: string, input: { text: string; signature: string | null; articleIds: string[] }): Promise<void> {
   await withActor(SYSTEM, async (tx) => {
@@ -135,7 +136,10 @@ async function noteShown(actor: ClientActor, sessionId: string, input: { text: s
       .for('update')
       .limit(1);
     if (prev && (prev.userId !== actor.userId || prev.orgId !== actor.orgId)) return;
-    const values = { queryHash: queryHash(input.text), signature: input.signature, shownArticleIds: input.articleIds };
+    const before = prev?.shown ?? [];
+    // Предел строки: при переполнении остаются последние показанные (ограничение c5, миграция 0077).
+    const shown = [...before, ...input.articleIds.filter((id) => !before.includes(id))].slice(-SHOWN_PER_SESSION_MAX);
+    const values = { queryHash: queryHash(input.text), signature: input.signature, shownArticleIds: shown };
     if (prev) await tx.update(kbDeflectionEvents).set(values).where(eq(kbDeflectionEvents.sessionId, sessionId));
     else {
       const inserted = await tx
@@ -145,7 +149,7 @@ async function noteShown(actor: ClientActor, sessionId: string, input: { text: s
         .returning({ id: kbDeflectionEvents.deflectionEventId });
       if (inserted.length === 0) return;
     }
-    const fresh = input.articleIds.filter((id) => !(prev?.shown ?? []).includes(id));
+    const fresh = input.articleIds.filter((id) => !before.includes(id));
     if (fresh.length > 0)
       await tx
         .update(kbArticles)

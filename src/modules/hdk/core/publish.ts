@@ -8,14 +8,20 @@ import { collectImageFileIds, safeParseSolutionDoc, type SolutionDoc } from '../
 import { solutionSlug } from '../slug';
 import { compareInvariants, type InvariantIssue } from '../translation';
 import { kbArticleFiles, kbArticles, kbArticleTranslations, kbArticleVersions, kbPublished } from '../schema';
-import { type ArticleRow, insertDraftTx, versionByIdTx } from './editor';
+import { type ArticleRow, insertDraftTx, lockArticleTx, versionByIdTx } from './editor';
+import { changedSinceTx } from './translations';
 
 // Модуль hdk, слой core: публикация, архив и отметка "Текст прочитан" (план M5, задача 4; ТЗ 18.10, FR-SOL-02, 04, 05,
 // 17; решения 11, 15, 16). Всё внутри одной транзакции публикующего: откат на любом шаге не оставляет ни опубликованной
 // версии, ни копии, ни записи в журнале. Задачу kb.index ставит слой api после фиксации.
 
-/** invariants: расхождения перевода с оригиналом (поправка 101); у оригинала пусто. */
-export type Review = { findings: Finding[]; readiness: Readiness; filesNotClean: string[]; invariants: InvariantIssue[] };
+/**
+ * invariants: расхождения перевода с оригиналом (поправка 101); у оригинала пусто. translationsCurrent: справочный
+ * пункт панели готовности "переводы актуальны" (UX-W-07; 0057, M5m), публикацию не закрывает. У перевода: сделан ли
+ * он с текста действующего оригинала (блоки не менялись); у оригинала: не отстал ли ни один опубликованный перевод;
+ * null: переводов нет.
+ */
+export type Review = { findings: Finding[]; readiness: Readiness; filesNotClean: string[]; invariants: InvariantIssue[]; translationsCurrent: boolean | null };
 
 /** Действующая опубликованная версия оригинала: с ней сверяется перевод. */
 export type OriginalText = { versionId: string; title: string; doc: SolutionDoc };
@@ -38,11 +44,14 @@ export async function originalPublishedTx(tx: Tx, article: ArticleRow): Promise<
 export async function reviewTx(
   tx: Tx,
   article: ArticleRow,
-  content: { title: string; doc: SolutionDoc; isMachine: boolean },
+  content: { title: string; doc: SolutionDoc; isMachine: boolean; sourceVersionId?: string | null },
   allowedDomains: readonly string[],
   original: OriginalText | null = null,
 ): Promise<Review> {
   const findings = checkSolution(content, { allowedDomains });
+  const translationsCurrent = original
+    ? Boolean(content.sourceVersionId) && (await changedSinceTx(tx, article.articleId, content.sourceVersionId ?? null, original.doc)).length === 0
+    : await originalTranslationsCurrentTx(tx, article);
   const invariants = original ? compareInvariants(original, content) : [];
   const fileIds = collectImageFileIds(content.doc);
   const clean =
@@ -58,7 +67,17 @@ export async function reviewTx(
     readiness: readiness({ title: content.title, moduleId: article.moduleId, doc: content.doc, isMachine: content.isMachine, findings, machineAllowed: original !== null && invariants.length === 0 }),
     filesNotClean: fileIds.filter((id) => !cleanIds.has(id)),
     invariants,
+    translationsCurrent,
   };
+}
+
+/** Для оригинала: опубликованные переводы не отстали от него. Переводов нет: null. */
+async function originalTranslationsCurrentTx(tx: Tx, article: ArticleRow): Promise<boolean | null> {
+  const rows = await tx
+    .select({ status: kbArticleTranslations.status })
+    .from(kbArticleTranslations)
+    .where(and(eq(kbArticleTranslations.articleId, article.articleId), ne(kbArticleTranslations.locale, article.originalLocale), sql`${kbArticleTranslations.publishedVersionId} is not null`));
+  return rows.length === 0 ? null : rows.every((row) => row.status !== 'outdated');
 }
 
 export type PublishInput = { locale: Locale; versionId: string; revision: string; confirmFindings: boolean; allowedDomains: readonly string[] };
@@ -76,7 +95,10 @@ export type PublishOutcome =
  * (возврат из архива это новая публикация, решение 11).
  */
 export async function publishTx(tx: Tx, article: ArticleRow, input: PublishInput): Promise<PublishOutcome> {
-  let version = await versionByIdTx(tx, article.articleId, input.locale, input.versionId);
+  // Сохранения этой статьи ждут конца публикации, строка версии заблокирована: проверяется и публикуется один и тот же
+  // текст (0057, C1).
+  await lockArticleTx(tx, article.articleId);
+  let version = await versionByIdTx(tx, article.articleId, input.locale, input.versionId, { lock: true });
   if (!version) return { status: 'not_found' };
   if (version.revision !== input.revision) return { status: 'conflict' };
   // Перевод (задача 6, решение 9): только у действующего решения с опубликованным оригиналом, только черновик.
@@ -90,20 +112,29 @@ export async function publishTx(tx: Tx, article: ArticleRow, input: PublishInput
   if (!parsed.success) return { status: 'not_found' };
   const doc = parsed.data;
 
-  const review = await reviewTx(tx, article, { title: version.title, doc, isMachine: version.isMachine }, input.allowedDomains, original);
+  const review = await reviewTx(tx, article, { title: version.title, doc, isMachine: version.isMachine, sourceVersionId: version.sourceVersionId }, input.allowedDomains, original);
   // Ссылка вне списка не публикуется никогда, остальные находки только с подтверждением.
   if (!review.readiness.ready || review.filesNotClean.length > 0 || (review.readiness.needsConfirm && !input.confirmFindings)) return { status: 'not_ready', ...review };
 
   if (republish) {
+    // У архивного решения уже есть черновик (страница возврата устарела): конфликт, а не ошибка базы (0057, M3m).
+    const [draft] = await tx
+      .select({ versionId: kbArticleVersions.versionId })
+      .from(kbArticleVersions)
+      .where(and(eq(kbArticleVersions.articleId, article.articleId), eq(kbArticleVersions.locale, input.locale), eq(kbArticleVersions.state, 'draft')))
+      .limit(1);
+    if (draft) return { status: 'conflict' };
     const copy = await insertDraftTx(tx, article.articleId, input.locale, { title: version.title, doc, isMachine: false });
     version = (await versionByIdTx(tx, article.articleId, input.locale, copy.versionId))!;
   }
-  // Перевод, подтверждённый сотрудником, сверен с действующим оригиналом: он и становится основой перевода. Машинный
-  // перевод сохраняет версию оригинала, с которой его сделала модель.
+  // Перевод помнит версию оригинала, с которой сделан (0057, M5m): и машинный, и перевод сотрудника. Перевод сотрудника,
+  // начатый со старого оригинала, публикуется устаревшим, если блоки оригинала с тех пор изменились. Перевод без
+  // отметки версии (старые данные) считается сверенным с действующим оригиналом, как раньше.
   let outdated = false;
   if (original) {
-    if (!version.isMachine) await tx.update(kbArticleVersions).set({ sourceVersionId: original.versionId }).where(eq(kbArticleVersions.versionId, version.versionId));
-    outdated = version.isMachine && version.sourceVersionId !== original.versionId;
+    if (version.isMachine) outdated = version.sourceVersionId !== original.versionId;
+    else if (!version.sourceVersionId) await tx.update(kbArticleVersions).set({ sourceVersionId: original.versionId }).where(eq(kbArticleVersions.versionId, version.versionId));
+    else outdated = version.sourceVersionId !== original.versionId && (await changedSinceTx(tx, article.articleId, version.sourceVersionId, original.doc)).length > 0;
   }
   // 1. Прежняя опубликованная версия этого языка становится прежней.
   await tx
@@ -116,7 +147,7 @@ export async function publishTx(tx: Tx, article: ArticleRow, input: PublishInput
   const slug = solutionSlug(version.title);
   await tx
     .update(kbArticleTranslations)
-    .set({ publishedVersionId: version.versionId, draftVersionId: null, slug, status: !original ? 'reviewed' : version.isMachine ? (outdated ? 'outdated' : 'machine') : 'reviewed' })
+    .set({ publishedVersionId: version.versionId, draftVersionId: null, slug, status: !original ? 'reviewed' : outdated ? 'outdated' : version.isMachine ? 'machine' : 'reviewed' })
     .where(and(eq(kbArticleTranslations.articleId, article.articleId), eq(kbArticleTranslations.locale, input.locale)));
   // 4. Возврат из архива.
   if (article.status === 'archived') await tx.update(kbArticles).set({ status: 'active', archivedOn: null }).where(eq(kbArticles.articleId, article.articleId));
@@ -141,6 +172,9 @@ export async function publishTx(tx: Tx, article: ArticleRow, input: PublishInput
     .insert(kbPublished)
     .values({ articleId: article.articleId, locale: input.locale, ...copy })
     .onConflictDoUpdate({ target: [kbPublished.articleId, kbPublished.locale], set: copy });
+  // 5а. Возврат из архива возвращает и переводы (0057, I5c): последняя опубликованная версия каждого языка снова в
+  // копии для читателей, с пометкой "устарел" (шаг 6), как после любой новой публикации оригинала.
+  if (article.status === 'archived' && input.locale === article.originalLocale) await restoreTranslationCopiesTx(tx, article, input.locale);
   // 6. Переводы оригинала отстают от него (FR-SOL-18, решение 9).
   if (input.locale === article.originalLocale) {
     await tx
@@ -167,6 +201,45 @@ export async function publishTx(tx: Tx, article: ArticleRow, input: PublishInput
     },
   });
   return { status: 'published', versionNumber: version.number };
+}
+
+/** Копии для читателей опубликованных переводов статьи, кроме языка locale: при возврате из архива. */
+async function restoreTranslationCopiesTx(tx: Tx, article: ArticleRow, locale: Locale): Promise<void> {
+  const rows = await tx
+    .select({
+      locale: kbArticleTranslations.locale,
+      slug: kbArticleTranslations.slug,
+      versionId: kbArticleVersions.versionId,
+      title: kbArticleVersions.title,
+      doc: kbArticleVersions.doc,
+      isMachine: kbArticleVersions.isMachine,
+    })
+    .from(kbArticleTranslations)
+    .innerJoin(kbArticleVersions, eq(kbArticleVersions.versionId, kbArticleTranslations.publishedVersionId))
+    .where(and(eq(kbArticleTranslations.articleId, article.articleId), ne(kbArticleTranslations.locale, locale)));
+  for (const row of rows) {
+    const parsed = safeParseSolutionDoc(row.doc);
+    if (!parsed.success) continue;
+    const copy = {
+      versionId: row.versionId,
+      articleNumber: article.number,
+      audience: article.audience,
+      title: row.title,
+      doc: parsed.data,
+      bodyText: solutionBodyText(parsed.data),
+      slug: row.slug || solutionSlug(row.title),
+      moduleIds: article.moduleId ? [article.moduleId] : [],
+      fileIds: collectImageFileIds(parsed.data),
+      originalLocale: article.originalLocale,
+      isMachine: row.isMachine,
+      isOutdated: true,
+      publishedOn: sql`now()`,
+    };
+    await tx
+      .insert(kbPublished)
+      .values({ articleId: article.articleId, locale: row.locale, ...copy })
+      .onConflictDoUpdate({ target: [kbPublished.articleId, kbPublished.locale], set: copy });
+  }
 }
 
 /**

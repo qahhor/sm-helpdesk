@@ -205,3 +205,14 @@ test('колонку tsv приложение не подменяет: триг�
   const tsv = await pools.root.query(`select tsv @@ plainto_tsquery('russian', 'выписки') as real, tsv @@ plainto_tsquery('simple', 'подмена') as fake from hdk_search_documents where ref_id = $1`, [a.articleId]);
   expect(tsv.rows[0]).toEqual({ real: true, fake: false });
 });
+
+test('сверка находит строку индекса со старым модулем: смена модуля, чья задача kb.index потерялась (0057, I2c)', async () => {
+  const a = await published('Не печатается чек', 'Чек не печатается', 'Перезапустите кассу');
+  await runIndexJob(SYSTEM, { articleId: a.articleId });
+  const other = (await pools.root.query(`insert into hdr_product_modules (code, name) values ('idx3-${Date.now()}', '{"ru": "Касса"}') returning module_id`)).rows[0].module_id as string;
+  await saveSolutionMeta(staffCtx(f.l1), { number: a.number, moduleId: other, audience: 'clients' });
+  // Задача из очереди не выполнилась: сверка должна найти расхождение сама.
+  const result = await reconcileSearchIndex(SYSTEM);
+  expect(result.articles).toBe(1);
+  expect((await rowsOf(a.articleId))[0].module_id).toBe(other);
+});

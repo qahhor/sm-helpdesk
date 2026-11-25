@@ -87,13 +87,25 @@ export async function versionsTx(tx: Tx, articleId: string, locale: Locale): Pro
     .orderBy(desc(kbArticleVersions.number));
 }
 
-export async function versionByIdTx(tx: Tx, articleId: string, locale: Locale, versionId: string): Promise<VersionRow | null> {
-  const [row] = await tx
+/** lock: строка версии блокируется до конца транзакции (публикация читает то, что опубликует). */
+export async function versionByIdTx(tx: Tx, articleId: string, locale: Locale, versionId: string, opts: { lock?: boolean } = {}): Promise<VersionRow | null> {
+  const query = tx
     .select(versionColumns)
     .from(kbArticleVersions)
     .where(and(eq(kbArticleVersions.versionId, versionId), eq(kbArticleVersions.articleId, articleId), eq(kbArticleVersions.locale, locale)))
     .limit(1);
+  const [row] = opts.lock ? await query.for('update') : await query;
   return row ?? null;
+}
+
+/**
+ * Блокировка текста статьи до конца транзакции (повторная проверка M5, docs/decisions/0057): сохранение черновика,
+ * возврат версии, машинный перевод и публикация одной статьи идут по очереди. Без неё автосохранение из второй
+ * вкладки между чтением и обновлением публикации оставляло версию published с непроверенным текстом. Блокировка
+ * советующая, а не строки статьи: строку архивного решения первая линия заблокировать не может (политика UPDATE).
+ */
+export async function lockArticleTx(tx: Tx, articleId: string): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`hdk.article:${articleId}`}))`);
 }
 
 /** Что открывает редактор: черновик, если он есть, иначе действующая опубликованная версия, иначе последняя. */
@@ -167,6 +179,8 @@ export type SaveDraft = {
  * или прежняя версия: создаётся новый черновик, если его ещё нет (иначе кто-то начал правку раньше: конфликт).
  */
 export async function saveDraftTx(tx: Tx, input: SaveDraft): Promise<{ versionId: string; revision: string } | 'conflict' | null> {
+  // Основа читается после идущей публикации: сохранение от вытесненной ею версии получает конфликт.
+  await lockArticleTx(tx, input.articleId);
   const base = await versionByIdTx(tx, input.articleId, input.locale, input.baseVersionId);
   if (!base) return null;
   if (base.state === 'draft') {
@@ -201,6 +215,7 @@ export async function saveDraftTx(tx: Tx, input: SaveDraft): Promise<{ versionId
  * поверх существующего). Запись в журнал аудита в той же транзакции.
  */
 export async function restoreVersionTx(tx: Tx, article: ArticleRow, locale: Locale, versionId: string): Promise<{ versionId: string; revision: string } | null> {
+  await lockArticleTx(tx, article.articleId);
   const source = await versionByIdTx(tx, article.articleId, locale, versionId);
   if (!source || source.state === 'draft') return null;
   const [draft] = await tx

@@ -43,11 +43,18 @@ export async function publishSolution(ctx: StaffContext, input: unknown): Promis
   if (!hasRole(ctx, KB_PUBLISHER_ROLES)) throw new HdkError('forbidden');
   const data = parse(publishInput, input);
   const allowedDomains = await readAllowedDomains();
-  const result = await withActor(ctx.actor, async (tx) => {
-    const article = await articleByNumberTx(tx, data.number, { lock: true });
-    if (!article) return { outcome: { status: 'not_found' } as const, articleId: null };
-    return { outcome: await publishTx(tx, article, { ...data, allowedDomains }), articleId: article.articleId };
-  });
+  let result: { outcome: PublishOutcome; articleId: string | null };
+  try {
+    result = await withActor(ctx.actor, async (tx) => {
+      const article = await articleByNumberTx(tx, data.number, { lock: true });
+      if (!article) return { outcome: { status: 'not_found' } as const, articleId: null };
+      return { outcome: await publishTx(tx, article, { ...data, allowedDomains }), articleId: article.articleId };
+    });
+  } catch (error) {
+    // Второй черновик или вторая опубликованная версия языка (обогнали другой вкладкой): конфликт, а не ошибка (0057).
+    if (error && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === '23505') return { status: 'conflict' };
+    throw error;
+  }
   if (result.outcome.status === 'not_found') throw new HdkError('not_found');
   if (result.outcome.status === 'published' && result.articleId) await enqueue('kb.index', { articleId: result.articleId });
   return result.outcome;

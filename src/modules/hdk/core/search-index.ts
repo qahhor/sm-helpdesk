@@ -79,15 +79,18 @@ export async function writeEmbeddingTx(tx: Tx, row: PendingEmbedding, vector: re
 
 /**
  * Статьи, индекс которых расходится с копиями для читателей: опубликованный язык без строки индекса, строка без
- * вектора, строка с другим текстом. Для ночной сверки kb.reconcile.
+ * вектора, строка с другим текстом, другим модулем статьи, типом или аудиторией (всё, что syncArticleIndexTx копирует
+ * в строку; повторная проверка M5, 0057). Для ночной сверки kb.reconcile.
  */
 export async function articlesOutOfSyncTx(tx: Tx, limit: number): Promise<string[]> {
   const rows = await tx.execute<{ article_id: string }>(sql`
     select distinct p.article_id
       from ${kbPublished} p
+      join ${kbArticles} a on a.article_id = p.article_id
       left join ${kbSearchDocuments} d on d.kind = 'article' and d.ref_id = p.article_id and d.locale = p.locale
      where d.search_document_id is null or d.embedding is null or d.title <> p.title or d.body_text <> p.body_text
-        or d.published_id <> p.published_id
+        or d.published_id <> p.published_id or d.module_id is distinct from a.module_id or d.article_type <> p.type
+        or d.audience <> p.audience
      limit ${limit}`);
   return rows.rows.map((r) => r.article_id);
 }

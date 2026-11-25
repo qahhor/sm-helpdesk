@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleAlert, CircleCheck } from 'lucide-react';
+import { CircleAlert, CircleCheck, Info } from 'lucide-react';
 import { useState } from 'react';
 import type { SolutionReview } from '@/modules/hdk/api/editor';
 import { Alert } from '@/ui/components/alert';
@@ -9,12 +9,13 @@ import { Card } from '@/ui/components/card';
 import { cn } from '@/ui/cn';
 
 // Панель готовности и находки проверки (план M5, задача 4; UX-W-07, FR-SOL-04). Пункты: заголовок, модуль, шаги,
-// проверка текста и отметка "Текст прочитан" для текста модели. Находки названы текстом и ведут к блоку. Публикация с
-// находками требует явного подтверждения; ссылка вне списка разрешённых доменов не публикуется вовсе.
+// проверка текста, отметка "Текст прочитан" для текста модели и справочный пункт "переводы актуальны". Находки
+// названы текстом и ведут к блоку. Публикация с находками требует явного подтверждения; ссылка вне списка разрешённых
+// доменов не публикуется вовсе.
 
 export type ReviewLabels = {
   title: string;
-  items: { title: string; module: string; steps: string; checks: string; textRead: string };
+  items: { title: string; module: string; steps: string; checks: string; textRead: string; translations: string };
   findingsTitle: string;
   noFindings: string;
   kinds: Record<SolutionReview['findings'][number]['kind'], string>;
@@ -88,6 +89,17 @@ export function ReviewPanel({
             </li>
           );
         })}
+        {/* "Переводы актуальны" (UX-W-07; 0057, M5m): справочный пункт, публикацию не закрывает. */}
+        {review.translationsCurrent !== null && (
+          <li data-item="translations" data-ok={review.translationsCurrent ? 'yes' : 'no'} className="flex items-center gap-2 text-sm">
+            {review.translationsCurrent ? (
+              <CircleCheck className="size-4 shrink-0 text-success" aria-hidden="true" />
+            ) : (
+              <Info className="size-4 shrink-0 text-secondary-foreground" aria-hidden="true" />
+            )}
+            <span>{labels.items.translations}</span>
+          </li>
+        )}
       </ul>
 
       <section aria-labelledby="review-findings" className="flex flex-col gap-2">

@@ -2624,7 +2624,13 @@
         "conflict": "The draft was changed in another tab or by a colleague. Your text was not saved and stays on the page: copy what you need and open the latest version.",
         "error": "Could not save",
         "restored": "Restored text that had not been saved.",
-        "reload": "Open latest version"
+        "reload": "Open latest version",
+        "stale": "There is unsaved text from another version of the draft. It was not put into the editor.",
+        "staleShow": "Show",
+        "staleHide": "Hide",
+        "staleCopy": "Copy",
+        "staleCopied": "Copied",
+        "staleDiscard": "Discard"
       },
       "screenshot": {
         "title": "Screenshot",
@@ -2686,7 +2692,8 @@
           "module": "Module",
           "steps": "At least one step with text",
           "checks": "Text check without findings",
-          "textRead": "AI text read"
+          "textRead": "AI text read",
+          "translations": "Translations are up to date (for information)"
         },
         "findingsTitle": "Check findings",
         "noFindings": "No findings.",
@@ -2757,7 +2764,8 @@
             "links": "Links",
             "numbers": "Numbers",
             "quotes": "Quoted fragments",
-            "steps": "Number of steps"
+            "steps": "Number of steps",
+            "data": "Data not in the original"
           },
           "original": "In the original",
           "translation": "In the translation"

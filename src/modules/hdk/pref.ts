@@ -75,6 +75,8 @@ export const TRIGRAM_MIN_SIMILARITY = 0.5;
 export const MODULE_BOOST = 1.1;
 /** Не больше трёх решений в подсказке (FR-SOL-08). */
 export const SUGGEST_MAX = 3;
+/** Сколько показанных решений помнит строка исходов сессии формы (ограничение hdk_deflection_events_c5, миграция 0077). */
+export const SHOWN_PER_SESSION_MAX = 50;
 /** Длина запроса подсказки: от 3 до 500 знаков (решение 13). */
 export const SUGGEST_QUERY_MIN = 3;
 export const SUGGEST_QUERY_MAX = 500;

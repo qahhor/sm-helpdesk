@@ -162,3 +162,19 @@ test('сотрудник начал писать раньше модели: ег
   expect(after?.current).toMatchObject({ title: 'Пишу сам', isMachine: false });
   expect(after?.languages.find((l) => l.isOriginal)?.aiStatus).toBe('skipped');
 });
+
+test('I3c: сбой модели на черновике: повтор задачи снова вызывает модель, failed только после последней попытки (0057)', async () => {
+  const ticket = await resolvedTicket();
+  const created = await create(ticket.number);
+  expect(created.created).toBe(true);
+  const [job] = jobs.sent;
+  const articleId = (job!.data as { articleId: string }).articleId;
+  const aiStatus = async () => (await pools.root.query(`select ai_status from hdk_article_translations where article_id = $1`, [articleId])).rows[0].ai_status as string;
+  stub.respond = () => new Error('нет сети');
+  await expect(runDraftJob(SYSTEM, job!.data, { retryCount: 0, retryLimit: 3 })).rejects.toThrow();
+  expect(await aiStatus()).toBe('pending');
+  stub.respond = null;
+  await runDraftJob(SYSTEM, job!.data, { retryCount: 1, retryLimit: 3 });
+  expect(stub.calls).toHaveLength(2);
+  expect(await aiStatus()).toBe('ready');
+});

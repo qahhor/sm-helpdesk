@@ -17,6 +17,7 @@ import { Select } from '@/ui/components/select';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { Textarea } from '@/ui/components/textarea';
 import { IDEA_STATUS_TONE } from '../../../../idea-status';
+import { StaffComments } from './StaffComments';
 import { declineIdeaAction, editIdeaAction, mergeIdeaAction, publishIdeaAction, reviewTranslationAction } from '../actions';
 
 // Карточка идеи на рабочем месте (ТЗ FR-IDEA-03, 13, 15; план M7, задача 6, решения 5, 6, 9, 11, 24). Тексты клиента
@@ -24,7 +25,7 @@ import { declineIdeaAction, editIdeaAction, mergeIdeaAction, publishIdeaAction, 
 // нажимаемых ссылок (решение 13). Организация автора видна всегда. Модерация, правка, переводы и разбивка голосов по
 // организациям и категориям только у product и admin; имён голосовавших нет ни у кого.
 
-const ERRORS = ['forbidden', 'invalid_input', 'not_found', 'bad_transition', 'bad_merge_target', 'findings_unchecked', 'not_editable'];
+const ERRORS = ['forbidden', 'invalid_input', 'not_found', 'bad_transition', 'bad_merge_target', 'findings_unchecked', 'not_editable', 'comments_closed', 'rate_limited'];
 
 export default async function AgentIdeaPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<{ status?: string; after?: string }> }) {
   const staff = await requireStaffActor();
@@ -56,7 +57,7 @@ export default async function AgentIdeaPage({ params, searchParams }: { params: 
       />
       <div className="flex flex-col gap-4" data-testid="agent-idea">
         {code && <Alert tone="danger">{s(`errors.${ERRORS.includes(code) ? code : 'forbidden'}`)}</Alert>}
-        {['published', 'declined', 'merged', 'edited', 'translation'].includes(status) && <Alert tone="success">{s(`done.${status}`)}</Alert>}
+        {['published', 'declined', 'merged', 'edited', 'translation', 'comment_hidden', 'comment_published', 'replied'].includes(status) && <Alert tone="success">{s(`done.${status}`)}</Alert>}
 
         <Card>
           <CardContent className="flex flex-col gap-2 pt-4">
@@ -286,6 +287,13 @@ export default async function AgentIdeaPage({ params, searchParams }: { params: 
           </Card>
         )}
 
+        <StaffComments
+          actor={staff.actor}
+          number={card.number}
+          after={firstParam(search.after)}
+          canModerate={card.canModerate}
+          canReply={card.status !== 'pending_review' && card.status !== 'declined' && card.status !== 'merged'}
+        />
       </div>
     </>
   );

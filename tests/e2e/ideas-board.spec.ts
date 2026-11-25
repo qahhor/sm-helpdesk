@@ -62,6 +62,18 @@ test('поиск на доске, голос без перехода, машин
 
   await page.getByRole('button', { name: 'Следить' }).click();
   await expect(page.getByRole('button', { name: 'Не следить' })).toBeVisible();
+
+  // Комментарий со ссылкой ждёт модератора и виден автору с пометкой "На проверке" (решение 8), разметка текстом.
+  const comments = page.getByTestId('idea-comments');
+  await page.locator('#new-comment').fill(`${word} <a href="https://evil.example">жми</a>`);
+  await comments.getByRole('button', { name: 'Отправить' }).click();
+  await expect(page.getByText('Комментарий отправлен на проверку')).toBeVisible();
+  const mine = comments.getByRole('listitem').filter({ hasText: word });
+  await expect(mine).toContainText('На проверке');
+  await expect(mine.locator('a')).toHaveCount(0);
+  await page.locator('#new-comment').fill(`${word} поддерживаю`);
+  await comments.getByRole('button', { name: 'Отправить' }).click();
+  await expect(page.getByText('Комментарий опубликован.')).toBeVisible();
   const { violations } = await new AxeBuilder({ page }).analyze();
   expect(violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? '')).map((v) => v.id)).toEqual([]);
   await page.setViewportSize({ width: 360, height: 740 });

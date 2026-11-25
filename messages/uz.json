@@ -388,7 +388,8 @@
         "not_found": "G'oya topilmadi yoki rasmlardan biri mavjud emas",
         "forbidden": "Bu amal siz uchun mavjud emas",
         "voting_closed": "Bu g'oya bo'yicha ovoz berish yopilgan",
-        "not_editable": "G'oyani endi o'zgartirib bo'lmaydi"
+        "not_editable": "G'oyani endi o'zgartirib bo'lmaydi",
+        "comments_closed": "Bu g'oyaga izohlar yopilgan"
       },
       "ticketLink": "Bu yaxshilash taklifimi?",
       "ticketLinkAction": "G'oya taklif qiling",
@@ -457,11 +458,28 @@
           "followed": "Siz g'oyani kuzatyapsiz: har bir holat o'zgarishi haqida xabar beramiz.",
           "unfollowed": "Siz endi g'oyani kuzatmayapsiz.",
           "saved": "Saqlandi.",
-          "edited": "O'zgarishlar saqlandi."
+          "edited": "O'zgarishlar saqlandi.",
+          "commented": "Izoh e'lon qilindi.",
+          "comment_held": "Izoh tekshiruvga yuborildi: unda kontaktlar yoki havola bor. Hozircha uni faqat siz ko'rasiz.",
+          "comment_saved": "Izoh o'zgartirildi."
         }
       },
       "month": {
         "title": "Oy g'oyasi"
+      },
+      "comments": {
+        "title": "Izohlar",
+        "empty": "Hozircha izohlar yo'q.",
+        "official": "Smartup",
+        "pending": "Tekshiruvda",
+        "hidden": "Moderator yashirgan",
+        "hideReason": "Sabab: {reason}",
+        "edit": "O'zgartirish",
+        "save": "Saqlash",
+        "label": "Izoh",
+        "hint": "Izohni barcha tashkilotlar mijozlari ko'radi. Telefon, pochta yoki havolali izohni avval moderator ko'radi.",
+        "send": "Yuborish",
+        "more": "Yana ko'rsatish"
       }
     },
     "org": {
@@ -1209,7 +1227,10 @@
             "merged": "G'oya boshqasi bilan birlashtirildi",
             "moderator_edited": "Moderator g'oya matnini tuzatdi",
             "translation_reviewed": "Moderator g'oya tarjimasini tuzatdi",
-            "file_infected": "Antivirus g'oyada zararlangan rasm topdi"
+            "file_infected": "Antivirus g'oyada zararlangan rasm topdi",
+            "comment_held": "G'oyaga izoh tekshiruvgacha ushlab turildi",
+            "comment_published": "Moderator g'oyaga izohni e'lon qildi",
+            "comment_hidden": "Moderator g'oyaga izohni yashirdi"
           }
         },
         "words": {
@@ -3014,7 +3035,8 @@
       "tabsLabel": "G'oyalar bo'limlari",
       "tabs": {
         "moderation": "Moderatsiya",
-        "all": "Hammasi"
+        "all": "Hammasi",
+        "comments": "Tekshiruvdagi izohlar"
       },
       "filters": {
         "label": "G'oyalar filtrlari",
@@ -3027,7 +3049,8 @@
       },
       "empty": {
         "moderation": "Tekshiruvdagi g'oyalar yo'q",
-        "all": "G'oyalar topilmadi"
+        "all": "G'oyalar topilmadi",
+        "comments": "Tekshiruvdagi izohlar yo'q"
       },
       "emptyText": "Mijozlar g'oya taklif qilganda ular shu yerda paydo bo'ladi.",
       "columns": {
@@ -3097,7 +3120,10 @@
         "declined": "G'oya rad etildi.",
         "merged": "G'oya birlashtirildi.",
         "edited": "Tahrir saqlandi.",
-        "translation": "Tarjima saqlandi va tekshirilgan deb belgilandi."
+        "translation": "Tarjima saqlandi va tekshirilgan deb belgilandi.",
+        "comment_hidden": "Izoh yashirildi.",
+        "comment_published": "Izoh e'lon qilindi.",
+        "replied": "Javob Smartup belgisi bilan e'lon qilindi."
       },
       "errors": {
         "forbidden": "Bu amal faqat product va admin rollariga ochiq",
@@ -3106,7 +3132,20 @@
         "bad_transition": "Bu holatdan bunday o'tkazib bo'lmaydi",
         "bad_merge_target": "Faqat e'lon qilingan, rad etilmagan va birlashtirilmagan g'oya bilan birlashtirish mumkin",
         "findings_unchecked": "Matnda mijoz ma'lumotlari bor: ularni olib tashlang yoki tekshirganingizni belgilang",
-        "not_editable": "G'oyani endi o'zgartirib bo'lmaydi"
+        "not_editable": "G'oyani endi o'zgartirib bo'lmaydi",
+        "comments_closed": "Bu g'oyaga izohlar yopilgan",
+        "rate_limited": "Juda tez-tez. Keyinroq urinib ko'ring"
+      },
+      "comments": {
+        "publish": "E'lon qilish",
+        "hide": "Yashirish",
+        "hideReason": "Yashirish sababi (muallif ko'radi)",
+        "reply": "Smartup javobi",
+        "send": "Javob berish",
+        "idea": "G'oya",
+        "author": "Muallif",
+        "text": "Matn",
+        "created": "Qachon"
       }
     }
   },

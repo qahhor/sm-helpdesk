@@ -20,6 +20,8 @@ export const HDI_ERROR_CODES = [
   'findings_unchecked',
   // Голос вне голосования (решение 4).
   'voting_closed',
+  // Комментарии закрыты: идея отклонена или объединена (ответ Smartup ещё и у идеи на модерации).
+  'comments_closed',
 ] as const;
 export type HdiErrorCode = (typeof HDI_ERROR_CODES)[number];
 

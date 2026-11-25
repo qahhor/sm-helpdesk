@@ -388,7 +388,8 @@
         "not_found": "The idea was not found or one of the images is unavailable",
         "forbidden": "This action is not available to you",
         "voting_closed": "Voting on this idea is closed",
-        "not_editable": "The idea can no longer be changed"
+        "not_editable": "The idea can no longer be changed",
+        "comments_closed": "Comments on this idea are closed"
       },
       "ticketLink": "Is this a suggestion for improvement?",
       "ticketLinkAction": "Suggest an idea",
@@ -457,11 +458,28 @@
           "followed": "You follow this idea: we will tell you about every status change.",
           "unfollowed": "You no longer follow this idea.",
           "saved": "Saved.",
-          "edited": "Changes saved."
+          "edited": "Changes saved.",
+          "commented": "Comment published.",
+          "comment_held": "Comment sent for review: it has contacts or a link. For now only you can see it.",
+          "comment_saved": "Comment changed."
         }
       },
       "month": {
         "title": "Idea of the month"
+      },
+      "comments": {
+        "title": "Comments",
+        "empty": "No comments yet.",
+        "official": "Smartup",
+        "pending": "In review",
+        "hidden": "Hidden by a moderator",
+        "hideReason": "Reason: {reason}",
+        "edit": "Edit",
+        "save": "Save",
+        "label": "Comment",
+        "hint": "Clients of all organizations will see your comment. A comment with a phone number, email or link is reviewed by a moderator first.",
+        "send": "Send",
+        "more": "Show more"
       }
     },
     "org": {
@@ -1209,7 +1227,10 @@
             "merged": "Idea merged with another one",
             "moderator_edited": "Moderator corrected the idea text",
             "translation_reviewed": "Moderator corrected the idea translation",
-            "file_infected": "Antivirus found an infected idea image"
+            "file_infected": "Antivirus found an infected idea image",
+            "comment_held": "Idea comment held for review",
+            "comment_published": "Moderator published an idea comment",
+            "comment_hidden": "Moderator hid an idea comment"
           }
         },
         "words": {
@@ -3014,7 +3035,8 @@
       "tabsLabel": "Idea sections",
       "tabs": {
         "moderation": "Moderation",
-        "all": "All"
+        "all": "All",
+        "comments": "Comments in review"
       },
       "filters": {
         "label": "Idea filters",
@@ -3027,7 +3049,8 @@
       },
       "empty": {
         "moderation": "No ideas waiting for review",
-        "all": "No ideas found"
+        "all": "No ideas found",
+        "comments": "No comments in review"
       },
       "emptyText": "Ideas suggested by clients will appear here.",
       "columns": {
@@ -3097,7 +3120,10 @@
         "declined": "The idea is declined.",
         "merged": "The idea is merged.",
         "edited": "Changes saved.",
-        "translation": "The translation is saved and marked as reviewed."
+        "translation": "The translation is saved and marked as reviewed.",
+        "comment_hidden": "Comment hidden.",
+        "comment_published": "Comment published.",
+        "replied": "Reply published with the Smartup badge."
       },
       "errors": {
         "forbidden": "Only the product and admin roles can do this",
@@ -3106,7 +3132,20 @@
         "bad_transition": "This status change is not allowed",
         "bad_merge_target": "You can merge only into a published idea that is not declined or merged",
         "findings_unchecked": "The text contains client data: remove it or mark it as checked",
-        "not_editable": "The idea can no longer be changed"
+        "not_editable": "The idea can no longer be changed",
+        "comments_closed": "Comments on this idea are closed",
+        "rate_limited": "Too often. Try again later"
+      },
+      "comments": {
+        "publish": "Publish",
+        "hide": "Hide",
+        "hideReason": "Reason for hiding (the author will see it)",
+        "reply": "Smartup reply",
+        "send": "Reply",
+        "idea": "Idea",
+        "author": "Author",
+        "text": "Text",
+        "created": "When"
       }
     }
   },

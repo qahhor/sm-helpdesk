@@ -94,3 +94,7 @@ export const BOARD_TAB_STATUSES: Readonly<Record<BoardTab, readonly IdeaStatus[]
 export const BOARD_PAGE = 20;
 /** Длина строки поиска по доске. */
 export const BOARD_QUERY_MAX = 100;
+
+/** Комментарии (решение 8): правка автором первые 15 минут, по 50 на странице. */
+export const COMMENT_EDIT_MINUTES = 15;
+export const COMMENT_PAGE = 50;

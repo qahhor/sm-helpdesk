@@ -2,6 +2,7 @@ import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { BOARD_QUERY_MAX, IDEA_STATUSES, type IdeaStatus, ideaRef } from '@/modules/hdi/api/constants';
 import { isHdiError } from '@/modules/hdi/api/errors';
+import { type PendingComment, pendingComments } from '@/modules/hdi/api/comments';
 import { type StaffIdeaListRow, staffIdeaList } from '@/modules/hdi/api/staff';
 import { listActiveModules } from '@/modules/hdr/api';
 import { requireStaffActor } from '@/modules/hdu/api';
@@ -21,7 +22,7 @@ import { IDEA_STATUS_TONE } from '../../../idea-status';
 // видна сотрудникам всегда. Таблица прокручивается вбок внутри карточки, страница нет (360, 768, 1280).
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TABS = ['moderation', 'all'] as const;
+const TABS = ['moderation', 'all', 'comments'] as const;
 type Tab = (typeof TABS)[number];
 type Search = { tab?: string; status?: string; module?: string; org?: string; q?: string; after?: string };
 
@@ -40,8 +41,10 @@ export default async function AgentIdeasPage({ searchParams }: { searchParams: P
   const q = (firstParam(search.q) ?? '').trim().slice(0, BOARD_QUERY_MAX);
   const after = Number(firstParam(search.after));
   let page: { items: StaffIdeaListRow[]; next: number | null } = { items: [], next: null };
+  const comments: PendingComment[] = tab === 'comments' ? await pendingComments(staff) : [];
   try {
-    page = await staffIdeaList(
+    if (tab !== 'comments')
+      page = await staffIdeaList(
       staff,
       tab === 'moderation'
         ? { tab }
@@ -111,7 +114,41 @@ export default async function AgentIdeasPage({ searchParams }: { searchParams: P
             </Button>
           </form>
         )}
-        {page.items.length === 0 ? (
+        {tab === 'comments' ? (
+          comments.length === 0 ? (
+            <Card>
+              <EmptyState title={s('empty.comments')} text={s('emptyText')} />
+            </Card>
+          ) : (
+            <Card className="overflow-x-auto">
+              <table className="w-full text-sm" aria-label={s('tabs.comments')} data-testid="agent-idea-comments">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    {(['idea', 'author', 'text', 'created'] as const).map((column) => (
+                      <th key={column} scope="col" className="px-3 py-2 text-start font-medium">
+                        {s(`comments.${column}`)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {comments.map((c) => (
+                    <tr key={c.commentId} className="border-b border-border align-top last:border-b-0">
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <Link href={`/agent/ideas/${c.ideaNumber}#idea-comments`} className="text-link underline underline-offset-2">
+                          {ideaRef(c.ideaNumber)}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-3">{c.authorName}</td>
+                      <td className="whitespace-pre-wrap break-words px-3 py-3">{c.body}</td>
+                      <td className="whitespace-nowrap px-3 py-3">{format.dateTime(c.createdOn, { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )
+        ) : page.items.length === 0 ? (
           <Card>
             <EmptyState title={s(`empty.${tab}`)} text={s('emptyText')} />
           </Card>

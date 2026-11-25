@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { followIdea } from '@/modules/hdi/api/board';
+import { addComment, editComment } from '@/modules/hdi/api/comments';
 import { parseIdeaNumber } from '@/modules/hdi/api/constants';
 import { isHdiError } from '@/modules/hdi/api/errors';
 import { editOwnIdea, setIdeaShowOrg } from '@/modules/hdi/api/submit';
@@ -73,4 +74,26 @@ export async function editIdeaAction(formData: FormData): Promise<void> {
     redirect(`/${locale}/ideas/${number}/edit?status=error-${error.code}`);
   }
   redirect(`/${locale}/ideas/${number}?status=edited`);
+}
+
+/** Комментарий клиента (FR-IDEA-07): с находками или ссылкой уходит на проверку модератору (решение 8). */
+export async function addCommentAction(formData: FormData): Promise<void> {
+  const client = await requireClientActor();
+  await ideaForm(
+    formData,
+    async (number) => ((await addComment(client, { number, body: String(formData.get('body') ?? '') })).status === 'pending' ? 'comment_held' : 'commented'),
+    'commented',
+    '#idea-comments',
+  );
+}
+
+/** Правка своего комментария в первые 15 минут. */
+export async function editCommentAction(formData: FormData): Promise<void> {
+  const client = await requireClientActor();
+  await ideaForm(
+    formData,
+    async () => ((await editComment(client, { commentId: String(formData.get('commentId') ?? ''), body: String(formData.get('body') ?? '') })).status === 'pending' ? 'comment_held' : 'comment_saved'),
+    'comment_saved',
+    '#idea-comments',
+  );
 }

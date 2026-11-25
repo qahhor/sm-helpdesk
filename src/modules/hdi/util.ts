@@ -49,3 +49,10 @@ export function workingDaysBetween(from: Date, to: Date): number {
   }
   return count;
 }
+
+/** Ссылка в тексте: со схемой (https://, ftp://, tg://), с www. или голое имя узла с доменом верхнего уровня (решение 8). */
+const LINK = /(?:\b[a-z][a-z0-9+.-]{1,15}:\/\/|\bwww\.)\S+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:uz|ru|com|net|org|io|me|info|biz|app|dev|xyz|su|kz|tj|kg|by|ua)\b/iu;
+
+export function hasLink(text: string): boolean {
+  return LINK.test(text);
+}

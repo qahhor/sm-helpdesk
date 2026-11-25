@@ -153,6 +153,11 @@ export const AUDIT_ACTIONS = [
   'idea.moderator_edited',
   'idea.translation_reviewed',
   'idea.file_infected',
+  // Комментарии к идеям (веха M7, задача 7): удержан до модератора по находкам или ссылке, опубликован модератором,
+  // скрыт с причиной. Текста комментария в журнале нет.
+  'idea.comment_held',
+  'idea.comment_published',
+  'idea.comment_hidden',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

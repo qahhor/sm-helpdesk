@@ -14,6 +14,7 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 import { IDEA_STATUS_TONE } from '../../../idea-status';
 import { followAction, showOrgAction } from '../actions';
 import { VoteButton } from '../VoteButton';
+import { IdeaComments } from './IdeaComments';
 
 // Страница идеи (ТЗ 8.3, FR-IDEA-04, 06, 11, 13; план M7, задача 5, решения 2, 5, 6, 7, 11, 13). Заголовок и описание
 // выводятся текстом с сохранением переносов, ссылки не становятся нажимаемыми; машинный перевод с пометкой, оригинал
@@ -21,7 +22,7 @@ import { VoteButton } from '../VoteButton';
 // Своя идея на модерации: "Изменить" и переключатель показа организации. Невидимая идея: "Не найдено".
 
 type Params = { locale: string; number: string };
-type Search = { status?: string };
+type Search = { status?: string; after?: string };
 
 export default async function ClientIdeaPage({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> }) {
   const client = await requireClientActor();
@@ -38,7 +39,7 @@ export default async function ClientIdeaPage({ params, searchParams }: { params:
   const moduleName = modules.find((m) => m.moduleId === idea.moduleId)?.name ?? null;
   const date = (value: string | Date) => format.dateTime(typeof value === 'string' ? new Date(`${value}T12:00:00Z`) : value, { dateStyle: 'long', timeZone: typeof value === 'string' ? 'UTC' : undefined });
   const errorCode = status.startsWith('error-') ? status.slice(6) : null;
-  const known = ['rate_limited', 'not_found', 'voting_closed', 'invalid_input', 'not_editable', 'forbidden'];
+  const known = ['rate_limited', 'not_found', 'voting_closed', 'invalid_input', 'not_editable', 'forbidden', 'comments_closed'];
 
   return (
     <>
@@ -46,7 +47,7 @@ export default async function ClientIdeaPage({ params, searchParams }: { params:
         {t('new.back')}
       </Link>
       {errorCode && <Alert tone="danger">{t(`errors.${known.includes(errorCode) ? errorCode : 'forbidden'}`)}</Alert>}
-      {(status === 'followed' || status === 'unfollowed' || status === 'saved' || status === 'edited') && <Alert tone="success">{t(`page.done.${status}`)}</Alert>}
+      {['followed', 'unfollowed', 'saved', 'edited', 'commented', 'comment_held', 'comment_saved'].includes(status) && <Alert tone="success">{t(`page.done.${status}`)}</Alert>}
       <article className="flex flex-col gap-4" data-testid="idea-page">
         <div className="flex gap-3">
           <VoteButton
@@ -158,6 +159,7 @@ export default async function ClientIdeaPage({ params, searchParams }: { params:
           </form>
         )}
 
+        <IdeaComments actor={client.actor} number={idea.number} after={firstParam(search.after)} canComment={idea.status !== 'declined' && idea.status !== 'merged'} />
       </article>
     </>
   );

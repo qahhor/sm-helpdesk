@@ -19,7 +19,12 @@ ALTER TABLE hdu_servers ADD COLUMN embed_origins text[] NOT NULL DEFAULT '{}';
 
 -- Издатель токена контекста по умолчанию равен адресу сервера входа OAuth (решение 4): у действующих серверов он
 -- уникален (hdu_servers_u3), поэтому заполнение не нарушит уникальности.
+-- Таблица под FORCE ROW LEVEL SECURITY, политик для владельца базы нет: без снятия принуждения UPDATE не увидел бы
+-- ни одной строки. Принуждение снимается только на заполнение и возвращается в этой же транзакции (как в миграции
+-- 0067): ALTER TABLE держит исключительную блокировку таблицы до фиксации, другие подключения её без принуждения не видят.
+ALTER TABLE hdu_servers NO FORCE ROW LEVEL SECURITY;
 UPDATE hdu_servers SET context_issuer = issuer;
+ALTER TABLE hdu_servers FORCE ROW LEVEL SECURITY;
 ALTER TABLE hdu_servers ALTER COLUMN context_issuer SET NOT NULL;
 
 -- Новый сервер без явного издателя получает адрес сервера входа: так работают и команда консоли, и любая вставка.

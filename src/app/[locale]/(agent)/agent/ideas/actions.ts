@@ -6,9 +6,11 @@ import { parseIdeaNumber } from '@/modules/hdi/api/constants';
 import { isHdiError } from '@/modules/hdi/api/errors';
 import { addStaffReply, moderateComment } from '@/modules/hdi/api/comments';
 import { declineIdea, editIdeaAsModerator, mergeIdea, publishIdea, reviewIdeaTranslation } from '@/modules/hdi/api/moderate';
+import { decideCycle, draftCycleExplanation } from '@/modules/hdi/api/cycles';
+import { releaseIdea, sendIdeaToDevelopment } from '@/modules/hdi/api/development';
 import { requireStaffActor } from '@/modules/hdu/api';
 
-// Действия карточки идеи на рабочем месте (план M7, задачи 4 и 6). Права (product, admin), данные и переходы проверяет
+// Действия карточки идеи и отбора месяца на рабочем месте (план M7, задачи 4, 6 и 9). Права (product, admin), данные и переходы проверяет
 // модуль hdi и ещё раз база; страница получает итог отметкой в адресе. Формы обычные: работают без скриптов.
 
 async function run(formData: FormData, action: (number: number) => Promise<unknown>, done: string): Promise<never> {
@@ -74,4 +76,50 @@ export async function moderateCommentAction(formData: FormData): Promise<void> {
     () => moderateComment(staff, action === 'publish' ? { commentId, action } : { commentId, action, reason: String(formData.get('reason') ?? '') }),
     action === 'publish' ? 'comment_published' : 'comment_hidden',
   );
+}
+
+/** "Передать в разработку" выбранную идею (решение 18): поля задачи ручного режима или номер задачи режима API. */
+export async function sendIdeaToDevelopmentAction(formData: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const field = (name: string) => {
+    const value = formData.get(name);
+    return typeof value === 'string' && value.trim() !== '' ? { [name]: value } : {};
+  };
+  await run(formData, (number) => sendIdeaToDevelopment(staff, { number, ...field('externalId'), ...field('url'), ...field('title') }), 'in_development');
+}
+
+/** "Выпущена" с версией и датой (решение 18). */
+export async function releaseIdeaAction(formData: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await run(formData, (number) => releaseIdea(staff, { number, version: String(formData.get('version') ?? ''), releasedOn: String(formData.get('releasedOn') ?? '') }), 'released');
+}
+
+/** Выбор идеи месяца с объяснением (решение 17). Итог отметкой в адресе страницы отбора. */
+export async function decideCycleAction(formData: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  const text = (name: string) => String(formData.get(name) ?? '');
+  let status = 'decided';
+  try {
+    await decideCycle(staff, { cycle: text('cycle'), number: text('number'), explanationRu: text('explanationRu'), explanationUz: text('explanationUz'), explanationEn: text('explanationEn') });
+  } catch (error) {
+    if (!isHdiError(error)) throw error;
+    status = `error-${error.code}`;
+  }
+  redirect(`/${locale}/agent/ideas/cycles?status=${status}`);
+}
+
+export type DraftState = { uz: string; en: string } | { error: string };
+
+/** Машинный черновик объяснения на узбекском и английском (решение 17): только показывается в форме, не сохраняется. */
+export async function draftExplanationAction(text: string): Promise<DraftState> {
+  const staff = await requireStaffActor();
+  try {
+    const draft = await draftCycleExplanation(staff, { text });
+    if (draft.uz === null && draft.en === null) return { error: 'unavailable' };
+    return { uz: draft.uz ?? '', en: draft.en ?? '' };
+  } catch (error) {
+    if (!isHdiError(error)) throw error;
+    return { error: error.code };
+  }
 }

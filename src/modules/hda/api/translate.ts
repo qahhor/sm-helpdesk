@@ -86,3 +86,23 @@ export async function requestIdeaTranslation(
     maxTokens: 4000,
   });
 }
+
+// --- Объяснение выбора идеи месяца (план M7, задача 9, решение 17) ---
+
+/**
+ * Машинный черновик объяснения выбора на другом языке. Текст пишет сотрудник Smartup (данных клиентов в нём нет), в
+ * модель он уходит тем же путём, что перевод идеи (тег <idea>, очистка невидимых знаков, почты и телефонов). Черновик
+ * не сохраняется: сотрудник читает его, правит и сохраняет сам, без пометки машинного клиенту он не уходит никогда.
+ */
+export async function requestExplanationDraft(system: SystemActor, input: { from: string; to: string; text: string }): Promise<RunOutcome<string>> {
+  const data = assembleIdeaTranslationData({
+    from: LOCALE_NAMES[input.from] ?? input.from,
+    to: LOCALE_NAMES[input.to] ?? input.to,
+    title: 'Идея месяца',
+    body: input.text,
+    redaction: { names: [], orgTerms: [] },
+  });
+  const outcome = await runAi(system, { purpose: 'idea_translation', orgId: null, refId: null, tier: 'fast', system: IDEA_TRANSLATION_SYSTEM, data, schema: ideaTranslationSchema, maxTokens: 2000 });
+  if (outcome.status !== 'ok') return outcome;
+  return { status: 'ok', value: outcome.value.body };
+}

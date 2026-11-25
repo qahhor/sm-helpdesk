@@ -495,6 +495,18 @@
         "hint": "Clients of all organizations will see your comment. A comment with a phone number, email or link is reviewed by a moderator first.",
         "send": "Send",
         "more": "Show more"
+      },
+      "cycles": {
+        "link": "Monthly selection",
+        "title": "Monthly selection",
+        "intro": "On the 1st of each month at 09:00 Tashkent time, the five ideas with the most votes enter the shortlist, and the Smartup team picks the idea of the month. If the team picks an idea other than the leader, it explains why.",
+        "countdown": "{month} selection: {days, plural, one {# day left} other {# days left}}, starts {date} Tashkent time.",
+        "archiveTitle": "Past selections",
+        "archiveEmpty": "No selections yet",
+        "archiveEmptyText": "The first selection takes place on the 1st of next month.",
+        "cycleOf": "{month} selection",
+        "noChoice": "No pick",
+        "explanation": "Why this idea was picked"
       }
     },
     "org": {
@@ -1245,7 +1257,11 @@
             "file_infected": "Antivirus found an infected idea image",
             "comment_held": "Idea comment held for review",
             "comment_published": "Moderator published an idea comment",
-            "comment_hidden": "Moderator hid an idea comment"
+            "comment_hidden": "Moderator hid an idea comment",
+            "cycle_created": "Monthly selection shortlist captured",
+            "cycle_lapsed": "Monthly selection closed without a choice",
+            "cycle_decided": "Idea of the month selected",
+            "status_changed": "Idea status changed"
           }
         },
         "words": {
@@ -3138,7 +3154,10 @@
         "translation": "The translation is saved and marked as reviewed.",
         "comment_hidden": "Comment hidden.",
         "comment_published": "Comment published.",
-        "replied": "Reply published with the Smartup badge."
+        "replied": "Reply published with the Smartup badge.",
+        "decided": "Idea of the month picked.",
+        "in_development": "The idea was sent to development.",
+        "released": "The idea was marked as released."
       },
       "errors": {
         "forbidden": "Only the product and admin roles can do this",
@@ -3149,7 +3168,15 @@
         "findings_unchecked": "The text contains client data: remove it or mark it as checked",
         "not_editable": "The idea can no longer be changed",
         "comments_closed": "Comments on this idea are closed",
-        "rate_limited": "Too often. Try again later"
+        "rate_limited": "Too often. Try again later",
+        "cycle_closed": "The selection is already closed: the pick cannot be changed",
+        "not_in_shortlist": "You can pick only an idea from the shortlist",
+        "explanation_required": "You picked an idea other than the leader: write an explanation in Russian",
+        "invalid_url": "The task link must start with https://",
+        "already_linked": "The idea already has a development task",
+        "task_closed": "A task with this number is already closed",
+        "task_not_found": "The task manager has no task with this number",
+        "tracker_unavailable": "The task manager did not respond. The idea was not changed, try again later"
       },
       "comments": {
         "publish": "Publish",
@@ -3161,6 +3188,57 @@
         "author": "Author",
         "text": "Text",
         "created": "When"
+      },
+      "cycles": {
+        "title": "Monthly selection",
+        "place": "Place",
+        "snapshot": "In snapshot",
+        "live": "Now",
+        "next": "Next selection ({month}): {date} Tashkent time.",
+        "current": "Current selection for {month}",
+        "noCurrent": "No selection is waiting for a pick",
+        "noCurrentText": "The shortlist appears on the 1st at 09:00 Tashkent time.",
+        "mode": {
+          "per_user": "Counting: one user, one vote",
+          "per_org": "Counting: one organization, one vote"
+        },
+        "pick": "Idea of the month",
+        "leader": "leader",
+        "explanationRu": "Explanation in Russian",
+        "explanationUz": "Explanation in Uzbek",
+        "explanationEn": "Explanation in English",
+        "explanationHint": "If you pick an idea other than the leader, an explanation in Russian is required: clients will see it on the selection page. Uzbek and English are optional. The pick cannot be changed after saving.",
+        "translate": "Translate",
+        "translating": "Translating...",
+        "machine": "Machine draft: read and correct the Uzbek and English text before saving.",
+        "draftError": "The draft is not available right now. Write the explanation yourself.",
+        "submit": "Pick the idea of the month",
+        "archive": "Past selections",
+        "archiveEmpty": "No past selections yet.",
+        "cycleOf": "{month} selection",
+        "statuses": {
+          "open": "Waiting for a pick",
+          "decided": "Picked",
+          "lapsed": "No pick"
+        },
+        "selected": "Picked:",
+        "notLeader": "leader {ref}"
+      },
+      "dev": {
+        "title": "Development task",
+        "status": "Task status",
+        "version": "version {version}",
+        "send": "Send to development",
+        "ref": "Task number",
+        "url": "Task link",
+        "taskTitle": "Task title",
+        "apiHint": "The portal will create a task in the task manager with the idea title and description. To link an existing task, enter its number.",
+        "refOptional": "Existing task number (optional)",
+        "submit": "Send",
+        "release": "Mark as released",
+        "releaseVersion": "Smartup version",
+        "releaseDate": "Release date",
+        "releaseSubmit": "Released"
       }
     }
   },

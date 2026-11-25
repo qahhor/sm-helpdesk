@@ -132,13 +132,20 @@ export const devTasks = pgTable('hdw_dev_tasks', {
   syncAttemptedOn: timestamp('sync_attempted_on', { withTimezone: true }),
 });
 
-/** Привязки обращений к задачам разработки (FR-DEV-06): у обращения не больше одной задачи. */
+/**
+ * Привязки обращений и идей к задачам разработки (FR-DEV-06, FR-IDEA-12): в строке ровно одно из обращения (с
+ * организацией) или идеи (без организации); у обращения и у идеи не больше одной задачи. Миграции 0063 и 0082.
+ */
 export const devTaskLinks = pgTable('hdw_dev_task_links', {
-  orgId: uuid('org_id').notNull(),
+  /** Организация обращения. У привязки идеи пусто. */
+  orgId: uuid('org_id'),
   linkId: uuid('link_id')
     .primaryKey()
     .default(sql`uuidv7()`),
   devTaskId: uuid('dev_task_id').notNull(),
-  ticketId: uuid('ticket_id').notNull(),
+  /** Обращение. У привязки идеи пусто. */
+  ticketId: uuid('ticket_id'),
   ...stampColumns,
+  /** Идея (план M7, решение 18). У привязки обращения пусто. Миграция 0082. */
+  ideaId: uuid('idea_id'),
 });

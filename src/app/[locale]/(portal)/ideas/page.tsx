@@ -2,7 +2,7 @@ import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import type { Locale } from '@/i18n/locales';
 import { listIdeas, type BoardCard } from '@/modules/hdi/api/board';
-import { BOARD_QUERY_MAX, BOARD_TABS, type BoardTab, cycleCountdown, ideaRef } from '@/modules/hdi/api/constants';
+import { BOARD_QUERY_MAX, BOARD_TABS, type BoardTab, cycleCountdown, cycleMonth, ideaRef } from '@/modules/hdi/api/constants';
 import { isHdiError } from '@/modules/hdi/api/errors';
 import { listActiveModules } from '@/modules/hdr/api';
 import { requireClientActor } from '@/modules/hdu/api';
@@ -93,8 +93,11 @@ export default async function ClientIdeasPage({ searchParams }: { searchParams: 
           </div>
         </div>
       </form>
-      <p className="rounded-card border border-border bg-card-soft px-4 py-3 text-sm" data-testid="cycle-countdown">
-        {t('board.countdown', { month: format.dateTime(countdown.month, { month: 'long', timeZone: 'UTC' }), days: countdown.daysLeft })}
+      <p className="flex flex-wrap justify-between gap-2 rounded-card border border-border bg-card-soft px-4 py-3 text-sm" data-testid="cycle-countdown">
+        <span>{t('board.countdown', { month: format.dateTime(countdown.month, { month: 'long', timeZone: 'UTC' }), days: countdown.daysLeft })}</span>
+        <Link href="/ideas/cycles" className="text-link underline underline-offset-2">
+          {t('cycles.link')}
+        </Link>
       </p>
       {limited && <Alert tone="danger">{t('errors.rate_limited')}</Alert>}
       {page.items.length === 0 ? (
@@ -119,7 +122,7 @@ export default async function ClientIdeasPage({ searchParams }: { searchParams: 
                 <span className="flex flex-wrap gap-1">
                   <StatusLabel tone={IDEA_STATUS_TONE[item.status]}>
                     {item.status === 'selected' && item.selectedCycle
-                      ? t('board.selectedIn', { month: format.dateTime(new Date(`${item.selectedCycle}T12:00:00Z`), { month: 'long', year: 'numeric', timeZone: 'UTC' }) })
+                      ? t('board.selectedIn', { month: format.dateTime(cycleMonth(item.selectedCycle), { month: 'long', year: 'numeric', timeZone: 'UTC' }) })
                       : item.status === 'released' && item.releasedIn
                         ? t('board.releasedIn', { version: item.releasedIn })
                         : t(`statuses.${item.status}`)}

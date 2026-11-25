@@ -4,6 +4,8 @@ import { withActor } from '@/db/with-actor';
 import type { StaffContext } from '@/modules/hdc/api';
 import { findInText, type FindingKind } from '@/modules/hdk/api/text-checks';
 import { findOrgIds, orgSummaries } from '@/modules/hdu/api/staff-lookup';
+import { devTaskOfIdeaTx } from '@/modules/hdw/api/idea-links';
+import type { DevTaskStatus, DevTrackerKind } from '@/modules/hdw/pref';
 import { staffDetailTx, type StaffIdeaRow, staffListTx, type StaffText, votesByOrgTx } from '../core/staff';
 import { HdiError } from '../error';
 import { ideaNumber, parseInput } from '../input';
@@ -106,13 +108,19 @@ export type StaffIdeaCard = {
   transitions: IdeaStatus[];
   /** Разбивка только у product и admin (решение 24), у остальных null. */
   breakdown: VoteBreakdown | null;
+  /** Задача разработки идеи (решение 18): номер, ссылка, статус и версия. Видят все сотрудники; нет привязки: null. */
+  devTask: { externalId: string; url: string; title: string; status: DevTaskStatus; version: string | null; tracker: DevTrackerKind } | null;
 };
 
 /** Карточка идеи на рабочем месте. Несуществующая: null. */
 export async function staffIdeaCard(ctx: StaffContext, input: unknown): Promise<StaffIdeaCard | null> {
   const { number } = parseInput(z.strictObject({ number: ideaNumber }), input);
-  const detail = await withActor(ctx.actor, (tx) => staffDetailTx(tx, number));
-  if (!detail) return null;
+  const read = await withActor(ctx.actor, async (tx) => {
+    const found = await staffDetailTx(tx, number);
+    return found ? { detail: found, task: await devTaskOfIdeaTx(tx, found.idea.ideaId) } : null;
+  });
+  if (!read) return null;
+  const { detail, task } = read;
   const { idea } = detail;
   const moderator = isModerator(ctx);
   const original = detail.texts.find((t) => t.status === 'original');
@@ -144,5 +152,6 @@ export async function staffIdeaCard(ctx: StaffContext, input: unknown): Promise<
     canModerate: moderator,
     transitions: moderator ? IDEA_STATUSES.filter((to) => transitionBy(idea.status, to) === 'moderator') : [],
     breakdown: moderator ? await breakdownOf(ctx, idea.ideaId) : null,
+    devTask: task ? { externalId: task.externalId, url: task.url, title: task.title, status: task.status, version: task.version, tracker: task.tracker } : null,
   };
 }

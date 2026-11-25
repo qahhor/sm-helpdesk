@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { LOCALES } from '@/i18n/locales';
-import { DECLINE_REASON_MAX, IDEA_BODY_MAX, IDEA_TITLE_MAX, ideaRef, parseIdeaNumber } from '@/modules/hdi/api/constants';
+import { DECLINE_REASON_MAX, IDEA_BODY_MAX, IDEA_TITLE_MAX, ideaRef, parseIdeaNumber, RELEASE_VERSION_MAX, tashkentDate } from '@/modules/hdi/api/constants';
+import { DEV_TASK_REF_MAX, DEV_TASK_TITLE_MAX, DEV_TASK_URL_MAX, devTrackerMode } from '@/modules/hdw/api';
 import { staffIdeaCard } from '@/modules/hdi/api/staff';
 import { listActiveModules } from '@/modules/hdr/api';
 import { requireStaffActor } from '@/modules/hdu/api';
@@ -18,14 +19,30 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 import { Textarea } from '@/ui/components/textarea';
 import { IDEA_STATUS_TONE } from '../../../../idea-status';
 import { StaffComments } from './StaffComments';
-import { declineIdeaAction, editIdeaAction, mergeIdeaAction, publishIdeaAction, reviewTranslationAction } from '../actions';
+import { declineIdeaAction, editIdeaAction, mergeIdeaAction, publishIdeaAction, releaseIdeaAction, reviewTranslationAction, sendIdeaToDevelopmentAction } from '../actions';
 
 // Карточка идеи на рабочем месте (ТЗ FR-IDEA-03, 13, 15; план M7, задача 6, решения 5, 6, 9, 11, 24). Тексты клиента
 // (заголовок, описание, переводы) выводятся только текстовыми узлами с сохранением переносов: ни разметки, ни
 // нажимаемых ссылок (решение 13). Организация автора видна всегда. Модерация, правка, переводы и разбивка голосов по
-// организациям и категориям только у product и admin; имён голосовавших нет ни у кого.
+// организациям и категориям только у product и admin; имён голосовавших нет ни у кого. Выбранная идея передаётся в
+// разработку тем же адаптером, что обращения, "Выпущена" ставится с версией и датой (задача 9, решение 18).
 
-const ERRORS = ['forbidden', 'invalid_input', 'not_found', 'bad_transition', 'bad_merge_target', 'findings_unchecked', 'not_editable', 'comments_closed', 'rate_limited'];
+const ERRORS = [
+  'forbidden',
+  'invalid_input',
+  'not_found',
+  'bad_transition',
+  'bad_merge_target',
+  'findings_unchecked',
+  'not_editable',
+  'comments_closed',
+  'rate_limited',
+  'invalid_url',
+  'already_linked',
+  'task_closed',
+  'task_not_found',
+  'tracker_unavailable',
+];
 
 export default async function AgentIdeaPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<{ status?: string; after?: string }> }) {
   const staff = await requireStaffActor();
@@ -47,6 +64,9 @@ export default async function AgentIdeaPage({ params, searchParams }: { params: 
   const missing = LOCALES.filter((l) => l !== original?.locale && !translations.some((text) => text.locale === l));
   const pending = card.status === 'pending_review';
   const blocking = card.findings.filter((kind) => ['phone', 'email', 'inn', 'pinfl', 'server'].includes(kind));
+  const trackerMode = devTrackerMode();
+  // Дата выпуска по умолчанию: сегодня по Ташкенту.
+  const today = tashkentDate(new Date());
 
   return (
     <>
@@ -57,7 +77,9 @@ export default async function AgentIdeaPage({ params, searchParams }: { params: 
       />
       <div className="flex flex-col gap-4" data-testid="agent-idea">
         {code && <Alert tone="danger">{s(`errors.${ERRORS.includes(code) ? code : 'forbidden'}`)}</Alert>}
-        {['published', 'declined', 'merged', 'edited', 'translation', 'comment_hidden', 'comment_published', 'replied'].includes(status) && <Alert tone="success">{s(`done.${status}`)}</Alert>}
+        {['published', 'declined', 'merged', 'edited', 'translation', 'comment_hidden', 'comment_published', 'replied', 'in_development', 'released'].includes(status) && (
+          <Alert tone="success">{s(`done.${status}`)}</Alert>
+        )}
 
         <Card>
           <CardContent className="flex flex-col gap-2 pt-4">
@@ -222,6 +244,26 @@ export default async function AgentIdeaPage({ params, searchParams }: { params: 
           </Card>
         )}
 
+        {card.devTask && (
+          <Card data-testid="idea-dev-task">
+            <CardHeader>
+              <h2 className="text-lg font-semibold">{s('dev.title')}</h2>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-1 text-sm">
+              <p>
+                <a href={card.devTask.url} target="_blank" rel="noopener noreferrer nofollow" className="text-link underline underline-offset-2">
+                  {card.devTask.externalId}
+                </a>
+                {card.devTask.title ? ` ${card.devTask.title}` : ''}
+              </p>
+              <p>
+                {s('dev.status')}: {t(`ticket.devTask.statuses.${card.devTask.status}`)}
+                {card.devTask.version ? ` · ${s('dev.version', { version: card.devTask.version })}` : ''}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {card.canModerate && (
           <Card>
             <CardHeader>
@@ -270,6 +312,44 @@ export default async function AgentIdeaPage({ params, searchParams }: { params: 
                   <Input id="merge-into" name="into" required placeholder="I-204" />
                   <Button type="submit" variant="secondary" className="self-start">
                     {s('actions.merge')}
+                  </Button>
+                </form>
+              )}
+              {card.status === 'selected' && !card.devTask && (
+                <form action={sendIdeaToDevelopmentAction} className="flex flex-col gap-2" data-testid="idea-send-dev">
+                  <input type="hidden" name="number" value={card.number} />
+                  <p className="font-semibold">{s('dev.send')}</p>
+                  {trackerMode === 'manual' ? (
+                    <>
+                      <Label htmlFor="dev-ref">{s('dev.ref')}</Label>
+                      <Input id="dev-ref" name="externalId" required maxLength={DEV_TASK_REF_MAX} placeholder="DEV-501" />
+                      <Label htmlFor="dev-url">{s('dev.url')}</Label>
+                      <Input id="dev-url" name="url" type="url" required maxLength={DEV_TASK_URL_MAX} placeholder="https://" />
+                      <Label htmlFor="dev-title">{s('dev.taskTitle')}</Label>
+                      <Input id="dev-title" name="title" required maxLength={DEV_TASK_TITLE_MAX} defaultValue={original?.title.slice(0, DEV_TASK_TITLE_MAX) ?? ''} />
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-secondary-foreground">{s('dev.apiHint')}</p>
+                      <Label htmlFor="dev-ref">{s('dev.refOptional')}</Label>
+                      <Input id="dev-ref" name="externalId" maxLength={DEV_TASK_REF_MAX} />
+                    </>
+                  )}
+                  <Button type="submit" className="self-start">
+                    {s('dev.submit')}
+                  </Button>
+                </form>
+              )}
+              {card.transitions.includes('released') && (
+                <form action={releaseIdeaAction} className="flex flex-col gap-2" data-testid="idea-release">
+                  <input type="hidden" name="number" value={card.number} />
+                  <p className="font-semibold">{s('dev.release')}</p>
+                  <Label htmlFor="release-version">{s('dev.releaseVersion')}</Label>
+                  <Input id="release-version" name="version" required maxLength={RELEASE_VERSION_MAX} defaultValue={card.devTask?.version ?? ''} />
+                  <Label htmlFor="release-date">{s('dev.releaseDate')}</Label>
+                  <Input id="release-date" name="releasedOn" type="date" required defaultValue={today} />
+                  <Button type="submit" className="self-start">
+                    {s('dev.releaseSubmit')}
                   </Button>
                 </form>
               )}

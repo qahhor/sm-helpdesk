@@ -12,6 +12,7 @@ export const JOB_NAMES = [
   'automation.process',
   'devtasks.sync',
   'email.inbound',
+  'ideas.cycle',
   'ideas.index',
   'ideas.moderation_digest',
   'ideas.scan',

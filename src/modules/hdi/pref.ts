@@ -101,3 +101,11 @@ export const COMMENT_PAGE = 50;
 
 /** Сводка модерации: идея ждёт не меньше двух полных рабочих дней (решение 15). */
 export const MODERATION_DUE_WORKING_DAYS = 2;
+
+/** Отбор месяца (решения 16, 17): пятёрка, объяснение выбора до 2000 знаков на каждом языке, архив по 24 отбора. */
+export const SHORTLIST_SIZE = 5;
+export const EXPLANATION_MAX = 2000;
+export const CYCLE_ARCHIVE_LIMIT = 24;
+
+/** Выпуск (решение 18): номер версии Smartup до 40 знаков (проверка hdi_ideas_c10). */
+export const RELEASE_VERSION_MAX = 40;

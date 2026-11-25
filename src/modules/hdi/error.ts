@@ -22,6 +22,17 @@ export const HDI_ERROR_CODES = [
   'voting_closed',
   // Комментарии закрыты: идея отклонена или объединена (ответ Smartup ещё и у идеи на модерации).
   'comments_closed',
+  // Отбор месяца (решения 16, 17): не лидер без объяснения на русском, идея не из пятёрки, отбор уже завершён.
+  'explanation_required',
+  'not_in_shortlist',
+  'cycle_closed',
+  // Передача в разработку (решение 18), коды адаптера hdw: неверная ссылка, у идеи уже есть задача, задача закрыта,
+  // в таск-менеджере нет задачи с таким номером, таск-менеджер не ответил.
+  'invalid_url',
+  'already_linked',
+  'task_closed',
+  'task_not_found',
+  'tracker_unavailable',
 ] as const;
 export type HdiErrorCode = (typeof HDI_ERROR_CODES)[number];
 

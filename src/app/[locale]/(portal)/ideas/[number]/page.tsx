@@ -3,7 +3,7 @@ import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import type { Locale } from '@/i18n/locales';
 import { ideaPage } from '@/modules/hdi/api/board';
-import { ideaRef, parseIdeaNumber } from '@/modules/hdi/api/constants';
+import { cycleMonth, ideaRef, parseIdeaNumber } from '@/modules/hdi/api/constants';
 import { listActiveModules } from '@/modules/hdr/api';
 import { requireClientActor } from '@/modules/hdu/api';
 import { firstParam } from '@/lib/search-params';
@@ -123,7 +123,7 @@ export default async function ClientIdeaPage({ params, searchParams }: { params:
           </h2>
           <ul className="flex flex-col gap-1 text-secondary-foreground">
             {idea.publishedOn && <li>{t('page.publishedOn', { date: date(idea.publishedOn) })}</li>}
-            {idea.selectedCycle && <li>{t('board.selectedIn', { month: format.dateTime(new Date(`${idea.selectedCycle}T12:00:00Z`), { month: 'long', year: 'numeric', timeZone: 'UTC' }) })}</li>}
+            {idea.selectedCycle && <li>{t('board.selectedIn', { month: format.dateTime(cycleMonth(idea.selectedCycle), { month: 'long', year: 'numeric', timeZone: 'UTC' }) })}</li>}
             {idea.releasedIn && idea.releasedOn && <li>{t('page.releasedOn', { version: idea.releasedIn, date: date(idea.releasedOn) })}</li>}
           </ul>
         </section>

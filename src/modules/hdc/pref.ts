@@ -158,6 +158,12 @@ export const AUDIT_ACTIONS = [
   'idea.comment_held',
   'idea.comment_published',
   'idea.comment_hidden',
+  // Отбор месяца и статусы после выбора (веха M7, задача 9): снимок пятёрки, закрытие отбора без выбора, выбор идеи
+  // месяца, смена статуса идеи (выбрана, в разработке, выпущена).
+  'idea.cycle_created',
+  'idea.cycle_lapsed',
+  'idea.cycle_decided',
+  'idea.status_changed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

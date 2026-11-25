@@ -38,6 +38,30 @@ export function cycleCountdown(now: Date): { endsOn: Date; month: Date; daysLeft
 }
 
 /**
+ * Отбор месяца, который пора сделать к моменту now (решение 16): первое число текущего месяца по Ташкенту, если уже
+ * наступило 1-е число 09:00 по Ташкенту (04:00 UTC), иначе null. В течение месяца ответ тот же: задание, пропустившее
+ * утро 1-го числа (процесс не работал), догоняет этот же отбор, а уникальность месяца не даёт второго.
+ */
+export function cycleDue(now: Date): string | null {
+  const local = new Date(now.getTime() + 5 * 3_600_000);
+  const year = local.getUTCFullYear();
+  const month = local.getUTCMonth();
+  if (now.getTime() < Date.UTC(year, month, 1, CYCLE_HOUR_UTC)) return null;
+  return `${String(year).padStart(4, '0')}-${String(month + 1).padStart(2, '0')}-01`;
+}
+
+/** Дата по Ташкенту (ГГГГ-ММ-ДД): дата выпуска идеи по умолчанию (решение 18). */
+export function tashkentDate(now: Date): string {
+  return new Date(now.getTime() + 5 * 3_600_000).toISOString().slice(0, 10);
+}
+
+/** Месяц, голоса которого собрал отбор: отбор 1 декабря подводит итог ноября ("Отбор за ноябрь"). Полдень UTC для подписи. */
+export function cycleMonth(cycle: string): Date {
+  const [year, month] = cycle.split('-').map(Number) as [number, number];
+  return new Date(Date.UTC(year, month - 2, 1, 12));
+}
+
+/**
  * Полные рабочие дни (понедельник-пятница по Ташкенту) между двумя моментами: идея ждёт модерации дольше двух рабочих
  * дней (решение 15). Праздники календаря SLA не учитываются: сводка приходит на день раньше, это безопасно.
  */

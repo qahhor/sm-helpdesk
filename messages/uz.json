@@ -495,6 +495,18 @@
         "hint": "Izohni barcha tashkilotlar mijozlari ko'radi. Telefon, pochta yoki havolali izohni avval moderator ko'radi.",
         "send": "Yuborish",
         "more": "Yana ko'rsatish"
+      },
+      "cycles": {
+        "link": "Oy saralashi",
+        "title": "Oy saralashi",
+        "intro": "Har oyning 1-kuni Toshkent vaqti bilan 09:00 da eng ko'p ovoz olgan beshta g'oya qisqa ro'yxatga kiradi va Smartup jamoasi ulardan oy g'oyasini tanlaydi. Agar yetakchi tanlanmasa, jamoa sababini tushuntiradi.",
+        "countdown": "{month} saralashi: {days, plural, one {# kun qoldi} other {# kun qoldi}}, boshlanishi Toshkent vaqti bilan {date}.",
+        "archiveTitle": "Oldingi saralashlar",
+        "archiveEmpty": "Hali saralashlar bo'lmagan",
+        "archiveEmptyText": "Birinchi saralash keyingi oyning 1-kunida o'tadi.",
+        "cycleOf": "{month} saralashi",
+        "noChoice": "Tanlovsiz",
+        "explanation": "Nega aynan shu g'oya tanlandi"
       }
     },
     "org": {
@@ -1245,7 +1257,11 @@
             "file_infected": "Antivirus g'oyada zararlangan rasm topdi",
             "comment_held": "G'oyaga izoh tekshiruvgacha ushlab turildi",
             "comment_published": "Moderator g'oyaga izohni e'lon qildi",
-            "comment_hidden": "Moderator g'oyaga izohni yashirdi"
+            "comment_hidden": "Moderator g'oyaga izohni yashirdi",
+            "cycle_created": "Oy saralashi uchun beshlik qayd etildi",
+            "cycle_lapsed": "Oy saralashi tanlovsiz yopildi",
+            "cycle_decided": "Oy g'oyasi tanlandi",
+            "status_changed": "G'oya holati o'zgartirildi"
           }
         },
         "words": {
@@ -3138,7 +3154,10 @@
         "translation": "Tarjima saqlandi va tekshirilgan deb belgilandi.",
         "comment_hidden": "Izoh yashirildi.",
         "comment_published": "Izoh e'lon qilindi.",
-        "replied": "Javob Smartup belgisi bilan e'lon qilindi."
+        "replied": "Javob Smartup belgisi bilan e'lon qilindi.",
+        "decided": "Oy g'oyasi tanlandi.",
+        "in_development": "G'oya ishlab chiqishga topshirildi.",
+        "released": "G'oya chiqarilgan deb belgilandi."
       },
       "errors": {
         "forbidden": "Bu amal faqat product va admin rollariga ochiq",
@@ -3149,7 +3168,15 @@
         "findings_unchecked": "Matnda mijoz ma'lumotlari bor: ularni olib tashlang yoki tekshirganingizni belgilang",
         "not_editable": "G'oyani endi o'zgartirib bo'lmaydi",
         "comments_closed": "Bu g'oyaga izohlar yopilgan",
-        "rate_limited": "Juda tez-tez. Keyinroq urinib ko'ring"
+        "rate_limited": "Juda tez-tez. Keyinroq urinib ko'ring",
+        "cycle_closed": "Saralash allaqachon yakunlangan: tanlovni o'zgartirib bo'lmaydi",
+        "not_in_shortlist": "Faqat beshlikdagi g'oyani tanlash mumkin",
+        "explanation_required": "Yetakchi tanlanmadi: rus tilida izoh yozing",
+        "invalid_url": "Vazifa havolasi https:// bilan boshlanishi kerak",
+        "already_linked": "G'oyada allaqachon ishlab chiqish vazifasi bor",
+        "task_closed": "Bu raqamli vazifa allaqachon yopilgan",
+        "task_not_found": "Vazifalar menejerida bunday raqamli vazifa yo'q",
+        "tracker_unavailable": "Vazifalar menejeri javob bermadi. G'oya o'zgarmadi, keyinroq urinib ko'ring"
       },
       "comments": {
         "publish": "E'lon qilish",
@@ -3161,6 +3188,57 @@
         "author": "Muallif",
         "text": "Matn",
         "created": "Qachon"
+      },
+      "cycles": {
+        "title": "Oy saralashi",
+        "place": "O'rin",
+        "snapshot": "Qayd etilganda",
+        "live": "Hozir",
+        "next": "Keyingi saralash ({month} uchun): Toshkent vaqti bilan {date}.",
+        "current": "{month} uchun joriy saralash",
+        "noCurrent": "Tanlovni kutayotgan saralash yo'q",
+        "noCurrentText": "Beshlik har oyning 1-kuni Toshkent vaqti bilan 09:00 da paydo bo'ladi.",
+        "mode": {
+          "per_user": "Hisoblash: bitta foydalanuvchi, bitta ovoz",
+          "per_org": "Hisoblash: bitta tashkilot, bitta ovoz"
+        },
+        "pick": "Oy g'oyasi",
+        "leader": "yetakchi",
+        "explanationRu": "Rus tilidagi izoh",
+        "explanationUz": "O'zbek tilidagi izoh",
+        "explanationEn": "Ingliz tilidagi izoh",
+        "explanationHint": "Agar yetakchi tanlanmasa, rus tilidagi izoh majburiy: mijozlar uni saralash sahifasida ko'radi. O'zbek va ingliz tillari ixtiyoriy. Saqlangandan keyin tanlovni o'zgartirib bo'lmaydi.",
+        "translate": "Tarjima qilish",
+        "translating": "Tarjima qilinmoqda...",
+        "machine": "Mashina qoralamasi: saqlashdan oldin o'zbek va ingliz matnini o'qib chiqing va tuzating.",
+        "draftError": "Qoralama hozir mavjud emas. Izohni o'zingiz yozing.",
+        "submit": "Oy g'oyasini tanlash",
+        "archive": "Oldingi saralashlar",
+        "archiveEmpty": "Oldingi saralashlar hali yo'q.",
+        "cycleOf": "{month} saralashi",
+        "statuses": {
+          "open": "Tanlovni kutmoqda",
+          "decided": "Tanlov qilingan",
+          "lapsed": "Tanlovsiz"
+        },
+        "selected": "Tanlangan:",
+        "notLeader": "yetakchi {ref}"
+      },
+      "dev": {
+        "title": "Ishlab chiqish vazifasi",
+        "status": "Vazifa holati",
+        "version": "{version} versiya",
+        "send": "Ishlab chiqishga topshirish",
+        "ref": "Vazifa raqami",
+        "url": "Vazifa havolasi",
+        "taskTitle": "Vazifa nomi",
+        "apiHint": "Portal vazifalar menejerida g'oya sarlavhasi va tavsifi bilan vazifa yaratadi. Mavjud vazifani bog'lash uchun uning raqamini kiriting.",
+        "refOptional": "Mavjud vazifa raqami (ixtiyoriy)",
+        "submit": "Topshirish",
+        "release": "Chiqarilgan deb belgilash",
+        "releaseVersion": "Smartup versiyasi",
+        "releaseDate": "Chiqarilgan sana",
+        "releaseSubmit": "Chiqarildi"
       }
     }
   },

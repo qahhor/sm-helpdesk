@@ -75,6 +75,12 @@ export default async function AgentIdeasPage({ searchParams }: { searchParams: P
               {s(`tabs.${value}`)}
             </Link>
           ))}
+          <Link
+            href="/agent/ideas/cycles"
+            className="inline-flex min-h-control items-center rounded-chip border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-card-soft"
+          >
+            {s('cycles.title')}
+          </Link>
         </nav>
         {tab === 'all' && (
           <form method="get" className="flex flex-wrap items-end gap-3" aria-label={s('filters.label')}>

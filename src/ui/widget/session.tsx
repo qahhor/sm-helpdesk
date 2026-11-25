@@ -104,3 +104,15 @@ export function widgetFetch(token: string | null, path: string, init: { method?:
     cache: 'no-store',
   });
 }
+
+/**
+ * Запрос с одним повтором после 401. Токен виджета мог истечь, пока компьютер спал: таймер продления в спящей вкладке
+ * не срабатывает. renew просит у хозяина новый токен и ждёт его; нет токена: странице уходит прежний ответ 401.
+ * Ответ 401 значит, что сервер отказал до выполнения запроса, поэтому повтор не создаст обращение дважды.
+ */
+export async function requestWithRenewal(send: (token: string | null) => Promise<Response>, current: string | null, renew: () => Promise<string | null>): Promise<Response> {
+  const response = await send(current);
+  if (response.status !== 401) return response;
+  const fresh = await renew();
+  return fresh ? send(fresh) : response;
+}

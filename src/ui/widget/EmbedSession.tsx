@@ -3,7 +3,18 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { acceptHostMessage, resolveHostOrigin, sendToHost, type WidgetHints } from './protocol';
-import { draftScopeOf, exchangeContextToken, platformOf, type WidgetLabels, type WidgetNav, WidgetContext, type WidgetSession, type WidgetStatus, widgetFetch } from './session';
+import {
+  draftScopeOf,
+  exchangeContextToken,
+  platformOf,
+  requestWithRenewal,
+  type WidgetLabels,
+  type WidgetNav,
+  WidgetContext,
+  type WidgetSession,
+  type WidgetStatus,
+  widgetFetch,
+} from './session';
 
 // Поставщик сессии страницы виджета во фрейме Smartup Web (план M6, задачи 4 и 5; решения 1, 8 и 16).
 //
@@ -12,9 +23,12 @@ import { draftScopeOf, exchangeContextToken, platformOf, type WidgetLabels, type
 // 2. Хозяину уходит ready, в ответ приходит init с токеном контекста, подсказками, темой и языком.
 // 3. Токен контекста меняется на токен виджета (POST /api/embed/session). Токен виджета только в памяти.
 // 4. За минуту до истечения токена виджета, и при ответе 401, хозяину уходит need-token, в ответ приходит token.
+//    Запрос с ответом 401 ждёт новый токен и повторяется один раз (решение 0061).
 // Сообщения принимаются только из window.parent с адреса хозяина и только по схеме (src/ui/widget/protocol.ts).
 
 const RENEW_BEFORE_SEC = 60;
+// Сколько запрос после ответа 401 ждёт новый токен от хозяина (замечание M5 проверки M6).
+const RENEW_WAIT_MS = 20_000;
 
 export function EmbedSession({ allowed, locale, labels, children }: { allowed: string[]; locale: string; labels: WidgetLabels; children: ReactNode }) {
   const router = useRouter();
@@ -29,20 +43,45 @@ export function EmbedSession({ allowed, locale, labels, children }: { allowed: s
   const token = useRef<string | null>(null);
   const hostOrigin = useRef<string | null>(null);
   const renewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Запросы, которые после ответа 401 ждут следующий токен виджета.
+  const waiters = useRef<((token: string | null) => void)[]>([]);
 
   const askForToken = useCallback(() => {
     sendToHost(window.parent, hostOrigin.current, { type: 'need-token' });
   }, []);
 
+  /** Следующий токен виджета: просит у хозяина новый токен контекста и ждёт обмена. Не дождался: null. */
+  const nextToken = useCallback(
+    () =>
+      new Promise<string | null>((resolve) => {
+        const timer = setTimeout(() => {
+          waiters.current = waiters.current.filter((waiter) => waiter !== done);
+          resolve(null);
+        }, RENEW_WAIT_MS);
+        const done = (value: string | null) => {
+          clearTimeout(timer);
+          resolve(value);
+        };
+        // Несколько запросов с ответом 401 сразу: хозяина просят один раз.
+        if (waiters.current.push(done) === 1) askForToken();
+      }),
+    [askForToken],
+  );
+
   const exchange = useCallback(
     async (contextToken: string) => {
       const result = await exchangeContextToken(contextToken, token.current);
+      const settle = (value: string | null) => {
+        for (const resolve of waiters.current.splice(0)) resolve(value);
+      };
       if ('failed' in result) {
         // Продление не удалось, а прежний токен ещё действует: работа продолжается до его срока.
         if (!token.current) setStatus(result.failed);
+        settle(null);
         return;
       }
       token.current = result.token;
+      settle(result.token);
       setDraftScope(draftScopeOf(result.token));
       setPlatform(platformOf(result.token));
       setStatus('ready');
@@ -112,17 +151,14 @@ export function EmbedSession({ allowed, locale, labels, children }: { allowed: s
       draftScope,
       hints,
       labels,
-      async request(path, init) {
-        const response = await widgetFetch(token.current, path, init);
-        if (response.status === 401) askForToken();
-        return response;
-      },
+      // Ответ 401 (токен истёк, пока компьютер спал): новый токен у хозяина и один повтор (решение 0061).
+      request: (path, init) => requestWithRenewal((value) => widgetFetch(value, path, init), token.current, nextToken),
       authHeaders: (): Record<string, string> => (token.current ? { Authorization: `Bearer ${token.current}` } : {}),
       ticketCreated: (number) => sendToHost(window.parent, hostOrigin.current, { type: 'ticket-created', number }),
       close: () => sendToHost(window.parent, hostOrigin.current, { type: 'close' }),
       nav,
     }),
-    [status, platform, locale, draftScope, hints, labels, askForToken, nav],
+    [status, platform, locale, draftScope, hints, labels, nextToken, nav],
   );
 
   return <WidgetContext.Provider value={session}>{children}</WidgetContext.Provider>;

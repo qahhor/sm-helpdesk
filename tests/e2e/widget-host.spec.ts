@@ -264,6 +264,30 @@ test('продление: за минуту до конца токена вид�
   await expect(frame.getByRole('heading', { name: 'Мои обращения' })).toBeVisible();
 });
 
+test('токен виджета истёк во сне: запрос с ответом 401 ждёт новый токен и повторяется один раз (проверка M6, M5)', async ({ page }, info) => {
+  only(['desktop'])(undefined, info);
+  const seen = exchanges(page);
+  await openHost(page, { key, persona: widgetPersona() });
+  await helpMenu(page, 'Сообщить о проблеме');
+  const frame = await widgetFrame(page, '/ru/embed/report');
+  await expect(frame.getByRole('heading', { name: 'Сообщить об ошибке' })).toBeVisible();
+  await expect.poll(() => seen.length).toBe(1);
+  // Компьютер спал дольше 15 минут: таймер продления не сработал, сервер отвечает 401 на просроченный токен виджета.
+  // Часы сервера тест не двигает, поэтому первый ответ 401 подставляется.
+  let rejected = 0;
+  await page.route('**/api/embed/tickets', async (route) => {
+    if (route.request().method() !== 'POST' || rejected > 0) return route.continue();
+    rejected += 1;
+    return route.fulfill({ status: 401, contentType: 'application/problem+json', headers: { 'WWW-Authenticate': 'Bearer' }, body: JSON.stringify({ status: 401, code: 'unauthenticated' }) });
+  });
+  await frame.getByLabel('Что вы делали перед ошибкой?').fill('Открыл заказ после сна компьютера, нажал "Сохранить"');
+  await frame.getByRole('button', { name: 'Отправить обращение', exact: true }).click();
+  await expect(frame.getByTestId('widget-created')).toContainText(/Обращение SUP-\d+ создано/);
+  expect(rejected).toBe(1);
+  expect(await page.evaluate(() => (window as Window & { __tokens?: number }).__tokens)).toBe(2);
+  expect(seen.map((s) => s.status)).toEqual([200, 200]);
+});
+
 // --- Доступность и ширины (раздел 16.2: axe без серьёзных замечаний, 360, 768 и 1280 px) ---
 
 const AXE_SOURCE = readFileSync(createRequire(createRequire(resolve('package.json')).resolve('@axe-core/playwright')).resolve('axe-core/axe.min.js'), 'utf8');

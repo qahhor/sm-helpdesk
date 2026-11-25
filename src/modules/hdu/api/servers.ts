@@ -229,11 +229,11 @@ function checkedOrigin(raw: string, allowLoopback: boolean): string {
 
 /**
  * Настройки виджета сервера: режим подписи токена контекста, издатель, адрес ключей и адреса встраивания.
- * Только admin со свежим входом. Адрес ключей проверяется по правилам T16 (внешний узел, https). Переход в режим
+ * Только admin со свежим входом или команда консоли hub server:widget. Адрес ключей проверяется по правилам T16 (внешний узел, https). Переход в режим
  * secret без секрета создаёт секрет и возвращает его один раз: администратор передаёт его разработчикам Smartup.
  */
-export async function updateWidgetSettings(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<{ secret: string | null }> {
-  const actor = managingActor(ctx, now);
+export async function updateWidgetSettings(who: ServerManager, input: unknown, now: Date = new Date()): Promise<{ secret: string | null }> {
+  const actor = managingActor(who, now);
   const data = parseInput(widgetInput, input);
   const allowLoopback = isLocalPortal(getEnv().HUB_URL);
   const contextIssuer = data.contextIssuer === undefined ? undefined : checkedIssuer(data.contextIssuer, allowLoopback);

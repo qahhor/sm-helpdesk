@@ -99,6 +99,11 @@ export default defineConfig({
     },
     { name: 'desktop', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
     { name: 'narrow', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1100, height: 800 } } },
+    // WebKit (движок Safari) только для виджета на странице хозяина (план M6, задача 9): сторонний iframe без кук
+    // третьей стороны. Только в CI или с PW_WEBKIT=1: браузер ставит pnpm exec playwright install webkit (решение 0060).
+    ...(process.env.CI || process.env.PW_WEBKIT
+      ? [{ name: 'webkit', dependencies: ['setup'], testMatch: /widget-host\.spec\.ts$/, use: { browserName: 'webkit' as const, viewport: { width: 1280, height: 800 } } }]
+      : []),
   ],
   webServer: [
     // Ложные серверы Smartup для входа клиента (scripts/mock-oidc.mjs).
@@ -107,6 +112,15 @@ export default defineConfig({
       url: 'http://localhost:3190/.well-known/openid-configuration',
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
+    },
+    // Демонстрационная страница Smartup Web для виджета (scripts/mock-smartup-host.mjs, план M6, задача 9): свой сайт
+    // 127.0.0.1:3195 и посторонний 127.0.0.1:3196. Загрузчик она берёт у портала браузерных тестов.
+    {
+      command: 'node scripts/mock-smartup-host.mjs',
+      url: 'http://127.0.0.1:3195/__health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+      env: { HUB_URL: baseURL, MOCK_ISSUER_URL: 'http://localhost:3190' },
     },
     // Ложный Telegram Bot API для привязки и входа из бота (scripts/mock-telegram.mjs).
     {

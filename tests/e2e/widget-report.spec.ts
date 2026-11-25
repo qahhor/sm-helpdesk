@@ -2,13 +2,14 @@ import { expect, test } from '@playwright/test';
 import { BUDGET_BYTES, sumScriptBytes } from '../../scripts/checks/budget-rules.mjs';
 import { dbRows } from './helpers/db';
 import { storageStateOf } from './helpers/staff';
-import { HUB, openHost, useMockContextKeys, WIDGET_LAUNCH, widgetFrame, widgetPersona } from './helpers/widget';
+import { blockThirdPartyCookies, HUB, openHost, useMockContextKeys, widgetFrame, widgetPersona } from './helpers/widget';
 
-// Панель "Сообщить" в Smartup Web (план M6, задачи 4 и 5; сценарий S1, FR-WG-01..07, UX-S-09). Страница хозяина с
-// загрузчиком на адресе ложного сервера mock, токен контекста ложного выпуска (ES256, ключи /context-jwks.json).
+// Панель "Сообщить" в Smartup Web (план M6, задачи 4 и 5; сценарий S1, FR-WG-01..07, UX-S-09). Страница хозяина:
+// демонстрационная страница scripts/mock-smartup-host.mjs (задача 9), токен контекста ложного выпуска (ES256,
+// ключи /context-jwks.json).
 // Раздел "На что смотреть": пункт 5 (протокол в настоящем браузере), 6 (куки), 7 (текст ошибки только текстом).
 
-test.use({ launchOptions: WIDGET_LAUNCH });
+test.beforeEach(blockThirdPartyCookies);
 
 let key: string;
 test.beforeAll(async () => {

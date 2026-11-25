@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { dbRows } from './helpers/db';
-import { openHost, useMockContextKeys, WIDGET_LAUNCH, widgetFrame, widgetPersona } from './helpers/widget';
+import { blockThirdPartyCookies, openHost, useMockContextKeys, widgetFrame, widgetPersona } from './helpers/widget';
 
 // "Мои обращения" в панели виджета (план M6, задача 6; FR-WG-06, решение 13): переход из "Сообщить" без потери
 // токена (раскладка с токеном не пересоздаётся), переписка без внутренних заметок, ответ из панели.
 
-test.use({ launchOptions: WIDGET_LAUNCH });
+test.beforeEach(blockThirdPartyCookies);
 
 test('после отправки: мои обращения, страница обращения с ответом поддержки, без внутренней заметки', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'экран один на всех ширинах, телефон проверяет /m/report');

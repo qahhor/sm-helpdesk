@@ -150,7 +150,8 @@ test('страница виджета с ключом сервера встра�
   // Статический заголовок без frame-ancestors и заголовок прокси со списком: запрета 'none' нет ни в одном.
   expect(own.join('\n')).not.toContain("frame-ancestors 'none'");
   const ancestors = own.map((v) => /frame-ancestors ([^;]+)/.exec(v)?.[1]).filter(Boolean);
-  expect(ancestors).toEqual(['http://localhost:3190']);
+  // Начало адреса Smartup Web и демонстрационная страница из адресов встраивания (scripts/dev-up.mjs, план M6, задача 9).
+  expect(ancestors).toEqual(['http://localhost:3190 http://127.0.0.1:3195']);
   // Адрес другого сервера в заголовке не виден.
   expect(own.join('\n')).not.toContain('3191');
   const dedicated = cspHeaders(await request.get(`/uz/embed/tickets?key=${keys['mock-dedicated']}`)).join('\n');

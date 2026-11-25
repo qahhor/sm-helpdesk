@@ -66,7 +66,8 @@ jobs:
       # Файл .env с одноразовыми значениями: его читают сборка и браузерные тесты. Базу в Docker, роли, миграции и
       # ложные серверы Smartup готовят сами тесты (tests/e2e/global-setup.ts), как на машине разработчика.
       - run: node scripts/dev-up.mjs --env-only
-      - run: pnpm exec playwright install --with-deps chromium
+      # WebKit (движок Safari) нужен проекту webkit: виджет в стороннем iframe без кук третьей стороны (план M6, задача 9).
+      - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm build
       - run: pnpm test:e2e
       # Замеры открывают страницу входа, она читает базу разработки из .env. Тесты выше готовят только свою базу.

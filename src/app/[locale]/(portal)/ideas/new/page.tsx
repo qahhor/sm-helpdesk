@@ -45,6 +45,7 @@ export default async function NewIdeaPage({ searchParams }: { searchParams: Prom
       <h1 className="text-2xl font-bold">{t('new.title')}</h1>
       <NewIdeaForm
         userId={client.actor.userId}
+        locale={locale}
         modules={modules.map((m) => ({ value: m.moduleId, label: m.name }))}
         accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
         maxFiles={IDEA_FILES_MAX}
@@ -65,6 +66,14 @@ export default async function NewIdeaPage({ searchParams }: { searchParams: Prom
           findings: Object.fromEntries(['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal'].map((kind) => [kind, t(`new.findings.${kind}`)])),
           busy: tf('files.busy'),
           moderation: t('new.moderation'),
+          similar: {
+            title: t('similar.title'),
+            votes: t.raw('similar.votes') as string,
+            vote: t('similar.vote'),
+            voted: t('similar.voted'),
+            machine: t('machine'),
+            error: t('similar.error'),
+          },
           errors: Object.fromEntries(['invalid_input', 'rate_limited', 'not_found', 'forbidden'].map((code) => [code, t(`errors.${code}`)])),
           files: {
             add: t('new.files.add'),

@@ -389,7 +389,15 @@
         "forbidden": "This action is not available to you"
       },
       "ticketLink": "Is this a suggestion for improvement?",
-      "ticketLinkAction": "Suggest an idea"
+      "ticketLinkAction": "Suggest an idea",
+      "similar": {
+        "title": "Similar ideas: maybe yours is already here?",
+        "votes": "Votes: {count}",
+        "vote": "Vote",
+        "voted": "You voted",
+        "error": "Your vote was not counted. Try again"
+      },
+      "machine": "Machine translation"
     },
     "org": {
       "switch": "Switch organization",

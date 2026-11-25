@@ -10,6 +10,7 @@ import { Select } from '@/ui/components/select';
 import { Textarea } from '@/ui/components/textarea';
 import { browserDrafts, browserSession, clearDraft, type Draft, draftKey, forgetSent, rememberSent, saveDraft, useDraft } from '@/ui/drafts';
 import { type NewIdeaState, submitIdeaAction } from './actions';
+import { type SimilarLabels, SimilarIdeas } from './SimilarIdeas';
 
 // Форма новой идеи (ТЗ FR-IDEA-01, 06; план M7, задача 2): заголовок, описание, модуль, до трёх изображений, показ
 // организации. Черновик на устройстве (как UX-C-02), ошибка у формы, введённое не теряется (UX-C-10). Находки проверки
@@ -32,6 +33,7 @@ export type NewIdeaLabels = {
   moderation: string;
   errors: Record<string, string>;
   files: FilePickerLabels;
+  similar: SimilarLabels;
 };
 
 const INITIAL: NewIdeaState = { error: null, findings: null };
@@ -41,6 +43,7 @@ const UPLOAD_EXTRA = { purpose: 'idea' };
 
 type Props = {
   userId: string;
+  locale: string;
   modules: { value: string; label: string }[];
   accept: string;
   maxFiles: number;
@@ -56,7 +59,7 @@ export function NewIdeaForm(props: Props) {
   return <Fields key={hydrated ? 'client' : 'server'} {...props} draftKey={key} hydrated={hydrated} draft={draft} />;
 }
 
-function Fields({ modules, accept, maxFiles, titleMax, bodyMax, labels, draftKey: key, hydrated, draft }: Props & { draftKey: string; hydrated: boolean; draft: Draft | null }) {
+function Fields({ locale, modules, accept, maxFiles, titleMax, bodyMax, labels, draftKey: key, hydrated, draft }: Props & { draftKey: string; hydrated: boolean; draft: Draft | null }) {
   const [state, action, pending] = useActionState(submitIdeaAction, INITIAL);
   const [title, setTitle] = useState(draft?.title ?? '');
   const [body, setBody] = useState(draft?.body ?? '');
@@ -102,6 +105,8 @@ function Fields({ modules, accept, maxFiles, titleMax, bodyMax, labels, draftKey
           {labels.bodyHint}
         </p>
       </div>
+
+      <SimilarIdeas text={`${title} ${body}`} locale={locale} labels={labels.similar} />
 
       {modules.length > 0 && (
         <div className="flex flex-col gap-1">

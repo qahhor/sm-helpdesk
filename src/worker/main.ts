@@ -10,7 +10,7 @@ import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
-import { scanIdeaAttachment } from '@/modules/hdi/api/jobs';
+import { runIdeaIndexJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
@@ -155,6 +155,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('ideas.scan', { ...polling, localConcurrency: 2 }, ([job]) => timedJob('ideas.scan', async () => {
     // Изображение идеи (план M7, решение 10): в задаче только идентификатор вложения.
     await scanIdeaAttachment(actor('ideas.scan'), job?.data);
+  }));
+  await boss.work('ideas.index', polling, ([job]) => timedJob('ideas.index', async () => {
+    // Строки индекса похожих идей и векторы (план M7, задача 3): как kb.index, повтор при недоступном сервисе векторов.
+    await runIdeaIndexJob(actor('ideas.index'), job?.data);
   }));
   await boss.work('kb.index', polling, ([job]) => timedJob('kb.index', async () => {
     // Строки поискового индекса и векторы решения (план M5, задача 9). Сервис векторов недоступен: строки с текстом уже

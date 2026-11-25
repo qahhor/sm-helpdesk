@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, eq, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
+import type { Locale } from '@/i18n/locales';
 import { kbArticles, kbDeflectionEvents, kbPublished, kbSearchDocuments } from '../schema';
 
 // Модуль hdk, слой core: поисковый индекс подсказки (ТЗ 10.4; план M5, задача 9, решения 5 и 11). Строка на пару
@@ -104,3 +105,49 @@ export async function cleanupDeflectionsTx(tx: Tx, now: Date): Promise<number> {
   return removed.length;
 }
 
+
+/** Текст идеи на одном языке для индекса похожих (план M7, решение 23): только заголовок и описание. */
+export type IdeaIndexText = { locale: Locale; title: string; body: string };
+
+/**
+ * Приводит строки индекса идеи к её текстам (план M7, решение 23): строка на язык, аудитория clients, без названия
+ * организации и автора; лишние языки удаляются, пустой список снимает идею из индекса. Пишет задание ideas.index
+ * (система) только для опубликованной идеи; что опубликовано, решает модуль hdi. Возвращает строки без вектора.
+ */
+export async function syncIdeaIndexTx(tx: Tx, ideaId: string, moduleId: string | null, texts: readonly IdeaIndexText[]): Promise<{ indexed: number; removed: number; pending: PendingEmbedding[] }> {
+  const ofIdea = and(eq(kbSearchDocuments.kind, 'idea'), eq(kbSearchDocuments.refId, ideaId));
+  const removed = await tx
+    .delete(kbSearchDocuments)
+    .where(texts.length === 0 ? ofIdea : and(ofIdea, notInArray(kbSearchDocuments.locale, texts.map((t) => t.locale))))
+    .returning({ id: kbSearchDocuments.searchDocumentId });
+  for (const text of texts) {
+    const row = { moduleId, audience: 'clients' as const, title: text.title, bodyText: text.body };
+    await tx
+      .insert(kbSearchDocuments)
+      .values({ kind: 'idea', refId: ideaId, locale: text.locale, ...row })
+      .onConflictDoUpdate({
+        target: [kbSearchDocuments.kind, kbSearchDocuments.refId, kbSearchDocuments.locale],
+        set: {
+          ...row,
+          embedding: sql`case when ${kbSearchDocuments.title} = excluded.title and ${kbSearchDocuments.bodyText} = excluded.body_text then ${kbSearchDocuments.embedding} end`,
+        },
+      });
+  }
+  const pending =
+    texts.length === 0
+      ? []
+      : await tx
+          .select({ searchDocumentId: kbSearchDocuments.searchDocumentId, title: kbSearchDocuments.title, bodyText: kbSearchDocuments.bodyText })
+          .from(kbSearchDocuments)
+          .where(and(ofIdea, isNull(kbSearchDocuments.embedding)));
+  return { indexed: texts.length, removed: removed.length, pending };
+}
+
+/** Снимает идею из индекса в транзакции вызывающего: отклонение и объединение модератором (политика 0079). */
+export async function removeIdeaIndexTx(tx: Tx, ideaId: string): Promise<number> {
+  const removed = await tx
+    .delete(kbSearchDocuments)
+    .where(and(eq(kbSearchDocuments.kind, 'idea'), eq(kbSearchDocuments.refId, ideaId)))
+    .returning({ id: kbSearchDocuments.searchDocumentId });
+  return removed.length;
+}

@@ -389,7 +389,15 @@
         "forbidden": "Bu amal siz uchun mavjud emas"
       },
       "ticketLink": "Bu yaxshilash taklifimi?",
-      "ticketLinkAction": "G'oya taklif qiling"
+      "ticketLinkAction": "G'oya taklif qiling",
+      "similar": {
+        "title": "O'xshash g'oyalar: balki sizniki allaqachon bordir?",
+        "votes": "Ovozlar: {count}",
+        "vote": "Ovoz berish",
+        "voted": "Siz ovoz berdingiz",
+        "error": "Ovoz hisobga olinmadi. Yana urinib ko'ring"
+      },
+      "machine": "Mashina tarjimasi"
     },
     "org": {
       "switch": "Tashkilotni almashtirish",

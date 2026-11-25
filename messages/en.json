@@ -341,7 +341,55 @@
     },
     "ideas": {
       "emptyTitle": "No ideas yet",
-      "emptyText": "Suggest a product idea and the Smartup team will review it."
+      "emptyText": "Suggest a product idea and the Smartup team will review it.",
+      "new": {
+        "title": "New idea",
+        "back": "All ideas",
+        "moderation": "The Smartup team reviews the idea first. After that, clients of all organizations will see it and can vote.",
+        "titleLabel": "Title",
+        "titleHint": "In short, what to improve. Up to 120 characters.",
+        "body": "Description",
+        "bodyHint": "What you do now and what would be more convenient. Do not include phone numbers, addresses or customer data.",
+        "module": "Module",
+        "moduleNone": "Not sure",
+        "showOrg": "Show my organization",
+        "showOrgHint": "Without this, other clients see only your name. You can change it at any time.",
+        "submit": "Send idea",
+        "sendAnyway": "Send anyway",
+        "findingsTitle": "The text seems to contain data that all clients will see:",
+        "findings": {
+          "phone": "a phone number",
+          "email": "an email address",
+          "inn": "a tax ID (INN)",
+          "pinfl": "a personal ID (PINFL)",
+          "digits": "a long number",
+          "server": "a server address",
+          "internal": "an internal name"
+        },
+        "files": {
+          "add": "Image",
+          "hint": "Up to 3 PNG, JPEG or WebP images, up to 5 MB each. No data of your organization on the screenshot.",
+          "errors": {
+            "too_many_files": "No more than 3 images",
+            "file_not_allowed": "Only PNG, JPEG or WebP can be attached",
+            "file_too_large": "The image is larger than 5 MB",
+            "rate_limited": "Too many uploads this hour. Try again later",
+            "upload": "The image did not upload. Try again"
+          }
+        },
+        "sentTitle": "Idea sent for review",
+        "sentText": "Idea {ref} has been sent. We will let you know when it appears on the idea board.",
+        "sentOpen": "Open idea",
+        "sentBoard": "Go to the idea board"
+      },
+      "errors": {
+        "invalid_input": "Check the title and description",
+        "rate_limited": "Too often. Try again later",
+        "not_found": "The idea was not found or one of the images is unavailable",
+        "forbidden": "This action is not available to you"
+      },
+      "ticketLink": "Is this a suggestion for improvement?",
+      "ticketLinkAction": "Suggest an idea"
     },
     "org": {
       "switch": "Switch organization",
@@ -1078,6 +1126,17 @@
           },
           "client": {
             "embed_session": "Widget session inside Smartup"
+          },
+          "idea": {
+            "submitted": "Idea submitted",
+            "edited": "Author edited the idea under review",
+            "org_visibility_changed": "Author changed organization visibility of the idea",
+            "published": "Idea published",
+            "declined": "Idea declined",
+            "merged": "Idea merged with another one",
+            "moderator_edited": "Moderator corrected the idea text",
+            "translation_reviewed": "Moderator corrected the idea translation",
+            "file_infected": "Antivirus found an infected idea image"
           }
         },
         "words": {

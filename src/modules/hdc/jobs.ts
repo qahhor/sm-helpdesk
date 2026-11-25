@@ -12,6 +12,9 @@ export const JOB_NAMES = [
   'automation.process',
   'devtasks.sync',
   'email.inbound',
+  'ideas.index',
+  'ideas.scan',
+  'ideas.translate',
   'kb.draft',
   'kb.index',
   'kb.reconcile',
@@ -55,7 +58,7 @@ export function createPgBossQueue(boss: PgBoss): JobQueue {
   return {
     async send(name, data) {
       // Одна задача на файл или входящее письмо (exclusive); на решение одна ждущая и одна выполняемая (stately, kb.index).
-      const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId].find((value): value is string => typeof value === 'string');
+      const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId, data.ideaId].find((value): value is string => typeof value === 'string');
       await boss.send(name, data, key ? { singletonKey: key } : {});
     },
   };

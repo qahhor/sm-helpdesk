@@ -341,7 +341,55 @@
     },
     "ideas": {
       "emptyTitle": "Hozircha g'oyalar yo'q",
-      "emptyText": "Mahsulot bo'yicha g'oya taklif qiling, Smartup jamoasi uni ko'rib chiqadi."
+      "emptyText": "Mahsulot bo'yicha g'oya taklif qiling, Smartup jamoasi uni ko'rib chiqadi.",
+      "new": {
+        "title": "Yangi g'oya",
+        "back": "Barcha g'oyalar",
+        "moderation": "G'oyani avval Smartup jamoasi ko'rib chiqadi. Tekshiruvdan keyin uni barcha tashkilotlar mijozlari ko'radi va ovoz bera oladi.",
+        "titleLabel": "Sarlavha",
+        "titleHint": "Qisqacha, nimani yaxshilash kerak. 120 belgigacha.",
+        "body": "Tavsif",
+        "bodyHint": "Hozir qanday ishlayapsiz va qanday qulayroq bo'lardi. Telefon, manzil va mijozlar ma'lumotlarini yozmang.",
+        "module": "Modul",
+        "moduleNone": "Bilmayman",
+        "showOrg": "Tashkilotimni ko'rsatish",
+        "showOrgHint": "Belgisiz boshqa mijozlar faqat ismingizni ko'radi. Istalgan vaqtda o'zgartirish mumkin.",
+        "submit": "G'oyani yuborish",
+        "sendAnyway": "Baribir yuborish",
+        "findingsTitle": "Matnda barcha mijozlar ko'radigan ma'lumotlar bor shekilli:",
+        "findings": {
+          "phone": "telefon raqami",
+          "email": "pochta manzili",
+          "inn": "STIR",
+          "pinfl": "JShShIR",
+          "digits": "uzun raqam",
+          "server": "server manzili",
+          "internal": "xizmat nomi"
+        },
+        "files": {
+          "add": "Rasm",
+          "hint": "PNG, JPEG yoki WebP formatidagi 3 tagacha rasm, har biri 5 MB gacha. Rasmda tashkilotingiz ma'lumotlari bo'lmasin.",
+          "errors": {
+            "too_many_files": "3 tadan ko'p rasm bo'lmasin",
+            "file_not_allowed": "Faqat PNG, JPEG yoki WebP ilova qilish mumkin",
+            "file_too_large": "Rasm 5 MB dan katta",
+            "rate_limited": "Bir soatda juda ko'p yuklash. Keyinroq urinib ko'ring",
+            "upload": "Rasm yuklanmadi. Yana urinib ko'ring"
+          }
+        },
+        "sentTitle": "G'oya tekshiruvga yuborildi",
+        "sentText": "{ref} g'oyasi yuborildi. U g'oyalar taxtasida paydo bo'lganda xabar beramiz.",
+        "sentOpen": "G'oyani ochish",
+        "sentBoard": "G'oyalar taxtasiga"
+      },
+      "errors": {
+        "invalid_input": "Sarlavha va tavsifni tekshiring",
+        "rate_limited": "Juda tez-tez. Keyinroq urinib ko'ring",
+        "not_found": "G'oya topilmadi yoki rasmlardan biri mavjud emas",
+        "forbidden": "Bu amal siz uchun mavjud emas"
+      },
+      "ticketLink": "Bu yaxshilash taklifimi?",
+      "ticketLinkAction": "G'oya taklif qiling"
     },
     "org": {
       "switch": "Tashkilotni almashtirish",
@@ -1078,6 +1126,17 @@
           },
           "client": {
             "embed_session": "Smartup ichidagi vidjet seansi"
+          },
+          "idea": {
+            "submitted": "G'oya yuborildi",
+            "edited": "Muallif moderatsiyadagi g'oyani o'zgartirdi",
+            "org_visibility_changed": "Muallif g'oyada tashkilot ko'rsatilishini o'zgartirdi",
+            "published": "G'oya e'lon qilindi",
+            "declined": "G'oya rad etildi",
+            "merged": "G'oya boshqasi bilan birlashtirildi",
+            "moderator_edited": "Moderator g'oya matnini tuzatdi",
+            "translation_reviewed": "Moderator g'oya tarjimasini tuzatdi",
+            "file_infected": "Antivirus g'oyada zararlangan rasm topdi"
           }
         },
         "words": {

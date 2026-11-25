@@ -38,7 +38,7 @@ export default async function ClientHomePage() {
           <Link href="/tickets/new">{t('home.report')}</Link>
         </Button>
         <Button asChild variant="secondary">
-          <Link href="/ideas">{t('home.idea')}</Link>
+          <Link href="/ideas/new">{t('home.idea')}</Link>
         </Button>
       </div>
       <Card>

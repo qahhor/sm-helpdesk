@@ -20,6 +20,7 @@ export { contentDisposition, getStorage, handleLocalStorage, type Storage, UPLOA
 export { bossOptions, createPgBossQueue, enqueue, JOB_NAMES, type JobName, setJobQueue } from './jobs';
 export { type AntivirusScanner, getScanner } from './antivirus';
 export { type DetectedType, SNIFF_BYTES, sniffFileType } from './filetype';
+export { type QuarantineResult, scanQuarantinedImage } from './scan';
 // Настройки портала (hdc_settings).
 export { readSetting, writeSettingTx } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';

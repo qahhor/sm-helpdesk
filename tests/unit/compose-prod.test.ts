@@ -16,7 +16,7 @@ test('наружу порты публикует только caddy', () => {
 });
 
 test('образы сторонних служб закреплены по digest', () => {
-  for (const name of ['caddy', 'postgres', 'clamav']) expect(String(services[name]?.image), name).toMatch(/@sha256:[0-9a-f]{64}$/);
+  for (const name of ['caddy', 'postgres', 'clamav', 'tei']) expect(String(services[name]?.image), name).toMatch(/@sha256:[0-9a-f]{64}$/);
 });
 
 test('портал работает не от root, с файловой системой только для чтения и писать может только во временные каталоги', () => {
@@ -106,7 +106,7 @@ test('PostgreSQL настроен под сервер: статистика за
 });
 
 test('у каждой постоянной службы предел памяти: сбой одной не забирает память у базы', () => {
-  for (const name of ['caddy', 'web', 'worker', 'clamav', 'postgres']) expect(String(services[name]?.mem_limit ?? ''), name).toMatch(/^\$\{[A-Z_]+:-\d+[mg]\}$/);
+  for (const name of ['caddy', 'web', 'worker', 'clamav', 'postgres', 'tei']) expect(String(services[name]?.mem_limit ?? ''), name).toMatch(/^\$\{[A-Z_]+:-\d+[mg]\}$/);
 });
 
 test('фоновому процессу и порталу хватает времени завершить работу при остановке', () => {
@@ -162,8 +162,12 @@ test('сторонние службы не получают новых прив�
 test('сети разделены: антивирус не достаёт до базы и портала, Caddy не достаёт до базы, у базы нет выхода наружу', () => {
   const nets = (name: string) => [...((services[name]?.networks as string[] | undefined) ?? [])].sort();
   expect(nets('caddy')).toEqual(['edge']);
-  expect(nets('web')).toEqual(['data', 'edge']);
-  expect(nets('worker')).toEqual(['data', 'scan']);
+  expect(nets('web')).toEqual(['data', 'edge', 'embed']);
+  expect(nets('worker')).toEqual(['data', 'embed', 'scan']);
+  // TEI во внутренней сети без выхода наружу и без базы; веса качает отдельная служба по команде (план M5, решение 6).
+  expect(nets('tei')).toEqual(['embed']);
+  expect(nets('tei-download')).toEqual(['models']);
+  expect(services['tei-download']?.profiles).toEqual(['tools']);
   expect(nets('clamav')).toEqual(['scan']);
   expect(nets('postgres')).toEqual(['data']);
   expect(nets('migrate')).toEqual(['data']);
@@ -171,8 +175,9 @@ test('сети разделены: антивирус не достаёт до �
   // Каждая служба названа в какой-то сети: общей сети по умолчанию нет.
   for (const [name, service] of Object.entries(services)) expect(service.networks, name).toBeDefined();
   const networks = compose.networks as Record<string, { internal?: boolean } | null>;
-  expect(Object.keys(networks).sort()).toEqual(['data', 'edge', 'scan']);
+  expect(Object.keys(networks).sort()).toEqual(['data', 'edge', 'embed', 'models', 'scan']);
   expect(networks.data?.internal).toBe(true);
+  expect(networks.embed?.internal).toBe(true);
   // Антивирус обновляет базы подписей из интернета, порталу и фоновому процессу нужны почта, Telegram и хранилище.
   expect(networks.scan?.internal ?? false).toBe(false);
   expect(networks.edge?.internal ?? false).toBe(false);

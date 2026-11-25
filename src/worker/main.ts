@@ -10,6 +10,7 @@ import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
+import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
@@ -25,7 +26,7 @@ import { opsWatch } from './ops-watch';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 и сверка индекса решений в 03:30 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
@@ -36,12 +37,13 @@ export const SCHEDULES = [
   { name: 'devtasks.sync', cron: '*/15 * * * *', tz: 'UTC' },
   { name: 'ops.watch', cron: '*/5 * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
+  // Сверка поискового индекса подсказки (план M5, задача 9): после ночной очистки.
+  { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
 ] as const;
 
 const scanJob = z.object({ attachmentId: z.uuid() }).strict();
 const inboundJob = z.object({ inboundId: z.uuid() }).strict();
 const kbFileJob = z.object({ fileId: z.uuid() }).strict();
-const kbIndexJob = z.object({ articleId: z.uuid() }).strict();
 const actor = (job: string): SystemActor => ({ type: 'system', job });
 
 /**
@@ -149,9 +151,13 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     await scanSolutionFile(actor('kb.scan'), fileId);
   }));
   await boss.work('kb.index', polling, ([job]) => timedJob('kb.index', async () => {
-    // Публикация ставит задачу после фиксации (план M5, задача 4). Строку индекса и вектор пишет задача 9; до неё
-    // задача только принимает идентификатор и ничего не меняет, ночная сверка kb.reconcile задачи 9 найдёт опубликованное без строки индекса.
-    kbIndexJob.parse(job?.data);
+    // Строки поискового индекса и векторы решения (план M5, задача 9). Сервис векторов недоступен: строки с текстом уже
+    // записаны, задача бросает ошибку, pg-boss повторяет её; пропущенное найдёт ночная сверка kb.reconcile.
+    await runIndexJob(actor('kb.index'), job?.data);
+  }));
+  await boss.work('kb.reconcile', polling, () => timedJob('kb.reconcile', async () => {
+    const { articles, failed, deflections } = await reconcileSearchIndex(actor('kb.reconcile'));
+    if (articles + deflections > 0) console.info(`Сверка индекса решений: переиндексировано ${articles}, без вектора осталось ${failed}, исходов подсказки старше 13 месяцев удалено ${deflections}`);
   }));
   await boss.work('kb.translate', polling, ([job]) => timedJob('kb.translate', async () => {
     // Машинный перевод решения (план M5, задача 6): модель вызывает только фоновый процесс (решение 3).

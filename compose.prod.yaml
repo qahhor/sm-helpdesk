@@ -1,5 +1,6 @@
 # Развёртывание портала по разделам 13.3 и 13.4 ТЗ: веха M1 (проверка main, C2), фоновый процесс и ClamAV
-# в вехе M2 (решение 0028). TEI добавится в своей вехе. Настройка и первый запуск по шагам: docs/runbooks/launch.md.
+# в вехе M2 (решение 0028), TEI с моделью BGE-M3 в вехе M5 (решение 0053). Настройка и первый запуск по шагам:
+# docs/runbooks/launch.md.
 #
 #   docker compose -f compose.prod.yaml run --rm bootstrap   # один раз: роли и база
 #   docker compose -f compose.prod.yaml run --rm migrate     # при каждой выкладке
@@ -40,10 +41,11 @@ services:
     # Пределы памяти (план W0, задача 5): утечка в одной службе не забирает память у базы. Значения под сервер
     # 8 ГБ: в сумме 6,8 ГБ, остальное системе (итоговая проверка W0, M8).
     mem_limit: ${WEB_MEM_LIMIT:-768m}
-    # Без привилегий ядра и без права их получить (аудит 23.11.2026, S9). Сети: edge к Caddy и наружу, data к базе.
+    # Без привилегий ядра и без права их получить (аудит 23.11.2026, S9). Сети: edge к Caddy и наружу, data к базе,
+    # embed к TEI (вектор запроса подсказки).
     cap_drop: ['ALL']
     security_opt: ['no-new-privileges:true']
-    networks: ['edge', 'data']
+    networks: ['edge', 'data', 'embed']
     stop_grace_period: 20s
     # Писать процессу можно только сюда: временные файлы и кеш Next.js (Dockerfile).
     tmpfs: ['/tmp', '/app/.next/cache']
@@ -78,8 +80,8 @@ services:
     mem_limit: ${WORKER_MEM_LIMIT:-768m}
     cap_drop: ['ALL']
     security_opt: ['no-new-privileges:true']
-    # Сети: data к базе, scan к антивирусу и наружу (почта, Telegram, хранилище).
-    networks: ['data', 'scan']
+    # Сети: data к базе, scan к антивирусу и наружу (почта, Telegram, хранилище), embed к TEI (векторы решений).
+    networks: ['data', 'scan', 'embed']
     # Остановка очереди задач ждёт до 30 секунд: Docker не должен убить процесс раньше.
     stop_grace_period: 40s
     tmpfs: ['/tmp']
@@ -115,6 +117,42 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10m
+
+  # Смысловые векторы подсказки решений (ТЗ 13.3; план M5, решения 5 и 6): Text Embeddings Inference с моделью
+  # BGE-M3, 1024 измерения. Портал и фоновый процесс ходят сюда по EMBEDDINGS_URL=http://tei:80 при EMBEDDINGS=tei.
+  # Закреплён по digest индекса образа cpu-1.9.4 из реестра ghcr.io (решение 0053; новый digest:
+  # docker buildx imagetools inspect ghcr.io/huggingface/text-embeddings-inference:cpu-<версия>).
+  # Своя внутренняя сеть embed без выхода в интернет: текст запроса клиента не уходит за пределы сервера, до базы TEI
+  # не достаёт. Веса модели скачиваются один раз при подготовке сервера службой tei-download (профиль tools) в том
+  # tei_models и дальше читаются с тома. Не отвечает или медленный: подсказка работает на сигнатуре и словах (решение 5).
+  tei: &tei
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4@sha256:2538ea1c9640d3763b15af668039d24172d063b42337b0c27796fc2be180c78d
+    restart: unless-stopped
+    command: ['--model-id', 'BAAI/bge-m3', '--port', '80']
+    environment:
+      # Без выхода в сеть модель берётся только из кеша на томе.
+      HF_HUB_OFFLINE: '1'
+      HUGGINGFACE_HUB_CACHE: /data
+    # Веса BGE-M3 около 2,3 ГБ в памяти: предел с запасом на запросы.
+    mem_limit: ${TEI_MEM_LIMIT:-3g}
+    read_only: true
+    tmpfs: ['/tmp']
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    networks: ['embed']
+    volumes: ['tei_models:/data']
+
+  # Однократное скачивание весов BGE-M3 в том tei_models (решение 0053): тот же образ с выходом в интернет. Запуск:
+  # hubc --profile tools run --rm tei-download; после строки "Ready" в журнале остановить (Ctrl+C). Дальше служба tei
+  # читает веса с тома без сети.
+  tei-download:
+    <<: *tei
+    restart: 'no'
+    profiles: ['tools']
+    environment:
+      HUGGINGFACE_HUB_CACHE: /data
+    read_only: false
+    networks: ['models']
 
   # Миграции от роли hub_owner. Подключение владельца есть только здесь (раздел 13.5 ТЗ).
   migrate:
@@ -204,16 +242,22 @@ services:
 #   edge: Caddy и портал. Через неё портал ходит наружу (вход Smartup, почта, Telegram, хранилище).
 #   data: портал, фоновый процесс, задачи базы и PostgreSQL. Внутренняя: выхода в интернет нет.
 #   scan: фоновый процесс и антивирус. Через неё фоновый процесс ходит наружу, антивирус обновляет базы подписей.
+#   embed: портал, фоновый процесс и TEI. Внутренняя: текст запроса клиента не уходит наружу (ТЗ 11.6).
+#   models: только однократное скачивание весов модели (tei-download, профиль tools).
 networks:
   edge: {}
   data:
     internal: true
   scan: {}
+  embed:
+    internal: true
+  models: {}
 
 volumes:
   caddy_data: {}
   pg_data: {}
   clamav_db: {}
+  tei_models: {}
 
 secrets:
   pg_superuser:

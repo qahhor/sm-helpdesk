@@ -31,9 +31,12 @@ export const QUEUES = {
   'ops.watch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Проверка изображения решения (план M5, задача 3): как вложение обращения, одна задача на файл.
   'kb.scan': { policy: 'exclusive', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
-  // Поисковый индекс после публикации (план M5, задача 4 ставит, задача 9 считает вектор). Одна задача на решение,
-  // ночная сверка kb.reconcile найдёт пропущенное.
+  // Поисковый индекс после публикации (план M5, задача 4 ставит, задача 9 пишет строки и вектор). Одна задача на
+  // решение; сервис векторов недоступен: повтор с растущей паузой, пропущенное найдёт ночная сверка kb.reconcile.
   'kb.index': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
+  // Ночная сверка индекса (план M5, задача 9): статьи без строки индекса или без вектора, исходы подсказки старше
+  // 13 месяцев. Без повторов: следующая ночь догонит.
+  'kb.reconcile': { policy: 'short', retryLimit: 0, expireInSeconds: 1800, deleteAfterSeconds: 86_400 },
   // Задачи модели (план M5, задачи 6 и 7, решение 3): машинный перевод языка решения и черновик из обращения. Повтор
   // при сбое модели с растущей паузой; повторную постановку при уже поставленной задаче отсекает состояние ai_status.
   'kb.translate': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },

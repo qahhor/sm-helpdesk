@@ -2,7 +2,7 @@ import 'server-only';
 import * as z from 'zod';
 import { withActor } from '@/db/with-actor';
 import { LOCALES, type Locale } from '@/i18n/locales';
-import type { StaffContext } from '@/modules/hdc/api';
+import { enqueue, type StaffContext } from '@/modules/hdc/api';
 import { articleByNumberTx, currentVersion, foreignFileIdsTx, type ListRow, listArticlesTx, restoreVersionTx, saveDraftTx, updateMetaTx, versionByIdTx, versionsTx } from '../core/editor';
 import { originalPublishedTx, type Review, reviewTx } from '../core/publish';
 import { changedSinceTx, languagesTx, type LanguageRow } from '../core/translations';
@@ -227,8 +227,9 @@ export async function restoreSolutionVersion(ctx: StaffContext, input: unknown):
 export async function saveSolutionMeta(ctx: StaffContext, input: unknown): Promise<void> {
   requireWriter(ctx);
   const data = parse(metaInput, input);
+  let changed: { articleId: string } | null = null;
   try {
-    await withActor(ctx.actor, async (tx) => {
+    changed = await withActor(ctx.actor, async (tx) => {
       const article = await articleByNumberTx(tx, data.number);
       if (!article) throw new HdkError('not_found');
       if (article.status !== 'active') throw new HdkError('forbidden');
@@ -236,6 +237,7 @@ export async function saveSolutionMeta(ctx: StaffContext, input: unknown): Promi
         moduleId: data.moduleId,
         audience: data.audience,
       });
+      return article.moduleId !== data.moduleId ? { articleId: article.articleId } : null;
     });
   } catch (error) {
     if (pgCode(error) === '42501') throw new HdkError('forbidden');
@@ -243,6 +245,9 @@ export async function saveSolutionMeta(ctx: StaffContext, input: unknown): Promi
     if (pgCode(error) === '23503') throw new HdkError('invalid_input');
     throw error;
   }
+  // Модуль даёт прибавку в подсказке (решение 17): строки индекса берут его из статьи. Аудиторию индекс получает
+  // каскадом от копии для читателей сразу, без задачи.
+  if (changed) await enqueue('kb.index', changed);
 }
 
 

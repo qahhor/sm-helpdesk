@@ -280,6 +280,7 @@ test('собранный worker.mjs запускается без каталог
     { name: 'attachment.sweep', cron: '* * * * *', timezone: 'UTC' },
     { name: 'automation.process', cron: '* * * * *', timezone: 'UTC' },
     { name: 'devtasks.sync', cron: '*/15 * * * *', timezone: 'UTC' },
+    { name: 'kb.reconcile', cron: '30 3 * * *', timezone: 'Asia/Tashkent' },
     { name: 'maintenance.cleanup', cron: '0 3 * * *', timezone: 'Asia/Tashkent' },
     { name: 'ops.watch', cron: '*/5 * * * *', timezone: 'UTC' },
     { name: 'outbox.dispatch', cron: '* * * * *', timezone: 'UTC' },

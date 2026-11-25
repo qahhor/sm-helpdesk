@@ -14,6 +14,7 @@ export const JOB_NAMES = [
   'email.inbound',
   'kb.draft',
   'kb.index',
+  'kb.reconcile',
   'kb.scan',
   'kb.translate',
   'maintenance.cleanup',

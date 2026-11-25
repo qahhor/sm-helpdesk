@@ -98,6 +98,28 @@ const httpsOrigin = required().refine(
   { error: 'ожидается адрес вида https://<счёт>.r2.cloudflarestorage.com без пути' },
 );
 
+/**
+ * Адрес TEI (план M5, решение 6): только внутренний, потому что вызывается мимо защиты исходящих запросов, а в запросе
+ * текст клиента. Имя службы compose без точек, localhost или частный IPv4; без учётной записи, пути и параметров.
+ */
+const embeddingsUrl = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      const url = toUrl(value);
+      if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password || url.search || url.hash) return false;
+      if (url.pathname !== '/' && url.pathname !== '') return false;
+      const host = url.hostname;
+      if (LOCAL_HOSTS.has(host) || /^[a-z0-9][a-z0-9-]{0,62}$/i.test(host)) return true;
+      const ip = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+      if (!ip) return false;
+      const [a, b] = [Number(ip[1]), Number(ip[2])];
+      return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+    },
+    { error: 'ожидается внутренний адрес вида http://tei:80: имя службы, localhost или частный IPv4, без пути' },
+  );
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production'], {
@@ -193,6 +215,10 @@ const schema = z
       .regex(/^[A-Za-z0-9.-]{1,253}$/, { error: 'ожидается имя узла или адрес IPv4' })
       .optional(),
     CLAMAV_PORT: z.coerce.number({ error: 'ожидается номер порта' }).int().min(1, { error: 'ожидается номер порта' }).max(65535, { error: 'ожидается номер порта' }).default(3310),
+    // Смысловые векторы подсказки (ТЗ 11.11 EmbeddingProvider; план M5, решения 5 и 6): stub считает детерминированный
+    // вектор по буквосочетаниям прямо в процессе, tei ходит в локальный контейнер TEI с моделью BGE-M3.
+    EMBEDDINGS: z.enum(['stub', 'tei'], { error: 'ожидается stub или tei' }).default('stub'),
+    EMBEDDINGS_URL: embeddingsUrl.optional(),
     // Таск-менеджер разработки (ТЗ 7.9, решение 13 вехи M8): manual значит, что номер и ссылку задачи вводит сотрудник;
     // smartup: задачи создаёт портал через API таск-менеджера Smartup (docs/integrations/dev-tracker.md).
     DEV_TRACKER: z.enum(['manual', 'smartup'], { error: 'ожидается manual или smartup' }).default('manual'),
@@ -278,6 +304,8 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SITE_KEY'], message: 'не задан: на настоящем адресе в production формы входа защищает Cloudflare Turnstile' });
     if (!value.CLAMAV_HOST && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({ code: 'custom', path: ['CLAMAV_HOST'], message: 'не задан: на настоящем адресе в production файлы проверяет ClamAV' });
+    if (value.EMBEDDINGS === 'tei' && !value.EMBEDDINGS_URL)
+      ctx.addIssue({ code: 'custom', path: ['EMBEDDINGS_URL'], message: 'не задан, а EMBEDDINGS равен tei' });
     if (value.DEV_TRACKER === 'smartup')
       for (const name of ['DEV_TRACKER_URL', 'DEV_TRACKER_TOKEN', 'DEV_TRACKER_WEBHOOK_SECRET'] as const)
         if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а DEV_TRACKER равен smartup' });

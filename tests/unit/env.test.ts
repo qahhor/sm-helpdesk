@@ -256,6 +256,19 @@ test('антивирус: CLAMAV_PORT по умолчанию 3310, на нас�
   expect(parseEnv({ ...prod, CLAMAV_HOST: undefined, FILE_STORAGE: 'local', HUB_URL: 'http://localhost:3100', HUB_DOMAIN: 'localhost' }).CLAMAV_HOST).toBeUndefined();
 });
 
+test('векторы подсказки: по умолчанию заглушка, tei требует внутренний адрес EMBEDDINGS_URL (план M5, решения 5 и 6)', () => {
+  expect(parseEnv(ok)).toMatchObject({ EMBEDDINGS: 'stub' });
+  expect(parseEnv(ok).EMBEDDINGS_URL).toBeUndefined();
+  expect(parseEnv({ ...ok, EMBEDDINGS: 'tei', EMBEDDINGS_URL: 'http://tei:80' })).toMatchObject({ EMBEDDINGS: 'tei', EMBEDDINGS_URL: 'http://tei:80' });
+  expect(parseEnv({ ...prod, EMBEDDINGS: 'tei', EMBEDDINGS_URL: 'http://10.0.3.7:8080' }).EMBEDDINGS_URL).toBe('http://10.0.3.7:8080');
+  expect(parseEnv({ ...ok, EMBEDDINGS: 'tei', EMBEDDINGS_URL: 'http://localhost:8081' }).EMBEDDINGS_URL).toBe('http://localhost:8081');
+  expect(() => parseEnv({ ...ok, EMBEDDINGS: 'openai' })).toThrowError(/EMBEDDINGS/);
+  expect(problems({ ...ok, EMBEDDINGS: 'tei' }).map((p) => p.name)).toEqual(['EMBEDDINGS_URL']);
+  // Текст запроса клиента не уходит за пределы сервера: внешний адрес, адрес с учётной записью или путём отклоняются.
+  for (const url of ['https://api.example.com', 'http://tei.example.com', 'http://8.8.8.8', 'http://user:pw@tei:80', 'http://tei:80/embed?x=1', 'ftp://tei'])
+    expect(problems({ ...ok, EMBEDDINGS: 'tei', EMBEDDINGS_URL: url }).map((p) => p.name), url).toEqual(['EMBEDDINGS_URL']);
+});
+
 test('проверка "не робот": на настоящем адресе в production ключи Turnstile обязательны, локально нет', () => {
   expect(problems({ ...prod, TURNSTILE_SITE_KEY: undefined, TURNSTILE_SECRET: undefined }).map((p) => p.name)).toEqual(['TURNSTILE_SITE_KEY']);
   expect(

@@ -48,7 +48,7 @@ export default async function AccountPage({ searchParams }: PageProps<'/[locale]
         intro={t('common.notifications.settings.ideas.intro')}
         options={[{ name: 'ideasEmail', label: t('common.notifications.settings.ideas.label'), checked: ideaPref.email }]}
         save={saveStaffIdeaPrefAction}
-        saveLabel={t('common.notifications.settings.save')}
+        saveLabel={t('common.notifications.settings.ideas.save')}
         savedLabel={t('common.notifications.settings.saved')}
         saved={firstParam(params.prefs) === 'ideas'}
       />

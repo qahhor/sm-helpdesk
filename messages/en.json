@@ -124,7 +124,8 @@
         "ideas": {
           "title": "Emails about ideas",
           "intro": "The bell tells you about every idea event. Emails about one idea come at most once a day, about a release always.",
-          "label": "Send emails about ideas"
+          "label": "Send emails about ideas",
+          "save": "Apply to idea emails"
         }
       }
     }

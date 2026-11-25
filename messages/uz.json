@@ -124,7 +124,8 @@
         "ideas": {
           "title": "G'oyalar haqida xatlar",
           "intro": "G'oyalar voqealari haqida qo'ng'iroqcha doim xabar beradi. Bitta g'oya bo'yicha xat sutkasiga bir martadan ko'p kelmaydi, chiqarilgani haqida doim.",
-          "label": "G'oyalar haqida xat yuborish"
+          "label": "G'oyalar haqida xat yuborish",
+          "save": "G'oyalar haqidagi xatlarga qo'llash"
         }
       }
     }

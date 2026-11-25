@@ -3008,6 +3008,106 @@
         "taken": "This signature is already linked to solution {number}. Unlink it there first.",
         "invalid": "Enter an error code or text."
       }
+    },
+    "ideas": {
+      "title": "Ideas",
+      "tabsLabel": "Idea sections",
+      "tabs": {
+        "moderation": "Moderation",
+        "all": "All"
+      },
+      "filters": {
+        "label": "Idea filters",
+        "status": "Status",
+        "module": "Module",
+        "org": "Organization",
+        "q": "Title",
+        "any": "Any",
+        "apply": "Show"
+      },
+      "empty": {
+        "moderation": "No ideas waiting for review",
+        "all": "No ideas found"
+      },
+      "emptyText": "Ideas suggested by clients will appear here.",
+      "columns": {
+        "number": "Number",
+        "title": "Idea",
+        "org": "Organization",
+        "module": "Module",
+        "status": "Status",
+        "votes": "Votes",
+        "comments": "Comments",
+        "created": "Submitted"
+      },
+      "votesCell": "{votes} / org. {orgs}",
+      "more": "Show more",
+      "fields": {
+        "author": "Author",
+        "org": "Organization",
+        "orgHidden": "hidden from clients",
+        "votes": "Votes / organizations",
+        "created": "Submitted",
+        "published": "Published",
+        "mergedInto": "Merged into",
+        "declineReason": "Decline reason",
+        "title": "Title",
+        "body": "Description"
+      },
+      "findingsChecked": "Findings checked",
+      "findings": "Found in the text: {kinds}. Remove the data before publishing or mark it as checked.",
+      "original": "Original ({locale})",
+      "translation": "Translation ({locale})",
+      "noTranslation": "No translation yet: {locales}",
+      "textStatuses": {
+        "original": "Original",
+        "machine": "Machine",
+        "reviewed": "Reviewed",
+        "outdated": "Outdated",
+        "rejected": "Failed the check"
+      },
+      "images": "Images",
+      "scan": {
+        "pending": "being checked",
+        "clean": "clean",
+        "infected": "infected",
+        "rejected": "rejected"
+      },
+      "breakdown": {
+        "title": "Votes by organization",
+        "intro": "Voter names are not shown: only organizations and categories.",
+        "none": "no category",
+        "org": "Organization",
+        "category": "Category",
+        "votes": "Votes"
+      },
+      "actions": {
+        "title": "Moderation",
+        "publish": "Publish",
+        "findingsChecked": "Checked: no client data in the text",
+        "edit": "Save changes",
+        "mergeInto": "Merge into idea (number)",
+        "merge": "Merge",
+        "declineReason": "Decline reason (the author will see it)",
+        "decline": "Decline",
+        "reviewTranslation": "Save translation"
+      },
+      "done": {
+        "published": "The idea is published.",
+        "declined": "The idea is declined.",
+        "merged": "The idea is merged.",
+        "edited": "Changes saved.",
+        "translation": "The translation is saved and marked as reviewed."
+      },
+      "errors": {
+        "forbidden": "Only the product and admin roles can do this",
+        "invalid_input": "Check the form fields",
+        "not_found": "Idea not found",
+        "bad_transition": "This status change is not allowed",
+        "bad_merge_target": "You can merge only into a published idea that is not declined or merged",
+        "findings_unchecked": "The text contains client data: remove it or mark it as checked",
+        "not_editable": "The idea can no longer be changed"
+      }
     }
   },
   "auth": {

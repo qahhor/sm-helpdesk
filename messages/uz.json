@@ -3008,6 +3008,106 @@
         "taken": "Bu imzo allaqachon {number} yechimiga bog'langan. Avval uni o'sha yerda uzing.",
         "invalid": "Xato kodi yoki matnini kiriting."
       }
+    },
+    "ideas": {
+      "title": "G'oyalar",
+      "tabsLabel": "G'oyalar bo'limlari",
+      "tabs": {
+        "moderation": "Moderatsiya",
+        "all": "Hammasi"
+      },
+      "filters": {
+        "label": "G'oyalar filtrlari",
+        "status": "Holat",
+        "module": "Modul",
+        "org": "Tashkilot",
+        "q": "Sarlavha",
+        "any": "Istalgan",
+        "apply": "Ko'rsatish"
+      },
+      "empty": {
+        "moderation": "Tekshiruvdagi g'oyalar yo'q",
+        "all": "G'oyalar topilmadi"
+      },
+      "emptyText": "Mijozlar g'oya taklif qilganda ular shu yerda paydo bo'ladi.",
+      "columns": {
+        "number": "Raqam",
+        "title": "G'oya",
+        "org": "Tashkilot",
+        "module": "Modul",
+        "status": "Holat",
+        "votes": "Ovozlar",
+        "comments": "Izohlar",
+        "created": "Yuborilgan"
+      },
+      "votesCell": "{votes} / tash. {orgs}",
+      "more": "Yana ko'rsatish",
+      "fields": {
+        "author": "Muallif",
+        "org": "Tashkilot",
+        "orgHidden": "mijozlar uni ko'rmaydi",
+        "votes": "Ovozlar / tashkilotlar",
+        "created": "Yuborilgan",
+        "published": "E'lon qilingan",
+        "mergedInto": "Birlashtirilgan",
+        "declineReason": "Rad etish sababi",
+        "title": "Sarlavha",
+        "body": "Tavsif"
+      },
+      "findingsChecked": "Topilmalar tekshirildi",
+      "findings": "Matnda topildi: {kinds}. E'lon qilishdan oldin ma'lumotlarni olib tashlang yoki tekshirganingizni belgilang.",
+      "original": "Asl matn ({locale})",
+      "translation": "Tarjima ({locale})",
+      "noTranslation": "Tarjima hali yo'q: {locales}",
+      "textStatuses": {
+        "original": "Asl matn",
+        "machine": "Mashina",
+        "reviewed": "Tekshirilgan",
+        "outdated": "Eskirgan",
+        "rejected": "Solishtiruvdan o'tmagan"
+      },
+      "images": "Rasmlar",
+      "scan": {
+        "pending": "tekshirilmoqda",
+        "clean": "toza",
+        "infected": "zararlangan",
+        "rejected": "rad etilgan"
+      },
+      "breakdown": {
+        "title": "Tashkilotlar bo'yicha ovozlar",
+        "intro": "Ovoz berganlarning ismlari ko'rsatilmaydi: faqat tashkilotlar va toifalar.",
+        "none": "toifasiz",
+        "org": "Tashkilot",
+        "category": "Toifa",
+        "votes": "Ovozlar"
+      },
+      "actions": {
+        "title": "Moderatsiya",
+        "publish": "E'lon qilish",
+        "findingsChecked": "Tekshirildi: matnda mijoz ma'lumotlari yo'q",
+        "edit": "Tahrirni saqlash",
+        "mergeInto": "G'oya bilan birlashtirish (raqam)",
+        "merge": "Birlashtirish",
+        "declineReason": "Rad etish sababi (muallif ko'radi)",
+        "decline": "Rad etish",
+        "reviewTranslation": "Tarjimani saqlash"
+      },
+      "done": {
+        "published": "G'oya e'lon qilindi.",
+        "declined": "G'oya rad etildi.",
+        "merged": "G'oya birlashtirildi.",
+        "edited": "Tahrir saqlandi.",
+        "translation": "Tarjima saqlandi va tekshirilgan deb belgilandi."
+      },
+      "errors": {
+        "forbidden": "Bu amal faqat product va admin rollariga ochiq",
+        "invalid_input": "Forma maydonlarini tekshiring",
+        "not_found": "G'oya topilmadi",
+        "bad_transition": "Bu holatdan bunday o'tkazib bo'lmaydi",
+        "bad_merge_target": "Faqat e'lon qilingan, rad etilmagan va birlashtirilmagan g'oya bilan birlashtirish mumkin",
+        "findings_unchecked": "Matnda mijoz ma'lumotlari bor: ularni olib tashlang yoki tekshirganingizni belgilang",
+        "not_editable": "G'oyani endi o'zgartirib bo'lmaydi"
+      }
     }
   },
   "auth": {

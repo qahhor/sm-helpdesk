@@ -1,6 +1,6 @@
 import 'server-only';
-import { type AnyColumn, and, asc, desc, eq, inArray, notInArray, or, type SQL, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { and, asc, desc, eq, inArray, notInArray, or, type SQL, sql } from 'drizzle-orm';
+import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import type { Tx } from '@/db/client';
 import { containsText } from '@/db/contains';
 import type { Locale } from '@/i18n/locales';
@@ -77,7 +77,7 @@ async function cardsOf(tx: Tx, rows: (typeof ideas.$inferSelect)[], locale: Loca
 function orderOf(tx: Tx, tab: BoardTab, mode: VoteMode, after: number | null): { order: SQL[]; cursor: SQL | undefined } {
   // Значение колонки у идеи-курсора: подзапрос к той же таблице под другим именем, видимость даёт та же политика.
   const cursorIdea = alias(ideas, 'cursor_idea');
-  const ref = (pick: (t: typeof cursorIdea) => AnyColumn) => sql`(${tx.select({ value: pick(cursorIdea) }).from(cursorIdea).where(eq(cursorIdea.number, after ?? 0))})`;
+  const ref = (pick: (t: typeof cursorIdea) => PgColumn) => sql`(${tx.select({ value: pick(cursorIdea) }).from(cursorIdea).where(eq(cursorIdea.number, after ?? 0))})`;
   if (tab === 'popular') {
     const count = mode === 'per_org' ? ideas.orgCount : ideas.voteCount;
     const column = (t: typeof cursorIdea) => (mode === 'per_org' ? t.orgCount : t.voteCount);

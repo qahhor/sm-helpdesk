@@ -48,7 +48,7 @@ export const AGENT_NAV_GROUPS: readonly AgentNavGroup[] = [
 ];
 
 /** Включённые вехи. Каждая веха, которая приносит раздел рабочего места, добавляет сюда свой код. */
-export const ENABLED_MILESTONES: ReadonlySet<string> = new Set(['M0', 'M1', 'M2', 'M3', 'M5', 'M8']);
+export const ENABLED_MILESTONES: ReadonlySet<string> = new Set(['M0', 'M1', 'M2', 'M3', 'M5', 'M7', 'M8']);
 
 /** Пункты группы, чьи вехи включены и которые доступны роли сотрудника. Без роли (витрина): только общие пункты. */
 export function visibleItems(group: AgentNavGroup, enabled: ReadonlySet<string>, role: StaffRole | null): readonly AgentNavItem[] {

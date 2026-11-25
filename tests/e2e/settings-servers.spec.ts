@@ -27,7 +27,7 @@ test('администратор добавляет сервер Smartup, сек
   await page.getByLabel('Адрес сервера входа').fill('http://localhost:3193');
   await page.getByLabel('Идентификатор клиента').fill('hub');
   await page.getByLabel('Секрет клиента').fill('e2e-secret-value');
-  await page.getByRole('button', { name: 'Сохранить' }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   // После добавления открывается карточка: на ней адрес возврата и проверка связи.
   await expect(main(page).getByRole('status')).toContainText('Сервер добавлен');
   await sections(page).getByRole('link', { name: 'Серверы Smartup' }).click();
@@ -41,7 +41,7 @@ test('администратор добавляет сервер Smartup, сек
 
   // Изменение без нового секрета: секрет остаётся прежним, пометка "задан" на месте.
   await page.getByLabel('Название').fill('Проверочный 2');
-  await page.getByRole('button', { name: 'Сохранить' }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(main(page).getByRole('status')).toContainText('Сервер сохранён');
   await expect(main(page)).toContainText('Секрет задан');
 

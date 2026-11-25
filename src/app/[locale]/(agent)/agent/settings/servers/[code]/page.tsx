@@ -186,8 +186,8 @@ export default async function ServerPage({ params, searchParams }: PageProps<'/[
               <dt className="text-secondary-foreground">{ts('widget.lifetime')}</dt>
               <dd>{ts('widget.lifetimeValue')}</dd>
               <dt className="text-secondary-foreground">{ts('widget.snippet')}</dt>
-              <dd>
-                <pre className="overflow-x-auto rounded-control bg-card-soft px-2 py-1 text-sm">
+              <dd className="min-w-0">
+                <pre className="whitespace-pre-wrap wrap-anywhere rounded-control bg-card-soft px-2 py-1 text-sm">
                   <code>{widgetSnippet(server.widget.embedKey)}</code>
                 </pre>
               </dd>

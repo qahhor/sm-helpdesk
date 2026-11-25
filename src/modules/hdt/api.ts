@@ -7,7 +7,7 @@ import { refreshSlaAfterClient } from './api/jobs';
 import { confirmTx, rateTx, reopenDays, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
 import { createTicketTx, listTicketRows, readTicket, ticketExists } from './core/tickets';
 import { HdtError } from './error';
-import { createTicketInput, listTicketsInput, numberInput, parseInput, rateInput, reopenInput, replyInput, visibilityInput, widgetTicketInput } from './input';
+import { createTicketInput, listTicketsInput, modeBContext, numberInput, parseInput, rateInput, reopenInput, replyInput, visibilityInput, widgetTicketInput } from './input';
 import type { TicketContext } from './schema';
 import {
   ALLOWED_FILES,
@@ -53,6 +53,7 @@ export {
   buildCsv,
   canReviewCsat,
   canSeeBreakdown,
+  type ChannelRow,
   CSAT_REVIEW_MAX,
   CSV_MAX_ROWS,
   exportFileName,
@@ -71,6 +72,8 @@ export {
   type MetricsView,
   saveCsatReview,
   splitMinutes,
+  TICKET_CHANNELS,
+  type TicketChannel,
 } from './api/metrics';
 export { type PickupMinutes, readPickup, readTimings, savePickup, saveTimings, type Timings, TIMINGS_DEFAULT } from './api/timings';
 export {
@@ -161,15 +164,28 @@ export async function createTicket(ctx: ClientActorContext, input: unknown): Pro
   if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
   const limit = await consumeRateLimit(rateKey('ticket-create:user', ctx.actor.userId), RATE_RULES.ticketCreatePerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
+  // Режим B виджета (план M6, задача 8; решения 11 и 12): форма открыта из загрузчика. Источник widget_web и контекст
+  // из подсказок; платформы нет, её знает только проверенный токен. Признак влияет только на показатели.
+  const { widget, context: rawContext, ...fields } = data;
+  const context: TicketContext | null = widget ? modeBContext(rawContext) : null;
+  const hasContext = context !== null && Object.keys(context).length > 0;
   const { number, ticketId } = await createTicketTx(ctx.actor, {
-    ...data,
+    ...fields,
     title: data.title ?? titleFromDescription(data.description),
     attachmentIds: [...new Set(data.attachmentIds)],
+    ...(widget && { source: 'widget_web' as const, context: hasContext ? context : null }),
   });
   await refreshSlaAfterClient(ticketId);
   // Сигнатура ошибки из описания (план M5, задача 8): считает сервер от имени системы до разбора правил, клиент её
-  // не задаёт. Сбой сигнатуры обращение не отменяет.
-  await recordTicketSignature({ ticketId, orgId: ctx.actor.orgId, authorId: ctx.actor.userId, description: data.description, context: null, moduleId: data.moduleId ?? null });
+  // не задаёт. У режима B, как в панели виджета, из кода и текста ошибки (решение 0055). Сбой сигнатуры обращение не отменяет.
+  await recordTicketSignature({
+    ticketId,
+    orgId: ctx.actor.orgId,
+    authorId: ctx.actor.userId,
+    description: data.description,
+    context: hasContext ? { errorCode: context.errorCode, errorText: context.errorText } : null,
+    moduleId: data.moduleId ?? null,
+  });
   // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации. Событие для правил тоже записано.
   await wakeOutbox();
   await wakeAutomation();

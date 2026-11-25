@@ -31,6 +31,9 @@ export async function createTicketAction(_state: NewTicketState, formData: FormD
       relatedNumber: formData.get('relatedNumber'),
       attachmentIds: formData.getAll('attachmentIds'),
       locale,
+      // Режим B виджета (план M6, задача 8): признак и подсказки телом формы, сервис проверяет их сам.
+      widget: formData.get('widget') ?? undefined,
+      context: formData.get('context') ?? undefined,
     }));
   } catch (error) {
     if (!isHdtError(error)) throw error;

@@ -7,7 +7,8 @@ import { HdtError } from '../error';
 import type { LineEvent } from '../metrics-util';
 import { ticketEvents, tickets } from '../schema';
 
-// Модуль hdt, слой core: запросы показателей (FR-MET-01, 03, 04, 07, 10, FR-LINE-08; план M8, задача 9, решение 15).
+// Модуль hdt, слой core: запросы показателей (FR-MET-01, 03, 04, 07, 10, FR-LINE-08; план M8, задача 9, решение 15;
+// каналы FR-MET-10: план M6, задача 8).
 //
 // Определение, общее для всех блоков: "обращения периода" это обращения, СОЗДАННЫЕ в периоде. Каждый блок считается
 // одним запросом по индексу даты создания (hdt_tickets_i25), без таблиц накопления и без кеша. Обращение, созданное
@@ -91,6 +92,18 @@ export async function finishedTx(tx: Tx, range: Range): Promise<number> {
 /** Источники обращений периода (FR-MET-03). */
 export function sourcesTx(tx: Tx, range: Range): Promise<{ source: string; count: number }[]> {
   return tx.select({ source: tickets.source, count: count() }).from(tickets).where(inPeriod(range)).groupBy(tickets.source);
+}
+
+/** Канал обращения (FR-MET-10): оба источника виджета дают канал widget. Значения TICKET_CHANNELS. */
+const CHANNEL = sql<string>`(case when ${tickets.source} in ('widget_web', 'widget_mobile') then 'widget' else ${tickets.source} end)`;
+
+/** Каналы обращений периода одним запросом: счётчики, общие со срезами (FR-MET-10). */
+export function channelsTx(tx: Tx, range: Range, now: Date): Promise<(Counters & { channel: string })[]> {
+  return tx
+    .select({ channel: CHANNEL, ...counters(now) })
+    .from(tickets)
+    .where(inPeriod(range))
+    .groupBy(CHANNEL);
 }
 
 export type RespondedRow = { createdOn: Date; firstRespondedOn: Date; priority: string };

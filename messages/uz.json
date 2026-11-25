@@ -189,7 +189,8 @@
           "notHelped": "Yordam bermadi, murojaat yuborish",
           "sendAnyway": "Yordam bermadimi? Murojaat yuboring",
           "orgCount": "{count} ta mijozda uchragan"
-        }
+        },
+        "fromWidget": "Smartup'dagi xatoni qo'shib qo'ydik. Undan oldin nima qilganingizni yozing."
       },
       "list": {
         "new": "Yangi murojaat",
@@ -2457,8 +2458,19 @@
         "shareOf": "{name} manbasining ulushi",
         "names": {
           "portal": "Portal",
-          "widget_web": "Smartup ichidagi vidjet",
-          "widget_mobile": "Mobil ilova",
+          "widget_web": "Smartup Web ichidagi vidjet",
+          "widget_mobile": "Mobil ilovadagi vidjet",
+          "email": "Pochta",
+          "staff": "Xodim tomonidan yaratilgan"
+        }
+      },
+      "channels": {
+        "title": "Kanallar: portal, vidjet, pochta",
+        "hint": "Vidjet Smartup Web va mobil ilovani birlashtiradi. Xodim yaratgan murojaatlar alohida ko'rsatiladi, shunda ulushlar 100% ni tashkil qiladi.",
+        "channel": "Kanal",
+        "names": {
+          "portal": "Portal",
+          "widget": "Vidjet",
           "email": "Pochta",
           "staff": "Xodim tomonidan yaratilgan"
         }

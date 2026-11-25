@@ -6,6 +6,7 @@ import { Alert } from '@/ui/components/alert';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { selectOrganizationAction } from './actions';
 import { firstParam } from '@/lib/search-params';
+import { WidgetFragmentCapture } from '@/ui/widget/WidgetFragmentCapture';
 
 // Выбор организации: у человека несколько организаций, и ни одна не выбрана (FR-ID-05).
 // Список строится из действующих членств, выбор проверяет серверное действие.
@@ -21,6 +22,7 @@ export default async function SelectOrganizationPage({ searchParams }: PageProps
   return (
     <Card>
       <CardHeader>
+        <WidgetFragmentCapture />
         <h1 className="text-xl font-semibold">{t('selectOrganization.title')}</h1>
         <p className="text-secondary-foreground">{t('selectOrganization.intro')}</p>
       </CardHeader>

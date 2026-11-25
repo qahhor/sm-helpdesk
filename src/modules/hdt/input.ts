@@ -24,6 +24,10 @@ export const createTicketInput = z.object({
   // Предел в 10 файлов проверяет сервис своим кодом (too_many_files), схема отсекает только явный мусор.
   attachmentIds: z.array(z.uuid()).max(100).default([]),
   locale: z.enum(LOCALES),
+  // Форма открыта из загрузчика виджета (режим B, решение 12): только показатели, на права не влияет.
+  widget: optional(z.literal('1')),
+  // Подсказки режима B строкой JSON, разбираются modeBContext. Без признака виджета не используются.
+  context: optional(z.string().max(4096)),
 });
 
 /** Строка подсказки виджета (решение 11 плана M6): код модуля и экрана из букв, цифр и знаков _.:- до 64 знаков. */
@@ -41,6 +45,28 @@ export const widgetContextInput = z.strictObject({
   errorCode: hintText(64),
   errorText: hintText(2000),
 });
+
+/**
+ * Контекст режима B (план M6, задача 8; решение 11): форма портала присылает подсказки загрузчика строкой JSON. Каждое
+ * поле проверяется отдельно, неверное отбрасывается, остальные остаются; испорченная строка даёт пустой контекст.
+ */
+export function modeBContext(raw: unknown): Record<string, string> {
+  if (typeof raw !== 'string' || raw.length > 4096) return {};
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  const source = value as Record<string, unknown>;
+  const context: Record<string, string> = {};
+  for (const [key, schema] of Object.entries(widgetContextInput.shape)) {
+    const parsed = schema.safeParse(source[key]);
+    if (parsed.success && typeof parsed.data === 'string') context[key] = parsed.data;
+  }
+  return context;
+}
 
 /**
  * Обращение из виджета (план M6, задача 5): описание "Что вы делали перед ошибкой?", необязательные модуль, тип и
@@ -217,7 +243,7 @@ export const bulkInput = z.union([
 ]);
 
 /** Обращение от имени клиента (FR-AG-08): организация и участник выбраны сотрудником, остальное как у клиента. */
-export const staffCreateInput = createTicketInput.omit({ relatedNumber: true }).extend({
+export const staffCreateInput = createTicketInput.omit({ relatedNumber: true, widget: true, context: true }).extend({
   orgId: z.uuid(),
   authorId: z.uuid(),
   priority: optional(z.enum(PRIORITIES)),

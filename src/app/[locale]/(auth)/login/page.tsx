@@ -13,6 +13,7 @@ import { forgetServerAction } from './actions';
 import { LoginLinkForm } from './LoginLinkForm';
 import { ServerAddressForm } from './ServerAddressForm';
 import { firstParam } from '@/lib/search-params';
+import { WidgetFragmentCapture } from '@/ui/widget/WidgetFragmentCapture';
 
 // Вход клиента (FR-ID-01..03). Клиент общего облака видит одну кнопку. Клиент выделенного сервера
 // один раз вводит адрес своего Smartup. Список серверов не показывается нигде.
@@ -40,6 +41,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
   return (
     <Card>
       <CardHeader>
+        <WidgetFragmentCapture />
         <h1 className="text-xl font-semibold">{t('title')}</h1>
         <p className="text-secondary-foreground">{t('intro')}</p>
       </CardHeader>

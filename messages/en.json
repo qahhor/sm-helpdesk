@@ -189,7 +189,8 @@
           "notHelped": "Didn't help, send a request",
           "sendAnyway": "Didn't help? Send a request",
           "orgCount": "{count, plural, one {Seen by # client} other {Seen by # clients}}"
-        }
+        },
+        "fromWidget": "We added the error from Smartup. Tell us what you were doing before it appeared."
       },
       "list": {
         "new": "New request",
@@ -2457,8 +2458,19 @@
         "shareOf": "Share of source {name}",
         "names": {
           "portal": "Portal",
-          "widget_web": "Widget in Smartup",
-          "widget_mobile": "Mobile app",
+          "widget_web": "Widget in Smartup Web",
+          "widget_mobile": "Widget in the mobile app",
+          "email": "Email",
+          "staff": "Created by staff"
+        }
+      },
+      "channels": {
+        "title": "Channels: portal, widget, email",
+        "hint": "The widget combines Smartup Web and the mobile app. Requests created by staff are shown separately so that shares add up to 100%.",
+        "channel": "Channel",
+        "names": {
+          "portal": "Portal",
+          "widget": "Widget",
           "email": "Email",
           "staff": "Created by staff"
         }

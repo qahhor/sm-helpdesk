@@ -302,6 +302,45 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
             </Card>
           </div>
 
+          {/* Каналы (FR-MET-10; план M6, задача 8): портал, виджет (Web и приложение вместе), почта, сотрудник. */}
+          <Card className="overflow-x-auto" data-block="channels">
+            <CardHeader>
+              <h2 className="text-base font-semibold">{t('metrics.channels.title')}</h2>
+              <p className="text-sm text-muted-foreground">{t('metrics.channels.hint')}</p>
+            </CardHeader>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className={head}>{t('metrics.channels.channel')}</th>
+                  <th scope="col" className={head}>{t('metrics.breakdown.created')}</th>
+                  <th scope="col" className={head}>{t('metrics.sources.share')}</th>
+                  <th scope="col" className={head}>{t('metrics.breakdown.resolved')}</th>
+                  <th scope="col" className={head}>{t('metrics.breakdown.firstResponse')}</th>
+                  <th scope="col" className={head}>{t('metrics.breakdown.resolution')}</th>
+                  <th scope="col" className={head}>{t('metrics.breakdown.csatAverage')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.channels.map((row) => (
+                  <tr key={row.channel} className="border-b border-border last:border-b-0" data-channel={row.channel}>
+                    <th scope="row" className={`${cell} text-start font-medium`}>{t(`metrics.channels.names.${row.channel}`)}</th>
+                    <td className={numeric}>{format.number(row.count)}</td>
+                    <td className={numeric}>
+                      <span className="flex items-center gap-2">
+                        {bar(row.percent, t('metrics.sources.shareOf', { name: t(`metrics.channels.names.${row.channel}`) }))}
+                        {share(row.percent)}
+                      </span>
+                    </td>
+                    <td className={numeric}>{format.number(row.resolved)}</td>
+                    <td className={numeric}>{share(row.firstResponsePercent)}</td>
+                    <td className={numeric}>{share(row.resolutionPercent)}</td>
+                    <td className={numeric}>{number(row.csatAverage)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+
           {orgs && breakdownTable(orgs, 'org', orgPages)}
           {modules && breakdownTable(modules, 'module', modulePages)}
 

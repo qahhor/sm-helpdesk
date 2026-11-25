@@ -116,6 +116,13 @@ export function splitMinutes(total: number): { hours: number; minutes: number } 
 // --- Линии (FR-LINE-08) ---
 
 export const LINES = ['first', 'second', 'development'] as const;
+
+/**
+ * Каналы обращений (FR-MET-10; план M6, задача 8): портал, виджет (Smartup Web и мобильное приложение вместе), почта.
+ * Созданные сотрудником идут отдельной строкой, чтобы доли складывались в 100%.
+ */
+export const TICKET_CHANNELS = ['portal', 'widget', 'email', 'staff'] as const;
+export type TicketChannel = (typeof TICKET_CHANNELS)[number];
 export type Line = (typeof LINES)[number];
 
 /**

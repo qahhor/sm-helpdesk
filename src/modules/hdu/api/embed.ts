@@ -6,7 +6,7 @@ import { logEvent } from '@/lib/log';
 import { clientIp, consumeRateLimit, ipBucket, isSameOriginJson, peekRateLimit, problemResponse, rateKey, readLimited } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { contextKeySource } from '../core/context-keys';
-import { ContextRejected, unverifiedIssuer, verifyContextToken } from '../core/context-token';
+import { ADDRESS_FAULTS, ContextRejected, unverifiedIssuer, verifyContextToken } from '../core/context-token';
 import { embedMembership, findOrCreateSmartupUser, noteEmbedSession, rememberContextToken } from '../core/embed';
 import { type EmbedClaims, EmbedTokenInvalid, signEmbedToken, verifyEmbedToken } from '../core/embed-token';
 import { provisionFromSmartup } from '../core/provision';
@@ -157,7 +157,8 @@ const tooMany = (retryAfterSec: number) => problemResponse(429, 'rate_limited', 
 /**
  * POST /api/embed/session. Запрос только JSON со страницы портала (страница виджета работает на адресе портала).
  * Пределы: 120 в минуту с адреса до проверки подписи, 30 в минуту на пользователя, после 20 неудач за 10 минут
- * адрес закрыт до конца окна (решение 14). Любой отказ проверки токена: 401 invalid_context без причины.
+ * адрес закрыт до конца окна (решение 14; считаются только подделки, решение 0061). Любой отказ проверки токена:
+ * 401 invalid_context без причины; ключи сервера Smartup не загрузились: 503.
  */
 export async function handleEmbedSession(request: Request): Promise<Response> {
   const cfg = embedConfig();
@@ -189,9 +190,12 @@ export async function handleEmbedSession(request: Request): Promise<Response> {
     return problemResponse(403, 'forbidden');
   } catch (error) {
     if (!(error instanceof ContextRejected)) throw error;
-    await consumeRateLimit(failKey, RATE_RULES.embedSessionFailuresPerIp);
+    // Неудачей адреса считается только подделка или мусор (замечание M1 проверки M6, решение 0061).
+    if (ADDRESS_FAULTS.has(error.reason)) await consumeRateLimit(failKey, RATE_RULES.embedSessionFailuresPerIp);
     // Причина только в журнал работы: ответ одинаков для любой причины.
     logEvent('warn', 'embed.context_rejected', { reason: error.reason });
+    // Ключи сервера Smartup не загрузились: токен не плох, проверить его нечем. Страница покажет "недоступно".
+    if (error.reason === 'keys_unavailable') return problemResponse(503, 'context_keys_unavailable', { 'Retry-After': '30' });
     return problemResponse(401, 'invalid_context');
   }
 }

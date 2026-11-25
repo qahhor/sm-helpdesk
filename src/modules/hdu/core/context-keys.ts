@@ -2,6 +2,7 @@ import 'server-only';
 import { createLocalJWKSet, errors, type JSONWebKeySet, type JWTVerifyGetKey } from 'jose';
 import { getEnv } from '@/env';
 import { isLocalPortal, safeFetchJson } from '../url-safety';
+import { ContextKeysUnavailableError } from './context-token';
 import type { ContextServer } from './servers';
 
 // Ключи проверки подписи токена контекста виджета (план M6, задача 2; решения 2 и 3). Внешний сервис по правилу
@@ -14,6 +15,7 @@ import type { ContextServer } from './servers';
 //
 // Кеш: открытые ключи серверов Smartup это настройки реестра, а не данные клиентов (решение 6 плана), их можно держать
 // в памяти процесса. Срок 10 минут; токен с неизвестным kid загружает ключи заново, но не чаще раза в минуту на сервер.
+// Неудачная загрузка запоминается на 30 секунд: обмены в это время отвечают 503 без похода в сеть.
 //
 // Режим secret: общий секрет из реестра, расшифрованный в readContextServer.
 
@@ -23,22 +25,24 @@ export type ContextKeySource = {
 };
 
 const CACHE_MS = 10 * 60 * 1000;
+// Неудачная загрузка запоминается на 30 секунд: при сбое сервера Smartup каждый обмен иначе ходил бы за ключами сам.
+const FAILURE_MS = 30 * 1000;
 const REFRESH_MS = 60 * 1000;
 const FETCH_LIMITS = { timeoutMs: 5000, maxBytes: 64 * 1024 };
 
 /** forcedAt: когда ключи последний раз загружались заново из-за неизвестного kid. */
 type Entry = { url: string; jwks: JSONWebKeySet; fetchedAt: number; forcedAt: number };
 
-const shared = globalThis as typeof globalThis & { __hubContextKeys?: Map<string, Entry>; __hubContextKeySource?: ContextKeySource | null };
+const shared = globalThis as typeof globalThis & {
+  __hubContextKeys?: Map<string, Entry>;
+  __hubContextKeyFailures?: Map<string, number>;
+  __hubContextKeySource?: ContextKeySource | null;
+};
 const cache = (): Map<string, Entry> => (shared.__hubContextKeys ??= new Map());
+/** Когда загрузка по адресу последний раз не удалась. Ключ: адрес ключей. */
+const failures = (): Map<string, number> => (shared.__hubContextKeyFailures ??= new Map());
 
-/** Ключей нет или документ не похож на JWKS: подпись проверить нечем, токен отклоняется. */
-export class ContextKeysUnavailableError extends Error {
-  constructor() {
-    super('Открытые ключи сервера Smartup не загружены');
-    this.name = 'ContextKeysUnavailableError';
-  }
-}
+export { ContextKeysUnavailableError };
 
 function asJwks(doc: unknown): JSONWebKeySet {
   const keys = typeof doc === 'object' && doc !== null ? (doc as { keys?: unknown }).keys : undefined;
@@ -47,9 +51,14 @@ function asJwks(doc: unknown): JSONWebKeySet {
 }
 
 async function download(url: string): Promise<JSONWebKeySet> {
+  const failedAt = failures().get(url);
+  if (failedAt !== undefined && Date.now() - failedAt < FAILURE_MS) throw new ContextKeysUnavailableError();
   try {
-    return asJwks(await safeFetchJson(new URL(url), { ...FETCH_LIMITS, allowLoopback: isLocalPortal(getEnv().HUB_URL) }));
+    const jwks = asJwks(await safeFetchJson(new URL(url), { ...FETCH_LIMITS, allowLoopback: isLocalPortal(getEnv().HUB_URL) }));
+    failures().delete(url);
+    return jwks;
   } catch {
+    failures().set(url, Date.now());
     throw new ContextKeysUnavailableError();
   }
 }
@@ -100,4 +109,5 @@ export function setContextKeySourceForTests(source: ContextKeySource | null): vo
 /** Сброс памяти ключей между тестами. */
 export function resetContextKeysForTests(): void {
   cache().clear();
+  failures().clear();
 }

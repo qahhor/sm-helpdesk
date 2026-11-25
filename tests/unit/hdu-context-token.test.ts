@@ -75,3 +75,28 @@ test('подпись, издатель, получатель, срок и пол
   // Необязательное поле с неверным значением отбрасывается, обязательные проходят.
   expect((await verifyContextToken(await sign({ claims: { inn: 42 } }), jwksServer, keys)).profile.inn).toBeUndefined();
 });
+
+test('ключи сервера недоступны: отдельная причина keys_unavailable, а не подделка подписи (проверка M6, M1)', async () => {
+  const { ContextKeysUnavailableError } = await import('@/modules/hdu/core/context-token');
+  const down = { keyFor: async () => Promise.reject(new ContextKeysUnavailableError()) };
+  expect(await reason(verifyContextToken(await sign(), jwksServer, down))).toBe('keys_unavailable');
+  // Ошибка из функции выбора ключа (JWKS скачивается при проверке подписи) тоже.
+  const lazy = { keyFor: async () => async () => Promise.reject(new ContextKeysUnavailableError()) };
+  expect(await reason(verifyContextToken(await sign(), jwksServer, lazy as never))).toBe('keys_unavailable');
+});
+
+test('токен доступа Smartup ID тем же ключом и издателем не проходит как токен контекста: нужны platform и app_version', async () => {
+  // Токен доступа сервера входа: тот же издатель и получатель, но без полей токена контекста. Отдельного typ план не
+  // задаёт; признак токена контекста: обязательные поля platform и app_version (решение 0061).
+  const access = await new SignJWT({ scope: 'openid profile', company_id: 501, company_name: 'ACME', name: 'Алишер' })
+    .setProtectedHeader({ alg: 'ES256', kid: 'k1', typ: 'at+jwt' })
+    .setIssuer(ISS)
+    .setAudience('smartup-hub')
+    .setSubject('1001')
+    .setJti('at1')
+    .setIssuedAt(now)
+    .setExpirationTime(now + 60)
+    .sign(key.privateKey);
+  expect(await reason(verifyContextToken(access, jwksServer, keys))).toBe('claims');
+  expect(await reason(verifyContextToken(await sign({ claims: { app_version: undefined } }), jwksServer, keys))).toBe('claims');
+});

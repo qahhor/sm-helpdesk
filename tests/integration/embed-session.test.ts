@@ -363,3 +363,47 @@ test('обмен: 30 в минуту на пользователя', async () =>
   expect((await exchange(await contextToken())).status).toBe(429);
   expect((await exchange(await contextToken({ sub: '2002' }))).status).toBe(200);
 });
+
+test('повтор и срок не закрывают адрес: неудачей адреса считаются только подделки (проверка M6, M1)', async () => {
+  await setup();
+  const ip = '203.0.113.90';
+  const token = await contextToken();
+  expect((await exchange(token, { ip })).status).toBe(200);
+  for (let i = 0; i < 12; i += 1) await expectRejected(await exchange(token, { ip }));
+  for (let i = 0; i < 10; i += 1) await expectRejected(await exchange(await contextToken({ iat: now() - 400, exp: now() - 100 }), { ip }));
+  // 22 отказа без вины адреса: адрес не закрыт.
+  expect((await exchange(await contextToken(), { ip })).status).toBe(200);
+  // Подделки считаются: неверная подпись, неизвестный издатель, мусор, чужой алгоритм.
+  for (let i = 0; i < 5; i += 1) {
+    await expectRejected(await exchange(await contextToken({ key: otherKey.privateKey }), { ip }));
+    await expectRejected(await exchange(await contextToken({ iss: 'https://unknown.smartup.example' }), { ip }));
+    await expectRejected(await exchange('bad.token.value', { ip }));
+    await expectRejected(await exchange(await contextToken({ alg: 'RS256', key: rsaKey.privateKey }), { ip }));
+  }
+  expect((await exchange(await contextToken(), { ip })).status).toBe(429);
+});
+
+test('ключи сервера недоступны: 503, адрес не закрывается, повторная загрузка не чаще раза в 30 секунд (проверка M6, M1)', async () => {
+  await setup();
+  const ip = '203.0.113.91';
+  let down = true;
+  spy.mockImplementation(async (url) => {
+    fetched.push(String(url));
+    if (down) return new Response('fail', { status: 502 });
+    return new Response(JSON.stringify(jwks), { headers: { 'content-type': 'application/json' } });
+  });
+  for (let i = 0; i < 22; i += 1) {
+    const response = await exchange(await contextToken(), { ip });
+    expect(response.status, `попытка ${i + 1}`).toBe(503);
+    expect(await response.json()).toMatchObject({ code: 'context_keys_unavailable' });
+  }
+  // Сбой загрузки запоминается на 30 секунд: 22 обмена, одна загрузка.
+  expect(fetched).toEqual([JWKS_URL]);
+  down = false;
+  vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 29_000 });
+  expect((await exchange(await contextToken(), { ip })).status).toBe(503);
+  expect(fetched).toHaveLength(1);
+  vi.setSystemTime(Date.now() + 2_000);
+  expect((await exchange(await contextToken(), { ip })).status).toBe(200);
+  expect(fetched).toHaveLength(2);
+});

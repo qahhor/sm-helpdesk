@@ -16,12 +16,28 @@ export type ContextRejectReason =
   | 'claims'
   | 'lifetime'
   | 'replayed'
-  | 'rate_limited';
+  | 'rate_limited'
+  | 'keys_unavailable';
+
+/**
+ * Причины, которые говорят о подделке или мусоре от адреса запроса. Только они считаются неудачами адреса (решение 14
+ * плана M6, замечание M1 проверки): повтор, срок, неполные сведения и недоступные ключи сервера Smartup адрес не
+ * закрывают, иначе сбой на стороне Smartup или повторная отправка страницей закрывали бы адрес офиса клиента.
+ */
+export const ADDRESS_FAULTS: ReadonlySet<ContextRejectReason> = new Set(['malformed', 'unknown_issuer', 'algorithm', 'key_in_token', 'signature']);
 
 export class ContextRejected extends Error {
   constructor(readonly reason: ContextRejectReason) {
     super(`Токен контекста отклонён: ${reason}`);
     this.name = 'ContextRejected';
+  }
+}
+
+/** Ключей нет или документ не похож на JWKS: подпись проверить нечем (не вина того, кто прислал токен). */
+export class ContextKeysUnavailableError extends Error {
+  constructor() {
+    super('Открытые ключи сервера Smartup не загружены');
+    this.name = 'ContextKeysUnavailableError';
   }
 }
 
@@ -109,6 +125,7 @@ export async function verifyContextToken(token: string, server: ContextServer, k
     };
     payload = (key instanceof Uint8Array ? await jwtVerify(token, key, options) : await jwtVerify(token, key, options)).payload;
   } catch (error) {
+    if (error instanceof ContextKeysUnavailableError) throw new ContextRejected('keys_unavailable');
     const { code, claim } = error as { code?: string; claim?: string };
     if (code === 'ERR_JWT_EXPIRED' || (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' && (claim === 'iat' || claim === 'nbf'))) throw new ContextRejected('lifetime');
     throw new ContextRejected(code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' ? 'claims' : 'signature');

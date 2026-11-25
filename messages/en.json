@@ -3344,6 +3344,14 @@
     "solution": {
       "back": "Back to the form",
       "archived": "This solution was withdrawn. If the problem remains, send a request."
+    },
+    "tickets": {
+      "title": "My requests",
+      "emptyTitle": "No requests yet",
+      "emptyText": "Describe your question and I will look for a solution.",
+      "back": "Back to requests",
+      "notFound": "Request not found.",
+      "more": "Show more"
     }
   }
 }

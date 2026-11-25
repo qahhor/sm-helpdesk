@@ -3344,6 +3344,14 @@
     "solution": {
       "back": "Formaga qaytish",
       "archived": "Bu yechim olib tashlangan. Muammo qolgan bo'lsa, murojaat yuboring."
+    },
+    "tickets": {
+      "title": "Murojaatlarim",
+      "emptyTitle": "Hozircha murojaatlar yo'q",
+      "emptyText": "Savolni yozing, yechim qidiraman.",
+      "back": "Murojaatlarga qaytish",
+      "notFound": "Murojaat topilmadi.",
+      "more": "Yana ko'rsatish"
     }
   }
 }

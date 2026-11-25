@@ -13,6 +13,8 @@ export const HDK_ERROR_CODES = [
   'file_not_allowed',
   'file_too_large',
   'not_ready',
+  // Решение из обращения: обращение ещё не решено и не закрыто (FR-SOL-02).
+  'not_resolved',
 ] as const;
 export type HdkErrorCode = (typeof HDK_ERROR_CODES)[number];
 

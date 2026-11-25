@@ -10,6 +10,9 @@ import { DEV_TASK_ERROR_CODES, devTrackerMode, listRunnableMacros, readDevTaskFo
 /** Коды "сделано" в адресе страницы после действия. */
 export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged', 'dev_sent', 'dev_unlinked', 'dev_status'] as const;
 
+/** Отказы создания решения из обращения (план M5, задача 7): код модуля решений с приставкой solution_. */
+const SOLUTION_ERROR_CODES = ['solution_not_resolved', 'solution_forbidden', 'solution_not_found', 'solution_invalid_input'] as const;
+
 export type TicketPageSearch = { done?: string; error?: string; ch?: string; queue?: string; sort?: string; shown?: string };
 
 /** Всё, что нужно странице. Нет обращения с таким номером: null (страница отвечает "не найдено"). */
@@ -60,7 +63,7 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
     fromQueue: QUEUE_KEYS.find((key) => key === search.queue) ?? 'mine',
     fromSort: QUEUE_SORTS.find((key) => key === search.sort) ?? 'sla',
     done: DONE.find((code) => code === search.done),
-    error: [...HDT_ERROR_CODES, ...DEV_TASK_ERROR_CODES].find((code) => code === search.error),
+    error: [...HDT_ERROR_CODES, ...DEV_TASK_ERROR_CODES, ...SOLUTION_ERROR_CODES].find((code) => code === search.error),
     // Сводка "что изменилось" для ошибки changed: три числа из адреса, ничего кроме чисел не принимается.
     changed: changedOf(search.ch),
   };

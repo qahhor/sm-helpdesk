@@ -1023,7 +1023,8 @@
             "audience_changed": "Yechim kimga ko'rinishi o'zgartirildi",
             "version_restored": "Yechimning oldingi versiyasi qaytarildi",
             "text_read": "Belgilandi: AI yozgan yechim matni o'qildi",
-            "file_infected": "Antivirus yechim rasmida virus topdi"
+            "file_infected": "Antivirus yechim rasmida virus topdi",
+            "created_from_ticket": "Yechim murojaatdan yaratildi"
           }
         },
         "words": {
@@ -1733,7 +1734,7 @@
           "title": "AI chaqiruvlari chegarasi",
           "intro": "AI bir sutkada yechim qoralamalari va tarjimalarni birgalikda necha marta tayyorlashi mumkin. Chegara tugaganda qoralama va tarjimani xodim yozadi, Toshkent vaqti bilan keyingi sutkagacha.",
           "label": "Sutkadagi chaqiruvlar",
-          "save": "Chegarani saqlash",
+          "save": "Chegarani belgilash",
           "saved": "AI chaqiruvlari chegarasi saqlandi.",
           "invalid": "0 dan 10 000 gacha butun son kiriting."
         }
@@ -2078,8 +2079,14 @@
           "task_closed": "Bu raqamli vazifa allaqachon yopilgan. Boshqa vazifani ko'rsating.",
           "not_manual": "Bu vazifaning holati task-menejerdan keladi: uni qo'lda o'zgartirib bo'lmaydi.",
           "task_not_found": "Task-menejerda bunday raqamli vazifa yo'q.",
-          "tracker_unavailable": "Task-menejer javob bermadi. Murojaat o'zgarmadi: keyinroq yana urinib ko'ring."
-        }
+          "tracker_unavailable": "Task-menejer javob bermadi. Murojaat o'zgarmadi: keyinroq yana urinib ko'ring.",
+          "solution_not_resolved": "Yechim faqat hal qilingan yoki yopilgan murojaatdan yaratiladi.",
+          "solution_forbidden": "Yechimlarni birinchi va ikkinchi liniya, Customer Care va administrator yaratadi.",
+          "solution_not_found": "Murojaat topilmadi.",
+          "solution_invalid_input": "Yechim yaratib bo'lmadi. Qayta urinib ko'ring."
+        },
+        "publishSolution": "Yechim sifatida e'lon qilish",
+        "publishSolutionHint": "Hal qilingandan yoki yopilgandan keyin yechim qoralamasi ochiladi: AI uni yozishma bo'yicha tayyorlaydi, xodim e'lon qiladi."
       },
       "presence": {
         "viewing": "{name} murojaatni ochgan",
@@ -2233,6 +2240,12 @@
         "existingRefHint": "Ixtiyoriy. Yangi vazifa yaratish uchun bo'sh qoldiring.",
         "submitApi": "Vazifa yaratish va berish",
         "synced": "Vazifa holati task-menejerdan keladi."
+      },
+      "solution": {
+        "title": "Yechim",
+        "open": "Yechim {number}",
+        "hint": "Ushbu murojaat yozishmasi bo'yicha yechim qoralamasi: AI mijoz ma'lumotlarini olib tashlaydi, siz tekshirib e'lon qilasiz.",
+        "create": "Yechim yaratish"
       }
     },
     "playbooks": {
@@ -2705,6 +2718,25 @@
           },
           "original": "Asl matnda",
           "translation": "Tarjimada"
+        }
+      },
+      "fromTicket": {
+        "created": "Yechim murojaatdan yaratildi.",
+        "pending": "AI murojaat yozishmasi bo'yicha qoralama tayyorlamoqda. Sahifa o'zi yangilanadi, hozirdan yozishingiz mumkin: shunda AI qoralamasi matningizni almashtirmaydi.",
+        "machineHint": "Matnni AI murojaat yozishmasi bo'yicha tayyorladi. Uni o'ngdagi yozishma bilan solishtiring, ortiqchasini olib tashlang va «Matn o'qildi» deb belgilang.",
+        "ai": {
+          "not_confident": "AI yechimga ishonchi komil emas: yozishmadan u aniq emas. Har bir qadamni tekshiring.",
+          "failed": "AI qoralama tayyorlay olmadi. Portal yana urinib ko'radi, yechimni o'zingiz ham yozishingiz mumkin.",
+          "limited": "AI chaqiruvlarining sutkalik chegarasi tugadi: yechimni o'zingiz yozing.",
+          "unavailable": "AI ulanmagan: yechimni yozishma bo'yicha o'zingiz yozing.",
+          "disabled": "Murojaat AIga berilmaydi: tashkilot uchun ishlov o'chirilgan. Yechimni yozishma bo'yicha o'zingiz yozing.",
+          "skipped": "Siz AIdan oldin yoza boshladingiz: AI qoralamasi matningizni almashtirmadi."
+        },
+        "sourceTitle": "Murojaat yozishmasi",
+        "sourceHint": "Faqat xodimlarga ko'rinadi. Bu yerda ichki izohlar va ilovalar yo'q.",
+        "roles": {
+          "client": "Mijoz",
+          "staff": "Xodim"
         }
       }
     }

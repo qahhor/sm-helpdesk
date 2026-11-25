@@ -3,6 +3,7 @@ import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { isLocale } from '@/i18n/locales';
 import { solutionEditorState, solutionLanguages } from '@/modules/hdk/api/editor';
+import { solutionSourceThreads } from '@/modules/hdk/api/from-ticket';
 import { listActiveModules } from '@/modules/hdr/api';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -16,6 +17,7 @@ import type { ScreenshotLabels } from '@/ui/doc/ScreenshotMarkup';
 import { archiveAction, restoreVersionAction } from '../actions';
 import type { ReviewLabels } from './ReviewPanel';
 import { LanguageTabs, TranslationControls } from './Languages';
+import { PendingRefresh } from './PendingRefresh';
 import { SolutionWorkspace, type WorkspaceLabels } from './SolutionWorkspace';
 
 // Редактор решения (план M5, задача 3; UX-W-01..05): документ с тремя блоками формы, модуль, флаг "только через
@@ -114,6 +116,9 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
   const filePath = `/${locale}/agent/solutions/${state.number}/files`;
   const translation = state.locale !== state.originalLocale;
   const languageRow = state.languages.find((l) => l.locale === state.locale);
+  // Исходная переписка обращения рядом с текстом модели (поправка 101, пункт 8; задача 7).
+  const threads = translation ? [] : await solutionSourceThreads(staff, { number: state.number });
+  const draftAi = translation ? null : (languageRow?.aiStatus ?? null);
   const viewLabels = { warning: s('view.warning'), info: s('view.info'), step: (n: number) => s('view.step', { n }) };
   const editorLabels = Object.fromEntries(TOOLBAR_KEYS.map((key) => [key, toolbar(key)])) as SolutionEditorLabels;
   const screenshot = Object.fromEntries(SCREENSHOT_KEYS.map((key) => [key, s(`screenshot.${key}`)])) as ScreenshotLabels;
@@ -195,7 +200,24 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
         {done === 'archived' && <Alert tone="success">{s('archive.done')}</Alert>}
         {done === 'started' && <Alert tone="success">{s('translations.started')}</Alert>}
         {done === 'requested' && <Alert tone="success">{s('translations.requested')}</Alert>}
+        {done === 'from_ticket' && <Alert tone="success">{s('fromTicket.created')}</Alert>}
         <LanguageTabs number={state.number} current={state.locale} languages={state.languages} />
+        {draftAi === 'pending' && (
+          <>
+            <Alert tone="info">{s('fromTicket.pending')}</Alert>
+            <PendingRefresh />
+          </>
+        )}
+        {draftAi && ['not_confident', 'failed', 'limited', 'unavailable', 'disabled', 'skipped'].includes(draftAi) && threads.length > 0 && (
+          <Alert tone={draftAi === 'not_confident' || draftAi === 'failed' ? 'danger' : 'info'} data-testid="draft-ai-status">
+            {s(`fromTicket.ai.${draftAi as 'not_confident' | 'failed' | 'limited' | 'unavailable' | 'disabled' | 'skipped'}`)}
+          </Alert>
+        )}
+        {!translation && state.current.isMachine && (
+          <p data-testid="machine-mark">
+            <StatusLabel tone="purple">{s('versions.machine')}</StatusLabel> <span className="text-sm text-secondary-foreground">{s('fromTicket.machineHint')}</span>
+          </p>
+        )}
         {translation && !state.archived && (
           <TranslationControls number={state.number} locale={state.locale} aiStatus={languageRow?.aiStatus ?? null} canWrite={state.canWrite} hasDraft={state.current.state === 'draft'} />
         )}
@@ -203,7 +225,7 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
         {state.archived && <Alert tone="info">{s('archivedNotice')}</Alert>}
         {!state.canWrite && <Alert tone="info">{s('readOnly')}</Alert>}
 
-        <div className={translation && state.original ? 'grid gap-4 laptop:grid-cols-2' : 'contents'}>
+        <div className={(translation && state.original) || threads.length > 0 ? 'grid gap-4 laptop:grid-cols-2' : 'contents'}>
           {translation && state.original && (
             <section aria-labelledby="solution-original" className="flex flex-col gap-2" data-testid="solution-original">
               <h2 id="solution-original" className="text-lg font-semibold">
@@ -274,6 +296,30 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
             />
           </Card>
         )}
+          {threads.length > 0 && (
+            <section aria-labelledby="solution-sources" className="flex flex-col gap-2" data-testid="solution-sources">
+              <h2 id="solution-sources" className="text-lg font-semibold">
+                {s('fromTicket.sourceTitle')}
+              </h2>
+              <p className="text-sm text-secondary-foreground">{s('fromTicket.sourceHint')}</p>
+              {threads.map((thread) => (
+                <Card key={thread.number} className="flex flex-col gap-3 p-4">
+                  <Link href={`/agent/tickets/SUP-${thread.number}`} className="font-semibold text-link underline">
+                    SUP-{thread.number} {thread.title}
+                  </Link>
+                  <ol className="flex flex-col gap-2 text-sm">
+                    {thread.messages.map((message, index) => (
+                      <li key={index} className="flex flex-col gap-1 rounded-control border border-border p-2">
+                        <span className="text-xs font-medium text-secondary-foreground">{s(`fromTicket.roles.${message.role}`)}</span>
+                        {/* Текст клиента только текстом: без разметки и ссылок. */}
+                        <span className="break-words whitespace-pre-wrap">{message.body}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </Card>
+              ))}
+            </section>
+          )}
         </div>
 
  {state.canPublish && published && !state.archived && !translation && (

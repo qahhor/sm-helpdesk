@@ -133,6 +133,7 @@ export const AUDIT_ACTIONS = [
   'solution.version_restored',
   'solution.text_read',
   'solution.file_infected',
+  'solution.created_from_ticket',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

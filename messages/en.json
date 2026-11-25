@@ -1023,7 +1023,8 @@
             "audience_changed": "Solution visibility changed",
             "version_restored": "Earlier solution version restored",
             "text_read": "Marked: AI solution text read",
-            "file_infected": "Antivirus found an infected solution image"
+            "file_infected": "Antivirus found an infected solution image",
+            "created_from_ticket": "Solution created from a request"
           }
         },
         "words": {
@@ -1733,7 +1734,7 @@
           "title": "AI call limit",
           "intro": "How many times a day AI may prepare solution drafts and translations combined. When the limit is used up, staff write drafts and translations until the next day, Tashkent time.",
           "label": "Calls per day",
-          "save": "Save limit",
+          "save": "Set limit",
           "saved": "AI call limit saved.",
           "invalid": "Enter a whole number from 0 to 10,000."
         }
@@ -2078,8 +2079,14 @@
           "task_closed": "The task with this number is already closed. Enter another task.",
           "not_manual": "The status of this task comes from the task manager: it cannot be changed by hand.",
           "task_not_found": "There is no task with this number in the task manager.",
-          "tracker_unavailable": "The task manager did not respond. The ticket was not changed: try again later."
-        }
+          "tracker_unavailable": "The task manager did not respond. The ticket was not changed: try again later.",
+          "solution_not_resolved": "A solution is created only from a resolved or closed request.",
+          "solution_forbidden": "Solutions are created by the first and second line, Customer Care and admins.",
+          "solution_not_found": "Request not found.",
+          "solution_invalid_input": "Could not create the solution. Try again."
+        },
+        "publishSolution": "Publish as a solution",
+        "publishSolutionHint": "After resolving or closing, a solution draft opens: AI prepares it from the conversation, staff publish it."
       },
       "presence": {
         "viewing": "{name} has this ticket open",
@@ -2233,6 +2240,12 @@
         "existingRefHint": "Optional. Leave empty to create a new task.",
         "submitApi": "Create the task and hand over",
         "synced": "The task status comes from the task manager."
+      },
+      "solution": {
+        "title": "Solution",
+        "open": "Solution {number}",
+        "hint": "A solution draft from this request's conversation: AI removes client data, you review and publish it.",
+        "create": "Create solution"
       }
     },
     "playbooks": {
@@ -2705,6 +2718,25 @@
           },
           "original": "In the original",
           "translation": "In the translation"
+        }
+      },
+      "fromTicket": {
+        "created": "Solution created from the request.",
+        "pending": "AI is preparing a draft from the request conversation. The page will refresh by itself, and you can start writing now: then the AI draft will not replace your text.",
+        "machineHint": "AI prepared this text from the request conversation. Compare it with the conversation on the right, remove anything extra and mark \"Text read\".",
+        "ai": {
+          "not_confident": "AI is not sure about the solution: the conversation does not make it clear. Check every step.",
+          "failed": "AI did not prepare a draft. The portal will try again, or you can write the solution yourself.",
+          "limited": "The daily AI call limit is used up: write the solution yourself.",
+          "unavailable": "AI is not connected: write the solution from the conversation yourself.",
+          "disabled": "This request is not sent to AI: processing is turned off for the organization. Write the solution from the conversation yourself.",
+          "skipped": "You started writing before AI: the AI draft did not replace your text."
+        },
+        "sourceTitle": "Request conversation",
+        "sourceHint": "Visible to staff only. Internal notes and attachments are not shown here.",
+        "roles": {
+          "client": "Client",
+          "staff": "Staff"
         }
       }
     }

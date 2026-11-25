@@ -4,10 +4,16 @@ import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { LOCALES } from '@/i18n/locales';
 import { logEvent } from '@/lib/log';
+import { requestSolutionDraft } from '@/modules/hda/api/draft';
 import { requestTranslation } from '@/modules/hda/api/translate';
 import { originalPublishedTx } from '../core/publish';
 import { safeParseSolutionDoc } from '../doc-schema';
+import { randomBytes } from 'node:crypto';
+import { eq } from 'drizzle-orm';
+import { sourceTicketIdsTx, untouchedDraftTx } from '../core/from-ticket';
 import { aiStatusTx, articleByIdTx, setAiStatusTx, writeMachineTranslationTx } from '../core/translations';
+import { draftIntoTemplate } from '../draft';
+import { kbArticleVersions } from '../schema';
 import { TITLE_MAX } from '../pref';
 import { applySegments, textSegments } from '../translation';
 
@@ -52,4 +58,51 @@ export async function runTranslationJob(system: SystemActor, data: unknown): Pro
     return;
   }
   await withActor(system, (tx) => writeMachineTranslationTx(tx, article, locale, { title, doc, sourceVersionId: original.versionId }));
+}
+
+const draftJob = z.strictObject({ articleId: z.uuid() });
+const newBlockId = () => randomBytes(12).toString('base64url');
+
+/**
+ * kb.draft (ТЗ 11.10, решение 15): черновик решения из исходного обращения. Отбор данных и отказы (обращение не
+ * закрыто, AI-обработка выключена) делает модуль hda до вызова модели. Ответ раскладывается в заготовку кодом,
+ * черновик помечается "AI, не проверено" (is_machine) и публикуется только после "Текст прочитан" сотрудником с
+ * правом публикации. Сотрудник успел начать писать сам: его текст не затирается (skipped).
+ */
+export async function runDraftJob(system: SystemActor, data: unknown): Promise<void> {
+  const { articleId } = draftJob.parse(data);
+  const source = await withActor(system, async (tx) => {
+    const article = await articleByIdTx(tx, articleId);
+    if (!article || article.status !== 'active') return null;
+    if ((await aiStatusTx(tx, articleId, article.originalLocale)) !== 'pending') return null;
+    const [ticketId] = await sourceTicketIdsTx(tx, articleId);
+    return ticketId ? { article, ticketId } : null;
+  });
+  if (!source) return;
+  const { article, ticketId } = source;
+  const locale = article.originalLocale;
+  let outcome: Awaited<ReturnType<typeof requestSolutionDraft>>;
+  try {
+    outcome = await requestSolutionDraft(system, { ticketId, locale, articleId });
+  } catch (error) {
+    await withActor(system, (tx) => setAiStatusTx(tx, articleId, locale, 'failed'));
+    throw error;
+  }
+  if (outcome.status !== 'ok') {
+    await withActor(system, (tx) => setAiStatusTx(tx, articleId, locale, outcome.status === 'refused' ? 'disabled' : outcome.status));
+    return;
+  }
+  const draft = outcome.value;
+  await withActor(system, async (tx) => {
+    const version = await untouchedDraftTx(tx, articleId, locale);
+    const template = version ? safeParseSolutionDoc(version.doc) : null;
+    if (!version || !template?.success) return setAiStatusTx(tx, articleId, locale, 'skipped');
+    const doc = draftIntoTemplate(template.data, draft, newBlockId);
+    if (!safeParseSolutionDoc(doc).success) return setAiStatusTx(tx, articleId, locale, 'failed');
+    await tx
+      .update(kbArticleVersions)
+      .set({ title: draft.title.trim().slice(0, TITLE_MAX), doc, isMachine: true })
+      .where(eq(kbArticleVersions.versionId, version.versionId));
+    await setAiStatusTx(tx, articleId, locale, draft.confident ? 'ready' : 'not_confident');
+  });
 }

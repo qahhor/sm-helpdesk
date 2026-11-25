@@ -8,7 +8,7 @@ import { bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, crea
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
-import { runTranslationJob } from '@/modules/hdk/api/ai-jobs';
+import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
@@ -156,6 +156,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('kb.translate', polling, ([job]) => timedJob('kb.translate', async () => {
     // Машинный перевод решения (план M5, задача 6): модель вызывает только фоновый процесс (решение 3).
     await runTranslationJob(actor('kb.translate'), job?.data);
+  }));
+  await boss.work('kb.draft', polling, ([job]) => timedJob('kb.draft', async () => {
+    // Черновик решения из закрытого обращения (план M5, задача 7): модель вызывает только фоновый процесс.
+    await runDraftJob(actor('kb.draft'), job?.data);
   }));
   await boss.work('email.inbound', polling, ([job]) => timedJob('email.inbound', async () => {
     // В задаче только идентификатор письма: сведения о нём в базе, текст и файлы у почтового сервиса.

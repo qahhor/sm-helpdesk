@@ -100,6 +100,16 @@ export async function TicketControls({ ticket, me, role, staff, modules }: Props
                 <Input id="ctl-version" name="version" maxLength={50} placeholder="5.12.3" />
               </>
             )}
+            {(transitions.includes('resolved') || transitions.includes('closed')) && (
+              // Решение из обращения (план M5, задача 7; S5): черновик готовит модель, публикует сотрудник.
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="publishSolution" className="mt-1 size-4 accent-primary" />
+                <span>
+                  <span className="font-medium">{t('publishSolution')}</span>
+                  <span className="block text-xs text-secondary-foreground">{t('publishSolutionHint')}</span>
+                </span>
+              </label>
+            )}
             <Button type="submit" variant="secondary">
               {t('changeStatus')}
             </Button>

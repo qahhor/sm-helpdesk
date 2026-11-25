@@ -1,7 +1,7 @@
 // Модуль hda, слой pref: константы вызовов модели (docs/naming.md, раздел 5; план M5, задача 5, решения 2, 3, 13).
 
-/** Цели вызова модели в вехе M5 (решение 2). M5b добавит цели помощника первой линии. */
-export const AI_PURPOSES = ['solution_draft', 'translation'] as const;
+/** Цели вызова модели: M5 (решение 2) и перевод идей M7 (решение 11). M5b добавит цели помощника первой линии. */
+export const AI_PURPOSES = ['solution_draft', 'translation', 'idea_translation'] as const;
 export type AiPurpose = (typeof AI_PURPOSES)[number];
 
 /**

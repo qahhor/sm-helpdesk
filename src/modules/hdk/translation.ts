@@ -114,6 +114,13 @@ function collect(content: { title: string; doc: SolutionDoc }) {
     for (const child of node.content ?? []) if (child && typeof child === 'object') walk(child as Node);
   };
   for (const block of content.doc.blocks) walk(block as unknown as Node);
+  return summarize(texts, links, stepNumbers, steps);
+}
+
+type Summary = { links: string[]; numbers: string[]; stepNumbers: string[][]; quotes: number; steps: number; findings: string[] };
+
+/** Сводка для сверки по строкам текста: адреса в тексте, числа, кавычки, находки FR-SOL-04. links: адреса из разметки. */
+function summarize(texts: readonly string[], links: string[], stepNumbers: string[][], steps: number): Summary {
   for (const text of texts) {
     for (const match of text.matchAll(URL_IN_TEXT)) links.push(match[0].replace(TRAILING, ''));
     const rest = text.replace(URL_IN_TEXT, ' ');
@@ -146,8 +153,19 @@ function extraFindings(original: readonly string[], translation: readonly string
  * столько же шагов и ни одной находки проверки FR-SOL-04, которой нет в оригинале. Пусто: расхождений нет.
  */
 export function compareInvariants(original: { title: string; doc: SolutionDoc }, translation: { title: string; doc: SolutionDoc }): InvariantIssue[] {
-  const a = collect(original);
-  const b = collect(translation);
+  return diffSummaries(collect(original), collect(translation));
+}
+
+/**
+ * Та же сверка для простого текста без разметки (план M7, решение 11: заголовок и описание идеи): адреса в тексте,
+ * числа, фрагменты в кавычках и находки FR-SOL-04 по строкам; шагов у простого текста нет.
+ */
+export function comparePlainInvariants(original: { title: string; body: string }, translation: { title: string; body: string }): InvariantIssue[] {
+  const lines = (content: { title: string; body: string }) => [content.title, ...content.body.split(/\r?\n/)];
+  return diffSummaries(summarize(lines(original), [], [], 0), summarize(lines(translation), [], [], 0));
+}
+
+function diffSummaries(a: Summary, b: Summary): InvariantIssue[] {
   const issues: InvariantIssue[] = [];
   if (!same(a.links, b.links)) issues.push({ kind: 'links', original: a.links, translation: b.links });
   if (!same(a.numbers, b.numbers)) issues.push({ kind: 'numbers', original: a.numbers, translation: b.numbers });

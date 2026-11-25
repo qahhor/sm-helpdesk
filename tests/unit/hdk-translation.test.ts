@@ -87,3 +87,20 @@ test('M4m: числа с разделителями разрядов равны 
   const swapped = doc(p('p000000001', t('Limit 1000 rows')), step('s000000001', 'Enter 7'), step('s000000002', 'Enter 5'));
   expect(compareInvariants({ title: 'A', doc: orig }, { title: 'A', doc: swapped }).map((i) => i.kind)).toEqual(['numbers']);
 });
+
+// Сверка простого текста (план M7, задача 4, решение 11): заголовок и описание идеи без разметки.
+const IDEA = { title: 'Печать 50 накладных за раз', body: 'Кнопка «Печать» на экране «Накладные».\nСейчас печатаем по одной, 200 в день.' };
+
+test('простой текст: верный перевод без расхождений', async () => {
+  const { comparePlainInvariants } = await import('@/modules/hdk/translation');
+  expect(comparePlainInvariants(IDEA, { title: 'Print 50 invoices at once', body: 'The «Print» button on the «Invoices» screen.\nNow we print one by one, 200 a day.' })).toEqual([]);
+});
+
+test('простой текст: потерянное число, лишний телефон, ссылка и кавычки дают расхождения', async () => {
+  const { comparePlainInvariants } = await import('@/modules/hdk/translation');
+  const kinds = (title: string, body: string) => comparePlainInvariants(IDEA, { title, body }).map((issue) => issue.kind);
+  expect(kinds('Print invoices at once', 'The «Print» button on the «Invoices» screen. Now one by one, 200 a day.')).toEqual(['numbers']);
+  expect(kinds('Print 50 invoices at once', 'The «Print» button on the «Invoices» screen. Call +998 90 123 45 67, 200 a day.')).toEqual(expect.arrayContaining(['data']));
+  expect(kinds('Print 50 invoices at once', 'The «Print» button on the «Invoices» screen. See https://evil.example, 200 a day.')).toEqual(['links']);
+  expect(kinds('Print 50 invoices at once', 'The Print button on the Invoices screen. Now one by one, 200 a day.')).toEqual(['quotes']);
+});

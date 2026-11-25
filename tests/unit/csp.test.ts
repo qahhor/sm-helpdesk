@@ -102,6 +102,11 @@ test('статический запрет встраивания не стави
   for (const path of ['/', '/ru', '/ru/tickets', '/ru/m/report', '/api/embed/session', '/api/health', '/ru/embedded', '/ru/agent/embed', '/brand/tez/tez-icon.svg', '/de/embed/report']) {
     expect(cspOf(path), path).toEqual(["frame-ancestors 'none'; base-uri 'none'; object-src 'none'"]);
   }
+  // Адрес с расширением файла прокси не обрабатывает (src/proxy.ts, matcher): frame-ancestors ему никто не поставит,
+  // поэтому статический запрет остаётся (проверка M6, M4).
+  for (const path of ['/ru/embed/report.js', '/ru/embed/x.png', '/embed/a.css', '/uz/embed/tickets/logo.svg', '/ru/embed.json', '/ru/m/report.js', '/en/m/icon.png']) {
+    expect(cspOf(path), path).toEqual(["frame-ancestors 'none'; base-uri 'none'; object-src 'none'"]);
+  }
   // Остальные заголовки на всех адресах.
   for (const path of ['/ru/embed/report', '/api/health'])
     expect(rules.filter((rule) => rule.match(path) !== false).flatMap((rule) => rule.headers.map((h) => h.key))).toEqual(

@@ -110,7 +110,10 @@ export const EMBED_STATIC_CSP = { key: 'Content-Security-Policy', value: "base-u
  */
 export function staticHeaderRules(locales: readonly string[]): { source: string; headers: { key: string; value: string }[] }[] {
   if (!locales.every((locale) => /^[a-z]{2}$/.test(locale))) throw new Error('CSP: код языка из двух строчных букв');
-  const embed = `(?:(?:${locales.join('|')})/)?embed(?:/.*)?`;
+  // Без точки после embed: адрес с расширением файла прокси не обрабатывает (matcher в src/proxy.ts), frame-ancestors
+  // по ключу ему никто не поставит, поэтому он сохраняет статический запрет (замечание M4 проверки M6). У страниц
+  // виджета точек в адресе нет.
+  const embed = `(?:(?:${locales.join('|')})/)?embed(?:/[^.]*)?`;
   const [csp, ...common] = STATIC_SECURITY_HEADERS;
   // Страницы виджета и мобильного приложения (план M6, задачи 4 и 7): без Referer. Правило стоит ниже общего, и Next.js
   // берёт его значение того же заголовка. Загрузчик виджета: кеш 5 минут, данных клиентов в нём нет (решение 9).

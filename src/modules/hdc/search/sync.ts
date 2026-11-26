@@ -6,6 +6,7 @@ import { withActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
 import { writeAudit } from '../audit';
 import { type SearchEntityKind, searchOutbox } from '../schema';
+import { consumeRateLimit, resetRateLimit } from '../rate-limit';
 import { readSetting } from '../settings';
 import { curationSchema, type CurationRules, SEARCH_SETTING_CODES, stemDictionary, stemPairsSchema, synonymItems, synonymSetsSchema } from './config';
 import { filterValues } from './typesense';
@@ -312,23 +313,42 @@ export async function reindexCollection(system: SystemActor, writer: SearchIndex
   const kind = KIND_OF[collection];
   const source = sources.get(kind);
   if (!source) throw new SearchWriteError('no_source');
-  const current = await writer.aliasTarget(collection);
-  const version = Number(/_v(\d+)$/.exec(current ?? '')?.[1] ?? 0) + 1;
-  const name = await writer.createVersion(collection, version);
-  let documents = 0;
-  let after: string | null = null;
-  for (;;) {
-    const ids = await source.pageIds(system, after, opts.pageSize ?? 5000);
-    if (ids.length === 0) break;
-    after = ids[ids.length - 1]!;
-    documents += (await applyEntities(system, writer, kind, ids, { name })).upserted;
+  // Одна переиндексация коллекции за раз (независимая проверка W6, замечание 3): замок в счётчиках частоты, сам
+  // снимается через час, если процесс упал.
+  const lock = `search:reindex:${collection}`;
+  if (!(await consumeRateLimit(lock, REINDEX_LOCK)).allowed) throw new SearchWriteError('reindex_running');
+  try {
+    const current = await writer.aliasTarget(collection);
+    // Новая версия больше всех существующих: коллекция, оставленная упавшей заливкой, номер не занимает.
+    const versionOf = (name: string | null) => Number(new RegExp(`^hub_${collection}_v(\\d+)$`).exec(name ?? '')?.[1] ?? 0);
+    const version = Math.max(versionOf(current), ...(await writer.listCollections()).map((c) => versionOf(c.name))) + 1;
+    const name = await writer.createVersion(collection, version);
+    let documents = 0;
+    try {
+      let after: string | null = null;
+      for (;;) {
+        const ids = await source.pageIds(system, after, opts.pageSize ?? 5000);
+        if (ids.length === 0) break;
+        after = ids[ids.length - 1]!;
+        documents += (await applyEntities(system, writer, kind, ids, { name })).upserted;
+      }
+      await writer.switchAlias(collection, name);
+    } catch (error) {
+      // Недостроенная версия не остаётся: псевдоним по-прежнему на прежней, повтор начнёт заново.
+      await writer.dropCollection(name).catch(() => undefined);
+      throw error;
+    }
+    await reconcileCollection(system, writer, collection);
+    if (opts.audit !== false)
+      await withActor(system, (tx) => writeAudit(tx, { action: 'search.reindexed', objectType: 'search', objectId: collection, diff: { collection, version, documents } }));
+    return { name, documents };
+  } finally {
+    await resetRateLimit(lock).catch(() => undefined);
   }
-  await writer.switchAlias(collection, name);
-  await reconcileCollection(system, writer, collection);
-  if (opts.audit !== false)
-    await withActor(system, (tx) => writeAudit(tx, { action: 'search.reindexed', objectType: 'search', objectId: collection, diff: { collection, version, documents } }));
-  return { name, documents };
 }
+
+/** Замок переиндексации: один запуск на коллекцию, сам снимается через час. */
+const REINDEX_LOCK = { limit: 1, windowSec: 3600 };
 
 /** Строки очереди после пятого сбоя: сверка их уже учла, ночью они удаляются. */
 export async function cleanupDroppedOutbox(system: SystemActor): Promise<number> {

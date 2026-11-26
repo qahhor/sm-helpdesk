@@ -209,4 +209,30 @@ describe.skipIf(typesenseSkip !== null)(`переиндексация на Types
     const audit = (await pools.root.query(`select diff from hdc_audit_log where action = 'search.reindexed'`)).rows;
     expect(audit).toEqual([{ diff: { collection: 'tickets', version: 2, documents: 5 } }]);
   });
+
+  test('сбой заливки: новая версия удаляется, повтор проходит; оставленная прежним сбоем версия не мешает; вторая переиндексация той же коллекции ждёт', async () => {
+    const live = await liveSearch();
+    await runSearchSync(system, live.writer);
+    let fail = true;
+    const flaky: SearchIndexWriter = {
+      ...live.writer,
+      upsert: async (target, docs) => {
+        if (typeof target !== 'string' && fail) throw new SearchWriteError('http_503');
+        return live.writer.upsert(target, docs);
+      },
+    };
+    await expect(reindexCollection(system, flaky, 'tickets')).rejects.toMatchObject({ code: 'http_503' });
+    expect((await live.writer.listCollections()).map((c) => c.name).filter((n) => n.startsWith('hub_tickets_'))).toEqual(['hub_tickets_v1']);
+    expect(await live.writer.aliasTarget('tickets')).toBe('hub_tickets_v1');
+    // Процесс упал посреди прошлой заливки: коллекция v2 осталась без псевдонима.
+    await live.writer.createVersion('tickets', 2);
+    fail = false;
+    const done = await reindexCollection(system, flaky, 'tickets');
+    expect(await live.writer.aliasTarget('tickets')).toBe(done.name);
+    expect(done.documents).toBe(5);
+    // Одновременно две переиндексации одной коллекции не идут.
+    const first = reindexCollection(system, live.writer, 'tickets');
+    await expect(reindexCollection(system, live.writer, 'tickets')).rejects.toMatchObject({ code: 'reindex_running' });
+    await first;
+  });
 });

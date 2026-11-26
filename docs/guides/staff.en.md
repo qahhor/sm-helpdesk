@@ -115,3 +115,9 @@ Menu «All settings». Changing settings needs a sign-in within the last 15 minu
 | «Audit log» | Who changed what and when |
 
 The pilot reference data (modules, holidays, templates, playbooks, staff) is loaded on the server with `hub seed:pilot`: see `docs/runbooks/launch.md`.
+
+## 11. AI assistant
+
+Tez replies first to requests from the portal, the widget and emails of identified clients, if AI processing of the organization and the assistant are on. Requests handed over by the assistant are in the «After AI» queue with the handoff reason and also in New. The queue «AI replied, client silent» shows where the client has not pressed a button under the answer yet.
+
+On the right of the request card is the AI assistant block: the handoff reason, the number of replies, the summary marked «AI, not verified» next to the original text, the solutions found with scores and triage suggestions. A request field changes only with «Accept» or «Accept all». Mark a wrong assistant answer with «Mark the answer as wrong» under its message: it goes to «AI answer review». A client message in another language can be translated with «Translate»: only staff see the translation, and it is not a basis for actions with rights, data or payments.

@@ -117,3 +117,9 @@ Uchta oldindan o'rnatilgan qoidani (P1 haqida navbatchilarga xabar, buzilgan mud
 | «Audit jurnali» | Kim, nimani va qachon o'zgartirgan |
 
 Pilotning boshlang'ich ma'lumotnomalari (modullar, bayramlar, shablonlar, eslatmalar, xodimlar) serverda `hub seed:pilot` buyrug'i bilan yuklanadi: `docs/runbooks/launch.md` ga qarang.
+
+## 11. AI-yordamchi
+
+Tez tashkilot uchun AI bilan qayta ishlash va yordamchi yoqilgan bo'lsa, portal, vidjet va tanilgan mijozlar xatlaridagi murojaatlarga birinchi javob beradi. Yordamchi topshirgan murojaatlar topshirish sababi bilan «AI'dan keyin» navbatida va bir vaqtda «Yangi»larda turadi.
+
+Murojaat kartasining o'ng tomonida AI-yordamchi bloki: topshirish sababi, javoblar soni, asl matn yonida «AI, tekshirilmagan» belgisi bilan qisqacha mazmun, topilgan yechimlar va saralash takliflari. Murojaat maydoni faqat «Qabul qilish» yoki «Hammasini qabul qilish» tugmasi bilan o'zgaradi. Yordamchining noto'g'ri javobini xabari ostidagi «Javobni noto'g'ri deb belgilash» havolasi bilan belgilang: u «AI javoblari tahlili»ga tushadi. Boshqa tildagi mijoz xabarini «Tarjima qilish» tugmasi bilan tarjima qilish mumkin: tarjimani faqat xodimlar ko'radi.

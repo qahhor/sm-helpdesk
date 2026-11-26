@@ -12,6 +12,8 @@ Smartup Hub - Smartup qo'llab-quvvatlash portali. Bu yerda muammo haqida xabar b
 >
 > Portal manzili: {portal manzili}. Smartup Web va mobil ilovadagi Smartup hisobingiz bilan kiring: «Smartup orqali kirish» tugmasi.
 >
+> Yangi murojaatga birinchi bo'lib Tez AI-yordamchisi javob beradi: u mos chop etilgan yechimni taklif qiladi yoki murojaatni xodimga topshiradi va javob muddatini aytadi. U o'z matnini yozmaydi, faqat bazadagi yechimlarni ko'rsatadi. Xodimni istalgan vaqtda «Xodim kerak» tugmasi bilan chaqirish mumkin. Yordamchi faqat tashkilotingiz murojaatlarni AI bilan qayta ishlashga rozi bo'lsa ishlaydi; istalgan vaqtda shu xatga javob yozib, rad etish mumkin.
+>
 > Qo'llanma xatga ilova qilingan. Tushunarsiz narsa bo'lsa, shu xatga javob yozing.
 >
 > Smartup qo'llab-quvvatlash jamoasi
@@ -91,3 +93,9 @@ Panel ochilmasa, «Portalni ochish» ni bosing: shu shakl portalda ochiladi.
 4. Har oy Smartup jamoasi yetakchi beshlikdan oy g'oyasini tanlaydi: «Oy saralashi» sahifasi. G'oya holati o'zgarishi haqida bilish uchun «Kuzatish» ni bosing.
 
 G'oyalarda telefon, STIR va boshqa ma'lumotlarni yozmang: g'oyani barcha tashkilotlar mijozlari ko'radi.
+
+## 9. Tez AI-yordamchisi
+
+Yangi murojaatga birinchi bo'lib qo'llab-quvvatlashning AI-yordamchisi Tez javob beradi. Uning xabarida «Tez · AI-yordamchi» imzosi va javob yechimlar bazasi bo'yicha AI tomonidan tayyorlangani haqida qator bor. Tez faqat chop etilgan yechimlarni ko'rsatadi: sarlavha va qadamlar yechim sahifasidagi bilan bir xil.
+
+Javob ostida uchta tugma: «Yordam berdi» (murojaat hal qilindi), «Yordam bermadi» va «Xodim kerak» (murojaat xodimga o'tadi, Tez javob muddatini aytadi). Ikki yechim mos kelsa, Tez qaysi biri yaqinroq ekanini so'raydi. To'lov, shartnoma, kirish huquqlari, ma'lumotlarni o'chirish va boshqa muhim mavzularda Tez javob bermaydi: bunday murojaatlar darhol xodimga o'tadi. Xuddi shu tugmalar xatda va Telegramda ham bor.

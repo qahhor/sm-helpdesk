@@ -5,8 +5,8 @@ import { aiCallbackData, aiLinkToken, AI_LINK_TTL_MS, parseAiCallbackData, parse
 // AI-инъекции). Подпись связывает получателя, сообщение и выбор; ссылка действует 7 суток; данные кнопки Telegram не
 // длиннее 64 байт. Таблицы нет: одноразовость держит само обращение (второе нажатие видит, что ответ уже учтён).
 
-const SECRET = 'reply-secret-0123456789abcdef0123456789';
-const OLD = 'previous-secret-0123456789abcdef01234567';
+const SECRET = 'reply-secret-of-at-least-32-chars!!';
+const OLD = 'previous-secret-of-at-least-32-chars';
 const MESSAGE = '01900000-0000-7000-8000-00000000c001';
 const USER = '01900000-0000-7000-8000-00000000d001';
 const NOW = new Date('2026-11-26T10:00:00Z');

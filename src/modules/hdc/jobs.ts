@@ -7,6 +7,8 @@ import { env } from '@/env';
 // Схему и очереди создаёт скрипт миграций (scripts/db/pgboss.mjs): у hub_app нет прав на объекты схемы.
 
 export const JOB_NAMES = [
+  // AI первой линии (веха M5b): пределы расходов раз в 10 минут.
+  'ai.budget',
   'attachment.scan',
   'attachment.sweep',
   'automation.process',

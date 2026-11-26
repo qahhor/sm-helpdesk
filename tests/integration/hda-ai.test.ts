@@ -84,7 +84,9 @@ test('журнал вызовов: цель, модель, токены, сто�
   expect(run.input_tokens).toBeGreaterThan(0);
   expect(Number(run.cost_usd)).toBeGreaterThan(0);
   const columns = (await pools.root.query(`select column_name from information_schema.columns where table_name = 'hda_runs' order by ordinal_position`)).rows.map((r) => r.column_name);
-  expect(columns).toEqual(['org_id', 'run_id', 'ref_id', 'purpose', 'model', 'input_tokens', 'output_tokens', 'cost_usd', 'latency_ms', 'outcome', 'error_code', 'created_by', 'created_on', 'modified_by', 'modified_on']);
+  expect(columns).toEqual(['org_id', 'run_id', 'ref_id', 'purpose', 'model', 'input_tokens', 'output_tokens', 'cost_usd', 'latency_ms', 'outcome', 'error_code', 'created_by', 'created_on', 'modified_by', 'modified_on',
+    // Веха M5b, задача 1: обращение, автор, решение кода, хеш входа, отметка и итог разбора. Текста среди них нет.
+    'ticket_id', 'user_id', 'decision', 'handoff_reason', 'solution_id', 'confidence', 'input_hash', 'flagged_by', 'flagged_on', 'flag_reason', 'review_result']);
   // Текста обращения нет ни в одной строке журнала.
   expect(JSON.stringify(run)).not.toContain('Документ');
 });

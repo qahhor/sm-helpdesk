@@ -1,5 +1,4 @@
 import { type AiClient, type AiRequest, type AiResult, AiResponseError } from './types';
-import type { AiTier } from '../pref';
 
 // Модуль hda: заглушка модели (ТЗ 11.11: у каждого внешнего сервиса есть заглушка; план M5, задача 5). Отвечает
 // заготовленными ответами и записывает каждый запрос: тесты проверяют, что ушло в модель, по телу запроса.
@@ -7,7 +6,7 @@ import type { AiTier } from '../pref';
 // Ответ выбирается функцией respond(request): тест кладёт свой ответ (в том числе с инъекцией) или ошибку.
 // Без функции ответ строит defaultStubResponse: для разработки и браузерных тестов (AI_STUB=1).
 
-export type StubCall = { tier: AiTier; system: string; data: string; maxTokens: number };
+export type StubCall = { model: string; system: string; data: string; maxTokens: number };
 export type StubResponder = (call: StubCall) => unknown;
 
 export const STUB_MODEL = 'stub-model';
@@ -37,7 +36,7 @@ export class StubAiClient implements AiClient {
   }
 
   async complete<T>(request: AiRequest<T>): Promise<AiResult<T>> {
-    const call = { tier: request.tier, system: request.system, data: request.data, maxTokens: request.maxTokens };
+    const call = { model: request.model, system: request.system, data: request.data, maxTokens: request.maxTokens };
     this.calls.push(call);
     const raw = (this.respond ?? defaultStubResponse)(call);
     if (raw instanceof Error) throw raw;

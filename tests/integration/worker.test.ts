@@ -322,6 +322,8 @@ test('собранный worker.mjs запускается без каталог
   await waitFor(async () => output.includes('Фоновый процесс запущен'), 30_000);
   // Расписания записаны в pg-boss.
   expect((await pools.root.query(`select name, cron, timezone from pgboss.schedule order by name`)).rows).toEqual([
+    // AI первой линии (веха M5b): пределы расходов раз в 10 минут.
+    { name: 'ai.budget', cron: '*/10 * * * *', timezone: 'UTC' },
     { name: 'attachment.sweep', cron: '* * * * *', timezone: 'UTC' },
     { name: 'automation.process', cron: '* * * * *', timezone: 'UTC' },
     { name: 'devtasks.sync', cron: '*/15 * * * *', timezone: 'UTC' },

@@ -98,7 +98,8 @@
         "idea_official_reply": "Smartup replied on idea I-{idea}",
         "idea_cycle": "The idea of the month shortlist is ready",
         "idea_moderation_due": "Ideas waiting for review over two working days: {count}",
-        "idea_dev_task_closed": "The development task of idea I-{idea} is closed"
+        "idea_dev_task_closed": "The development task of idea I-{idea} is closed",
+        "ai_budget": "{percent, select, 100 {AI spending limit reached: the assistant is off until the end of the month} other {AI spending at 80% of the limit: organisations cut off {orgs}}}"
       },
       "settings": {
         "title": "Emails",
@@ -830,6 +831,10 @@
         "search": {
           "title": "Search",
           "text": "Synonyms, the Uzbek dictionary and pinned solutions in suggestions."
+        },
+        "ai": {
+          "title": "AI assistant",
+          "text": "Tez on the first line: switch, threshold, limits and spending, models."
         }
       },
       "servers": {
@@ -2030,6 +2035,72 @@
           "example": "накладная | 1042 | 1",
           "save": "Save rules",
           "saved": "Pinning rules saved."
+        }
+      },
+      "ai": {
+        "title": "AI assistant",
+        "intro": "Tez answers new requests first, using published solutions. Changes are written to the audit log.",
+        "reauth": "Sign in again",
+        "save": "Save",
+        "done": {
+          "saved": "AI settings saved.",
+          "models": "Models saved.",
+          "models_changed": "Models saved. After changing a model, run the evaluation set.",
+          "lifted": "Cut-off lifted."
+        },
+        "errors": {
+          "stale_session": "Sign in again to change settings.",
+          "forbidden": "Only an administrator changes this setting.",
+          "invalid_input": "Check the values: nothing was saved."
+        },
+        "spend": {
+          "title": "Spending this month",
+          "text": "Spent {spent} of {budget}.",
+          "noCutoffs": "No organisations are cut off.",
+          "cutOrg": "Cut off until the end of the month: {name}",
+          "cutAll": "Assistant off for everyone until the end of the month",
+          "lift": "Lift"
+        },
+        "general": {
+          "title": "Assistant",
+          "enabled": "Assistant answers first",
+          "enabledHint": "Off: new requests go straight to staff. Organisations with AI processing off never get the assistant.",
+          "triageEnabled": "Triage suggestions: module, type, title",
+          "minScore": "Confidence threshold",
+          "minScoreHint": "A solution below the threshold is not used in an answer.",
+          "budget": "Monthly limit, USD",
+          "userLimit": "Calls per day per user",
+          "orgLimit": "Calls per day per organisation",
+          "cutoff": "Share of the limit per organisation, %",
+          "cutoffHint": "At 80% of the limit, organisations that spent more than this share are cut off.",
+          "fieldsOff": "Disabled triage suggestions",
+          "fieldsOffHint": "A field turns off by itself if fewer than 70% of its suggestions were accepted in a month."
+        },
+        "fields": {
+          "module": "Module",
+          "type": "Type",
+          "title": "Title",
+          "summary": "Summary",
+          "priority_hint": "Priority hint"
+        },
+        "models": {
+          "title": "Models",
+          "intro": "The model for each task. After changing a model, run the evaluation set.",
+          "save": "Save models"
+        },
+        "purposes": {
+          "first_line": "First-line answer",
+          "triage": "Triage without an answer",
+          "solution_draft": "Solution draft",
+          "translation": "Solution translation",
+          "idea_translation": "Idea translation",
+          "message_translation": "Message translation",
+          "thanks": "Thanks check"
+        },
+        "modelNames": {
+          "claude-opus-5-5": "Claude Opus 5.5",
+          "claude-sonnet-5-5": "Claude Sonnet 5.5",
+          "claude-haiku-5-5": "Claude Haiku 5.5"
         }
       }
     },

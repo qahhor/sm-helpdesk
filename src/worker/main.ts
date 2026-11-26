@@ -8,6 +8,7 @@ import { beatWorker, bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRate
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
+import { runAiBudget } from '@/modules/hda/api/budget';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
@@ -37,6 +38,8 @@ import { searchReconcile, searchSyncTick } from './search-jobs';
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
+  // Пределы расходов на AI (план M5b, решение 11): раз в 10 минут.
+  { name: 'ai.budget', cron: '*/10 * * * *', tz: 'UTC' },
   { name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' },
   { name: 'automation.process', cron: '* * * * *', tz: 'UTC' },
   { name: 'webhooks.dispatch', cron: '* * * * *', tz: 'UTC' },
@@ -218,6 +221,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const { requeued, removed, failed } = await sweepAttachments(actor('attachment.sweep'));
     if (requeued > 0 || removed > 0 || failed > 0)
       console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}, проверка не прошла за сутки ${failed}`);
+  }));
+  await boss.work('ai.budget', polling, () => timedJob('ai.budget', async () => {
+    const result = await runAiBudget(actor('ai.budget'));
+    if (result.orgsCut > 0 || result.allCut) console.info(`AI: расход ${result.spentUsd} из ${result.budgetUsd} долларов, отключено организаций ${result.orgsCut}${result.allCut ? ', помощник отключён для всех' : ''}`);
   }));
   await boss.work('tickets.minute', polling, () => timedJob('tickets.minute', async () => {
     const { breached, unsnoozed, closed, refreshed, presenceRemoved, reminded } = await ticketsMinute(actor('tickets.minute'));

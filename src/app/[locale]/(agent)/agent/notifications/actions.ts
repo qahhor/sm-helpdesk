@@ -17,6 +17,7 @@ export async function openStaffNotificationAction(formData: FormData): Promise<v
   const locale = await getLocale();
   const row = await openNotification(staff.actor, formData.get('id'));
   if (row?.kind === 'holidays_reminder') redirect(`/${locale}/agent/settings/sla`);
+  if (row?.kind === 'ai_budget') redirect(`/${locale}/agent/settings/ai`);
   // Идеи (веха M7): сводка модерации ведёт во вкладку "Модерация", уведомление идеи на её карточку.
   if (row?.kind === 'idea_moderation_due') redirect(`/${locale}/agent/ideas?tab=moderation`);
   if (row?.kind === 'idea_cycle') redirect(`/${locale}/agent/ideas/cycles`);

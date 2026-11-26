@@ -74,6 +74,8 @@ export const NOTIFICATION_KINDS = [
   'idea_cycle',
   'idea_moderation_due',
   'idea_dev_task_closed',
+  // Предел расходов на AI (веха M5b, решение 11): администраторам, когда отключены организации или помощник у всех.
+  'ai_budget',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

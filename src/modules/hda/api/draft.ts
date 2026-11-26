@@ -66,7 +66,6 @@ export async function requestSolutionDraft(system: SystemActor, input: { ticketI
     purpose: 'solution_draft',
     orgId: ticket.orgId,
     refId: input.articleId,
-    tier: 'fast',
     system: DRAFT_SYSTEM,
     data,
     schema: draftSchema,

@@ -44,6 +44,7 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: `${A}/settings/audit`, path: '/ru/agent/settings/audit', who: 'admin' },
   { route: `${A}/settings/knowledge`, path: '/ru/agent/settings/knowledge', who: 'admin' },
   { route: `${A}/settings/search`, path: '/ru/agent/settings/search', who: 'admin' },
+  { route: `${A}/settings/ai`, path: '/ru/agent/settings/ai', who: 'admin' },
   { route: `${A}/settings/macros`, path: '/ru/agent/settings/macros', who: 'admin' },
   { route: `${A}/settings/macros/[macroId]`, path: '/ru/agent/settings/macros/{macro}', who: 'admin' },
   { route: `${A}/settings/macros/new`, path: '/ru/agent/settings/macros/new', who: 'admin', walk: true },

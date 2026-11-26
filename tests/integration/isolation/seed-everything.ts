@@ -114,6 +114,8 @@ export async function seedEverything() {
   await pools.root.query(`insert into hdk_suggest_misses (session_id, locale, query_text) values (uuidv7(), 'ru', 'отчёт не открывается')`);
   // Журнал вызовов модели (веха M5, задача 5): вызов по обращению организации A, без текста.
   await pools.root.query(`insert into hda_runs (org_id, purpose, model, outcome) values ($1, 'solution_draft', 'stub-model', 'ok')`, [f.orgA.orgId]);
+  // Отключение помощника пределом расходов (веха M5b, задача 1).
+  await pools.root.query(`insert into hda_org_cutoffs (org_id, month, reason) values ($1, date_trunc('month', now())::date, 'budget_share')`, [f.orgA.orgId]);
   // Идеи (веха M7, задача 1): опубликованная идея организации Б, идея Б на модерации и своя идея А на модерации; голоса,
   // подписки, комментарии (опубликованный, чужой на проверке и свой на проверке), отборы (завершённый и открытый),
   // вложения (чистое и непроверенное у опубликованной идеи Б). Клиент А должен видеть опубликованное Б и своё.

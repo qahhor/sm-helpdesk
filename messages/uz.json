@@ -98,7 +98,8 @@
         "idea_official_reply": "I-{idea} g'oyasiga Smartup javobi",
         "idea_cycle": "Oy g'oyasi saralash beshligi tayyor",
         "idea_moderation_due": "Ikki ish kunidan ortiq moderatsiya kutayotgan g'oyalar: {count}",
-        "idea_dev_task_closed": "I-{idea} g'oyasining ishlab chiqish vazifasi yopildi"
+        "idea_dev_task_closed": "I-{idea} g'oyasining ishlab chiqish vazifasi yopildi",
+        "ai_budget": "{percent, select, 100 {AI xarajatlari chegarasi tugadi: yordamchi oy oxirigacha o'chirildi} other {AI xarajati chegaraning 80%: o'chirilgan tashkilotlar {orgs}}}"
       },
       "settings": {
         "title": "Xatlar",
@@ -830,6 +831,10 @@
         "search": {
           "title": "Qidiruv",
           "text": "Sinonimlar, o'zbek tili lug'ati va maslahatdagi yechimlarni mahkamlash."
+        },
+        "ai": {
+          "title": "AI-yordamchi",
+          "text": "Birinchi liniya Tezi: yoqish, chegara, limitlar va xarajat, modellar."
         }
       },
       "servers": {
@@ -2030,6 +2035,72 @@
           "example": "накладная | 1042 | 1",
           "save": "Qoidalarni saqlash",
           "saved": "Mahkamlash qoidalari saqlandi."
+        }
+      },
+      "ai": {
+        "title": "AI-yordamchi",
+        "intro": "Tez yangi murojaatlarga e'lon qilingan yechimlar bo'yicha birinchi javob beradi. O'zgarishlar audit jurnaliga yoziladi.",
+        "reauth": "Qayta kirish",
+        "save": "Saqlash",
+        "done": {
+          "saved": "AI sozlamalari saqlandi.",
+          "models": "Modellar saqlandi.",
+          "models_changed": "Modellar saqlandi. Model almashgandan keyin tekshiruv to'plamini ishga tushiring.",
+          "lifted": "O'chirish bekor qilindi."
+        },
+        "errors": {
+          "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
+          "forbidden": "Sozlamani faqat administrator o'zgartiradi.",
+          "invalid_input": "Qiymatlarni tekshiring: hech narsa saqlanmadi."
+        },
+        "spend": {
+          "title": "Oylik xarajat",
+          "text": "{budget} dan {spent} sarflandi.",
+          "noCutoffs": "O'chirilgan tashkilotlar yo'q.",
+          "cutOrg": "Oy oxirigacha o'chirilgan: {name}",
+          "cutAll": "Yordamchi oy oxirigacha hammaga o'chirilgan",
+          "lift": "Bekor qilish"
+        },
+        "general": {
+          "title": "Yordamchi ishi",
+          "enabled": "Yordamchi birinchi javob beradi",
+          "enabledHint": "O'chirilgan bo'lsa, yangi murojaatlar darhol xodimlarga tushadi. AI-ishlov o'chirilgan tashkilotlar yordamchi olmaydi.",
+          "triageEnabled": "Tahlil takliflari: modul, tur, sarlavha",
+          "minScore": "Ishonch chegarasi",
+          "minScoreHint": "Chegaradan past yechim javobga kirmaydi.",
+          "budget": "Oylik chegara, dollar",
+          "userLimit": "Foydalanuvchiga sutkalik chaqiruvlar",
+          "orgLimit": "Tashkilotga sutkalik chaqiruvlar",
+          "cutoff": "Tashkilot ulushi, %",
+          "cutoffHint": "Chegaraning 80% ida bu ulushdan ko'p sarflagan tashkilotlar o'chiriladi.",
+          "fieldsOff": "O'chirilgan tahlil takliflari",
+          "fieldsOffHint": "Oy davomida takliflarning 70% dan kami qabul qilinsa, maydon o'zi o'chadi."
+        },
+        "fields": {
+          "module": "Modul",
+          "type": "Tur",
+          "title": "Sarlavha",
+          "summary": "Qisqacha mazmun",
+          "priority_hint": "Muhimlik belgisi"
+        },
+        "models": {
+          "title": "Modellar",
+          "intro": "Har bir vazifa uchun model. Model almashgandan keyin tekshiruv to'plamini ishga tushiring.",
+          "save": "Modellarni saqlash"
+        },
+        "purposes": {
+          "first_line": "Birinchi liniya javobi",
+          "triage": "Javobsiz tahlil",
+          "solution_draft": "Yechim qoralamasi",
+          "translation": "Yechim tarjimasi",
+          "idea_translation": "G'oya tarjimasi",
+          "message_translation": "Xabar tarjimasi",
+          "thanks": "Minnatdorchilikni tekshirish"
+        },
+        "modelNames": {
+          "claude-opus-5-5": "Claude Opus 5.5",
+          "claude-sonnet-5-5": "Claude Sonnet 5.5",
+          "claude-haiku-5-5": "Claude Haiku 5.5"
         }
       }
     },

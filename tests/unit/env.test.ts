@@ -412,24 +412,28 @@ test('Claude: окружение портала не содержит ключа
   expect(e.AI_MODEL_FAST).toBeUndefined();
 });
 
-test('Claude: без ключа фоновый процесс работает без AI; с ключом модели обязательны; значение ключа в ошибку не попадает', () => {
+test('Claude: без ключа фоновый процесс работает без AI; модели в окружении необязательны (план M5b, решение 1); значение ключа в ошибку не попадает', () => {
   expect(parseAiEnv(ok)).toEqual({ mode: 'none' });
+  // Ключ без моделей: модели по умолчанию из pref.ts и настройки ai.models.
+  expect(parseAiEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-secret-value-0123' })).toEqual({ mode: 'anthropic', apiKey: 'sk-ant-secret-value-0123', models: {} });
   const error = (() => {
     try {
-      parseAiEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-secret-value-0123' });
+      parseAiEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-secret-value-0123', AI_MODEL_FAST: 'НЕ МОДЕЛЬ' });
     } catch (e) {
       return e as EnvError;
     }
     return null;
   })();
   expect(error).toBeInstanceOf(EnvError);
-  expect(error?.problems.map((p) => p.name).sort()).toEqual(['AI_MODEL_FAST', 'AI_MODEL_QUALITY']);
+  expect(error?.problems.map((p) => p.name)).toEqual(['AI_MODEL_FAST']);
   expect(error?.message).not.toContain('sk-ant-secret-value-0123');
+  // Заданные переменные задают модели уровней по умолчанию.
   expect(parseAiEnv({ ...ok, ANTHROPIC_API_KEY: 'sk-ant-secret-value-0123', AI_MODEL_FAST: 'm-fast', AI_MODEL_QUALITY: 'm-quality' })).toEqual({
     mode: 'anthropic',
     apiKey: 'sk-ant-secret-value-0123',
     models: { fast: 'm-fast', quality: 'm-quality' },
   });
+  expect(parseAiEnv({ ...ok, AI_STUB: '0', AI_MODEL_FAST: 'm-fast' })).toEqual({ mode: 'none' });
 });
 
 test('Claude: заглушка только для портала на localhost и не вместе с ключом', () => {

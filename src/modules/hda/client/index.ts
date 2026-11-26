@@ -16,10 +16,17 @@ export function getAiClient(): AiClient | null {
   if (!cached) {
     const env = parseAiEnv(process.env);
     cached = {
-      client: env.mode === 'anthropic' ? createAnthropicClient({ apiKey: env.apiKey, models: env.models }) : env.mode === 'stub' ? new StubAiClient() : null,
+      client: env.mode === 'anthropic' ? createAnthropicClient({ apiKey: env.apiKey }) : env.mode === 'stub' ? new StubAiClient() : null,
     };
   }
   return cached.client;
+}
+
+/** Модели уровней из окружения фонового процесса (AI_MODEL_FAST, AI_MODEL_QUALITY): значения по умолчанию, настройка сильнее. */
+export function aiEnvModels(): Partial<Record<'fast' | 'quality', string>> {
+  if (override) return {};
+  const env = parseAiEnv(process.env);
+  return env.mode === 'anthropic' ? env.models : {};
 }
 
 /** Тесты подменяют клиента (null: модели нет). Вызов без аргумента возвращает выбор по окружению. */

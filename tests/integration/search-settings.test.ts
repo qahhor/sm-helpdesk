@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'vitest';
 import { createStubSearch, prepareSearchIndex, runSearchSync, type SearchIndexWriter, SearchWriteError, type StubSearch } from '@/modules/hdc/api';
 import { searchReconcile, setSearchJobWriterForTests } from '@/worker/search-jobs';
 import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
-import { cleanupSuggestMisses, maskQuery, suggestMisses } from '@/modules/hdk/api/misses';
+import { cleanupSuggestMisses, maskQuery, noteSuggestOutcome, suggestMisses } from '@/modules/hdk/api/misses';
 import { saveSearchSetting, searchSettingsText } from '@/modules/hdk/api/search-settings';
 import { suggestForClient } from '@/modules/hdk/api/suggest';
 import { registerSearch } from '@/worker/search';
@@ -55,6 +55,19 @@ test('синонимы, словарь и курирование: админис
   expect(stub.stems).toEqual(expect.arrayContaining([{ word: "to'lovlar", root: "to'lov" }, { word: 'tolovlar', root: 'tolov' }, { word: 'hisobotlar', root: 'hisobot' }]));
   // Решения 1042 нет среди опубликованных: правило не уходит.
   expect(stub.curations).toEqual([]);
+});
+
+test('пустые подсказки: один клиент за сутки пишет не больше 20 сессий и не вытесняет остальных', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = await clientCtx(f.aUser);
+  for (let i = 0; i < 25; i++)
+    await noteSuggestOutcome(ctx.actor, { sessionId: `00000000-0000-7000-8000-${String(i).padStart(12, '0')}`, text: `не открывается отчёт номер ${i}`, locale: 'ru', moduleId: null, found: false });
+  // Та же сессия обновляет свою строку и предел не тратит.
+  await noteSuggestOutcome(ctx.actor, { sessionId: '00000000-0000-7000-8000-000000000000', text: 'не открывается отчёт уточнение', locale: 'ru', moduleId: null, found: false });
+  expect((await pools.root.query(`select count(*)::int as n from hdk_suggest_misses`)).rows[0].n).toBe(20);
+  const other = await clientCtx(f.bUser);
+  await noteSuggestOutcome(other.actor, { sessionId: '00000000-0000-7000-8000-0000000000ff', text: 'не печатается накладная склада', locale: 'ru', moduleId: null, found: false });
+  expect((await pools.root.query(`select count(*)::int as n from hdk_suggest_misses`)).rows[0].n).toBe(21);
 });
 
 test('настройки, сохранённые при поиске через PostgreSQL, доходят до Typesense при включении и переиндексации', async () => {

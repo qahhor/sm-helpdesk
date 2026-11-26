@@ -3,7 +3,7 @@ import { count, desc, eq, gt, lt } from 'drizzle-orm';
 import type { ClientActor, SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import type { Locale } from '@/i18n/locales';
-import type { StaffContext } from '@/modules/hdc/api';
+import { consumeRateLimit, rateKey, type StaffContext } from '@/modules/hdc/api';
 import { findInText } from '../checks';
 import { HdkError } from '../error';
 import { KB_PUBLISHER_ROLES } from '../pref';
@@ -18,6 +18,9 @@ const SYSTEM: SystemActor = { type: 'system', job: 'kb.suggest_misses' };
 export const MISSES_KEEP_DAYS = 90;
 export const MISSES_RECENT = 50;
 const MAX_TEXT = 500;
+/** Новых сессий без результата за сутки: на пользователя и на организацию. */
+export const MISSES_PER_USER_DAY = { limit: 20, windowSec: 86_400 };
+export const MISSES_PER_ORG_DAY = { limit: 200, windowSec: 86_400 };
 
 /** Маска данных: найденное проверкой текста (телефон, адрес почты, ИНН, ПИНФЛ, сервер) и длинные числа. */
 export function maskQuery(text: string): string {
@@ -30,7 +33,7 @@ export function maskQuery(text: string): string {
  * Исход показа подсказки клиенту: пусто, и запрос из двух слов и больше, значит строка сессии с текстом; нашлось,
  * и строка сессии удаляется (клиент нашёл, что искал). Ошибка записи подсказку не ломает.
  */
-export async function noteSuggestOutcome(_actor: ClientActor, input: { sessionId: string; text: string; locale: Locale; moduleId: string | null; found: boolean }): Promise<void> {
+export async function noteSuggestOutcome(actor: ClientActor, input: { sessionId: string; text: string; locale: Locale; moduleId: string | null; found: boolean }): Promise<void> {
   try {
     if (input.found) {
       await withActor(SYSTEM, (tx) => tx.delete(kbSuggestMisses).where(eq(kbSuggestMisses.sessionId, input.sessionId)));
@@ -39,6 +42,15 @@ export async function noteSuggestOutcome(_actor: ClientActor, input: { sessionId
     if ((input.text.match(/[\p{L}\p{N}]{2,}/gu)?.length ?? 0) < 2) return;
     const queryText = maskQuery(input.text);
     if (!queryText) return;
+    // Предел новых сессий за сутки на пользователя и организацию (независимая проверка W6, M5): один клиент не
+    // вытесняет из сводки остальных. Своя сессия обновляет строку без траты предела.
+    const known = await withActor(SYSTEM, (tx) => tx.select({ id: kbSuggestMisses.missId }).from(kbSuggestMisses).where(eq(kbSuggestMisses.sessionId, input.sessionId)).limit(1));
+    if (known.length === 0) {
+      const perUser = await consumeRateLimit(rateKey('kb-miss:user', actor.userId), MISSES_PER_USER_DAY);
+      if (!perUser.allowed) return;
+      const perOrg = await consumeRateLimit(rateKey('kb-miss:org', actor.orgId), MISSES_PER_ORG_DAY);
+      if (!perOrg.allowed) return;
+    }
     await withActor(SYSTEM, (tx) =>
       tx
         .insert(kbSuggestMisses)

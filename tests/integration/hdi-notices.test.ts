@@ -137,6 +137,25 @@ test('объединение уведомляет проголосовавших
   expect(JSON.stringify(await bell(target.ideaId))).not.toContain('Не по теме');
 });
 
+test('итоговая проверка M7, M4: в письмо идут только оригинал и проверенный перевод заголовка, машинный перевод нет', async () => {
+  const f = await seedTwoOrgs();
+  const idea = await addIdea(f.orgB.orgId, f.bUser, 'shortlisted', { title: 'Экспорт заказов' });
+  await pools.root.query(
+    `insert into hdi_idea_translations (idea_id, locale, title, body, is_machine, status, source_hash)
+     values ($1, 'en', 'Machine order export', 'Text', true, 'machine', repeat('a', 64)), ($1, 'uz', 'Buyurtmalar eksporti', 'Matn', false, 'reviewed', repeat('a', 64))`,
+    [idea.ideaId],
+  );
+  const moderator = await product();
+  await withActor(moderator.actor, (tx) => notifyIdeaStatusTx(tx, { ideaId: idea.ideaId, number: idea.number, authorId: f.bUser.userId, status: 'selected' }));
+  const [mail] = await mails(idea.ideaId);
+  expect(mail?.payload.titles).toEqual({ ru: 'Экспорт заказов', uz: 'Buyurtmalar eksporti' });
+  expect(JSON.stringify(mail?.payload)).not.toContain('Machine order export');
+  // Получатель с английским языком видит оригинал без пометки, а не машинный перевод.
+  const en = await renderMail('idea_status', 'en', { ...(mail!.payload as Parameters<typeof renderMail>[2]), hubUrl: 'https://hub.example', supportAddress: null });
+  expect(en.text).toContain('Экспорт заказов');
+  expect(en.text).not.toContain('Machine order export');
+});
+
 test('письмо: заголовок без ссылок на языке получателя, без разметки', async () => {
   const data = {
     template: 'idea_status' as const,

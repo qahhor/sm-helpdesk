@@ -114,6 +114,9 @@ export const ideaCycles = pgTable('hdi_cycles', {
   decidedOn: timestamp('decided_on', { withTimezone: true }),
   status: text('status').$type<CycleStatus>().notNull().default('open'),
   ...stampColumns,
+  // Машинный черновик объяснения сохранён без правки (итоговая проверка M7, пункт M6; миграция 0085).
+  explanationUzMachine: boolean('explanation_uz_machine').notNull().default(false),
+  explanationEnMachine: boolean('explanation_en_machine').notNull().default(false),
 });
 
 /** Изображения идеи (решение 10). */

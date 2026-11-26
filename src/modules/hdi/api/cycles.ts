@@ -70,7 +70,16 @@ const explanation = z
   .optional()
   .transform((value) => (value === undefined ? null : cleanUserText(value).trim()))
   .pipe(z.string().max(EXPLANATION_MAX).nullable());
-const decideInput = z.strictObject({ cycle: cycleDate, number: ideaNumber, explanationRu: explanation, explanationUz: explanation, explanationEn: explanation });
+const decideInput = z.strictObject({
+  cycle: cycleDate,
+  number: ideaNumber,
+  explanationRu: explanation,
+  explanationUz: explanation,
+  explanationEn: explanation,
+  // Отметки машинного черновика по языку (пункт M6 итоговой проверки): форма снимает их при правке или отметке "проверено".
+  explanationUzMachine: z.boolean().optional().default(false),
+  explanationEnMachine: z.boolean().optional().default(false),
+});
 
 /**
  * Выбор идеи месяца (FR-IDEA-10, решение 17). Отказы: forbidden, invalid_input (в том числе объяснение из одних
@@ -84,7 +93,14 @@ export async function decideCycle(ctx: StaffContext, input: unknown): Promise<{ 
   const data = parseInput(decideInput, input);
   const empty = (value: string | null) => (value ? value : null);
   const { idea } = await withActor(ctx.actor, (tx) =>
-    decideTx(tx, data.cycle, { number: data.number, explanationRu: empty(data.explanationRu), explanationUz: empty(data.explanationUz), explanationEn: empty(data.explanationEn) }),
+    decideTx(tx, data.cycle, {
+      number: data.number,
+      explanationRu: empty(data.explanationRu),
+      explanationUz: empty(data.explanationUz),
+      explanationEn: empty(data.explanationEn),
+      uzMachine: data.explanationUzMachine,
+      enMachine: data.explanationEnMachine,
+    }),
   );
   await wakeOutbox();
   return { number: idea.number };
@@ -107,7 +123,15 @@ export async function draftCycleExplanation(ctx: StaffContext, input: unknown): 
   return { uz, en, machine: true };
 }
 
-export type ClientCycle = { cycle: string; status: 'decided' | 'lapsed'; idea: { number: number; title: string } | null; explanation: string | null; explanationLocale: Locale };
+export type ClientCycle = {
+  cycle: string;
+  status: 'decided' | 'lapsed';
+  idea: { number: number; title: string } | null;
+  explanation: string | null;
+  explanationLocale: Locale;
+  /** Показанный текст из машинного черновика без проверки: страница ставит пометку "Машинный перевод". */
+  explanationMachine: boolean;
+};
 
 /** Архив выборов для клиента (FR-IDEA-16): завершённые отборы, выбранная идея, объяснение на языке клиента или русское. */
 export async function clientCycleArchive(ctx: Pick<ClientContext, 'actor'>, input: unknown): Promise<ClientCycle[]> {
@@ -119,6 +143,7 @@ export async function clientCycleArchive(ctx: Pick<ClientContext, 'actor'>, inpu
     return rows.map((row) => {
       const number = row.selectedIdeaId ? numbers.get(row.selectedIdeaId) : undefined;
       const text = locale === 'uz' ? row.explanationUz : locale === 'en' ? row.explanationEn : row.explanationRu;
+      const machine = (locale === 'uz' && row.explanationUzMachine) || (locale === 'en' && row.explanationEnMachine);
       return {
         cycle: row.cycle,
         status: row.status === 'decided' ? 'decided' : 'lapsed',
@@ -126,6 +151,7 @@ export async function clientCycleArchive(ctx: Pick<ClientContext, 'actor'>, inpu
         idea: row.selectedIdeaId && number !== undefined ? { number, title: titles.get(row.selectedIdeaId) ?? '' } : null,
         explanation: text ?? row.explanationRu,
         explanationLocale: text ? locale : 'ru',
+        explanationMachine: Boolean(text) && machine,
       };
     });
   });

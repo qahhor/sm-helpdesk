@@ -18,12 +18,16 @@ export async function followersTx(tx: Tx, ideaId: string, authorId: string, opts
   return [...new Set([authorId, ...subs.map((r) => r.userId), ...votes.map((r) => r.userId)])];
 }
 
-/** Видимые клиентам заголовки идеи по языкам и оригинал. */
+/**
+ * Заголовки идеи для уведомлений по языкам и оригинал. Только оригинал и проверенный модератором перевод: в письме
+ * пометки "Машинный перевод" нет, поэтому машинный перевод туда не идёт, получатель видит оригинал (итоговая проверка
+ * M7, пункт M4).
+ */
 export async function titlesTx(tx: Tx, ideaId: string): Promise<{ title: string; titles: Partial<Record<Locale, string>> }> {
   const rows = await tx
     .select({ locale: ideaTranslations.locale, title: ideaTranslations.title, status: ideaTranslations.status })
     .from(ideaTranslations)
-    .where(and(eq(ideaTranslations.ideaId, ideaId), inArray(ideaTranslations.status, ['original', 'machine', 'reviewed'])));
+    .where(and(eq(ideaTranslations.ideaId, ideaId), inArray(ideaTranslations.status, ['original', 'reviewed'])));
   const titles: Partial<Record<Locale, string>> = {};
   for (const row of rows) titles[row.locale] = row.title;
   return { title: rows.find((r) => r.status === 'original')?.title ?? '', titles };

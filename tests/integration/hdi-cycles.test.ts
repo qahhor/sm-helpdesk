@@ -243,12 +243,36 @@ test('FR-IDEA-16: клиент видит только завершённые о
   await decideCycle(await product(), { cycle: '2026-11-01', number: pick.number, explanationRu: 'Объяснение', explanationEn: 'Explanation' });
   await runIdeaCycle(system, DEC_1);
   const archive = await clientCycleArchive(client, { locale: 'en' });
-  expect(archive).toEqual([{ cycle: '2026-11-01', status: 'decided', idea: { number: pick.number, title: 'Выбор ноября' }, explanation: 'Explanation', explanationLocale: 'en' }]);
+  expect(archive).toEqual([{ cycle: '2026-11-01', status: 'decided', idea: { number: pick.number, title: 'Выбор ноября' }, explanation: 'Explanation', explanationLocale: 'en', explanationMachine: false }]);
   expect(JSON.stringify(archive)).not.toMatch(/decided_?by/i);
   const uz = await clientCycleArchive(client, { locale: 'uz' });
   expect(uz[0]).toMatchObject({ explanation: 'Объяснение', explanationLocale: 'ru' });
   // Декабрьский отбор открыт (лидер вернулся в голосование и снова первый): клиенту его нет.
   expect((await staffCycleBoard(await product())).current?.cycle).toBe('2026-12-01');
+});
+
+test('итоговая проверка M7, M6: машинный черновик, сохранённый без правки, клиент видит с пометкой; правка или отметка "проверено" её снимает', async () => {
+  const leader = await addIdea(f.orgB.orgId, f.bUser, 'open', { title: 'Лидер' });
+  await votes(leader, [{ orgId: f.orgA.orgId, userId: f.aUser.userId }]);
+  await runIdeaCycle(system, new Date('2026-11-01T04:00:00Z'));
+  // uz из черновика без правки (пометка стоит), en сотрудник поправил (пометки нет).
+  await decideCycle(await product(), {
+    cycle: '2026-11-01',
+    number: leader.number,
+    explanationRu: 'Объяснение',
+    explanationUz: 'Tushuntirish',
+    explanationEn: 'Explanation',
+    explanationUzMachine: true,
+    explanationEnMachine: false,
+  });
+  const client = await clientCtx(f.aUser);
+  expect((await clientCycleArchive(client, { locale: 'uz' }))[0]).toMatchObject({ explanation: 'Tushuntirish', explanationLocale: 'uz', explanationMachine: true });
+  expect((await clientCycleArchive(client, { locale: 'en' }))[0]).toMatchObject({ explanation: 'Explanation', explanationLocale: 'en', explanationMachine: false });
+  // Русский пишет сотрудник: пометки нет никогда.
+  expect((await clientCycleArchive(client, { locale: 'ru' }))[0]).toMatchObject({ explanationLocale: 'ru', explanationMachine: false });
+  expect((await pools.root.query(`select explanation_uz_machine, explanation_en_machine from hdi_cycles where cycle = '2026-11-01'`)).rows[0]).toEqual({ explanation_uz_machine: true, explanation_en_machine: false });
+  // Пометка без текста не сохраняется (база это тоже не пропускает).
+  await expect(pools.root.query(`insert into hdi_cycles (cycle, vote_mode, status, explanation_en_machine) values ('2093-01-01', 'per_user', 'lapsed', true)`)).rejects.toThrow(/hdi_cycles_c8/);
 });
 
 test('расписание и ручной запуск: ideas.cycle 1-го числа в 09:00 по Ташкенту; hub ideas:cycle --month делает отбор этого месяца', async () => {

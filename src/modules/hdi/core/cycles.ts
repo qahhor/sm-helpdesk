@@ -83,7 +83,15 @@ export async function notifyCycleTx(tx: Tx, run: Extract<CycleRun, { status: 'cr
 
 export type CycleRow = typeof ideaCycles.$inferSelect;
 
-export type Decision = { number: number; explanationRu: string | null; explanationUz: string | null; explanationEn: string | null };
+export type Decision = {
+  number: number;
+  explanationRu: string | null;
+  explanationUz: string | null;
+  explanationEn: string | null;
+  /** Текст языка сохранён из машинного черновика без правки и не отмечен проверенным (пункт M6 итоговой проверки). */
+  uzMachine: boolean;
+  enMachine: boolean;
+};
 
 /**
  * Выбор идеи месяца (решение 17). Отказы: not_found (нет отбора), cycle_closed (уже выбран или закрыт),
@@ -107,7 +115,16 @@ export async function decideTx(tx: Tx, cycle: string, decision: Decision): Promi
   // Сначала отбор: триггер возвращает остальных из пятёрки в голосование функцией app.hdi_return_shortlist (решение 0065).
   const [decided] = await tx
     .update(ideaCycles)
-    .set({ status: 'decided', selectedIdeaId: idea.ideaId, explanationRu: decision.explanationRu, explanationUz: decision.explanationUz, explanationEn: decision.explanationEn })
+    .set({
+      status: 'decided',
+      selectedIdeaId: idea.ideaId,
+      explanationRu: decision.explanationRu,
+      explanationUz: decision.explanationUz,
+      explanationEn: decision.explanationEn,
+      // Отметка только при тексте: пустое поле машинным не бывает.
+      explanationUzMachine: decision.uzMachine && decision.explanationUz !== null,
+      explanationEnMachine: decision.enMachine && decision.explanationEn !== null,
+    })
     .where(and(eq(ideaCycles.cycleId, row.cycleId), eq(ideaCycles.status, 'open')))
     .returning();
   if (!decided) throw new HdiError('cycle_closed');

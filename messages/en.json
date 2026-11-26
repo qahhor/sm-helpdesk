@@ -3211,6 +3211,7 @@
         "translate": "Translate",
         "translating": "Translating...",
         "machine": "Machine draft: read and correct the Uzbek and English text before saving.",
+        "reviewed": "Text checked",
         "draftError": "The draft is not available right now. Write the explanation yourself.",
         "submit": "Pick the idea of the month",
         "archive": "Past selections",

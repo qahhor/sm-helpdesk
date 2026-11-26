@@ -10,7 +10,8 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 
 // Отбор месяца у клиента (ТЗ FR-IDEA-16; план M7, задача 9, решение 17): обратный отсчёт до ближайшего 1-го числа
 // 09:00 по Ташкенту и архив прошлых выборов с объяснениями на языке клиента (иначе русское) и пометкой "без выбора".
-// Объяснение пишет и сохраняет сотрудник Smartup; кто выбрал, страница не показывает. Скриптов на странице нет.
+// Объяснение пишет и сохраняет сотрудник Smartup; сохранённое из машинного черновика без проверки идёт с пометкой
+// "Машинный перевод" (итоговая проверка M7, пункт M6). Кто выбрал, страница не показывает. Скриптов на странице нет.
 
 export default async function IdeaCyclesPage() {
   const client = await requireClientActor();
@@ -55,7 +56,10 @@ export default async function IdeaCyclesPage() {
                     </Link>
                     {item.explanation && (
                       <div className="flex flex-col gap-1 text-sm">
-                        <span className="text-secondary-foreground">{t('cycles.explanation')}</span>
+                        <span className="flex flex-wrap items-center gap-2 text-secondary-foreground">
+                          {t('cycles.explanation')}
+                          {item.explanationMachine && <StatusLabel tone="gray">{t('machine')}</StatusLabel>}
+                        </span>
                         <p className="whitespace-pre-wrap break-words" lang={item.explanationLocale}>
                           {item.explanation}
                         </p>

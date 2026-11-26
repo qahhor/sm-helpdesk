@@ -101,7 +101,16 @@ export async function decideCycleAction(formData: FormData): Promise<void> {
   const text = (name: string) => String(formData.get(name) ?? '');
   let status = 'decided';
   try {
-    await decideCycle(staff, { cycle: text('cycle'), number: text('number'), explanationRu: text('explanationRu'), explanationUz: text('explanationUz'), explanationEn: text('explanationEn') });
+    await decideCycle(staff, {
+      cycle: text('cycle'),
+      number: text('number'),
+      explanationRu: text('explanationRu'),
+      explanationUz: text('explanationUz'),
+      explanationEn: text('explanationEn'),
+      // Отметки машинного черновика ставит форма (пункт M6 итоговой проверки M7).
+      explanationUzMachine: text('explanationUzMachine') === '1',
+      explanationEnMachine: text('explanationEnMachine') === '1',
+    });
   } catch (error) {
     if (!isHdiError(error)) throw error;
     status = `error-${error.code}`;

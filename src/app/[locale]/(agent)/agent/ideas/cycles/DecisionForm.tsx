@@ -10,6 +10,8 @@ import { decideCycleAction, draftExplanationAction } from '../actions';
 // Выбор идеи месяца (ТЗ FR-IDEA-10; план M7, задача 9, решение 17). Лидер снимка выбран по умолчанию; для не лидера
 // объяснение на русском обязательно (это же проверяют сервер и база). "Перевести" кладёт в поля узбекского и
 // английского машинный черновик с пометкой: сотрудник читает и правит его, на сервер уходит только то, что он сохранил.
+// Отметка машинного текста держится по языку и снимается, только когда сотрудник правит текст этого языка или отмечает
+// его проверенным; иначе клиент видит объяснение с пометкой "Машинный перевод" (итоговая проверка M7, пункт M6).
 
 export type DecisionOption = { number: number; label: string; leader: boolean };
 export type DecisionLabels = {
@@ -22,6 +24,7 @@ export type DecisionLabels = {
   translate: string;
   translating: string;
   machine: string;
+  reviewed: string;
   draftError: string;
   submit: string;
 };
@@ -33,6 +36,8 @@ export function DecisionForm({ cycle, options, max, labels }: { cycle: string; o
   const [uz, setUz] = useState('');
   const [en, setEn] = useState('');
   const [machine, setMachine] = useState(false);
+  const [uzMachine, setUzMachine] = useState(false);
+  const [enMachine, setEnMachine] = useState(false);
   const [draftFailed, setDraftFailed] = useState(false);
   const [pending, startTransition] = useTransition();
   const needsExplanation = picked !== leader;
@@ -47,12 +52,16 @@ export function DecisionForm({ cycle, options, max, labels }: { cycle: string; o
       setDraftFailed(false);
       setUz(draft.uz);
       setEn(draft.en);
+      setUzMachine(draft.uz !== '');
+      setEnMachine(draft.en !== '');
       setMachine(true);
     });
 
   return (
     <form action={decideCycleAction} className="flex flex-col gap-4" data-testid="cycle-decision">
       <input type="hidden" name="cycle" value={cycle} />
+      <input type="hidden" name="explanationUzMachine" value={uzMachine ? '1' : '0'} />
+      <input type="hidden" name="explanationEnMachine" value={enMachine ? '1' : '0'} />
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 font-semibold">{labels.legend}</legend>
         {options.map((option) => (
@@ -79,15 +88,49 @@ export function DecisionForm({ cycle, options, max, labels }: { cycle: string; o
       {machine && <Alert tone="info">{labels.machine}</Alert>}
       <div className="flex flex-col gap-1">
         <Label htmlFor="explanation-uz">{labels.uz}</Label>
-        <Textarea id="explanation-uz" name="explanationUz" rows={4} maxLength={max} value={uz} onChange={(e) => setUz(e.target.value)} lang="uz" />
+        <Textarea
+          id="explanation-uz"
+          name="explanationUz"
+          rows={4}
+          maxLength={max}
+          value={uz}
+          onChange={(e) => {
+            setUz(e.target.value);
+            setUzMachine(false);
+          }}
+          lang="uz"
+        />
+        {uzMachine && <ReviewedBox id="explanation-uz-reviewed" label={labels.reviewed} onReviewed={() => setUzMachine(false)} />}
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="explanation-en">{labels.en}</Label>
-        <Textarea id="explanation-en" name="explanationEn" rows={4} maxLength={max} value={en} onChange={(e) => setEn(e.target.value)} lang="en" />
+        <Textarea
+          id="explanation-en"
+          name="explanationEn"
+          rows={4}
+          maxLength={max}
+          value={en}
+          onChange={(e) => {
+            setEn(e.target.value);
+            setEnMachine(false);
+          }}
+          lang="en"
+        />
+        {enMachine && <ReviewedBox id="explanation-en-reviewed" label={labels.reviewed} onReviewed={() => setEnMachine(false)} />}
       </div>
       <Button type="submit" className="self-start">
         {labels.submit}
       </Button>
     </form>
+  );
+}
+
+/** Отметка "проверено" машинного текста одного языка: снимает пометку, текст остаётся. */
+function ReviewedBox({ id, label, onReviewed }: { id: string; label: string; onReviewed: () => void }) {
+  return (
+    <label htmlFor={id} className="flex items-center gap-2 text-sm">
+      <input id={id} type="checkbox" onChange={(e) => e.target.checked && onReviewed()} className="size-4 accent-primary" />
+      {label}
+    </label>
   );
 }

@@ -109,6 +109,7 @@ export default async function AgentIdeaCyclesPage({ searchParams }: { searchPara
                       translate: s('cycles.translate'),
                       translating: s('cycles.translating'),
                       machine: s('cycles.machine'),
+                      reviewed: s('cycles.reviewed'),
                       draftError: s('cycles.draftError'),
                       submit: s('cycles.submit'),
                     }}

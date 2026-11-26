@@ -238,3 +238,16 @@ test('решение 10: клиент прикрепляет свою загру
   expect(await attach(s.aPending.ideaId)).toBe(1);
   await expect(attach(s.aPending.ideaId)).rejects.toThrow(/нельзя/);
 });
+
+test('итоговая проверка M7, M3: оригинал опубликованной идеи не меняет никто, кроме миграций; до публикации модератор правит', async () => {
+  const f = await seedTwoOrgs();
+  const s = await seedIdeas(f);
+  const product = await staffWithRole('product');
+  const edit = (actor: Actor, ideaId: string) => run(actor, `update hdi_idea_translations set title = 'Подмена', body = 'Подмена' where idea_id = $1 and status = 'original'`, [ideaId]);
+  await expect(edit(product.actor, s.bOpen.ideaId)).rejects.toThrow(/нельзя/);
+  await expect(run({ type: 'system', job: 'test' }, `update hdi_idea_translations set source_hash = repeat('b', 64) where idea_id = $1 and status = 'original'`, [s.bOpen.ideaId])).rejects.toThrow(/нельзя/);
+  expect(await edit(product.actor, s.bPending.ideaId)).toBe(1);
+  // Переводы опубликованной идеи модератор по-прежнему правит (статус reviewed).
+  await pools.root.query(`insert into hdi_idea_translations (idea_id, locale, title, body, is_machine, status, source_hash) values ($1, 'en', 'Idea', 'Text', true, 'machine', repeat('a', 64))`, [s.bOpen.ideaId]);
+  expect(await run(product.actor, `update hdi_idea_translations set title = 'Idea!', is_machine = false, status = 'reviewed' where idea_id = $1 and locale = 'en'`, [s.bOpen.ideaId])).toBe(1);
+});

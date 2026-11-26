@@ -112,3 +112,20 @@ test('задачу разработки заводит product, статус з�
   await expect(run(await staff('agent_l1'), (c) => c.query(`insert into hdw_dev_tasks (tracker, external_id, url) values ('manual', 'X-1', 'https://tracker.smartup.example/tasks/x')`))).rejects.toThrow(/row-level security/);
   expect((await run(f.aUser.actor, (c) => c.query(`select * from hdw_dev_tasks`))).rows).toEqual([]);
 });
+
+test('итоговая проверка M7, M3: product заводит только открытую задачу без отметки напоминания и без сверки (кроме только что сверенной задачи API)', async () => {
+  const product = await staff('product');
+  const insert = (values: { tracker?: string; status?: string; closedNotified?: boolean; synced?: string | null }) =>
+    run(product, (c) =>
+      c.query(
+        `insert into hdw_dev_tasks (tracker, external_id, url, title, status, closed_notified_on, synced_on)
+         values ($1, $2, 'https://tracker.smartup.example/tasks/9', 'Задача идеи', $3, case when $4 then now() end, $5::timestamptz) returning dev_task_id`,
+        [values.tracker ?? 'manual', `IDEA-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, values.status ?? 'todo', values.closedNotified ?? false, values.synced ?? null],
+      ),
+    );
+  await expect(insert({})).resolves.toBeTruthy();
+  await expect(insert({ status: 'in_progress' })).resolves.toBeTruthy();
+  await expect(insert({ tracker: 'smartup', synced: new Date(Date.now() - 1000).toISOString() })).resolves.toBeTruthy();
+  for (const values of [{ status: 'done' }, { status: 'cancelled' }, { closedNotified: true }, { synced: new Date().toISOString() }, { tracker: 'smartup', synced: '2999-01-01T00:00:00Z' }])
+    await expect(insert(values), JSON.stringify(values)).rejects.toThrow(/row-level security/);
+});

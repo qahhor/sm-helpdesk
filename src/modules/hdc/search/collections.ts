@@ -1,0 +1,127 @@
+import type { SearchCollection } from './types';
+
+// Схемы коллекций Typesense (план W6, решения 1, 7-9; документация 30.2, api/collections, guide/locale, api/stemming).
+// Что попадает в индекс: только поля ниже. У обращения нет имени автора, адресов, ИНН и названия организации; в
+// переписке нет вложений; решения только из hdk_published; идеи только опубликованные; у организаций и людей нет
+// адресов почты и телефонов. Текст лежит в поле своего языка: у поля один locale, стемминг Snowball для ru и en,
+// для uz стемминга нет (поле с locale uz принимается, stem для него Typesense отклоняет, проверено на 30.2), поэтому
+// узбекским полям подключён свой словарь hub_uz_stems. Поля *_fold держат свёрнутый текст (fold.ts) без locale.
+
+export const UZ_STEMS = 'hub_uz_stems';
+export const SYNONYM_SET = 'hub_synonyms';
+export const CURATION_SET = 'hub_solutions_curation';
+
+export type FieldSpec = {
+  name: string;
+  type: 'string' | 'string[]' | 'int64' | 'bool';
+  optional?: boolean;
+  facet?: boolean;
+  locale?: 'ru' | 'en' | 'uz';
+  stem?: boolean;
+  stem_dictionary?: string;
+  infix?: boolean;
+  index?: boolean;
+};
+
+export type CollectionSchema = { fields: FieldSpec[]; synonym_sets?: string[]; curation_sets?: string[] };
+
+/** Поле текста на каждом языке портала: ru и en со стеммингом, uz со словарём. */
+function localized(base: string, opts: { uzDictionary: boolean }): FieldSpec[] {
+  return [
+    { name: `${base}_ru`, type: 'string', optional: true, locale: 'ru', stem: true },
+    { name: `${base}_en`, type: 'string', optional: true, locale: 'en', stem: true },
+    { name: `${base}_uz`, type: 'string', optional: true, locale: 'uz', ...(opts.uzDictionary ? { stem_dictionary: UZ_STEMS } : {}) },
+  ];
+}
+
+const version: FieldSpec = { name: 'version', type: 'int64' };
+
+export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
+  tickets: {
+    fields: [
+      { name: 'org_id', type: 'string' },
+      { name: 'number', type: 'int64' },
+      ...localized('title', { uzDictionary: false }),
+      ...localized('description', { uzDictionary: false }),
+      { name: 'title_fold', type: 'string', optional: true },
+      { name: 'created_on', type: 'int64' },
+      version,
+    ],
+    synonym_sets: [SYNONYM_SET],
+  },
+  // Переписка и внутренние заметки: только ключ сотрудника (решение 0070, пункт 3). Идентификатор документа
+  // <обращение>_<сообщение>: из него берётся обращение, текст из Typesense не нужен.
+  ticket_texts: {
+    fields: [
+      { name: 'ticket_id', type: 'string', facet: true },
+      { name: 'org_id', type: 'string' },
+      { name: 'is_internal', type: 'bool' },
+      ...localized('body', { uzDictionary: false }),
+      version,
+    ],
+    synonym_sets: [SYNONYM_SET],
+  },
+  solutions: {
+    fields: [
+      { name: 'article_id', type: 'string', facet: true },
+      { name: 'locale', type: 'string' },
+      { name: 'audience', type: 'string' },
+      { name: 'module_ids', type: 'string[]', optional: true },
+      ...localized('title', { uzDictionary: true }),
+      ...localized('body', { uzDictionary: true }),
+      { name: 'title_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
+      { name: 'body_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
+      version,
+    ],
+    synonym_sets: [SYNONYM_SET],
+    curation_sets: [CURATION_SET],
+  },
+  ideas: {
+    fields: [
+      { name: 'idea_id', type: 'string', facet: true },
+      { name: 'locale', type: 'string' },
+      { name: 'status', type: 'string' },
+      { name: 'module_id', type: 'string', optional: true },
+      ...localized('title', { uzDictionary: true }),
+      ...localized('body', { uzDictionary: true }),
+      { name: 'title_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
+      { name: 'body_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
+      version,
+    ],
+    synonym_sets: [SYNONYM_SET],
+  },
+  orgs: {
+    fields: [
+      { name: 'name', type: 'string' },
+      { name: 'name_fold', type: 'string', optional: true },
+      // ИНН и код организации на сервере Smartup ищутся частью (infix): замена ILIKE '%...%' для кодов.
+      { name: 'inn', type: 'string', optional: true, infix: true },
+      { name: 'external_company_id', type: 'string', optional: true, infix: true },
+      { name: 'state', type: 'string' },
+      { name: 'kind', type: 'string' },
+      version,
+    ],
+  },
+  people: {
+    fields: [
+      { name: 'name', type: 'string' },
+      { name: 'name_fold', type: 'string', optional: true },
+      { name: 'is_staff', type: 'bool' },
+      { name: 'org_ids', type: 'string[]', optional: true },
+      version,
+    ],
+  },
+};
+
+/** Предел текста в документе, знаков (решение 1): память Typesense считается по индексируемым полям. */
+export const TEXT_LIMITS = { ticketDescription: 1000, ticketText: 2000, solutionBody: 5000, ideaBody: 5000 } as const;
+
+/** Поля текста коллекции на всех языках: для query_by. */
+export function localizedFields(base: string): string[] {
+  return [`${base}_ru`, `${base}_en`, `${base}_uz`];
+}
+
+/** Поле языка текста; язык вне портала идёт в русское поле (больше всего обращений на русском). */
+export function localeField(base: string, locale: string): string {
+  return `${base}_${locale === 'en' || locale === 'uz' ? locale : 'ru'}`;
+}

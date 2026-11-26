@@ -1270,6 +1270,10 @@
           },
           "ops": {
             "backup_marked": "Database backup recorded"
+          },
+          "search": {
+            "keys_created": "Search keys created",
+            "reindexed": "Search index rebuilt"
           }
         },
         "words": {

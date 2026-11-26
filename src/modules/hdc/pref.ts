@@ -168,6 +168,9 @@ export const AUDIT_ACTIONS = [
   'idea.status_changed',
   // Эксплуатация (план подготовки M9, задача 3): команда hub ops:backup-mark отметила удачную резервную копию.
   'ops.backup_marked',
+  // Поиск (план W6, решения 3 и 12): команда hub создала ключи Typesense (без значений) и построила индекс заново.
+  'search.keys_created',
+  'search.reindexed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

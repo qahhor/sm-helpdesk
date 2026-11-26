@@ -54,7 +54,7 @@ export default defineConfig({
           name: 'perf',
           environment: 'node',
           include: ['tests/perf/**/*.test.ts'],
-          globalSetup: ['tests/integration/setup/global-setup.ts'],
+          globalSetup: ['tests/perf/global-setup.ts'],
           setupFiles: ['tests/integration/setup/each.ts'],
           fileParallelism: false,
           testTimeout: 300_000,

@@ -220,3 +220,27 @@ test('событие "нет активности": просмотр молча�
   expect(plans.length).toBeGreaterThan(3);
   for (const plan of plans) expect(plan, plan).not.toMatch(SEQ_SCAN);
 }, 120_000);
+
+// --- Гибридный поиск подсказки и похожих идей (замер подготовки M9, задача 4) ---
+
+test('гибридный поиск соединяет со списками только найденные документы, а не каждый документ индекса', async () => {
+  const { setEmbedderForTests } = await import('@/modules/hdk/embeddings');
+  const { createStubEmbedder, stubVector } = await import('@/modules/hdk/embeddings/stub');
+  const { suggestForClient } = await import('@/modules/hdk/api/suggest');
+  const { seedBulkSolutions } = await import('./helpers/bulk');
+  setEmbedderForTests(createStubEmbedder());
+  try {
+    await seedBulkSolutions(300, stubVector);
+    const ctx = await clientCtx(f.aUser);
+    const { result, queries } = await captureQueries(() => suggestForClient(ctx, { text: 'накладная печатается пустым листом', sessionId: crypto.randomUUID(), locale: 'ru' }));
+    expect(result.items.length).toBeGreaterThan(0);
+    const hybrid = queries.find((q) => /from hdk_search_documents d, q/.test(q.text));
+    expect(hybrid, 'запрос гибридного поиска не найден').toBeTruthy();
+    const plan = await planOf(f.aUser.actor, hybrid!);
+    // Выдача строится от объединения трёх списков (до 60 строк); вектор читается только смысловым списком.
+    expect(plan, plan).toMatch(/Append\s*\n\s*->\s*CTE Scan on fts/);
+    expect(hybrid!.text).not.toMatch(/d\.embedding,/);
+  } finally {
+    setEmbedderForTests(null);
+  }
+});

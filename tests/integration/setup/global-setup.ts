@@ -10,11 +10,11 @@ export default async function setup() {
   const secret = () => randomBytes(18).toString('hex');
   const superuserPassword = secret();
 
-  const container = await new PostgreSqlContainer(image)
-    .withUsername('postgres')
-    .withPassword(superuserPassword)
-    .withDatabase('postgres')
-    .start();
+  // Настройки сервера строкой "имя=значение имя=значение" (PG_SETTINGS): замер проекта perf идёт с памятью как в
+  // compose.prod.yaml, а не с настройками образа по умолчанию (shared_buffers 128 МБ).
+  const settings = (process.env.PG_SETTINGS ?? '').split(/\s+/).filter(Boolean).flatMap((setting) => ['-c', setting]);
+  const definition = new PostgreSqlContainer(image).withUsername('postgres').withPassword(superuserPassword).withDatabase('postgres');
+  const container = await (settings.length > 0 ? definition.withCommand(['postgres', ...settings]) : definition).start();
 
   const address = `${container.getHost()}:${container.getMappedPort(5432)}`;
   const url = (user: string, password: string, database: string) =>

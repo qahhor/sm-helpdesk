@@ -56,8 +56,10 @@ function hybridCte(query: SearchQuery, kind: SearchKind) {
         plainto_tsquery('pg_catalog.english', ${query.text}) as en_all,
         plainto_tsquery('pg_catalog.simple', app.hdk_search_text('uz', ${query.text})) as uz_all
     ),
+    -- Векторы в docs не берутся: docs читается четырежды и копируется во временный файл, а вектор нужен только
+    -- смысловому списку, он читает те же строки индекса с теми же условиями сам (замер подготовки M9, задача 4).
     docs as (
-      select d.search_document_id as id, d.ref_id, d.locale, d.module_id, d.audience, d.published_id, d.title, d.tsv, d.embedding,
+      select d.search_document_id as id, d.ref_id, d.locale, d.module_id, d.audience, d.published_id, d.title, d.tsv,
              case d.locale when 'ru' then q.ru_any when 'en' then q.en_any else q.uz_any end as any_words,
              case d.locale when 'ru' then q.ru_all when 'en' then q.en_all else q.uz_all end as all_words
         from hdk_search_documents d, q
@@ -82,11 +84,15 @@ function hybridCte(query: SearchQuery, kind: SearchKind) {
     ),
     vec as (
       select id, row_number() over (order by dist, id) as r, dist
-        from (select id, embedding <=> ${vector}::vector as dist from docs where ${vector}::text is not null and embedding is not null) s
+        from (select v.search_document_id as id, v.embedding <=> ${vector}::vector as dist
+                from hdk_search_documents v
+               where v.kind = ${kind} and v.audience = any(${sql.param(query.audiences)}::text[]) and v.locale = any(${sql.param(query.locales)}::text[])
+                 and ${vector}::text is not null and v.embedding is not null) s
        where dist < ${SEMANTIC_MAX_DISTANCE}
        order by r
        limit ${SEARCH_LIST_LIMIT}
-    )`;
+    ),
+    hits as (select id from fts union select id from trg union select id from vec)`;
 }
 
 /** Очки и признаки уверенности документа по трём спискам (RRF). */
@@ -96,11 +102,15 @@ const scoreColumns = sql`
            coalesce(fts.every_word, false) as all_words,
            vec.dist::float8 as distance`;
 
+/**
+ * Строки выдачи: только документы хотя бы одного из трёх списков (hits, до 60 строк), а не все документы с проверкой
+ * "есть ли в списке". Иначе планировщик соединяет каждый документ вида с каждым списком вложенным циклом: на 3000
+ * строк индекса это 40 из 110 мс запроса (замер подготовки M9, задача 4).
+ */
 const scoreJoins = sql`
       left join fts on fts.id = d.id
       left join trg on trg.id = d.id
-      left join vec on vec.id = d.id
-     where fts.id is not null or trg.id is not null or vec.id is not null`;
+      left join vec on vec.id = d.id`;
 
 export async function hybridSearchTx(tx: Tx, query: SearchQuery): Promise<SearchHit[]> {
   const result = await tx.execute<{
@@ -117,7 +127,8 @@ export async function hybridSearchTx(tx: Tx, query: SearchQuery): Promise<Search
     distance: number | null;
   }>(sql`${hybridCte(query, 'article')}
     select d.ref_id as article_id, d.locale, d.module_id, d.audience, p.article_number, p.slug, p.title, ${scoreColumns}
-      from docs d
+      from hits h
+      join docs d on d.id = h.id
       join hdk_published p on p.published_id = d.published_id
       ${scoreJoins}`);
   return result.rows.map((row) => ({
@@ -145,7 +156,8 @@ export async function hybridIdeaSearchTx(tx: Tx, query: Omit<SearchQuery, 'audie
     'idea',
   )}
     select d.ref_id, d.locale, ${scoreColumns}
-      from docs d
+      from hits h
+      join docs d on d.id = h.id
       ${scoreJoins}`);
   return result.rows.map((row) => ({
     ideaId: row.ref_id,

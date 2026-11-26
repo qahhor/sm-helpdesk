@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "modules": [
+    {
+      "code": "trade",
+      "parentCode": null,
+      "name": { "ru": "Торговля", "uz": "Savdo", "en": "Trade" },
+      "screens": [{ "code": "trade.order", "name": { "ru": "Заказ", "uz": "Buyurtma", "en": "Order" } }]
+    },
+    {
+      "code": "warehouse",
+      "parentCode": null,
+      "name": { "ru": "Склад", "uz": "Ombor", "en": "Warehouse" },
+      "screens": []
+    }
+  ],
+  "holidays": [
+    { "year": 2027, "dates": ["2027-01-01", "2027-03-08", "2027-03-21", "2027-05-09", "2027-09-01", "2027-10-01", "2027-12-08"] }
+  ],
+  "templates": [
+    {
+      "shortcut": "version",
+      "title": "Запросить версию и снимок экрана",
+      "body": {
+        "ru": "Здравствуйте! Пришлите, пожалуйста, версию Smartup и снимок экрана с ошибкой.",
+        "uz": "Assalomu alaykum! Iltimos, Smartup versiyasini va xato ko'ringan ekran rasmini yuboring.",
+        "en": "Hello! Please send the Smartup version and a screenshot of the error."
+      },
+      "module": null,
+      "enabled": true
+    },
+    {
+      "shortcut": "rights",
+      "title": "Проверить права пользователя",
+      "body": {
+        "ru": "Проверьте, пожалуйста, права пользователя в разделе «Администрирование». Если права есть, напишите, и мы посмотрим дальше.",
+        "uz": "Iltimos, foydalanuvchi huquqlarini «Ma'muriyat» bo'limida tekshiring. Huquqlar bo'lsa, yozing, davom etamiz.",
+        "en": "Please check the user's rights in the Administration section. If the rights are there, write to us and we will look further."
+      },
+      "module": null,
+      "enabled": true
+    },
+    {
+      "shortcut": "stock",
+      "title": "Остатки склада",
+      "body": {
+        "ru": "Остатки пересчитываются после проведения документа. Проверьте, проведён ли документ, и обновите страницу.",
+        "uz": "Qoldiqlar hujjat o'tkazilgandan keyin qayta hisoblanadi. Hujjat o'tkazilganini tekshiring va sahifani yangilang.",
+        "en": "Stock is recalculated after the document is posted. Check that the document is posted and refresh the page."
+      },
+      "module": "warehouse",
+      "enabled": true
+    }
+  ],
+  "playbooks": [
+    {
+      "module": "warehouse",
+      "type": "bug",
+      "body": "Версия Smartup и снимок экрана\nНомер документа и склад\nПроведён ли документ\nПовторяется ли у другого пользователя"
+    }
+  ],
+  "tags": [{ "name": "Пилот", "color": "teal" }],
+  "settings": { "ideasVoteMode": "per_user" },
+  "solutions": [
+    {
+      "locale": "ru",
+      "title": "Остатки на складе не обновились после документа",
+      "audience": "clients",
+      "module": "warehouse",
+      "doc": {
+        "version": 1,
+        "blocks": [
+          { "type": "paragraph", "attrs": { "id": "seedex-p1" }, "content": [{ "type": "text", "text": "Остатки пересчитываются после проведения документа." }] },
+          { "type": "paragraph", "attrs": { "id": "seedex-p2" }, "content": [{ "type": "text", "text": "Откройте документ, нажмите «Провести» и обновите страницу остатков." }] }
+        ]
+      }
+    }
+  ]
+}

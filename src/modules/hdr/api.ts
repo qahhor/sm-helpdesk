@@ -4,11 +4,11 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type Actor, withActor } from '@/db/with-actor';
 import { findPlaybookTx, listPlaybooksTx, type Playbook, PLAYBOOK_KEEPERS, savePlaybookTx } from './core/playbooks';
-import { deleteTagTx, listTagsTx, type Tag, updateTagTx } from './core/tags';
+import { createTagTx, deleteTagTx, listTagsTx, type Tag, updateTagTx } from './core/tags';
 import { listAllTemplatesTx, listTemplatesTx, type ReplyTemplate, saveTemplateTx } from './core/templates';
 import { loadSlaConfigTx, saveCalendarTx, saveHolidaysTx, saveSlaPolicyTx, type SlaConfig } from './core/sla-config';
 import { HdrError } from './error';
-import { calendarInput, holidaysInput, playbookInput, slaPolicyInput, tagDeleteInput, tagNameInput, tagUpdateInput, templateInput, templateQueryInput } from './input';
+import { calendarInput, holidaysInput, playbookInput, slaPolicyInput, tagCreateInput, tagDeleteInput, tagNameInput, tagUpdateInput, templateInput, templateQueryInput } from './input';
 import { productModules } from './schema';
 
 // Модуль hdr (справочники), слой api: то, что могут вызывать страницы и другие модули.
@@ -38,6 +38,22 @@ export async function listActiveModules(actor: Actor, locale: string): Promise<M
       .orderBy(asc(productModules.code)),
   );
   return rows.map((row) => ({ moduleId: row.moduleId, code: row.code, name: row.name[locale] ?? row.name.ru }));
+}
+
+export type ModuleCatalogRow = { moduleId: string; code: string; parentCode: string | null; name: Record<string, string>; screens: { code: string; name: Record<string, string> }[]; state: 'active' | 'passive' };
+
+/** Весь справочник модулей, со скрытыми: команда начальных данных сверяет с ним файл (hub seed:pilot). */
+export async function moduleCatalog(actor: Actor): Promise<ModuleCatalogRow[]> {
+  const rows = await withActor(actor, (tx) => tx.select().from(productModules).orderBy(asc(productModules.code)));
+  const codeOf = new Map(rows.map((row) => [row.moduleId, row.code]));
+  return rows.map((row) => ({
+    moduleId: row.moduleId,
+    code: row.code,
+    parentCode: row.parentId ? (codeOf.get(row.parentId) ?? null) : null,
+    name: row.name as Record<string, string>,
+    screens: row.screens as ModuleCatalogRow['screens'],
+    state: row.state,
+  }));
 }
 
 /** Коды модулей по идентификаторам в транзакции вызывающего: тело исходящего вебхука несёт код, а не название. */
@@ -164,6 +180,12 @@ export function parseTagName(input: unknown): string {
 /** Справочник тегов: читают все сотрудники (подсказки при постановке, фильтр очереди). */
 export function listTags(ctx: StaffContext): Promise<Tag[]> {
   return listTagsTx(ctx.actor);
+}
+
+/** Новый тег с цветом (hub seed:pilot): администратор со свежим входом. Тег с тем же названием уже есть: tag_taken. */
+export async function createTag(ctx: StaffContext, input: unknown): Promise<Tag> {
+  requireFreshAdmin(ctx);
+  return createTagTx(ctx.actor, parse(tagCreateInput, input));
 }
 
 /** Переименовать и перекрасить тег: администратор со свежим входом. */

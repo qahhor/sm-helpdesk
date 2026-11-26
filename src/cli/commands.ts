@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { SystemActor } from '@/db/with-actor';
 import { addServer, checkServer, disableServer, getServer, listServers, resealServerSecrets, type ServerIssue, updateWidgetSettings } from '@/modules/hdu/api/servers';
-import { adminActorByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
+import { adminActorByEmail, adminContextByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
+import { runSeedPilot } from './seed-pilot';
 import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
@@ -73,6 +74,14 @@ const HELP = `Использование: hub <команда> [ключи]
       с этим адресом, журнал аудита называет его. Модули добавляются и обновляются по коду, отсутствующие
       в файле скрываются. При ошибке справочник не меняется, команда называет запись и строку файла.
 
+  seed:pilot --file <путь> --admin <адрес> [--dry-run]
+      Начальные данные пилота одним файлом JSON (план подготовки M9, задача 6; пример docs/pilot/seed.example.json):
+      справочник модулей, праздники, сроки SLA и календарь, шаблоны ответов, памятки первой линии, теги, подсчёт
+      голосов за идеи, приглашения сотрудников письмом, черновики решений. Запись идёт от имени действующего
+      администратора с этим адресом и только там, где база отличается от файла: повторный запуск ничего не меняет.
+      Данных клиентов файл не принимает, решения не публикуются. --dry-run: показать изменения, ничего не записывая.
+      При ошибке в файле ничего не меняется, команда называет раздел и запись.
+
   signatures:test [--dir <каталог>]
       Проверить правила сигнатур ошибок (ТЗ 11.5) на корпусе текстов: файлы *.txt каталога, записи через пустую
       строку, строки с # пропускаются, метка ожидаемой группы в начале записи: [метка]. По умолчанию каталог
@@ -137,6 +146,7 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
   'signatures:test': { options: { dir: { type: 'string' } }, required: [] },
+  'seed:pilot': { options: { file: { type: 'string' }, admin: { type: 'string' }, 'dry-run': { type: 'boolean' } }, required: ['file', 'admin'] },
 };
 
 /** Каталог корпуса сигнатур по умолчанию (план M5, задача 8). */
@@ -397,6 +407,28 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
           return 1;
         }
         io.out(`Справочник модулей загружен: добавлено ${result.added}, обновлено ${result.updated}, скрыто ${result.passive}.`);
+        return 0;
+      }
+      case 'seed:pilot': {
+        const admin = await adminContextByEmail(ACTOR, text('admin'));
+        let content: string;
+        try {
+          content = await readFile(text('file'), 'utf8');
+        } catch {
+          io.err(`Файл не прочитан: ${text('file')}`);
+          return 1;
+        }
+        const dryRun = values['dry-run'] === true;
+        const result = await runSeedPilot(admin, content, { dryRun });
+        if (!result.ok) {
+          io.err('Начальные данные не загружены, ничего не изменено. Ошибки в файле:');
+          for (const problem of result.problems) io.err(`  ${problem}`);
+          return 1;
+        }
+        if (dryRun) io.out('Сухой прогон: ничего не записано. Так изменилась бы база:');
+        for (const line of result.report.lines) io.out(line);
+        for (const warning of result.report.warnings) io.out(`Внимание: ${warning}`);
+        if (result.report.changes === 0) io.out('Изменений нет: база уже совпадает с файлом.');
         return 0;
       }
       case 'signatures:test':

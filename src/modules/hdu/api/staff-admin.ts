@@ -1,6 +1,7 @@
 import 'server-only';
 import * as z from 'zod';
 import type { StaffActor, SystemActor } from '@/db/with-actor';
+import type { StaffContext } from '@/modules/hdc/api';
 import { createStaffInvitation, findStaffByEmail } from '../core/staff';
 import { HduError } from '../error';
 import { emailInput, nameInput, parseInput, staffRoleInput } from '../input';
@@ -67,4 +68,15 @@ export async function adminActorByEmail(actor: SystemActor, email: unknown): Pro
   const found = await findStaffByEmail(address);
   if (!found || found.state !== 'active' || found.role !== 'admin') throw new HduError('not_found');
   return { type: 'staff', userId: found.userId, staffRole: 'admin' };
+}
+
+/**
+ * Контекст действующего администратора для команды консоли, которая вызывает функции экранов настроек (hub seed:pilot,
+ * план подготовки M9, задача 6). Человек у консоли сервера входит в неё сам, поэтому вход считается свежим: время входа
+ * сейчас. Журнал аудита называет администратора с этим адресом.
+ */
+export async function adminContextByEmail(actor: SystemActor, email: unknown): Promise<StaffContext> {
+  const admin = await adminActorByEmail(actor, email);
+  const found = await findStaffByEmail(parseInput(resetInput, { email }).email);
+  return { actor: admin, user: { id: admin.userId, name: found?.name ?? '', email: parseInput(resetInput, { email }).email }, isLead: false, sessionCreatedAt: new Date() };
 }

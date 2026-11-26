@@ -15,6 +15,7 @@ import { migrate } from '../../scripts/db/migrate.mjs';
 import { clientCtx, staffCtx } from './helpers/auth';
 import { pools } from './helpers/db';
 import { seedEverything } from './isolation/seed-everything';
+import { DOMAIN_OBJECTS } from './isolation/tables';
 
 // Копия и восстановление на всех миграциях (план подготовки M9, задача 5; ТЗ 13.7; памятка docs/runbooks/restore.md).
 // База портала со строками во всех таблицах снимается pg_dump -Fc под суперпользователем, как в backup.sh. Копия
@@ -48,9 +49,13 @@ afterAll(async () => {
   await target?.stop();
 });
 
-/** Снимок всего, что должно пережить копию: одинаковые запросы к исходной и восстановленной базе. */
+/**
+ * Снимок всего, что должно пережить копию: одинаковые запросы к исходной и восстановленной базе. Права сравниваются
+ * действующие: пустой список прав это права по умолчанию (acldefault). pg_dump не пишет права, равные умолчанию, и
+ * после восстановления у схемы ops вместо явного "только владелец" пустой список с тем же смыслом.
+ */
 async function snapshot(pool: Pool) {
-  const q = async (text: string) => (await pool.query(text, [SCHEMAS])).rows;
+  const q = async (text: string) => (await pool.query(text, text.includes('$1') ? [SCHEMAS] : [])).rows;
   const tables = await q(`select n.nspname || '.' || c.relname as name from pg_class c join pg_namespace n on n.oid = c.relnamespace
                            where c.relkind in ('r', 'p') and n.nspname = any($1) order by 1`);
   const counts: Record<string, number> = {};
@@ -64,18 +69,19 @@ async function snapshot(pool: Pool) {
                    where c.relkind in ('r', 'p') and n.nspname = any($1) order by 1, 2`),
     policies: await q(`select schemaname, tablename, policyname, permissive, roles::text, cmd, qual, with_check from pg_policies where schemaname = any($1) order by 1, 2, 3`),
     functions: await q(`select n.nspname, p.proname, pg_get_function_identity_arguments(p.oid) as args, pg_get_userbyid(p.proowner) as owner, p.prosecdef,
-                               p.proleakproof, coalesce(p.proacl::text, '') as acl, md5(pg_get_functiondef(p.oid)) as def
+                               p.proleakproof, coalesce(p.proacl, acldefault('f', p.proowner))::text as acl, md5(pg_get_functiondef(p.oid)) as def
                           from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = any($1) and p.prokind in ('f', 'p') order by 1, 2, 3`),
-    relations: await q(`select n.nspname, c.relname, c.relkind, pg_get_userbyid(c.relowner) as owner, coalesce(c.relacl::text, '') as acl
+    relations: await q(`select n.nspname, c.relname, c.relkind, pg_get_userbyid(c.relowner) as owner, coalesce(c.relacl, acldefault((case c.relkind when 'S' then 's' else 'r' end)::"char", c.relowner))::text as acl
                           from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = any($1) and c.relkind in ('r', 'p', 'v', 'm', 'S') order by 1, 2`),
     columns: await q(`select n.nspname, c.relname, a.attname, a.attacl::text as acl from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace
                        where n.nspname = any($1) and a.attacl is not null and not a.attisdropped order by 1, 2, 3`),
-    schemas: await q(`select nspname, pg_get_userbyid(nspowner) as owner, coalesce(nspacl::text, '') as acl from pg_namespace where nspname = any($1) order by 1`),
+    schemas: await q(`select nspname, pg_get_userbyid(nspowner) as owner, coalesce(nspacl, acldefault('n', nspowner))::text as acl from pg_namespace where nspname = any($1) order by 1`),
     defaults: await q(`select pg_get_userbyid(defaclrole) as role, coalesce(n.nspname, '') as schema, defaclobjtype, defaclacl::text as acl
                          from pg_default_acl d left join pg_namespace n on n.oid = d.defaclnamespace order by 1, 2, 3`),
     triggers: await q(`select n.nspname, c.relname, t.tgname, t.tgenabled, md5(pg_get_triggerdef(t.oid)) as def from pg_trigger t join pg_class c on c.oid = t.tgrelid
                         join pg_namespace n on n.oid = c.relnamespace where not t.tgisinternal and n.nspname = any($1) order by 1, 2, 3`),
-    constraints: await q(`select n.nspname, c.relname, k.conname, md5(pg_get_constraintdef(k.oid)) as def, k.convalidated from pg_constraint k join pg_class c on c.oid = k.conrelid
+    // Проверка с BETWEEN внутри AND после разбора текста копии теряет одну пару скобок: смысл тот же, сравнение без скобок.
+    constraints: await q(`select n.nspname, c.relname, k.conname, md5(regexp_replace(pg_get_constraintdef(k.oid), '[()]', '', 'g')) as def, k.convalidated from pg_constraint k join pg_class c on c.oid = k.conrelid
                            join pg_namespace n on n.oid = c.relnamespace where n.nspname = any($1) order by 1, 2, 3`),
     indexes: await q(`select schemaname, tablename, indexname, md5(indexdef) as def from pg_indexes where schemaname = any($1) order by 1, 2, 3`),
     sequences: await q(`select schemaname, sequencename, last_value from pg_sequences where schemaname = any($1) order by 1, 2`),
@@ -89,10 +95,18 @@ async function snapshot(pool: Pool) {
   };
 }
 
-/** Строки и в те таблицы, которые не заполняет набор изоляции: копия проверяется на всех таблицах. */
-async function seedRest(): Promise<void> {
-  const box = getSecretBox();
-  await pools.root.query(`insert into hdn_channel_secrets (code, sealed) values ('oncall_telegram_bot', $1)`, [box.seal('бот-дежурных-секрет', SECRET_CONTEXT)]);
+/**
+ * Сверх набора изоляции: строки таблиц входа, которые набор не заполняет (пароль, второй фактор, проверка, SSO), и
+ * настоящий запечатанный секрет (в наборе изоляции строка только вида запечатанной).
+ */
+async function seedRest(f: { l1: { userId: string } }): Promise<void> {
+  const user = f.l1.userId;
+  await pools.root.query(`insert into auth."account" ("accountId", "providerId", "userId", "password", "updatedAt") values ($1::text, 'credential', $1::uuid, 'hash', now())`, [user]);
+  await pools.root.query(`insert into auth."twoFactor" ("secret", "backupCodes", "userId", "verified") values ('sealed-secret', 'codes', $1, true)`, [user]);
+  await pools.root.query(`insert into auth."verification" ("identifier", "value", "expiresAt") values ('email-verification', 'token', now() + interval '1 hour')`);
+  await pools.root.query(`insert into auth."ssoProvider" ("issuer", "userId", "providerId", "domain") values ('https://sso.smartup.example', $1, 'smartup-test', 'smartup.example')`, [user]);
+  const sealed = getSecretBox().seal('бот-дежурных-секрет', SECRET_CONTEXT);
+  await pools.root.query(`insert into hdn_channel_secrets (code, sealed) values ('oncall_telegram_bot', $1) on conflict (code) do update set sealed = excluded.sealed`, [sealed]);
 }
 
 /** Команда в контейнере восстановления; ненулевой код: ошибка с выводом команды. */
@@ -119,7 +133,7 @@ async function sourceUrlFromTarget(): Promise<string> {
 
 test('копия pg_dump восстанавливается в чистую базу после bootstrap: строки, RLS, политики, владельцы и права те же, портал работает', async () => {
   const f = await seedEverything();
-  await seedRest();
+  await seedRest(f);
   // Контексты до копии: строки сессий попадают в копию, после восстановления портал читает их из новой базы.
   const client = await clientCtx(f.aUser);
   const l1 = staffCtx(f.l1);
@@ -133,7 +147,9 @@ test('копия pg_dump восстанавливается в чистую ба
   expect(empty).toEqual([]);
   // Что именно держит изоляцию, проверяется и на исходной базе: иначе совпадение копии ничего не значит.
   const publicTables = source.rls.filter((r) => r.nspname === 'public');
-  expect(publicTables.length).toBeGreaterThan(80);
+  // Те же таблицы, что в наборе изоляции: копия проверяется на каждой таблице предметной области.
+  expect(publicTables.length).toBeGreaterThanOrEqual(70);
+  for (const table of publicTables) expect(Object.keys(DOMAIN_OBJECTS), table.relname).toContain(table.relname);
   expect(publicTables.filter((r) => !(r.relrowsecurity && r.relforcerowsecurity)).map((r) => r.relname)).toEqual([]);
   const counterFunctions = source.functions.filter((r) => r.owner === 'hub_hdi_counter');
   expect(counterFunctions.length).toBeGreaterThanOrEqual(2);

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { clientIpHeaderOf, EnvError, parseAiEnv, parseEnv } from '@/env';
+import { clientIpHeaderOf, EnvError, parseAiEnv, parseEnv, parseSearchWriteEnv } from '@/env';
 import { missingInEnvExample } from '../../scripts/checks/env-example.mjs';
 
 const ok = {
@@ -269,6 +269,36 @@ test('векторы подсказки: по умолчанию заглушк�
   // Текст запроса клиента не уходит за пределы сервера: внешний адрес, адрес с учётной записью или путём отклоняются.
   for (const url of ['https://api.example.com', 'http://tei.example.com', 'http://8.8.8.8', 'http://user:pw@tei:80', 'http://tei:80/embed?x=1', 'ftp://tei'])
     expect(problems({ ...ok, EMBEDDINGS: 'tei', EMBEDDINGS_URL: url }).map((p) => p.name), url).toEqual(['EMBEDDINGS_URL']);
+});
+
+test('поиск (план W6, решение 15): по умолчанию PostgreSQL; typesense требует внутренний адрес и два разных ключа поиска', () => {
+  expect(parseEnv(ok)).toMatchObject({ SEARCH_PROVIDER: 'postgres' });
+  expect(parseEnv(ok).TYPESENSE_URL).toBeUndefined();
+  const keys = { TYPESENSE_SEARCH_KEY: 'client-search-key-000000000001', TYPESENSE_STAFF_SEARCH_KEY: 'staff-search-key-0000000000002' };
+  expect(parseEnv({ ...ok, SEARCH_PROVIDER: 'typesense', TYPESENSE_URL: 'http://typesense:8108', ...keys })).toMatchObject({ SEARCH_PROVIDER: 'typesense', TYPESENSE_URL: 'http://typesense:8108' });
+  expect(problems({ ...ok, SEARCH_PROVIDER: 'typesense' }).map((p) => p.name)).toEqual(['TYPESENSE_URL', 'TYPESENSE_SEARCH_KEY', 'TYPESENSE_STAFF_SEARCH_KEY']);
+  expect(problems({ ...ok, SEARCH_PROVIDER: 'typesense', TYPESENSE_URL: 'http://typesense:8108', ...keys, TYPESENSE_STAFF_SEARCH_KEY: keys.TYPESENSE_SEARCH_KEY }).map((p) => p.name)).toEqual(['TYPESENSE_STAFF_SEARCH_KEY']);
+  // Текст запроса клиента не уходит за пределы сервера: внешний адрес, учётная запись или путь отклоняются.
+  for (const url of ['https://search.example.com', 'http://8.8.8.8:8108', 'http://u:p@typesense:8108', 'http://typesense:8108/x'])
+    expect(problems({ ...ok, SEARCH_PROVIDER: 'typesense', TYPESENSE_URL: url, ...keys }).map((p) => p.name), url).toEqual(['TYPESENSE_URL']);
+  expect(problems({ ...ok, SEARCH_PROVIDER: 'elastic' }).map((p) => p.name)).toEqual(['SEARCH_PROVIDER']);
+  // Заглушка держит индекс в памяти одного процесса: только машина разработчика.
+  expect(problems({ ...ok, SEARCH_PROVIDER: 'stub' }).map((p) => p.name)).toEqual(['SEARCH_PROVIDER']);
+  expect(parseEnv({ ...ok, SEARCH_PROVIDER: 'stub', HUB_URL: 'http://localhost:3000', HUB_DOMAIN: 'localhost' }).SEARCH_PROVIDER).toBe('stub');
+  // Ключа записи схема портала не содержит.
+  expect('TYPESENSE_WRITE_KEY' in parseEnv({ ...ok, TYPESENSE_WRITE_KEY: 'write-key-00000000000000000003' })).toBe(false);
+});
+
+test('ключ записи индекса разбирает только схема фонового процесса', () => {
+  expect(parseSearchWriteEnv({})).toEqual({ mode: 'postgres' });
+  expect(parseSearchWriteEnv({ SEARCH_PROVIDER: 'stub' })).toEqual({ mode: 'stub' });
+  expect(parseSearchWriteEnv({ SEARCH_PROVIDER: 'typesense', TYPESENSE_URL: 'http://typesense:8108', TYPESENSE_WRITE_KEY: 'write-key-00000000000000000003' })).toEqual({
+    mode: 'typesense',
+    url: 'http://typesense:8108',
+    key: 'write-key-00000000000000000003',
+  });
+  expect(() => parseSearchWriteEnv({ SEARCH_PROVIDER: 'typesense', TYPESENSE_URL: 'http://typesense:8108' })).toThrowError(/TYPESENSE_WRITE_KEY/);
+  expect(() => parseSearchWriteEnv({ SEARCH_PROVIDER: 'typesense', TYPESENSE_URL: 'https://ts.example.com', TYPESENSE_WRITE_KEY: 'write-key-00000000000000000003' })).toThrowError(/TYPESENSE_URL/);
 });
 
 test('проверка "не робот": на настоящем адресе в production ключи Turnstile обязательны, локально нет', () => {

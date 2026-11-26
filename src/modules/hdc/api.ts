@@ -71,3 +71,38 @@ export { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './staff-session';
 export function isDatabaseReady(opts: ReadyOptions = {}): Promise<boolean> {
   return pingDatabases(opts);
 }
+// Поиск на Typesense (план W6; ТЗ 11.11 SearchReader и SearchIndexWriter): ключ с областью из актора, откат на
+// PostgreSQL, свёртка написаний. Другие модули берут поиск только отсюда.
+export {
+  aliasOf,
+  COLLECTION_SCHEMAS,
+  type CurationItem,
+  filterValues,
+  foldText,
+  getSearchReader,
+  getSearchWriter,
+  HIDDEN_IDEA_STATUSES,
+  localeField,
+  localizedFields,
+  noteIsolationDrop,
+  processStub,
+  SEARCH_COLLECTIONS,
+  type SearchCollection,
+  searchAs,
+  searchCounters,
+  type SearchDocument,
+  type SearchFallback,
+  type SearchHitId,
+  type SearchIds,
+  type SearchIndexWriter,
+  type SearchPurpose,
+  type SearchReader,
+  type SearchSpec,
+  SearchWriteError,
+  setSearchForTests,
+  setSearchKeysForTests,
+  type StemPair,
+  type StubSearch,
+  type SynonymItem,
+  TEXT_LIMITS,
+} from './search';

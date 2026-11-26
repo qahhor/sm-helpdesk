@@ -9,17 +9,36 @@ import { asActor, pools } from './db';
 
 export type Bulk = { orgId: string; userId: string; orgs: number; tickets: number };
 
+/**
+ * Настройки набора (план M9-prep, задача 4). serverId: организации набора заводятся строками hdu_organizations этого
+ * сервера (для списка и поиска организаций), иначе это только идентификаторы в обращениях. finished: закрытые и
+ * решённые обращения получают время завершения через два часа после создания и часть оценок, как у страницы показателей.
+ */
+export type BulkOptions = { serverId?: string; finished?: boolean };
+
 /** Заливает обращения: 95% закрытых, 4% открытых в разных статусах, 1% решённых; часть отложена. */
-export async function seedBulkTickets(count: number, orgs: number, staffId: string): Promise<Bulk> {
+export async function seedBulkTickets(count: number, orgs: number, staffId: string, options: BulkOptions = {}): Promise<Bulk> {
   const client = await pools.root.connect();
   try {
     await client.query(`set session_replication_role = replica`);
     await client.query(`drop table if exists bulk_orgs`);
-    await client.query(`create temp table bulk_orgs as select uuidv7() as org_id, g as n from generate_series(1, $1::int) g`, [orgs]);
+    if (options.serverId) {
+      await client.query(
+        `insert into hdu_organizations (server_id, external_company_id, name, inn)
+         select $2::uuid, 'bulk-' || g, 'Нагрузочная организация ' || g, lpad((300000000 + g)::text, 9, '0') from generate_series(1, $1::int) g`,
+        [orgs, options.serverId],
+      );
+      await client.query(
+        `create temp table bulk_orgs as select org_id, substr(external_company_id, 6)::int as n from hdu_organizations where server_id = $1 and external_company_id like 'bulk-%'`,
+        [options.serverId],
+      );
+    } else {
+      await client.query(`create temp table bulk_orgs as select uuidv7() as org_id, g as n from generate_series(1, $1::int) g`, [orgs]);
+    }
     await client.query(
       `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source, status, queue,
                                 assignee_id, snoozed_until, resolved_on, first_response_due_on, resolution_due_on, first_responded_on,
-                                client_waiting_since, created_on, modified_on)
+                                client_waiting_since, created_on, modified_on, closed_on, csat_score, first_response_breached_on)
        select o.org_id, md5('bulk-user-' || o.n || '-' || (g % 5))::uuid, 'question', 'minor', 'p3',
               case when g % 10 = 0 then 'private' else 'org' end,
               'Нагрузочное обращение ' || g, repeat('Текст нагрузочного обращения. ', 8) || g, 'ru', 'portal',
@@ -28,17 +47,23 @@ export async function seedBulkTickets(count: number, orgs: number, staffId: stri
               case when g % 200 = 1 then 'l2' else 'l1' end,
               case when g % 100 = 1 and g % 1000 = 1 then $3::uuid end,
               case when g % 2000 = 0 then now() + interval '1 day' end,
-              case when g % 100 = 3 then now() - ((g % 30) || ' days')::interval end,
+              case when g % 100 = 3 and $4::boolean then now() - (g || ' minutes')::interval + interval '2 hours'
+                   when g % 100 = 3 then now() - ((g % 30) || ' days')::interval end,
               now() + ((g % 500) || ' minutes')::interval, now() + ((g % 5000) || ' minutes')::interval,
               case when g % 100 <> 0 then now() - interval '1 hour' end,
               case when g % 100 in (0, 1) then now() - ((g % 300) || ' minutes')::interval end,
-              now() - (g || ' minutes')::interval, now() - ((g * 7 % 400000) || ' minutes')::interval
+              now() - (g || ' minutes')::interval, now() - ((g * 7 % 400000) || ' minutes')::interval,
+              -- Завершение через два часа после создания и часть оценок (options.finished): обращения созданы раз в минуту.
+              case when $4::boolean and g % 100 >= 5 then now() - (g || ' minutes')::interval + interval '2 hours' end,
+              case when $4::boolean and g % 100 >= 3 and g % 100 <> 4 and g % 9 = 0 then 1 + g % 5 end,
+              case when $4::boolean and g % 7 = 0 then now() - (g || ' minutes')::interval + interval '1 hour' end
          from generate_series(1, $1::int) g join bulk_orgs o on o.n = 1 + (g * 37 % $2::int)`,
-      [count, orgs, staffId],
+      [count, orgs, staffId, options.finished === true],
     );
     const picked = (await client.query<{ org_id: string; user_id: string }>(`select org_id, md5('bulk-user-' || n || '-1')::uuid as user_id from bulk_orgs where n = 7`)).rows[0];
     await client.query(`set session_replication_role = origin`);
     await client.query(`analyze hdt_tickets`);
+    if (options.serverId) await client.query(`analyze hdu_organizations`);
     if (!picked) throw new Error('нагрузочный набор: организация не создана');
     return { orgId: picked.org_id, userId: picked.user_id, orgs, tickets: count };
   } finally {
@@ -225,6 +250,120 @@ export async function seedBulkSolutions(count: number, vectorOf: (text: string) 
     await client.query(`set session_replication_role = origin`);
     await client.query(`analyze hdk_search_documents`);
     await client.query(`analyze hdk_published`);
+  } finally {
+    await client.query(`set session_replication_role = origin`).catch(() => undefined);
+    client.release();
+  }
+}
+
+/**
+ * Заливает идеи (план M9-prep, задача 4, решение 8): по 5% на модерации, отклонённых и объединённых, 55% открытых,
+ * 10% в коротком списке, 5% выбранных, 5% в разработке, 10% выпущенных. У каждой оригинал на русском, у трёх из
+ * четырёх машинные переводы на узбекский и английский. Видимые клиентам идеи попадают в общий поисковый индекс
+ * с векторами заглушки (похожие идеи). Без триггеров, поэтому счётчики голосов считает seedBulkVotes, а tsv
+ * считается здесь тем же выражением, что у триггера миграции 0074. Идентификатор идеи: md5 от номера в наборе.
+ */
+export async function seedBulkIdeas(count: number, orgIds: readonly string[], vectorOf: (text: string) => number[], moduleIds: readonly string[] = []): Promise<void> {
+  const subjects = ['заказ', 'накладная', 'отчёт', 'касса', 'склад', 'возврат', 'оплата', 'договор', 'прайс', 'маршрут', 'визит', 'остаток', 'акт сверки', 'счёт', 'бонус'];
+  const wishes = ['выгрузка в Excel', 'фильтр по дате', 'печать пачкой', 'уведомление в Telegram', 'шаблон по умолчанию', 'копирование строки', 'поиск по коду', 'групповое изменение'];
+  const client = await pools.root.connect();
+  try {
+    await client.query(`set session_replication_role = replica`);
+    await client.query(
+      `insert into hdi_ideas (org_id, idea_id, author_id, module_id, merged_into_id, author_name, original_locale, status, published_on,
+                              decline_reason, released_in, released_on, selected_cycle, created_on, modified_on)
+       select ($2::uuid[])[1 + g % array_length($2::uuid[], 1)], md5('bulk-idea-' || g)::uuid, md5('bulk-idea-author-' || g)::uuid,
+              case when cardinality($3::uuid[]) > 0 and g % 3 = 0 then ($3::uuid[])[1 + g % cardinality($3::uuid[])] end,
+              case when g % 100 between 10 and 14 then md5('bulk-idea-' || (g - g % 100 + 20))::uuid end,
+              'Автор ' || g, 'ru', s.status,
+              case when s.status <> 'pending_review' then now() - (g || ' hours')::interval + interval '1 day' end,
+              case when s.status = 'declined' then 'Не входит в планы продукта' end,
+              case when s.status = 'released' then 'Smartup 5.' || (g % 40) end,
+              case when s.status = 'released' then (now() - ((g % 300) || ' days')::interval)::date end,
+              case when s.status in ('selected', 'in_development', 'released') then date_trunc('month', now() - ((g % 12) || ' months')::interval)::date end,
+              now() - (g || ' hours')::interval, now() - ((g % 500) || ' hours')::interval
+         from generate_series(1, $1::int) g
+         cross join lateral (select case when g % 100 < 5 then 'pending_review' when g % 100 < 10 then 'declined' when g % 100 < 15 then 'merged'
+                                         when g % 100 < 70 then 'open' when g % 100 < 80 then 'shortlisted' when g % 100 < 85 then 'selected'
+                                         when g % 100 < 90 then 'in_development' else 'released' end as status) s`,
+      [count, orgIds, moduleIds],
+    );
+    await client.query(
+      `insert into hdi_idea_translations (idea_id, locale, title, body, is_machine, status, source_hash)
+       select md5('bulk-idea-' || g)::uuid, l.locale, t.title, t.body, l.locale <> 'ru', case when l.locale = 'ru' then 'original' else 'machine' end,
+              encode(sha256(convert_to(t.title || t.body, 'UTF8')), 'hex')
+         from generate_series(1, $1::int) g
+         cross join lateral (select ($2::text[])[1 + g % cardinality($2::text[])] || ': ' || ($3::text[])[1 + (g * 7) % cardinality($3::text[])] || ' (' || g || ')' as title,
+                                    'Хотим, чтобы в разделе ' || ($2::text[])[1 + g % cardinality($2::text[])] || ' была ' || ($3::text[])[1 + (g * 7) % cardinality($3::text[])]
+                                    || '. Сейчас это делается вручную и занимает время.' as body) t
+         cross join lateral (select unnest(case when g % 4 = 0 then array['ru'] else array['ru', 'uz', 'en'] end) as locale) l`,
+      [count, subjects, wishes],
+    );
+    // Индекс похожих идей: опубликованные и не снятые идеи, все видимые тексты.
+    const docs = (
+      await client.query<{ idea_id: string; module_id: string | null; locale: string; title: string; body: string }>(
+        `select i.idea_id, i.module_id, t.locale, t.title, t.body from hdi_ideas i join hdi_idea_translations t on t.idea_id = i.idea_id
+          where i.status not in ('pending_review', 'declined', 'merged') and i.idea_id in (select md5('bulk-idea-' || g)::uuid from generate_series(1, $1::int) g)`,
+        [count],
+      )
+    ).rows;
+    for (let start = 0; start < docs.length; start += 1000) {
+      const batch = docs.slice(start, start + 1000);
+      await client.query(
+        `insert into hdk_search_documents (ref_id, kind, module_id, locale, title, body_text, audience, tsv, embedding)
+         select i.ref_id, 'idea', i.module_id, i.locale, i.title, i.body, 'clients',
+                setweight(to_tsvector(app.hdk_text_config(i.locale), app.hdk_search_text(i.locale, i.title)), 'A')
+                || setweight(to_tsvector(app.hdk_text_config(i.locale), app.hdk_search_text(i.locale, i.body)), 'B'),
+                i.vec::vector
+           from unnest($1::uuid[], $2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[]) as i(ref_id, module_id, locale, title, body, vec)`,
+        [
+          batch.map((d) => d.idea_id),
+          batch.map((d) => d.module_id),
+          batch.map((d) => d.locale),
+          batch.map((d) => d.title),
+          batch.map((d) => d.body),
+          batch.map((d) => `[${vectorOf(`${d.title}\n${d.body}`).join(',')}]`),
+        ],
+      );
+    }
+    await client.query(`set session_replication_role = origin`);
+    for (const table of ['hdi_ideas', 'hdi_idea_translations', 'hdk_search_documents']) await client.query(`analyze ${table}`);
+  } finally {
+    await client.query(`set session_replication_role = origin`).catch(() => undefined);
+    client.release();
+  }
+}
+
+/**
+ * Заливает голоса (решение 8): у опубликованных идей число голосов убывает как 1/√k по месту идеи, так у доски есть
+ * лидеры и длинный хвост. Голосующие: 50 тысяч пользователей набора в организациях orgIds. Потом пересчитывает
+ * счётчики голосов и организаций у всех идей, включая голоса, которые тест поставил сам.
+ */
+export async function seedBulkVotes(count: number, orgIds: readonly string[]): Promise<number> {
+  const client = await pools.root.connect();
+  try {
+    const ideas = Number((await client.query(`select count(*)::int as n from hdi_ideas where published_on is not null`)).rows[0].n);
+    let weights = 0;
+    for (let k = 1; k <= ideas; k++) weights += 1 / Math.sqrt(k);
+    const scale = count / weights;
+    await client.query(`set session_replication_role = replica`);
+    await client.query(
+      `insert into hdi_votes (org_id, idea_id, user_id, created_on, modified_on)
+       select ($3::uuid[])[1 + v.u % cardinality($3::uuid[])], i.idea_id, md5('bulk-voter-' || v.u)::uuid, now() - ((v.u % 400) || ' days')::interval, now()
+         from (select idea_id, row_number() over (order by md5(idea_id::text)) as k from hdi_ideas where published_on is not null) i
+         cross join lateral (select (j + i.k * 37) % 50000 as u from generate_series(1, least(49999, ceil($2::float8 / sqrt(i.k))::int)) j) v
+        limit $1::int
+       on conflict do nothing`,
+      [count, scale, orgIds],
+    );
+    await client.query(
+      `update hdi_ideas i set vote_count = v.n, org_count = v.o
+         from (select idea_id, count(*)::int as n, count(distinct org_id)::int as o from hdi_votes group by idea_id) v where v.idea_id = i.idea_id`,
+    );
+    await client.query(`set session_replication_role = origin`);
+    await client.query(`analyze hdi_votes`);
+    await client.query(`analyze hdi_ideas`);
+    return Number((await client.query(`select count(*)::int as n from hdi_votes`)).rows[0].n);
   } finally {
     await client.query(`set session_replication_role = origin`).catch(() => undefined);
     client.release();

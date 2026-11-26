@@ -57,7 +57,8 @@ export type { Counters };
  * обращений за 90 дней каждый стоил 130-200 мс (замер подготовки M9, задача 4).
  */
 export function sourceCountersTx(tx: Tx, range: Range, now: Date): Promise<(AdditiveCounters & { source: string })[]> {
-  const { csatAverage: _average, ...additive } = counters(now);
+  const all = counters(now);
+  const additive = { created: all.created, resolved: all.resolved, closed: all.closed, firstResponseTotal: all.firstResponseTotal, firstResponseOk: all.firstResponseOk, resolutionTotal: all.resolutionTotal, resolutionOk: all.resolutionOk, rated: all.rated, csatHigh: all.csatHigh };
   return tx
     .select({ source: tickets.source, ...additive, csatSum: sql<number>`coalesce(sum(${tickets.csatScore}), 0)::int` })
     .from(tickets)

@@ -49,11 +49,36 @@ test('скрипт темы до отрисовки читает куку с п�
 
 test('выбор темы на https пишется кукой __Host- с Secure и Path=/, на http прежней кукой', () => {
   const secure = fakeBrowser('https:');
+  const written: string[] = [];
+  Object.defineProperty(secure.document, 'cookie', { get: () => '', set: (value: string) => void written.push(value), configurable: true });
   chooseTheme('dark');
-  expect(secure.document.cookie).toMatch(/^__Host-hub_theme=dark; path=\/; max-age=\d+; samesite=lax; secure$/);
-  secure.document.cookie = '__Host-hub_theme=light';
+  // Первой пишется кука выбора; вторая запись стирает прежнюю куку без приставки (проверка ниже).
+  expect(written[0]).toMatch(/^__Host-hub_theme=dark; path=\/; max-age=\d+; samesite=lax; secure$/);
+  Object.defineProperty(secure.document, 'cookie', { value: '__Host-hub_theme=light', writable: true, configurable: true });
   expect(readTheme()).toBe('light');
   const plain = fakeBrowser('http:');
   chooseTheme('dark');
   expect(plain.document.cookie).toMatch(/^hub_theme=dark; path=\/; max-age=\d+; samesite=lax$/);
+});
+
+// Проверка подготовки M9, M1: при обеих куках (прежняя без приставки осталась с http или от старой версии) важнее
+// кука __Host-, как у языка; выбор темы на https стирает прежнюю куку.
+test('тема при обеих куках берётся из куки __Host-, в скрипте до отрисовки тоже', () => {
+  for (const cookie of ['hub_theme=dark; __Host-hub_theme=light', '__Host-hub_theme=light; hub_theme=dark']) {
+    const browser = fakeBrowser('https:', cookie);
+    expect(readTheme(), cookie).toBe('light');
+    new Function(THEME_SCRIPT)();
+    expect(browser.classes.has('dark'), cookie).toBe(false);
+  }
+  fakeBrowser('https:', 'hub_theme=dark');
+  expect(readTheme()).toBe('dark');
+});
+
+test('выбор темы на https стирает прежнюю куку без приставки', () => {
+  const writes: string[] = [];
+  const browser = fakeBrowser('https:');
+  Object.defineProperty(browser.document, 'cookie', { get: () => '', set: (value: string) => void writes.push(value), configurable: true });
+  chooseTheme('dark');
+  expect(writes).toContainEqual(expect.stringMatching(/^__Host-hub_theme=dark; /));
+  expect(writes).toContainEqual(expect.stringMatching(/^hub_theme=; path=\/; max-age=0/));
 });

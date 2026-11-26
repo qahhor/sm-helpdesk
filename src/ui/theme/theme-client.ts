@@ -6,8 +6,11 @@ const CHANGE_EVENT = 'hub-theme-change';
 export const SYSTEM_DARK = '(prefers-color-scheme: dark)';
 
 export function readTheme(): Theme {
-  // Кука на https с приставкой __Host-, на http без неё: читается любая.
-  const value = new RegExp(`(?:^|; )(?:__Host-)?${THEME_COOKIE}=([a-z]+)`).exec(document.cookie)?.[1] ?? '';
+  // Кука на https с приставкой __Host-, на http без неё. При обеих важнее __Host-, как у куки языка.
+  const value =
+    new RegExp(`(?:^|; )__Host-${THEME_COOKIE}=([a-z]+)`).exec(document.cookie)?.[1] ??
+    new RegExp(`(?:^|; )${THEME_COOKIE}=([a-z]+)`).exec(document.cookie)?.[1] ??
+    '';
   return isTheme(value) ? value : DEFAULT_THEME;
 }
 
@@ -20,6 +23,8 @@ export function applyTheme(theme: Theme): void {
 export function chooseTheme(theme: Theme): void {
   const https = window.location.protocol === 'https:';
   document.cookie = `${themeCookieName(https)}=${theme}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; samesite=lax${https ? '; secure' : ''}`;
+  // Прежняя кука без приставки больше не нужна и не должна перебивать выбор.
+  if (https) document.cookie = `${THEME_COOKIE}=; path=/; max-age=0; samesite=lax; secure`;
   applyTheme(theme);
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }

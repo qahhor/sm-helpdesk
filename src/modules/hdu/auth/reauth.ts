@@ -32,7 +32,11 @@ export function reauthStartedSec(cookieHeader: string | null): number | null {
   return null;
 }
 
-const store = new AsyncLocalStorage<{ startedSec: number }>();
+// Хранилище одно на процесс: экземпляр библиотеки входа общий (auth/instance.ts, globalThis), а этот файл Next.js может
+// собрать в несколько слоёв (обработчик маршрута и серверные действия). Своё хранилище у каждого слоя: перехватчик
+// создания сессии из одного слоя не увидел бы вход заново, начатый обработчиком из другого (решение 0083).
+const shared = globalThis as typeof globalThis & { __hubReauthStore?: AsyncLocalStorage<{ startedSec: number }> };
+const store = (shared.__hubReauthStore ??= new AsyncLocalStorage<{ startedSec: number }>());
 
 /** Выполняет обработку возврата с сервера, зная, что это вход заново, начатый в startedSec. */
 export function withReauth<T>(startedSec: number | null, run: () => Promise<T>): Promise<T> {

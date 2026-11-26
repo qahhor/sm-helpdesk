@@ -52,6 +52,20 @@ export async function signInAsCustom(page: Page, claims: CustomClaims, opts: Sig
   await finishSignIn(page, opts);
 }
 
+/**
+ * "Войти заново" после отказа из-за давнего входа (решение 0083): кнопка завершает сессию, страница входа с reauth=1
+ * начинает вход через Smartup с prompt=login, ложный сервер снова спрашивает сведения. Возврат на исходную страницу.
+ */
+export async function signInAgain(page: Page, claims: CustomClaims): Promise<void> {
+  await page.getByRole('button', { name: 'Войти заново' }).click();
+  await expect(page).toHaveURL(/\/ru\/login\?reauth=1/);
+  await expect(page.getByText('Войдите заново, чтобы продолжить.')).toBeVisible();
+  await page.getByRole('link', { name: /Войти через Smartup/ }).click();
+  for (const [field, value] of Object.entries(claims)) if (value) await page.locator(`input[name="claim_${field}"]`).fill(value);
+  await page.getByRole('button', { name: 'Войти' }).click();
+  await expect(page).not.toHaveURL(/localhost:319\d|\/api\/auth\/|\/login/);
+}
+
 /** Идентификатор пользователя Smartup, которого ещё не было: у каждого теста и прогона свой. */
 export function uniqueSub(): string {
   return `9${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;

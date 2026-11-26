@@ -55,7 +55,7 @@
       "revokeOthers": "Boshqa barcha seanslarni yakunlash",
       "othersDone": "Boshqa barcha seanslar yakunlandi.",
       "hiddenNote": "So'nggi seanslar ko'rsatilgan. Yana {count} ta seans quyidagi tugma bilan boshqalari bilan birga yakunlanadi.",
-      "stale": "Seanslarni yakunlash uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qaytadan kiring va takrorlang."
+      "stale": "Seanslarni yakunlash uchun bu siz ekaningizni tasdiqlang: qaytadan kiring va takrorlang. Tasdiq 15 daqiqa amal qiladi."
     },
     "legal": {
       "privacy": "Ma'lumotlarni qayta ishlash siyosati",
@@ -577,7 +577,7 @@
         "errors": {
           "invalid": "Email manzilini tekshiring.",
           "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
-          "stale": "Kirish manzilini ko'rsatish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qaytadan kiring va takrorlang."
+          "stale": "Kirish manzilini ko'rsatish uchun bu siz ekaningizni tasdiqlang: qaytadan kiring va takrorlang. Tasdiq 15 daqiqa amal qiladi."
         }
       },
       "channels": {
@@ -3480,7 +3480,7 @@
       "errors": {
         "invalid": "Email manzilini tekshiring.",
         "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
-        "stale": "Kirish manzilini ko'rsatish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qaytadan kiring va takrorlang."
+        "stale": "Kirish manzilini ko'rsatish uchun bu siz ekaningizni tasdiqlang: qaytadan kiring va takrorlang. Tasdiq 15 daqiqa amal qiladi."
       },
       "telegram": "Telegramni bog'lash",
       "policyLine": "Portal ma'lumotlaringiz bilan qanday ishlashi <link>Ma'lumotlarni qayta ishlash siyosati</link> hujjatida yozilgan.",

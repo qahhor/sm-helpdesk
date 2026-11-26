@@ -1,11 +1,11 @@
 import 'server-only';
-import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
+import { asc, gt, inArray, sql } from 'drizzle-orm';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { foldText, type SearchDocument } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
-import { memberships, organizations, staff } from '../schema';
+import { organizations } from '../schema';
 
 // Модуль hdu, слой api: документы справочников для индекса поиска сотрудника (план W6, решение 1). Коллекции
 // hub_orgs и hub_people видит только ключ сотрудника. Адреса почты и телефоны не попадают никуда: поиск по адресу
@@ -46,40 +46,21 @@ export async function pageOrgIds(system: SystemActor, after: string | null, limi
   return rows.map((r) => r.id);
 }
 
+/**
+ * Человек в справочнике сотрудника: только имя (минимум данных, замечание M1 независимой проверки W6). Участие в
+ * организациях и признак сотрудника поиску не нужны: найденные идентификаторы дальше отбирает PostgreSQL.
+ */
 export async function buildPersonDocs(system: SystemActor, userIds: readonly string[]): Promise<Map<string, SearchDocument[]>> {
   const out = new Map<string, SearchDocument[]>(userIds.map((id) => [id, []]));
   const ids = userIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id));
   if (ids.length === 0) return out;
-  const { users, members, staffRows } = await withIdentity(system, async (tx) => ({
-    users: await tx
+  const users = await withIdentity(system, (tx) =>
+    tx
       .select({ id: authUser.id, name: authUser.name, version: sql<string>`(extract(epoch from ${authUser.updatedAt}) * 1000000)::bigint::text` })
       .from(authUser)
       .where(inArray(authUser.id, ids)),
-    members: await tx
-      .select({ userId: memberships.userId, orgId: memberships.orgId, version: sql<string>`(extract(epoch from ${memberships.modifiedOn}) * 1000000)::bigint::text` })
-      .from(memberships)
-      .where(and(inArray(memberships.userId, ids), eq(memberships.state, 'active'))),
-    staffRows: await tx
-      .select({ userId: staff.userId, state: staff.state, version: sql<string>`(extract(epoch from ${staff.modifiedOn}) * 1000000)::bigint::text` })
-      .from(staff)
-      .where(inArray(staff.userId, ids)),
-  }));
-  for (const user of users) {
-    const own = members.filter((m) => m.userId === user.id);
-    const st = staffRows.find((s) => s.userId === user.id);
-    // Версия: самое позднее из имени, участия и учётной записи сотрудника.
-    const version = Math.max(Number(user.version), ...own.map((m) => Number(m.version)), st ? Number(st.version) : 0);
-    out.set(user.id, [
-      {
-        id: user.id,
-        name: user.name,
-        name_fold: foldText(user.name),
-        is_staff: st?.state === 'active',
-        ...(own.length > 0 ? { org_ids: own.map((m) => m.orgId) } : {}),
-        version,
-      },
-    ]);
-  }
+  );
+  for (const user of users) out.set(user.id, [{ id: user.id, name: user.name, name_fold: foldText(user.name), version: Number(user.version) }]);
   return out;
 }
 

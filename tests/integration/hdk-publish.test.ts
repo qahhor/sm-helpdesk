@@ -401,7 +401,7 @@ test('разрешённые домены: только администрато
   const admin = staffCtx(f.adminStaff);
   expect(await allowedDomainsSetting(admin)).toEqual(['smartup.uz']);
   await expect(saveAllowedDomains(staffCtx(f.care), { text: 'smartup.uz' })).rejects.toMatchObject({ code: 'forbidden' });
-  await expect(saveAllowedDomains({ ...admin, sessionCreatedAt: new Date(Date.now() - 3600_000) }, { text: 'smartup.uz' })).rejects.toMatchObject({ code: 'stale_session' });
+  await expect(saveAllowedDomains({ ...admin, freshAuthAt: new Date(Date.now() - 3600_000) }, { text: 'smartup.uz' })).rejects.toMatchObject({ code: 'stale_session' });
   expect(await saveAllowedDomains(admin, { text: 'https://Docs.Smartup.uz/path, smartup.uz\nsmartup.uz' })).toEqual({ ok: true, domains: ['docs.smartup.uz', 'smartup.uz'] });
   expect(await readAllowedDomains()).toEqual(['docs.smartup.uz', 'smartup.uz']);
   expect(await saveAllowedDomains(admin, { text: 'smartup.uz 10.0.0.1' })).toEqual({ ok: false, invalid: '10.0.0.1' });

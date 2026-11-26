@@ -78,5 +78,5 @@ export async function adminActorByEmail(actor: SystemActor, email: unknown): Pro
 export async function adminContextByEmail(actor: SystemActor, email: unknown): Promise<StaffContext> {
   const admin = await adminActorByEmail(actor, email);
   const found = await findStaffByEmail(parseInput(resetInput, { email }).email);
-  return { actor: admin, user: { id: admin.userId, name: found?.name ?? '', email: parseInput(resetInput, { email }).email }, isLead: false, sessionCreatedAt: new Date() };
+  return { actor: admin, user: { id: admin.userId, name: found?.name ?? '', email: parseInput(resetInput, { email }).email }, isLead: false, freshAuthAt: new Date() };
 }

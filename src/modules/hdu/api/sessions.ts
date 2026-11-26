@@ -42,7 +42,7 @@ export async function listMySessions(session: SessionData): Promise<{ items: Ses
  * их сессия и так живёт 12 часов и открыта паролем с кодом второго фактора.
  */
 async function requireRecentClientSignIn(session: SessionData): Promise<void> {
-  if (isRecentSignIn(session.session.createdAt, new Date())) return;
+  if (isRecentSignIn(session.session.freshAuthAt, new Date())) return;
   if (await findStaff(session.user.id)) return;
   throw new HduError('stale_session');
 }

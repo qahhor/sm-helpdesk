@@ -9,13 +9,16 @@ export type StaffContext = {
   user: { id: string; name: string; email: string };
   /** Руководитель своей линии. Прав на данные сверх роли не даёт. */
   isLead: boolean;
-  /** Когда сотрудник вошёл: по этому времени считается свежий вход. */
-  sessionCreatedAt: Date;
+  /**
+   * Когда сотрудник подтвердил личность в этой сессии (пароль с кодом второго фактора): по этому времени
+   * считается свежий вход (решение 0083). Пусто: личность в сессии не подтверждалась.
+   */
+  freshAuthAt: Date | null;
 };
 
-/** Вход свежий: сессия создана не более maxAgeSec секунд назад (ТЗ 14.3, решение 0014). */
+/** Вход свежий: личность подтверждена не более maxAgeSec секунд назад (ТЗ 14.3, решения 0014 и 0083). */
 export function isFresh(ctx: StaffContext, now: Date, maxAgeSec: number): boolean {
-  return now.getTime() - ctx.sessionCreatedAt.getTime() <= maxAgeSec * 1000;
+  return ctx.freshAuthAt !== null && now.getTime() - ctx.freshAuthAt.getTime() <= maxAgeSec * 1000;
 }
 
 /** Срок свежего входа для действий администратора: 15 минут. */

@@ -115,7 +115,7 @@ test('суточный предел (решение 13): после предел
   await saveAiDailyLimit(admin, { limit: 1 });
   expect(await aiDailyLimitSetting(admin)).toBe(1);
   await expect(saveAiDailyLimit(staffCtx(f.care), { limit: 5 })).rejects.toMatchObject({ code: 'forbidden' });
-  await expect(saveAiDailyLimit({ ...admin, sessionCreatedAt: new Date(Date.now() - 3600_000) }, { limit: 5 })).rejects.toMatchObject({ code: 'stale_session' });
+  await expect(saveAiDailyLimit({ ...admin, freshAuthAt: new Date(Date.now() - 3600_000) }, { limit: 5 })).rejects.toMatchObject({ code: 'stale_session' });
   await expect(saveAiDailyLimit(admin, { limit: -1 })).rejects.toMatchObject({ code: 'invalid_input' });
 
   const segments = [{ id: 'b1.0', text: 'Откройте раздел' }];

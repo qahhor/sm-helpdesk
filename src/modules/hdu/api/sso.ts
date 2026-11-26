@@ -6,7 +6,7 @@ import { RATE_RULES } from '@/modules/hdc/pref';
 import { clientIp, consumeRateLimit, ipRateKey } from '@/modules/hdc/api';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
-import { reauthCookie } from '../auth/reauth';
+import { clearReauthCookie, reauthCookie } from '../auth/reauth';
 import { SERVER_CODE_PATTERN } from '../pref';
 import { safeReturnPath } from '../util';
 import type { RequestInfo } from './request';
@@ -90,8 +90,10 @@ export async function startSmartupSignIn(
     throw error;
   }
   request.setCookies(result.headers);
-  if (input.reauth)
-    request.setCookies(new Headers({ 'set-cookie': reauthCookie(getEnv().HUB_URL.startsWith('https://'), Math.floor(Date.now() / 1000)) }));
+  // Обычное начало убирает куку брошенного входа заново: иначе её возврат считался бы входом заново и давал недавний
+  // вход без prompt=login (решение 0083).
+  const https = getEnv().HUB_URL.startsWith('https://');
+  request.setCookies(new Headers({ 'set-cookie': input.reauth ? reauthCookie(https, Math.floor(Date.now() / 1000)) : clearReauthCookie(https) }));
   return { url: result.response.url };
 }
 

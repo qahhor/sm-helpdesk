@@ -18,7 +18,7 @@ const staff = (role: StaffContext['actor']['staffRole']): StaffContext => ({
   actor: { type: 'staff', userId: '0192d2a4-0000-7000-8000-00000000000a', staffRole: role },
   user: { id: '0192d2a4-0000-7000-8000-00000000000a', name: 'Камила', email: 'kamila@smartup.example' },
   isLead: false,
-  sessionCreatedAt: new Date(),
+  freshAuthAt: new Date(),
 });
 
 test('сотрудник с нужной ролью проходит, в журнале ничего', () => {

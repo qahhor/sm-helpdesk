@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { signInAsCustom, signOutClient, uniqueSub, withOwnAddress } from './helpers/client';
+import { signInAgain, signInAsCustom, signOutClient, uniqueSub, withOwnAddress } from './helpers/client';
 import { mailLink } from './helpers/mail';
 
 // Сценарий 2 раздела 15.3 ТЗ: адрес при первом входе, подтверждение, вход по ссылке (FR-ID-06, FR-ID-07).
@@ -16,9 +16,17 @@ test.beforeEach(async ({ page }, testInfo) => {
 test('клиент указывает адрес при первом входе, подтверждает его и входит по ссылке', async ({ page, context }) => {
   const sub = uniqueSub();
   const email = `d${sub}@acme.test`;
-  await signInAsCustom(page, { sub, name: 'Дильноза', email, company_id: '501', company_name: 'ACME Trade' }, { stopAtWelcome: true });
+  const claims = { sub, name: 'Дильноза', email, company_id: '501', company_name: 'ACME Trade' };
+  await signInAsCustom(page, claims, { stopAtWelcome: true });
   await expect(page).toHaveURL(/\/ru\/welcome\?next=%2Fru$/);
   // Адрес из Smartup подставлен, но не подтверждён.
+  await expect(page.getByLabel('Email', { exact: true })).toHaveValue(email);
+  // Обычный вход через Smartup не считается недавним (решение 0083): шаг просит войти заново и после входа
+  // возвращается на себя же.
+  await page.getByRole('button', { name: 'Отправить ссылку' }).click();
+  await expect(main(page).getByRole('alert')).toContainText('подтвердите, что это вы');
+  await signInAgain(page, claims);
+  await expect(page).toHaveURL(/\/ru\/welcome/);
   await expect(page.getByLabel('Email', { exact: true })).toHaveValue(email);
   await page.getByRole('button', { name: 'Отправить ссылку' }).click();
   await expect(main(page).getByRole('status')).toContainText('Мы отправили письмо');
@@ -78,7 +86,8 @@ test('шаг первого входа показывается один раз'
 
 test('адрес можно указать позже в профиле', async ({ page }) => {
   const sub = uniqueSub();
-  await signInAsCustom(page, { sub, name: 'Тимур', company_id: '502', company_name: 'Globex' });
+  // Вход сразу через "Войти заново": адрес для входа меняется только после недавнего входа (решение 0083).
+  await signInAsCustom(page, { sub, name: 'Тимур', company_id: '502', company_name: 'Globex' }, { startAt: '/ru/login?reauth=1' });
   await page.goto('/ru/settings');
   await page.getByLabel('Email', { exact: true }).fill(`t${sub}@globex.test`);
   await page.getByRole('button', { name: 'Отправить ссылку' }).click();

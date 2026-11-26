@@ -28,6 +28,11 @@ export type SessionData = {
     activeOrgId: string | null;
     /** Когда в этой сессии предъявлен код второго фактора. Пусто у сессии одного пароля. */
     secondFactorAt: Date | null;
+    /**
+     * Когда в этой сессии человек подтвердил личность: по нему считается недавний вход (решение 0083).
+     * Пусто у обычного входа через Smartup: он мог пройти по открытой сессии Smartup Web без пароля.
+     */
+    freshAuthAt: Date | null;
     ipAddress: string | null;
     userAgent: string | null;
   };
@@ -73,6 +78,7 @@ export async function readSession(request: Pick<RequestInfo, 'headers'>): Promis
       expiresAt: toDate(session.expiresAt),
       activeOrgId: session.activeOrgId ?? null,
       secondFactorAt: session.secondFactorAt ? toDate(session.secondFactorAt) : null,
+      freshAuthAt: session.freshAuthAt ? toDate(session.freshAuthAt) : null,
       ipAddress: session.ipAddress ?? null,
       userAgent: session.userAgent ?? null,
     },

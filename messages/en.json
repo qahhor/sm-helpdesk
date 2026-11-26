@@ -55,7 +55,7 @@
       "revokeOthers": "End all other sessions",
       "othersDone": "All other sessions have ended.",
       "hiddenNote": "Recent sessions are shown. {count, plural, one {# more session ends} other {# more sessions end}} together with the others with the button below.",
-      "stale": "To end sessions, you need a sign-in within the last 15 minutes. Sign in again and repeat."
+      "stale": "To end sessions, confirm it is you: sign in again and repeat. The confirmation lasts 15 minutes."
     },
     "legal": {
       "privacy": "Data processing policy",
@@ -577,7 +577,7 @@
         "errors": {
           "invalid": "Check the email address.",
           "rateLimited": "Too many requests. Try again in an hour.",
-          "stale": "To set your sign-in email, you need a sign-in within the last 15 minutes. Sign in again and repeat."
+          "stale": "To set your sign-in email, confirm it is you: sign in again and repeat. The confirmation lasts 15 minutes."
         }
       },
       "channels": {
@@ -3480,7 +3480,7 @@
       "errors": {
         "invalid": "Check the email address.",
         "rateLimited": "Too many requests. Try again in an hour.",
-        "stale": "To set your sign-in email, you need a sign-in within the last 15 minutes. Sign in again and repeat."
+        "stale": "To set your sign-in email, confirm it is you: sign in again and repeat. The confirmation lasts 15 minutes."
       },
       "telegram": "Link Telegram",
       "policyLine": "How the portal handles your data is described in the <link>Data processing policy</link>.",

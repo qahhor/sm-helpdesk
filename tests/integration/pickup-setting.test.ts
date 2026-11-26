@@ -29,7 +29,7 @@ test('не администратор, старая сессия и негодн
   const admin = staffCtx(f.adminStaff);
   await expect(readPickup(staffCtx(f.l1))).rejects.toMatchObject({ code: 'forbidden' });
   await expect(savePickup(staffCtx(f.l1), { p1: '15', p2: '', p3: '', p4: '' })).rejects.toMatchObject({ code: 'forbidden' });
-  await expect(savePickup({ ...admin, sessionCreatedAt: new Date(Date.now() - 901e3) }, { p1: '15', p2: '', p3: '', p4: '' })).rejects.toMatchObject({ code: 'stale_session' });
+  await expect(savePickup({ ...admin, freshAuthAt: new Date(Date.now() - 901e3) }, { p1: '15', p2: '', p3: '', p4: '' })).rejects.toMatchObject({ code: 'stale_session' });
   for (const bad of ['0', '-5', '1.5', 'abc', '100001'])
     await expect(savePickup(admin, { p1: bad, p2: '', p3: '', p4: '' }), bad).rejects.toMatchObject({ code: 'invalid_input' });
   expect(await stored()).toBeNull();

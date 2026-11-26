@@ -153,8 +153,8 @@ test('настройки виджета меняет только admin со с�
   const { f, ctx } = await admin();
   const change = { code: 'srv-acme', mode: 'secret', embedOrigins: [] };
   await expect(updateWidgetSettings(staffCtx(f.care), change)).rejects.toMatchObject({ code: 'forbidden' });
-  await expect(updateWidgetSettings(ctx, change, new Date(+ctx.sessionCreatedAt + 901e3))).rejects.toMatchObject({ code: 'stale_session' });
-  await expect(createContextSecret(ctx, 'srv-acme', new Date(+ctx.sessionCreatedAt + 901e3))).rejects.toMatchObject({ code: 'stale_session' });
+  await expect(updateWidgetSettings(ctx, change, new Date(+ctx.freshAuthAt! + 901e3))).rejects.toMatchObject({ code: 'stale_session' });
+  await expect(createContextSecret(ctx, 'srv-acme', new Date(+ctx.freshAuthAt! + 901e3))).rejects.toMatchObject({ code: 'stale_session' });
   await expect(createContextSecret(staffCtx(f.care), 'srv-acme')).rejects.toMatchObject({ code: 'forbidden' });
   await expect(updateWidgetSettings(ctx, { ...change, code: 'nope' })).rejects.toMatchObject({ code: 'not_found' });
   expect((await pools.root.query(`select context_secret from hdu_servers where code = 'srv-acme'`)).rows[0].context_secret).toBeNull();

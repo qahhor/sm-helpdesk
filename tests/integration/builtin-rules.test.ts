@@ -181,7 +181,7 @@ test('"Вернуть исходное": поставочный вид, вклю
   const shipped = BUILTIN_RULES.csat_low_manager;
   await saveRule(admin, { ruleId: id, name: 'Оценка 1', event: 'rated', conditions: { match: 'all', items: [{ field: 'rating', op: 'is', value: 1 }] }, actions: [{ action: 'add_note', text: 'Плохая оценка' }], isStop: true });
   await setRuleEnabled(admin, { ruleId: id, enabled: false });
-  const stale = { ...admin, sessionCreatedAt: new Date(Date.now() - 901e3) };
+  const stale = { ...admin, freshAuthAt: new Date(Date.now() - 901e3) };
   await expect(restoreBuiltinRule(stale, { ruleId: id })).rejects.toMatchObject({ code: 'stale_session' });
   await expect(restoreBuiltinRule(staffCtx(f.care), { ruleId: id })).rejects.toMatchObject({ code: 'forbidden' });
   await expect(restoreBuiltinRule(admin, { ruleId: 'не идентификатор' })).rejects.toMatchObject({ code: 'invalid_input' });

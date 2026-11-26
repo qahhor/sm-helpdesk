@@ -90,10 +90,11 @@ export function buildAuthOptions(deps: AuthDeps) {
       expiresIn: SESSION_TTL_SEC,
       updateAge: SESSION_UPDATE_AGE_SEC,
       // Активную организацию меняет только сервер после проверки членства: input: false.
-      // Отметку второго фактора ставит только хук создания сессии (auth/hooks.ts): input: false.
+      // Отметку второго фактора и время проверки личности ставит только хук создания сессии (auth/hooks.ts): input: false.
       additionalFields: {
         activeOrgId: { type: 'string', required: false, input: false },
         secondFactorAt: { type: 'date', required: false, input: false },
+        freshAuthAt: { type: 'date', required: false, input: false },
       },
     },
     // Учётные записи по совпадению email не объединяются (решение 93 ТЗ).

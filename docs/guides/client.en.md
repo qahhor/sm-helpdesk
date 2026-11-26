@@ -68,7 +68,7 @@ In the portal notifications always arrive: the bell in the header. Where else to
 
 To get notifications in Telegram, press «Link Telegram» in your profile. The Smartup Hub bot opens: press its start button and come back to the portal. To unlink the bot: «Unlink».
 
-The profile also shows the devices where you are signed in (block «Sessions»). End an unknown device with «End». If you signed in long ago, the portal asks you to «Sign in again»: ending sessions and changing the sign-in email need a recent sign-in. On a shared computer, sign out of the portal and of Smartup Web when you leave.
+The profile also shows the devices where you are signed in (block «Sessions»). End an unknown device with «End». Ending sessions and changing the sign-in email are possible for 15 minutes after you confirm your sign-in: with a link from the email or the bot, or with «Sign in again», after which Smartup asks for your password. After an ordinary sign-in through Smartup, and later than 15 minutes, the portal asks you to «Sign in again». On a shared computer, sign out of the portal and of Smartup Web when you leave.
 
 ## 7. Support from Smartup Web
 

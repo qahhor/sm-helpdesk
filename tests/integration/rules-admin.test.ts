@@ -161,7 +161,7 @@ test('права: правила читает и меняет только ад�
     ];
     for (const call of calls) await expect(call(), member.actor.staffRole).rejects.toMatchObject({ code: 'forbidden' });
   }
-  const stale = { ...admin, sessionCreatedAt: new Date(Date.now() - 901e3) };
+  const stale = { ...admin, freshAuthAt: new Date(Date.now() - 901e3) };
   for (const call of [() => saveRule(stale, base), () => setRuleEnabled(stale, { ruleId, enabled: true }), () => moveRule(stale, { ruleId, direction: 'down' }), () => deleteRule(stale, { ruleId })])
     await expect(call()).rejects.toMatchObject({ code: 'stale_session' });
   // Чтение и пробный прогон свежего входа не требуют.

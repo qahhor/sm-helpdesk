@@ -142,7 +142,7 @@ test('сотрудник видит теги на обращении, в ист�
 
 test('переименовать, перекрасить и удалить тег может только администратор со свежим входом', async () => {
   const admin = staffCtx(f.adminStaff);
-  const stale = { ...admin, sessionCreatedAt: new Date(Date.now() - 901e3) };
+  const stale = { ...admin, freshAuthAt: new Date(Date.now() - 901e3) };
   await addTicketTag(staffCtx(f.l1), { number: f.tickets.aOrg.number, name: 'Срочно' });
   await addTicketTag(staffCtx(f.l1), { number: f.tickets.bOrg.number, name: 'Срочно' });
   await addTicketTag(staffCtx(f.l1), { number: f.tickets.bOrg.number, name: 'Оплата' });

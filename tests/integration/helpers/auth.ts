@@ -265,7 +265,7 @@ export async function newSmartupUser(opts: { roleMap?: Record<string, string> } 
 
 async function sessionDataById(sessionId: string): Promise<SessionData | null> {
   const r = await pools.root.query(
-    `select s.id, s.token, s."userId", s."createdAt", s."expiresAt", s."activeOrgId", s."secondFactorAt", s."ipAddress", s."userAgent",
+    `select s.id, s.token, s."userId", s."createdAt", s."expiresAt", s."activeOrgId", s."secondFactorAt", s."freshAuthAt", s."ipAddress", s."userAgent",
             u.name, u.email, u."emailVerified", u."twoFactorEnabled", u."claimedEmail", u."onboardedAt", u."lastOrgId",
             u.locale, u."policyVersion"
      from auth.session s join auth."user" u on u.id = s."userId" where s.id = $1 and s."expiresAt" > now()`,
@@ -282,6 +282,7 @@ async function sessionDataById(sessionId: string): Promise<SessionData | null> {
       expiresAt: row.expiresAt,
       activeOrgId: row.activeOrgId,
       secondFactorAt: row.secondFactorAt,
+      freshAuthAt: row.freshAuthAt,
       ipAddress: row.ipAddress,
       userAgent: row.userAgent,
     },
@@ -300,18 +301,21 @@ async function sessionDataById(sessionId: string): Promise<SessionData | null> {
   };
 }
 
-/** Сессия пользователя строкой в базе. patch задаёт активную и последнюю организацию. */
+/**
+ * Сессия пользователя строкой в базе. patch задаёт активную и последнюю организацию и время проверки личности:
+ * по умолчанию сейчас, как после входа по ссылке; null как после обычного входа через Smartup (решение 0083).
+ */
 export async function clientSession(
   member: { userId: string },
-  patch: { activeOrgId?: string | null; lastOrgId?: string | null } = {},
+  patch: { activeOrgId?: string | null; lastOrgId?: string | null; freshAuthAt?: Date | null } = {},
 ): Promise<SessionData> {
   if ('lastOrgId' in patch)
     await pools.root.query(`update auth."user" set "lastOrgId" = $1 where id = $2`, [patch.lastOrgId ?? null, member.userId]);
   const id = (
     await pools.root.query(
-      `insert into auth.session ("expiresAt", token, "updatedAt", "userId", "activeOrgId", "userAgent")
-       values (now() + interval '30 days', $1, now(), $2, $3, 'Test') returning id`,
-      [`t-${next()}`, member.userId, patch.activeOrgId ?? null],
+      `insert into auth.session ("expiresAt", token, "updatedAt", "userId", "activeOrgId", "userAgent", "freshAuthAt")
+       values (now() + interval '30 days', $1, now(), $2, $3, 'Test', $4) returning id`,
+      [`t-${next()}`, member.userId, patch.activeOrgId ?? null, 'freshAuthAt' in patch ? patch.freshAuthAt : new Date()],
     )
   ).rows[0].id as string;
   return (await sessionDataById(id)) as SessionData;
@@ -333,7 +337,7 @@ export async function clientCtx(member: { userId: string }): Promise<ClientConte
 
 /** Контекст сотрудника из участника набора seedTwoOrgs: вход и второй фактор для сервисов не важны. */
 export function staffCtx(member: { userId: string; name: string; actor: StaffActor }): StaffContext {
-  return { actor: member.actor, user: { id: member.userId, name: member.name, email: '' }, isLead: false, sessionCreatedAt: new Date() };
+  return { actor: member.actor, user: { id: member.userId, name: member.name, email: '' }, isLead: false, freshAuthAt: new Date() };
 }
 
 /** Сотрудник с ролью строками в базе: для проверки прав сервисов. */

@@ -57,7 +57,7 @@ test('смена роли со старым входом просит войти
   const cookie = (await page.context().cookies()).find((c) => c.name.endsWith('hub.session_token'));
   const token = decodeURIComponent(cookie!.value).split('.')[0];
   // Вход сделан 20 минут назад: для действий администратора он уже не свежий.
-  await dbRows(`update auth.session set "createdAt" = now() - interval '20 minutes' where token = $1`, [token]);
+  await dbRows(`update auth.session set "createdAt" = now() - interval '20 minutes', "freshAuthAt" = now() - interval '20 minutes' where token = $1`, [token]);
 
   await page.goto(`/ru/agent/organizations?q=${encodeURIComponent(company)}`);
   await page.getByRole('link', { name: company }).click();

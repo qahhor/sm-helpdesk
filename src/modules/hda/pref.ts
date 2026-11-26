@@ -175,3 +175,15 @@ export const QUESTIONS_BY_TYPE: Readonly<Record<'bug' | 'question' | 'service_re
 };
 /** Не больше трёх вопросов перед передачей (FR-AI-05). */
 export const HANDOFF_QUESTIONS_MAX = 3;
+
+// --- Разбор ответов помощника (план M5b, задача 8; FR-AI-16, экран "Разбор ответов AI") ---
+
+/** Причины отметки ответа неверным: код в hda_runs.flag_reason, подпись в messages/*.json. */
+export const AI_FLAG_REASONS = ['wrong_solution', 'outdated_solution', 'should_handoff', 'wrong_language', 'other'] as const;
+export type AiFlagReason = (typeof AI_FLAG_REASONS)[number];
+/** Итог разбора (экран 8.12 "Разбор ответов AI"): исправлено решение, поднят порог, без изменений. */
+export const AI_REVIEW_RESULTS = ['solution_fixed', 'threshold_raised', 'no_change'] as const;
+export type AiReviewResult = (typeof AI_REVIEW_RESULTS)[number];
+/** Выборка для просмотра первых двух недель пилота (15.6): последние ответы решением за столько дней. */
+export const AI_REVIEW_SAMPLE_DAYS = 14;
+export const AI_REVIEW_SAMPLE_SIZE = 20;

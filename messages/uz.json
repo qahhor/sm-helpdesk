@@ -1219,7 +1219,9 @@
             "csat_reviewed": "Baho tahlili qaydi yozildi",
             "ai_handoff": "AI-yordamchi murojaatni xodimga o'tkazdi",
             "ai_feedback": "Mijoz AI-yordamchi xabariga javob berdi",
-            "triage_accepted": "AI saralash taklifi qabul qilindi"
+            "triage_accepted": "AI saralash taklifi qabul qilindi",
+            "ai_answer_flagged": "AI-yordamchi javobi noto'g'ri deb belgilandi",
+            "ai_answer_reviewed": "AI javobi tahlili natijasi yozildi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi",
@@ -1706,7 +1708,8 @@
           "work_time": "Vaqt",
           "hours_since_client": "Mijoz xabaridan beri soat",
           "hours_since_staff": "Xodim javobidan beri soat",
-          "rating": "Baho"
+          "rating": "Baho",
+          "ai_reason": "AI topshirish sababi"
         },
         "ops": {
           "is": "teng",
@@ -2197,7 +2200,9 @@
         "waiting": "Mijozni kutmoqda",
         "development": "Ishlab chiqishda",
         "breached": "Muddat buzilgan",
-        "all": "Hammasi"
+        "all": "Hammasi",
+        "after_ai": "AI'dan keyin",
+        "ai_waiting": "AI javob berdi, mijoz jim"
       },
       "search": "Qidiruv",
       "searchHint": "Raqam, matn, tashkilot, STIR, muallif",
@@ -2322,7 +2327,8 @@
       "tag": "Teg",
       "anyTag": "Barcha teglar",
       "byTag": "{name} tegi bor murojaatlarni ko'rsatish",
-      "searchTruncated": "Eng mos natijalar ko'rsatilgan. Qolganlarini topish uchun so'rovni aniqlashtiring."
+      "searchTruncated": "Eng mos natijalar ko'rsatilgan. Qolganlarini topish uchun so'rovni aniqlashtiring.",
+      "aiReason": "Topshirildi: {reason}"
     },
     "ticket": {
       "files": "Fayllar",
@@ -2508,7 +2514,8 @@
           "dev_sent": "Murojaat ishlab chiqishga berildi",
           "dev_unlinked": "Ishlab chiqish vazifasi uzildi",
           "dev_status": "Vazifa holati saqlandi",
-          "triaged": "Saralash taklifi qabul qilindi."
+          "triaged": "Saralash taklifi qabul qilindi.",
+          "flagged": "Javob noto'g'ri deb belgilandi."
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -2752,6 +2759,21 @@
         "ai_limit": "AI xarajatlari chegarasi",
         "no_text": "matnsiz murojaat",
         "language": "til qo'llab-quvvatlanmaydi"
+      },
+      "flag": {
+        "open": "Javobni noto'g'ri deb belgilash",
+        "reason": "Sabab",
+        "comment": "Izoh",
+        "commentHint": "Ixtiyoriy, 500 belgigacha",
+        "submit": "Belgilash",
+        "done": "Javob noto'g'ri deb belgilandi.",
+        "reasons": {
+          "wrong_solution": "Boshqa yechim",
+          "outdated_solution": "Yechim eskirgan",
+          "should_handoff": "Xodimga topshirish kerak edi",
+          "wrong_language": "Boshqa til",
+          "other": "Boshqa"
+        }
       }
     },
     "playbooks": {
@@ -3522,6 +3544,36 @@
         "password_short": "Parol kamida 12 belgidan iborat bo'lishi kerak.",
         "weak_password": "Bunday parol juda keng tarqalgan: uni birinchi bo'lib tanlab ko'rishadi. Boshqasini kiriting, masalan, o'zingizning bir necha so'zingizdan iborat ibora.",
         "password_mismatch": "Parollar mos kelmadi."
+      }
+    },
+    "aiReview": {
+      "title": "AI javoblari tahlili",
+      "intro": "Tekshirish kerak bo'lgan yordamchi javoblari: xodimlar belgilagan, bahosi 4 dan past murojaatlardagi va pilotning dastlabki ikki haftasini ko'rish uchun oxirgi javoblar.",
+      "flagged": "Noto'g'ri deb belgilanganlar",
+      "lowRated": "Mijoz bahosi 4 dan past",
+      "sample": "Ikki haftadagi oxirgi javoblar",
+      "empty": "Hozircha hech narsa yo'q.",
+      "columns": {
+        "ticket": "Murojaat",
+        "solution": "Yordamchi yechimi",
+        "reason": "Belgi sababi",
+        "rating": "Baho",
+        "result": "Tahlil natijasi"
+      },
+      "noSolution": "Savol, yechimsiz",
+      "noReason": "Belgi yo'q",
+      "noResult": "Tahlil qilinmagan",
+      "save": "Natijani saqlash",
+      "resultLabel": "{ticket} uchun tahlil natijasi",
+      "results": {
+        "solution_fixed": "Yechim tuzatildi",
+        "threshold_raised": "Chegara ko'tarildi",
+        "no_change": "O'zgarishsiz"
+      },
+      "done": "Tahlil natijasi saqlandi.",
+      "errors": {
+        "forbidden": "Tahlil natijasini ikkinchi liniya, care va administrator yozadi.",
+        "invalid_input": "Tanlangan natijani tekshiring."
       }
     }
   },

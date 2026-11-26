@@ -1219,7 +1219,9 @@
             "csat_reviewed": "Rating review note written",
             "ai_handoff": "The AI assistant handed the request to staff",
             "ai_feedback": "The client answered the AI assistant's message",
-            "triage_accepted": "AI triage suggestion accepted"
+            "triage_accepted": "AI triage suggestion accepted",
+            "ai_answer_flagged": "AI assistant answer marked as wrong",
+            "ai_answer_reviewed": "AI answer review result recorded"
           },
           "attachment": {
             "infected": "Infected file found",
@@ -1706,7 +1708,8 @@
           "work_time": "Time",
           "hours_since_client": "Hours since client message",
           "hours_since_staff": "Hours since staff reply",
-          "rating": "Rating"
+          "rating": "Rating",
+          "ai_reason": "AI handoff reason"
         },
         "ops": {
           "is": "is",
@@ -2197,7 +2200,9 @@
         "waiting": "Waiting for client",
         "development": "In development",
         "breached": "Overdue",
-        "all": "All"
+        "all": "All",
+        "after_ai": "After AI",
+        "ai_waiting": "AI replied, client silent"
       },
       "search": "Search",
       "searchHint": "Number, text, organization, TIN, author",
@@ -2322,7 +2327,8 @@
       "tag": "Tag",
       "anyTag": "All tags",
       "byTag": "Show tickets tagged {name}",
-      "searchTruncated": "Showing the best matches. Refine the search to find the rest."
+      "searchTruncated": "Showing the best matches. Refine the search to find the rest.",
+      "aiReason": "Handed over: {reason}"
     },
     "ticket": {
       "files": "Files",
@@ -2508,7 +2514,8 @@
           "dev_sent": "Ticket handed over to development",
           "dev_unlinked": "Development task unlinked",
           "dev_status": "Task status saved",
-          "triaged": "Triage suggestion accepted."
+          "triaged": "Triage suggestion accepted.",
+          "flagged": "The answer is marked as wrong."
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -2752,6 +2759,21 @@
         "ai_limit": "AI spending limit",
         "no_text": "request without text",
         "language": "language not supported"
+      },
+      "flag": {
+        "open": "Mark the answer as wrong",
+        "reason": "Reason",
+        "comment": "Comment",
+        "commentHint": "Optional, up to 500 characters",
+        "submit": "Mark",
+        "done": "The answer is marked as wrong.",
+        "reasons": {
+          "wrong_solution": "Wrong solution",
+          "outdated_solution": "Outdated solution",
+          "should_handoff": "Should have been handed to staff",
+          "wrong_language": "Wrong language",
+          "other": "Other"
+        }
       }
     },
     "playbooks": {
@@ -3522,6 +3544,36 @@
         "password_short": "The password must be at least 12 characters long.",
         "weak_password": "This password is too common: it is among the first to be guessed. Choose another one, for example a phrase of several words of your own.",
         "password_mismatch": "The passwords do not match."
+      }
+    },
+    "aiReview": {
+      "title": "AI answer review",
+      "intro": "Assistant answers worth checking: marked by staff, in requests rated below 4, and the latest answers for reviewing the first two weeks of the pilot.",
+      "flagged": "Marked as wrong",
+      "lowRated": "Client rating below 4",
+      "sample": "Latest answers in two weeks",
+      "empty": "Nothing yet.",
+      "columns": {
+        "ticket": "Request",
+        "solution": "Assistant solution",
+        "reason": "Mark reason",
+        "rating": "Rating",
+        "result": "Review result"
+      },
+      "noSolution": "Question, no solution",
+      "noReason": "Not marked",
+      "noResult": "Not reviewed",
+      "save": "Save result",
+      "resultLabel": "Review result for {ticket}",
+      "results": {
+        "solution_fixed": "Solution fixed",
+        "threshold_raised": "Threshold raised",
+        "no_change": "No change"
+      },
+      "done": "Review result saved.",
+      "errors": {
+        "forbidden": "Second line, care and admin write the review result.",
+        "invalid_input": "Check the selected result."
       }
     }
   },

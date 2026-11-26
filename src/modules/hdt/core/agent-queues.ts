@@ -4,7 +4,7 @@ import { containsText } from '@/db/contains';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
-import { AI_SILENCE_SEC, type Priority, type Queue, type TicketStatus } from '../pref';
+import { type AiHandoffReason, AI_SILENCE_SEC, type Priority, type Queue, type TicketStatus } from '../pref';
 import { savedFilters, type SavedQuery, ticketMessages, tickets } from '../schema';
 import { SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
 import type { Tag } from '@/modules/hdr/api';
@@ -39,6 +39,8 @@ export type QueueRecord = {
   /** Время изменения с точностью базы (микросекунды): ключ листания по последнему изменению. */
   modifiedKey: string;
   clientWaitingSince: Date | null;
+  /** Причина передачи помощником (очередь "После AI", FR-AG-19). */
+  aiHandoffReason: AiHandoffReason | null;
   /** Теги обращения (FR-AUTO-13): читаются той же транзакцией, только если список их просил. */
   tags: Tag[];
 };
@@ -64,6 +66,13 @@ function queueWhere(queue: QueueKey, me: string): SQL | undefined {
       return and(eq(tickets.status, 'new'), eq(tickets.queue, 'l1'), ne(tickets.orgId, SERVICE_ORG_ID), notSnoozed, AI_NOT_ANSWERING);
     case 'mine':
       return and(eq(tickets.assigneeId, me), ne(tickets.status, 'closed'));
+    // "После AI" (решение 19): передано помощником, сотрудник клиенту ещё не ответил. После передачи срок первого
+    // ответа начинается заново и first_responded_on пуст до ответа сотрудника (решение 15).
+    case 'after_ai':
+      return and(eq(tickets.aiState, 'handed_off'), isNull(tickets.firstRespondedOn), OPEN, notSnoozed);
+    // "AI ответил, клиент молчит": помощник ведёт обращение и ждёт реакции клиента на свой ответ.
+    case 'ai_waiting':
+      return and(eq(tickets.aiState, 'active'), eq(tickets.status, 'waiting_customer'), notSnoozed);
     case 'l2':
       return and(eq(tickets.queue, 'l2'), OPEN, notSnoozed);
     case 'waiting':
@@ -145,6 +154,7 @@ export async function queueRowsTx(
         snoozeReturnedOn: tickets.snoozeReturnedOn,
         modifiedKey: sql<string>`to_char(${tickets.modifiedOn} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         clientWaitingSince: tickets.clientWaitingSince,
+        aiHandoffReason: tickets.aiHandoffReason,
       })
       .from(tickets)
       .where(and(queueWhere(input.queue, actor.userId), searchWhere(input.search), tagWhere(input.tagId), afterKey(input.after)))
@@ -158,7 +168,7 @@ export async function queueRowsTx(
   });
 }
 
-const OPEN_QUEUES = ['new', 'l2', 'waiting', 'development', 'breached'] as const;
+const OPEN_QUEUES = ['new', 'after_ai', 'l2', 'waiting', 'development', 'breached'] as const;
 
 /**
  * Счётчики очередей (аудит 23.11.2026, находка P2). Считаются только открытые обращения (по частичному индексу) и
@@ -185,7 +195,8 @@ async function queueCountsIn(tx: Tx, actor: StaffActor): Promise<Record<QueueKey
       .select({ n: sql<number>`count(*)::int` })
       .from(tickets)
       .where(queueWhere('mine', actor.userId));
-    return { new: open?.new ?? 0, l2: open?.l2 ?? 0, waiting: open?.waiting ?? 0, development: open?.development ?? 0, breached: open?.breached ?? 0, mine: mine?.n ?? 0, all: null };
+    // "AI ответил, клиент молчит" без счётчика (решение 19): это не работа сотрудника.
+    return { new: open?.new ?? 0, after_ai: open?.after_ai ?? 0, ai_waiting: null, l2: open?.l2 ?? 0, waiting: open?.waiting ?? 0, development: open?.development ?? 0, breached: open?.breached ?? 0, mine: mine?.n ?? 0, all: null };
   }
 }
 

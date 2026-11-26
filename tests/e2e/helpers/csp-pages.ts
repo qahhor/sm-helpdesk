@@ -33,6 +33,7 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: `${A}/ideas/[number]`, path: '/ru/agent/ideas/{idea}', who: 'admin', walk: true },
   { route: `${A}/ideas/cycles`, path: '/ru/agent/ideas/cycles', who: 'admin' },
   { route: `${A}/metrics`, path: '/ru/agent/metrics', who: 'admin', walk: true },
+  { route: `${A}/ai-review`, path: '/ru/agent/ai-review', who: 'admin', walk: true },
   { route: `${A}/notifications`, path: '/ru/agent/notifications', who: 'admin' },
   { route: `${A}/organizations`, path: '/ru/agent/organizations', who: 'admin' },
   { route: `${A}/organizations/[orgId]`, path: '/ru/agent/organizations/{org}', who: 'admin' },

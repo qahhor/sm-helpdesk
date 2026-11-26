@@ -34,6 +34,7 @@ import {
   transferToL2,
   zonedToDate,
 } from '@/modules/hdt/api';
+import { flagAiAnswer, isHdaError } from '@/modules/hda/api/review';
 import { acceptTriage } from '@/modules/hdt/api/triage';
 import { requireStaffActor, type StaffContext } from '@/modules/hdu/api';
 import { devTrackerMode, isHdwError, runMacro, sendToDevelopment, setDevTaskStatus, unlinkFromDevelopment } from '@/modules/hdw/api';
@@ -148,6 +149,20 @@ export async function typeAction(form: FormData): Promise<void> {
 export async function acceptTriageAction(form: FormData): Promise<void> {
   const field = text(form, 'field');
   await run(form, async (staff, number) => void (await acceptTriage(staff, { number, fields: field === 'all' ? 'all' : [field] })), 'triaged');
+}
+
+/** "Отметить ответ как неверный" у сообщения помощника (план M5b, задача 8; FR-AI-16): причина из списка и комментарий. */
+export async function flagAiAnswerAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const number = Number(text(form, 'number'));
+  const page = `/${await getLocale()}/agent/tickets/SUP-${Number.isInteger(number) ? number : 0}`;
+  try {
+    await flagAiAnswer(staff, { messageId: text(form, 'messageId'), reason: text(form, 'reason'), comment: text(form, 'comment') });
+  } catch (error) {
+    if (!isHdaError(error)) throw error;
+    redirect(`${page}?error=${error.code === 'forbidden' ? 'forbidden' : 'invalid_input'}`);
+  }
+  redirect(`${page}?done=flagged`);
 }
 
 export async function moduleAction(form: FormData): Promise<void> {

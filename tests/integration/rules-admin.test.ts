@@ -72,7 +72,8 @@ test('правка, включение, порядок и удаление: ка
 });
 
 test('схема: правило с неподдержанным событием, условием или лишним полем не сохраняется, отказ называет поле и код', async () => {
-  await expect(saveRule(admin, { ...base, event: 'ai_handoff' })).rejects.toMatchObject({ code: 'invalid_input', issues: [{ path: 'event', code: 'event_not_ready' }] });
+  // "AI передал обращение" принимается с вехи M5b (задача 8); неизвестное событие нет.
+  await expect(saveRule(admin, { ...base, event: 'ai_answered' })).rejects.toMatchObject({ code: 'invalid_input' });
   await expect(saveRule(admin, { ...base, conditions: { match: 'all', items: [{ field: 'known_problem', op: 'is', value: true }] } })).rejects.toMatchObject({
     code: 'invalid_input',
     issues: [{ path: 'conditions.items.0', code: 'condition_not_ready' }],
@@ -290,7 +291,7 @@ test('пробный прогон: на каких из последних об�
   expect(audit).toMatchObject({ action: 'rule.dry_run', actor_id: f.adminStaff.userId, object_type: 'rule', object_id: null, diff: { name: 'Клиенты категории A', event: 'ticket_created', checked: 5, matched: 3 } });
 
   // Негодное правило не прогоняется; правило без совпадений возвращает пустой список.
-  await expect(dryRunRule(admin, { ...rule, event: 'ai_handoff' })).rejects.toMatchObject({ code: 'invalid_input' });
+  await expect(dryRunRule(admin, { ...rule, event: 'ai_answered' })).rejects.toMatchObject({ code: 'invalid_input' });
   expect(await dryRunRule(admin, { ...rule, conditions: { match: 'all', items: [{ field: 'rating', op: 'lte', value: 2 }] } })).toEqual({ checked: 5, count: 0, matches: [], basis: { kind: 'event', event: 'ticket_created', window: 100 } });
 });
 
@@ -334,7 +335,7 @@ test('списки для редактора правила: сотрудник�
   await pools.root.query(`insert into hdr_reply_templates (shortcut, title, body, is_enabled) values ('ask', 'Запрос версии', '{"ru": "Пришлите версию"}', true), ('old', 'Старый', '{"ru": "Текст"}', false)`);
   await pools.root.query(`insert into hdr_product_modules (code, name) values ('orders', '{"ru": "Заказы", "en": "Orders"}')`);
   const options = await ruleOptions(admin, { locale: 'en', orgIds: [f.orgB.orgId, ID] });
-  expect(options.events).toEqual(['ticket_created', 'client_replied', 'staff_replied', 'status_changed', 'priority_changed', 'rated', 'sla_soon', 'sla_breached', 'no_activity']);
+  expect(options.events).toEqual(['ticket_created', 'client_replied', 'staff_replied', 'status_changed', 'priority_changed', 'rated', 'sla_soon', 'sla_breached', 'no_activity', 'ai_handoff']);
   expect(options.queues).toEqual(['l1', 'l2', 'care']);
   expect(options.statusTargets).toEqual(['in_progress', 'waiting_customer', 'in_development', 'closed']);
   expect(options.categories).toEqual(['A', 'B', 'C', 'D', 'none']);

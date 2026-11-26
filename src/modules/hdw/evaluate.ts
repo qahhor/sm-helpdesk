@@ -31,6 +31,8 @@ export type TicketSnapshot = {
   /** Идёт ли рабочее время поддержки по календарю сроков SLA. */
   isWorkingTime: boolean;
   assigneeId: string | null;
+  /** Причина передачи помощником (FR-AI-14). null: помощник не передавал обращение. */
+  aiHandoffReason: string | null;
 };
 
 const HOUR_MS = 3_600_000;
@@ -64,6 +66,8 @@ function holds(condition: Condition, snapshot: TicketSnapshot, now: Date): boole
       return inList(snapshot.orgCategory ?? 'none', condition.values, condition.op);
     case 'org':
       return inList(snapshot.orgId, condition.values, condition.op);
+    case 'ai_reason':
+      return inList(snapshot.aiHandoffReason, condition.values, condition.op);
     case 'tags': {
       const has = (tagId: string) => snapshot.tagIds.includes(tagId);
       if (condition.op === 'has_all') return condition.values.every(has);

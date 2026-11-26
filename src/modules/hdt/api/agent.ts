@@ -24,7 +24,7 @@ import { timelineLimit } from '../core/timeline';
 import { assertCanWrite, assignTx, setModuleTx, setPriorityTx, setStatusTx, setTypeTx, snoozeTx, takeTx } from '../core/agent-actions';
 import { HdtError, isHdtError } from '../error';
 import { assignInput, moduleInput, numberInput, parseInput, priorityInput, queueInput, savedFilterInput, snoozeInput, statusInput, thanksInput, typeInput, nextInput } from '../input';
-import { type AuthorType, type EventKind, type Impact, INLINE_IMAGE_TYPES, type Priority, type Queue, type ScanStatus, type TicketSource, type TicketStatus, type TicketType, type Visibility } from '../pref';
+import { type AiHandoffReason, type AuthorType, type EventKind, type Impact, INLINE_IMAGE_TYPES, type Priority, type Queue, type ScanStatus, type TicketSource, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { workingMinutesBetween } from '../sla';
 import { parseNumber, parseSearch, rejectReasonOf } from '../util';
 import * as z from 'zod';
@@ -52,6 +52,8 @@ export type QueueRow = {
   /** Вернулось из отложенных, и сотрудник с ним ещё ничего не сделал (FR-AG-13). */
   snoozeReturned: boolean;
   clientWaitingSince: Date | null;
+  /** Причина передачи помощником: показывается в очереди "После AI" (FR-AG-19). */
+  aiHandoffReason: AiHandoffReason | null;
   /** Теги обращения в порядке постановки (FR-AUTO-13). Клиенту не показываются нигде. */
   tags: Tag[];
 };
@@ -116,6 +118,7 @@ export async function listQueue(
         snoozedUntil: row.snoozedUntil && row.snoozedUntil.getTime() > now.getTime() ? row.snoozedUntil : null,
         snoozeReturned: row.snoozeReturnedOn !== null && row.status !== 'resolved' && row.status !== 'closed',
         clientWaitingSince: row.clientWaitingSince,
+        aiHandoffReason: row.aiHandoffReason,
         tags: row.tags,
       };
     }),
@@ -180,6 +183,8 @@ export type AgentTimelineEntry =
       isNew: boolean;
       /** Письмо клиенту об этом ответе не доставлено (решение 21 вехи M4). */
       undelivered: boolean;
+      /** Вид сообщения помощника (answer, clarify, handoff, ack); у остальных null. По нему кнопка "Отметить ответ как неверный". */
+      aiKind: string | null;
     }
   | { type: 'event'; id: string; kind: EventKind; payload: Record<string, unknown>; actorName: string | null; isInternal: boolean; createdOn: Date; isNew: boolean };
 
@@ -285,6 +290,7 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
         attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),
         isNew: isNew(m.createdOn),
         undelivered: undelivered.has(m.messageId),
+        aiKind: m.aiKind,
       }),
     ),
     ...found.events

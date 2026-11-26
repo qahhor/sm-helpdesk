@@ -29,9 +29,8 @@ test('правило с событием, условиями и действия
   expect(ok({ name: '  Имя с пробелами  ', isStop: true })).toMatchObject({ ok: true, rule: { name: 'Имя с пробелами', isStop: true } });
 });
 
-test('каждое событие перечня принимается, "AI передал обращение" пока отклоняется своим кодом', () => {
-  for (const event of ['ticket_created', 'client_replied', 'staff_replied', 'status_changed', 'priority_changed', 'rated', 'sla_soon', 'sla_breached']) expect(ok({ event }).ok, event).toBe(true);
-  expect(codes({ event: 'ai_handoff' })).toEqual([{ path: 'event', code: 'event_not_ready' }]);
+test('каждое событие перечня принимается, "AI передал обращение" с вехи M5b тоже', () => {
+  for (const event of ['ticket_created', 'client_replied', 'staff_replied', 'status_changed', 'priority_changed', 'rated', 'sla_soon', 'sla_breached', 'ai_handoff']) expect(ok({ event }).ok, event).toBe(true);
   expect(codes({ event: 'made_up' })).toEqual([{ path: 'event', code: 'invalid' }]);
 });
 
@@ -87,8 +86,10 @@ describe('условия', () => {
     expect(withCondition(item).ok).toBe(false);
   });
 
-  test('условия без данных (сигнатура, известная проблема, причина от AI) отклоняются своим кодом', () => {
-    for (const field of ['signature', 'known_problem', 'ai_reason']) {
+  test('условия без данных (сигнатура, известная проблема) отклоняются своим кодом; причина от AI принимается списком', () => {
+    expect(withCondition({ field: 'ai_reason', op: 'is', values: ['restricted_topic', 'p1'] }).ok).toBe(true);
+    expect(withCondition({ field: 'ai_reason', op: 'is', values: ['made_up'] }).ok).toBe(false);
+    for (const field of ['signature', 'known_problem']) {
       const result = withCondition({ field, op: 'is', value: true });
       expect(result, field).toEqual({ ok: false, issues: [{ path: 'conditions.items.0', code: 'condition_not_ready' }] });
     }

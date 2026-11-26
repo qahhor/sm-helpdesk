@@ -24,10 +24,12 @@ const tag = () =>
 
 test.beforeAll(async () => {
   await dbRows(`insert into hdc_settings (code, value) values ('ai.enabled', 'true'::jsonb) on conflict (code) do update set value = excluded.value`);
+  // Суточный предел 20 вызовов на пользователя (решение 11) повторные прогоны одного дня исчерпали бы: на время теста выше.
+  await dbRows(`insert into hdc_settings (code, value) values ('ai.user_daily_limit', '1000'::jsonb), ('ai.org_daily_limit', '10000'::jsonb) on conflict (code) do update set value = excluded.value`);
   await dbRows(`update hdu_organizations set is_ai_enabled = true where name = 'ACME Trade'`);
 });
 test.afterAll(async () => {
-  await dbRows(`delete from hdc_settings where code = 'ai.enabled'`);
+  await dbRows(`delete from hdc_settings where code in ('ai.enabled', 'ai.user_daily_limit', 'ai.org_daily_limit')`);
 });
 
 async function publishSolution(browser: Browser, title: string): Promise<number> {
@@ -149,7 +151,7 @@ test('ссылка "Помогло" из письма Теза: открытие
   await guest.close();
 });
 
-test('блок AI у сотрудника: причина передачи, резюме с пометкой рядом с исходным текстом, "Принять" меняет заголовок (задача 7)', async ({ page, browser }) => {
+test('S8 у агента: "После AI" с причиной, блок AI, "Принять" меняет заголовок, отметка "неверно" в разборе (задачи 7, 8)', async ({ page, browser }) => {
   test.setTimeout(120_000);
   const word = tag();
   await publishSolution(browser, `Заказ ${word} не сохраняется, разбор: нет остатка на складе`);
@@ -164,6 +166,11 @@ test('блок AI у сотрудника: причина передачи, ре
 
   const context = await browser.newContext({ storageState: storageStateOf('l1') });
   const agent = await context.newPage();
+  // Агент видит обращение в "После AI" с причиной передачи (FR-AG-19, сценарий S8).
+  await agent.goto(`/ru/agent/queues?queue=after_ai&q=SUP-${number}`);
+  const row = agent.locator(`tr[data-number="${number}"]`);
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('Передано: клиент попросил сотрудника');
   await agent.goto(`/ru/agent/tickets/SUP-${number}`);
   const block = agent.getByTestId('ai-block');
   await expect(block).toContainText('Передано: клиент попросил сотрудника');
@@ -182,6 +189,16 @@ test('блок AI у сотрудника: причина передачи, ре
   expect(await title()).toBe('Не печатается накладная');
   await expect(agent.getByTestId('ai-block').locator('[data-triage-field="title"]')).toContainText('Принято');
   // Узкая ширина интерфейса сотрудника: ноутбук при масштабе 200% (как agent.spec.ts).
+  // Отметить ответ помощника неверным (FR-AI-16): отметка попадает на страницу разбора.
+  const flag = agent.locator('[data-flag-ai]').first();
+  await flag.locator('summary').click();
+  await flag.getByLabel('Причина').selectOption('should_handoff');
+  await flag.getByRole('button', { name: 'Отметить', exact: true }).click();
+  await expect(agent.getByText('Ответ отмечен как неверный.')).toBeVisible();
+  await agent.goto('/ru/agent/ai-review');
+  await expect(agent.getByTestId('ai-review-flagged').locator(`tr[data-number="${number}"]`)).toContainText('Нужно было передать сотруднику');
+  expect((await new AxeBuilder({ page: agent }).include('main').analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  await agent.goto(`/ru/agent/tickets/SUP-${number}`);
   await agent.setViewportSize({ width: 640, height: 400 });
   await agent.reload();
   await expect(agent.getByTestId('ai-block')).toBeVisible();

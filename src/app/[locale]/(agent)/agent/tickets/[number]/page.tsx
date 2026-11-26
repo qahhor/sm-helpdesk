@@ -140,7 +140,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
           />
           <SeenMark ticketId={ticket.ticketId} />
           <PresenceBar number={ticket.number} labels={{ viewing: t.raw('ticket.presence.viewing') as string, typing: t.raw('ticket.presence.typing') as string }} />
-          <TicketTimeline ticket={ticket} from={{ queue: search.queue, sort: search.sort }} />
+          <TicketTimeline ticket={ticket} from={{ queue: search.queue, sort: search.sort }} canFlag={canWrite} />
           {canWrite && macros.length > 0 && (
             <MacroMenu number={ticket.number} version={ticket.version} macros={macros} labels={{ open: t('ticket.macros.open'), list: t('ticket.macros.list'), busy: t('ticket.macros.busy') }} />
           )}

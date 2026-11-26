@@ -59,7 +59,8 @@ test('строка журнала первой линии: обращение, �
   // Колонки текста в журнале не появились: перечень колонок закрыт.
   const columns = (await pools.root.query(`select column_name, data_type from information_schema.columns where table_name = 'hda_runs'`)).rows;
   for (const c of columns.filter((c) => c.data_type === 'text'))
-    expect(['purpose', 'model', 'outcome', 'error_code', 'created_by', 'modified_by', 'decision', 'handoff_reason', 'input_hash', 'flag_reason', 'review_result']).toContain(c.column_name);
+    // flag_comment (задача 8): комментарий сотрудника к отметке "неверно", не текст запроса и не ответ модели.
+    expect(['purpose', 'model', 'outcome', 'error_code', 'created_by', 'modified_by', 'decision', 'handoff_reason', 'input_hash', 'flag_reason', 'review_result', 'flag_comment']).toContain(c.column_name);
   // В колонку хеша текст не положить.
   await expect(pools.root.query(`update hda_runs set input_hash = $1`, [TEXT])).rejects.toThrow(/hda_runs_c9/);
 });

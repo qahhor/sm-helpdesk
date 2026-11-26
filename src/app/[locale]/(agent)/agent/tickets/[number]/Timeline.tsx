@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/ui/components/card';
 import { Markdown } from '@/ui/components/markdown';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { cn } from '@/ui/cn';
+import { FlagAiAnswer } from './FlagAiAnswer';
 
 // Переписка и история обращения у сотрудника (FR-AG-04, UX-A-14, UX-A-15): описание, сообщения с заметками,
 // события, файлы. Серверный компонент, скриптов не добавляет. Вынесен из страницы (аудит 23.11.2026, находка A8).
@@ -14,9 +15,11 @@ type Props = {
   ticket: AgentTicketView;
   /** Очередь и сортировка, из которых открыто обращение: ссылка "Показать раньше" их сохраняет. */
   from: { queue?: string; sort?: string };
+  /** Может ли сотрудник отметить ответ помощника неверным (FR-AI-16): ведёт обращения. */
+  canFlag?: boolean;
 };
 
-export async function TicketTimeline({ ticket, from }: Props) {
+export async function TicketTimeline({ ticket, from, canFlag = false }: Props) {
   const t = await getTranslations('agent');
   const format = await getFormatter();
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
@@ -153,6 +156,7 @@ export async function TicketTimeline({ ticket, from }: Props) {
             </p>
             <Markdown text={entry.body} />
             {files(entry.attachments)}
+            {canFlag && entry.authorType === 'ai' && (entry.aiKind === 'answer' || entry.aiKind === 'clarify') && <FlagAiAnswer number={ticket.number} messageId={entry.id} />}
           </article>
         ) : (
           <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground" data-event={entry.kind}>

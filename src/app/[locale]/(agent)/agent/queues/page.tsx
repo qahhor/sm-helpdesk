@@ -225,6 +225,12 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                           {row.line === 'l2' && ` · ${t('queues.lineL2')}`}
                           {row.snoozedUntil && ` · ${t('queues.snoozed', { time: format.dateTime(row.snoozedUntil, { dateStyle: 'short', timeStyle: 'short' }) })}`}
                         </span>
+                        {/* Причина передачи помощником в строке очереди "После AI" (FR-AG-19). */}
+                        {queue === 'after_ai' && row.aiHandoffReason && (
+                          <span className="block text-xs text-secondary-foreground" data-ai-reason={row.aiHandoffReason}>
+                            {t('queues.aiReason', { reason: t(`ticket.aiReasons.${row.aiHandoffReason}`) })}
+                          </span>
+                        )}
                         {row.tags.length > 0 && (
                           <span className="mt-1 flex flex-wrap gap-1" data-row-tags>
                             {row.tags.map((item) => (

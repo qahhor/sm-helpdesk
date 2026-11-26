@@ -44,6 +44,8 @@ export const aiRuns = pgTable('hda_runs', {
   reviewResult: text('review_result'),
   // Миграция 0093 (веха M5b, задача 7): найденные решения для блока AI сотрудника, без текста.
   found: jsonb('found').$type<FoundRef[]>(),
+  // Миграция 0094 (веха M5b, задача 8): комментарий сотрудника к отметке "неверно".
+  flagComment: text('flag_comment'),
 });
 
 /** Найденное решение в строке журнала: идентификатор, номер и оценка ранжирования. */

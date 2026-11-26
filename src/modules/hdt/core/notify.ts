@@ -5,6 +5,7 @@ import { channelsForMany, emailAllowed, type NotificationKind, notifyTx, type Pr
 import { replyConfig } from '@/modules/hdn/api/inbound';
 import { enqueueTx, TELEGRAM_TEMPLATES } from '@/modules/hdn/api/outbox';
 import { organizationName, replyRoles } from '@/modules/hdu/api/recipients';
+import { aiCallbackData, aiLinkToken } from '../ai-link';
 import { csatToken } from '../csat-link';
 import type { TicketStatus, Visibility } from '../pref';
 import { ticketMessages, tickets, ticketWatchers } from '../schema';
@@ -35,7 +36,9 @@ export type TicketNotice = {
     | 'snooze_returned'
     | 'update_due'
     | 'dev_task_closed'
-    | 'csat_low';
+    | 'csat_low'
+    | 'ai_answer'
+    | 'ai_ack';
   /** Кто действовал: он не получает уведомления о своём действии. Система: null. */
   actorUserId: string | null;
   messageId?: string;
@@ -54,6 +57,10 @@ export type TicketNotice = {
   devTaskRef?: string;
   /** Низкая оценка: сама оценка. Получатели в leads. */
   score?: number;
+  /** Ответ Теза решением (план M5b, задача 6): вступление и решение из hdk_published, без слов модели. */
+  aiAnswer?: { introId: string; solutionTitle: string; lines: string[]; articleNumber: number };
+  /** Подтверждение без Теза: срок ответа сотрудника. */
+  aiAck?: { dueOn: string | null; startOn: string | null; timeZone: string };
 };
 
 /** Смены статуса, о которых клиенту уходит письмо (решение 6). "Решено" идёт отдельным письмом. */
@@ -231,6 +238,34 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
       });
     case 'auto_closed':
       return tell(tx, e.ticketId, ticket, await people(tx, e.ticketId, ticket, null), 'ticket_status', { template: 'ticket_status', ...ref, status: 'closed', auto: true });
+    case 'ai_answer': {
+      // Ответ Теза (FR-NT-11, FR-EM-12): только автору, ссылки и кнопки подписаны его идентификатором и сообщением.
+      // Ключ подписи общий с адресами ответа; не задан: письмо без ссылок, кнопки в портале.
+      if (!e.aiAnswer || !e.messageId) return;
+      const cfg = replyConfig();
+      const now = new Date();
+      const signed = cfg
+        ? {
+            helpedUrl: `/ai-answer?t=${aiLinkToken({ messageId: e.messageId, userId: ticket.authorId, choice: 'helped', now }, cfg.secret)}`,
+            staffUrl: `/ai-answer?t=${aiLinkToken({ messageId: e.messageId, userId: ticket.authorId, choice: 'need_staff', now }, cfg.secret)}`,
+            helpedData: aiCallbackData({ messageId: e.messageId, userId: ticket.authorId, choice: 'helped' }, cfg.secret),
+            staffData: aiCallbackData({ messageId: e.messageId, userId: ticket.authorId, choice: 'need_staff' }, cfg.secret),
+          }
+        : {};
+      return tell(tx, e.ticketId, ticket, [ticket.authorId], 'ticket_reply', {
+        template: 'tez_answer',
+        ...ref,
+        introId: e.aiAnswer.introId,
+        solutionTitle: e.aiAnswer.solutionTitle,
+        lines: e.aiAnswer.lines.slice(0, 30),
+        solutionUrl: `/help/a/${e.aiAnswer.articleNumber}`,
+        ...signed,
+      }, e.messageId);
+    }
+    case 'ai_ack':
+      // Подтверждение без Теза при передаче ai_disabled и ai_limit (FR-AI-15): автору, со сроком ответа сотрудника.
+      if (!e.aiAck) return;
+      return tell(tx, e.ticketId, ticket, [ticket.authorId], 'ticket_status', { template: 'tez_ack', ...ref, ...e.aiAck });
     case 'waiting_reminder':
       // Напоминание только автору: ответа ждут от него (FR-TK-15).
       return tell(tx, e.ticketId, ticket, [ticket.authorId], 'waiting_reminder', { template: 'waiting_reminder', ...ref, closeInDays: e.closeInDays ?? 0 });

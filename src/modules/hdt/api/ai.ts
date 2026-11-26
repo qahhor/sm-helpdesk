@@ -4,6 +4,7 @@ import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { enqueue, wakeAutomation } from '@/modules/hdc/api';
+import { wakeOutbox } from '@/modules/hdn/api/outbox';
 import { assistantEligible } from '@/modules/hda/api/eligibility';
 import { activateAiTx, type FirstLineTicket, firstLineTicketTx, handoffTx, postAiMessageTx, silentAssistantTx } from '../core/ai';
 import { HdtError } from '../error';
@@ -55,14 +56,22 @@ const answerPayload = z.discriminatedUnion('kind', [
 /** Ответ решением или вопрос помощника (решения 9, 15). Возвращает идентификатор сообщения. */
 export async function postAiMessage(
   actor: SystemActor,
-  input: { ticketId: string; payload: Extract<AiPayload, { kind: 'answer' | 'clarify' }>; now?: Date; expectReplyCount?: number },
+  input: { ticketId: string; payload: Extract<AiPayload, { kind: 'answer' | 'clarify' }>; now?: Date; expectReplyCount?: number; mail?: { solutionTitle: string; lines: string[] } },
 ): Promise<string> {
   assertSystem(actor);
   const ticketId = uuid.parse(input.ticketId);
   const payload = answerPayload.parse(input.payload) as Extract<AiPayload, { kind: 'answer' | 'clarify' }>;
   const messageId = await withActor(actor, (tx) =>
-    postAiMessageTx(tx, { ticketId, payload, now: input.now ?? new Date(), ...(input.expectReplyCount !== undefined ? { expectReplyCount: input.expectReplyCount } : {}) }),
+    postAiMessageTx(tx, {
+      ticketId,
+      payload,
+      now: input.now ?? new Date(),
+      ...(input.expectReplyCount !== undefined ? { expectReplyCount: input.expectReplyCount } : {}),
+      ...(input.mail ? { mail: { solutionTitle: input.mail.solutionTitle.slice(0, 200), lines: input.mail.lines.slice(0, 30).map((l) => l.slice(0, 500)) } } : {}),
+    }),
   );
+  // Письмо и сообщение в Telegram об ответе Теза уже в очереди.
+  await wakeOutbox();
   await wakeAutomation();
   return messageId;
 }
@@ -87,8 +96,11 @@ export async function aiHandoff(actor: SystemActor, input: { ticketId: string; r
     if (!row) throw new HdtError('not_found');
     return handoffTx(tx, { ticketId: data.ticketId, reason: data.reason, questionIds: data.questionIds, now: data.now ?? new Date(), locale: data.locale ?? row.locale });
   });
-  // Событие ai_handoff записано: правила разбираются сразу.
-  if (done) await wakeAutomation();
+  // Событие ai_handoff записано: правила разбираются сразу; письмо подтверждения в очереди.
+  if (done) {
+    await wakeAutomation();
+    await wakeOutbox();
+  }
   return done;
 }
 

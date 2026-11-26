@@ -236,6 +236,7 @@ async function answer(
       payload: { kind: 'answer', introId, articleId: chosen.articleId, articleNumber: chosen.number, locale: chosen.locale },
       now: now(),
       expectReplyCount: t.aiReplyCount,
+      mail: { solutionTitle: chosen.title, lines: chosen.text.split('\n') },
     });
   } catch (error) {
     // Второе задание на то же обращение уже ответило (решение 5): второго ответа нет.

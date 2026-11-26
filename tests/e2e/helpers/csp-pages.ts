@@ -75,6 +75,7 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: '[locale]/(auth)/login/link', path: '/ru/login/link', who: 'guest' },
   { route: '[locale]/(auth)/login/tg', path: '/ru/login/tg', who: 'guest' },
   { route: '[locale]/(auth)/rate', path: '/ru/rate', who: 'guest' },
+  { route: '[locale]/(auth)/ai-answer', path: '/ru/ai-answer', who: 'guest' },
   { route: '[locale]/(auth)/staff/login', path: '/ru/staff/login', who: 'guest', walk: true },
   { route: '[locale]/(auth)/staff/setup', path: '/ru/staff/setup', who: 'guest' },
   // Витрина и пробный редактор (только при HUB_SHOWCASE=1).

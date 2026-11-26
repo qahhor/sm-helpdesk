@@ -4,7 +4,7 @@ import { getEnv } from '@/env';
 import { isLocale, type Locale } from '@/i18n/locales';
 import { resolveLocale } from '@/i18n/resolve-locale';
 import { RATE_RULES } from '@/modules/hdc/pref';
-import { clientIp, consumeRateLimit, rateKey } from '@/modules/hdc/api';
+import { clientIp, consumeRateLimit, rateKey, tezFeedback } from '@/modules/hdc/api';
 import {
   botText,
   getTelegramBot,
@@ -206,6 +206,13 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
     if (data === 'unlink') return unlink();
     if (data === 'lang') return chooseLanguage();
     if (data.startsWith('lang:')) return setLanguage(data.slice('lang:'.length));
+    // Кнопки под ответом Теза (план M5b, задача 6): та же функция модуля обращений, что кнопки портала.
+    if (data.startsWith('tz:')) {
+      if (!identity) return reply(botText(locale, 'notLinked'), portalButton(locale));
+      const result = await tezFeedback(identity.userId, data);
+      if (result.ok) return reply(botText(locale, result.choice === 'helped' ? 'tez.helped' : 'tez.needStaff'));
+      return reply(botText(locale, result.code === 'already_done' ? 'tez.already' : 'tez.invalid'), portalButton(locale));
+    }
     return fallback();
   }
 

@@ -24,7 +24,7 @@ test('каждый шаблон и статус даёт своё событие
   expect(event({ template: 'ticket_status', ...ref, status: 'closed', mergedInto: 1050 })).toBe('Объединено с SUP-1050. Переписка продолжится там.');
   expect(event({ template: 'ticket_resolved', ...ref })).toBe('Обращение решено. Оцените ответ или откройте обращение снова.');
   expect(event({ template: 'waiting_reminder', ...ref, closeInDays: 3 })).toBe('Ждём вашего ответа. Без ответа обращение закроется через 3 рабочих дня.');
-  expect([...TELEGRAM_TEMPLATES].sort()).toEqual(['ticket_created', 'ticket_reply', 'ticket_resolved', 'ticket_status', 'waiting_reminder']);
+  expect([...TELEGRAM_TEMPLATES].sort()).toEqual(['tez_answer', 'ticket_created', 'ticket_reply', 'ticket_resolved', 'ticket_status', 'waiting_reminder']);
 });
 
 test('на языке пользователя: узбекский и английский', () => {
@@ -68,4 +68,26 @@ test('тема не становится нажимаемой в Telegram: до�
   expect(text('Тема,#скидка и "/start"')).not.toMatch(/#\p{L}|\/[a-z]/u);
   // Обычная тема не меняется: дробь, номер и знаки препинания остаются как были.
   expect(text('Счёт 5/7 не сходится, строка №3. Проверьте')).toBe('SUP-7 · Счёт 5/7 не сходится, строка №3. Проверьте');
+});
+
+// Новый ответ Теза (план M5b, задачи 2 и 6; FR-NT-11): общий путь M4b (номер, тема, "Открыть в портале"), заголовок
+// решения обезврежен так же, как тема, и две кнопки с подписанными данными.
+test('ответ Теза: номер, тема, заголовок решения без ссылок и команд, кнопки "Помогло" и "Нужен сотрудник"', () => {
+  const notice = telegramNoticeText(
+    { template: 'tez_answer', number: 7, title: 'Не печатается', url: '/tickets/SUP-7', introId: 'likely_solution', solutionTitle: 'Зайдите на Login.Com и /unlink', lines: ['Шаг'], solutionUrl: '/help/a/1', helpedData: 'tz:h:abc', staffData: 'tz:s:abc' },
+    'ru',
+    HUB,
+  );
+  const [first, second] = notice.text.split('\n');
+  expect(first).toBe('SUP-7 · Не печатается');
+  expect(second?.startsWith('Тез предложил решение: ')).toBe(true);
+  expect(second).not.toMatch(/\w\.\w/);
+  expect(second).not.toMatch(/(^|\s)\/[a-z]/);
+  expect(notice.text).not.toContain('Шаг');
+  expect(notice.button).toEqual({ text: 'Открыть в портале', url: `${HUB}/ru/tickets/SUP-7` });
+  expect(notice.choices).toEqual([
+    { text: 'Помогло', data: 'tz:h:abc' },
+    { text: 'Нужен сотрудник', data: 'tz:s:abc' },
+  ]);
+  expect(TELEGRAM_TEMPLATES.has('tez_answer')).toBe(true);
 });

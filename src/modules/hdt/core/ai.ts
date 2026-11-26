@@ -7,6 +7,7 @@ import { HdtError } from '../error';
 import { AI_REPLY_LIMIT, type AiHandoffReason, type AiPayload, canTransition, type TicketStatus } from '../pref';
 import { ticketEvents, ticketMessages, tickets } from '../schema';
 import { nextWorkStart } from '../sla';
+import { notifyTicketTx } from './notify';
 import { calendarFor, refreshSla } from './sla';
 
 // Модуль hdt, слой core: помощник первой линии в обращении (план M5b, задача 3, решения 4, 9, 14, 15; FR-AI-09, 10,
@@ -73,7 +74,14 @@ export async function activateAiTx(tx: Tx, ticketId: string): Promise<boolean> {
  */
 export async function postAiMessageTx(
   tx: Tx,
-  input: { ticketId: string; payload: Extract<AiPayload, { kind: 'answer' | 'clarify' }>; now: Date; expectReplyCount?: number },
+  input: {
+    ticketId: string;
+    payload: Extract<AiPayload, { kind: 'answer' | 'clarify' }>;
+    now: Date;
+    expectReplyCount?: number;
+    /** Заголовок и строки опубликованного решения для письма и Telegram (задача 6). */
+    mail?: { solutionTitle: string; lines: string[] };
+  },
 ): Promise<string> {
   const t = await lockAi(tx, input.ticketId);
   if (t.aiState !== 'active' || t.aiReplyCount >= AI_REPLY_LIMIT) throw new HdtError('transition_refused');
@@ -100,6 +108,14 @@ export async function postAiMessageTx(
     clientWaitingSince: null,
     ...(answered ? { firstRespondedOn: input.now } : {}),
   });
+  if (input.payload.kind === 'answer' && input.mail)
+    await notifyTicketTx(tx, {
+      ticketId: t.ticketId,
+      kind: 'ai_answer',
+      actorUserId: null,
+      messageId: message!.messageId,
+      aiAnswer: { introId: input.payload.introId, solutionTitle: input.mail.solutionTitle, lines: input.mail.lines, articleNumber: input.payload.articleNumber },
+    });
   return message!.messageId;
 }
 
@@ -137,6 +153,9 @@ export async function handoffTx(tx: Tx, input: { ticketId: string; reason: AiHan
   await tx.insert(ticketEvents).values({ orgId: t.orgId, ticketId: t.ticketId, kind: 'ai_handoff', actorType: 'ai', payload: { reason: input.reason }, isInternal: true });
   await emitEventTx(tx, { orgId: t.orgId, ticketId: t.ticketId, kind: 'ai_handoff', payload: { reason: input.reason, priority: t.priority } });
   await writeAudit(tx, { action: 'ticket.ai_handoff', objectType: 'ticket', objectId: t.ticketId, orgId: t.orgId, diff: { reason: input.reason } });
+  // Письмо подтверждения без Теза при выключенном помощнике и пределе (решение 14, FR-AI-15).
+  if (input.reason === 'ai_disabled' || input.reason === 'ai_limit')
+    await notifyTicketTx(tx, { ticketId: t.ticketId, kind: 'ai_ack', actorUserId: null, aiAck: { dueOn: timing.dueOn, startOn: timing.startOn, timeZone: config.calendar.timeZone } });
   return true;
 }
 

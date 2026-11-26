@@ -9,6 +9,7 @@ import { clientTicketByNumber } from '../core/tickets';
 import { HdtError } from '../error';
 import { AI_REPLY_LIMIT } from '../pref';
 import { tickets } from '../schema';
+import { assistantSolution } from '@/modules/hdk/api/assistant';
 import { aiHandoff, postAiMessage } from './ai';
 
 // Модуль hdt, слой api: кнопки клиента под сообщением Теза (план M5b, задача 5; FR-AI-08, 09, 10, FR-TK-18). Портал,
@@ -68,11 +69,15 @@ export async function aiFeedback(ctx: { actor: ClientActor }, raw: unknown): Pro
       await aiHandoff(SYSTEM, { ticketId: ticket.ticketId, reason: 'reply_limit', questionIds: [], now });
       return 'need_staff';
     }
+    const locale = last.payload.locale as 'ru' | 'uz' | 'en';
+    // Заголовок и шаги для письма: из hdk_published от имени клиента (решение, ставшее внутренним, не найдётся).
+    const solution = await assistantSolution(actor, { number: option.articleNumber, locale });
     await postAiMessage(SYSTEM, {
       ticketId: ticket.ticketId,
-      payload: { kind: 'answer', introId: 'likely_solution', articleId: option.articleId, articleNumber: option.articleNumber, locale: last.payload.locale as 'ru' | 'uz' | 'en' },
+      payload: { kind: 'answer', introId: 'likely_solution', articleId: option.articleId, articleNumber: option.articleNumber, locale },
       now,
       expectReplyCount: ticket.aiReplyCount,
+      ...(solution ? { mail: { solutionTitle: solution.title, lines: solution.text.split('\n') } } : {}),
     });
     return 'picked';
   }

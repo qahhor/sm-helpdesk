@@ -3653,7 +3653,25 @@
       "submit": "Kirish",
       "invalid": "Havola endi amal qilmaydi. Botdagi havola bir marta ishlaydi va 10 daqiqa amal qiladi. Botdan yangisini so'rang."
     },
-    "tooOften": "Manzilingizdan urinishlar juda ko'p. 10 daqiqa kuting va tugmani qayta bosing."
+    "tooOften": "Manzilingizdan urinishlar juda ko'p. 10 daqiqa kuting va tugmani qayta bosing.",
+    "aiAnswer": {
+      "title": "SUP-{number} murojaati",
+      "helped": "Yechim yordam berganini tasdiqlang.",
+      "needStaff": "Xodim kerakligini tasdiqlang.",
+      "confirmHelped": "Yordam berdi",
+      "confirmStaff": "Xodim kerak",
+      "open": "Portalni ochish",
+      "done": {
+        "helped": "Rahmat. Murojaat hal qilindi.",
+        "need_staff": "Murojaat xodimga o'tkazildi."
+      },
+      "errors": {
+        "link_invalid": "Havola yaroqsiz.",
+        "expired": "Havola muddati tugadi. Murojaatni portalda oching.",
+        "already_done": "Allaqachon hisobga olingan.",
+        "rate_limited": "Urinishlar juda ko'p. Keyinroq takrorlang."
+      }
+    }
   },
   "mail": {
     "loginLink": {
@@ -3795,6 +3813,26 @@
     },
     "staffIdeaDevTaskClosed": {
       "text": "{ref} ishlab chiqish vazifasi yopildi: tekshiring va chiqarilganda {idea} «{title}» g'oyasiga «Chiqarildi» holatini qo'ying."
+    },
+    "tezAnswer": {
+      "heading": "Tez SUP-{number} murojaati bo'yicha javob berdi",
+      "signature": "Tez · AI-yordamchi",
+      "caption": "Javob AI tomonidan yechimlar bazasi asosida tayyorlandi",
+      "open": "Yechimni to'liq ochish",
+      "helped": "Yordam berdi",
+      "needStaff": "Xodim kerak",
+      "intro": {
+        "likely_solution": "Sizga bu yechim yordam beradi shekilli.",
+        "exact_error": "Bu o'sha xato. Uni shunday tuzatasiz.",
+        "similar_case": "O'xshash holat allaqachon hal qilingan.",
+        "known_steps": "Ushbu qadamlarni bajarib ko'ring."
+      }
+    },
+    "tezAck": {
+      "heading": "SUP-{number} murojaati xodimlarga o'tkazildi",
+      "text": "Murojaat xodimlarga o'tkazildi.",
+      "dueStart": "{day} soat {time} dan keyin javob beramiz.",
+      "due": "{when} gacha javob beramiz."
     }
   },
   "bot": {
@@ -3825,7 +3863,10 @@
       "autoClosed": "Murojaat yopildi: javob olmadik.",
       "merged": "SUP-{into} bilan birlashtirildi. Yozishma o'sha yerda davom etadi.",
       "resolved": "Murojaat hal qilindi. Javobni baholang yoki murojaatni qayta oching.",
-      "reminder": "Javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi."
+      "reminder": "Javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi.",
+      "tezAnswer": "Tez yechim taklif qildi: {solution}",
+      "tezHelped": "Yordam berdi",
+      "tezNeedStaff": "Xodim kerak"
     },
     "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
     "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}",
@@ -3848,6 +3889,12 @@
       "search_lag": "Smartup Hub: qidiruv indeksi {minutes} daqiqadan beri yangilanmayapti, yozilishini kutayotganlar: {count}.",
       "search_drift": "Smartup Hub: qidiruv indeksini solishtirish farqlarni topdi: {count} (to'plamlar: {collections}). Yetishmayotganlari qaytadan yoziladi.",
       "search_isolation": "Smartup Hub: qidiruv mijozga boshqa tashkilot identifikatorlarini qaytardi, ularni baza tekshiruvi tashlab yubordi: bir soatda {count}. Qidiruv kaliti filtrini tekshiring."
+    },
+    "tez": {
+      "helped": "Yordam berganidan xursandmiz. Murojaat hal qilindi.",
+      "needStaff": "Murojaatni xodimga o'tkazdim.",
+      "already": "Allaqachon hisobga olingan.",
+      "invalid": "Tugma endi ishlamaydi. Murojaatni portalda oching."
     }
   },
   "dev": {

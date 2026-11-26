@@ -63,6 +63,8 @@ export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './le
 export { type ContactDirectory, contacts, type MailContact, registerContactDirectory, type TelegramContact } from './contacts';
 export { recordTicketSignature, registerTicketSignatureRecorder, type TicketSignatureInput, type TicketSignatureRecorder } from './ticket-signatures';
 export { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './staff-session';
+// Кнопки под ответом Теза в Telegram (веха M5b): бот в hdu, реализация в hdt.
+export { registerTezFeedback, tezFeedback, type TezFeedbackHandler, type TezFeedbackResult } from './tez-feedback';
 
 /**
  * Отвечает ли база за отведённое время по обоим подключениям: приложения (hub_app)

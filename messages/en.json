@@ -3653,7 +3653,25 @@
       "submit": "Sign in",
       "invalid": "This link no longer works. A link from the bot works once and for 10 minutes. Request a new one in the bot."
     },
-    "tooOften": "Too many attempts from your address. Wait 10 minutes and press the button again."
+    "tooOften": "Too many attempts from your address. Wait 10 minutes and press the button again.",
+    "aiAnswer": {
+      "title": "Request SUP-{number}",
+      "helped": "Confirm that the solution helped.",
+      "needStaff": "Confirm that you need staff.",
+      "confirmHelped": "Helped",
+      "confirmStaff": "Need staff",
+      "open": "Open the portal",
+      "done": {
+        "helped": "Thank you. The request is resolved.",
+        "need_staff": "We passed your request to staff."
+      },
+      "errors": {
+        "link_invalid": "The link is not valid.",
+        "expired": "The link has expired. Open the request in the portal.",
+        "already_done": "Already counted.",
+        "rate_limited": "Too many attempts. Try again later."
+      }
+    }
   },
   "mail": {
     "loginLink": {
@@ -3795,6 +3813,26 @@
     },
     "staffIdeaDevTaskClosed": {
       "text": "Development task {ref} is closed: check it and, once released, set idea {idea} “{title}” to Released."
+    },
+    "tezAnswer": {
+      "heading": "Tez answered request SUP-{number}",
+      "signature": "Tez · AI assistant",
+      "caption": "Answer prepared by AI from the solution base",
+      "open": "Open the full solution",
+      "helped": "Helped",
+      "needStaff": "Need staff",
+      "intro": {
+        "likely_solution": "This solution will likely help.",
+        "exact_error": "This is the same error. Here is how to fix it.",
+        "similar_case": "A similar case was solved before.",
+        "known_steps": "Try these steps."
+      }
+    },
+    "tezAck": {
+      "heading": "Request SUP-{number} is passed to staff",
+      "text": "Your request is passed to staff.",
+      "dueStart": "We will answer {day} after {time}.",
+      "due": "We will answer by {when}."
     }
   },
   "bot": {
@@ -3825,7 +3863,10 @@
       "autoClosed": "The request is closed: we did not get a reply.",
       "merged": "Merged into SUP-{into}. The conversation continues there.",
       "resolved": "The request is resolved. Rate the answer or reopen the request.",
-      "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
+      "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}.",
+      "tezAnswer": "Tez suggested a solution: {solution}",
+      "tezHelped": "Helped",
+      "tezNeedStaff": "Need staff"
     },
     "oncallP1": "P1: new urgent request SUP-{number}",
     "oncallP1Org": "P1: new urgent request SUP-{number}, {org}",
@@ -3848,6 +3889,12 @@
       "search_lag": "Smartup Hub: the search index has not been updated for {minutes} min, items waiting: {count}.",
       "search_drift": "Smartup Hub: the search index check found {count} differences (collections: {collections}). Missing items will be written again.",
       "search_isolation": "Smartup Hub: search returned another organization's ids to a client, the database check dropped them: {count} in the last hour. Check the search key filter."
+    },
+    "tez": {
+      "helped": "Glad it helped. The request is resolved.",
+      "needStaff": "I passed your request to staff.",
+      "already": "Already counted.",
+      "invalid": "This button no longer works. Open the request in the portal."
     }
   },
   "dev": {

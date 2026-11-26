@@ -26,6 +26,11 @@ export const BOT_TEXT_KEYS = [
   'loginLink',
   'loginTooOften',
   'loginNoAccess',
+  // Кнопки под ответом Теза (веха M5b, задача 6).
+  'tez.helped',
+  'tez.needStaff',
+  'tez.already',
+  'tez.invalid',
 ] as const;
 
 export type BotTextKey = (typeof BOT_TEXT_KEYS)[number];

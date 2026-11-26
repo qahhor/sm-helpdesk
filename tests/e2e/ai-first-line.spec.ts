@@ -120,3 +120,31 @@ test('S8 на телефоне: ответ Теза и кнопки помеща
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByTestId('tez-message').getByRole('button', { name: 'Нужен сотрудник' })).toBeVisible();
 });
+
+test('ссылка "Помогло" из письма Теза: открытие ничего не меняет, нажатие решает, второе нажатие "Уже учтено" (задача 6)', async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const word = tag();
+  await publishSolution(browser, `Заказ ${word} не сохраняется, письмо: нет остатка на складе`);
+  await createTicket(page, word);
+  await expect(page.getByTestId('tez-message')).toBeVisible({ timeout: 45_000 });
+  const number = Number(/SUP-(\d+)/.exec(page.url())?.[1]);
+  const [row] = await dbRows<{ url: string }>(
+    `select o.payload ->> 'helpedUrl' as url from hdn_outbox o join hdt_tickets t on t.ticket_id = o.ticket_id where t.number = $1 and o.template = 'tez_answer' and o.channel = 'email'`,
+    [number],
+  );
+  expect(row?.url).toMatch(/^\/ai-answer\?t=/);
+  // Страница по ссылке открывается без входа: новый браузер без сессии.
+  const guest = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const link = await guest.newPage();
+  await link.goto(`/ru${row!.url}`);
+  await expect(link.getByRole('heading', { name: `Обращение SUP-${number}` })).toBeVisible();
+  const status = async () => (await dbRows<{ status: string }>(`select status from hdt_tickets where number = $1`, [number]))[0]?.status;
+  expect(await status()).toBe('waiting_customer');
+  await link.getByRole('button', { name: 'Помогло' }).click();
+  await expect(link.getByText('Спасибо. Обращение решено.')).toBeVisible();
+  expect(await status()).toBe('resolved');
+  await link.goto(`/ru${row!.url}`);
+  await link.getByRole('button', { name: 'Помогло' }).click();
+  await expect(link.getByText('Уже учтено.')).toBeVisible();
+  await guest.close();
+});

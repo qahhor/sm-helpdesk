@@ -117,10 +117,11 @@ test('решения 3 и 4: сотрудник не голосует, голо�
   const s = await seedIdeas(f);
   const vote = (actor: Actor, orgId: string, userId: string, ideaId: string) =>
     run(actor, `insert into hdi_votes (org_id, idea_id, user_id) values ($1, $2, $3)`, [orgId, ideaId, userId]);
-  // Сотрудник: политика (agent_l1) и ключ участника организации (product от своего имени).
+  // Сотрудник: политика (agent_l1, а с итоговой проверки M7 и product: политики вставки голосов у модератора нет,
+  // решение 0065) и ключ участника организации.
   await expect(vote(f.l1.actor, f.orgA.orgId, f.l1.userId, s.bOpen.ideaId)).rejects.toThrow(/row-level security/);
   const product = await staffWithRole('product');
-  await expect(vote(product.actor, f.orgA.orgId, product.userId, s.bOpen.ideaId)).rejects.toThrow(/нельзя|hdi_votes_f2/);
+  await expect(vote(product.actor, f.orgA.orgId, product.userId, s.bOpen.ideaId)).rejects.toThrow(/row-level security/);
   // Чужая организация и чужой пользователь.
   await expect(vote(f.aUser.actor, f.orgB.orgId, f.aUser.userId, s.bOpen.ideaId)).rejects.toThrow(/row-level security/);
   await expect(vote(f.aUser.actor, f.orgA.orgId, f.aAdmin.userId, s.bOpen.ideaId)).rejects.toThrow(/row-level security/);

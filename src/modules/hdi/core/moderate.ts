@@ -7,7 +7,7 @@ import { findInText } from '@/modules/hdk/api/text-checks';
 import { removeIdeaFromIndexTx } from '@/modules/hdk/api/idea-search';
 import { HdiError } from '../error';
 import { BLOCKING_FINDINGS, type IdeaStatus, ideaRef, MERGE_TARGET_STATUSES, transitionBy } from '../pref';
-import { ideas, ideaSubscriptions, ideaTranslations, ideaVotes } from '../schema';
+import { ideas, ideaSubscriptions, ideaTranslations } from '../schema';
 import { textHash } from '../util';
 import { ideaByNumberTx, type IdeaRow } from './ideas';
 import { mergeRecipientsTx, notifyDeclinedTx, notifyMergedTx, notifyPublishedTx } from './notices';
@@ -108,19 +108,20 @@ export async function declineTx(tx: Tx, number: number, reason: string): Promise
  * Объединение идеи A в опубликованную B (решение 6): голоса и подписки переносятся одним оператором без задвоения
  * (ON CONFLICT DO NOTHING), затем удаляются у A; счётчики пересчитывает триггер. A получает merged и ссылку на B,
  * строки A снимаются из индекса той же транзакцией. Цепочек нет: B не на модерации, не отклонена и не объединена.
+ *
+ * Сначала строка A блокируется (FOR NO KEY UPDATE, итоговая проверка M7, пункт M1): голос, начатый раньше, успевает
+ * зафиксироваться и переносится, а голос во время объединения ждёт и отклоняется триггером (A уже merged). Голоса
+ * переносит только функция базы app.hdi_merge_votes после смены статуса (пункт M2, решение 0065): своих политик
+ * вставки и удаления голосов у модератора нет.
  */
 export async function mergeTx(tx: Tx, number: number, into: number): Promise<{ source: IdeaRow; target: IdeaRow; moved: number }> {
+  await tx.select({ id: ideas.ideaId }).from(ideas).where(eq(ideas.number, number)).for('no key update');
   const source = await load(tx, number);
   requireTransition(source.status, 'merged');
   const target = await ideaByNumberTx(tx, into);
   if (!target || target.ideaId === source.ideaId || !(MERGE_TARGET_STATUSES as readonly string[]).includes(target.status)) throw new HdiError('bad_merge_target');
   // Получатели уведомления читаются до переноса: проголосовавшие за источник (решение 15).
   const recipients = await mergeRecipientsTx(tx, source.ideaId, source.authorId);
-  const moved = await tx.execute(sql`
-    insert into ${ideaVotes} (org_id, idea_id, user_id)
-    select org_id, ${target.ideaId}::uuid, user_id from ${ideaVotes} where idea_id = ${source.ideaId}::uuid
-    on conflict do nothing`);
-  await tx.delete(ideaVotes).where(eq(ideaVotes.ideaId, source.ideaId));
   await tx.execute(sql`
     insert into ${ideaSubscriptions} (idea_id, user_id)
     select ${target.ideaId}::uuid, user_id from ${ideaSubscriptions} where idea_id = ${source.ideaId}::uuid
@@ -132,16 +133,18 @@ export async function mergeTx(tx: Tx, number: number, into: number): Promise<{ s
     .where(and(eq(ideas.ideaId, source.ideaId), eq(ideas.status, source.status)))
     .returning({ id: ideas.ideaId });
   if (updated.length === 0) throw new HdiError('bad_transition');
+  const [moved] = await tx.execute<{ n: number }>(sql`select app.hdi_merge_votes(${source.ideaId}::uuid) as n`).then((r) => r.rows);
+  const movedVotes = Number(moved?.n ?? 0);
   await removeIdeaFromIndexTx(tx, source.ideaId);
   await writeAudit(tx, {
     action: 'idea.merged',
     objectType: 'idea',
     objectId: source.ideaId,
     orgId: source.orgId,
-    diff: { number: ideaRef(number), into: ideaRef(target.number), from: source.status, to: 'merged', movedVotes: moved.rowCount ?? 0 },
+    diff: { number: ideaRef(number), into: ideaRef(target.number), from: source.status, to: 'merged', movedVotes },
   });
   await notifyMergedTx(tx, source, target.number, recipients);
-  return { source, target, moved: moved.rowCount ?? 0 };
+  return { source, target, moved: movedVotes };
 }
 
 /** Правка перевода модератором (решение 11): текст проверен человеком, статус reviewed, пометки машинного нет. */

@@ -5,7 +5,10 @@ import { runIdeaIndexJob, runIdeaTranslationJob } from '@/modules/hdi/api/jobs';
 import { declineIdea, editIdeaAsModerator, mergeIdea, publishIdea, reviewIdeaTranslation } from '@/modules/hdi/api/moderate';
 import { submitIdea } from '@/modules/hdi/api/submit';
 import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
-import { pools, system } from './helpers/db';
+import { appUrl, pools, system } from './helpers/db';
+import { Client } from 'pg';
+import { withActor } from '@/db/with-actor';
+import { mergeTx } from '@/modules/hdi/core/moderate';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 import { addIdea } from './isolation/ideas-fixture';
 
@@ -124,6 +127,73 @@ test('решение 6: голоса пересекающихся пользов
   );
   expect((await pools.root.query(`select count(*)::int as n from hdk_search_documents where ref_id = $1`, [source.ideaId])).rows[0].n).toBe(0);
   expect(await audit('idea.merged', source.ideaId)).toEqual([{ number: `I-${source.number}`, into: `I-${target.number}`, from: 'open', to: 'merged', movedVotes: 1 }]);
+});
+
+/** Отдельное подключение клиента с открытой транзакцией: голос вставлен, но не зафиксирован. */
+async function heldVote(actor: { userId: string; orgId: string }, ideaId: string): Promise<Client> {
+  const c = new Client({ connectionString: appUrl });
+  await c.connect();
+  await c.query('begin');
+  await c.query(`select set_config('app.actor_type', 'client', true), set_config('app.user_id', $1, true), set_config('app.org_id', $2, true), set_config('app.org_role', 'client_user', true)`, [
+    actor.userId,
+    actor.orgId,
+  ]);
+  await c.query(`insert into hdi_votes (org_id, idea_id, user_id) values ($1, $2, $3)`, [actor.orgId, ideaId, actor.userId]);
+  return c;
+}
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test('итоговая проверка M7, M1: объединение ждёт голос, начатый раньше, и переносит его; голос не остаётся у объединённой идеи', async () => {
+  const f = await seedTwoOrgs();
+  const moderator = await product();
+  const target = await addIdea(f.orgB.orgId, f.bUser, 'open');
+  const source = await addIdea(f.orgA.orgId, f.aUser, 'open');
+  const voter = await heldVote({ userId: f.aAdmin.userId, orgId: f.orgA.orgId }, source.ideaId);
+  try {
+    const merging = mergeIdea(moderator, { number: source.number, into: target.number });
+    await pause(400);
+    await voter.query('commit');
+    expect(await merging).toEqual({ into: target.number, moved: 1 });
+  } finally {
+    await voter.end();
+  }
+  expect((await pools.root.query(`select idea_id from hdi_votes where user_id = $1`, [f.aAdmin.userId])).rows.map((r) => r.idea_id)).toEqual([target.ideaId]);
+  expect(await ideaRow(source.ideaId)).toMatchObject({ status: 'merged', vote_count: 0 });
+  expect(await ideaRow(target.ideaId)).toMatchObject({ vote_count: 1 });
+});
+
+test('итоговая проверка M7, M1: голос во время объединения ждёт его конца и отклоняется: идея уже объединена', async () => {
+  const f = await seedTwoOrgs();
+  const moderator = await product();
+  const target = await addIdea(f.orgB.orgId, f.bUser, 'open');
+  const source = await addIdea(f.orgA.orgId, f.aUser, 'open');
+  let vote: Promise<unknown> | null = null;
+  let settled = false;
+  await withActor(moderator.actor, async (tx) => {
+    await mergeTx(tx, source.number, target.number);
+    const c = new Client({ connectionString: appUrl });
+    await c.connect();
+    vote = (async () => {
+      try {
+        await c.query('begin');
+        await c.query(`select set_config('app.actor_type', 'client', true), set_config('app.user_id', $1, true), set_config('app.org_id', $2, true), set_config('app.org_role', 'client_user', true)`, [
+          f.aAdmin.userId,
+          f.orgA.orgId,
+        ]);
+        await c.query(`insert into hdi_votes (org_id, idea_id, user_id) values ($1, $2, $3)`, [f.orgA.orgId, source.ideaId, f.aAdmin.userId]);
+        await c.query('commit');
+      } finally {
+        settled = true;
+        await c.end();
+      }
+    })();
+    await pause(400);
+    // Голос ждёт блокировку строки идеи, пока объединение не зафиксировано.
+    expect(settled).toBe(false);
+  });
+  await expect(vote).rejects.toThrow(/нельзя/);
+  expect((await pools.root.query(`select count(*)::int as n from hdi_votes where idea_id = $1`, [source.ideaId])).rows[0].n).toBe(0);
+  expect(await ideaRow(source.ideaId)).toMatchObject({ status: 'merged', vote_count: 0 });
 });
 
 test('14.3: в запрос перевода не попадают имя автора, организация, почта и телефон; переводы ложатся машинными, журнал без текста', async () => {

@@ -79,12 +79,12 @@ test('сверка: после голосов, отзывов, объедине�
   await asActor(pools.app, f.aAdmin.actor, (c) => c.query(`insert into hdi_votes (org_id, idea_id, user_id) values ($1, $2, $3)`, [f.orgA.orgId, source.ideaId, f.aAdmin.userId]));
   await asActor(pools.app, f.aAdmin.actor, (c) => c.query(`delete from hdi_votes where idea_id = $1`, [source.ideaId]));
   expect(await counts(source.ideaId)).toMatchObject({ vote_count: 4, org_count: 1 });
-  // Объединение (решение 6): перенос голосов одним оператором без задвоения, затем удаление голосов источника.
+  // Объединение (решение 6): перенос голосов одним оператором без задвоения, затем удаление голосов источника. С
+  // итоговой проверки M7 (пункт M2, решение 0065) перенос делает только функция app.hdi_merge_votes после merged.
   const product = (await staffWithRole('product')).actor as Actor;
   await asActor(pools.app, product, async (c) => {
-    await c.query(`insert into hdi_votes (org_id, idea_id, user_id) select org_id, $2, user_id from hdi_votes where idea_id = $1 on conflict do nothing`, [source.ideaId, target.ideaId]);
-    await c.query(`delete from hdi_votes where idea_id = $1`, [source.ideaId]);
     await c.query(`update hdi_ideas set status = 'merged', merged_into_id = $2 where idea_id = $1`, [source.ideaId, target.ideaId]);
+    await c.query(`select app.hdi_merge_votes($1)`, [source.ideaId]);
   });
   expect(await counts(target.ideaId)).toMatchObject({ vote_count: 6, org_count: 2 });
   expect(await counts(source.ideaId)).toMatchObject({ vote_count: 0, org_count: 0 });

@@ -104,7 +104,7 @@ export async function decideTx(tx: Tx, cycle: string, decision: Decision): Promi
     .limit(1)
     .for('update');
   if (!idea || idea.status !== 'shortlisted') throw new HdiError('bad_transition');
-  // Сначала отбор: триггер возвращает остальных из пятёрки в голосование от имени системы.
+  // Сначала отбор: триггер возвращает остальных из пятёрки в голосование функцией app.hdi_return_shortlist (решение 0065).
   const [decided] = await tx
     .update(ideaCycles)
     .set({ status: 'decided', selectedIdeaId: idea.ideaId, explanationRu: decision.explanationRu, explanationUz: decision.explanationUz, explanationEn: decision.explanationEn })

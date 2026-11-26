@@ -2,7 +2,7 @@ import 'server-only';
 import { inArray, sql } from 'drizzle-orm';
 import type { ClientActor, StaffActor, SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
-import { FOLD_WEIGHT, foldText, localizedFields, mergeRanked, noteIsolationDrop, SEARCH_TIMEOUT_MS, searchAs, type SearchSpec, STOPWORD_SETS } from '@/modules/hdc/api';
+import { FOLD_WEIGHT, foldText, localizedFields, mergeRanked, noteIsolationDrop, pendingEntities, SEARCH_TIMEOUT_MS, searchAs, type SearchSpec, STOPWORD_SETS } from '@/modules/hdc/api';
 import { tickets } from '../schema';
 
 // Модуль hdt, слой core: текстовый поиск обращений через Typesense (план W6, задачи 5 и 8, решения 2, 4, 5, 14).
@@ -68,8 +68,11 @@ export async function clientTextSearch(actor: ClientActor, text: string): Promis
 export async function noteClientDrops(actor: ClientActor, ids: readonly string[], visible: ReadonlySet<string>): Promise<number> {
   const dropped = ids.filter((id) => !visible.has(id));
   if (dropped.length === 0) return 0;
-  const rows = await withActor(SYSTEM, (tx) => tx.select({ orgId: tickets.orgId }).from(tickets).where(inArray(tickets.ticketId, dropped)));
-  const foreign = rows.filter((row) => row.orgId !== actor.orgId).length;
+  const rows = await withActor(SYSTEM, (tx) => tx.select({ id: tickets.ticketId, orgId: tickets.orgId }).from(tickets).where(inArray(tickets.ticketId, dropped)));
+  const foreignIds = rows.filter((row) => row.orgId !== actor.orgId).map((row) => row.id);
+  // Обращение перенесли в другую организацию секунды назад, строка очереди индекса ещё ждёт: это задержка, не утечка.
+  const pending = await pendingEntities(SYSTEM, 'ticket', foreignIds);
+  const foreign = foreignIds.filter((id) => !pending.has(id)).length;
   await noteIsolationDrop('tickets', foreign);
   return foreign;
 }

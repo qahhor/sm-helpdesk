@@ -102,6 +102,12 @@ describe('поиск клиента по своим обращениям', () =>
     expect((await searchCounters(system)).isolationDrops).toBe(0);
   });
 
+  test('обращение перенесли в другую организацию, индекс ещё не обновлён: отброшенное сигналом изоляции не считается', async () => {
+    await pools.root.query(`update hdt_tickets set org_id = $2 where ticket_id = $1`, [f.tickets.aOrg.ticketId, f.orgB.orgId]);
+    expect(await clientNumbers('оплата не праходит')).toEqual([]);
+    expect((await searchCounters(system)).isolationDrops).toBe(0);
+  });
+
   test('Typesense не отвечает: прежний поиск по части текста', async () => {
     stub.failWith('unreachable');
     expect(await clientNumbers('оплата не проходит')).toEqual([f.tickets.aOrg.number]);

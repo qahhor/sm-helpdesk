@@ -127,10 +127,17 @@ export async function wakeWebhooks(): Promise<void> {
   await enqueue('webhooks.dispatch', {});
 }
 
+/**
+ * Срок доставки наступил к моменту now. Время в базе хранится в микросекундах, Date процесса знает только миллисекунды:
+ * доставка, записанная в ту же миллисекунду, иначе ждала бы следующего запуска. Поэтому сравнение идёт с концом
+ * миллисекунды now.
+ */
+const dueBy = (now: Date) => lt(webhookDeliveries.nextAttemptOn, new Date(now.getTime() + 1));
+
 /** Есть ли доставки, которые пора отправлять: разбор событий будит отправку только тогда. */
 export async function hasDueDeliveriesTx(actor: SystemActor, now: Date): Promise<boolean> {
   const rows = await withActor(actor, (tx) =>
-    tx.select({ deliveryId: webhookDeliveries.deliveryId }).from(webhookDeliveries).where(and(eq(webhookDeliveries.status, 'queued'), lte(webhookDeliveries.nextAttemptOn, now))).limit(1),
+    tx.select({ deliveryId: webhookDeliveries.deliveryId }).from(webhookDeliveries).where(and(eq(webhookDeliveries.status, 'queued'), dueBy(now))).limit(1),
   );
   return rows.length > 0;
 }
@@ -168,7 +175,7 @@ type Claimed = { deliveryId: string; endpointId: string; kind: DeliveryKind; bod
  */
 async function claimBatch(actor: SystemActor, now: Date, skip: ReadonlySet<string>): Promise<Claimed[]> {
   return withActor(actor, async (tx) => {
-    const due = and(eq(webhookDeliveries.status, 'queued'), lte(webhookDeliveries.nextAttemptOn, now), skip.size > 0 ? notInArray(webhookDeliveries.endpointId, [...skip]) : undefined);
+    const due = and(eq(webhookDeliveries.status, 'queued'), dueBy(now), skip.size > 0 ? notInArray(webhookDeliveries.endpointId, [...skip]) : undefined);
     // Номер доставки в очереди своего адреса считает оконная функция; строки блокирует внешний запрос (оконная
     // функция с FOR UPDATE в одном запросе не сочетается).
     const ranked = tx

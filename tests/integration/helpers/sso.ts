@@ -17,6 +17,8 @@ export type MockServer = {
   setNextClaims(claims: Claims): void;
   /** Сервер не выполняет prompt=login и max_age=0: входа заново нет, auth_time остаётся временем прежнего входа. */
   setIgnoresPrompt(ignores: boolean): void;
+  /** В id_token нет auth_time: проверить, выполнен ли новый вход, портал не может. */
+  setOmitsAuthTime(omits: boolean): void;
   /** Параметры последнего запроса авторизации. */
   lastAuthorize(): URLSearchParams;
   stop(): Promise<void>;
@@ -35,6 +37,7 @@ export async function startMockOidc(code: string, port: number): Promise<MockSer
   // тогда auth_time равен текущему времени (OpenID Connect Core 1.0, 3.1.2.1).
   const smartupSessionSince = Math.floor(Date.now() / 1000) - 3600;
   let ignoresPrompt = false;
+  let omitsAuthTime = false;
   let authorize = new URLSearchParams();
   server.service.on(Events.BeforeAuthorizeRedirect, (_redirect: unknown, req: { url?: string; originalUrl?: string }) => {
     authorize = new URL(req.originalUrl ?? req.url ?? '/', 'http://mock').searchParams;
@@ -42,6 +45,7 @@ export async function startMockOidc(code: string, port: number): Promise<MockSer
   server.service.on(Events.BeforeTokenSigning, (token: { payload: Record<string, unknown> }) => {
     const reauth = !ignoresPrompt && (authorize.get('prompt') === 'login' || authorize.get('max_age') === '0');
     Object.assign(token.payload, { auth_time: reauth ? Math.floor(Date.now() / 1000) : smartupSessionSince }, next);
+    if (omitsAuthTime) delete token.payload.auth_time;
   });
   server.service.on(Events.BeforeUserinfo, (response: { body: Record<string, unknown> }) => {
     response.body = { ...next };
@@ -54,6 +58,9 @@ export async function startMockOidc(code: string, port: number): Promise<MockSer
     },
     setIgnoresPrompt: (ignores) => {
       ignoresPrompt = ignores;
+    },
+    setOmitsAuthTime: (omits) => {
+      omitsAuthTime = omits;
     },
     lastAuthorize: () => authorize,
     stop: () => server.stop(),

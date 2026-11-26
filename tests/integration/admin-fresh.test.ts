@@ -19,7 +19,7 @@ const TIMINGS = { waitingReminderDays: 3, autocloseResolvedDays: 5, autocloseWai
 
 test('настройки с сессией старше 15 минут: stale_session, со свежей сохраняются', async () => {
   const fresh = staffCtx(f.adminStaff);
-  const stale = { ...fresh, sessionCreatedAt: new Date(Date.now() - 901e3) };
+  const stale = { ...fresh, freshAuthAt: new Date(Date.now() - 901e3) };
   const calls: [string, (ctx: typeof fresh) => Promise<unknown>][] = [
     ['адреса поддержки', (ctx) => saveSupportAddresses(ctx, [{ address: 'support@smartup24.com', shown: true }])],
     ['дежурные', (ctx) => saveOncall(ctx, { emails: ['duty@smartup24.com'], chatId: null, bot: 'main' })],

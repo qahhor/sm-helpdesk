@@ -114,7 +114,7 @@ test('роль меняет только admin со свежим входом, �
   const target = await enrolled('agent_l1');
   const ctx = staffCtx(f.adminStaff);
   await expect(changeStaffRole(staffCtx(f.care), { userId: target.userId, role: 'agent_l2' })).rejects.toMatchObject({ code: 'forbidden' });
-  await expect(changeStaffRole(ctx, { userId: target.userId, role: 'agent_l2' }, new Date(+ctx.sessionCreatedAt + 901e3))).rejects.toMatchObject({
+  await expect(changeStaffRole(ctx, { userId: target.userId, role: 'agent_l2' }, new Date(+ctx.freshAuthAt! + 901e3))).rejects.toMatchObject({
     code: 'stale_session',
   });
   await expect(changeStaffRole(ctx, { userId: target.userId, role: 'agent_bot' })).rejects.toMatchObject({ code: 'invalid_input' });

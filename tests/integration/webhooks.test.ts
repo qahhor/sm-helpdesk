@@ -402,7 +402,7 @@ test('адреса и доставки видит и меняет только �
   const { endpointId } = await createWebhook(admin, { name: 'А', url: hook.url, events: ['client_replied'] });
   await sendTestWebhook(admin, { endpointId });
   const input = { name: 'Б', url: hook.url, events: [] };
-  const stale = { ...admin, sessionCreatedAt: new Date(Date.now() - 901e3) };
+  const stale = { ...admin, freshAuthAt: new Date(Date.now() - 901e3) };
   const writes: [string, (ctx: typeof admin) => Promise<unknown>][] = [
     ['создание', (ctx) => createWebhook(ctx, input)],
     ['правка', (ctx) => updateWebhook(ctx, { endpointId, ...input, isEnabled: true })],

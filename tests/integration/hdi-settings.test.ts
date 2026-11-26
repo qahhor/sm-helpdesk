@@ -18,7 +18,7 @@ test('способ подсчёта меняет только администр
   const f = await seedTwoOrgs();
   const admin = staffCtx(f.adminStaff);
   await expect(saveVoteMode(staffCtx(f.care), { mode: 'per_org' })).rejects.toMatchObject({ code: 'forbidden' });
-  await expect(saveVoteMode({ ...admin, sessionCreatedAt: new Date(Date.now() - 16 * 60_000) }, { mode: 'per_org' })).rejects.toMatchObject({ code: 'stale_session' });
+  await expect(saveVoteMode({ ...admin, freshAuthAt: new Date(Date.now() - 16 * 60_000) }, { mode: 'per_org' })).rejects.toMatchObject({ code: 'stale_session' });
   await expect(saveVoteMode(admin, { mode: 'per_company' })).rejects.toMatchObject({ code: 'invalid_input' });
   await saveVoteMode(admin, { mode: 'per_org' });
   expect(await voteMode()).toBe('per_org');

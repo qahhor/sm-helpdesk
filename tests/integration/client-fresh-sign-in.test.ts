@@ -14,9 +14,9 @@ import { seedTwoOrgs } from './isolation/fixture';
 
 const box = memoryMailerPerTest();
 
-/** Сессия, в которой вход был minutes минут назад. */
+/** Сессия, в которой личность подтверждена minutes минут назад. */
 async function aged(session: SessionData, minutes: number): Promise<SessionData> {
-  await pools.root.query(`update auth.session set "createdAt" = now() - make_interval(mins => $1) where id = $2`, [minutes, session.session.id]);
+  await pools.root.query(`update auth.session set "freshAuthAt" = now() - make_interval(mins => $1) where id = $2`, [minutes, session.session.id]);
   return (await reload(session)) as SessionData;
 }
 

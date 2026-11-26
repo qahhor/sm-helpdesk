@@ -246,14 +246,14 @@ test('реестр меняет только admin и только со свеж
   const f = await seedTwoOrgs();
   await expect(updateServer(staffCtx(f.care), { code: f.server.code, name: 'x' })).rejects.toMatchObject({ code: 'forbidden' });
   const ctx = staffCtx(f.adminStaff);
-  const stale = new Date(+ctx.sessionCreatedAt + 901e3);
+  const stale = new Date(+ctx.freshAuthAt! + 901e3);
   await expect(updateServer(ctx, { code: f.server.code, name: 'x' }, stale)).rejects.toMatchObject({ code: 'stale_session' });
   await expect(enableServer(ctx, f.server.code, stale)).rejects.toMatchObject({ code: 'stale_session' });
-  await expect(disableServer({ ...ctx, sessionCreatedAt: new Date(Date.now() - 901e3) }, f.server.code)).rejects.toMatchObject({
+  await expect(disableServer({ ...ctx, freshAuthAt: new Date(Date.now() - 901e3) }, f.server.code)).rejects.toMatchObject({
     code: 'stale_session',
   });
   await expect(
-    addServer({ ...ctx, sessionCreatedAt: new Date(Date.now() - 901e3) }, { ...input, code: 'late', baseUrl: 'https://late.example', issuer: 'https://late.example' }),
+    addServer({ ...ctx, freshAuthAt: new Date(Date.now() - 901e3) }, { ...input, code: 'late', baseUrl: 'https://late.example', issuer: 'https://late.example' }),
   ).rejects.toMatchObject({ code: 'stale_session' });
   await expect(enableServer(ctx, 'нет-такого')).rejects.toMatchObject({ code: 'invalid_input' });
   await expect(enableServer(ctx, 'nope')).rejects.toMatchObject({ code: 'not_found' });

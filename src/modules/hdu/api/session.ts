@@ -13,11 +13,12 @@ import type { SessionData } from './request';
 export { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from '@/modules/hdc/api';
 
 /**
- * Вход недавний: не старше того же окна, что у настроек сотрудников (FRESH_SIGN_IN_SEC, 15 минут).
- * Им проверяются смена адреса и завершение сессий клиентом (ASVS 7.5, решение 0067).
+ * Вход недавний: личность подтверждена в этой сессии не раньше того же окна, что у настроек сотрудников
+ * (FRESH_SIGN_IN_SEC, 15 минут). Им проверяются смена адреса и завершение сессий клиентом (ASVS 7.5, решение 0067).
+ * Время берётся из freshAuthAt, а не из создания сессии (решение 0083): обычный вход через Smartup его не ставит.
  */
-export function isRecentSignIn(sessionCreatedAt: Date, now: Date): boolean {
-  return now.getTime() - sessionCreatedAt.getTime() <= FRESH_SIGN_IN_SEC * 1000;
+export function isRecentSignIn(freshAuthAt: Date | null, now: Date): boolean {
+  return freshAuthAt !== null && now.getTime() - freshAuthAt.getTime() <= FRESH_SIGN_IN_SEC * 1000;
 }
 
 export type StaffDenial = { denied: 'no_session' | 'not_staff' | 'no_second_factor' | 'expired' };
@@ -59,7 +60,7 @@ export async function resolveStaff(session: SessionData | null, now: Date): Prom
     actor: { type: 'staff', userId: session.user.id, staffRole: staff.role },
     user: { id: session.user.id, name: session.user.name, email: session.user.email },
     isLead: staff.isLead,
-    sessionCreatedAt: session.session.createdAt,
+    freshAuthAt: session.session.freshAuthAt,
   };
 }
 

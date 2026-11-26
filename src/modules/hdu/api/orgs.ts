@@ -48,8 +48,8 @@ export type ClientContext = {
   org: { id: string; name: string };
   /** Сколько у пользователя действующих организаций: больше одной, и в шапке появляется переключатель. */
   orgCount: number;
-  /** Когда клиент вошёл: по этому времени считается недавний вход (ASVS 7.5, решение 0067). */
-  sessionCreatedAt: Date;
+  /** Когда клиент подтвердил личность в этой сессии: по этому времени считается недавний вход (решения 0067 и 0083). */
+  freshAuthAt: Date | null;
 };
 
 export type ClientDenial = { denied: 'no_session' | 'staff' | 'no_organization' | 'choose_organization' };
@@ -89,7 +89,7 @@ export async function resolveClient(session: SessionData | null): Promise<Client
     },
     org: { id: org.orgId, name: org.name },
     orgCount: orgs.length,
-    sessionCreatedAt: session.session.createdAt,
+    freshAuthAt: session.session.freshAuthAt,
   };
 }
 

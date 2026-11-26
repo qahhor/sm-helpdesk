@@ -38,6 +38,7 @@ export const authSession = auth.table('session', {
   // Колонки портала.
   activeOrgId: uuid('activeOrgId'),
   secondFactorAt: moment('secondFactorAt'),
+  freshAuthAt: moment('freshAuthAt'),
 });
 
 export const authAccount = auth.table('account', {

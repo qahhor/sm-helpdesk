@@ -6,7 +6,7 @@ import type { SessionData } from '@/modules/hdu/api/request';
 import { noRequest } from './helpers/auth';
 import { pools } from './helpers/db';
 import { linkFrom, tokenFrom, memoryMailerPerTest } from './helpers/mail';
-import { type MockServer, registerMock, ssoSignIn, startMockOidc } from './helpers/sso';
+import { type Claims, type MockServer, registerMock, ssoSignIn, startMockOidc } from './helpers/sso';
 
 // Подтверждение адреса email (FR-ID-07): после него адрес становится адресом для входа по ссылке.
 
@@ -20,9 +20,11 @@ beforeEach(() => registerMock(mock, { isDefault: true }));
 
 const acme = (sub: string, name: string, extra: Record<string, unknown> = {}) => ({ sub, name, company_id: '501', company_name: 'ACME Trade', ...extra });
 const clientOf = async (session: SessionData) => (await resolveClient(session)) as ClientContext;
+/** Вход через "Войти заново": смена адреса для входа просит недавний вход, обычный вход через Smartup им не считается (решение 0083). */
+const signIn = (claims: Claims) => ssoSignIn(mock, claims, { reauth: true });
 
 test('подтверждение адреса заменяет служебный адрес и сохраняет вход через Smartup', async () => {
-  const s = await ssoSignIn(mock, acme('1002', 'Дильноза', { email: 'dilnoza@acme.test' }));
+  const s = await signIn(acme('1002', 'Дильноза', { email: 'dilnoza@acme.test' }));
   const ctx = await clientOf(s);
   expect(ctx.user).toMatchObject({ email: null, claimedEmail: 'dilnoza@acme.test', hasVerifiedEmail: false });
   expect(await requestEmailConfirmation(ctx, { email: 'Dilnoza@Acme.Test', locale: 'ru' })).toEqual({ ok: true });
@@ -38,13 +40,13 @@ test('подтверждение адреса заменяет служебны�
   expect(await completeLoginLink({ token: tokenFrom(box.mailer.sent[0]), locale: 'ru' }, noRequest)).toEqual({ ok: true, next: '/ru' });
   expect((await pools.root.query(`select "providerId" from auth.account where "userId" = $1`, [s.user.id])).rows).toEqual([{ providerId: 'mock' }]);
   // Следующий вход через Smartup адрес не сбрасывает и не подставляет заново.
-  const again = await ssoSignIn(mock, acme('1002', 'Дильноза', { email: 'other@acme.test' }));
+  const again = await signIn(acme('1002', 'Дильноза', { email: 'other@acme.test' }));
   expect((await clientOf(again)).user).toMatchObject({ email: 'dilnoza@acme.test', claimedEmail: null, hasVerifiedEmail: true });
 });
 
 test('один подтверждённый адрес принадлежит одной учётной записи', async () => {
-  const d = await ssoSignIn(mock, acme('1002', 'Дильноза'));
-  const t = await ssoSignIn(mock, { sub: '2001', name: 'Тимур', company_id: '502', company_name: 'Globex' });
+  const d = await signIn(acme('1002', 'Дильноза'));
+  const t = await signIn({ sub: '2001', name: 'Тимур', company_id: '502', company_name: 'Globex' });
   for (const s of [d, t]) await requestEmailConfirmation(await clientOf(s), { email: 'shared@acme.test', locale: 'ru' });
   expect(await confirmEmail({ token: tokenFrom(box.mailer.sent[0]) }, d)).toEqual({ ok: true });
   expect(await confirmEmail({ token: tokenFrom(box.mailer.sent[1]) }, t)).toEqual({ ok: false, code: 'email_taken' });
@@ -53,13 +55,13 @@ test('один подтверждённый адрес принадлежит о
 
 test('адрес сотрудника клиент подтвердить не может', async () => {
   await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ('Сотрудник', 'kamila@smartup.example', true)`);
-  const s = await ssoSignIn(mock, acme('1001', 'Алишер'));
+  const s = await signIn(acme('1001', 'Алишер'));
   await requestEmailConfirmation(await clientOf(s), { email: 'kamila@smartup.example', locale: 'ru' });
   expect(await confirmEmail({ token: tokenFrom(box.mailer.sent[0]) }, s)).toEqual({ ok: false, code: 'email_taken' });
 });
 
 test('токен подтверждения одноразовый, живёт 60 минут, новый запрос отменяет прежний', async () => {
-  const s = await ssoSignIn(mock, acme('1001', 'Алишер'));
+  const s = await signIn(acme('1001', 'Алишер'));
   const ctx = await clientOf(s);
   await requestEmailConfirmation(ctx, { email: 'a1@acme.test', locale: 'ru' });
   await requestEmailConfirmation(ctx, { email: 'a2@acme.test', locale: 'ru' });
@@ -73,7 +75,7 @@ test('токен подтверждения одноразовый, живёт 6
 });
 
 test('использованный токен второй раз не срабатывает', async () => {
-  const s = await ssoSignIn(mock, acme('1001', 'Алишер'));
+  const s = await signIn(acme('1001', 'Алишер'));
   await requestEmailConfirmation(await clientOf(s), { email: 'alisher@acme.test', locale: 'ru' });
   const token = tokenFrom(box.mailer.sent[0]);
   expect(await confirmEmail({ token }, s)).toEqual({ ok: true });
@@ -81,13 +83,13 @@ test('использованный токен второй раз не сраб�
 });
 
 test('токен лежит в базе хешем', async () => {
-  const s = await ssoSignIn(mock, acme('1001', 'Алишер'));
+  const s = await signIn(acme('1001', 'Алишер'));
   await requestEmailConfirmation(await clientOf(s), { email: 'alisher@acme.test', locale: 'ru' });
   expect(JSON.stringify((await pools.root.query('select * from hdu_email_tokens')).rows)).not.toContain(tokenFrom(box.mailer.sent[0]));
 });
 
 test('подтверждение записано в журнал, сам адрес в журнал не попадает', async () => {
-  const s = await ssoSignIn(mock, acme('1001', 'Алишер'));
+  const s = await signIn(acme('1001', 'Алишер'));
   await requestEmailConfirmation(await clientOf(s), { email: 'alisher@acme.test', locale: 'ru' });
   await confirmEmail({ token: tokenFrom(box.mailer.sent[0]) }, s);
   const rows = (await pools.root.query(`select action, diff from hdc_audit_log where object_id = $1 and action = 'user.email_confirmed'`, [s.user.id])).rows;
@@ -96,7 +98,7 @@ test('подтверждение записано в журнал, сам адр
 });
 
 test('неверный адрес отклоняется, шестой запрос подтверждения за час тоже', async () => {
-  const s = await ssoSignIn(mock, acme('1001', 'Алишер'));
+  const s = await signIn(acme('1001', 'Алишер'));
   const ctx = await clientOf(s);
   expect(await requestEmailConfirmation(ctx, { email: 'not-an-email', locale: 'ru' })).toEqual({ ok: false, code: 'invalid_input' });
   for (let i = 0; i < 5; i++) expect(await requestEmailConfirmation(ctx, { email: `a${i}@acme.test`, locale: 'ru' })).toEqual({ ok: true });
@@ -105,19 +107,19 @@ test('неверный адрес отклоняется, шестой запр�
 });
 
 test('шаг первого входа отмечается один раз', async () => {
-  const s = await ssoSignIn(mock, acme('1001', 'Алишер'));
+  const s = await signIn(acme('1001', 'Алишер'));
   expect((await clientOf(s)).user.onboarded).toBe(false);
   await completeWelcome(s.user.id);
   const first = (await pools.root.query(`select "onboardedAt" from auth."user" where id = $1`, [s.user.id])).rows[0].onboardedAt;
   await completeWelcome(s.user.id);
   expect((await pools.root.query(`select "onboardedAt" from auth."user" where id = $1`, [s.user.id])).rows[0].onboardedAt).toEqual(first);
-  const again = await ssoSignIn(mock, acme('1001', 'Алишер'));
+  const again = await signIn(acme('1001', 'Алишер'));
   expect((await clientOf(again)).user.onboarded).toBe(true);
 });
 
 test('ссылку подтверждения тратит только вошедший владелец запроса: чужой адрес себе не присвоить (проверка main, S2)', async () => {
-  const attacker = await ssoSignIn(mock, acme('1001', 'Алишер'));
-  const victim = await ssoSignIn(mock, { sub: '2001', name: 'Тимур', company_id: '502', company_name: 'Globex' });
+  const attacker = await signIn(acme('1001', 'Алишер'));
+  const victim = await signIn({ sub: '2001', name: 'Тимур', company_id: '502', company_name: 'Globex' });
   await requestEmailConfirmation(await clientOf(attacker), { email: 'victim@globex.test', locale: 'ru' });
   const token = tokenFrom(box.mailer.sent[0]);
   // Владелец ящика открыл ссылку без входа или в своей учётной записи: адрес никому не привязывается, ссылка не тратится.

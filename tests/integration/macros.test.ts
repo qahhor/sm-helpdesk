@@ -120,7 +120,7 @@ test('макросы ведёт только администратор со с�
   const macroId = await macro('Макрос', [{ action: 'assign_me' }]);
   const hidden = await macro('Выключен', [{ action: 'assign_me' }], false);
   const input = { name: 'Чужой', actions: [{ action: 'assign_me' }] };
-  const stale = { ...admin, sessionCreatedAt: new Date(Date.now() - 901e3) };
+  const stale = { ...admin, freshAuthAt: new Date(Date.now() - 901e3) };
   const writes: [string, (ctx: typeof admin) => Promise<unknown>][] = [
     ['создание', (ctx) => saveMacro(ctx, input)],
     ['правка', (ctx) => saveMacro(ctx, { ...input, macroId })],

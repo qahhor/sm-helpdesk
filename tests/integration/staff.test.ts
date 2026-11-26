@@ -340,8 +340,8 @@ test('свежий вход: действие администратора до�
   const jar = await signInWithCode(staff);
   const ctx = (await resolveStaff(await readSession(jar.request), new Date())) as StaffContext;
   expect(isFresh(ctx, new Date(), 900)).toBe(true);
-  expect(isFresh(ctx, new Date(ctx.sessionCreatedAt.getTime() + 899_000), 900)).toBe(true);
-  expect(isFresh(ctx, new Date(ctx.sessionCreatedAt.getTime() + 901_000), 900)).toBe(false);
+  expect(isFresh(ctx, new Date(ctx.freshAuthAt!.getTime() + 899_000), 900)).toBe(true);
+  expect(isFresh(ctx, new Date(ctx.freshAuthAt!.getTime() + 901_000), 900)).toBe(false);
 });
 
 // --- Проверка "не робот" на шаге пароля (задача 14, решение 0018) ---

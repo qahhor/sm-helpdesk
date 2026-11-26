@@ -64,7 +64,7 @@ test('первая и вторая линия, product и AI-сотрудник 
 test('смена роли требует свежего входа', async () => {
   const f = await seedTwoOrgs();
   const ctx = staffCtx(f.care);
-  const later = new Date(ctx.sessionCreatedAt.getTime() + 901_000);
+  const later = new Date(ctx.freshAuthAt!.getTime() + 901_000);
   await expect(changeMemberRole(ctx, { orgId: f.orgA.orgId, userId: f.aUser.userId, role: 'client_admin' }, later)).rejects.toMatchObject({
     code: 'stale_session',
   });
@@ -73,7 +73,7 @@ test('смена роли требует свежего входа', async () =>
 test('блокировка участника и настройки организации сотрудником требуют свежего входа (проверка main, Q18)', async () => {
   const f = await seedTwoOrgs();
   const ctx = staffCtx(f.care);
-  const later = new Date(ctx.sessionCreatedAt.getTime() + 901_000);
+  const later = new Date(ctx.freshAuthAt!.getTime() + 901_000);
   await expect(setMemberState({ ctx, orgId: f.orgA.orgId }, { userId: f.aUser.userId, state: 'passive' }, later)).rejects.toMatchObject({
     code: 'stale_session',
   });

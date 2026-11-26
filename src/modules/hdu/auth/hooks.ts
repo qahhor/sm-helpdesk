@@ -4,6 +4,7 @@ import { clientIp } from '@/modules/hdc/api';
 import { type ClientSignInMethod, noteClientSignIn, TRUSTED_SIGN_IN_WAYS } from '../core/sign-in-audit';
 import { CLIENT_SESSION_MAX_SEC, STAFF_SESSION_TTL_SEC } from '../pref';
 import type { StaffInfo } from '../core/staff';
+import { currentReauth } from './reauth';
 
 // Перехватчики библиотеки входа. Они срабатывают и при вызове библиотеки как функции (решение 0012).
 //
@@ -11,7 +12,9 @@ import type { StaffInfo } from '../core/staff';
 //   1. сотрудник входит только по паролю с кодом второго фактора (FR-ID-09);
 //   2. сессия сотрудника живёт 12 часов и не продлевается (FR-ID-10), сессия клиента продлевается
 //      при активности, но не дальше 90 суток от входа (ASVS 7.3.2, решение 0067);
-//   3. "доверенное устройство" обходит второй фактор и поэтому запрещено.
+//   3. "доверенное устройство" обходит второй фактор и поэтому запрещено;
+//   4. время проверки личности (freshAuthAt) ставится только при создании сессии и только тем входом, где человек
+//      подтвердил личность: от него считается недавний вход (решение 0083).
 
 export type StaffLookup = (userId: string) => Promise<StaffInfo | null>;
 
@@ -41,7 +44,22 @@ function clientMethod(ctx: HookContext): ClientSignInMethod {
   return 'other';
 }
 
-export function createSessionHooks(findStaff: StaffLookup, noteSignIn: SignInNote = noteClientSignIn) {
+/** Возврат с сервера Smartup после "Войти заново" (prompt=login, max_age=0), прошедший проверку auth_time (api/sso.ts). */
+export type ReauthCheck = () => boolean;
+const reauthInProgress: ReauthCheck = () => currentReauth() !== null;
+
+/**
+ * Подтвердил ли человек личность этим входом клиента. Ссылка из письма, приглашение и ссылка из бота доказывают
+ * владение почтой или Telegram прямо сейчас. Вход через Smartup считается, только если это вход заново: обычный
+ * мог пройти по открытой сессии Smartup Web без пароля. Вход заново с устаревшим auth_time сюда не доходит:
+ * проверка пользователя (api/sso.ts) его отклоняет до создания сессии.
+ */
+function clientAuthenticated(method: ClientSignInMethod, reauth: ReauthCheck): boolean {
+  if (method === 'smartup') return reauth();
+  return method !== 'other';
+}
+
+export function createSessionHooks(findStaff: StaffLookup, noteSignIn: SignInNote = noteClientSignIn, reauth: ReauthCheck = reauthInProgress) {
   return {
     create: {
       /**
@@ -63,17 +81,22 @@ export function createSessionHooks(findStaff: StaffLookup, noteSignIn: SignInNot
         const staff = await findStaff(session.userId);
         if (!staff) {
           // Пароль есть только у сотрудников. Клиент с паролем это ошибка в данных: не пускаем.
-          return path === PASSWORD_PATH ? false : undefined;
+          if (path === PASSWORD_PATH) return false;
+          // Библиотека добавляет поля результата к своим данным сессии.
+          return { data: { freshAuthAt: clientAuthenticated(clientMethod(ctx), reauth) ? new Date() : null } };
         }
         if (staff.state !== 'active' || staff.role === 'agent_bot') return false;
         if (!STAFF_SIGN_IN_PATHS.has(path)) return false;
         // Сессия после одного пароля нужна только для подключения второго фактора: отметки у неё нет,
         // и рабочее место она не откроет, даже если второй фактор потом подключат в другом браузере.
+        // Пароль (с кодом) это проверка личности: от неё считается свежий вход для настроек (решение 0083).
+        const now = new Date();
         return {
           data: {
             ...session,
-            expiresAt: new Date(Date.now() + STAFF_SESSION_TTL_SEC * 1000),
-            secondFactorAt: path === TOTP_PATH ? new Date() : null,
+            expiresAt: new Date(now.getTime() + STAFF_SESSION_TTL_SEC * 1000),
+            secondFactorAt: path === TOTP_PATH ? now : null,
+            freshAuthAt: now,
           },
         };
       },
@@ -81,7 +104,8 @@ export function createSessionHooks(findStaff: StaffLookup, noteSignIn: SignInNot
     update: {
       /**
        * Библиотека продлевает сессию при активности. Сессию сотрудника продлить дальше 12 часов от входа нельзя,
-       * сессию клиента дальше 90 суток от входа.
+       * сессию клиента дальше 90 суток от входа. Время проверки личности продление не трогает: его пишет только
+       * создание сессии, снаружи поле не задать (input: false в auth/options.ts).
        */
       async before(data: Record<string, unknown>, ctx: HookContext) {
         if (!('expiresAt' in data) || data.expiresAt == null) return undefined;

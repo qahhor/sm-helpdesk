@@ -29,6 +29,8 @@ test('синонимы, словарь и курирование: админис
   await expect(saveSearchSetting(staffCtx(f.l1), { kind: 'synonyms', text: 'склад, ombor' })).rejects.toMatchObject({ code: 'forbidden' });
   expect(await saveSearchSetting(admin, { kind: 'synonyms', text: '# комментарий\nсклад, ombor, warehouse\nнакладная => yuk xati, invoice' })).toEqual({ ok: true });
   expect(await saveSearchSetting(admin, { kind: 'synonyms', text: 'склад, ombor\nодно' })).toEqual({ ok: false, line: 2 });
+  // Две стрелки в строке: неверная строка, а не слово с "=>" внутри.
+  expect(await saveSearchSetting(admin, { kind: 'synonyms', text: 'склад => ombor => warehouse' })).toEqual({ ok: false, line: 1 });
   expect(await saveSearchSetting(admin, { kind: 'stems', text: "to'lovlar = to'lov\nhisobotlar = hisobot" })).toEqual({ ok: true });
   expect(await saveSearchSetting(admin, { kind: 'curation', text: 'накладная | KB-1042 | 1' })).toEqual({ ok: true });
   expect(await saveSearchSetting(admin, { kind: 'curation', text: 'накладная | 1042 | 99' })).toEqual({ ok: false, line: 1 });

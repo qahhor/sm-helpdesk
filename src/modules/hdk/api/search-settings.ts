@@ -52,7 +52,10 @@ function parse(kind: SearchSettingKind, text: string): Parsed {
   if (kind === 'synonyms') {
     const sets = [];
     for (const { line, number } of rows) {
-      const [left, right] = line.split('=>');
+      const parts = line.split('=>');
+      // Одна стрелка на строку: "a => b => c" не набор, а ошибка записи.
+      if (parts.length > 2) return { ok: false, line: number };
+      const [left, right] = parts;
       const set = right !== undefined ? { id: `s${number}`, root: left!.trim(), words: words(right) } : { id: `s${number}`, words: words(left!) };
       const ok = synonymSetsSchema.shape.sets.element.safeParse(set);
       if (!ok.success || (!ok.data.root && ok.data.words.length < 2)) return { ok: false, line: number };

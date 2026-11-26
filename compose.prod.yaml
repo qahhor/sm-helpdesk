@@ -42,10 +42,10 @@ services:
     # 8 ГБ: в сумме 6,8 ГБ, остальное системе (итоговая проверка W0, M8).
     mem_limit: ${WEB_MEM_LIMIT:-768m}
     # Без привилегий ядра и без права их получить (аудит 23.11.2026, S9). Сети: edge к Caddy и наружу, data к базе,
-    # embed к TEI (вектор запроса подсказки).
+    # embed к TEI (вектор запроса подсказки), search к Typesense (план W6, решение 16).
     cap_drop: ['ALL']
     security_opt: ['no-new-privileges:true']
-    networks: ['edge', 'data', 'embed']
+    networks: ['edge', 'data', 'embed', 'search']
     stop_grace_period: 20s
     # Писать процессу можно только сюда: временные файлы и кеш Next.js (Dockerfile).
     tmpfs: ['/tmp', '/app/.next/cache']
@@ -71,6 +71,7 @@ services:
     command: ['node', 'worker.mjs']
     # Ключ Claude API только у фонового процесса (ТЗ 13.5, решение 97; план M5, решение 3): файл .env.worker с
     # ANTHROPIC_API_KEY, AI_MODEL_FAST и AI_MODEL_QUALITY получает один этот контейнер. Нет файла: работа без AI.
+    # Там же ключ записи индекса поиска TYPESENSE_WRITE_KEY (план W6, решение 3): у портала его нет.
     env_file:
       - path: .env
       - path: .env.worker
@@ -80,8 +81,9 @@ services:
     mem_limit: ${WORKER_MEM_LIMIT:-768m}
     cap_drop: ['ALL']
     security_opt: ['no-new-privileges:true']
-    # Сети: data к базе, scan к антивирусу и наружу (почта, Telegram, хранилище), embed к TEI (векторы решений).
-    networks: ['data', 'scan', 'embed']
+    # Сети: data к базе, scan к антивирусу и наружу (почта, Telegram, хранилище), embed к TEI (векторы решений),
+    # search к Typesense (запись индекса).
+    networks: ['data', 'scan', 'embed', 'search']
     # Остановка очереди задач ждёт до 30 секунд: Docker не должен убить процесс раньше.
     stop_grace_period: 40s
     tmpfs: ['/tmp']
@@ -153,6 +155,44 @@ services:
       HUGGINGFACE_HUB_CACHE: /data
     read_only: false
     networks: ['models']
+
+  # Поиск (план W6, решения 13 и 16; решение владельца 0070): Typesense 30.2 закреплён digest индекса образа,
+  # полученным запросом к Docker Hub и сверенным при скачивании образа 26.11.2026 (новый digest:
+  # docker buildx imagetools inspect typesense/typesense:<версия>). Индекс производный: источник данных PostgreSQL,
+  # после восстановления базы индекс строится заново (hub search:reindex), снимки не нужны. Своя внутренняя сеть search
+  # с порталом и фоновым процессом: текст запроса клиента не уходит наружу, до базы Typesense не достаёт, порт не
+  # публикуется. Главный ключ только в секрете typesense_api_key и у команды hub search:keys. Журналы запросов
+  # выключены: в них был бы текст запроса клиента. Кеша выдачи нет (use_cache по умолчанию выключен, портал шлёт false).
+  # Аналитика и CORS не включаются. На production включается только с сервером 16 ГБ (ответ владельца 0070, пункт 1);
+  # до этого SEARCH_PROVIDER=postgres, и служба не запускается (профиль search).
+  typesense:
+    image: typesense/typesense:30.2@sha256:610f2d34b1f93d00762869da2c67736775e5798d19a2c8b91b014b8a0cc1e110
+    restart: unless-stopped
+    profiles: ['search']
+    # Главный ключ читается из файла секрета: флагом в окружении он был бы виден в docker inspect.
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >-
+        exec /opt/typesense-server --data-dir=/data --api-key="$$(cat /run/secrets/typesense_api_key)"
+        --memory-used-max-percentage=90 --disk-used-max-percentage=90
+        --log-slow-searches-time-ms=-1 --enable-search-logging=false --enable-access-logging=false
+        --enable-search-analytics=false
+    secrets: [typesense_api_key]
+    # Индекс целиком в памяти: 2-3 размера индексируемых полей (guide/system-requirements). Предел по замеру задачи 10.
+    mem_limit: ${TYPESENSE_MEM_LIMIT:-2560m}
+    read_only: true
+    tmpfs: ['/tmp']
+    cap_drop: ['ALL']
+    security_opt: ['no-new-privileges:true']
+    networks: ['search']
+    volumes: ['typesense_data:/data']
+    # В образе нет curl и wget: проверка готовности через /dev/tcp оболочки bash.
+    healthcheck:
+      test: ['CMD', 'bash', '-c', 'exec 3<>/dev/tcp/127.0.0.1/8108 && printf "GET /health HTTP/1.0\r\n\r\n" >&3 && grep -q "\"ok\":true" <&3']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
 
   # Миграции от роли hub_owner. Подключение владельца есть только здесь (раздел 13.5 ТЗ).
   migrate:
@@ -244,6 +284,7 @@ services:
 #   scan: фоновый процесс и антивирус. Через неё фоновый процесс ходит наружу, антивирус обновляет базы подписей.
 #   embed: портал, фоновый процесс и TEI. Внутренняя: текст запроса клиента не уходит наружу (ТЗ 11.6).
 #   models: только однократное скачивание весов модели (tei-download, профиль tools).
+#   search: портал, фоновый процесс и Typesense. Внутренняя: текст запроса клиента не уходит наружу (план W6).
 networks:
   edge: {}
   data:
@@ -252,13 +293,18 @@ networks:
   embed:
     internal: true
   models: {}
+  search:
+    internal: true
 
 volumes:
   caddy_data: {}
   pg_data: {}
   clamav_db: {}
   tei_models: {}
+  typesense_data: {}
 
 secrets:
   pg_superuser:
     file: ./secrets/pg_superuser
+  typesense_api_key:
+    file: ./secrets/typesense_api_key

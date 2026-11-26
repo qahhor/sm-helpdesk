@@ -50,8 +50,9 @@
    - сотрудник входит, последнее обращение перед аварией на месте;
    - политики на месте: `hubc exec -T postgres psql -U postgres -d hub -Atc "select count(*) from pg_class where relkind = 'r' and relnamespace = 'public'::regnamespace and not (relrowsecurity and relforcerowsecurity)"` возвращает 0;
    - в `hubc logs worker` есть "Фоновый процесс запущен".
-8. Файлы вложений лежат в R2 и копией базы не затрагиваются. Если бакет файлов тоже потерян, восстановить версии объектов средствами R2 (ТЗ 13.7).
-9. После восстановления на staging удалить данные production со staging.
+8. Если включён поиск на Typesense (`SEARCH_PROVIDER=typesense`, план W6): индекс производный и строится заново из восстановленной базы, снимков Typesense нет. `hubc exec worker node hub.mjs search:reindex`, затем `hubc exec worker node hub.mjs search:status` показывает число документов каждой коллекции и пустую очередь. Пока индекс строится, поиск идёт прежним путём PostgreSQL для тех, у кого Typesense не нашёл строку, и находит меньше с опечатками; данных не теряется.
+9. Файлы вложений лежат в R2 и копией базы не затрагиваются. Если бакет файлов тоже потерян, восстановить версии объектов средствами R2 (ТЗ 13.7).
+10. После восстановления на staging удалить данные production со staging.
 
 ## Восстановление на момент времени
 

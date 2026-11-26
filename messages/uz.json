@@ -1270,6 +1270,10 @@
           },
           "ops": {
             "backup_marked": "Baza zaxira nusxasi belgilandi"
+          },
+          "search": {
+            "keys_created": "Qidiruv kalitlari yaratildi",
+            "reindexed": "Qidiruv indeksi qaytadan qurildi"
           }
         },
         "words": {

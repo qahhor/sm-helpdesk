@@ -106,3 +106,4 @@ export {
   type SynonymItem,
   TEXT_LIMITS,
 } from './search';
+export { issueSearchKeys } from './search/admin';

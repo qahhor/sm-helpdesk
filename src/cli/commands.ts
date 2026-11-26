@@ -9,7 +9,7 @@ import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
-import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, markBackup } from '@/modules/hdc/api';
+import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, issueSearchKeys, markBackup } from '@/modules/hdc/api';
 import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
 import { type CorpusEntry, groupCorpus, parseCorpus } from '@/modules/hdk/api/signatures';
@@ -107,6 +107,12 @@ const HELP = `Использование: hub <команда> [ключи]
       из ENCRYPTION_KEY. Прежний ключ на время замены задаётся в ENCRYPTION_KEY_PREVIOUS.
       Код завершения 1, если какой-то секрет не открылся ни одним ключом.
 
+  search:keys [--rotate]
+      Ключи Typesense для портала и фонового процесса (план W6, решение 3): ключ поиска клиента, ключ поиска
+      сотрудника и ключ записи. Главный ключ берётся из TYPESENSE_API_KEY, иначе спрашивается без отображения;
+      адрес из TYPESENSE_URL. Ключи печатаются один раз. --rotate: прежние ключи портала удаляются, ключи с
+      областью от них перестают действовать сразу.
+
   --help
       Эта справка.`;
 
@@ -146,6 +152,7 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
   'signatures:test': { options: { dir: { type: 'string' } }, required: [] },
+  'search:keys': { options: { rotate: { type: 'boolean' } }, required: [] },
   'seed:pilot': { options: { file: { type: 'string' }, admin: { type: 'string' }, 'dry-run': { type: 'boolean' } }, required: ['file', 'admin'] },
 };
 
@@ -361,6 +368,19 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         io.out(
           `Удалено просроченных строк: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, отправленные письма очереди ${sentMail}, разобранные входящие письма ${letters}.`,
         );
+        return 0;
+      }
+      case 'search:keys': {
+        const url = io.env.TYPESENSE_URL;
+        if (!url) throw new UsageError('Не задан TYPESENSE_URL: адрес службы typesense, например http://typesense:8108.');
+        const masterKey = io.env.TYPESENSE_API_KEY || (await io.readSecret('Главный ключ Typesense: '));
+        if (!masterKey) throw new UsageError('Главный ключ Typesense не введён.');
+        const keys = await issueSearchKeys(ACTOR, { url, masterKey, rotate: values.rotate === true });
+        io.out('Ключи созданы. Они показываются один раз: перенесите их в файлы окружения сейчас.');
+        io.out(`Файл .env (портал): TYPESENSE_SEARCH_KEY=${keys.clientSearch}`);
+        io.out(`Файл .env (портал): TYPESENSE_STAFF_SEARCH_KEY=${keys.staffSearch}`);
+        io.out(`Файл .env.worker (фоновый процесс и hub): TYPESENSE_WRITE_KEY=${keys.write}`);
+        if (keys.removed > 0) io.out(`Прежних ключей удалено: ${keys.removed}. Перезапустите web и worker с новыми ключами.`);
         return 0;
       }
       case 'ops:backup-mark': {

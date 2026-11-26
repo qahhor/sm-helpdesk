@@ -16,7 +16,7 @@ test('наружу порты публикует только caddy', () => {
 });
 
 test('образы сторонних служб закреплены по digest', () => {
-  for (const name of ['caddy', 'postgres', 'clamav', 'tei']) expect(String(services[name]?.image), name).toMatch(/@sha256:[0-9a-f]{64}$/);
+  for (const name of ['caddy', 'postgres', 'clamav', 'tei', 'typesense']) expect(String(services[name]?.image), name).toMatch(/@sha256:[0-9a-f]{64}$/);
 });
 
 test('портал работает не от root, с файловой системой только для чтения и писать может только во временные каталоги', () => {
@@ -106,7 +106,7 @@ test('PostgreSQL настроен под сервер: статистика за
 });
 
 test('у каждой постоянной службы предел памяти: сбой одной не забирает память у базы', () => {
-  for (const name of ['caddy', 'web', 'worker', 'clamav', 'postgres', 'tei']) expect(String(services[name]?.mem_limit ?? ''), name).toMatch(/^\$\{[A-Z_]+:-\d+[mg]\}$/);
+  for (const name of ['caddy', 'web', 'worker', 'clamav', 'postgres', 'tei', 'typesense']) expect(String(services[name]?.mem_limit ?? ''), name).toMatch(/^\$\{[A-Z_]+:-\d+[mg]\}$/);
 });
 
 test('фоновому процессу и порталу хватает времени завершить работу при остановке', () => {
@@ -162,8 +162,10 @@ test('сторонние службы не получают новых прив�
 test('сети разделены: антивирус не достаёт до базы и портала, Caddy не достаёт до базы, у базы нет выхода наружу', () => {
   const nets = (name: string) => [...((services[name]?.networks as string[] | undefined) ?? [])].sort();
   expect(nets('caddy')).toEqual(['edge']);
-  expect(nets('web')).toEqual(['data', 'edge', 'embed']);
-  expect(nets('worker')).toEqual(['data', 'embed', 'scan']);
+  expect(nets('web')).toEqual(['data', 'edge', 'embed', 'search']);
+  expect(nets('worker')).toEqual(['data', 'embed', 'scan', 'search']);
+  // Typesense во внутренней сети с порталом и фоновым процессом, без базы и без выхода наружу (план W6, решение 16).
+  expect(nets('typesense')).toEqual(['search']);
   // TEI во внутренней сети без выхода наружу и без базы; веса качает отдельная служба по команде (план M5, решение 6).
   expect(nets('tei')).toEqual(['embed']);
   expect(nets('tei-download')).toEqual(['models']);
@@ -175,9 +177,10 @@ test('сети разделены: антивирус не достаёт до �
   // Каждая служба названа в какой-то сети: общей сети по умолчанию нет.
   for (const [name, service] of Object.entries(services)) expect(service.networks, name).toBeDefined();
   const networks = compose.networks as Record<string, { internal?: boolean } | null>;
-  expect(Object.keys(networks).sort()).toEqual(['data', 'edge', 'embed', 'models', 'scan']);
+  expect(Object.keys(networks).sort()).toEqual(['data', 'edge', 'embed', 'models', 'scan', 'search']);
   expect(networks.data?.internal).toBe(true);
   expect(networks.embed?.internal).toBe(true);
+  expect(networks.search?.internal).toBe(true);
   // Антивирус обновляет базы подписей из интернета, порталу и фоновому процессу нужны почта, Telegram и хранилище.
   expect(networks.scan?.internal ?? false).toBe(false);
   expect(networks.edge?.internal ?? false).toBe(false);
@@ -237,4 +240,34 @@ test('Caddy не затирает Referrer-Policy страниц виджета:
   // Caddy ставил поверх ответа портала (проверено на Caddy 2.10.2 при подготовке M9).
   expect(caddyfile).toMatch(/\?Referrer-Policy "strict-origin-when-cross-origin"/);
   expect(caddyfile).not.toMatch(/^\s*Referrer-Policy /m);
+});
+
+test('Typesense (план W6, решения 3, 13, 16): образ 30.2 по digest, журналы запросов выключены, главный ключ секретом', () => {
+  const ts = services.typesense as Record<string, unknown>;
+  expect(ts.image).toBe('typesense/typesense:30.2@sha256:610f2d34b1f93d00762869da2c67736775e5798d19a2c8b91b014b8a0cc1e110');
+  expect(ts.ports).toBeUndefined();
+  expect(ts.read_only).toBe(true);
+  expect(ts.cap_drop).toEqual(['ALL']);
+  expect(ts.security_opt).toEqual(['no-new-privileges:true']);
+  expect(ts.volumes).toEqual(['typesense_data:/data']);
+  expect(ts.secrets).toEqual(['typesense_api_key']);
+  expect(String(ts.mem_limit)).toBe('${TYPESENSE_MEM_LIMIT:-2560m}');
+  // До сервера 16 ГБ служба не запускается сама (ответ владельца 0070, пункт 1).
+  expect(ts.profiles).toEqual(['search']);
+  const command = (ts.command as string[]).join(' ');
+  for (const flag of ['--log-slow-searches-time-ms=-1', '--enable-search-logging=false', '--enable-access-logging=false', '--enable-search-analytics=false', '--memory-used-max-percentage=90'])
+    expect(command, flag).toContain(flag);
+  // Главный ключ не в окружении и не в аргументах compose: из файла секрета.
+  expect(command).toContain('$(cat /run/secrets/typesense_api_key)');
+  expect(command).not.toContain('--enable-cors');
+  expect(ts.environment).toBeUndefined();
+  expect((compose.secrets as Record<string, { file: string }>).typesense_api_key?.file).toBe('./secrets/typesense_api_key');
+  expect(Object.keys(compose.volumes as object)).toContain('typesense_data');
+});
+
+test('ключ записи индекса только у фонового процесса: у портала только файл .env', () => {
+  expect(services.web?.env_file).toEqual(['.env']);
+  const files = (services.worker?.env_file as { path: string }[]).map((f) => f.path);
+  expect(files).toEqual(['.env', '.env.worker']);
+  expect(JSON.stringify(services.web)).not.toContain('TYPESENSE_WRITE_KEY');
 });

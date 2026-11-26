@@ -141,6 +141,7 @@ test('ошибка в одной записи ничего не меняет и 
   );
   expect(broken.code).toBe(1);
   expect(broken.errors.join('\n')).toMatch(/templates, запись 2 \(rights\): body\.en/);
+  expect(broken.errors[0]).toBe('Начальные данные не загружены: файл не прошёл проверку, база не изменена. Ошибки:');
   // Ссылка на модуль, которого нет ни в файле, ни в справочнике.
   const unknownModule = await seed(
     seedFile((file) => {

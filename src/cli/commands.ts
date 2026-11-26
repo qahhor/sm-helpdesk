@@ -9,7 +9,7 @@ import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
-import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, getSearchWriter, issueSearchKeys, markBackup, reindexCollection, SEARCH_COLLECTIONS, type SearchCollection, searchQueueState, SearchWriteError } from '@/modules/hdc/api';
+import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, getSearchWriter, issueSearchKeys, markBackup, prepareSearchIndex, reindexCollection, SEARCH_COLLECTIONS, type SearchCollection, searchQueueState, SearchWriteError } from '@/modules/hdc/api';
 import { registerSearch } from '@/worker/search';
 import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
@@ -401,7 +401,9 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         const writer = getSearchWriter(io.env);
         if (!writer) throw new UsageError('Поиск на Typesense не включён: задайте SEARCH_PROVIDER=typesense, TYPESENSE_URL и TYPESENSE_WRITE_KEY.');
         registerSearch();
-        await writer.ensureCollections();
+        // Коллекции и все настройки поиска (синонимы, словарь, курирование). При переиндексации одной коллекции смена
+        // словаря перестраивает решения и идеи сразу; без ключа их строит цикл ниже.
+        await prepareSearchIndex(ACTOR, writer, { reindexOnStems: collection !== undefined });
         for (const name of collection ? [collection as SearchCollection] : SEARCH_COLLECTIONS) {
           const result = await reindexCollection(ACTOR, writer, name);
           io.out(`${name}: построена ${result.name}, документов ${result.documents}.`);

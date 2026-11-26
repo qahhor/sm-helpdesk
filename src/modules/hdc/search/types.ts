@@ -116,6 +116,8 @@ export interface SearchIndexWriter {
   putSynonyms(items: readonly SynonymItem[]): Promise<void>;
   putCurations(items: readonly CurationItem[]): Promise<void>;
   putStems(pairs: readonly StemPair[]): Promise<void>;
+  /** Пары словаря, которые сейчас в Typesense: смена словаря перестраивает коллекции, без смены не нужна. */
+  readStems(): Promise<StemPair[]>;
   /** Переиндексация (решение 12): коллекции, псевдонимы, новая версия. */
   listCollections(): Promise<CollectionInfo[]>;
   aliasTarget(collection: SearchCollection): Promise<string | null>;

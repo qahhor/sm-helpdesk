@@ -1,6 +1,7 @@
 import type { SystemActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
 import {
+  applyAllConfig,
   cleanupDroppedOutbox,
   DRIFT_ALERT_SHARE,
   getSearchWriter,
@@ -49,6 +50,8 @@ export async function searchSyncTick(system: SystemActor, opts: { stopped: () =>
 export async function searchReconcile(system: SystemActor, now: Date = new Date()): Promise<ReconcileReport[]> {
   const w = writerOf();
   if (!w) return [];
+  // Настройки поиска каждую ночь заново: повтор безвреден, потерянный после сбоев набор возвращается.
+  await applyAllConfig(system, w, { reindexOnStems: true });
   const reports: ReconcileReport[] = [];
   for (const collection of SEARCH_COLLECTIONS) {
     const report = await reconcileCollection(system, w, collection);

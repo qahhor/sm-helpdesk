@@ -120,6 +120,8 @@ export {
   pendingEntities,
   reconcileCollection,
   type ReconcileReport,
+  prepareSearchIndex,
+  applyAllConfig,
   registerSearchSources,
   reindexCollection,
   runSearchSync,

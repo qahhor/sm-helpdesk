@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, asc, count, eq, inArray, lt, lte, min } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, lt, lte, min, ne } from 'drizzle-orm';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
@@ -143,21 +143,48 @@ async function failed(system: SystemActor, rows: readonly Claimed[], code: strin
 
 const codeOf = (error: unknown) => (error instanceof SearchWriteError ? error.code : 'error').replace(/[^a-z0-9_]/g, '_').slice(0, 40) || 'error';
 
-/** Синонимы, словарь и курирование из настроек в Typesense. Смена словаря требует новых коллекций решений и идей. */
-async function applyConfig(system: SystemActor, writer: SearchIndexWriter, code: string): Promise<void> {
+const pairKey = (pairs: readonly { word: string; root: string }[]) =>
+  pairs
+    .map((p) => `${p.word}\u0000${p.root}`)
+    .sort()
+    .join('\u0001');
+
+/**
+ * Синонимы, словарь и курирование из настроек в Typesense. Повтор безвреден. Словарь меняется, только если пары в
+ * Typesense другие: коллекция берёт словарь при создании (решение 0080, пункт 6), поэтому смена словаря перестраивает
+ * решения и идеи (reindexOnStems), а без смены перестраивать нечего.
+ */
+async function applyConfig(system: SystemActor, writer: SearchIndexWriter, code: string, opts: { reindexOnStems: boolean } = { reindexOnStems: true }): Promise<void> {
   const raw = await readSetting(code);
   if (code === SEARCH_SETTING_CODES.synonyms) {
     const parsed = synonymSetsSchema.safeParse(raw ?? { sets: [] });
     await writer.putSynonyms(parsed.success ? synonymItems(parsed.data) : []);
   } else if (code === SEARCH_SETTING_CODES.stems) {
     const parsed = stemPairsSchema.safeParse(raw ?? { pairs: [] });
-    await writer.putStems(parsed.success ? stemDictionary(parsed.data) : []);
-    // Коллекция берёт словарь при создании (решение 0080, пункт 6): решения и идеи строятся заново.
-    for (const collection of ['solutions', 'ideas'] as const) if (sources.has(KIND_OF[collection])) await reindexCollection(system, writer, collection, { audit: false });
+    const pairs = parsed.success ? stemDictionary(parsed.data) : [];
+    if (pairKey(await writer.readStems()) === pairKey(pairs)) return;
+    await writer.putStems(pairs);
+    if (opts.reindexOnStems)
+      for (const collection of ['solutions', 'ideas'] as const) if (sources.has(KIND_OF[collection])) await reindexCollection(system, writer, collection, { audit: false });
   } else if (code === SEARCH_SETTING_CODES.curation) {
     const parsed = curationSchema.safeParse(raw ?? { rules: [] });
     await writer.putCurations(parsed.success && curationResolver ? await curationResolver(system, parsed.data.rules) : []);
   }
+}
+
+/**
+ * Все три набора настроек в Typesense (независимая проверка W6, замечание 2): при подготовке индекса (hub search:reindex)
+ * и каждую ночь в сверке. Без этого набор, сохранённый при SEARCH_PROVIDER=postgres или потерянный после пяти сбоев,
+ * в Typesense не попадал бы никогда.
+ */
+export async function applyAllConfig(system: SystemActor, writer: SearchIndexWriter, opts: { reindexOnStems: boolean }): Promise<void> {
+  for (const code of Object.values(SEARCH_SETTING_CODES)) await applyConfig(system, writer, code, opts);
+}
+
+/** Подготовка индекса перед переиндексацией: коллекции, наборы, словарь и все настройки поиска. */
+export async function prepareSearchIndex(system: SystemActor, writer: SearchIndexWriter, opts: { reindexOnStems?: boolean } = {}): Promise<void> {
+  await writer.ensureCollections();
+  await applyAllConfig(system, writer, { reindexOnStems: opts.reindexOnStems ?? false });
 }
 
 export type SyncResult = { written: number; failed: number; dropped: number; cleared: number };
@@ -169,7 +196,8 @@ export type SyncResult = { written: number; failed: number; dropped: number; cle
 export async function runSearchSync(system: SystemActor, writer: SearchIndexWriter | null, opts: { now?: Date; batch?: number } = {}): Promise<SyncResult> {
   const now = opts.now ?? new Date();
   if (!writer) {
-    const cleared = await withActor(system, async (tx) => (await tx.delete(searchOutbox).returning({ id: searchOutbox.outboxId })).length);
+    // Строки настроек остаются: при включении Typesense их применит разбор очереди, подготовка индекса и сверка.
+    const cleared = await withActor(system, async (tx) => (await tx.delete(searchOutbox).where(ne(searchOutbox.entityKind, 'config')).returning({ id: searchOutbox.outboxId })).length);
     return { written: 0, failed: 0, dropped: 0, cleared };
   }
   const rows = await claim(system, now, opts.batch ?? BATCH);

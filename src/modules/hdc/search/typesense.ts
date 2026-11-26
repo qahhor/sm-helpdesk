@@ -286,6 +286,13 @@ export function createTypesenseWriter(cfg: { url: string; key: string; fetch?: t
       const lines = (pairs.length > 0 ? pairs : [{ word: 'hubhub', root: 'hubhub' }]).map((pair) => JSON.stringify(pair)).join('\n');
       await call('POST', `/stemming/dictionaries/import?id=${UZ_STEMS}`, { ndjson: lines });
     },
+    async readStems() {
+      const res = await call('GET', `/stemming/dictionaries/${UZ_STEMS}`, { allow404: true });
+      if (res.status === 404) return [];
+      const parsed = z.object({ words: z.array(z.object({ word: z.string(), root: z.string() })) }).safeParse(json(res.text));
+      if (!parsed.success) throw new SearchWriteError('invalid_response');
+      return parsed.data.words.filter((pair) => pair.word !== 'hubhub');
+    },
     async listCollections(): Promise<CollectionInfo[]> {
       const parsed = z.array(z.object({ name: z.string(), num_documents: z.number(), created_at: z.number() }).passthrough()).safeParse(json((await call('GET', '/collections')).text));
       if (!parsed.success) throw new SearchWriteError('invalid_response');

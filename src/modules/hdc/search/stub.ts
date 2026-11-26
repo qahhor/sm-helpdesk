@@ -71,6 +71,8 @@ export type StubSearch = SearchReader &
     synonyms: readonly SynonymItem[];
     curations: readonly CurationItem[];
     stems: readonly StemPair[];
+    /** Сколько раз набор уходил в Typesense: проверка, что настройки применены. */
+    configWrites: { synonyms: number; stems: number; curations: number };
     clear(): void;
     /** Сколько поисков пришло: проверка, что путь Typesense вообще вызывался. */
     calls: number;
@@ -80,7 +82,7 @@ export function createStubSearch(): StubSearch {
   const store: Store = new Map();
   let broken = false;
   let failure: SearchFallback['reason'] | null = null;
-  const state = { synonyms: [] as SynonymItem[], curations: [] as CurationItem[], stems: [] as StemPair[], calls: 0 };
+  const state = { synonyms: [] as SynonymItem[], curations: [] as CurationItem[], stems: [] as StemPair[], calls: 0, writes: { synonyms: 0, stems: 0, curations: 0 } };
   const coll = (c: SearchCollection) => {
     let m = store.get(c);
     if (!m) store.set(c, (m = new Map()));
@@ -164,12 +166,18 @@ export function createStubSearch(): StubSearch {
     },
     async putSynonyms(items) {
       state.synonyms = [...items];
+      state.writes.synonyms++;
     },
     async putCurations(items) {
       state.curations = [...items];
+      state.writes.curations++;
     },
     async putStems(pairs) {
       state.stems = [...pairs];
+      state.writes.stems++;
+    },
+    async readStems() {
+      return [...state.stems];
     },
     async listCollections() {
       return [...store.entries()].map(([name, docs]) => ({ name: `hub_${name}_v1`, numDocuments: docs.size, createdAt: 0 }));
@@ -205,6 +213,9 @@ export function createStubSearch(): StubSearch {
     },
     get stems() {
       return state.stems;
+    },
+    get configWrites() {
+      return state.writes;
     },
     clear() {
       store.clear();

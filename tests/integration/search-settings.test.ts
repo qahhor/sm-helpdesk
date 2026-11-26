@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { createStubSearch, runSearchSync, type StubSearch } from '@/modules/hdc/api';
+import { createStubSearch, prepareSearchIndex, runSearchSync, type SearchIndexWriter, SearchWriteError, type StubSearch } from '@/modules/hdc/api';
+import { searchReconcile, setSearchJobWriterForTests } from '@/worker/search-jobs';
 import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
 import { cleanupSuggestMisses, maskQuery, suggestMisses } from '@/modules/hdk/api/misses';
 import { saveSearchSetting, searchSettingsText } from '@/modules/hdk/api/search-settings';
@@ -52,6 +53,38 @@ test('синонимы, словарь и курирование: админис
   expect(stub.stems).toEqual(expect.arrayContaining([{ word: "to'lovlar", root: "to'lov" }, { word: 'tolovlar', root: 'tolov' }, { word: 'hisobotlar', root: 'hisobot' }]));
   // Решения 1042 нет среди опубликованных: правило не уходит.
   expect(stub.curations).toEqual([]);
+});
+
+test('настройки, сохранённые при поиске через PostgreSQL, доходят до Typesense при включении и переиндексации', async () => {
+  const f = await seedTwoOrgs();
+  const admin = staffCtx(f.adminStaff);
+  expect(await saveSearchSetting(admin, { kind: 'synonyms', text: 'склад, ombor' })).toEqual({ ok: true });
+  expect(await saveSearchSetting(admin, { kind: 'stems', text: "to'lovlar = to'lov" })).toEqual({ ok: true });
+  expect(await saveSearchSetting(admin, { kind: 'curation', text: 'накладная | 1042 | 1' })).toEqual({ ok: true });
+  // Без Typesense очередь чистится, но строки настроек остаются.
+  await runSearchSync(system, null);
+  expect((await pools.root.query(`select entity_id from hdc_search_outbox where entity_kind = 'config' order by entity_id`)).rows.map((r) => r.entity_id)).toEqual(['search.curation', 'search.synonyms', 'search.uz_stems']);
+  // Включение: подготовка индекса (как hub search:reindex) применяет все три набора.
+  await prepareSearchIndex(system, stub);
+  expect(stub.synonyms).toEqual([{ id: 's1', synonyms: ['склад', 'ombor'] }]);
+  expect(stub.stems).toEqual(expect.arrayContaining([{ word: "to'lovlar", root: "to'lov" }]));
+  expect(stub.configWrites.curations).toBe(1);
+});
+
+test('Typesense недоступен дольше повторов: ночная сверка всё равно применяет настройки', async () => {
+  const f = await seedTwoOrgs();
+  expect(await saveSearchSetting(staffCtx(f.adminStaff), { kind: 'synonyms', text: 'склад, ombor' })).toEqual({ ok: true });
+  const broken: SearchIndexWriter = { ...stub, putSynonyms: async () => { throw new SearchWriteError('http_503'); } };
+  const start = new Date();
+  for (let i = 0; i < 5; i++) await runSearchSync(system, broken, { now: new Date(start.getTime() + i * 3_600_000) });
+  expect((await pools.root.query(`select attempts from hdc_search_outbox where entity_kind = 'config'`)).rows).toEqual([{ attempts: 5 }]);
+  setSearchJobWriterForTests(stub);
+  try {
+    await searchReconcile(system);
+  } finally {
+    setSearchJobWriterForTests(undefined);
+  }
+  expect(stub.synonyms).toEqual([{ id: 's1', synonyms: ['склад', 'ombor'] }]);
 });
 
 test('пустая подсказка: текст с маской, без пользователя и организации; находка удаляет строку; видят публикующие роли', async () => {

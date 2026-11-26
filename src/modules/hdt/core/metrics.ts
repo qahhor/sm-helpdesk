@@ -4,7 +4,7 @@ import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { type AuditEntry, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
-import type { LineEvent } from '../metrics-util';
+import type { AdditiveCounters, Counters, LineEvent } from '../metrics-util';
 import { ticketEvents, tickets } from '../schema';
 
 // Модуль hdt, слой core: запросы показателей (FR-MET-01, 03, 04, 07, 10, FR-LINE-08; план M8, задача 9, решение 15;
@@ -49,24 +49,20 @@ const counters = (now: Date) => ({
   csatHigh: count(sql`${tickets.csatScore} >= 4`),
 });
 
-export type Counters = {
-  created: number;
-  resolved: number;
-  closed: number;
-  firstResponseTotal: number;
-  firstResponseOk: number;
-  resolutionTotal: number;
-  resolutionOk: number;
-  rated: number;
-  csatAverage: number | null;
-  csatHigh: number;
-};
+export type { Counters };
 
-/** Сводка периода одним запросом (FR-MET-01). */
-export async function overviewTx(tx: Tx, range: Range, now: Date): Promise<Counters> {
-  const [row] = await tx.select(counters(now)).from(tickets).where(inPeriod(range));
-  if (!row) throw new Error('показатели: сводка не вернула строку');
-  return row;
+/**
+ * Счётчики обращений периода по источникам одним просмотром (FR-MET-01, 03, 10): из этих строк складываются сводка,
+ * источники и каналы (combineCounters). Прежде это были три просмотра одних и тех же строк периода: на 130 тысячах
+ * обращений за 90 дней каждый стоил 130-200 мс (замер подготовки M9, задача 4).
+ */
+export function sourceCountersTx(tx: Tx, range: Range, now: Date): Promise<(AdditiveCounters & { source: string })[]> {
+  const { csatAverage: _average, ...additive } = counters(now);
+  return tx
+    .select({ source: tickets.source, ...additive, csatSum: sql<number>`coalesce(sum(${tickets.csatScore}), 0)::int` })
+    .from(tickets)
+    .where(inPeriod(range))
+    .groupBy(tickets.source);
 }
 
 /**
@@ -87,23 +83,6 @@ export async function finishedTx(tx: Tx, range: Range): Promise<number> {
     .from(tickets)
     .where(and(sql`${FINISHED_ON} >= ${range.from.toISOString()}::timestamptz`, sql`${FINISHED_ON} < ${range.to.toISOString()}::timestamptz`, inArray(tickets.status, ['resolved', 'closed']), isNull(tickets.mergedIntoId)));
   return row?.n ?? 0;
-}
-
-/** Источники обращений периода (FR-MET-03). */
-export function sourcesTx(tx: Tx, range: Range): Promise<{ source: string; count: number }[]> {
-  return tx.select({ source: tickets.source, count: count() }).from(tickets).where(inPeriod(range)).groupBy(tickets.source);
-}
-
-/** Канал обращения (FR-MET-10): оба источника виджета дают канал widget. Значения TICKET_CHANNELS. */
-const CHANNEL = sql<string>`(case when ${tickets.source} in ('widget_web', 'widget_mobile') then 'widget' else ${tickets.source} end)`;
-
-/** Каналы обращений периода одним запросом: счётчики, общие со срезами (FR-MET-10). */
-export function channelsTx(tx: Tx, range: Range, now: Date): Promise<(Counters & { channel: string })[]> {
-  return tx
-    .select({ channel: CHANNEL, ...counters(now) })
-    .from(tickets)
-    .where(inPeriod(range))
-    .groupBy(CHANNEL);
 }
 
 export type RespondedRow = { createdOn: Date; firstRespondedOn: Date; priority: string };

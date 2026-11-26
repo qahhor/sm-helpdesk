@@ -123,6 +123,49 @@ export const LINES = ['first', 'second', 'development'] as const;
  */
 export const TICKET_CHANNELS = ['portal', 'widget', 'email', 'staff'] as const;
 export type TicketChannel = (typeof TICKET_CHANNELS)[number];
+
+/** Канал источника обращения (FR-MET-10): оба источника виджета дают канал widget. */
+export function channelOfSource(source: string): string {
+  return source === 'widget_web' || source === 'widget_mobile' ? 'widget' : source;
+}
+
+/** Счётчики, общие для сводки и срезов (core/metrics.ts). */
+export type Counters = {
+  created: number;
+  resolved: number;
+  closed: number;
+  firstResponseTotal: number;
+  firstResponseOk: number;
+  resolutionTotal: number;
+  resolutionOk: number;
+  rated: number;
+  csatAverage: number | null;
+  csatHigh: number;
+};
+
+/** Счётчики одного источника: сумма оценок вместо средней, чтобы строки можно было складывать. */
+export type AdditiveCounters = Omit<Counters, 'csatAverage'> & { csatSum: number };
+
+/**
+ * Сумма счётчиков нескольких строк (замер подготовки M9, задача 4): сводка и каналы складываются из строк источников
+ * одного просмотра обращений периода. Средняя оценка: сумма оценок на число оценок.
+ */
+export function combineCounters(rows: readonly AdditiveCounters[]): Counters {
+  const sum = (pick: (row: AdditiveCounters) => number) => rows.reduce((total, row) => total + pick(row), 0);
+  const rated = sum((row) => row.rated);
+  return {
+    created: sum((row) => row.created),
+    resolved: sum((row) => row.resolved),
+    closed: sum((row) => row.closed),
+    firstResponseTotal: sum((row) => row.firstResponseTotal),
+    firstResponseOk: sum((row) => row.firstResponseOk),
+    resolutionTotal: sum((row) => row.resolutionTotal),
+    resolutionOk: sum((row) => row.resolutionOk),
+    rated,
+    csatAverage: rated > 0 ? sum((row) => row.csatSum) / rated : null,
+    csatHigh: sum((row) => row.csatHigh),
+  };
+}
 export type Line = (typeof LINES)[number];
 
 /**

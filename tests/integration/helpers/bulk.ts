@@ -11,8 +11,9 @@ export type Bulk = { orgId: string; userId: string; orgs: number; tickets: numbe
 
 /**
  * Настройки набора (план M9-prep, задача 4). serverId: организации набора заводятся строками hdu_organizations этого
- * сервера (для списка и поиска организаций), иначе это только идентификаторы в обращениях. finished: закрытые и
- * решённые обращения получают время завершения через два часа после создания и часть оценок, как у страницы показателей.
+ * сервера (для списка и поиска организаций), иначе это только идентификаторы в обращениях. finished: первый ответ через
+ * 20 минут после создания, закрытые и решённые обращения завершены через два часа, часть с оценкой: как в жизни, для
+ * страницы показателей (иначе каждое время ответа считается рабочими минутами за месяцы).
  */
 export type BulkOptions = { serverId?: string; finished?: boolean };
 
@@ -50,10 +51,12 @@ export async function seedBulkTickets(count: number, orgs: number, staffId: stri
               case when g % 100 = 3 and $4::boolean then now() - (g || ' minutes')::interval + interval '2 hours'
                    when g % 100 = 3 then now() - ((g % 30) || ' days')::interval end,
               now() + ((g % 500) || ' minutes')::interval, now() + ((g % 5000) || ' minutes')::interval,
-              case when g % 100 <> 0 then now() - interval '1 hour' end,
+              case when g % 100 <> 0 and $4::boolean then now() - (g || ' minutes')::interval + interval '20 minutes'
+                   when g % 100 <> 0 then now() - interval '1 hour' end,
               case when g % 100 in (0, 1) then now() - ((g % 300) || ' minutes')::interval end,
               now() - (g || ' minutes')::interval, now() - ((g * 7 % 400000) || ' minutes')::interval,
               -- Завершение через два часа после создания и часть оценок (options.finished): обращения созданы раз в минуту.
+              -- Первый ответ тогда через 20 минут после создания (выше), а не час назад у всех.
               case when $4::boolean and g % 100 >= 5 then now() - (g || ' minutes')::interval + interval '2 hours' end,
               case when $4::boolean and g % 100 >= 3 and g % 100 <> 4 and g % 9 = 0 then 1 + g % 5 end,
               case when $4::boolean and g % 7 = 0 then now() - (g || ' minutes')::interval + interval '1 hour' end

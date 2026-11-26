@@ -9,23 +9,21 @@ import { orgFactsTx } from '@/modules/hdu/api/automation';
 import {
   auditAsStaff,
   breakdownTx,
-  channelsTx,
   type Counters,
   lineEventsTx,
   lowRatingsTx,
   finishedTx,
-  overviewTx,
   type Range,
   requestRowsTx,
   resolvedRowsTx,
   respondedRowsTx,
   saveCsatReviewTx,
-  sourcesTx,
+  sourceCountersTx,
 } from '../core/metrics';
 import { calendarFor } from '../core/sla';
 import { HdtError } from '../error';
 import { numberInput, parseInput } from '../input';
-import { average, CSV_MAX_ROWS, type CsvValue, decimal, type Line, LINES, lineUsage, localMinute, median, parsePeriod, percent, type Period, TICKET_CHANNELS, type TicketChannel } from '../metrics-util';
+import { average, channelOfSource, combineCounters, CSV_MAX_ROWS, type CsvValue, decimal, type Line, LINES, lineUsage, localMinute, median, parsePeriod, percent, type Period, TICKET_CHANNELS, type TicketChannel } from '../metrics-util';
 import { workingMinutesBetween } from '../sla';
 
 // Модуль hdt, слой api: показатели поддержки (FR-MET-01, 03, 04, 07, 10, FR-LINE-08; план M8, задача 9,
@@ -153,18 +151,23 @@ export async function getMetrics(ctx: StaffContext, input: unknown, now: Date = 
   requireStaff(ctx);
   const { period, config } = await resolvePeriod(ctx, input, now);
   const range: Range = { from: period.from, to: period.to };
-  const { counters, finished, sources, channels, responded, resolved, events, low } = await withActor(ctx.actor, async (tx) => {
+  const { bySource, finished, responded, resolved, events, low } = await withActor(ctx.actor, async (tx) => {
     const resolvedRows = await resolvedRowsTx(tx, range, METRICS_ROW_CAP + 1);
     return {
-      counters: await overviewTx(tx, range, now),
+      bySource: await sourceCountersTx(tx, range, now),
       finished: await finishedTx(tx, range),
-      sources: await sourcesTx(tx, range),
-      channels: await channelsTx(tx, range, now),
       responded: await respondedRowsTx(tx, range, METRICS_ROW_CAP + 1),
       resolved: resolvedRows,
       events: await lineEventsTx(tx, resolvedRows.slice(0, METRICS_ROW_CAP).map((row) => row.ticketId)),
       low: await lowRatingsTx(tx, range, LOW_RATINGS_LIMIT + 1),
     };
+  });
+  // Сводка, источники и каналы из одного просмотра по источникам (замер подготовки M9, задача 4).
+  const counters = combineCounters(bySource);
+  const sources = bySource.map((row) => ({ source: row.source, count: row.created }));
+  const channels = TICKET_CHANNELS.flatMap((channel) => {
+    const rows = bySource.filter((row) => channelOfSource(row.source) === channel);
+    return rows.length > 0 ? [{ channel, ...combineCounters(rows) }] : [];
   });
   const capped = responded.length > METRICS_ROW_CAP || resolved.length > METRICS_ROW_CAP;
   const respondedRows = responded.slice(0, METRICS_ROW_CAP);

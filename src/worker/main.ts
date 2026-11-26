@@ -10,6 +10,9 @@ import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
+import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
+import { runModerationDigest } from '@/modules/hdi/api/notices';
+import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
@@ -27,7 +30,7 @@ import { opsWatch } from './ops-watch';
 // Модулем не является и, как страницы, берёт у модулей только слой api: узкие файлы каталога api/,
 // как команда консоли, чтобы в сборку не попали страницы и Next.js.
 
-/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 и сверка индекса решений в 03:30 по Ташкенту (решение 0023). */
+/** Расписания: обход загрузок, задача обращений, отправка очереди писем, разбор событий и правила, отправка вебхуков раз в минуту, опрос таск-менеджера раз в 15 минут, ночная очистка в 03:00 , сверка индекса решений в 03:30, сводка модерации идей в 09:30 и отбор месяца 1-го числа в 09:00 по Ташкенту (решение 0023). */
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
@@ -40,6 +43,10 @@ export const SCHEDULES = [
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
   // Сверка поискового индекса подсказки (план M5, задача 9): после ночной очистки.
   { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
+  // Сводка модерации идей роли product (план M7, задача 8, решение 15): раз в день в 09:30 по Ташкенту.
+  { name: 'ideas.moderation_digest', cron: '30 9 * * *', tz: 'Asia/Tashkent' },
+  // Отбор месяца (план M7, задача 9, решение 16): 1-го числа в 09:00 по Ташкенту.
+  { name: 'ideas.cycle', cron: '0 9 1 * *', tz: 'Asia/Tashkent' },
 ] as const;
 
 const scanJob = z.object({ attachmentId: z.uuid() }).strict();
@@ -150,6 +157,26 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Изображение решения (план M5, задача 3): в задаче только идентификатор файла.
     const { fileId } = kbFileJob.parse(job?.data);
     await scanSolutionFile(actor('kb.scan'), fileId);
+  }));
+  await boss.work('ideas.scan', { ...polling, localConcurrency: 2 }, ([job]) => timedJob('ideas.scan', async () => {
+    // Изображение идеи (план M7, решение 10): в задаче только идентификатор вложения.
+    await scanIdeaAttachment(actor('ideas.scan'), job?.data);
+  }));
+  await boss.work('ideas.index', polling, ([job]) => timedJob('ideas.index', async () => {
+    // Строки индекса похожих идей и векторы (план M7, задача 3): как kb.index, повтор при недоступном сервисе векторов.
+    await runIdeaIndexJob(actor('ideas.index'), job?.data);
+  }));
+  await boss.work('ideas.translate', polling, ([job]) => timedJob('ideas.translate', async () => {
+    // Машинный перевод идеи (план M7, задача 4): модель вызывает только фоновый процесс, сбой повторяет pg-boss.
+    await runIdeaTranslationJob(actor('ideas.translate'), job?.data);
+  }));
+  await boss.work('ideas.moderation_digest', polling, () => timedJob('ideas.moderation_digest', async () => {
+    await runModerationDigest(actor('ideas.moderation_digest'), new Date());
+  }));
+  await boss.work('ideas.cycle', polling, () => timedJob('ideas.cycle', async () => {
+    // Снимок пятёрки за месяц (план M7, задача 9): время задания, повтор в тот же месяц ничего не меняет.
+    const result = await runIdeaCycle(actor('ideas.cycle'), new Date());
+    if (result.status === 'created') console.info(`Отбор месяца ${result.cycle}: в пятёрке ${result.shortlist.length}, закрыто без выбора ${result.lapsed}`);
   }));
   await boss.work('kb.index', polling, ([job]) => timedJob('kb.index', async () => {
     // Строки поискового индекса и векторы решения (план M5, задача 9). Сервис векторов недоступен: строки с текстом уже

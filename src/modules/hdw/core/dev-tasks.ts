@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import type { StaffActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
@@ -7,8 +7,10 @@ import { devTaskClosedTx, ticketNumbersTx } from '@/modules/hdt/api/dev-tasks';
 import { HdwError } from '../error';
 import { DEV_TASK_CLOSED, type DevTaskStatus, type DevTrackerKind } from '../pref';
 import { devTaskLinks, devTasks } from '../schema';
+import { ideaDevTaskClosedTx } from './idea-hook';
 
-// Модуль hdw, слой core: задачи разработки и привязки обращений (ТЗ 7.9, FR-DEV-02, 05, 06; план M8, задача 7).
+// Модуль hdw, слой core: задачи разработки и привязки обращений и идей (ТЗ 7.9, FR-DEV-02, 05, 06, FR-IDEA-12; план M8,
+// задача 7; план M7, задача 9).
 // Работает в транзакции вызывающего: сотрудника (передача, отвязка, ручная смена статуса) или системы (вебхук и
 // опрос таск-менеджера). Обращение меняет модуль hdt своими функциями, здесь только таблицы hdw_dev_*.
 
@@ -60,14 +62,11 @@ export async function lockDevTaskTx(tx: Tx, devTaskId: string): Promise<DevTask 
 export type LinkInput = { tracker: DevTrackerKind; externalId: string; url: string; title: string; status?: DevTaskStatus; version?: string | null };
 
 /**
- * Привязать обращение к задаче с этим номером; задачи нет: она создаётся (FR-DEV-06). У существующей задачи адрес
- * и название не меняются. Отказы: already_linked (у обращения уже есть задача), task_closed (задача закрыта:
- * напоминание по ней уже ушло, привязанное обращение осталось бы без него). Строку обращения вызывающий уже
- * заблокировал; создание задачи с одним номером идёт по одному под блокировкой транзакции.
+ * Задача с этим номером; задачи нет: она создаётся (FR-DEV-06). У существующей задачи адрес и название не меняются.
+ * Создание задачи с одним номером идёт по одному под блокировкой транзакции. Закрытая задача: task_closed (напоминание
+ * по ней уже ушло, новая привязка осталась бы без него).
  */
-export async function linkTicketTx(tx: Tx, ticket: { ticketId: string; orgId: string }, input: LinkInput): Promise<{ task: DevTask; created: boolean }> {
-  const [linked] = await tx.select({ linkId: devTaskLinks.linkId }).from(devTaskLinks).where(eq(devTaskLinks.ticketId, ticket.ticketId)).limit(1);
-  if (linked) throw new HdwError('already_linked');
+async function openTaskForLinkTx(tx: Tx, input: LinkInput): Promise<{ task: DevTask; created: boolean }> {
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`hdw.dev_task:${input.tracker}:${input.externalId.toLowerCase()}`}))`);
   let task = await devTaskByRefTx(tx, input.tracker, input.externalId);
   const created = task === null;
@@ -89,8 +88,38 @@ export async function linkTicketTx(tx: Tx, ticket: { ticketId: string; orgId: st
     task = row;
   }
   if (isClosed(task.status)) throw new HdwError('task_closed');
+  return { task, created };
+}
+
+/**
+ * Привязать обращение к задаче с этим номером; задачи нет: она создаётся (FR-DEV-06). Отказы: already_linked (у
+ * обращения уже есть задача), task_closed. Строку обращения вызывающий уже заблокировал.
+ */
+export async function linkTicketTx(tx: Tx, ticket: { ticketId: string; orgId: string }, input: LinkInput): Promise<{ task: DevTask; created: boolean }> {
+  const [linked] = await tx.select({ linkId: devTaskLinks.linkId }).from(devTaskLinks).where(eq(devTaskLinks.ticketId, ticket.ticketId)).limit(1);
+  if (linked) throw new HdwError('already_linked');
+  const { task, created } = await openTaskForLinkTx(tx, input);
   await tx.insert(devTaskLinks).values({ orgId: ticket.orgId, devTaskId: task.devTaskId, ticketId: ticket.ticketId });
   return { task, created };
+}
+
+/**
+ * Привязать идею к задаче (ТЗ FR-IDEA-12, FR-DEV-06; план M7, решение 18). Строка без организации: идея общая для
+ * клиентов всех организаций. У идеи одна задача: already_linked. Строку идеи вызывающий (модуль hdi) уже заблокировал,
+ * привязку ставит только product или admin (политика hdw_dev_task_links_moderator_insert, миграция 0082).
+ */
+export async function linkIdeaTx(tx: Tx, ideaId: string, input: LinkInput): Promise<{ task: DevTask; created: boolean }> {
+  const [linked] = await tx.select({ linkId: devTaskLinks.linkId }).from(devTaskLinks).where(eq(devTaskLinks.ideaId, ideaId)).limit(1);
+  if (linked) throw new HdwError('already_linked');
+  const { task, created } = await openTaskForLinkTx(tx, input);
+  await tx.insert(devTaskLinks).values({ orgId: null, devTaskId: task.devTaskId, ideaId });
+  return { task, created };
+}
+
+/** Задача разработки идеи. Привязки нет: null. */
+export async function devTaskOfIdeaTx(tx: Tx, ideaId: string): Promise<DevTask | null> {
+  const [row] = await tx.select(columns).from(devTaskLinks).innerJoin(devTasks, eq(devTasks.devTaskId, devTaskLinks.devTaskId)).where(eq(devTaskLinks.ideaId, ideaId)).limit(1);
+  return row ?? null;
 }
 
 /** Снять привязку обращения. Возвращает задачу, к которой оно было привязано; привязки нет: null. */
@@ -113,10 +142,10 @@ export async function devTaskOfTicketTx(tx: Tx, ticketId: string): Promise<{ tas
   const others = await tx
     .select({ ticketId: devTaskLinks.ticketId })
     .from(devTaskLinks)
-    .where(and(eq(devTaskLinks.devTaskId, row.devTaskId), ne(devTaskLinks.ticketId, ticketId)))
+    .where(and(eq(devTaskLinks.devTaskId, row.devTaskId), ne(devTaskLinks.ticketId, ticketId), isNotNull(devTaskLinks.ticketId)))
     .orderBy(asc(devTaskLinks.linkId))
     .limit(OTHER_TICKETS_MAX);
-  const numbers = await ticketNumbersTx(tx, others.map((item) => item.ticketId));
+  const numbers = await ticketNumbersTx(tx, others.flatMap((item) => (item.ticketId ? [item.ticketId] : [])));
   return { task: row, otherTickets: [...numbers.values()].sort((a, b) => a - b) };
 }
 
@@ -159,7 +188,11 @@ export async function applyDevTaskStatusTx(tx: Tx, task: DevTask, change: Status
       diff: { from: task.status, to: change.status, ...(version && version !== task.version ? { version } : {}) },
     });
   if (!closed || task.closedNotifiedOn !== null) return { changed, reminded: 0 };
-  const links = await tx.select({ ticketId: devTaskLinks.ticketId }).from(devTaskLinks).where(eq(devTaskLinks.devTaskId, task.devTaskId));
-  const reminded = await devTaskClosedTx(tx, links.map((link) => link.ticketId), { ref: task.externalId, status: change.status, version }, actor);
-  return { changed, reminded };
+  const links = await tx.select({ ticketId: devTaskLinks.ticketId, ideaId: devTaskLinks.ideaId }).from(devTaskLinks).where(eq(devTaskLinks.devTaskId, task.devTaskId));
+  const closedTask = { ref: task.externalId, status: change.status, version };
+  const reminded = await devTaskClosedTx(tx, links.flatMap((link) => (link.ticketId ? [link.ticketId] : [])), closedTask, actor);
+  // Идеи этой задачи (план M7, решение 18): статус идеи не меняется, модуль идей уведомляет роль product.
+  const ideaIds = links.flatMap((link) => (link.ideaId ? [link.ideaId] : []));
+  const ideasNotified = ideaIds.length > 0 ? await ideaDevTaskClosedTx(tx, ideaIds, closedTask) : 0;
+  return { changed, reminded: reminded + ideasNotified };
 }

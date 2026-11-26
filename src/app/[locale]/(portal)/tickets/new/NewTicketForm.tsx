@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useMemo, useState } from 'react';
+import { Link } from '@/i18n/navigation';
 import { titleFromDescription } from '@/lib/subject';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
@@ -42,6 +43,9 @@ export type NewTicketLabels = {
   fromWidget: string;
   hours: string;
   submit: string;
+  /** "Это предложение по улучшению? Предложите идею" (FR-TK-01, план M7, задача 2). */
+  ideaLink: string;
+  ideaLinkAction: string;
   busy: string;
   errors: Record<string, string>;
   files: FilePickerLabels;
@@ -191,6 +195,13 @@ function Fields({
             {descriptionError}
           </p>
         )}
+        <p className="text-sm text-muted-foreground">
+          {labels.ideaLink}{' '}
+          {/* Ссылка внутри текста подчёркнута всегда: её отличает не только цвет (axe, link-in-text-block). */}
+          <Link href="/ideas/new" className="text-link underline underline-offset-2">
+            {labels.ideaLinkAction}
+          </Link>
+        </p>
       </div>
 
       <input type="hidden" name="suggestSession" value={sessionId} />

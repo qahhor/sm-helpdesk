@@ -1,9 +1,8 @@
 import 'server-only';
-import { createHash } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
-import { getScanner, getStorage, sniffFileType, SNIFF_BYTES, writeAudit } from '@/modules/hdc/api';
+import { getStorage, type QuarantineResult, scanQuarantinedImage, writeAudit } from '@/modules/hdc/api';
 import { fileQuarantineKey, fileStorageKey, type FileScanStatus } from '../pref';
 import { kbArticleFiles } from '../schema';
 import { fileByIdTx, type FileRow } from './editor';
@@ -12,60 +11,11 @@ import { fileByIdTx, type FileRow } from './editor';
 // у вложений обращений (решение 0027): настоящий тип по первым байтам, затем антивирус по тому же чтению, перенос
 // из карантина в files/kb/{article_id}/{file_id} только прочитанной версии. Принимаются только PNG, JPEG и WebP.
 
-const SNIFFED_MIME: Record<string, string> = {
-  png: 'image/png',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-};
-
-/** Первые bytes байт потока и поток всего файла с теми же байтами в начале: одно чтение объекта. */
-async function splitHead(stream: ReadableStream<Uint8Array>, bytes: number): Promise<{ head: Uint8Array; whole: ReadableStream<Uint8Array> }> {
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  let read = 0;
-  let finished = false;
-  while (read < bytes) {
-    const { done, value } = await reader.read();
-    if (done) {
-      finished = true;
-      break;
-    }
-    chunks.push(value);
-    read += value.byteLength;
-  }
-  const buffered = new Uint8Array(read);
-  let offset = 0;
-  for (const chunk of chunks) {
-    buffered.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  let sentHead = false;
-  const whole = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      if (!sentHead) {
-        sentHead = true;
-        if (buffered.byteLength > 0) return controller.enqueue(buffered);
-      }
-      if (finished) return controller.close();
-      const { done, value } = await reader.read();
-      if (done) controller.close();
-      else controller.enqueue(value);
-    },
-    cancel: (reason) => reader.cancel(reason),
-  });
-  return { head: buffered.subarray(0, bytes), whole };
-}
-
-type Result = {
-  scanStatus: Exclude<FileScanStatus, 'pending'>;
-  storageKey?: string;
-  sha256?: string;
-  signature?: string;
-};
-
-async function finish(actor: SystemActor, row: FileRow, result: Result): Promise<FileScanStatus> {
+async function finish(actor: SystemActor, row: FileRow, result: QuarantineResult): Promise<FileScanStatus> {
   return withActor(actor, async (tx) => {
-    const { signature, ...columns } = result;
+    const columns =
+      result.scanStatus === 'clean' ? { scanStatus: result.scanStatus, storageKey: result.storageKey, ...(result.sha256 ? { sha256: result.sha256 } : {}) } : { scanStatus: result.scanStatus };
+    const signature = result.scanStatus === 'infected' ? result.signature : null;
     const updated = await tx
       .update(kbArticleFiles)
       .set(columns)
@@ -77,7 +27,7 @@ async function finish(actor: SystemActor, row: FileRow, result: Result): Promise
         action: 'solution.file_infected',
         objectType: 'solution_file',
         objectId: row.fileId,
-        diff: { articleId: row.articleId, signature: signature ?? null },
+        diff: { articleId: row.articleId, signature },
       });
     return result.scanStatus;
   });
@@ -87,47 +37,11 @@ async function finish(actor: SystemActor, row: FileRow, result: Result): Promise
 export async function scanFile(actor: SystemActor, fileId: string): Promise<FileScanStatus | null> {
   const row = await withActor(actor, (tx) => fileByIdTx(tx, fileId));
   if (!row) return null;
-  const storage = getStorage();
-  const quarantine = fileQuarantineKey(row.fileId);
-  const target = fileStorageKey(row.articleId, row.fileId);
   if (row.scanStatus !== 'pending') {
-    await storage.remove(quarantine);
+    await getStorage().remove(fileQuarantineKey(row.fileId));
     return row.scanStatus;
   }
-  if (!(await storage.head(quarantine))) {
-    if (await storage.head(target)) return finish(actor, row, { scanStatus: 'clean', storageKey: target });
-    return finish(actor, row, { scanStatus: 'rejected' });
-  }
-  const { body, etag } = await storage.stream(quarantine);
-  const { head, whole } = await splitHead(body, SNIFF_BYTES);
-  if (SNIFFED_MIME[sniffFileType(head)] !== row.mime) {
-    await whole.cancel().catch(() => {});
-    const status = await finish(actor, row, { scanStatus: 'rejected' });
-    await storage.remove(quarantine);
-    return status;
-  }
-  const hash = createHash('sha256');
-  let scanned = 0;
-  const hashing = new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller) {
-      hash.update(chunk);
-      scanned += chunk.byteLength;
-      controller.enqueue(chunk);
-    },
-  });
-  const verdict = await getScanner().scan(whole.pipeThrough(hashing));
-  if (!verdict.clean || scanned !== row.size) {
-    const status = await finish(actor, row, verdict.clean ? { scanStatus: 'rejected' } : { scanStatus: 'infected', signature: verdict.signature ?? 'unknown' });
-    await storage.remove(quarantine);
-    return status;
-  }
-  await storage.move(quarantine, target, {
-    contentType: row.mime,
-    ifMatch: etag,
-  });
-  return finish(actor, row, {
-    scanStatus: 'clean',
-    storageKey: target,
-    sha256: hash.digest('hex'),
-  });
+  // Тип по содержимому, антивирус и перенос делает общая проверка изображений модуля hdc (та же у изображений идей).
+  const result = await scanQuarantinedImage({ quarantineKey: fileQuarantineKey(row.fileId), targetKey: fileStorageKey(row.articleId, row.fileId), mime: row.mime, size: row.size });
+  return finish(actor, row, result);
 }

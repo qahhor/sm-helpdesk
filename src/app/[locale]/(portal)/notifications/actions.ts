@@ -17,6 +17,8 @@ export async function openClientNotificationAction(formData: FormData): Promise<
   const locale = await getLocale();
   const row = await openNotification(client.actor, formData.get('id'));
   if (row?.kind === 'telegram_linked') redirect(`/${locale}/settings`);
+  // Уведомления по идеям ведут на страницу идеи (веха M7): номер идеи в payload.idea.
+  if (row && typeof row.payload.idea === 'number') redirect(`/${locale}/ideas/${row.payload.idea}`);
   redirect(row?.ticketNumber ? `/${locale}/tickets/SUP-${row.ticketNumber}` : `/${locale}/notifications`);
 }
 

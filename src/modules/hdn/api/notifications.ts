@@ -10,7 +10,9 @@ import {
   type NotificationRow,
   openNotificationTx,
   type PersonActor,
+  readIdeaMailPrefTx,
   readPrefsTx,
+  saveIdeaMailPrefTx,
   savePrefsTx,
   type StaffPrefs,
   unreadCountTx,
@@ -63,4 +65,13 @@ export async function cleanupNotifications(actor: SystemActor, now: Date): Promi
 export async function notifyTelegramLinked(userId: string): Promise<void> {
   const id = z.uuid().parse(userId);
   await withActor({ type: 'system', job: 'identity.telegram' }, (tx) => notifyTx(tx, { userId: id, kind: 'telegram_linked', payload: {} }));
+}
+
+/** Письма об идеях: прочитать и сохранить свою настройку (план M7, задача 8). */
+export async function readIdeaMailPref(actor: PersonActor): Promise<{ email: boolean }> {
+  return readIdeaMailPrefTx(actor);
+}
+
+export async function saveIdeaMailPref(actor: PersonActor, input: unknown): Promise<void> {
+  await saveIdeaMailPrefTx(actor, input);
 }

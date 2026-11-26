@@ -15,6 +15,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
   const client = await requireClientActor();
   const locale = await getLocale();
   const t = await getTranslations('client.tickets');
+  const ti = await getTranslations('client.ideas');
   const search = await searchParams;
   const related = parseNumber(String(search.related ?? ''));
   const sessionId = search.s && UUID.test(search.s) ? search.s.toLowerCase() : randomUUID();
@@ -55,6 +56,8 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
           fromWidget: t('new.fromWidget'),
           hours: t('new.hours'),
           submit: t('new.submit'),
+          ideaLink: ti('ticketLink'),
+          ideaLinkAction: ti('ticketLinkAction'),
           suggest: { title: t('new.suggest.title'), exact: t('new.suggest.exact'), notHelped: t('new.suggest.notHelped'), sendAnyway: t('new.suggest.sendAnyway') },
           busy: t('files.busy'),
           errors: Object.fromEntries(

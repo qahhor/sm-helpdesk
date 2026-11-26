@@ -1,4 +1,4 @@
-// Начальная настройка базы: три роли, база, расширения, права на схему public.
+// Начальная настройка базы: три роли со входом и роль hub_hdi_counter без входа, база, расширения, права на схему public.
 // Выполняется под суперпользователем один раз на окружение. Повторный запуск безопасен.
 //
 // Переменные окружения:
@@ -12,6 +12,12 @@ import pg from 'pg';
 // hub_owner владеет таблицами и выполняет миграции. hub_app работает от имени актора,
 // политики RLS для него принудительны. hub_auth видит только таблицы аутентификации (ТЗ 10.3).
 const ROLE_ATTRIBUTES = 'LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION';
+// hub_hdi_counter владеет функциями SECURITY DEFINER пересчёта счётчиков идей и возврата пятёрки отбора (решение 0065,
+// миграция 0084). Войти под ней нельзя, RLS для неё принудительны, права только на нужные колонки hdi. Роль создаёт
+// суперпользователь здесь: у hub_owner нет CREATEROLE. hub_owner получает право SET ROLE (без наследования прав),
+// чтобы миграция могла передать роли владение функциями.
+const COUNTER_ROLE = 'hub_hdi_counter';
+const COUNTER_ATTRIBUTES = 'NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION';
 
 /**
  * Запись пароля в формате SCRAM-SHA-256, как её хранит PostgreSQL.
@@ -74,6 +80,9 @@ export async function bootstrap(opts = {}) {
       const action = exists ? 'ALTER' : 'CREATE';
       await server.query(`${action} ROLE ${role} ${ROLE_ATTRIBUTES} PASSWORD '${scramVerifier(password)}'`);
     }
+    const counterExists = (await server.query('select 1 from pg_roles where rolname = $1', [COUNTER_ROLE])).rowCount > 0;
+    await server.query(`${counterExists ? 'ALTER' : 'CREATE'} ROLE ${COUNTER_ROLE} ${COUNTER_ATTRIBUTES}`);
+    await server.query(`GRANT ${COUNTER_ROLE} TO hub_owner WITH INHERIT FALSE, SET TRUE`);
     const dbExists = (await server.query('select 1 from pg_database where datname = $1', [dbName])).rowCount > 0;
     if (!dbExists) await server.query(`CREATE DATABASE ${dbName} OWNER hub_owner`);
     await server.query(`ALTER DATABASE ${dbName} OWNER TO hub_owner`);
@@ -116,7 +125,7 @@ export async function bootstrap(opts = {}) {
 if (import.meta.main) {
   try {
     await bootstrap();
-    console.log('Начальная настройка базы выполнена: роли hub_owner, hub_app, hub_auth, расширения vector и pg_trgm');
+    console.log('Начальная настройка базы выполнена: роли hub_owner, hub_app, hub_auth, hub_hdi_counter, расширения vector и pg_trgm');
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

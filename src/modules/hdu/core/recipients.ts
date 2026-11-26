@@ -61,6 +61,17 @@ export async function adminIdsTx(): Promise<string[]> {
   return rows.map((r) => r.userId);
 }
 
+/** Действующие сотрудники роли (план M7, задача 8): сводка модерации идей роли product. */
+export async function staffIdsWithRoleTx(role: 'product' | 'admin'): Promise<string[]> {
+  const rows = await withIdentity(SYSTEM, (tx) =>
+    tx
+      .select({ userId: staff.userId })
+      .from(staff)
+      .where(and(eq(staff.role, role), eq(staff.state, 'active'))),
+  );
+  return rows.map((r) => r.userId);
+}
+
 /** Название организации для служебного сообщения дежурным (решение 8). */
 export async function organizationNameTx(orgId: string): Promise<string | null> {
   const rows = await withIdentity(SYSTEM, (tx) => tx.select({ name: organizations.name }).from(organizations).where(eq(organizations.orgId, orgId)).limit(1));

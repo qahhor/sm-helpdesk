@@ -64,7 +64,8 @@ async function upload(file: File, onProgress: (percent: number) => void, extra: 
     headers: Record<string, string>;
   };
   await put(url, headers, file, onProgress);
-  const { status } = (await postJson('/api/uploads/complete', { attachmentId }, auth)) as { status: string };
+  // Цель загрузки (изображение идеи, план M7) нужна и завершению: обработчик выбирает по ней таблицу.
+  const { status } = (await postJson('/api/uploads/complete', { ...(typeof extra.purpose === 'string' ? { purpose: extra.purpose } : {}), attachmentId }, auth)) as { status: string };
   if (status === 'rejected' || status === 'infected') throw new UploadError('upload');
   return attachmentId;
 }

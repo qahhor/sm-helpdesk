@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { isHdnError, savePrefs } from '@/modules/hdn/api/notifications';
+import { isHdnError, saveIdeaMailPref, savePrefs } from '@/modules/hdn/api/notifications';
 import { isHduError, nextRequest, requestEmailConfirmation, requireClientActor, revokeMySessionOfRequest, revokeOtherSessionsOfRequest, signOut, unlinkTelegram } from '@/modules/hdu/api';
 
 /** Раздел "Email для входа": письмо со ссылкой подтверждения адреса (FR-ID-07). */
@@ -62,4 +62,11 @@ export async function saveClientPrefsAction(formData: FormData): Promise<void> {
     redirect(`/${locale}/settings?prefs=need_telegram`);
   }
   redirect(`/${locale}/settings?prefs=saved`);
+}
+
+/** Письма об идеях (план M7, задача 8, FR-NT-04): отключаются всегда, колокольчик остаётся. */
+export async function saveClientIdeaPrefAction(formData: FormData): Promise<void> {
+  const client = await requireClientActor();
+  await saveIdeaMailPref(client.actor, { email: formData.get('ideasEmail') === 'on' });
+  redirect(`/${await getLocale()}/settings?prefs=ideas`);
 }

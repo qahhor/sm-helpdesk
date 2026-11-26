@@ -142,6 +142,28 @@ export const AUDIT_ACTIONS = [
   // Привязка решения к сигнатуре ошибки (веха M5, задача 8): с ней решение показывается точным совпадением.
   'solution.signature_bound',
   'solution.signature_unbound',
+  // Идеи (веха M7): подача, правка автором до публикации, показ организации, модерация (публикация, отклонение,
+  // объединение, правка текста модератором, правка перевода), заражённое изображение. Текста идеи в журнале нет.
+  'idea.submitted',
+  'idea.edited',
+  'idea.org_visibility_changed',
+  'idea.published',
+  'idea.declined',
+  'idea.merged',
+  'idea.moderator_edited',
+  'idea.translation_reviewed',
+  'idea.file_infected',
+  // Комментарии к идеям (веха M7, задача 7): удержан до модератора по находкам или ссылке, опубликован модератором,
+  // скрыт с причиной. Текста комментария в журнале нет.
+  'idea.comment_held',
+  'idea.comment_published',
+  'idea.comment_hidden',
+  // Отбор месяца и статусы после выбора (веха M7, задача 9): снимок пятёрки, закрытие отбора без выбора, выбор идеи
+  // месяца, смена статуса идеи (выбрана, в разработке, выпущена).
+  'idea.cycle_created',
+  'idea.cycle_lapsed',
+  'idea.cycle_decided',
+  'idea.status_changed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -247,6 +269,18 @@ export const RATE_RULES = {
   kbSuggestPerUser: { limit: 60, windowSec: 60 },
   /** Та же подсказка: 600 в час на организацию, чтобы предел не обходился числом пользователей. */
   kbSuggestPerOrg: { limit: 600, windowSec: 3600 },
+  /** Создание идеи: 5 в сутки на пользователя (раздел 14.5). */
+  ideaCreatePerUser: { limit: 5, windowSec: 86_400 },
+  /** Голос и его отзыв: 60 в минуту на пользователя (раздел 14.5). */
+  ideaVotePerUser: { limit: 60, windowSec: 60 },
+  /** Комментарий к идее: 20 в час на пользователя (план M7, решение 20, сверх ТЗ). */
+  ideaCommentPerUser: { limit: 20, windowSec: 3600 },
+  /** Похожие идеи при наборе и поиск по доске: 30 в минуту на пользователя (решение 20, как подсказка в 14.5). */
+  ideaSearchPerUser: { limit: 30, windowSec: 60 },
+  /** Правка своей идеи и показа организации: 30 в час на пользователя (решение 20). */
+  ideaEditPerUser: { limit: 30, windowSec: 3600 },
+  /** Подписка и отписка: 60 в час на пользователя (решение 20). */
+  ideaFollowPerUser: { limit: 60, windowSec: 3600 },
 } as const satisfies Record<string, RateRule>;
 
 /** Версия политики: дата вида 2026-12-01. Она же попадает в учётную запись пользователя. */

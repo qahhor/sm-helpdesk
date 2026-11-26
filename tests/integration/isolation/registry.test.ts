@@ -112,8 +112,81 @@ async function seedEverything() {
   await pools.root.query(`insert into hdk_deflection_events (org_id, user_id, session_id, query_hash) values ($1, $2, uuidv7(), repeat('f', 64))`, [f.orgA.orgId, f.aUser.userId]);
   // Журнал вызовов модели (веха M5, задача 5): вызов по обращению организации A, без текста.
   await pools.root.query(`insert into hda_runs (org_id, purpose, model, outcome) values ($1, 'solution_draft', 'stub-model', 'ok')`, [f.orgA.orgId]);
+  // Идеи (веха M7, задача 1): опубликованная идея организации Б, идея Б на модерации и своя идея А на модерации; голоса,
+  // подписки, комментарии (опубликованный, чужой на проверке и свой на проверке), отборы (завершённый и открытый),
+  // вложения (чистое и непроверенное у опубликованной идеи Б). Клиент А должен видеть опубликованное Б и своё.
+  const idea = async (orgId: string, author: { userId: string; name: string }, status: string) =>
+    (
+      await pools.root.query(
+        `insert into hdi_ideas (org_id, author_id, author_name, original_locale, status, published_on)
+         values ($1, $2, $3, 'ru', $4, case when $4 = 'pending_review' then null else now() end) returning idea_id`,
+        [orgId, author.userId, author.name, status],
+      )
+    ).rows[0].idea_id as string;
+  const bOpen = await idea(f.orgB.orgId, f.bUser, 'open');
+  const bPending = await idea(f.orgB.orgId, f.bUser, 'pending_review');
+  const aPending = await idea(f.orgA.orgId, f.aUser, 'pending_review');
+  for (const id of [bOpen, bPending, aPending])
+    await pools.root.query(`insert into hdi_idea_translations (idea_id, locale, title, body, source_hash) values ($1, 'ru', 'Идея', 'Описание', repeat('a', 64))`, [id]);
+  await pools.root.query(
+    `insert into hdi_idea_translations (idea_id, locale, title, body, is_machine, status, source_hash) values ($1, 'en', 'Idea', 'Text', true, 'rejected', repeat('a', 64))`,
+    [bOpen],
+  );
+  await pools.root.query(`insert into hdi_votes (org_id, idea_id, user_id) values ($1, $3, $2), ($4, $3, $5)`, [f.orgA.orgId, f.aUser.userId, bOpen, f.orgB.orgId, f.bUser.userId]);
+  await pools.root.query(`insert into hdi_subscriptions (idea_id, user_id) values ($1, $2), ($1, $3)`, [bOpen, f.aUser.userId, f.bUser.userId]);
+  await pools.root.query(
+    `insert into hdi_comments (org_id, idea_id, author_id, author_name, body, status) values ($1, $2, $3, 'Тимур', 'Поддерживаю', 'published'),
+       ($1, $2, $3, 'Тимур', 'Звоните +998 90 123 45 67', 'pending'), ($4, $2, $5, 'Алишер', 'Мой на проверке', 'pending')`,
+    [f.orgB.orgId, bOpen, f.bUser.userId, f.orgA.orgId, f.aUser.userId],
+  );
+  await pools.root.query(
+    `insert into hdi_cycles (cycle, vote_mode, status, shortlist, leader_idea_id, selected_idea_id, decided_on)
+     values ('2026-10-01', 'per_user', 'decided', $2, $1, $1, now()), ('2026-11-01', 'per_user', 'open', '[]', null, null, null)`,
+    [bOpen, JSON.stringify([{ ideaId: bOpen, number: 1, voteCount: 2, orgCount: 2, place: 1 }])],
+  );
+  for (const [status, key] of [
+    ['clean', 'files/ideas/b/1'],
+    ['pending', 'quarantine/ideas/b/2'],
+  ])
+    await pools.root.query(
+      `insert into hdi_attachments (org_id, idea_id, uploader_id, storage_key, file_name, mime, size, scan_status) values ($1, $2, $3, $4, 'idea.png', 'image/png', 10, $5)`,
+      [f.orgB.orgId, bOpen, f.bUser.userId, key, status],
+    );
+  await pools.root.query(`insert into hdi_attachments (org_id, uploader_id, storage_key, file_name, mime, size) values ($1, $2, 'quarantine/ideas/a/3', 'mine.png', 'image/png', 10)`, [
+    f.orgA.orgId,
+    f.aUser.userId,
+  ]);
   return f;
 }
+
+/** Опубликованная идея (решение 2 плана M7): видна клиентам всех организаций. */
+const PUBLISHED = (alias: string) => `(${alias}.status not in ('pending_review', 'declined') and ${alias}.published_on is not null)`;
+
+/**
+ * Вид published-or-own (веха M7): какие строки клиент видит законно. column: что читается под клиентом; violations:
+ * запрос суперпользователя, который из прочитанных строк ($1) возвращает те, что клиенту ($2) видеть нельзя.
+ */
+const PUBLISHED_OR_OWN: Record<string, { column: string; violations: string }> = {
+  hdi_ideas: {
+    column: 'idea_id as id',
+    violations: `select x.idea_id from hdi_ideas x where x.idea_id = any($1::uuid[]) and not (${PUBLISHED('x')} or x.author_id = $2::uuid)`,
+  },
+  hdi_idea_translations: {
+    column: 'translation_id as id',
+    violations: `select x.translation_id from hdi_idea_translations x join hdi_ideas i on i.idea_id = x.idea_id
+                  where x.translation_id = any($1::uuid[]) and (x.status in ('outdated', 'rejected') or not (${PUBLISHED('i')} or i.author_id = $2::uuid))`,
+  },
+  hdi_comments: {
+    column: 'comment_id as id',
+    violations: `select x.comment_id from hdi_comments x join hdi_ideas i on i.idea_id = x.idea_id
+                  where x.comment_id = any($1::uuid[]) and not (x.author_id = $2::uuid or (x.status = 'published' and (${PUBLISHED('i')} or i.author_id = $2::uuid)))`,
+  },
+  hdi_attachments: {
+    column: 'attachment_id as id',
+    violations: `select x.attachment_id from hdi_attachments x left join hdi_ideas i on i.idea_id = x.idea_id
+                  where x.attachment_id = any($1::uuid[]) and not (x.uploader_id = $2::uuid or (x.scan_status = 'clean' and i.published_on is not null))`,
+  },
+};
 
 const rowsOrDenied = (query: Promise<{ rows: Record<string, unknown>[] }>) =>
   query.then(
@@ -164,7 +237,10 @@ test('клиент видит в каждой таблице ровно то, ч
     for (const actor of [f.aUser.actor, f.aAdmin.actor]) {
       // Столбец, по которому видно принадлежность. Не select *: у hub_app нет права на секретные столбцы
       // (например, хеш токена приглашения), и отказ выглядел бы как "клиент ничего не видит".
-      const column = { none: '1', all: '1', 'own-org': 'org_id', 'org-people': 'user_id', 'own-user': 'user_id', 'clients-audience': 'audience' }[rule.client];
+      const column =
+        rule.client === 'published-or-own'
+          ? PUBLISHED_OR_OWN[name]!.column
+          : { none: '1', all: '1', 'own-org': 'org_id', 'org-people': 'user_id', 'own-user': 'user_id', 'clients-audience': 'audience', 'decided-only': 'status' }[rule.client];
       const rows = await rowsOrDenied(asActor(pools.app, actor, (c) => c.query(`select ${column} from ${name}`)));
       seen += rows.length;
       const label = `${name} для ${actor.orgRole}`;
@@ -174,6 +250,13 @@ test('клиент видит в каждой таблице ровно то, ч
       if (rule.client === 'org-people') expect(rows.filter((row) => !people.has(row.user_id as string)), label).toEqual([]);
       if (rule.client === 'own-user') expect(rows.filter((row) => row.user_id !== actor.userId), label).toEqual([]);
       if (rule.client === 'clients-audience') expect(rows.filter((row) => row.audience !== 'clients'), label).toEqual([]);
+      if (rule.client === 'decided-only') expect(rows.filter((row) => row.status !== 'decided' && row.status !== 'lapsed'), label).toEqual([]);
+      if (rule.client === 'published-or-own') {
+        const probe = PUBLISHED_OR_OWN[name];
+        expect(probe, `${name}: нет проверки published-or-own`).toBeDefined();
+        const bad = await pools.root.query(probe!.violations, [rows.map((row) => row.id), actor.userId]);
+        expect(bad.rows, label).toEqual([]);
+      }
     }
     // Проверка "только своё" ничего не значит, если клиент не видит вообще ничего (проверка main, Q2).
     if (rule.client !== 'none') expect(seen, `${name}: клиент видит свои строки`).toBeGreaterThan(0);

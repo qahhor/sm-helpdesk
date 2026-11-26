@@ -12,11 +12,16 @@
 //   own-user    клиент видит только строки, где user_id его собственный, и хотя бы одну видит.
 //   clients-audience  общее содержимое для клиентов всех организаций: клиент видит только строки с audience = 'clients'
 //               (и хотя бы одну), строки internal не видит (знания, план M5, задача 2).
+//   published-or-own  идеи (план M7, решение 2): клиент видит строки опубликованных идей клиентов всех организаций и
+//               свои строки (своя идея, свой комментарий, своя загрузка), и хотя бы одну. Идея на модерации, отклонённая
+//               и комментарий на проверке другого клиента ему не видны. Что считается "своим" и "опубликованным" для
+//               каждой таблицы, задаёт PUBLISHED_OR_OWN в registry.test.ts.
+//   decided-only  отборы месяца (план M7): клиент видит только завершённые (decided, lapsed), и хотя бы один.
 //
 // app, auth: какие изменения разрешены ролям hub_app и hub_auth. Тест сверяет с правами в базе,
 // а остальные проверки берут отсюда, что должно быть закрыто (проверка main, Q2).
 
-export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience';
+export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience' | 'published-or-own' | 'decided-only';
 export type Write = 'insert' | 'update' | 'delete';
 export type DomainObject = { client: ClientAccess; app?: Write[]; auth?: Write[] };
 
@@ -55,6 +60,21 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdk_signature_orgs: { client: 'none', app: IU },
   hdk_search_documents: { client: 'clients-audience', app: IUD },
   hdk_deflection_events: { client: 'none', app: IUD },
+  // Идеи (веха M7, задача 1). Опубликованную идею видят клиенты всех организаций (FR-IDEA-06): границы организации
+  // у неё нет, это и записано видом published-or-own. Идею на модерации видит только автор, отклонённую автор и
+  // голосовавшие или подписчики, если она была опубликована (решение 2; проверяет ideas-direct.test.ts). Удаления
+  // идей, текстов, комментариев и отборов нет: история остаётся. Счётчики пишут только триггеры базы.
+  hdi_ideas: { client: 'published-or-own', app: IU },
+  hdi_idea_translations: { client: 'published-or-own', app: IU },
+  // Голос и подписка только свои (ТЗ 15.2: "видит только свой голос"); снимаются отзывом и переносом при объединении.
+  hdi_votes: { client: 'own-user', app: ['insert', 'delete'] },
+  hdi_subscriptions: { client: 'own-user', app: ['insert', 'delete'] },
+  // Комментарий на проверке видит только его автор; скрытый остаётся строкой.
+  hdi_comments: { client: 'published-or-own', app: IU },
+  // Отбор месяца: снимок пишет система, выбор product и admin, клиент видит только завершённые.
+  hdi_cycles: { client: 'decided-only', app: IU },
+  // Изображения идеи: свои любые, чужие только чистые у опубликованной; убирает автор до публикации, модератор и система.
+  hdi_attachments: { client: 'published-or-own', app: IUD },
   // Уведомления
   // Очередь исходящих (веха M4): ставит действие, отправляет система, клиент не видит.
   hdn_outbox: { client: 'none', app: IUD },
@@ -125,7 +145,8 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdw_webhook_deliveries: { client: 'none', app: IUD },
   // Передача в разработку (веха M8): задачи и привязки читают сотрудники и система, пишут вторая линия, Customer
   // Care, администратор и система (статус из таск-менеджера). Удаляется только привязка. Клиент не видит ничего:
-  // ему виден лишь статус обращения "В разработке".
+  // ему виден лишь статус обращения "В разработке". Привязку идеи (веха M7, миграция 0082) ставят только product и
+  // admin, снять её нельзя; product ещё заводит строку задачи (tests/integration/isolation/dev-task-idea-links.test.ts).
   hdw_dev_tasks: { client: 'none', app: IU },
   hdw_dev_task_links: { client: 'none', app: ['insert', 'delete'] },
 };

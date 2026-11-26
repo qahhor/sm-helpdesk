@@ -12,6 +12,7 @@ import { cleanupRateLimits } from '@/modules/hdc/api';
 import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
 import { type CorpusEntry, groupCorpus, parseCorpus } from '@/modules/hdk/api/signatures';
+import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
 
 // Команда hub для консоли сервера (FR-ID-12, решение 0015): первый администратор, сброс доступа
 // сотрудника, реестр серверов Smartup, проверка правил сигнатур ошибок на корпусе (план M5, задача 8). Работает от актора system, каждое изменение пишется в журнал аудита.
@@ -78,6 +79,11 @@ const HELP = `Использование: hub <команда> [ключи]
       tests/fixtures/errors. Печатает группы "сигнатура: тексты" и сводку. База не нужна.
       Код завершения 1, если одна метка распалась на несколько сигнатур или в одну сигнатуру попали разные метки.
 
+  ideas:cycle --month <ГГГГ-ММ>
+      Отбор идеи месяца за этот месяц (план M7, задача 9), как его делает задание 1-го числа в 09:00 по Ташкенту:
+      прошлый невыбранный отбор закрывается, пятёрка лидеров по голосам переходит в шорт-лист, роль product
+      получает уведомление. Повторный запуск за тот же месяц ничего не меняет. Для проверки и ручного запуска.
+
   maintenance:cleanup
       Удалить просроченные служебные строки: счётчики частоты, номера событий Telegram, сессии
       и одноразовые значения входа. Запускать раз в сутки, пока нет фоновых задач (решение 0023).
@@ -121,6 +127,7 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'telegram:set-webhook': { options: {}, required: [] },
   'telegram:info': { options: {}, required: [] },
   'maintenance:cleanup': { options: {}, required: [] },
+  'ideas:cycle': { options: { month: { type: 'string' } }, required: ['month'] },
   'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
   'signatures:test': { options: { dir: { type: 'string' } }, required: [] },
@@ -379,6 +386,16 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
       }
       case 'signatures:test':
         return await signaturesTest(typeof values.dir === 'string' && values.dir !== '' ? values.dir : CORPUS_DIR, io);
+      case 'ideas:cycle': {
+        const month = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(text('month'));
+        if (!month) throw new UsageError('Месяц задаётся как ГГГГ-ММ, например 2026-12.');
+        // Время задания для этого месяца: 1-е число 09:00 по Ташкенту (04:00 UTC).
+        const result = await runIdeaCycle(ACTOR, new Date(Date.UTC(Number(month[1]), Number(month[2]) - 1, 1, 4)));
+        if (result.status === 'created')
+          io.out(`Отбор ${result.cycle} создан: в пятёрке ${result.shortlist.length}${result.shortlist.length > 0 ? ` (${result.shortlist.map((n) => `I-${n}`).join(', ')})` : ''}, закрыто без выбора ${result.lapsed}.`);
+        else if (result.status === 'exists') io.out(`Отбор ${result.cycle} уже есть, ничего не изменено.`);
+        return 0;
+      }
       case 'telegram:info': {
         const info = await telegramInfo();
         io.out(info.enabled ? `Бот включён: @${info.username}` : 'Бот выключен: TELEGRAM_BOT_TOKEN не задан.');

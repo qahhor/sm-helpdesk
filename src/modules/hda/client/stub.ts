@@ -12,7 +12,7 @@ export type StubResponder = (call: StubCall) => unknown;
 
 export const STUB_MODEL = 'stub-model';
 
-/** Заготовка: черновик решения по разделу 11.10 или перевод, возвращающий тексты без изменений. */
+/** Заготовка: черновик решения по разделу 11.10 или перевод (решения, идеи), возвращающий тексты без изменений. */
 export function defaultStubResponse(call: StubCall): unknown {
   if (call.data.includes('<ticket>'))
     return {
@@ -21,6 +21,9 @@ export function defaultStubResponse(call: StubCall): unknown {
       steps: ['Откройте настройки периода.', 'Откройте период и проведите документ снова.'],
       confident: true,
     };
+  // Перевод идеи (план M7): заголовок и описание без изменений.
+  const idea = /<idea>\s*<title>([\s\S]*?)<\/title>\s*<body>([\s\S]*?)<\/body>/.exec(call.data);
+  if (idea) return { title: idea[1], body: idea[2] };
   const segments = [...call.data.matchAll(/<segment id="([^"]+)">([\s\S]*?)<\/segment>/g)].map((m) => ({ id: m[1], text: m[2] }));
   return { segments };
 }

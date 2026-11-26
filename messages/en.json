@@ -88,7 +88,16 @@
         "rule_disabled": "Rule \"{rule}\" was turned off: it fired too often",
         "rule_paused": "Rule \"{rule}\" is paused on request SUP-{number}: it fired too often",
         "dev_task_closed": "Development task closed: check and tell the client. Request SUP-{number}",
-        "csat_low": "The client rated request SUP-{number} with {score}"
+        "csat_low": "The client rated request SUP-{number} with {score}",
+        "idea_published": "Your idea I-{idea} is published",
+        "idea_declined": "Idea I-{idea} was declined",
+        "idea_status": "Idea I-{idea}: {status, select, shortlisted {shortlisted} selected {selected as idea of the month} in_development {in development} released {released} other {new status}}",
+        "idea_merged": "Idea I-{idea} was merged into I-{into}",
+        "idea_comment_hidden": "A moderator hid your comment on idea I-{idea}",
+        "idea_official_reply": "Smartup replied on idea I-{idea}",
+        "idea_cycle": "The idea of the month shortlist is ready",
+        "idea_moderation_due": "Ideas waiting for review over two working days: {count}",
+        "idea_dev_task_closed": "The development task of idea I-{idea} is closed"
       },
       "settings": {
         "title": "Emails",
@@ -111,6 +120,12 @@
           "telegramLink": "Go to linking",
           "needTelegram": "Emails about your requests turn off only when Telegram is linked and turned on in this row.",
           "ownFallback": "Emails about your requests arrive again: Telegram is not working right now."
+        },
+        "ideas": {
+          "title": "Emails about ideas",
+          "intro": "The bell tells you about every idea event. Emails about one idea come at most once a day, about a release always.",
+          "label": "Send emails about ideas",
+          "save": "Apply to idea emails"
         }
       }
     }
@@ -341,7 +356,158 @@
     },
     "ideas": {
       "emptyTitle": "No ideas yet",
-      "emptyText": "Suggest a product idea and the Smartup team will review it."
+      "emptyText": "Suggest a product idea and the Smartup team will review it.",
+      "new": {
+        "title": "New idea",
+        "back": "All ideas",
+        "moderation": "The Smartup team reviews the idea first. After that, clients of all organizations will see it and can vote.",
+        "titleLabel": "Title",
+        "titleHint": "In short, what to improve. Up to 120 characters.",
+        "body": "Description",
+        "bodyHint": "What you do now and what would be more convenient. Do not include phone numbers, addresses or customer data.",
+        "module": "Module",
+        "moduleNone": "Not sure",
+        "showOrg": "Show my organization",
+        "showOrgHint": "Without this, other clients see only your name. You can change it at any time.",
+        "submit": "Send idea",
+        "sendAnyway": "Send anyway",
+        "findingsTitle": "The text seems to contain data that all clients will see:",
+        "findings": {
+          "phone": "a phone number",
+          "email": "an email address",
+          "inn": "a tax ID (INN)",
+          "pinfl": "a personal ID (PINFL)",
+          "digits": "a long number",
+          "server": "a server address",
+          "internal": "an internal name"
+        },
+        "files": {
+          "add": "Image",
+          "hint": "Up to 3 PNG, JPEG or WebP images, up to 5 MB each. No data of your organization on the screenshot.",
+          "errors": {
+            "too_many_files": "No more than 3 images",
+            "file_not_allowed": "Only PNG, JPEG or WebP can be attached",
+            "file_too_large": "The image is larger than 5 MB",
+            "rate_limited": "Too many uploads this hour. Try again later",
+            "upload": "The image did not upload. Try again"
+          }
+        },
+        "sentTitle": "Idea sent for review",
+        "sentText": "Idea {ref} has been sent. We will let you know when it appears on the idea board.",
+        "sentOpen": "Open idea",
+        "sentBoard": "Go to the idea board"
+      },
+      "errors": {
+        "invalid_input": "Check the title and description",
+        "rate_limited": "Too often. Try again later",
+        "not_found": "The idea was not found or one of the images is unavailable",
+        "forbidden": "This action is not available to you",
+        "voting_closed": "Voting on this idea is closed",
+        "not_editable": "The idea can no longer be changed",
+        "comments_closed": "Comments on this idea are closed"
+      },
+      "ticketLink": "Is this a suggestion for improvement?",
+      "ticketLinkAction": "Suggest an idea",
+      "similar": {
+        "title": "Similar ideas: maybe yours is already here?",
+        "votes": "Votes: {count}",
+        "vote": "Vote",
+        "voted": "You voted",
+        "error": "Your vote was not counted. Try again"
+      },
+      "machine": "Machine translation",
+      "statuses": {
+        "pending_review": "In review",
+        "open": "Voting",
+        "shortlisted": "Shortlisted",
+        "selected": "Selected",
+        "in_development": "In development",
+        "released": "Released",
+        "declined": "Declined",
+        "merged": "Merged"
+      },
+      "board": {
+        "title": "Ideas",
+        "new": "+ Idea",
+        "tabsLabel": "Idea lists",
+        "tabs": {
+          "popular": "Popular",
+          "new": "New",
+          "in_work": "In progress",
+          "released": "Released"
+        },
+        "module": "Module",
+        "moduleAll": "All",
+        "search": "Search by title",
+        "find": "Find",
+        "countdown": "{month} selection: {days, plural, one {# day left} other {# days left}}",
+        "votes": "Votes: {count}",
+        "comments": "{count, plural, =0 {no comments} one {# comment} other {# comments}}",
+        "selectedIn": "Selected in the {month} selection",
+        "releasedIn": "Released in {version}",
+        "more": "Show more",
+        "notFound": "Nothing found",
+        "notFoundText": "Try other words or another module."
+      },
+      "page": {
+        "author": "Author: {name}",
+        "authorOrg": "Author: {name}, {org}",
+        "pending": "The Smartup team is reviewing this idea. For now only you can see it.",
+        "merged": "This idea was merged into {ref}: the votes were moved there.",
+        "openTarget": "Open {ref}",
+        "declined": "The Smartup team declined this idea.",
+        "declineReason": "Reason: {reason}",
+        "translationUnavailable": "There is no translation into your language yet, the original is shown.",
+        "showOriginal": "Show original",
+        "images": "Images",
+        "history": "History",
+        "publishedOn": "Published on {date}",
+        "releasedOn": "Released in version {version}, {date}",
+        "follow": "Follow",
+        "unfollow": "Unfollow",
+        "edit": "Edit",
+        "editTitle": "Edit idea",
+        "save": "Save",
+        "cancel": "Cancel",
+        "done": {
+          "followed": "You follow this idea: we will tell you about every status change.",
+          "unfollowed": "You no longer follow this idea.",
+          "saved": "Saved.",
+          "edited": "Changes saved.",
+          "commented": "Comment published.",
+          "comment_held": "Comment sent for review: it has contacts or a link. For now only you can see it.",
+          "comment_saved": "Comment changed."
+        }
+      },
+      "month": {
+        "title": "Idea of the month"
+      },
+      "comments": {
+        "title": "Comments",
+        "empty": "No comments yet.",
+        "official": "Smartup",
+        "pending": "In review",
+        "hidden": "Hidden by a moderator",
+        "hideReason": "Reason: {reason}",
+        "edit": "Edit",
+        "save": "Save",
+        "label": "Comment",
+        "hint": "Clients of all organizations will see your comment. A comment with a phone number, email or link is reviewed by a moderator first.",
+        "send": "Send",
+        "more": "Show more"
+      },
+      "cycles": {
+        "link": "Monthly selection",
+        "title": "Monthly selection",
+        "intro": "On the 1st of each month at 09:00 Tashkent time, the five ideas with the most votes enter the shortlist, and the Smartup team picks the idea of the month. If the team picks an idea other than the leader, it explains why.",
+        "countdown": "{month} selection: {days, plural, one {# day left} other {# days left}}, starts {date} Tashkent time.",
+        "archiveTitle": "Past selections",
+        "archiveEmpty": "No selections yet",
+        "archiveEmptyText": "The first selection takes place on the 1st of next month.",
+        "cycleOf": "{month} selection",
+        "noChoice": "No pick",
+        "explanation": "Why this idea was picked"
+      }
     },
     "org": {
       "switch": "Switch organization",
@@ -1078,6 +1244,24 @@
           },
           "client": {
             "embed_session": "Widget session inside Smartup"
+          },
+          "idea": {
+            "submitted": "Idea submitted",
+            "edited": "Author edited the idea under review",
+            "org_visibility_changed": "Author changed organization visibility of the idea",
+            "published": "Idea published",
+            "declined": "Idea declined",
+            "merged": "Idea merged with another one",
+            "moderator_edited": "Moderator corrected the idea text",
+            "translation_reviewed": "Moderator corrected the idea translation",
+            "file_infected": "Antivirus found an infected idea image",
+            "comment_held": "Idea comment held for review",
+            "comment_published": "Moderator published an idea comment",
+            "comment_hidden": "Moderator hid an idea comment",
+            "cycle_created": "Monthly selection shortlist captured",
+            "cycle_lapsed": "Monthly selection closed without a choice",
+            "cycle_decided": "Idea of the month selected",
+            "status_changed": "Idea status changed"
           }
         },
         "words": {
@@ -2876,6 +3060,187 @@
         "taken": "This signature is already linked to solution {number}. Unlink it there first.",
         "invalid": "Enter an error code or text."
       }
+    },
+    "ideas": {
+      "title": "Ideas",
+      "tabsLabel": "Idea sections",
+      "tabs": {
+        "moderation": "Moderation",
+        "all": "All",
+        "comments": "Comments in review"
+      },
+      "filters": {
+        "label": "Idea filters",
+        "status": "Status",
+        "module": "Module",
+        "org": "Organization",
+        "q": "Title",
+        "any": "Any",
+        "apply": "Show"
+      },
+      "empty": {
+        "moderation": "No ideas waiting for review",
+        "all": "No ideas found",
+        "comments": "No comments in review"
+      },
+      "emptyText": "Ideas suggested by clients will appear here.",
+      "columns": {
+        "number": "Number",
+        "title": "Idea",
+        "org": "Organization",
+        "module": "Module",
+        "status": "Status",
+        "votes": "Votes",
+        "comments": "Comments",
+        "created": "Submitted"
+      },
+      "votesCell": "{votes} / org. {orgs}",
+      "more": "Show more",
+      "fields": {
+        "author": "Author",
+        "org": "Organization",
+        "orgHidden": "hidden from clients",
+        "votes": "Votes / organizations",
+        "created": "Submitted",
+        "published": "Published",
+        "mergedInto": "Merged into",
+        "declineReason": "Decline reason",
+        "title": "Title",
+        "body": "Description"
+      },
+      "findingsChecked": "Findings checked",
+      "findings": "Found in the text: {kinds}. Remove the data before publishing or mark it as checked.",
+      "original": "Original ({locale})",
+      "translation": "Translation ({locale})",
+      "noTranslation": "No translation yet: {locales}",
+      "textStatuses": {
+        "original": "Original",
+        "machine": "Machine",
+        "reviewed": "Reviewed",
+        "outdated": "Outdated",
+        "rejected": "Failed the check"
+      },
+      "images": "Images",
+      "scan": {
+        "pending": "being checked",
+        "clean": "clean",
+        "infected": "infected",
+        "rejected": "rejected"
+      },
+      "breakdown": {
+        "title": "Votes by organization",
+        "intro": "Voter names are not shown: only organizations and categories.",
+        "none": "no category",
+        "org": "Organization",
+        "category": "Category",
+        "votes": "Votes"
+      },
+      "actions": {
+        "title": "Moderation",
+        "publish": "Publish",
+        "findingsChecked": "Checked: no client data in the text",
+        "edit": "Save changes",
+        "mergeInto": "Merge into idea (number)",
+        "merge": "Merge",
+        "declineReason": "Decline reason (the author will see it)",
+        "decline": "Decline",
+        "reviewTranslation": "Save translation"
+      },
+      "done": {
+        "published": "The idea is published.",
+        "declined": "The idea is declined.",
+        "merged": "The idea is merged.",
+        "edited": "Changes saved.",
+        "translation": "The translation is saved and marked as reviewed.",
+        "comment_hidden": "Comment hidden.",
+        "comment_published": "Comment published.",
+        "replied": "Reply published with the Smartup badge.",
+        "decided": "Idea of the month picked.",
+        "in_development": "The idea was sent to development.",
+        "released": "The idea was marked as released."
+      },
+      "errors": {
+        "forbidden": "Only the product and admin roles can do this",
+        "invalid_input": "Check the form fields",
+        "not_found": "Idea not found",
+        "bad_transition": "This status change is not allowed",
+        "bad_merge_target": "You can merge only into a published idea that is not declined or merged",
+        "findings_unchecked": "The text contains client data: remove it or mark it as checked",
+        "not_editable": "The idea can no longer be changed",
+        "comments_closed": "Comments on this idea are closed",
+        "rate_limited": "Too often. Try again later",
+        "cycle_closed": "The selection is already closed: the pick cannot be changed",
+        "not_in_shortlist": "You can pick only an idea from the shortlist",
+        "explanation_required": "You picked an idea other than the leader: write an explanation in Russian",
+        "invalid_url": "The task link must start with https://",
+        "already_linked": "The idea already has a development task",
+        "task_closed": "A task with this number is already closed",
+        "task_not_found": "The task manager has no task with this number",
+        "tracker_unavailable": "The task manager did not respond. The idea was not changed, try again later"
+      },
+      "comments": {
+        "publish": "Publish",
+        "hide": "Hide",
+        "hideReason": "Reason for hiding (the author will see it)",
+        "reply": "Smartup reply",
+        "send": "Reply",
+        "idea": "Idea",
+        "author": "Author",
+        "text": "Text",
+        "created": "When"
+      },
+      "cycles": {
+        "title": "Monthly selection",
+        "place": "Place",
+        "snapshot": "In snapshot",
+        "live": "Now",
+        "next": "Next selection ({month}): {date} Tashkent time.",
+        "current": "Current selection for {month}",
+        "noCurrent": "No selection is waiting for a pick",
+        "noCurrentText": "The shortlist appears on the 1st at 09:00 Tashkent time.",
+        "mode": {
+          "per_user": "Counting: one user, one vote",
+          "per_org": "Counting: one organization, one vote"
+        },
+        "pick": "Idea of the month",
+        "leader": "leader",
+        "explanationRu": "Explanation in Russian",
+        "explanationUz": "Explanation in Uzbek",
+        "explanationEn": "Explanation in English",
+        "explanationHint": "If you pick an idea other than the leader, an explanation in Russian is required: clients will see it on the selection page. Uzbek and English are optional. The pick cannot be changed after saving.",
+        "translate": "Translate",
+        "translating": "Translating...",
+        "machine": "Machine draft: read and correct the Uzbek and English text before saving.",
+        "reviewed": "Text checked",
+        "draftError": "The draft is not available right now. Write the explanation yourself.",
+        "submit": "Pick the idea of the month",
+        "archive": "Past selections",
+        "archiveEmpty": "No past selections yet.",
+        "cycleOf": "{month} selection",
+        "statuses": {
+          "open": "Waiting for a pick",
+          "decided": "Picked",
+          "lapsed": "No pick"
+        },
+        "selected": "Picked:",
+        "notLeader": "leader {ref}"
+      },
+      "dev": {
+        "title": "Development task",
+        "status": "Task status",
+        "version": "version {version}",
+        "send": "Send to development",
+        "ref": "Task number",
+        "url": "Task link",
+        "taskTitle": "Task title",
+        "apiHint": "The portal will create a task in the task manager with the idea title and description. To link an existing task, enter its number.",
+        "refOptional": "Existing task number (optional)",
+        "submit": "Send",
+        "release": "Mark as released",
+        "releaseVersion": "Smartup version",
+        "releaseDate": "Release date",
+        "releaseSubmit": "Released"
+      }
     }
   },
   "auth": {
@@ -3176,6 +3541,30 @@
     "staffCsatLow": {
       "heading": "Low client rating",
       "text": "A client of {orgName} rated request SUP-{number} \"{title}\" with {score}. Open the request: the reason for the rating is on its page."
+    },
+    "ideaStatus": {
+      "heading": "News on idea {ref}",
+      "button": "Open idea",
+      "published": "Your idea {ref} “{title}” passed review and is published. Clients of all organizations can vote for it now.",
+      "declined": "Idea {ref} “{title}” was declined. Details are on the idea page.",
+      "merged": "Idea {ref} “{title}” was merged into the similar idea {into}: the votes were moved there.",
+      "shortlisted": "Idea {ref} “{title}” made the idea of the month shortlist.",
+      "selected": "Idea {ref} “{title}” was selected as the idea of the month.",
+      "in_development": "Idea {ref} “{title}” is in development.",
+      "released": "Idea {ref} “{title}” is released.",
+      "comment_hidden": "A moderator hid your comment on idea {ref} “{title}”. The reason is on the idea page.",
+      "official_reply": "Smartup replied on idea {ref} “{title}”."
+    },
+    "staffIdeaModeration": {
+      "subject": "Ideas waiting for review: {count}",
+      "text": "Ideas in review for over two working days: {count}. Publish, decline or merge them."
+    },
+    "staffIdeaCycle": {
+      "subject": "The idea of the month shortlist is ready",
+      "text": "Ideas in the shortlist: {count}. Choose the idea of the month."
+    },
+    "staffIdeaDevTaskClosed": {
+      "text": "Development task {ref} is closed: check it and, once released, set idea {idea} “{title}” to Released."
     }
   },
   "bot": {

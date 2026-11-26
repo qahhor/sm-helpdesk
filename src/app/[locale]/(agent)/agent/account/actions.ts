@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { savePrefs } from '@/modules/hdn/api/notifications';
+import { saveIdeaMailPref, savePrefs } from '@/modules/hdn/api/notifications';
 import { isHduError, nextRequest, requireStaffActor, revokeMySessionOfRequest, revokeOtherSessionsOfRequest, signOut } from '@/modules/hdu/api';
 
 /** Завершение сессии сотрудника на другом устройстве. Пишется в журнал аудита. Текущая: это выход. */
@@ -35,4 +35,11 @@ export async function saveStaffPrefsAction(formData: FormData): Promise<void> {
   const staff = await requireStaffActor();
   await savePrefs(staff.actor, { staffMention: formData.get('staffMention') === 'on', staffBreach: formData.get('staffBreach') === 'on' });
   redirect(`/${await getLocale()}/agent/account?prefs=saved`);
+}
+
+/** Письма об идеях (план M7, задача 8, FR-NT-04): отключаются всегда. */
+export async function saveStaffIdeaPrefAction(formData: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await saveIdeaMailPref(staff.actor, { email: formData.get('ideasEmail') === 'on' });
+  redirect(`/${await getLocale()}/agent/account?prefs=ideas`);
 }

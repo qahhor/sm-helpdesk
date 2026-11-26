@@ -41,7 +41,7 @@ export type FoundSolution = RankedHit & { orgCount: number | null };
 type SearchInput = { text: string; signature: string | null; moduleId: string | null; locale: Locale; audiences: readonly KbAudience[] };
 
 /** Вектор запроса не дольше 150 мс; иначе null и событие в журнале без текста (решение 5). */
-async function queryVector(text: string): Promise<number[] | null> {
+export async function queryVector(text: string): Promise<number[] | null> {
   const started = performance.now();
   try {
     const [vector] = await getEmbedder().embed([text], { timeoutMs: QUERY_EMBED_TIMEOUT_MS });

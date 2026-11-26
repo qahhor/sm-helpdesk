@@ -43,6 +43,15 @@ export const QUEUES = {
   // при сбое модели с растущей паузой; повторную постановку при уже поставленной задаче отсекает состояние ai_status.
   'kb.translate': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   'kb.draft': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
+  // Идеи (веха M7): проверка изображения как у решений; индекс похожих и машинный перевод после публикации и правки.
+  // stately: на идею одна ждущая и одна выполняемая задача, правка во время выполнения не теряется.
+  'ideas.scan': { policy: 'exclusive', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
+  'ideas.index': { policy: 'stately', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
+  'ideas.translate': { policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
+  // Сводка модерации идей роли product раз в день (план M7, задача 8): повтор в тот же день ничего не шлёт.
+  'ideas.moderation_digest': { policy: 'short', retryLimit: 2, retryDelay: 300, expireInSeconds: 600 },
+  // Отбор месяца (план M7, задача 9): 1-го числа в 09:00 по Ташкенту. Повтор безвреден: месяц уникален, снимок один.
+  'ideas.cycle': { policy: 'short', retryLimit: 3, retryDelay: 300, expireInSeconds: 600 },
   // Разбор входящего письма (веха M4, решение 10): одна задача на письмо, повторы при сбое сервиса почты.
   'email.inbound': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
 };

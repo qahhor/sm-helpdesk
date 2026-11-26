@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server';
-import { readPrefs, type StaffPrefs } from '@/modules/hdn/api/notifications';
+import { readIdeaMailPref, readPrefs, type StaffPrefs } from '@/modules/hdn/api/notifications';
 import { mySessions, requireStaffActor } from '@/modules/hdu/api';
 import { NotificationPrefsForm } from '@/ui/components/NotificationPrefsForm';
 import { Alert } from '@/ui/components/alert';
@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/ui/components/card';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { SessionsList } from '@/ui/components/SessionsList';
 import { sessionItems } from '../../../sessions-view';
-import { revokeOtherStaffSessionsAction, revokeStaffSessionAction, saveStaffPrefsAction } from './actions';
+import { revokeOtherStaffSessionsAction, revokeStaffSessionAction, saveStaffIdeaPrefAction, saveStaffPrefsAction } from './actions';
 import { firstParam } from '@/lib/search-params';
 
 // Учётная запись сотрудника: какие письма получать (решение 7 вехи M4) и сессии, где выполнен вход.
@@ -16,6 +16,7 @@ export default async function AccountPage({ searchParams }: PageProps<'/[locale]
   const staff = await requireStaffActor();
   const params = await searchParams;
   const prefs = (await readPrefs(staff.actor)) as StaffPrefs;
+  const ideaPref = await readIdeaMailPref(staff.actor);
   const t = await getTranslations();
   const { items, labels } = await sessionItems(await mySessions());
   const status = firstParam(params.session);
@@ -41,6 +42,15 @@ export default async function AccountPage({ searchParams }: PageProps<'/[locale]
         saveLabel={t('common.notifications.settings.save')}
         savedLabel={t('common.notifications.settings.saved')}
         saved={firstParam(params.prefs) === 'saved'}
+      />
+      <NotificationPrefsForm
+        title={t('common.notifications.settings.ideas.title')}
+        intro={t('common.notifications.settings.ideas.intro')}
+        options={[{ name: 'ideasEmail', label: t('common.notifications.settings.ideas.label'), checked: ideaPref.email }]}
+        save={saveStaffIdeaPrefAction}
+        saveLabel={t('common.notifications.settings.ideas.save')}
+        savedLabel={t('common.notifications.settings.saved')}
+        saved={firstParam(params.prefs) === 'ideas'}
       />
       <Card>
         <CardContent className="pt-6">

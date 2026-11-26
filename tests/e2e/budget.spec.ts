@@ -1,6 +1,7 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, type Request, test } from '@playwright/test';
 import { BUDGET_BYTES, sumScriptBytes } from '../../scripts/checks/budget-rules.mjs';
 import { CLIENT_STATE } from './helpers/client';
+import { dbRows } from './helpers/db';
 
 // Бюджет скриптов первого экрана (ТЗ 8.9) для главной кабинета: её видит только вошедший клиент,
 // поэтому замер идёт здесь, от сохранённой сессии. Страницу входа меряет pnpm budget.
@@ -34,5 +35,54 @@ test('новое обращение на телефоне загружает н�
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Новое обращение');
   const total = sumScriptBytes(await Promise.all(pending));
   console.log(`Скрипты нового обращения: ${Math.round(total / 1024)} КБ из ${Math.round(BUDGET_BYTES / 1024)}`);
+  expect(total).toBeLessThanOrEqual(BUDGET_BYTES);
+});
+
+test('новая идея на телефоне загружает не больше 170 КБ скриптов (план M7, задача 2)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'бюджет считается для телефона');
+  const pending: Promise<{ url: string; resourceType: string; encodedBytes: number }>[] = [];
+  page.on('requestfinished', (request) => {
+    pending.push(
+      request.sizes().then((sizes) => ({ url: request.url(), resourceType: request.resourceType(), encodedBytes: sizes.responseBodySize })),
+    );
+  });
+  await page.goto('/ru/ideas/new', { waitUntil: 'networkidle' });
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Новая идея');
+  const total = sumScriptBytes(await Promise.all(pending));
+  console.log(`Скрипты новой идеи: ${Math.round(total / 1024)} КБ из ${Math.round(BUDGET_BYTES / 1024)}`);
+  expect(total).toBeLessThanOrEqual(BUDGET_BYTES);
+});
+
+async function scriptBytes(page: Page, path: string): Promise<number> {
+  const pending: Promise<{ url: string; resourceType: string; encodedBytes: number }>[] = [];
+  page.on('requestfinished', (request: Request) => {
+    pending.push(request.sizes().then((sizes) => ({ url: request.url(), resourceType: request.resourceType(), encodedBytes: sizes.responseBodySize })));
+  });
+  await page.goto(path, { waitUntil: 'networkidle' });
+  const total = sumScriptBytes(await Promise.all(pending));
+  console.log(`Скрипты ${path}: ${Math.round(total / 1024)} КБ из ${Math.round(BUDGET_BYTES / 1024)}`);
+  return total;
+}
+
+test('доска идей на телефоне загружает не больше 170 КБ скриптов (план M7, задача 5)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'бюджет считается для телефона');
+  const total = await scriptBytes(page, '/ru/ideas');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Идеи');
+  expect(total).toBeLessThanOrEqual(BUDGET_BYTES);
+});
+
+test('страница идеи на телефоне загружает не больше 170 КБ скриптов (план M7, задача 5)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'бюджет считается для телефона');
+  const [idea] = await dbRows<{ number: string }>(`select number from hdi_ideas where status = 'open' and published_on is not null order by number desc limit 1`);
+  test.skip(!idea, 'нет опубликованной идеи');
+  const total = await scriptBytes(page, `/ru/ideas/${idea!.number}`);
+  await expect(page.getByTestId('idea-page')).toBeVisible();
+  expect(total).toBeLessThanOrEqual(BUDGET_BYTES);
+});
+
+test('отбор месяца на телефоне загружает не больше 170 КБ скриптов (план M7, задача 10)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'бюджет считается для телефона');
+  const total = await scriptBytes(page, '/ru/ideas/cycles');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Отбор месяца');
   expect(total).toBeLessThanOrEqual(BUDGET_BYTES);
 });

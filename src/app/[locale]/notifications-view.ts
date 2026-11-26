@@ -12,7 +12,17 @@ export async function notificationItems(rows: NotificationRow[]): Promise<Notifi
     id: row.notificationId,
     // rule: название правила автоматизации в уведомлениях правил (веха M8).
     // score: оценка клиента в уведомлении о низкой оценке (веха M8).
-    text: t(row.kind, { number: row.ticketNumber ?? 0, year: Number(row.payload.year ?? 0), rule: String(row.payload.rule ?? ''), score: Number(row.payload.score ?? 0) }),
+    // idea, into, status, count: номер идеи, цель объединения, статус идеи и число идей на модерации (веха M7).
+    text: t(row.kind, {
+      number: row.ticketNumber ?? 0,
+      year: Number(row.payload.year ?? 0),
+      rule: String(row.payload.rule ?? ''),
+      score: Number(row.payload.score ?? 0),
+      idea: Number(row.payload.idea ?? 0),
+      into: Number(row.payload.into ?? 0),
+      status: String(row.payload.status ?? ''),
+      count: Number(row.payload.count ?? 0),
+    }),
     time: format.dateTime(row.createdOn, { dateStyle: 'medium', timeStyle: 'short' }),
     unread: row.readOn === null,
   }));

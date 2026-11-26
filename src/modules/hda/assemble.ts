@@ -45,3 +45,14 @@ export function assembleTranslationData(input: { from: string; to: string; segme
   const body = input.segments.map((s) => `<segment id="${s.id}">${escapeData(sanitizeForAi(s.text))}</segment>`).join('\n');
   return `Перевод с ${input.from} на ${input.to}\n<solution>\n${clip(body, 40_000)}\n</solution>`;
 }
+
+/**
+ * Заголовок и описание опубликованной идеи для перевода (ТЗ 14.3; план M7, решения 11, 12): только эти два поля,
+ * внутри <idea>, после той же очистки, что у остальных целей: невидимые знаки, почта, телефоны и длинные числа, имя
+ * автора и название его организации вырезаны. Комментариев, вложений, автора и организации в типе нет вовсе.
+ */
+export function assembleIdeaTranslationData(input: { from: string; to: string; title: string; body: string; redaction: { names: readonly string[]; orgTerms: readonly string[] } }): string {
+  const terms = [...input.redaction.names.map((term) => ({ term, label: REDACTED.client })), ...orgRedactions(input.redaction.orgTerms, REDACTED.org)];
+  const clean = (text: string) => escapeData(sanitizeForAi(redactTerms(scanText(text), terms)));
+  return `Перевод с ${input.from} на ${input.to}\n<idea>\n<title>${clean(input.title)}</title>\n<body>${clip(clean(input.body), 12_000)}</body>\n</idea>`;
+}

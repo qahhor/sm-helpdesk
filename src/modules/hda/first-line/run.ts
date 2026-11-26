@@ -121,10 +121,12 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
   if (!/[\p{L}\p{N}]/u.test(`${text.description}${text.messages.join('')}`)) return handoff('no_text');
   const userLocale = (LOCALES as readonly string[]).includes(t.locale) ? (t.locale as Locale) : 'ru';
   const lang = detectLanguage(all, userLocale);
-  if (!lang) return handoff('language');
   // Передача кодом до вызова модели: разбор отдельным вызовом ai.triage (решение 6), чтобы у сотрудника были предложения.
-  if (asksHuman(all)) return withTriage(t, () => handoff('customer_request', [], lang));
-  if (matchRestrictedTopic(all, config.restrictedTopics)) return withTriage(t, () => handoff('restricted_topic', [], lang));
+  // Просьба о человеке и обязательная тема проверяются раньше языка (проверочный набор задачи 11): у такой передачи
+  // своя причина и свои правила маршрутизации, даже если язык текста код не узнал.
+  if (asksHuman(all)) return withTriage(t, () => handoff('customer_request', [], lang ?? userLocale));
+  if (matchRestrictedTopic(all, config.restrictedTopics)) return withTriage(t, () => handoff('restricted_topic', [], lang ?? userLocale));
+  if (!lang) return handoff('language');
 
   // 3. Известная проблема (M5c).
   await matchKnownProblem({ signature: t.errorSignature, moduleId: t.moduleId });

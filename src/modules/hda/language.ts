@@ -6,7 +6,7 @@ import { cleanUserText } from '@/modules/hdc/pref';
 //
 // По письменности и частым словам: кириллица с узбекскими буквами (ў, қ, ғ, ҳ) или узбекскими частыми словами даёт uz,
 // прочая кириллица ru; латиница с узбекскими сочетаниями (o', g') и словарём uz, иначе по словарю en. Короче трёх
-// слов: язык пользователя. Другая письменность или ни один словарь не набрал порога: null.
+// слов: язык пользователя. Прочая кириллица ru. Другая письменность или латиница без словаря: null.
 
 const UZ_CYRILLIC_LETTERS = /[ўқғҳЎҚҒҲ]/u;
 const UZ_CYRILLIC_WORDS = new Set(['ва', 'бу', 'учун', 'билан', 'эмас', 'керак', 'менга', 'мен', 'сиз', 'нима', 'қандай', 'хато', 'ёрдам', 'беринг', 'илтимос', 'ишламаяпти', 'чиқди', 'бўлди', 'йўқ', 'бор', 'ҳам', 'лекин', 'қилиш', 'очилмаяпти', 'ҳисобот', 'буюртма', 'мумкин', 'бўлса', 'кейин', 'олдин', 'ҳозир', 'нега', 'ишлайди', 'бериш', 'чиқяпти']);
@@ -15,6 +15,8 @@ const UZ_LATIN_WORDS = new Set(['va', 'bu', 'uchun', 'bilan', 'emas', 'kerak', '
 const EN_WORDS = new Set(['the', 'is', 'are', 'and', 'not', 'to', 'of', 'in', 'for', 'with', 'my', 'can', 'does', 'do', 'how', 'what', 'it', 'an', 'a', 'i', 'we', 'please', 'error', 'when', 'after', 'this', 'that', 'on', 'cannot', "can't", "doesn't", "don't", 'invoice', 'report', 'help', 'page', 'fix', 'prints', 'empty', 'open', 'opens', 'works', 'work']);
 /** Узбекская латиница: o' и g' (апостроф любого вида уже приведён к прямому). */
 const UZ_LATIN_MARKS = /\b[og]'/u;
+/** Узбекская латиница: q без следующей u (qil-, qanday, qoldiq); в английском q почти всегда с u. */
+const UZ_LATIN_Q = /q(?!u)/u;
 
 /** Узбекские апострофы к одному виду (UX-B-07): ʻ ʼ ‘ ’ ` ´ становятся прямым. */
 export function normalizeApostrophes(text: string): string {
@@ -41,9 +43,10 @@ export function detectLanguage(text: string, userLocale: Locale): Locale | null 
     const uz = hits(UZ_CYRILLIC_WORDS) + (UZ_CYRILLIC_LETTERS.test(clean) ? 2 : 0);
     const ru = hits(RU_WORDS);
     if (uz > 0 && uz >= ru) return 'uz';
-    return ru > 0 ? 'ru' : null;
+    // Прочая кириллица: русский (решение 16). Кириллица другого языка портала не бывает.
+    return 'ru';
   }
-  const uz = hits(UZ_LATIN_WORDS) + (UZ_LATIN_MARKS.test(clean) ? 2 : 0);
+  const uz = hits(UZ_LATIN_WORDS) + (UZ_LATIN_MARKS.test(clean) ? 2 : 0) + (UZ_LATIN_Q.test(clean) ? 2 : 0);
   const en = hits(EN_WORDS);
   if (uz > 0 && uz >= en) return 'uz';
   return en > 0 ? 'en' : null;

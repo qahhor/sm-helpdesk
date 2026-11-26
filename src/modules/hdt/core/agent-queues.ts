@@ -256,7 +256,13 @@ export async function thanksRowsTx(actor: StaffActor, page: number): Promise<{ n
       .select({ number: tickets.number, orgId: tickets.orgId, body: ticketMessages.body, createdOn: ticketMessages.createdOn })
       .from(ticketMessages)
       .innerJoin(tickets, eq(tickets.ticketId, ticketMessages.ticketId))
-      .where(eq(ticketMessages.isThanks, true))
+      // Благодарность, которую модель не подтвердила и обращение открыто заново (план M5b, задача 9), в списке нет.
+      .where(
+        and(
+          eq(ticketMessages.isThanks, true),
+          sql`not exists (select 1 from hdt_ticket_events e where e.ticket_id = ${ticketMessages.ticketId} and e.kind = 'status' and e.payload ->> 'reason' = 'ai_thanks' and e.payload ->> 'messageId' = ${ticketMessages.messageId}::text)`,
+        ),
+      )
       .orderBy(desc(ticketMessages.createdOn))
       .limit(THANKS_PAGE_SIZE + 1)
       .offset((page - 1) * THANKS_PAGE_SIZE),

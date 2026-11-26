@@ -7,6 +7,7 @@ import { Markdown } from '@/ui/components/markdown';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { cn } from '@/ui/cn';
 import { FlagAiAnswer } from './FlagAiAnswer';
+import { translateMessageAction } from './actions';
 
 // Переписка и история обращения у сотрудника (FR-AG-04, UX-A-14, UX-A-15): описание, сообщения с заметками,
 // события, файлы. Серверный компонент, скриптов не добавляет. Вынесен из страницы (аудит 23.11.2026, находка A8).
@@ -17,9 +18,11 @@ type Props = {
   from: { queue?: string; sort?: string };
   /** Может ли сотрудник отметить ответ помощника неверным (FR-AI-16): ведёт обращения. */
   canFlag?: boolean;
+  /** Машинные переводы сообщений клиента (FR-AG-11): по идентификатору сообщения; canTranslate: кнопка "Перевести". */
+  translations?: { canTranslate: boolean; byMessage: Map<string, { status: 'pending' | 'ready' | 'failed'; text: string | null }> };
 };
 
-export async function TicketTimeline({ ticket, from, canFlag = false }: Props) {
+export async function TicketTimeline({ ticket, from, canFlag = false, translations }: Props) {
   const t = await getTranslations('agent');
   const format = await getFormatter();
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
@@ -156,6 +159,31 @@ export async function TicketTimeline({ ticket, from, canFlag = false }: Props) {
             </p>
             <Markdown text={entry.body} />
             {files(entry.attachments)}
+            {entry.authorType === 'client' && !entry.isInternal && translations && (() => {
+              const found = translations.byMessage.get(entry.id);
+              if (found?.status === 'ready' && found.text)
+                return (
+                  <section className="flex flex-col gap-1 rounded-control border border-border bg-card-soft p-2 text-sm" data-translation={entry.id}>
+                    <p className="flex flex-wrap items-center gap-2">
+                      <StatusLabel tone="gray">{t('ticket.translate.machine')}</StatusLabel>
+                      <span className="text-xs text-secondary-foreground">{t('ticket.translate.hint')}</span>
+                    </p>
+                    <p className="whitespace-pre-wrap break-words">{found.text}</p>
+                  </section>
+                );
+              if (found?.status === 'pending') return <p className="text-sm text-secondary-foreground" data-translation-pending>{t('ticket.translate.pending')}</p>;
+              if (!translations.canTranslate) return null;
+              return (
+                <form action={translateMessageAction}>
+                  <input type="hidden" name="number" value={ticket.number} />
+                  <input type="hidden" name="messageId" value={entry.id} />
+                  {found?.status === 'failed' && <span className="me-2 text-sm text-secondary-foreground">{t('ticket.translate.failed')}</span>}
+                  <button type="submit" className="text-sm text-link underline-offset-2 hover:underline">
+                    {t('ticket.translate.button')}
+                  </button>
+                </form>
+              );
+            })()}
             {canFlag && entry.authorType === 'ai' && (entry.aiKind === 'answer' || entry.aiKind === 'clarify') && <FlagAiAnswer number={ticket.number} messageId={entry.id} />}
           </article>
         ) : (

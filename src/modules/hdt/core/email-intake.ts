@@ -44,6 +44,7 @@ import { refreshSla } from './sla';
 import { isThanks } from './thanks';
 import { createEmailTicketTx, ticketExists } from './tickets';
 import { startAssistant } from '../api/ai';
+import { thanksOnClientReply } from '../api/ai-messages';
 
 // Модуль hdt, слой core: разбор входящего письма (FR-EM-02, FR-NT-05..08, раздел 11.8, решения 16, 17, 20 вехи M4).
 // Порядок: список отклонённых, автоответ и недоставка, затем обращение по подписанному адресу ответа, по In-Reply-To
@@ -257,6 +258,8 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
   });
   // Итог "reply" мог прийти и от другого процесса, который разобрал письмо раньше: тогда наши загрузки лишние.
   await afterCommit(attached ? queued : []);
+  // Благодарность на решённое уточняется у модели (FR-TK-14, план M5b, решение 24), как у ответа в портале.
+  if (result === 'reply') await thanksOnClientReply(ticket.ticketId);
   return result;
 }
 

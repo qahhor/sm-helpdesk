@@ -2515,7 +2515,8 @@
           "dev_unlinked": "Development task unlinked",
           "dev_status": "Task status saved",
           "triaged": "Triage suggestion accepted.",
-          "flagged": "The answer is marked as wrong."
+          "flagged": "The answer is marked as wrong.",
+          "translating": "The translation is being prepared."
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -2774,6 +2775,13 @@
           "wrong_language": "Wrong language",
           "other": "Other"
         }
+      },
+      "translate": {
+        "button": "Translate",
+        "pending": "The translation is being prepared. Refresh the page in a few seconds.",
+        "failed": "The translation failed.",
+        "machine": "Machine translation",
+        "hint": "Not a basis for actions with rights, data or payments"
       }
     },
     "playbooks": {

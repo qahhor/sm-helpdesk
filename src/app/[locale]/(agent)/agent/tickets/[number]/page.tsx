@@ -13,6 +13,7 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 import { acceptOf, STATUS_TONE } from '@/ui/ticket-status';
 import { inviteSenderAction } from './actions';
 import { AiBlock } from './AiBlock';
+import { messageTranslations } from '@/modules/hda/api/message-ai';
 import { Composer } from './Composer';
 import { DevTaskBlock } from './DevTaskBlock';
 import { MacroMenu } from './MacroMenu';
@@ -64,6 +65,13 @@ export default async function AgentTicketPage({ params, searchParams }: { params
     ? `${playbook.moduleId ? (modules.find((m) => m.moduleId === playbook.moduleId)?.name ?? '') : t('ticket.transfer.anyModule')} / ${t(`ticket.types.${ticket.type}`)}`
     : null;
   const format = await getFormatter();
+  // Машинные переводы сообщений клиента (FR-AG-11): только сотруднику, только при включённой AI-обработке организации.
+  const translated = ticket.org ? await messageTranslations(staff, { ticketId: ticket.ticketId, orgId: ticket.org.orgId }) : { aiAllowed: false, items: [] };
+  const uiLocale = await getLocale();
+  const translations = {
+    canTranslate: translated.aiAllowed && canWrite,
+    byMessage: new Map(translated.items.filter((i) => i.locale === uiLocale).map((i) => [i.messageId, { status: i.status, text: i.text }])),
+  };
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
   const label = `SUP-${ticket.number}`;
   const statusName = (status: unknown) => (typeof status === 'string' && t.has(`queues.statuses.${status}`) ? t(`queues.statuses.${status}`) : String(status ?? ''));
@@ -140,7 +148,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
           />
           <SeenMark ticketId={ticket.ticketId} />
           <PresenceBar number={ticket.number} labels={{ viewing: t.raw('ticket.presence.viewing') as string, typing: t.raw('ticket.presence.typing') as string }} />
-          <TicketTimeline ticket={ticket} from={{ queue: search.queue, sort: search.sort }} canFlag={canWrite} />
+          <TicketTimeline ticket={ticket} from={{ queue: search.queue, sort: search.sort }} canFlag={canWrite} translations={translations} />
           {canWrite && macros.length > 0 && (
             <MacroMenu number={ticket.number} version={ticket.version} macros={macros} labels={{ open: t('ticket.macros.open'), list: t('ticket.macros.list'), busy: t('ticket.macros.busy') }} />
           )}

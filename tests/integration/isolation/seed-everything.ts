@@ -119,6 +119,9 @@ export async function seedEverything() {
   // Предложение разбора по обращению организации A и отключённое поле разбора (веха M5b, задача 7).
   const triageRun = (await pools.root.query(`insert into hda_runs (org_id, purpose, model, outcome, ticket_id) values ($1, 'first_line', 'stub-model', 'ok', $2) returning run_id`, [f.orgA.orgId, f.tickets.aOrg.ticketId])).rows[0].run_id;
   await pools.root.query(`insert into hda_triage_suggestions (org_id, ticket_id, run_id, field, value) values ($1, $2, $3, 'summary', 'Резюме для сотрудника')`, [f.orgA.orgId, f.tickets.aOrg.ticketId, triageRun]);
+  const seedMessage = (await pools.root.query(`select message_id from hdt_ticket_messages where ticket_id = $1 order by created_on limit 1`, [f.tickets.aOrg.ticketId])).rows[0].message_id;
+  // Машинный перевод сообщения клиента для сотрудника (веха M5b, задача 9).
+  await pools.root.query(`insert into hda_message_translations (org_id, ticket_id, message_id, locale, status, text, requested_by) values ($1, $2, $3, 'ru', 'ready', 'Отчёт не открывается', $4)`, [f.orgA.orgId, f.tickets.aOrg.ticketId, seedMessage, f.l1.userId]);
   await pools.root.query(`insert into hda_triage_field_offs (field, month, share, decisions) values ('module', date_trunc('month', now())::date, 0.5, 40)`);
   // Идеи (веха M7, задача 1): опубликованная идея организации Б, идея Б на модерации и своя идея А на модерации; голоса,
   // подписки, комментарии (опубликованный, чужой на проверке и свой на проверке), отборы (завершённый и открытый),

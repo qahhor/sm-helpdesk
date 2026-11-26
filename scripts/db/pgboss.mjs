@@ -23,6 +23,10 @@ export const QUEUES = {
   // ведёт к передаче сотруднику. Сторожевая проверка без повторов: минутная проверка по расписанию её страхует.
   'ai.first_line': { policy: 'stately', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
   'ai.watchdog': { policy: 'standard', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
+  // Перевод сообщения клиента и уточнение благодарности (план M5b, решение 24): одна задача на объект, без
+  // повторов: перевод сотрудник попросит снова, благодарность остаётся решением простых признаков.
+  'ai.message_translation': { policy: 'stately', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
+  'ai.thanks': { policy: 'stately', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
   // Разбор без ответа (план M5b, решение 6): одна задача на обращение, без повторов: разбор необязателен.
   'ai.triage': { policy: 'stately', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
   // Ночная доля принятых предложений разбора (FR-TRI-04): следующая ночь догонит.

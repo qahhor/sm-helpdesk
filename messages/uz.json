@@ -2515,7 +2515,8 @@
           "dev_unlinked": "Ishlab chiqish vazifasi uzildi",
           "dev_status": "Vazifa holati saqlandi",
           "triaged": "Saralash taklifi qabul qilindi.",
-          "flagged": "Javob noto'g'ri deb belgilandi."
+          "flagged": "Javob noto'g'ri deb belgilandi.",
+          "translating": "Tarjima tayyorlanmoqda."
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -2774,6 +2775,13 @@
           "wrong_language": "Boshqa til",
           "other": "Boshqa"
         }
+      },
+      "translate": {
+        "button": "Tarjima qilish",
+        "pending": "Tarjima tayyorlanmoqda. Bir necha soniyadan so'ng sahifani yangilang.",
+        "failed": "Tarjima chiqmadi.",
+        "machine": "Mashina tarjimasi",
+        "hint": "Huquqlar, ma'lumotlar va to'lov bilan bog'liq harakatlar uchun asos emas"
       }
     },
     "playbooks": {

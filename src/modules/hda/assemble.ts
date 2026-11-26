@@ -86,3 +86,15 @@ export function assembleFirstLineData(input: { title: string; description: strin
   const solutions = input.solutions.map((s) => `<solution id="${s.id}">\nЗаголовок: ${escapeData(sanitizeForAi(s.title))}\n${clip(escapeData(sanitizeForAi(s.text)), L.solution)}\n</solution>`);
   return `<ticket>\n${clip(lines.join('\n'), L.total)}\n</ticket>\n<solutions>\n${solutions.map((s) => `${s}\n`).join('')}</solutions>`;
 }
+
+/**
+ * Одно сообщение клиента для перевода по кнопке "Перевести" (FR-AG-11) или определения благодарности (FR-TK-14):
+ * только текст этого сообщения после очистки (перечень 14.3), до 3000 знаков. Тег message у перевода, reply у
+ * благодарности.
+ */
+export function assembleMessageData(input: { tag: 'message' | 'reply'; to?: string; text: string; redaction: Redaction }): string {
+  const split = (names: readonly string[]) => [...new Set(names.flatMap((n) => [n, ...n.split(/\s+/)]))];
+  const redaction: Redaction = { ...input.redaction, clientNames: split(input.redaction.clientNames), staffNames: split(input.redaction.staffNames) };
+  const body = clip(cleanText(input.text, redaction), 3000);
+  return `${input.to ? `Язык перевода: ${input.to}\n` : ''}<${input.tag}>\n${body}\n</${input.tag}>`;
+}

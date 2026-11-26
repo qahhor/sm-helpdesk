@@ -34,6 +34,7 @@ import {
   transferToL2,
   zonedToDate,
 } from '@/modules/hdt/api';
+import { requestMessageTranslation } from '@/modules/hda/api/message-ai';
 import { flagAiAnswer, isHdaError } from '@/modules/hda/api/review';
 import { acceptTriage } from '@/modules/hdt/api/triage';
 import { requireStaffActor, type StaffContext } from '@/modules/hdu/api';
@@ -149,6 +150,21 @@ export async function typeAction(form: FormData): Promise<void> {
 export async function acceptTriageAction(form: FormData): Promise<void> {
   const field = text(form, 'field');
   await run(form, async (staff, number) => void (await acceptTriage(staff, { number, fields: field === 'all' ? 'all' : [field] })), 'triaged');
+}
+
+/** "Перевести" у сообщения клиента (план M5b, задача 9; FR-AG-11): перевод на язык интерфейса сотрудника. */
+export async function translateMessageAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  const number = Number(text(form, 'number'));
+  const page = `/${locale}/agent/tickets/SUP-${Number.isInteger(number) ? number : 0}`;
+  try {
+    await requestMessageTranslation(staff, { messageId: text(form, 'messageId'), locale });
+  } catch (error) {
+    if (!isHdaError(error)) throw error;
+    redirect(`${page}?error=${error.code === 'forbidden' ? 'forbidden' : 'invalid_input'}`);
+  }
+  redirect(`${page}?done=translating`);
 }
 
 /** "Отметить ответ как неверный" у сообщения помощника (план M5b, задача 8; FR-AI-16): причина из списка и комментарий. */

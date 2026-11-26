@@ -11,6 +11,7 @@ import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { runAiBudget } from '@/modules/hda/api/budget';
 import { runFirstLineJob, runWatchdogJob } from '@/modules/hda/api/first-line';
 import { runTriageJob, runTriageReview } from '@/modules/hda/api/triage-jobs';
+import { cleanupMessageTranslations, runMessageTranslationJob, runThanksJob } from '@/modules/hda/api/message-ai';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
@@ -230,11 +231,22 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   }));
   await boss.work('ai.budget', polling, () => timedJob('ai.budget', async () => {
     const result = await runAiBudget(actor('ai.budget'));
+    // Машинные переводы сообщений живут 24 часа (план M5b, решение 24): удаляются тем же заданием раз в 10 минут.
+    const removed = await cleanupMessageTranslations(actor('ai.budget'));
+    if (removed > 0) console.info(`AI: удалено переводов сообщений старше суток ${removed}`);
     if (result.orgsCut > 0 || result.allCut) console.info(`AI: расход ${result.spentUsd} из ${result.budgetUsd} долларов, отключено организаций ${result.orgsCut}${result.allCut ? ', помощник отключён для всех' : ''}`);
   }));
   await boss.work('ai.first_line', { ...polling, localConcurrency: 2 }, ([job]) => timedJob('ai.first_line', async () => {
     // Ответ первой линии (план M5b, задача 4): в задании только идентификатор обращения. Сбой внутри ведёт к передаче.
     await runFirstLineJob(actor('ai.first_line'), job?.data);
+  }));
+  await boss.work('ai.message_translation', polling, ([job]) => timedJob('ai.message_translation', async () => {
+    // Перевод сообщения клиента для сотрудника (план M5b, задача 9): в задании только идентификатор строки перевода.
+    await runMessageTranslationJob(actor('ai.message_translation'), job?.data);
+  }));
+  await boss.work('ai.thanks', polling, ([job]) => timedJob('ai.thanks', async () => {
+    // Уточнение благодарности (FR-TK-14, решение 24): модель может только открыть обращение заново.
+    await runThanksJob(actor('ai.thanks'), job?.data);
   }));
   await boss.work('ai.triage', polling, ([job]) => timedJob('ai.triage', async () => {
     // Разбор без ответа помощника (план M5b, решение 6): в задании только идентификатор обращения.

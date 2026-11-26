@@ -11,6 +11,8 @@ export const JOB_NAMES = [
   // ответа и ночная проверка доли принятых предложений разбора.
   'ai.budget',
   'ai.first_line',
+  'ai.message_translation',
+  'ai.thanks',
   'ai.triage',
   'ai.triage_review',
   'ai.watchdog',
@@ -74,7 +76,7 @@ export function createPgBossQueue(boss: PgBoss): JobQueue {
     async send(name, data, opts) {
       // Одна задача на файл или входящее письмо (exclusive); на решение одна ждущая и одна выполняемая (stately, kb.index).
       // Первая линия и разбор: одна ждущая и одна выполняемая на обращение (stately, план M5b, решения 5, 6).
-      const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId, data.ideaId, name === 'ai.first_line' || name === 'ai.triage' ? data.ticketId : undefined].find(
+      const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId, data.ideaId, data.translationId, data.messageId, name === 'ai.first_line' || name === 'ai.triage' ? data.ticketId : undefined].find(
         (value): value is string => typeof value === 'string',
       );
       await boss.send(name, data, { ...(key ? { singletonKey: key } : {}), ...(opts?.startAfterSeconds ? { startAfter: opts.startAfterSeconds } : {}) });

@@ -4,7 +4,8 @@ import { stampColumns } from '@/db/columns';
 import type { AiCutoffReason, AiDecision, AiHandoffReason, AiOutcome, AiPurpose, TriageField, TriageStatus } from './pref';
 
 // Модуль hda: AI. Таблицы, ограничения и политики создают миграции drizzle/0072_hda_runs.sql и
-// drizzle/0091_hda_first_line.sql, drizzle/0093_hda_triage.sql. Журнал вызовов не хранит текста запроса и ответа (поправка 101).
+// drizzle/0091_hda_first_line.sql, drizzle/0093_hda_triage.sql, drizzle/0094_hda_review.sql,
+// drizzle/0095_hda_message_translations.sql. Журнал вызовов не хранит текста запроса и ответа (поправка 101).
 
 /** Деньги с шестью знаками после запятой; драйвер отдаёт numeric строкой. */
 const usd = customType<{ data: string }>({ dataType: () => 'numeric(12,6)' });
@@ -93,5 +94,20 @@ export const aiTriageFieldOffs = pgTable('hda_triage_field_offs', {
   decisions: integer('decisions').notNull(),
   liftedOn: moment('lifted_on'),
   liftedBy: uuid('lifted_by'),
+  ...stampColumns,
+});
+
+/** Машинный перевод сообщения клиента для сотрудника (FR-AG-11; план M5b, решение 24). Клиент не видит, живёт 24 часа. */
+export const aiMessageTranslations = pgTable('hda_message_translations', {
+  translationId: uuid('translation_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  orgId: uuid('org_id').notNull(),
+  ticketId: uuid('ticket_id').notNull(),
+  messageId: uuid('message_id').notNull(),
+  locale: text('locale').$type<'ru' | 'uz' | 'en'>().notNull(),
+  status: text('status').$type<'pending' | 'ready' | 'failed'>().notNull().default('pending'),
+  text: text('text'),
+  requestedBy: uuid('requested_by').notNull(),
   ...stampColumns,
 });

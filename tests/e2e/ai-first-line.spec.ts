@@ -151,7 +151,7 @@ test('ссылка "Помогло" из письма Теза: открытие
   await guest.close();
 });
 
-test('S8 у агента: "После AI" с причиной, блок AI, "Принять" меняет заголовок, отметка "неверно" в разборе (задачи 7, 8)', async ({ page, browser }) => {
+test('S8 у агента: "После AI" с причиной, блок AI, "Принять" меняет заголовок, отметка "неверно" в разборе, "Перевести" (задачи 7-9)', async ({ page, browser }) => {
   test.setTimeout(120_000);
   const word = tag();
   await publishSolution(browser, `Заказ ${word} не сохраняется, разбор: нет остатка на складе`);
@@ -163,6 +163,10 @@ test('S8 у агента: "После AI" с причиной, блок AI, "П�
   await message.getByRole('button', { name: 'Нужен сотрудник' }).click();
   await expect(page.getByText('Передал обращение сотруднику.').first()).toBeVisible();
   const number = Number(/SUP-(\d+)/.exec(page.url())?.[1]);
+  // Сообщение клиента на узбекском: его агент переведёт кнопкой "Перевести" (FR-AG-11, задача 9).
+  await page.getByLabel('Ответ').fill('Hisobot ochilmayapti, iltimos yordam bering');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+  await expect(page.getByText('Hisobot ochilmayapti, iltimos yordam bering').first()).toBeVisible();
 
   const context = await browser.newContext({ storageState: storageStateOf('l1') });
   const agent = await context.newPage();
@@ -199,6 +203,16 @@ test('S8 у агента: "После AI" с причиной, блок AI, "П�
   await expect(agent.getByTestId('ai-review-flagged').locator(`tr[data-number="${number}"]`)).toContainText('Нужно было передать сотруднику');
   expect((await new AxeBuilder({ page: agent }).include('main').analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
   await agent.goto(`/ru/agent/tickets/SUP-${number}`);
+  // Перевод виден только сотруднику, рядом с оригиналом, с пометкой; в переписку не попадает.
+  await agent.getByRole('button', { name: 'Перевести' }).first().click();
+  await expect(agent.getByText('Перевод готовится.').first()).toBeVisible();
+  await expect.poll(async () => (await dbRows<{ status: string }>(`select t.status from hda_message_translations t join hdt_tickets k on k.ticket_id = t.ticket_id where k.number = $1`, [number]))[0]?.status, { timeout: 30_000 }).toBe('ready');
+  await agent.reload();
+  const translation = agent.locator('[data-translation]');
+  await expect(translation).toContainText('Машинный перевод');
+  await expect(translation).toContainText('Hisobot ochilmayapti');
+  await page.reload();
+  await expect(page.getByText('Машинный перевод')).toHaveCount(0);
   await agent.setViewportSize({ width: 640, height: 400 });
   await agent.reload();
   await expect(agent.getByTestId('ai-block')).toBeVisible();

@@ -59,6 +59,10 @@ export type BrokenMode = 'not_json' | 'truncated' | 'slow' | 'refusal';
 /** Заготовка: черновик решения по разделу 11.10 или перевод (решения, идеи), возвращающий тексты без изменений. */
 export function defaultStubResponse(call: StubCall): unknown {
   if (call.data.includes('<solutions>')) return firstLineStub(call);
+  // Перевод сообщения клиента (план M5b, задача 9): текст без изменений с пометкой языка; благодарность: да.
+  const message = /<message>\n([\s\S]*?)\n<\/message>/.exec(call.data);
+  if (message) return { text: `[${/Язык перевода: (\S+)/.exec(call.data)?.[1] ?? ''}] ${message[1]}` };
+  if (call.data.includes('<reply>')) return { thanks: true };
   if (call.data.includes('<ticket>'))
     return {
       title: 'Документ не проводится из-за закрытого периода',

@@ -5,6 +5,7 @@ import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule, loadSlaConfig } from '@/modules/hdr/api';
 import { refreshSlaAfterClient } from './api/jobs';
 import { assistantOnClientReply, startAssistant } from './api/ai';
+import { thanksOnClientReply } from './api/ai-messages';
 import { confirmTx, rateTx, reopenDays, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
 import { createTicketTx, listTicketRows, readTicket, ticketExists } from './core/tickets';
 import { HdtError } from './error';
@@ -500,6 +501,8 @@ export async function replyToTicket(ctx: ClientActorContext, input: unknown): Pr
   await refreshSlaAfterClient(ticketId);
   // Помощник включён: отвечает снова, не больше трёх ответов на обращение (план M5b, задача 4; FR-AI-09).
   await assistantOnClientReply(ticketId);
+  // Благодарность на решённое уточняется у модели, если AI-обработка организации включена (FR-TK-14, решение 24).
+  await thanksOnClientReply(ticketId);
   await wakeAutomation();
 }
 

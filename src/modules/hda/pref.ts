@@ -149,3 +149,21 @@ export const AI_REPEAT_HOURS = 24;
 export const AI_CUTOFF_REASONS = ['budget_share', 'budget_total'] as const;
 export type AiCutoffReason = (typeof AI_CUTOFF_REASONS)[number];
 
+// --- Тексты помощника по идентификаторам (план M5b, решение 10) ---
+
+/** Вступления к ответу решением: тексты в messages/*.json (client.tez.intro.*). Модель выбирает только идентификатор. */
+export const INTRO_TEMPLATE_IDS = ['likely_solution', 'exact_error', 'similar_case', 'known_steps'] as const;
+export type IntroTemplateId = (typeof INTRO_TEMPLATE_IDS)[number];
+
+/** Вопросы перед передачей (FR-AI-05): тексты в messages/*.json (client.tez.questions.*). */
+export const HANDOFF_QUESTION_IDS = ['version', 'steps', 'since_when', 'screenshot', 'period_filters', 'other_user'] as const;
+export type HandoffQuestionId = (typeof HANDOFF_QUESTION_IDS)[number];
+
+/** Какие вопросы допустимы для типа обращения: лишние код отбрасывает, что бы ни выбрала модель. */
+export const QUESTIONS_BY_TYPE: Readonly<Record<'bug' | 'question' | 'service_request', readonly HandoffQuestionId[]>> = {
+  bug: ['version', 'steps', 'since_when', 'screenshot', 'other_user'],
+  question: ['period_filters', 'screenshot', 'steps'],
+  service_request: ['version', 'other_user'],
+};
+/** Не больше трёх вопросов перед передачей (FR-AI-05). */
+export const HANDOFF_QUESTIONS_MAX = 3;

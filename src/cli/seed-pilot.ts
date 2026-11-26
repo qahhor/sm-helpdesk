@@ -216,10 +216,10 @@ export async function runSeedPilot(ctx: StaffContext, content: string, opts: { d
     let created = 0;
     let skipped = 0;
     ids = await moduleIdOf();
-    const existing = await listSolutions(ctx, {});
     for (const solution of file.solutions) {
-      // Ключ черновика: язык оригинала и название. Созданный черновик дальше ведёт редактор, файл его не перезаписывает.
-      if (existing.some((row) => row.originalLocale === solution.locale && row.title.trim().toLowerCase() === solution.title.toLowerCase())) {
+      // Ключ черновика: язык оригинала и название любой его версии. Ищется запросом по ключу, а не в списке решений:
+      // список ограничен 200 строками. Созданный черновик дальше ведёт редактор, файл его не перезаписывает.
+      if ((await listSolutions(ctx, { original: { locale: solution.locale, title: solution.title } })).length > 0) {
         skipped++;
         continue;
       }

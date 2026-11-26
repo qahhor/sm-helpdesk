@@ -179,3 +179,21 @@ test('изменённая запись обновляется, приглаше
   expect((await pools.root.query(`select action from hdc_audit_log order by created_on offset $1`, [auditBefore])).rows).toEqual([{ action: 'template.saved' }]);
   expect(box.mailer.sent).toHaveLength(2);
 });
+
+test('черновик из файла не создаётся второй раз, даже когда решений больше, чем показывает список (200)', async () => {
+  const path = seedFile();
+  expect((await seed(path)).code).toBe(0);
+  // 200 более новых решений: черновик из файла уходит за первую страницу списка решений.
+  const author = (await pools.root.query(`select user_id from hdu_staff where role = 'admin' limit 1`)).rows[0].user_id as string;
+  await pools.root.query(
+    `with a as (
+       insert into hdk_articles (owner_id, original_locale, audience) select $1::uuid, 'ru', 'internal' from generate_series(1, 200) returning article_id
+     )
+     insert into hdk_article_versions (article_id, locale, number, title, doc, state, modified_on)
+     select article_id, 'ru', 1, 'Другое решение ' || article_id, '{"version": 1, "blocks": []}'::jsonb, 'draft', now() + interval '1 hour' from a`,
+    [author],
+  );
+  const result = await seed(path);
+  expect(result.lines.join('\n')).toMatch(/Решения \(черновики\): создано 0, уже есть 1/);
+  expect((await pools.root.query(`select count(*)::int as n from hdk_article_versions where title = 'Остатки на складе не обновились после документа'`)).rows).toEqual([{ n: 1 }]);
+});

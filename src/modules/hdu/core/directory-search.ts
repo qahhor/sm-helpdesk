@@ -9,13 +9,17 @@ import { FOLD_WEIGHT, foldText, mergeRanked, SEARCH_TIMEOUT_MS, searchAs, type S
 
 const LIMIT = 250;
 
-async function run(actor: StaffActor, searches: { spec: SearchSpec; weight: number }[]): Promise<string[] | null> {
+/** truncated: совпадений больше 250, список не полный (независимая проверка W6, M6). */
+export type DirectoryIds = { ids: string[]; truncated: boolean };
+
+async function run(actor: StaffActor, searches: { spec: SearchSpec; weight: number }[]): Promise<DirectoryIds | null> {
   const res = await searchAs(actor, 'directory', searches.map((s) => s.spec), { timeoutMs: SEARCH_TIMEOUT_MS.directory });
   if (res.kind === 'fallback') return null;
-  return mergeRanked(res.results.map((r, i) => ({ hits: r.hits, weight: searches[i]!.weight })), LIMIT);
+  const all = mergeRanked(res.results.map((r, i) => ({ hits: r.hits, weight: searches[i]!.weight })));
+  return { ids: all.slice(0, LIMIT), truncated: all.length > LIMIT || res.results.some((r) => r.found > LIMIT) };
 }
 
-export function directoryOrgIds(actor: StaffActor, text: string): Promise<string[] | null> {
+export function directoryOrgIds(actor: StaffActor, text: string): Promise<DirectoryIds | null> {
   const folded = foldText(text);
   return run(actor, [
     { spec: { collection: 'orgs', q: text, queryBy: ['name', 'inn', 'external_company_id'], infix: ['off', 'fallback', 'fallback'], prefix: true, perPage: LIMIT }, weight: 1 },
@@ -23,7 +27,7 @@ export function directoryOrgIds(actor: StaffActor, text: string): Promise<string
   ]);
 }
 
-export function directoryPersonIds(actor: StaffActor, text: string): Promise<string[] | null> {
+export function directoryPersonIds(actor: StaffActor, text: string): Promise<DirectoryIds | null> {
   const folded = foldText(text);
   return run(actor, [
     { spec: { collection: 'people', q: text, queryBy: ['name'], prefix: true, perPage: LIMIT }, weight: 1 },

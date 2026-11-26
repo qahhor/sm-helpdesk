@@ -82,8 +82,10 @@ const orgColumns = {
 
 /** Поиск по названию, ИНН и идентификатору компании, без учёта регистра. limit + 1 строка: есть ли ещё. */
 export async function searchOrgs(actor: StaffActor, input: { query: string; offset: number; limit: number }): Promise<OrgRow[]> {
-  // Текст ищет Typesense (план W6, задача 5): до 250 лучших, порядок списка прежний (по названию). Не ответил: ILIKE.
-  const found = input.query ? await directoryOrgIds(actor, input.query) : null;
+  // Текст ищет Typesense (план W6, задача 5): до 250 лучших, порядок списка прежний (по названию). Не ответил или
+  // совпадений больше 250 (лучшие 250 не дают листать дальше, M6 независимой проверки): прежний ILIKE.
+  const directory = input.query ? await directoryOrgIds(actor, input.query) : null;
+  const found = directory && !directory.truncated ? directory.ids : null;
   const filter = found
     ? inArray(organizations.orgId, found)
     : input.query

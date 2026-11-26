@@ -81,6 +81,14 @@ describe('на заглушке', () => {
     expect(await findUserIds(staffCtx(f.l1), f.aUser.name)).toContain(f.aUser.userId);
   });
 
+  test('организаций больше 250: список листается до последней, а не обрывается на 250', async () => {
+    await pools.root.query(`insert into hdu_organizations (server_id, external_company_id, name) select $1, 'ext-' || g, 'Торговый дом ' || g from generate_series(1, 251) g`, [f.server.serverId]);
+    await runSearchSync(system, stub);
+    const last = await searchOrganizations(staffCtx(f.l1), { query: 'торговый дом', page: 6 });
+    expect(last.items).toHaveLength(1);
+    expect(last.hasMore).toBe(false);
+  });
+
   test('Typesense не отвечает: прежняя выдача containsText и событие без текста', async () => {
     const before = await numbers('оплата не проходит');
     stub.failWith('timeout');

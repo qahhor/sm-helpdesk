@@ -19,7 +19,7 @@ const LOOKUP_LIMIT = 200;
 export async function findOrgIdsTx(actor: StaffActor, query: string): Promise<string[]> {
   if (!searchable(query)) return [];
   const found = await directoryOrgIds(actor, query);
-  if (found) return found.slice(0, LOOKUP_LIMIT);
+  if (found) return found.ids.slice(0, LOOKUP_LIMIT);
   const rows = await withActor(actor, (tx) =>
     tx
       .select({ orgId: organizations.orgId })
@@ -36,7 +36,7 @@ export async function findOrgIdsTx(actor: StaffActor, query: string): Promise<st
  */
 export async function findUserIdsTx(actor: StaffActor, query: string): Promise<string[]> {
   if (!searchable(query)) return [];
-  const byName = await directoryPersonIds(actor, query);
+  const byName = (await directoryPersonIds(actor, query))?.ids ?? null;
   const rows = await withIdentity(actor, (tx) =>
     tx
       .select({ id: authUser.id, email: authUser.email, emailVerified: authUser.emailVerified, name: authUser.name })

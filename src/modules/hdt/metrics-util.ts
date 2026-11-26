@@ -115,7 +115,8 @@ export function splitMinutes(total: number): { hours: number; minutes: number } 
 
 // --- Линии (FR-LINE-08) ---
 
-export const LINES = ['first', 'second', 'development'] as const;
+/** Линии (FR-LINE-08): AI-помощник (веха M5b, задача 10), первая, вторая, разработка. */
+export const LINES = ['assistant', 'first', 'second', 'development'] as const;
 
 /**
  * Каналы обращений (FR-MET-10; план M6, задача 8): портал, виджет (Smartup Web и мобильное приложение вместе), почта.
@@ -169,16 +170,20 @@ export function combineCounters(rows: readonly AdditiveCounters[]): Counters {
 export type Line = (typeof LINES)[number];
 
 /**
- * Линия обращения (ТЗ 10.5): статус "В разработке" это разработка, очередь l1 первая линия, очереди l2 и care вторая.
- * Линии AI-помощника пока нет: помощник появится в вехе M5b.
+ * Линия обращения (ТЗ 10.5): ai_state = 'active' это AI-помощник, статус "В разработке" разработка, очередь l1
+ * первая линия, очереди l2 и care вторая.
  */
-export function lineOf(queue: Queue | string, status: TicketStatus | string): Line {
+export function lineOf(queue: Queue | string, status: TicketStatus | string, ai: string | null = null): Line {
+  if (ai === 'active') return 'assistant';
   if (status === 'in_development') return 'development';
   return queue === 'l1' ? 'first' : 'second';
 }
 
-/** Событие истории обращения, из которого считается линия: смена очереди или статуса. */
-export type LineEvent = { kind: 'queue' | 'status'; from: string | null; to: string | null; at: Date };
+/**
+ * Событие истории обращения, из которого считается линия: смена очереди, статуса или состояния помощника (ai: to
+ * 'active' при включении, 'handed_off' при передаче сотруднику).
+ */
+export type LineEvent = { kind: 'queue' | 'status' | 'ai'; from: string | null; to: string | null; at: Date };
 export type LineUsage = { resolvedLine: Line; minutes: Partial<Record<Line, number>>; returns: number };
 
 /**
@@ -197,11 +202,14 @@ export function lineUsage(ticket: { createdOn: Date; resolvedOn: Date; queue: st
   // Очередь при создании: откуда ушла первая передача. Передач не было: очередь не менялась.
   let queue = firstMove ? (firstMove.from ?? 'l1') : ticket.queue;
   let status = 'new';
+  let ai: string | null = null;
   let cursor = ticket.createdOn;
   let returns = 0;
   const minutes: Partial<Record<Line, number>> = {};
   const spend = (until: Date) => {
-    const line = lineOf(queue, status);
+    // Событие в тот же момент, что и предыдущее (помощник включён при создании): пустой отрезок линии не даёт.
+    if (until.getTime() <= cursor.getTime() && until.getTime() !== end) return;
+    const line = lineOf(queue, status, ai);
     minutes[line] = (minutes[line] ?? 0) + workingMinutesBetween(cursor, until, cal);
     cursor = until.getTime() > cursor.getTime() ? until : cursor;
   };
@@ -217,10 +225,11 @@ export function lineUsage(ticket: { createdOn: Date; resolvedOn: Date; queue: st
     if (event.kind === 'queue') {
       if (event.to === 'l1' && (event.from === 'l2' || event.from === 'care')) returns += 1;
       queue = event.to ?? queue;
-    } else status = event.to ?? status;
+    } else if (event.kind === 'ai') ai = event.to;
+    else status = event.to ?? status;
   }
   spend(ticket.resolvedOn);
-  return { resolvedLine: lineOf(queue, beforeResolve ?? status), minutes, returns };
+  return { resolvedLine: lineOf(queue, beforeResolve ?? status, ai), minutes, returns };
 }
 
 // --- CSV (решение 16) ---

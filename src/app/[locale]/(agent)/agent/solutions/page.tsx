@@ -1,6 +1,7 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { isLocale, LOCALES, type Locale } from '@/i18n/locales';
+import { assistantUseCounts } from '@/modules/hda/api/metrics';
 import { canWriteSolutions, listSolutions, type SolutionListRow } from '@/modules/hdk/api/editor';
 import { SOLUTION_LIST_STATUSES, type SolutionListStatus } from '@/modules/hdk/api/constants';
 import { listActiveModules } from '@/modules/hdr/api';
@@ -46,6 +47,8 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
     listActiveModules(staff.actor, locale),
   ]);
   const moduleName = new Map(modules.map((m) => [m.moduleId, m.name]));
+  // Сколько раз решением ответил AI-помощник (FR-SOL-19; план M5b, задача 10).
+  const byAssistant = await assistantUseCounts(staff, [...new Set([...mine, ...all].map((row) => row.articleId))].slice(0, 500));
   const canWrite = canWriteSolutions(staff);
 
   const table = (rows: SolutionListRow[], label: string, testId: string) => (
@@ -53,7 +56,7 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
       <table className="w-full text-sm" aria-label={label} data-testid={testId}>
         <thead>
           <tr className="border-b border-border text-muted-foreground">
-            {(['number', 'title', 'module', 'language', 'status', 'shown', 'helped', 'notHelped', 'updated'] as const).map((column) => (
+            {(['number', 'title', 'module', 'language', 'status', 'shown', 'helped', 'notHelped', 'assistant', 'updated'] as const).map((column) => (
               <th key={column} scope="col" className="px-3 py-2 text-start font-medium">
                 {s(`columns.${column}`)}
               </th>
@@ -82,6 +85,7 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
               <td className="px-3 py-3 tabular-nums" data-column="shown">{format.number(row.shownCount)}</td>
               <td className="px-3 py-3 tabular-nums" data-column="helped">{format.number(row.helpedCount)}</td>
               <td className="px-3 py-3 tabular-nums" data-column="not-helped">{format.number(row.notHelpedCount)}</td>
+              <td className="px-3 py-3 tabular-nums" data-column="assistant">{format.number(byAssistant.get(row.articleId) ?? 0)}</td>
               <td className="px-3 py-3 whitespace-nowrap">
                 {format.dateTime(row.updatedOn, {
                   dateStyle: 'medium',

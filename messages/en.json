@@ -2952,11 +2952,12 @@
         "shareOf": "Share of resolved: {name}",
         "averageTime": "Average time on the line",
         "returns": "Returns from the second line to the first: {count}",
-        "hint": "Resolved requests of the period are counted. A request is resolved on the line where it was right before it became \"Resolved\": the status \"In development\" means development, the first line queue means the first line, the second line and Customer Care queues mean the second line. Time on a line: working hours from creation to resolution, including waiting for the client; the average is over the requests that were on the line. The line is rebuilt from the request history, so a move made by an automation rule is counted too.",
+        "hint": "Resolved requests of the period are counted. A request is resolved on the line where it was right before it became \"Resolved\": the status \"In development\" means development, the first line queue means the first line, the second line and Customer Care queues mean the second line. Time on a line: working hours from creation to resolution, including waiting for the client; the average is over the requests that were on the line. The line is rebuilt from the request history, so a move made by an automation rule is counted too. AI assistant line: the request was resolved while the assistant handled it (the \"Helped\" button).",
         "names": {
           "first": "First line",
           "second": "Second line",
-          "development": "Development"
+          "development": "Development",
+          "assistant": "AI assistant"
         }
       },
       "breakdown": {
@@ -3077,6 +3078,23 @@
         "missesCount": "Queries",
         "missesNoModule": "No module selected",
         "missesRecent": "Recent queries"
+      },
+      "assistant": {
+        "title": "AI assistant",
+        "resolved": "Resolved without staff",
+        "resolvedOf": "{resolved} of {handled} assistant requests",
+        "firstReply": "Assistant first reply",
+        "seconds": "{value} s",
+        "median": "Median {value} s",
+        "csat": "Rating of requests resolved by the assistant",
+        "csatCount": "Ratings: {count}",
+        "reopened": "Reopened after \"Helped\"",
+        "flagged": "Marked as wrong",
+        "flaggedOf": "{flagged} of {answers} solution answers",
+        "spend": "AI spending this month",
+        "handoffs": "Handoffs to staff by reason",
+        "count": "Requests",
+        "hint": "Counts requests created in the period that the assistant handled. First reply time in seconds around the clock: the assistant replies at any time. Spending for the current calendar month in Tashkent time."
       }
     },
     "solutions": {
@@ -3103,7 +3121,8 @@
         "shown": "Views",
         "helped": "Helped",
         "notHelped": "Did not help",
-        "updated": "Changed"
+        "updated": "Changed",
+        "assistant": "Assistant answers"
       },
       "locales": {
         "ru": "Russian",

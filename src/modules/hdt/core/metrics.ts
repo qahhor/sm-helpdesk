@@ -134,15 +134,16 @@ export async function lineEventsTx(tx: Tx, ticketIds: readonly string[]): Promis
         ticketId: ticketEvents.ticketId,
         kind: ticketEvents.kind,
         from: sql<string | null>`coalesce(${ticketEvents.payload}->>'from', ${ticketEvents.payload}->>'was')`,
-        to: sql<string | null>`${ticketEvents.payload}->>'to'`,
+        // Передача помощником (план M5b, задача 10): помощник перестаёт вести обращение.
+        to: sql<string | null>`case when ${ticketEvents.kind} = 'ai_handoff' then 'handed_off' else ${ticketEvents.payload}->>'to' end`,
         at: ticketEvents.createdOn,
       })
       .from(ticketEvents)
-      .where(and(inArray(ticketEvents.ticketId, ticketIds.slice(start, start + ID_BATCH)), inArray(ticketEvents.kind, ['queue', 'status'])))
+      .where(and(inArray(ticketEvents.ticketId, ticketIds.slice(start, start + ID_BATCH)), inArray(ticketEvents.kind, ['queue', 'status', 'ai_state', 'ai_handoff'])))
       .orderBy(asc(ticketEvents.createdOn), asc(ticketEvents.eventId));
     for (const row of rows) {
       const list = byTicket.get(row.ticketId) ?? [];
-      list.push({ kind: row.kind as 'queue' | 'status', from: row.from, to: row.to, at: row.at });
+      list.push({ kind: row.kind === 'ai_state' || row.kind === 'ai_handoff' ? 'ai' : (row.kind as 'queue' | 'status'), from: row.from, to: row.to, at: row.at });
       byTicket.set(row.ticketId, list);
     }
   }
@@ -274,4 +275,60 @@ export async function saveCsatReviewTx(actor: StaffActor, number: number, note: 
 /** Запись журнала от имени сотрудника отдельной транзакцией: выгрузка данных не меняет, но должна быть записана. */
 export async function auditAsStaff(actor: StaffActor, entry: AuditEntry): Promise<void> {
   await withActor(actor, (tx) => writeAudit(tx, entry));
+}
+
+// --- Показатели AI-помощника (план M5b, задача 10; FR-MET-06, FR-AI-18) ---
+
+export type AssistantTicketStats = {
+  handled: number;
+  resolvedByAi: number;
+  handoffs: { reason: string; count: number }[];
+  /** Секунды от создания до первого сообщения помощника, по обращениям помощника периода. */
+  firstReplySeconds: number[];
+  csatCount: number;
+  csatSum: number;
+  reopenedAfterHelped: number;
+};
+
+/**
+ * Обращения периода (по дате создания, индекс hdt_tickets_i25), которые вёл помощник: решено помощником, передачи по
+ * причинам, время первого ответа помощника (сообщения по индексу hdt_ticket_messages_i1), оценки решённых помощником,
+ * открытые заново после "Помогло" (событие ai_feedback "helped", после него переход из "Решено" в работу).
+ */
+export async function assistantStatsTx(tx: Tx, range: Range): Promise<AssistantTicketStats> {
+  const scope = and(inPeriod(range), sql`${tickets.aiState} <> 'none'`, isNull(tickets.mergedIntoId));
+  const [totals] = await tx
+    .select({
+      handled: sql<number>`count(*)::int`,
+      resolvedByAi: sql<number>`count(*) filter (where ${tickets.aiState} = 'resolved_by_ai')::int`,
+      csatCount: sql<number>`count(${tickets.csatScore}) filter (where ${tickets.aiState} = 'resolved_by_ai')::int`,
+      csatSum: sql<number>`coalesce(sum(${tickets.csatScore}) filter (where ${tickets.aiState} = 'resolved_by_ai'), 0)::int`,
+      reopened: sql<number>`count(*) filter (where exists (
+        select 1 from hdt_ticket_events h join hdt_ticket_events r on r.ticket_id = h.ticket_id and r.created_on > h.created_on
+         where h.ticket_id = hdt_tickets.ticket_id and h.kind = 'ai_feedback' and h.payload ->> 'choice' = 'helped'
+           and r.kind = 'status' and r.payload ->> 'from' = 'resolved' and r.payload ->> 'to' <> 'closed'))::int`,
+    })
+    .from(tickets)
+    .where(scope);
+  const handoffs = await tx
+    .select({ reason: sql<string>`${tickets.aiHandoffReason}`, count: sql<number>`count(*)::int` })
+    .from(tickets)
+    .where(and(scope, isNotNull(tickets.aiHandoffReason)))
+    .groupBy(tickets.aiHandoffReason)
+    .orderBy(tickets.aiHandoffReason);
+  const firsts = await tx
+    .select({
+      seconds: sql<number>`extract(epoch from (select min(m.created_on) from hdt_ticket_messages m where m.ticket_id = hdt_tickets.ticket_id and m.author_type = 'ai') - hdt_tickets.created_on)::float`,
+    })
+    .from(tickets)
+    .where(scope);
+  return {
+    handled: totals?.handled ?? 0,
+    resolvedByAi: totals?.resolvedByAi ?? 0,
+    handoffs,
+    firstReplySeconds: firsts.flatMap((r) => (r.seconds === null ? [] : [Number(r.seconds)])),
+    csatCount: totals?.csatCount ?? 0,
+    csatSum: totals?.csatSum ?? 0,
+    reopenedAfterHelped: totals?.reopened ?? 0,
+  };
 }

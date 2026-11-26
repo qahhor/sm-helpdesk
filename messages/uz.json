@@ -2952,11 +2952,12 @@
         "shareOf": "Hal qilinganlar ulushi: {name}",
         "averageTime": "Liniyadagi o'rtacha vaqt",
         "returns": "Ikkinchi liniyadan birinchisiga qaytarishlar: {count}",
-        "hint": "Davrning hal qilingan murojaatlari hisoblanadi. Murojaat \"Hal qilindi\" holatiga o'tishdan oldin qaysi liniyada bo'lsa, o'sha liniyada hal qilingan: \"Ishlab chiqishda\" holati ishlab chiqish, birinchi liniya navbati birinchi liniya, ikkinchi liniya va Customer Care navbatlari ikkinchi liniya. Liniyadagi vaqt: yaratilgandan hal qilingungacha bo'lgan ish soatlari, mijozni kutish bilan birga; o'rtacha qiymat liniyada bo'lgan murojaatlar bo'yicha. Liniya murojaat tarixidan tiklanadi, shuning uchun avtomatlashtirish qoidasi bilan o'tkazish ham hisobga olingan.",
+        "hint": "Davrning hal qilingan murojaatlari hisoblanadi. Murojaat \"Hal qilindi\" holatiga o'tishdan oldin qaysi liniyada bo'lsa, o'sha liniyada hal qilingan: \"Ishlab chiqishda\" holati ishlab chiqish, birinchi liniya navbati birinchi liniya, ikkinchi liniya va Customer Care navbatlari ikkinchi liniya. Liniyadagi vaqt: yaratilgandan hal qilingungacha bo'lgan ish soatlari, mijozni kutish bilan birga; o'rtacha qiymat liniyada bo'lgan murojaatlar bo'yicha. Liniya murojaat tarixidan tiklanadi, shuning uchun avtomatlashtirish qoidasi bilan o'tkazish ham hisobga olingan. AI-yordamchi liniyasi: murojaat yordamchi olib borgan paytda hal qilingan («Yordam berdi» tugmasi).",
         "names": {
           "first": "Birinchi liniya",
           "second": "Ikkinchi liniya",
-          "development": "Ishlab chiqish"
+          "development": "Ishlab chiqish",
+          "assistant": "AI-yordamchi"
         }
       },
       "breakdown": {
@@ -3077,6 +3078,23 @@
         "missesCount": "So'rovlar",
         "missesNoModule": "Modul tanlanmagan",
         "missesRecent": "Oxirgi so'rovlar"
+      },
+      "assistant": {
+        "title": "AI-yordamchi",
+        "resolved": "Xodimsiz hal qilindi",
+        "resolvedOf": "Yordamchining {handled} ta murojaatidan {resolved} tasi",
+        "firstReply": "Yordamchining birinchi javobi",
+        "seconds": "{value} s",
+        "median": "Mediana {value} s",
+        "csat": "Yordamchi hal qilganlar bahosi",
+        "csatCount": "Baholar: {count}",
+        "reopened": "«Yordam berdi»dan keyin qayta ochildi",
+        "flagged": "Noto'g'ri deb belgilandi",
+        "flaggedOf": "Yechim bilan {answers} ta javobdan {flagged} tasi",
+        "spend": "Oylik AI xarajati",
+        "handoffs": "Sabablar bo'yicha xodimga topshirishlar",
+        "count": "Murojaatlar",
+        "hint": "Davrda yaratilgan va yordamchi olib borgan murojaatlar hisoblanadi. Birinchi javob vaqti soniyalarda, kecha-kunduz: yordamchi istalgan vaqtda javob beradi. Xarajat Toshkent bo'yicha joriy kalendar oyi uchun."
       }
     },
     "solutions": {
@@ -3103,7 +3121,8 @@
         "shown": "Ko'rsatilgan",
         "helped": "Yordam berdi",
         "notHelped": "Yordam bermadi",
-        "updated": "O'zgartirilgan"
+        "updated": "O'zgartirilgan",
+        "assistant": "Yordamchi javoblari"
       },
       "locales": {
         "ru": "Ruscha",

@@ -1,5 +1,5 @@
 import 'server-only';
-import type { StaffContext } from '@/modules/hdc/api';
+import { FRESH_SIGN_IN_SEC, type StaffContext } from '@/modules/hdc/api';
 import { revokeSessionById } from '../core/sessions';
 import { findStaff } from '../core/staff';
 import { logEvent } from '@/lib/log';
@@ -11,6 +11,14 @@ import type { SessionData } from './request';
 
 // Контекст сотрудника и свежесть входа объявлены в общем модуле: их принимают и модули ниже hdu.
 export { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from '@/modules/hdc/api';
+
+/**
+ * Вход недавний: не старше того же окна, что у настроек сотрудников (FRESH_SIGN_IN_SEC, 15 минут).
+ * Им проверяются смена адреса и завершение сессий клиентом (ASVS 7.5, решение 0067).
+ */
+export function isRecentSignIn(sessionCreatedAt: Date, now: Date): boolean {
+  return now.getTime() - sessionCreatedAt.getTime() <= FRESH_SIGN_IN_SEC * 1000;
+}
 
 export type StaffDenial = { denied: 'no_session' | 'not_staff' | 'no_second_factor' | 'expired' };
 

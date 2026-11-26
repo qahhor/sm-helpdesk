@@ -12,6 +12,7 @@ import { HduError } from '../error';
 import { emailInput, tokenInput } from '../input';
 import { hashToken } from '../tokens';
 import type { ClientContext } from './orgs';
+import { isRecentSignIn } from './session';
 import type { SessionData } from './request';
 
 // Подтверждение адреса email и шаг первого входа (FR-ID-07, решение 0016).
@@ -20,14 +21,17 @@ const confirmationInput = z.object({ email: emailInput, locale: z.enum(LOCALES) 
 
 /**
  * Письмо со ссылкой подтверждения адреса. Только для вошедшего клиента: адрес привязывается к нему самому.
+ * Адресом потом входят по ссылке, поэтому нужен вход не старше 15 минут, как у настроек сотрудников
+ * (ASVS 7.5.1; ответ владельца 26.11.2026, решение 0067): иначе stale_session, страница просит войти заново.
  * 5 запросов в час на пользователя. Ответ не ждёт отправки письма.
  */
 export async function requestEmailConfirmation(
   ctx: ClientContext,
   input: unknown,
-): Promise<{ ok: true } | { ok: false; code: 'invalid_input' | 'rate_limited' }> {
+): Promise<{ ok: true } | { ok: false; code: 'invalid_input' | 'rate_limited' | 'stale_session' }> {
   const parsed = confirmationInput.safeParse(input);
   if (!parsed.success) return { ok: false, code: 'invalid_input' };
+  if (!isRecentSignIn(ctx.sessionCreatedAt, new Date())) return { ok: false, code: 'stale_session' };
   const limit = await consumeRateLimit(rateKey('email-confirm:user', ctx.user.id), RATE_RULES.emailConfirmPerUser);
   if (!limit.allowed) return { ok: false, code: 'rate_limited' };
   const { email, locale } = parsed.data;

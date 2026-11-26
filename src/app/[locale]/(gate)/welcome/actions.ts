@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { getPolicyVersion } from '@/modules/hdc/api';
-import { acknowledgePolicyOfRequest, completeWelcome, requestEmailConfirmation, requireClientActor, safeReturnPath } from '@/modules/hdu/api';
+import { acknowledgePolicyOfRequest, completeWelcome, nextRequest, requestEmailConfirmation, requireClientActor, safeReturnPath, signOut } from '@/modules/hdu/api';
 
 const welcomePath = (locale: string, next: string, extra: string) => `/${locale}/welcome?next=${encodeURIComponent(next)}${extra}`;
 
@@ -42,4 +42,12 @@ export async function acknowledgePolicyAction(formData: FormData): Promise<void>
   const policy = await getPolicyVersion();
   if (policy) await acknowledgePolicyOfRequest(client.user.id, policy);
   redirect(next);
+}
+
+/** "Войти заново" при входе старше 15 минут (ASVS 7.5, решение 0067): выход и вход с возвратом на этот шаг. */
+export async function welcomeReauthAction(formData: FormData): Promise<void> {
+  const locale = await getLocale();
+  const next = safeReturnPath(formData.get('next'), `/${locale}`);
+  await signOut(await nextRequest());
+  redirect(`/${locale}/login?reauth=1&next=${encodeURIComponent(welcomePath(locale, next, ''))}`);
 }

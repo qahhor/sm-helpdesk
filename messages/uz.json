@@ -54,7 +54,8 @@
       },
       "revokeOthers": "Boshqa barcha seanslarni yakunlash",
       "othersDone": "Boshqa barcha seanslar yakunlandi.",
-      "hiddenNote": "So'nggi seanslar ko'rsatilgan. Yana {count} ta seans quyidagi tugma bilan boshqalari bilan birga yakunlanadi."
+      "hiddenNote": "So'nggi seanslar ko'rsatilgan. Yana {count} ta seans quyidagi tugma bilan boshqalari bilan birga yakunlanadi.",
+      "stale": "Seanslarni yakunlash uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qaytadan kiring va takrorlang."
     },
     "legal": {
       "privacy": "Ma'lumotlarni qayta ishlash siyosati",
@@ -575,7 +576,8 @@
         "sent": "Xat yubordik. Uni oching va «Manzilni tasdiqlash» tugmasini bosing.",
         "errors": {
           "invalid": "Email manzilini tekshiring.",
-          "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+          "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
+          "stale": "Kirish manzilini ko'rsatish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qaytadan kiring va takrorlang."
         }
       },
       "channels": {
@@ -592,7 +594,8 @@
           "unavailable": "Telegram hozir javob bermayapti. Botni bir necha daqiqadan keyin bog'lab ko'ring."
         },
         "blocked": "Bot Telegramda bloklangan, xabarlar kelmayapti. Botni blokdan chiqaring va Telegramni qayta bog'lang."
-      }
+      },
+      "reauth": "Qayta kirish"
     },
     "footer": {
       "support": "Qo'llab-quvvatlash: <address></address>"
@@ -3362,7 +3365,8 @@
         "serverDown": "Smartup serveri hozir javob bermayapti. Bir necha daqiqadan keyin kiring yoki email orqali havola bilan kiring."
       },
       "botIntro": "Smartupga kirish imkoni yo'qmi? Agar Telegram hisobingizga bog'langan bo'lsa, bot orqali kiring: unda «Kirish» tugmasini bosing.",
-      "botLink": "Smartup Hub botini ochish"
+      "botLink": "Smartup Hub botini ochish",
+      "reauth": "Davom etish uchun qaytadan kiring."
     },
     "gate": {
       "selectOrganization": {
@@ -3422,13 +3426,15 @@
       "continue": "Davom etish",
       "errors": {
         "invalid": "Email manzilini tekshiring.",
-        "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+        "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
+        "stale": "Kirish manzilini ko'rsatish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qaytadan kiring va takrorlang."
       },
       "telegram": "Telegramni bog'lash",
       "policyLine": "Portal ma'lumotlaringiz bilan qanday ishlashi <link>Ma'lumotlarni qayta ishlash siyosati</link> hujjatida yozilgan.",
       "policyTitle": "Ma'lumotlarni qayta ishlash siyosati yangilandi",
       "policyText": "Yangi tahrirni o'qing: <link>Ma'lumotlarni qayta ishlash siyosati</link>.",
-      "policyAcknowledge": "Tushunarli"
+      "policyAcknowledge": "Tushunarli",
+      "reauth": "Qayta kirish"
     },
     "invite": {
       "title": "{orgName} tashkilotiga taklif",

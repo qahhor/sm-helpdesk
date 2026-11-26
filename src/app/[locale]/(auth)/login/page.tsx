@@ -46,6 +46,8 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
         <p className="text-secondary-foreground">{t('intro')}</p>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/* Действие в профиле попросило недавний вход (ASVS 7.5, решение 0067): человек вышел и входит снова. */}
+        {firstParam(params.reauth) === '1' && <Alert tone="info">{t('reauth')}</Alert>}
         {error && (
           <Alert tone="danger">
             {t(

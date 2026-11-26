@@ -54,7 +54,8 @@
       },
       "revokeOthers": "End all other sessions",
       "othersDone": "All other sessions have ended.",
-      "hiddenNote": "Recent sessions are shown. {count, plural, one {# more session ends} other {# more sessions end}} together with the others with the button below."
+      "hiddenNote": "Recent sessions are shown. {count, plural, one {# more session ends} other {# more sessions end}} together with the others with the button below.",
+      "stale": "To end sessions, you need a sign-in within the last 15 minutes. Sign in again and repeat."
     },
     "legal": {
       "privacy": "Data processing policy",
@@ -575,7 +576,8 @@
         "sent": "We have sent an email. Open it and press \"Confirm address\".",
         "errors": {
           "invalid": "Check the email address.",
-          "rateLimited": "Too many requests. Try again in an hour."
+          "rateLimited": "Too many requests. Try again in an hour.",
+          "stale": "To set your sign-in email, you need a sign-in within the last 15 minutes. Sign in again and repeat."
         }
       },
       "channels": {
@@ -592,7 +594,8 @@
           "unavailable": "Telegram is not responding right now. Try linking the bot again in a few minutes."
         },
         "blocked": "The bot is blocked in Telegram, messages do not arrive. Unblock the bot and link Telegram again."
-      }
+      },
+      "reauth": "Sign in again"
     },
     "footer": {
       "support": "Support: <address></address>"
@@ -3362,7 +3365,8 @@
         "serverDown": "The Smartup server is not responding right now. Try again in a few minutes or sign in with an email link."
       },
       "botIntro": "No access to Smartup? If Telegram is linked to your account, sign in through the bot: press \"Sign in\" there.",
-      "botLink": "Open the Smartup Hub bot"
+      "botLink": "Open the Smartup Hub bot",
+      "reauth": "Sign in again to continue."
     },
     "gate": {
       "selectOrganization": {
@@ -3422,13 +3426,15 @@
       "continue": "Continue",
       "errors": {
         "invalid": "Check the email address.",
-        "rateLimited": "Too many requests. Try again in an hour."
+        "rateLimited": "Too many requests. Try again in an hour.",
+        "stale": "To set your sign-in email, you need a sign-in within the last 15 minutes. Sign in again and repeat."
       },
       "telegram": "Link Telegram",
       "policyLine": "How the portal handles your data is described in the <link>Data processing policy</link>.",
       "policyTitle": "The data processing policy was updated",
       "policyText": "Read the new version: <link>Data processing policy</link>.",
-      "policyAcknowledge": "Got it"
+      "policyAcknowledge": "Got it",
+      "reauth": "Sign in again"
     },
     "invite": {
       "title": "Invitation to {orgName}",

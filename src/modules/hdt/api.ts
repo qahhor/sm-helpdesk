@@ -4,6 +4,7 @@ import { consumeRateLimit, rateKey, recordTicketSignature, wakeAutomation } from
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule, loadSlaConfig } from '@/modules/hdr/api';
 import { refreshSlaAfterClient } from './api/jobs';
+import { assistantOnClientReply, startAssistant } from './api/ai';
 import { confirmTx, rateTx, reopenDays, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
 import { createTicketTx, listTicketRows, readTicket, ticketExists } from './core/tickets';
 import { HdtError } from './error';
@@ -186,6 +187,8 @@ export async function createTicket(ctx: ClientActorContext, input: unknown): Pro
     context: hasContext ? { errorCode: context.errorCode, errorText: context.errorText } : null,
     moduleId: data.moduleId ?? null,
   });
+  // Помощник первой линии (план M5b, решение 4): после фиксации, от имени системы.
+  await startAssistant({ ticketId, orgId: ctx.actor.orgId });
   // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации. Событие для правил тоже записано.
   await wakeOutbox();
   await wakeAutomation();
@@ -226,6 +229,7 @@ export async function createWidgetTicket(ctx: ClientActorContext, input: unknown
     context: { errorCode: context.errorCode, errorText: context.errorText },
     moduleId: data.moduleId ?? null,
   });
+  await startAssistant({ ticketId, orgId: ctx.actor.orgId });
   await wakeOutbox();
   await wakeAutomation();
   return { number, ticketId };
@@ -466,7 +470,10 @@ export async function replyToTicket(ctx: ClientActorContext, input: unknown): Pr
   if (ids.length > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
   const limit = await consumeRateLimit(rateKey('ticket-reply:user', ctx.actor.userId), RATE_RULES.ticketReplyPerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
-  await refreshSlaAfterClient(await replyTx(ctx.actor, data.number, data.body, ids));
+  const ticketId = await replyTx(ctx.actor, data.number, data.body, ids);
+  await refreshSlaAfterClient(ticketId);
+  // Помощник включён: отвечает снова, не больше трёх ответов на обращение (план M5b, задача 4; FR-AI-09).
+  await assistantOnClientReply(ticketId);
   await wakeAutomation();
 }
 

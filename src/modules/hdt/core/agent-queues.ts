@@ -4,7 +4,7 @@ import { containsText } from '@/db/contains';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
-import type { Priority, Queue, TicketStatus } from '../pref';
+import { AI_SILENCE_SEC, type Priority, type Queue, type TicketStatus } from '../pref';
 import { savedFilters, type SavedQuery, ticketMessages, tickets } from '../schema';
 import { SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
 import type { Tag } from '@/modules/hdr/api';
@@ -48,6 +48,8 @@ const OPEN = notInArray(tickets.status, ['resolved', 'closed']);
 const dueOn = sql<Date | null>`case when ${tickets.firstRespondedOn} is null then ${tickets.firstResponseDueOn} else ${tickets.resolutionDueOn} end`.mapWith(
   tickets.firstResponseDueOn,
 );
+/** Помощник не отвечает или молчит дольше 90 секунд (решение 5, слой в): условие считается при показе. */
+const AI_NOT_ANSWERING = sql`(${tickets.aiState} <> 'active' or ${tickets.createdOn} < now() - make_interval(secs => ${AI_SILENCE_SEC}))`;
 /** Отложенное до своего времени (решение 13 плана M3). */
 const notSnoozed = or(isNull(tickets.snoozedUntil), lt(tickets.snoozedUntil, sql`now()`)) as SQL;
 
@@ -56,8 +58,10 @@ function queueWhere(queue: QueueKey, me: string): SQL | undefined {
   switch (queue) {
     // Новые первой линии: переданное на вторую ждёт её в своей очереди (решение 0031, пункт 15). Письма с неизвестных
     // адресов ждут привязки в "Неопознанных" (решение 12 вехи M4) и в "Новые" не попадают.
+    // Обращение у помощника первой линии в "Новые" не попадает, пока помощник может ответить: 90 секунд с создания
+    // (план M5b, решение 5, слой в). Молчит дольше: стоит в "Новых", даже если фоновый процесс остановлен совсем.
     case 'new':
-      return and(eq(tickets.status, 'new'), eq(tickets.queue, 'l1'), ne(tickets.orgId, SERVICE_ORG_ID), notSnoozed);
+      return and(eq(tickets.status, 'new'), eq(tickets.queue, 'l1'), ne(tickets.orgId, SERVICE_ORG_ID), notSnoozed, AI_NOT_ANSWERING);
     case 'mine':
       return and(eq(tickets.assigneeId, me), ne(tickets.status, 'closed'));
     case 'l2':

@@ -7,8 +7,10 @@ import { env } from '@/env';
 // Схему и очереди создаёт скрипт миграций (scripts/db/pgboss.mjs): у hub_app нет прав на объекты схемы.
 
 export const JOB_NAMES = [
-  // AI первой линии (веха M5b): пределы расходов раз в 10 минут.
+  // AI первой линии (веха M5b): пределы расходов раз в 10 минут, ответ первой линии, сторожевая проверка.
   'ai.budget',
+  'ai.first_line',
+  'ai.watchdog',
   'attachment.scan',
   'attachment.sweep',
   'automation.process',
@@ -38,8 +40,11 @@ export type JobData = Record<string, string | number | boolean | null>;
 
 export const PGBOSS_SCHEMA = 'pgboss';
 
+/** startAfterSeconds: отложенный старт (сторожевая проверка помощника через 60 секунд, план M5b, решение 5). */
+export type JobOptions = { startAfterSeconds?: number };
+
 export interface JobQueue {
-  send(name: JobName, data: JobData): Promise<void>;
+  send(name: JobName, data: JobData, opts?: JobOptions): Promise<void>;
 }
 
 /**
@@ -63,10 +68,13 @@ export function bossOptions(connectionString: string, role: 'sender' | 'worker')
 /** Очередь поверх запущенного pg-boss. Ключ singletonKey: для одного объекта не больше одной задачи (политики exclusive и stately). */
 export function createPgBossQueue(boss: PgBoss): JobQueue {
   return {
-    async send(name, data) {
+    async send(name, data, opts) {
       // Одна задача на файл или входящее письмо (exclusive); на решение одна ждущая и одна выполняемая (stately, kb.index).
-      const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId, data.ideaId].find((value): value is string => typeof value === 'string');
-      await boss.send(name, data, key ? { singletonKey: key } : {});
+      // Первая линия: одна ждущая и одна выполняемая на обращение (stately, план M5b, решение 5).
+      const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId, data.ideaId, name === 'ai.first_line' ? data.ticketId : undefined].find(
+        (value): value is string => typeof value === 'string',
+      );
+      await boss.send(name, data, { ...(key ? { singletonKey: key } : {}), ...(opts?.startAfterSeconds ? { startAfter: opts.startAfterSeconds } : {}) });
     },
   };
 }
@@ -93,9 +101,9 @@ function portalQueue(): Promise<JobQueue> {
  * Ставит задачу. Ошибка постановки пишется в журнал процесса и не роняет запрос: зависшую загрузку
  * найдёт обход attachment.sweep раз в минуту. В журнал попадают только имя задачи и идентификатор.
  */
-export async function enqueue(name: JobName, data: JobData): Promise<void> {
+export async function enqueue(name: JobName, data: JobData, opts?: JobOptions): Promise<void> {
   try {
-    await (override ?? configured ?? (await portalQueue())).send(name, data);
+    await (override ?? configured ?? (await portalQueue())).send(name, data, opts);
   } catch (error) {
     const id = typeof data.attachmentId === 'string' ? ` ${data.attachmentId}` : '';
     console.error(`Задача ${name}${id} не поставлена: ${error instanceof Error ? error.message : 'ошибка'}`);
@@ -114,9 +122,9 @@ export function setJobQueueForTests(queue: JobQueue | null): void {
 
 /** Очередь в памяти для тестов. */
 export class MemoryJobQueue implements JobQueue {
-  readonly sent: { name: JobName; data: JobData }[] = [];
+  readonly sent: { name: JobName; data: JobData; opts?: JobOptions }[] = [];
 
-  async send(name: JobName, data: JobData): Promise<void> {
-    this.sent.push({ name, data });
+  async send(name: JobName, data: JobData, opts?: JobOptions): Promise<void> {
+    this.sent.push({ name, data, opts });
   }
 }

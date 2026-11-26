@@ -1166,7 +1166,9 @@
             "viewed_by_staff": "Murojaatni xodim ochdi",
             "tag_added": "Murojaatga teg qo'shildi",
             "tag_removed": "Murojaatdan teg olib tashlandi",
-            "csat_reviewed": "Baho tahlili qaydi yozildi"
+            "csat_reviewed": "Baho tahlili qaydi yozildi",
+            "ai_handoff": "AI-yordamchi murojaatni xodimga o'tkazdi",
+            "ai_feedback": "Mijoz AI-yordamchi xabariga javob berdi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi",

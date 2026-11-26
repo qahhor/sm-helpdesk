@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { emitEventTx, readSetting, writeAudit } from '@/modules/hdc/api';
@@ -75,6 +75,8 @@ async function markBreaches(actor: SystemActor, now: Date): Promise<number> {
           isNull(tickets.firstRespondedOn),
           isNull(tickets.firstResponseBreachedOn),
           lt(tickets.firstResponseDueOn, now),
+          // Пока отвечает помощник, нарушение не ставится: передача начнёт срок заново (план M5b, решение 15).
+          ne(tickets.aiState, 'active'),
           notInArray(tickets.status, SETTLED),
         ),
       )

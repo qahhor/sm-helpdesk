@@ -1166,7 +1166,9 @@
             "viewed_by_staff": "Ticket opened by staff",
             "tag_added": "Tag added to a ticket",
             "tag_removed": "Tag removed from a ticket",
-            "csat_reviewed": "Rating review note written"
+            "csat_reviewed": "Rating review note written",
+            "ai_handoff": "The AI assistant handed the request to staff",
+            "ai_feedback": "The client answered the AI assistant's message"
           },
           "attachment": {
             "infected": "Infected file found",

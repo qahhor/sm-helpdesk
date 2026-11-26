@@ -117,6 +117,16 @@ function firstWorkingMoment(from: number, cal: WorkCalendar): number {
   throw new Error('sla: в календаре нет рабочего времени');
 }
 
+/**
+ * Когда начнётся рабочее время, если сейчас нерабочее (план M5b, решение 14: "Сотрудник ответит в понедельник после
+ * 08:00"). Сейчас рабочее время или график круглосуточный: null.
+ */
+export function nextWorkStart(now: Date, cal: Calendar): Date | null {
+  if (cal === '24x7') return null;
+  const at = firstWorkingMoment(now.getTime(), cal);
+  return at > now.getTime() ? new Date(at) : null;
+}
+
 /** Прибавляет рабочие дни: то же время суток через N рабочих дней, вне графика того дня к его концу. */
 export function addWorkingDays(from: Date, days: number, cal: Calendar): Date {
   if (days <= 0) return new Date(from);

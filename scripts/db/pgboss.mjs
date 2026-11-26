@@ -19,6 +19,10 @@ export const QUEUES = {
   'tickets.minute': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Пределы расходов на AI (план M5b, решение 11): следующий запуск через 10 минут догонит, повторов нет.
   'ai.budget': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
+  // Ответ первой линии (план M5b, решение 5): одна ждущая и одна выполняемая на обращение, без повторов: сбой сразу
+  // ведёт к передаче сотруднику. Сторожевая проверка без повторов: минутная проверка по расписанию её страхует.
+  'ai.first_line': { policy: 'stately', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
+  'ai.watchdog': { policy: 'standard', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
   // Отправка очереди писем (веха M4, решение 1): раз в минуту и после действия, повторы ведёт сама очередь писем.
   'outbox.dispatch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Разбор событий предметной области для правил (веха M8, решение 3): раз в минуту и после действия. Повторы

@@ -133,6 +133,9 @@ export const AUDIT_ACTIONS = [
   // Показатели (веха M8): выгрузка CSV и заметка руководителя о разборе низкой оценки.
   'metrics.exported',
   'ticket.csat_reviewed',
+  // AI-помощник (веха M5b): передача сотруднику, кнопки клиента под ответом помощника.
+  'ticket.ai_handoff',
+  'ticket.ai_feedback',
   // Решения (веха M5): публикация, архив, аудитория, возврат версии, отметка "Текст прочитан", заражённое изображение.
   'solution.published',
   'solution.archived',

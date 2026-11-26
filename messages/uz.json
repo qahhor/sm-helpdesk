@@ -309,7 +309,11 @@
           "rated": "Baho uchun rahmat",
           "visibility": "Ko'rinish o'zgartirildi",
           "watched": "Siz murojaatni kuzatyapsiz",
-          "unwatched": "Siz endi murojaatni kuzatmaysiz"
+          "unwatched": "Siz endi murojaatni kuzatmaysiz",
+          "ai_helped": "Yordam berganidan xursandmiz. Murojaat hal qilindi.",
+          "ai_not_helped": "Murojaatni xodimga o'tkazdim.",
+          "ai_need_staff": "Murojaatni xodimga o'tkazdim.",
+          "ai_picked": "Tanlangan yechimni ko'rsatdim."
         },
         "otherOrg": {
           "text": "{number} murojaati {org} tashkilotiga tegishli. Murojaatni ochish uchun unga o'ting.",
@@ -349,7 +353,8 @@
         "upload": "Fayl yuklanmadi. Yana urinib ko'ring",
         "reason": "Nima yoqmaganini tanlang",
         "file_unavailable": "Fayllardan biri endi mavjud emas yoki tekshiruvdan o'tmagan. Uni olib tashlang va qaytadan qo'shing",
-        "merged": "Murojaat boshqasi bilan birlashtirildi: asosiy murojaatda davom etamiz."
+        "merged": "Murojaat boshqasi bilan birlashtirildi: asosiy murojaatda davom etamiz.",
+        "ai_feedback": "Bu amal endi mavjud emas. Sahifani yangilang."
       },
       "system": {
         "autoCloseResolved": "Murojaatni yopdik: yechim {days} ish kuni davomida tasdiqlanmadi. Savol qaytsa, murojaatni qayta oching.",
@@ -631,6 +636,51 @@
         "sorry": "Afsus. Murojaat yarating: birga hal qilamiz.",
         "failed": "Javobni yuborib bo'lmadi. Keyinroq urinib ko'ring."
       }
+    },
+    "tez": {
+      "signature": "Tez · AI-yordamchi",
+      "caption": "Javob AI tomonidan yechimlar bazasi asosida tayyorlandi",
+      "thinking": "Tez yechim qidirmoqda",
+      "thinkingHint": "Odatda bir daqiqadan kam. Sahifa o'zi yangilanadi.",
+      "intro": {
+        "likely_solution": "Sizga bu yechim yordam beradi shekilli.",
+        "exact_error": "Bu o'sha xato. Uni shunday tuzatasiz.",
+        "similar_case": "O'xshash holat allaqachon hal qilingan.",
+        "known_steps": "Ushbu qadamlarni bajarib ko'ring."
+      },
+      "clarify": "Sizning holatingizga qaysi biri yaqin: «{a}» yoki «{b}»?",
+      "pick": "Tanlash: {title}",
+      "openFull": "Yechimni to'liq ochish",
+      "updated": "Yechim yangilandi. Joriy matn ko'rsatildi.",
+      "withdrawn": "Yechim endi amal qilmaydi. \"Xodim kerak\" tugmasini bosing.",
+      "machine": "Yechimning mashina tarjimasi.",
+      "notTranslated": "Yechim hali sizning tilingizda yo'q, boshqa til ko'rsatildi.",
+      "actions": {
+        "label": "Javob yordam berdimi",
+        "helped": "Yordam berdi",
+        "notHelped": "Yordam bermadi",
+        "needStaff": "Xodim kerak"
+      },
+      "handoff": {
+        "title": "Murojaatni xodimga o'tkazdim.",
+        "dueStart": "Xodim {day} soat {time} dan keyin javob beradi.",
+        "due": "Xodim {when} gacha javob beradi.",
+        "questions": "Javobni tezlashtirish uchun yozing:"
+      },
+      "ack": {
+        "title": "Murojaat xodimlarga o'tkazildi.",
+        "dueStart": "{day} soat {time} dan keyin javob beramiz.",
+        "due": "{when} gacha javob beramiz."
+      },
+      "questions": {
+        "version": "Sizda Smartup ning qaysi versiyasi?",
+        "steps": "Xatodan oldin nima qildingiz?",
+        "since_when": "Bu qachondan beri sodir bo'lmoqda?",
+        "screenshot": "Xato bilan ekran rasmini biriktiring.",
+        "period_filters": "Qaysi davr va qaysi saralashlarni tanladingiz?",
+        "other_user": "Boshqa foydalanuvchida ham shundaymi?"
+      },
+      "formHint": "Birinchi bo'lib AI-yordamchi javob beradi. Xodimni istalgan vaqtda chaqirish mumkin."
     }
   },
   "agent": {

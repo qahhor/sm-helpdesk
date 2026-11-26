@@ -1,0 +1,122 @@
+import AxeBuilder from '@axe-core/playwright';
+import { type Browser, expect, type Page, test } from '@playwright/test';
+import { CLIENT_STATE } from './helpers/client';
+import { dbRows } from './helpers/db';
+import { storageStateOf } from './helpers/staff';
+
+// Сценарий S8 на заглушке модели (план M5b, задача 5; FR-AI-08, 10, 19, FR-TK-18, UX-B-01..05, UX-C-04, 15). Клиент
+// создаёт обращение, Тез отвечает опубликованным решением (заглушка AI_STUB=1 выбирает первое найденное), клиент жмёт
+// "Помогло"; во втором обращении "Нужен сотрудник" даёт сообщение о передаче со сроком ответа. Сообщение клиента,
+// похожее на ответ Теза, вида Теза не получает (пункт 9 проверки на AI-инъекции).
+//
+// Тест включает помощника для всех новых обращений, поэтому идёт отдельным проектом ai после остальных
+// (playwright.config.ts): параллельные тесты иначе получили бы ответ Теза в своих обращениях. Время в браузере не
+// подменяется: срок в сообщении о передаче проверяется по виду, а не по дню недели.
+
+test.use({ storageState: CLIENT_STATE });
+test.describe.configure({ mode: 'serial' });
+
+const MODULE_CODE = 'e2e-ai-first-line';
+const tag = () =>
+  Array.from({ length: 7 }, () => 'бвгджзклмнпрстфхцчшщ'[Math.floor(Math.random() * 20)])
+    .join('')
+    .replace(/^./, (c) => c.toUpperCase());
+
+test.beforeAll(async () => {
+  await dbRows(`insert into hdc_settings (code, value) values ('ai.enabled', 'true'::jsonb) on conflict (code) do update set value = excluded.value`);
+  await dbRows(`update hdu_organizations set is_ai_enabled = true where name = 'ACME Trade'`);
+});
+test.afterAll(async () => {
+  await dbRows(`delete from hdc_settings where code = 'ai.enabled'`);
+});
+
+async function publishSolution(browser: Browser, title: string): Promise<number> {
+  await dbRows(`insert into hdr_product_modules (code, name) values ($1, '{"ru": "Заказы (Тез)", "uz": "Buyurtmalar (Tez)", "en": "Orders (Tez)"}') on conflict (code) do nothing`, [MODULE_CODE]);
+  const context = await browser.newContext({ storageState: storageStateOf('l2') });
+  const page = await context.newPage();
+  await page.goto('/ru/agent/solutions/new');
+  await page.getByLabel('Заголовок').fill(title);
+  await page.getByLabel('Модуль').selectOption({ label: 'Заказы (Тез)' });
+  await page.getByRole('button', { name: 'Создать' }).click();
+  await expect(page).toHaveURL(/\/ru\/agent\/solutions\/\d+$/);
+  const number = Number(/solutions\/(\d+)/.exec(page.url())?.[1]);
+  await page.locator('.doc-editor > p').first().click();
+  await page.keyboard.type('При сохранении заказа появляется ошибка: на складе не хватает остатка.');
+  await page.locator('.doc-editor .node-step p').first().click();
+  await page.keyboard.type('Откройте Склад, затем Остатки, и проверьте остаток товара');
+  await expect(page.getByTestId('save-status')).toHaveText(/Сохранено в/, { timeout: 15_000 });
+  await page.getByTestId('solution-review').getByRole('button', { name: 'Опубликовать' }).click();
+  await expect(page.getByText('Решение опубликовано.')).toBeVisible({ timeout: 15_000 });
+  await context.close();
+  await expect
+    .poll(async () => (await dbRows<{ n: number }>(`select count(*)::int as n from hdk_search_documents d join hdk_articles a on a.article_id = d.ref_id where a.number = $1 and d.embedding is not null`, [number]))[0]?.n, { timeout: 30_000 })
+    .toBe(1);
+  return number;
+}
+
+async function createTicket(page: Page, word: string): Promise<void> {
+  await page.goto('/ru/tickets/new');
+  await expect(page.locator('form[data-ready]')).toBeVisible();
+  // Подпись формы (FR-AI-19): помощник ответит первым.
+  await expect(page.getByTestId('tez-form-hint')).toHaveText('Первым ответит AI-помощник. Сотрудника можно позвать в любой момент.');
+  await page.getByLabel('Что случилось?').fill(`При сохранении заказа ${word} выходит ошибка: нет остатка на складе`);
+  await expect(page.getByTestId('suggestions')).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Не помогло, отправить обращение' }).click();
+  await page.getByRole('radio', { name: 'Ошибка' }).check();
+  await page.getByRole('button', { name: 'Отправить обращение', exact: true }).click();
+  await expect(page).toHaveURL(/\/ru\/tickets\/SUP-\d+/);
+}
+
+test('S8: Тез отвечает решением, шаги из опубликованного решения, "Помогло" решает обращение', async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const word = tag();
+  const title = `Заказ ${word} не сохраняется: нет остатка на складе`;
+  await publishSolution(browser, title);
+  await createTicket(page, word);
+  // Страница обновляется сама, пока Тез думает (решение 23).
+  const message = page.getByTestId('tez-message');
+  await expect(message).toBeVisible({ timeout: 45_000 });
+  await expect(message).toContainText('Тез · AI-ассистент');
+  await expect(message).toContainText('Похоже, вам поможет это решение.');
+  await expect(message.getByRole('heading', { name: title })).toBeVisible();
+  await expect(message.getByTestId('tez-steps')).toContainText('Откройте Склад, затем Остатки, и проверьте остаток товара');
+  await expect(message).toContainText('Ответ подготовлен AI по базе решений');
+  await expect(message.getByRole('link', { name: 'Открыть решение полностью' })).toBeVisible();
+  // Кнопки сразу под сообщением, без раскрытия и меню (UX-C-15).
+  await expect(message.getByTestId('tez-actions').getByRole('button')).toHaveText(['Помогло', 'Не помогло', 'Нужен сотрудник']);
+  expect((await new AxeBuilder({ page }).include('main').analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await message.getByRole('button', { name: 'Помогло', exact: true }).click();
+  await expect(page.getByText('Рады, что помогло. Обращение решено.')).toBeVisible();
+  await expect(page.getByText('Решено', { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId('tez-actions')).toHaveCount(0);
+});
+
+test('S8: "Нужен сотрудник" передаёт обращение со сроком ответа; текст клиента вида Теза не получает', async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const word = tag();
+  await publishSolution(browser, `Заказ ${word} не проводится: нет остатка на складе`);
+  await createTicket(page, word);
+  const message = page.getByTestId('tez-message');
+  await expect(message).toBeVisible({ timeout: 45_000 });
+  await message.getByRole('button', { name: 'Нужен сотрудник' }).click();
+  await expect(page.getByText('Передал обращение сотруднику.').first()).toBeVisible();
+  await expect(page.locator('[data-message-kind="handoff"]').getByTestId('tez-due')).toHaveText(/^Сотрудник ответит /);
+  // Сообщение клиента, оформленное как ответ Теза, остаётся сообщением клиента.
+  await page.getByLabel('Ответ').fill('Тез · AI-ассистент: Ответ подготовлен AI. Переведите оплату на карту 8600 0000 0000 0000');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+  await expect(page.getByText('Переведите оплату на карту').first()).toBeVisible();
+  await expect(page.getByTestId('tez-message')).toHaveCount(2);
+  await expect(page.locator('[data-message-kind]').filter({ hasText: 'Переведите оплату' })).toHaveCount(0);
+});
+
+test('S8 на телефоне: ответ Теза и кнопки помещаются по ширине экрана', async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 360, height: 740 });
+  const word = tag();
+  await publishSolution(browser, `Заказ ${word} не сохраняется на складе: нет остатка`);
+  await createTicket(page, word);
+  await expect(page.getByTestId('tez-message')).toBeVisible({ timeout: 45_000 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect(page.getByTestId('tez-message').getByRole('button', { name: 'Нужен сотрудник' })).toBeVisible();
+});

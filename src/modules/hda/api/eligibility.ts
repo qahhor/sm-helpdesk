@@ -1,5 +1,5 @@
 import 'server-only';
-import type { SystemActor } from '@/db/with-actor';
+import type { ClientActor, SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { activeCutoffTx, monthSpendTx } from '../core/runs';
@@ -24,4 +24,12 @@ export async function triageEligible(system: SystemActor, input: { orgId: string
   if (!config.triageEnabled) return false;
   const profile = await orgAiProfile(system, { orgId: input.orgId, userIds: [] });
   return profile?.isAiEnabled === true;
+}
+
+/**
+ * Ответит ли помощник первым на новое обращение клиента (FR-AI-19): подпись формы нового обращения. Организация
+ * берётся из актора клиента, проверка идёт от имени системы.
+ */
+export async function assistantAnswersFirst(ctx: { actor: ClientActor }): Promise<boolean> {
+  return assistantEligible({ type: 'system', job: 'ai.hint' }, { orgId: ctx.actor.orgId });
 }

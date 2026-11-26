@@ -97,10 +97,14 @@ export default defineConfig({
     {
       name: 'phone',
       dependencies: ['setup'],
+      testIgnore: /ai-first-line\.spec\.ts$/,
       use: { browserName: 'chromium', viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true },
     },
-    { name: 'desktop', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
-    { name: 'narrow', dependencies: ['setup'], use: { browserName: 'chromium', viewport: { width: 1100, height: 800 } } },
+    { name: 'desktop', dependencies: ['setup'], testIgnore: /ai-first-line\.spec\.ts$/, use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
+    { name: 'narrow', dependencies: ['setup'], testIgnore: /ai-first-line\.spec\.ts$/, use: { browserName: 'chromium', viewport: { width: 1100, height: 800 } } },
+    // Помощник первой линии (план M5b, задача 5): тест включает помощника для всех новых обращений, поэтому идёт после
+    // остальных проектов. Отдельно: pnpm test:e2e --project=ai --no-deps.
+    { name: 'ai', dependencies: ['phone', 'desktop', 'narrow'], testMatch: /ai-first-line\.spec\.ts$/, use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
     // WebKit (движок Safari) только для виджета на странице хозяина (план M6, задача 9): сторонний iframe без кук
     // третьей стороны. Только в CI или с PW_WEBKIT=1: браузер ставит pnpm exec playwright install webkit (решение 0060).
     ...(process.env.CI || process.env.PW_WEBKIT

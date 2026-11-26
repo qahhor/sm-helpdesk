@@ -309,7 +309,11 @@
           "rated": "Thank you for the rating",
           "visibility": "Visibility changed",
           "watched": "You are following the request",
-          "unwatched": "You no longer follow the request"
+          "unwatched": "You no longer follow the request",
+          "ai_helped": "Glad it helped. The request is resolved.",
+          "ai_not_helped": "I passed your request to staff.",
+          "ai_need_staff": "I passed your request to staff.",
+          "ai_picked": "Here is the chosen solution."
         },
         "otherOrg": {
           "text": "Request {number} belongs to {org}. Switch to it to open the request.",
@@ -349,7 +353,8 @@
         "upload": "The file did not upload. Try again",
         "reason": "Choose what went wrong",
         "file_unavailable": "One of the files is no longer available or failed the check. Remove it and attach it again",
-        "merged": "This request was merged with another one: we will continue in the main request."
+        "merged": "This request was merged with another one: we will continue in the main request.",
+        "ai_feedback": "This action is no longer available. Refresh the page."
       },
       "system": {
         "autoCloseResolved": "We closed this request: the solution was not confirmed for {days, plural, one {# working day} other {# working days}}. If the issue returns, reopen the request.",
@@ -631,6 +636,51 @@
         "sorry": "Sorry about that. Create a request and we will sort it out together.",
         "failed": "Could not send your answer. Try later."
       }
+    },
+    "tez": {
+      "signature": "Tez · AI assistant",
+      "caption": "Answer prepared by AI from the solution base",
+      "thinking": "Tez is looking for a solution",
+      "thinkingHint": "Usually under a minute. The page refreshes by itself.",
+      "intro": {
+        "likely_solution": "This solution will likely help.",
+        "exact_error": "This is the same error. Here is how to fix it.",
+        "similar_case": "A similar case was solved before.",
+        "known_steps": "Try these steps."
+      },
+      "clarify": "Which is closer to your case: «{a}» or «{b}»?",
+      "pick": "Choose: {title}",
+      "openFull": "Open the full solution",
+      "updated": "The solution was updated. The current text is shown.",
+      "withdrawn": "This solution is no longer valid. Press \"Need staff\".",
+      "machine": "Machine translation of the solution.",
+      "notTranslated": "The solution is not in your language yet, another language is shown.",
+      "actions": {
+        "label": "Did the answer help",
+        "helped": "Helped",
+        "notHelped": "Did not help",
+        "needStaff": "Need staff"
+      },
+      "handoff": {
+        "title": "I passed your request to staff.",
+        "dueStart": "Staff will answer {day} after {time}.",
+        "due": "Staff will answer by {when}.",
+        "questions": "To speed up the answer, please write:"
+      },
+      "ack": {
+        "title": "Your request is passed to staff.",
+        "dueStart": "We will answer {day} after {time}.",
+        "due": "We will answer by {when}."
+      },
+      "questions": {
+        "version": "Which version of Smartup do you use?",
+        "steps": "What did you do before the error?",
+        "since_when": "Since when does this happen?",
+        "screenshot": "Attach a screenshot of the error.",
+        "period_filters": "Which period and filters did you choose?",
+        "other_user": "Does another user see the same?"
+      },
+      "formHint": "The AI assistant answers first. You can call staff at any time."
     }
   },
   "agent": {

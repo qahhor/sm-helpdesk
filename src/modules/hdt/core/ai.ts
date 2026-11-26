@@ -218,3 +218,34 @@ export async function silentAssistantTx(tx: Tx, now: Date, limit: number): Promi
      limit ${limit}`);
   return rows.rows.map((r) => r.ticket_id);
 }
+
+/** Последнее сообщение помощника в обращении и состояние обращения: проверка нажатия кнопки клиентом. */
+export async function lastAiMessageTx(tx: Tx, ticketId: string): Promise<{ messageId: string; payload: AiPayload } | null> {
+  const [m] = await tx
+    .select({ messageId: ticketMessages.messageId, payload: ticketMessages.aiPayload })
+    .from(ticketMessages)
+    .where(and(eq(ticketMessages.ticketId, ticketId), eq(ticketMessages.authorType, 'ai')))
+    .orderBy(sql`${ticketMessages.createdOn} desc`, sql`${ticketMessages.messageId} desc`)
+    .limit(1);
+  return m?.payload ? { messageId: m.messageId, payload: m.payload } : null;
+}
+
+/** Нажатие клиента под ответом помощника: внутреннее событие истории и журнал аудита (FR-TK-18). */
+export async function aiFeedbackEventTx(tx: Tx, input: { ticketId: string; orgId: string; userId: string; choice: string }): Promise<void> {
+  await tx.insert(ticketEvents).values({ orgId: input.orgId, ticketId: input.ticketId, kind: 'ai_feedback', actorType: 'client', actorId: input.userId, payload: { choice: input.choice }, isInternal: true });
+  await writeAudit(tx, { action: 'ticket.ai_feedback', objectType: 'ticket', objectId: input.ticketId, orgId: input.orgId, diff: { choice: input.choice } });
+}
+
+/**
+ * "Помогло" (FR-AI-10): "Ждём вашего ответа" переходит в "Решено", помощник в resolved_by_ai, итог "Решено" с
+ * выбранным решением. Решено только нажатием клиента: помощник сам обращение не закрывает.
+ */
+export async function aiResolveTx(tx: Tx, input: { ticketId: string; articleId: string; userId: string; now: Date }): Promise<void> {
+  const t = await lockAi(tx, input.ticketId);
+  if (t.aiState !== 'active' || !canTransition(t.status, 'resolved')) throw new HdtError('transition_refused');
+  const diff = { from: t.status, to: 'resolved' };
+  await tx.insert(ticketEvents).values({ orgId: t.orgId, ticketId: t.ticketId, kind: 'status', actorType: 'client', actorId: input.userId, payload: diff });
+  await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: t.ticketId, orgId: t.orgId, diff });
+  await emitEventTx(tx, { orgId: t.orgId, ticketId: t.ticketId, kind: 'status_changed', payload: diff });
+  await refreshSla(tx, t.ticketId, input.now, { status: 'resolved', aiState: 'resolved_by_ai', resolvedOn: input.now, resolutionType: 'solved', solutionId: input.articleId });
+}

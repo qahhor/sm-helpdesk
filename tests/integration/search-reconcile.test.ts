@@ -74,6 +74,12 @@ test('21 откат за час и три проверки здоровья бе
   await codes();
   await codes();
   expect(await codes()).toEqual([{ code: 'search_unavailable', count: 0 }]);
+  // Открытый выключатель не пишет счётчик на каждый поиск: его уже сосчитали сбои, которые его открыли.
+  await pools.root.query(`delete from hdc_rate_limits`);
+  setSearchForTests(stub);
+  stub.failWith('breaker_open');
+  for (let i = 0; i < 25; i++) await searchAs(staff, 'tickets', [spec], { timeoutMs: 10 });
+  expect((await pools.root.query(`select count(*)::int as n from hdc_rate_limits`)).rows[0].n).toBe(0);
   // Отключённый поиск откатом не считается.
   setSearchForTests(null);
   for (let i = 0; i < 25; i++) await searchAs(staff, 'tickets', [spec], { timeoutMs: 10 });

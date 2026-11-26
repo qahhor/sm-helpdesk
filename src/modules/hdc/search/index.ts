@@ -90,6 +90,9 @@ export async function searchAs(
   const started = performance.now();
   const result = await reader.searchIds(scopeFor(actor, purpose, keys), searches, opts);
   if (result.kind === 'fallback') {
+    // Открытый выключатель уже сосчитан сбоями, которые его открыли: ни записи счётчика в базу, ни строки журнала на
+    // каждый поиск (иначе откат стоил бы лишней транзакции, решение 14: "не больше прежнего плюс 2 мс").
+    if (result.reason === 'breaker_open') return result;
     logEvent('warn', 'search.fallback', { collection: searches[0]?.collection ?? purpose, reason: result.reason, ms: Math.round(performance.now() - started) });
     await count(FALLBACK_COUNTER);
   }

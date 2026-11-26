@@ -16,6 +16,11 @@ import { clientCtx, staffCtx } from '../integration/helpers/auth';
 import { captureQueries } from '../integration/helpers/bulk';
 import { type Fixture, seedTwoOrgs } from '../integration/isolation/fixture';
 import { seedPilot } from './pilot-seed';
+import { createBreaker } from '@/modules/hdc/search/breaker';
+import { createTypesenseReader } from '@/modules/hdc/search/typesense';
+import { reindexCollection, SEARCH_COLLECTIONS, setSearchForTests, setSearchKeysForTests } from '@/modules/hdc/api';
+import { registerSearch } from '@/worker/search';
+import { liveSearch, typesenseSkip } from '../integration/helpers/search';
 
 // Замер перед пилотом (план M9-prep, задача 4, решения 7 и 8): миллион обращений в 1000 организаций, 95% закрыты;
 // 10 тысяч идей и 500 тысяч голосов; 1000 решений. Время функций, которые вызывают страницы, целиком (запросы и код)
@@ -83,6 +88,56 @@ async function measure(name: string, { limit, alarm }: Threshold, fn: () => Prom
   row.pass = row.p95 <= limit && (alarm === undefined || row.p95Parallel <= alarm) && row.queries <= 25;
   rows.push(row);
   console.log(`${name}: p50 ${row.p50.toFixed(1)} мс, p95 ${row.p95.toFixed(1)} мс, p95 при ${PARALLEL} одновременных ${row.p95Parallel.toFixed(1)} мс, запросов ${row.queries}, порог ${limit} мс`);
+}
+
+/**
+ * Строки замера Typesense (план W6, задача 10, решение 13): полная переиндексация набора (время и память из
+ * /metrics.json), "Все" с текстом до 50 мс, поиск клиента до 300 мс, похожие идеи до 150 мс, подсказка 50 в секунду до
+ * 500 мс; затем Typesense недоступен при открытом выключателе: не хуже пути PostgreSQL плюс 2 мс.
+ */
+async function typesenseRows(fx: Fixture, client: Awaited<ReturnType<typeof clientCtx>>, l1: ReturnType<typeof staffCtx>, contexts: Awaited<ReturnType<typeof clientCtx>>[], pgSuggestP95: number) {
+  registerSearch();
+  const live = await liveSearch();
+  const system = { type: 'system' as const, job: 'perf' };
+  const started = performance.now();
+  const sizes: string[] = [];
+  for (const collection of SEARCH_COLLECTIONS) sizes.push(`${collection} ${(await reindexCollection(system, live.writer, collection, { audit: false })).documents}`);
+  const memory = await live.writer.memory();
+  console.log(`Typesense: переиндексация ${((performance.now() - started) / 1000).toFixed(0)} с, документов: ${sizes.join(', ')}; память Typesense ${memory ? Math.round(memory.usedBytes / 1048576) : '?'} МБ`);
+  setSearchForTests(live.reader, live.writer);
+  setSearchKeysForTests({ client: live.keys.clientSearch, staff: live.keys.staffSearch });
+  try {
+    const pg = new Map(rows.map((r) => [r.name, r.p95]));
+    await measure('Typesense: очередь all, поиск по тексту', QUEUE, () => listQueue(l1, { queue: 'all', sort: 'updated', q: 'обращение 4242', page: 1 }));
+    await measure('Typesense: клиент, поиск по тексту', CLIENT, () => listTickets(client, { q: 'нагрузочное обращение 42' }));
+    await measure('Typesense: похожие идеи', { limit: 150 }, () => similarIdeas(client, { text: 'хотим выгрузку заказов в Excel по дате', locale: 'ru' }));
+    await measure('Typesense: поиск организаций', STAFF, () => searchOrganizations(l1, { query: 'организация 42' }));
+    const latencies: number[] = [];
+    const startAt = performance.now();
+    await Promise.all(
+      Array.from({ length: 1000 }, async (_, i) => {
+        await new Promise((resolve) => setTimeout(resolve, Math.max(0, startAt + i * 20 - performance.now())));
+        const t0 = performance.now();
+        await suggestForClient(contexts[i % contexts.length]!, { text: `${QUERIES[i % QUERIES.length]} ${i % 13}`, sessionId: randomUUID(), locale: i % 3 === 0 ? 'uz' : 'ru' });
+        latencies.push(performance.now() - t0);
+      }),
+    );
+    latencies.sort((a, b) => a - b);
+    const p95 = percentile(latencies, 95);
+    rows.push({ name: 'Typesense: подсказка, 50 в секунду', limit: 500, p50: percentile(latencies, 50), p95, p95Parallel: p95, queries: 0, pass: p95 <= 500 });
+    // Typesense недоступен: после 5 сбоев выключатель открыт, поиск сразу идёт путём PostgreSQL.
+    // Настоящий клиент на закрытый порт: первые 5 сбоев открывают выключатель, дальше вызовов нет.
+    setSearchForTests(createTypesenseReader({ url: 'http://127.0.0.1:9', breaker: createBreaker() }), live.writer);
+    for (let i = 0; i < 6; i++) await listQueue(l1, { queue: 'all', sort: 'updated', q: 'обращение 4242', page: 1 });
+    const fallbackLimit = (name: string) => ({ limit: (pg.get(name) ?? 0) + 2 });
+    await measure('Откат: очередь all, поиск по тексту', fallbackLimit('Сотрудник: очередь all, поиск по тексту'), () => listQueue(l1, { queue: 'all', sort: 'updated', q: 'обращение 4242', page: 1 }));
+    await measure('Откат: клиент, поиск по тексту', fallbackLimit('Клиент: поиск по тексту в своей организации'), () => listTickets(client, { q: 'нагрузочное обращение 42' }));
+    void pgSuggestP95;
+    void fx;
+  } finally {
+    setSearchForTests(null);
+    setSearchKeysForTests(null);
+  }
 }
 
 const QUERIES = [
@@ -162,6 +217,9 @@ test('пилот: p95 страниц и запросов на миллионе �
   const suggest = { name: `Подсказка, 50 в секунду (${(total / elapsed).toFixed(1)} в секунду)`, limit: 500, p50: percentile(latencies, 50), p95: percentile(latencies, 95), p95Parallel: percentile(latencies, 95), queries: 0, pass: false };
   suggest.pass = suggest.p95 <= 500;
   rows.push(suggest);
+
+  // --- Поиск на Typesense (план W6, задача 10): тот же набор, индекс строит search:reindex ---
+  if (typesenseSkip === null && process.env.PERF_TYPESENSE !== '0') await typesenseRows(f, client, l1, contexts, suggest.p95);
 
   console.log('\n| Что | p50, мс | p95, мс | p95 при 8 одновременных, мс | Запросов | Цель p95 / тревога, мс | Итог |\n|---|---|---|---|---|---|---|');
   for (const r of rows) console.log(`| ${r.name} | ${r.p50.toFixed(1)} | ${r.p95.toFixed(1)} | ${r.p95Parallel.toFixed(1)} | ${r.queries || ''} | ${r.limit} / ${r.alarm ?? 'нет'} | ${r.pass ? 'держится' : 'НЕ держится'} |`);

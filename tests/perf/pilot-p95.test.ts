@@ -39,15 +39,19 @@ afterAll(() => {
 
 const percentile = (sorted: number[], p: number) => sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)]!;
 
-/** Цель p95 по одному вызову и сигнал тревоги аудита (раздел 4.3), с которым сравнивается p95 восьми одновременных. */
-type Threshold = { limit: number; alarm: number };
+/**
+ * Цель p95 по одному вызову и сигнал тревоги аудита (раздел 4.3), с которым сравнивается p95 восьми одновременных
+ * вызывающих. Где сигнала тревоги в аудите и ТЗ нет (показатели, похожие идеи), восемь одновременных только пишутся.
+ */
+type Threshold = { limit: number; alarm?: number };
 const CLIENT: Threshold = { limit: 300, alarm: 600 };
 const STAFF: Threshold = { limit: 400, alarm: 800 };
 const QUEUE: Threshold = { limit: 50, alarm: 200 };
-// У страницы показателей сигнала тревоги в ТЗ и аудите нет: вдвое выше порога решения 7.
-const METRICS: Threshold = { limit: 2000, alarm: 4000 };
+const METRICS: Threshold = { limit: 2000 };
+// Похожие идеи ищутся тем же гибридным запросом, что подсказка, пока клиент печатает: порог FR-SOL-14.
+const SIMILAR: Threshold = { limit: 500 };
 
-type Row = { name: string; limit: number; alarm: number; p50: number; p95: number; p95Parallel: number; queries: number; pass: boolean };
+type Row = { name: string; limit: number; alarm?: number; p50: number; p95: number; p95Parallel: number; queries: number; pass: boolean };
 const rows: Row[] = [];
 
 /** Прогрев, 40 вызовов по одному, 40 вызовов восемью потоками, число запросов к базе за один вызов. */
@@ -74,9 +78,9 @@ async function measure(name: string, { limit, alarm }: Threshold, fn: () => Prom
   const { queries } = await captureQueries(fn);
   sequential.sort((a, b) => a - b);
   parallel.sort((a, b) => a - b);
-  const row = { name, limit, alarm, p50: percentile(sequential, 50), p95: percentile(sequential, 95), p95Parallel: percentile(parallel, 95), queries: queries.length, pass: false };
+  const row: Row = { name, limit, ...(alarm === undefined ? {} : { alarm }), p50: percentile(sequential, 50), p95: percentile(sequential, 95), p95Parallel: percentile(parallel, 95), queries: queries.length, pass: false };
   // Цель держится по одному вызову; восемь одновременных (машина с 4 ядрами) не выше сигнала тревоги.
-  row.pass = row.p95 <= limit && row.p95Parallel <= alarm && row.queries <= 25;
+  row.pass = row.p95 <= limit && (alarm === undefined || row.p95Parallel <= alarm) && row.queries <= 25;
   rows.push(row);
   console.log(`${name}: p50 ${row.p50.toFixed(1)} мс, p95 ${row.p95.toFixed(1)} мс, p95 при ${PARALLEL} одновременных ${row.p95Parallel.toFixed(1)} мс, запросов ${row.queries}, порог ${limit} мс`);
 }
@@ -114,7 +118,7 @@ test('пилот: p95 страниц и запросов на миллионе �
     await ideaPage(client, { number: Number(idea.number), locale: 'uz' });
     await listComments(client.actor, { number: Number(idea.number) });
   });
-  await measure('Клиент: похожие идеи', CLIENT, () => similarIdeas(client, { text: 'хотим выгрузку заказов в Excel по дате', locale: 'ru' }));
+  await measure('Клиент: похожие идеи', SIMILAR, () => similarIdeas(client, { text: 'хотим выгрузку заказов в Excel по дате', locale: 'ru' }));
 
   // --- Рабочее место: запрос очереди до 50 мс, страница до 400 мс ---
   await measure('Сотрудник: боковая панель очередей', QUEUE, () => queueSidebar(l1));
@@ -155,11 +159,11 @@ test('пилот: p95 страниц и запросов на миллионе �
   );
   const elapsed = (performance.now() - startAt) / 1000;
   latencies.sort((a, b) => a - b);
-  const suggest = { name: `Подсказка, 50 в секунду (${(total / elapsed).toFixed(1)} в секунду)`, limit: 500, alarm: 500, p50: percentile(latencies, 50), p95: percentile(latencies, 95), p95Parallel: percentile(latencies, 95), queries: 0, pass: false };
+  const suggest = { name: `Подсказка, 50 в секунду (${(total / elapsed).toFixed(1)} в секунду)`, limit: 500, p50: percentile(latencies, 50), p95: percentile(latencies, 95), p95Parallel: percentile(latencies, 95), queries: 0, pass: false };
   suggest.pass = suggest.p95 <= 500;
   rows.push(suggest);
 
   console.log('\n| Что | p50, мс | p95, мс | p95 при 8 одновременных, мс | Запросов | Цель p95 / тревога, мс | Итог |\n|---|---|---|---|---|---|---|');
-  for (const r of rows) console.log(`| ${r.name} | ${r.p50.toFixed(1)} | ${r.p95.toFixed(1)} | ${r.p95Parallel.toFixed(1)} | ${r.queries || ''} | ${r.limit} / ${r.alarm} | ${r.pass ? 'держится' : 'НЕ держится'} |`);
+  for (const r of rows) console.log(`| ${r.name} | ${r.p50.toFixed(1)} | ${r.p95.toFixed(1)} | ${r.p95Parallel.toFixed(1)} | ${r.queries || ''} | ${r.limit} / ${r.alarm ?? 'нет'} | ${r.pass ? 'держится' : 'НЕ держится'} |`);
   expect(rows.filter((r) => !r.pass).map((r) => r.name)).toEqual([]);
 }, 3_600_000);

@@ -136,16 +136,21 @@ export function addWorkingDays(from: Date, days: number, cal: Calendar): Date {
   return new Date(inside ? toInstant(date, local.minutes, cal.timeZone) + local.seconds * 1000 : toInstant(date, hours[1], cal.timeZone));
 }
 
-/** Сколько рабочих минут прошло между двумя моментами. Нужно для паузы. */
-export function workingMinutesBetween(a: Date, b: Date, cal: Calendar): number {
+/**
+ * Сколько рабочих минут прошло между двумя моментами. Нужно для паузы. cap: счёт останавливается на этом числе минут
+ * и возвращает его (тому, кто сравнивает с пределом, не нужно проходить календарь за годы; замер подготовки M9).
+ */
+export function workingMinutesBetween(a: Date, b: Date, cal: Calendar, cap: number = Number.POSITIVE_INFINITY): number {
   const from = a.getTime();
   const to = b.getTime();
   if (to <= from) return 0;
-  if (cal === '24x7') return Math.floor((to - from) / MINUTE);
+  if (cal === '24x7') return Math.min(cap, Math.floor((to - from) / MINUTE));
+  const limit = cap * MINUTE;
   let total = 0;
   for (const [start, end] of intervalsFrom(from, cal)) {
     if (start >= to) break;
     total += Math.max(0, Math.min(end, to) - Math.max(start, from));
+    if (total >= limit) return cap;
   }
   return Math.floor(total / MINUTE);
 }

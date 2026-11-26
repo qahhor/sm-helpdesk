@@ -30,7 +30,11 @@ function seedFile(patch: (file: Record<string, unknown> & { [key: string]: never
   ];
   // По умолчанию per_user: значение из кода совпадает с файлом примера, и записывать нечего. Здесь другое значение.
   file.settings = { ideasVoteMode: 'per_org' };
-  file.sla = { policies: [{ priority: 'p1', firstResponseMinutes: 20, resolutionMinutes: 300, clock: '24x7' }] };
+  file.sla = {
+    policies: [{ priority: 'p1', firstResponseMinutes: 20, resolutionMinutes: 300, clock: '24x7' }],
+    // График отличается от графика по умолчанию: первый запуск его записывает, второй ничего не меняет.
+    calendar: { timeZone: 'Asia/Tashkent', week: { 0: null, 1: ['09:00', '18:00'], 2: ['09:00', '18:00'], 3: ['09:00', '18:00'], 4: ['09:00', '18:00'], 5: ['09:00', '17:00'], 6: null } },
+  };
   patch(file as never);
   const path = join(dir, `seed-${Math.random().toString(36).slice(2)}.json`);
   writeFileSync(path, JSON.stringify(file, null, 2));
@@ -196,4 +200,20 @@ test('черновик из файла не создаётся второй ра
   const result = await seed(path);
   expect(result.lines.join('\n')).toMatch(/Решения \(черновики\): создано 0, уже есть 1/);
   expect((await pools.root.query(`select count(*)::int as n from hdk_article_versions where title = 'Остатки на складе не обновились после документа'`)).rows).toEqual([{ n: 1 }]);
+});
+
+test('невидимые знаки в тексте: база хранит очищенный текст, повторный запуск ничего не меняет (проверка M9, M2)', async () => {
+  const path = seedFile((file) => {
+    const templates = file.templates as unknown as { title: string; body: { ru: string } }[];
+    templates[0]!.title = 'Запросить\u200b версию';
+    templates[0]!.body.ru = `${templates[0]!.body.ru}\u2060`;
+    (file.playbooks as unknown as { body: string }[])[0]!.body = 'Версия\u200b Smartup';
+    (file.tags as unknown as { name: string }[])[0]!.name = 'Пи\u200bлот';
+  });
+  expect((await seed(path)).code).toBe(0);
+  const after = await snapshot();
+  expect(after.templates.find((t) => t.shortcut === 'version')?.title).toBe('Запросить версию');
+  const second = await seed(path);
+  expect(second.lines.at(-1)).toBe('Изменений нет: база уже совпадает с файлом.');
+  expect(await snapshot()).toEqual(after);
 });

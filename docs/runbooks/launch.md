@@ -435,3 +435,9 @@
 - [ ] `pnpm install`, затем `pnpm dev:up`: создаёт `.env` со случайными паролями, поднимает PostgreSQL, роли, миграции и запускает приложение на `http://localhost:3000/ru`.
 - [ ] Вход клиента: `pnpm dev:oidc` в соседнем окне (ложные серверы Smartup). Вход сотрудника: `pnpm hub staff:create --email you@smartup.example --name "Имя" --role admin`.
 - [ ] Подробности и команды: `README.md`.
+
+## Журнал сухих прогонов памятки
+
+| Дата | Где | Что выполнено | Итог |
+|---|---|---|---|
+| 26.11.2026 | Машина разработки, PostgreSQL 18 (pgvector, `pg_stat_statements`) во временном контейнере, собранные `dist/hub.mjs`, `dist/worker.mjs` и портал из `pnpm build` вместо образа, `NODE_ENV=production`, `HUB_URL=http://localhost:3300` | Шаг 8: `docker compose -f compose.prod.yaml config -q` с пустыми файлами окружения и `HUB_IMAGE`, `HUB_DOMAIN` (проходит, службы с профилями `tools` и `replica`: postgres, web, web2, caddy, clamav, migrate, tei, tei-download, worker, bootstrap). Шаг 9: `bootstrap` дважды (повтор безопасен, роли `hub_owner`, `hub_app`, `hub_auth`, `hub_hdi_counter`), `migrate` дважды ("Применено миграций: 86", затем "База актуальна"). Шаг 10: `hub staff:create` (ссылка напечатана), `hub seed:pilot` с `docs/pilot/seed.example.json`: сухой прогон, запись, повтор ("Изменений нет: база уже совпадает с файлом", предустановленные правила на месте). Шаг 9, проверки: `/api/health` 200, `/api/ready` 200 `{"status":"ready","checks":{"db":"ok"}}`, `/api/ready/worker` 200; фоновый процесс остановлен в 09:54:52, `/api/ready/worker` ответил 503 в 09:57:52 (3 минуты), `/api/ready` всё время 200 | Шаги памятки верны. Не выполнялось здесь: сборка образа Docker и запуск через `hubc` (вместо них собранные файлы на машине), Caddy и сертификат, ClamAV, TEI, R2, Resend, Telegram. Администратор для `seed:pilot` заведён строкой в базе вместо входа по ссылке со вторым фактором (шаг 10 требует человека с телефоном) |

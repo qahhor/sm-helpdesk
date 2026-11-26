@@ -18,6 +18,8 @@ import {
   splitMinutes,
 } from '@/modules/hdt/api';
 import { getKnowledgeMetrics, type KnowledgeMetrics } from '@/modules/hdk/api/metrics';
+import { canSeeSuggestMisses, type MissSummary, suggestMisses } from '@/modules/hdk/api/misses';
+import { listActiveModules } from '@/modules/hdr/api';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
@@ -71,6 +73,8 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
     view = await getMetrics(staff, {});
   }
   const knowledge: KnowledgeMetrics = await getKnowledgeMetrics(staff, { from: view.period.from, to: view.period.to });
+  // Что клиенты ищут и не находят (план W6, решение 17): администратор и роли публикации решений.
+  const misses: MissSummary | null = canSeeSuggestMisses(staff) ? await suggestMisses(staff) : null;
   const t = await getTranslations('agent');
   const format = await getFormatter();
   const locale = await getLocale();
@@ -78,6 +82,7 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
   const periodQuery = period.preset === 'custom' ? `period=custom&from=${period.fromDay}&to=${period.toDay}` : `period=${period.preset}`;
   const canBreakdown = canSeeBreakdown(staff);
   const canReview = canReviewCsat(staff);
+  const moduleNames = misses ? new Map((await listActiveModules(staff.actor, locale)).map((m) => [m.moduleId, m.name])) : new Map<string, string>();
   // Пусто, когда в периоде нет ни созданных, ни завершённых обращений: завершённые считаются и без созданных.
   const empty = overview.created === 0 && overview.finished === 0;
   const orgPages = pagesOf(firstParam(query.orgPages));
@@ -541,6 +546,54 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
           </table>
         )}
       </Card>
+
+      {misses && (
+        <Card className="overflow-x-auto" data-block="suggest-misses">
+          <CardHeader>
+            <h2 className="text-base font-semibold">{t('metrics.knowledge.missesTitle')}</h2>
+            <p className="text-sm text-muted-foreground">{t('metrics.knowledge.missesHint')}</p>
+          </CardHeader>
+          {misses.recent.length === 0 ? (
+            <CardContent>
+              <p className="text-sm text-secondary-foreground">{t('metrics.knowledge.missesEmpty')}</p>
+            </CardContent>
+          ) : (
+            <>
+              <table className="w-full text-sm">
+                <caption className="sr-only">{t('metrics.knowledge.missesWeek')}</caption>
+                <thead>
+                  <tr className="border-b border-border">
+                    <th scope="col" className={head}>{t('metrics.knowledge.missesModule')}</th>
+                    <th scope="col" className={head}>{t('metrics.knowledge.missesLocale')}</th>
+                    <th scope="col" className={head}>{t('metrics.knowledge.missesCount')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {misses.byModule.map((row) => (
+                    <tr key={`${row.moduleId ?? 'none'}-${row.locale}`} className="border-b border-border last:border-b-0">
+                      <th scope="row" className={`${cell} text-start font-medium`}>
+                        {row.moduleId ? (moduleNames.get(row.moduleId) ?? t('metrics.breakdown.unknown')) : t('metrics.knowledge.missesNoModule')}
+                      </th>
+                      <td className={cell}>{row.locale}</td>
+                      <td className={numeric}>{format.number(row.count)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <CardContent className="pt-4">
+                <h3 className="text-sm font-semibold">{t('metrics.knowledge.missesRecent')}</h3>
+                <ul className="mt-2 flex flex-col gap-1 text-sm">
+                  {misses.recent.map((row, index) => (
+                    <li key={index} className="wrap-anywhere">
+                      <span className="text-muted-foreground">{format.dateTime(row.on, { dateStyle: 'short' })} {row.locale}:</span> {row.text}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </>
+          )}
+        </Card>
+      )}
     </>
   );
 }

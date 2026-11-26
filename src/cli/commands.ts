@@ -9,7 +9,8 @@ import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
-import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, issueSearchKeys, markBackup } from '@/modules/hdc/api';
+import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, getSearchWriter, issueSearchKeys, markBackup, prepareSearchIndex, reindexCollection, SEARCH_COLLECTIONS, type SearchCollection, searchQueueState, SearchWriteError } from '@/modules/hdc/api';
+import { registerSearch } from '@/worker/search';
 import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
 import { type CorpusEntry, groupCorpus, parseCorpus } from '@/modules/hdk/api/signatures';
@@ -114,6 +115,14 @@ const HELP = `Использование: hub <команда> [ключи]
       адрес из TYPESENSE_URL. Ключи печатаются один раз. --rotate: прежние ключи портала удаляются, ключи с
       областью от них перестают действовать сразу.
 
+  search:reindex [--collection <коллекция>]
+      Построить индекс поиска заново (план W6, решение 12): новая версия коллекции пачками, переключение
+      псевдонима, сверка. Без ключа все коллекции. Коллекции: tickets, ticket_texts, solutions, ideas, orgs, people.
+      Нужны SEARCH_PROVIDER=typesense, TYPESENSE_URL и TYPESENSE_WRITE_KEY (запуск в контейнере worker).
+
+  search:status
+      Состояние поиска: документы каждой коллекции, очередь записи, память Typesense.
+
   --help
       Эта справка.`;
 
@@ -154,6 +163,8 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
   'signatures:test': { options: { dir: { type: 'string' } }, required: [] },
   'search:keys': { options: { rotate: { type: 'boolean' } }, required: [] },
+  'search:reindex': { options: { collection: { type: 'string' } }, required: [] },
+  'search:status': { options: {}, required: [] },
   'seed:pilot': { options: { file: { type: 'string' }, admin: { type: 'string' }, 'dry-run': { type: 'boolean' } }, required: ['file', 'admin'] },
 };
 
@@ -384,6 +395,40 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         if (keys.removed > 0) io.out(`Прежних ключей удалено: ${keys.removed}. Перезапустите web и worker с новыми ключами.`);
         return 0;
       }
+      case 'search:reindex': {
+        const collection = values.collection as string | undefined;
+        if (collection !== undefined && !(SEARCH_COLLECTIONS as readonly string[]).includes(collection)) throw new UsageError(`Коллекция: ${SEARCH_COLLECTIONS.join(', ')}.`);
+        const writer = getSearchWriter(io.env);
+        if (!writer) throw new UsageError('Поиск на Typesense не включён: задайте SEARCH_PROVIDER=typesense, TYPESENSE_URL и TYPESENSE_WRITE_KEY.');
+        registerSearch();
+        // Коллекции и все настройки поиска (синонимы, словарь, курирование). При переиндексации одной коллекции смена
+        // словаря перестраивает решения и идеи сразу; без ключа их строит цикл ниже.
+        await prepareSearchIndex(ACTOR, writer, { reindexOnStems: collection !== undefined });
+        for (const name of collection ? [collection as SearchCollection] : SEARCH_COLLECTIONS) {
+          const result = await reindexCollection(ACTOR, writer, name);
+          io.out(`${name}: построена ${result.name}, документов ${result.documents}.`);
+        }
+        return 0;
+      }
+      case 'search:status': {
+        const writer = getSearchWriter(io.env);
+        const queue = await searchQueueState(ACTOR);
+        io.out(`Очередь записи: ждут ${queue.pending}, самая старая ${queue.lagSec} с, после пяти сбоев ${queue.dropped}.`);
+        if (!writer) {
+          io.out('Поиск идёт через PostgreSQL (SEARCH_PROVIDER не typesense).');
+          return 0;
+        }
+        io.out(`Typesense: ${(await writer.health()) ? 'отвечает' : 'не отвечает'}.`);
+        const collections = await writer.listCollections();
+        for (const name of SEARCH_COLLECTIONS) {
+          const target = await writer.aliasTarget(name);
+          const info = collections.find((c) => c.name === target);
+          io.out(`${name}: ${target ?? 'нет коллекции'}, документов ${info?.numDocuments ?? 0}.`);
+        }
+        const memory = await writer.memory();
+        if (memory) io.out(`Память: занято ${Math.round(memory.usedBytes / 1048576)} МБ из ${Math.round(memory.totalBytes / 1048576)} МБ сервера.`);
+        return 0;
+      }
       case 'ops:backup-mark': {
         const kind = text('kind');
         if (!(BACKUP_KINDS as readonly string[]).includes(kind)) throw new UsageError(`Вид копии: ${BACKUP_KINDS.join(' или ')}.`);
@@ -484,6 +529,11 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
     }
     if (isHduError(error)) {
       io.err(ERROR_TEXT[error.code] ?? `Ошибка: ${error.code}`);
+      return 1;
+    }
+    // Сбой Typesense: только код (адрес и ключ в вывод не идут).
+    if (error instanceof SearchWriteError) {
+      io.err(`Typesense не выполнил запрос: ${error.code}. Проверьте службу typesense и ключ записи.`);
       return 1;
     }
     // Подробности ошибки базы в вывод не идут: в них могут быть значения параметров.

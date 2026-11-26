@@ -6,6 +6,7 @@ import { findInText, type FindingKind } from '@/modules/hdk/api/text-checks';
 import { findOrgIds, orgSummaries } from '@/modules/hdu/api/staff-lookup';
 import { devTaskOfIdeaTx } from '@/modules/hdw/api/idea-links';
 import type { DevTaskStatus, DevTrackerKind } from '@/modules/hdw/pref';
+import { ideaTextIds } from '../core/text-search';
 import { staffDetailTx, type StaffIdeaRow, staffListTx, type StaffText, votesByOrgTx } from '../core/staff';
 import { HdiError } from '../error';
 import { ideaNumber, parseInput } from '../input';
@@ -41,12 +42,14 @@ export async function staffIdeaList(ctx: StaffContext, input: unknown): Promise<
     if (data.orgId) orgIds = [data.orgId];
     else if (data.org?.trim()) orgIds = await findOrgIds(ctx, data.org.trim());
   }
+  const q = data.tab === 'all' ? data.q?.trim() || null : null;
+  const textIds = q ? await ideaTextIds(ctx.actor, q) : null;
   const page = await withActor(ctx.actor, (tx) =>
     staffListTx(
       tx,
       data.tab === 'moderation'
         ? { tab: 'moderation' }
-        : { tab: 'all', status: data.status ?? null, moduleId: data.moduleId ?? null, orgIds, q: data.q?.trim() || null, after: data.after ?? null },
+        : { tab: 'all', status: data.status ?? null, moduleId: data.moduleId ?? null, orgIds, q, after: data.after ?? null, textIds },
     ),
   );
   const orgs = await orgSummaries(ctx, [...new Set(page.rows.map((row) => row.orgId))]);

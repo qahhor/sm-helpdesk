@@ -5,6 +5,7 @@ import { withActor } from '@/db/with-actor';
 import type { Locale } from '@/i18n/locales';
 import { logEvent } from '@/lib/log';
 import { hybridIdeaSearchTx, type IdeaSearchHit } from '../core/search';
+import { typesenseWords } from '../core/word-search';
 import { embeddingText, type IdeaIndexText, removeIdeaIndexTx, syncIdeaIndexTx, writeEmbeddingTx } from '../core/search-index';
 import { EmbeddingUnavailableError, getEmbedder } from '../embeddings';
 import { INDEX_EMBED_TIMEOUT_MS } from './search-jobs';
@@ -49,7 +50,10 @@ export async function searchIdeaDocuments(actor: ClientActor | StaffActor, input
   const words = input.text.match(/[\p{L}\p{N}]{2,}/gu)?.length ?? 0;
   if (words < 2) return [];
   const vector = await queryVector(input.text);
-  const hits = await withActor(actor, (tx) => hybridIdeaSearchTx(tx, { text: input.text, vector, locales: localeChain(input.locale) }));
+  const locales = localeChain(input.locale);
+  // Слова из Typesense (план W6, задача 7): опечатки и другая письменность; не ответил, прежние списки SQL.
+  const tsWords = await typesenseWords(actor, 'ideas', input.text, locales);
+  const hits = await withActor(actor, (tx) => hybridIdeaSearchTx(tx, { text: input.text, vector, locales, ...(tsWords ? { words: tsWords } : {}) }));
   const best = new Map<string, IdeaSearchHit>();
   for (const hit of hits) {
     const prev = best.get(hit.ideaId);

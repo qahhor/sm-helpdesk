@@ -19,6 +19,7 @@ import {
   thanksRowsTx,
 } from '../core/agent-queues';
 import { markReadTx, readAgentTicketTx } from '../core/agent-ticket';
+import { staffTextSearch } from '../core/text-search';
 import { timelineLimit } from '../core/timeline';
 import { assertCanWrite, assignTx, setModuleTx, setPriorityTx, setStatusTx, setTypeTx, snoozeTx, takeTx } from '../core/agent-actions';
 import { HdtError, isHdtError } from '../error';
@@ -56,20 +57,26 @@ export type QueueRow = {
 };
 
 /** Строка поиска: номер и текст как у клиента, плюс организации по названию и ИНН и авторы по имени и адресу. */
-async function searchOf(ctx: StaffContext, q: string | undefined): Promise<QueueSearch | 'too_short' | undefined> {
+async function searchOf(ctx: StaffContext, q: string | undefined): Promise<(QueueSearch & { truncated: boolean }) | 'too_short' | undefined> {
   if (!q) return undefined;
   const parsed = parseSearch(q);
   // Текст короче трёх знаков не ищется (аудит 23.11.2026, находка P9): ни по обращениям, ни по организациям и людям.
   if (parsed.tooShort) return 'too_short';
-  const [orgIds, authorIds] = parsed.text ? await Promise.all([findOrgIds(ctx, parsed.text), findUserIds(ctx, parsed.text)]) : [[], []];
-  return { number: parsed.number, text: parsed.text, orgIds, authorIds };
+  // Текст ищет Typesense (план W6, задача 5): опечатки, свёртка письменности, переписка и заметки. Не ответил: прежний путь.
+  const [orgIds, authorIds, found] = parsed.text
+    ? await Promise.all([findOrgIds(ctx, parsed.text), findUserIds(ctx, parsed.text), staffTextSearch(ctx.actor, parsed.text)])
+    : [[], [], null];
+  return { number: parsed.number, text: parsed.text, ...(found ? { textIds: found.ids } : {}), orgIds, authorIds, truncated: found?.truncated ?? false };
 }
 
 /** Очередь (FR-AG-01), по умолчанию по ближайшему сроку; поиск (FR-AG-10); по 50 строк. */
-export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ items: QueueRow[]; hasMore: boolean; nextCursor: string | null; searchTooShort: boolean }> {
+export async function listQueue(
+  ctx: StaffContext,
+  input: unknown,
+): Promise<{ items: QueueRow[]; hasMore: boolean; nextCursor: string | null; searchTooShort: boolean; searchTruncated: boolean }> {
   const data = parseInput(queueInput, input ?? {});
   const search = await searchOf(ctx, data.q);
-  if (search === 'too_short') return { items: [], hasMore: false, nextCursor: null, searchTooShort: true };
+  if (search === 'too_short') return { items: [], hasMore: false, nextCursor: null, searchTooShort: true, searchTruncated: false };
   // Ключ листания есть только у сортировки по последнему изменению: по ней листают очередь "Все", где страниц
   // тысячи. Очереди открытых обращений ограничены их числом, там остаётся номер страницы (решение 0040, пункт 5).
   const keyed = data.sort === 'updated';
@@ -115,6 +122,8 @@ export async function listQueue(ctx: StaffContext, input: unknown): Promise<{ it
     hasMore: rows.length > QUEUE_PAGE_SIZE,
     nextCursor: keyed && rows.length > QUEUE_PAGE_SIZE && page.at(-1) ? `${page.at(-1)?.modifiedKey}_${page.at(-1)?.ticketId}` : null,
     searchTooShort: false,
+    // Typesense нашёл больше 250: показаны лучшие совпадения (решение 4).
+    searchTruncated: search?.truncated ?? false,
   };
 }
 

@@ -826,6 +826,10 @@
         "knowledge": {
           "title": "Solutions",
           "text": "Domains that solutions may link to."
+        },
+        "search": {
+          "title": "Search",
+          "text": "Synonyms, the Uzbek dictionary and pinned solutions in suggestions."
         }
       },
       "servers": {
@@ -1992,6 +1996,41 @@
           "saved": "AI call limit saved.",
           "invalid": "Enter a whole number from 0 to 10,000."
         }
+      },
+      "search": {
+        "title": "Search",
+        "intro": "These sets apply to typo-tolerant search: in the workspace, in solution suggestions and on the ideas board. Changes reach search within a few seconds. Lines starting with # are ignored.",
+        "reauth": "Sign in again",
+        "errors": {
+          "line": "Section \"{section}\", line {line}: the line does not follow the example. Nothing was saved.",
+          "stale_session": "Sign in again to change settings.",
+          "forbidden": "Only an administrator can change this setting.",
+          "invalid_input": "The text is too long. Nothing was saved."
+        },
+        "synonyms": {
+          "title": "Synonyms",
+          "intro": "One set per line. Words separated by commas find each other: склад, ombor, warehouse. With an arrow => the query on the left finds the words on the right, but not the other way round. Up to 300 sets of 20 words.",
+          "label": "Synonym sets",
+          "example": "склад, ombor, warehouse\nнакладная => yuk xati, invoice",
+          "save": "Save synonyms",
+          "saved": "Synonyms saved."
+        },
+        "stems": {
+          "title": "Uzbek dictionary",
+          "intro": "Word forms and their stem: word = stem, one pair per line. Searching by the stem finds every listed form. Up to 2000 pairs. After saving, solutions and ideas are reindexed, which takes up to a minute.",
+          "label": "Pairs word = stem",
+          "example": "to'lovlar = to'lov\nhisobotlar = hisobot",
+          "save": "Save dictionary",
+          "saved": "Dictionary saved."
+        },
+        "curation": {
+          "title": "Pinned solutions",
+          "intro": "Query | solution number | position from 1 to 10. If a client's query contains these words, the solution is shown at that position. An internal solution is never shown to clients, here too. Up to 200 rules.",
+          "label": "Pinning rules",
+          "example": "накладная | 1042 | 1",
+          "save": "Save rules",
+          "saved": "Pinning rules saved."
+        }
       }
     },
     "queues": {
@@ -2132,7 +2171,8 @@
       },
       "tag": "Tag",
       "anyTag": "All tags",
-      "byTag": "Show tickets tagged {name}"
+      "byTag": "Show tickets tagged {name}",
+      "searchTruncated": "Showing the best matches. Refine the search to find the rest."
     },
     "ticket": {
       "files": "Files",
@@ -2799,7 +2839,16 @@
         "noCode": "no code",
         "noSample": "no text",
         "create": "Create a solution",
-        "empty": "No solution suggestions were shown in this period."
+        "empty": "No solution suggestions were shown in this period.",
+        "missesTitle": "What clients search for and do not find",
+        "missesHint": "The last suggestion query on the request form that found no solutions, for 7 days. Phones, addresses and numbers are hidden. Texts are kept for 90 days.",
+        "missesEmpty": "No such queries in recent days.",
+        "missesWeek": "Queries without solutions for 7 days by module and language",
+        "missesModule": "Module",
+        "missesLocale": "Language",
+        "missesCount": "Queries",
+        "missesNoModule": "No module selected",
+        "missesRecent": "Recent queries"
       }
     },
     "solutions": {
@@ -3651,7 +3700,11 @@
       "automation_dropped": "Smartup Hub: {count} automation events were not processed within an hour. Their rules and notifications did not run, an on-call message about a P1 request may be among them. Check the background process log.",
       "automation_lag": "Smartup Hub: automation events have not been processed for {minutes} min, waiting: {count}. Rules and notifications are late, an on-call message about a P1 request may be among them. Check the background process log.",
       "builtin_rule_inactive": "Smartup Hub: built-in notifications are not working, rules: {count} ({rules}). A rule is turned off or broken: on-call messages about P1, notices to the lead about a missed deadline or a low rating are not sent. Check the automation rules in settings.",
-      "backup_stale": "Smartup Hub: database backups are out of date ({kinds}), kinds: {count}. dump: no nightly backup for more than 26 hours, base: no base backup for more than 8 days, wal: the database log has not been archived for more than 26 hours. Check the backup scripts log on the server."
+      "backup_stale": "Smartup Hub: database backups are out of date ({kinds}), kinds: {count}. dump: no nightly backup for more than 26 hours, base: no base backup for more than 8 days, wal: the database log has not been archived for more than 26 hours. Check the backup scripts log on the server.",
+      "search_unavailable": "Smartup Hub: Typesense search is not responding, fallbacks to PostgreSQL in the last hour: {count}. Search works without typo tolerance and synonyms.",
+      "search_lag": "Smartup Hub: the search index has not been updated for {minutes} min, items waiting: {count}.",
+      "search_drift": "Smartup Hub: the search index check found {count} differences (collections: {collections}). Missing items will be written again.",
+      "search_isolation": "Smartup Hub: search returned another organization's ids to a client, the database check dropped them: {count} in the last hour. Check the search key filter."
     }
   },
   "dev": {

@@ -28,7 +28,7 @@ test('клиент: организация из актора, обязатель
   expect(scope.collections).toEqual(['tickets']);
   const params = embedded(scope.value);
   expect(params).toEqual({
-    filter_by: `org_id:=${client.orgId}`,
+    filter_by: `org_id:=${client.orgId} && (visibility:=org || author_id:=${client.userId})`,
     include_fields: 'id',
     highlight_fields: 'none',
     use_cache: false,
@@ -38,6 +38,10 @@ test('клиент: организация из актора, обязатель
   expect(SCOPED_KEY_TTL_SEC).toBe(60);
   // Подписан ключом клиента, а не сотрудника.
   expect(Buffer.from(scope.value, 'base64').toString('utf8').slice(44, 48)).toBe(keys.client.slice(0, 4));
+});
+
+test('администратор клиента видит и личные обращения своей организации, как в политике RLS', () => {
+  expect(embedded(scopeFor({ ...client, orgRole: 'client_admin' }, 'tickets', keys, now).value).filter_by).toBe(`org_id:=${client.orgId}`);
 });
 
 test('решения: клиенту только clients, сотруднику clients и internal', () => {

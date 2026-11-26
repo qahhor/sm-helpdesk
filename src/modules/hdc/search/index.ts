@@ -90,6 +90,9 @@ export async function searchAs(
   const started = performance.now();
   const result = await reader.searchIds(scopeFor(actor, purpose, keys), searches, opts);
   if (result.kind === 'fallback') {
+    // Открытый выключатель уже сосчитан сбоями, которые его открыли: ни записи счётчика в базу, ни строки журнала на
+    // каждый поиск (иначе откат стоил бы лишней транзакции, решение 14: "не больше прежнего плюс 2 мс").
+    if (result.reason === 'breaker_open') return result;
     logEvent('warn', 'search.fallback', { collection: searches[0]?.collection ?? purpose, reason: result.reason, ms: Math.round(performance.now() - started) });
     await count(FALLBACK_COUNTER);
   }
@@ -120,6 +123,7 @@ export async function searchCounters(actor: SystemActor = SYSTEM, now: Date = ne
 export { foldText } from './fold';
 export { HIDDEN_IDEA_STATUSES, isScopedKey, scopeFor } from './scoped-key';
 export { createStubSearch, type StubSearch } from './stub';
-export { COLLECTION_SCHEMAS, localeField, localizedFields, TEXT_LIMITS } from './collections';
+export { COLLECTION_SCHEMAS, localeField, localizedFields, STOPWORD_SETS, TEXT_LIMITS } from './collections';
 export { filterValues } from './typesense';
+export { FOLD_WEIGHT, mergeRanked, type RankedList, RRF_K, SEARCH_TIMEOUT_MS } from './rank';
 export * from './types';

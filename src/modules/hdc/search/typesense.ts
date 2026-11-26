@@ -1,7 +1,7 @@
 import 'server-only';
 import * as z from 'zod';
 import { type Breaker, createBreaker } from './breaker';
-import { COLLECTION_SCHEMAS, CURATION_SET, SYNONYM_SET, UZ_STEMS } from './collections';
+import { COLLECTION_SCHEMAS, CURATION_SET, STOPWORD_SETS, STOPWORDS, SYNONYM_SET, UZ_STEMS } from './collections';
 import { foldText } from './fold';
 import { isScopedKey } from './scoped-key';
 import {
@@ -233,6 +233,7 @@ export function createTypesenseWriter(cfg: { url: string; key: string; fetch?: t
         await call('POST', `/stemming/dictionaries/import?id=${UZ_STEMS}`, { ndjson: JSON.stringify({ word: 'hubhub', root: 'hubhub' }) });
       if ((await call('GET', `/synonym_sets/${SYNONYM_SET}`, { allow404: true })).status === 404) await call('PUT', `/synonym_sets/${SYNONYM_SET}`, { body: { items: [] } });
       if ((await call('GET', `/curation_sets/${CURATION_SET}`, { allow404: true })).status === 404) await call('PUT', `/curation_sets/${CURATION_SET}`, { body: { items: [] } });
+      await call('PUT', `/stopwords/${STOPWORD_SETS}`, { body: { stopwords: Object.values(STOPWORDS).flat(), locale: 'ru' } });
       const existing = new Set((await this.listCollections()).map((c) => c.name));
       for (const collection of SEARCH_COLLECTIONS) {
         if (await this.aliasTarget(collection)) continue;
@@ -260,13 +261,13 @@ export function createTypesenseWriter(cfg: { url: string; key: string; fetch?: t
     async removeWhere(collection, filterBy) {
       await call('DELETE', `/collections/${aliasOf(collection)}/documents?${new URLSearchParams({ filter_by: filterBy })}`);
     },
-    async exportVersions(collection) {
-      const { text } = await call('GET', `/collections/${aliasOf(collection)}/documents/export?include_fields=id,version`, { timeoutMs: IMPORT_TIMEOUT_MS });
-      const out = new Map<string, number>();
+    async exportDocs(collection) {
+      const { text } = await call('GET', `/collections/${aliasOf(collection)}/documents/export?include_fields=id,version,content_hash`, { timeoutMs: IMPORT_TIMEOUT_MS });
+      const out = new Map<string, { version: number; hash: string | null }>();
       for (const line of text.split('\n')) {
         if (!line.trim()) continue;
-        const row = json(line) as { id?: unknown; version?: unknown };
-        if (typeof row.id === 'string') out.set(row.id, typeof row.version === 'number' ? row.version : 0);
+        const row = json(line) as { id?: unknown; version?: unknown; content_hash?: unknown };
+        if (typeof row.id === 'string') out.set(row.id, { version: typeof row.version === 'number' ? row.version : 0, hash: typeof row.content_hash === 'string' ? row.content_hash : null });
       }
       return out;
     },
@@ -284,6 +285,13 @@ export function createTypesenseWriter(cfg: { url: string; key: string; fetch?: t
       await call('DELETE', `/stemming/dictionaries/${UZ_STEMS}`, { allow404: true });
       const lines = (pairs.length > 0 ? pairs : [{ word: 'hubhub', root: 'hubhub' }]).map((pair) => JSON.stringify(pair)).join('\n');
       await call('POST', `/stemming/dictionaries/import?id=${UZ_STEMS}`, { ndjson: lines });
+    },
+    async readStems() {
+      const res = await call('GET', `/stemming/dictionaries/${UZ_STEMS}`, { allow404: true });
+      if (res.status === 404) return [];
+      const parsed = z.object({ words: z.array(z.object({ word: z.string(), root: z.string() })) }).safeParse(json(res.text));
+      if (!parsed.success) throw new SearchWriteError('invalid_response');
+      return parsed.data.words.filter((pair) => pair.word !== 'hubhub');
     },
     async listCollections(): Promise<CollectionInfo[]> {
       const parsed = z.array(z.object({ name: z.string(), num_documents: z.number(), created_at: z.number() }).passthrough()).safeParse(json((await call('GET', '/collections')).text));

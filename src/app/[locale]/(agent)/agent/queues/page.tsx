@@ -139,6 +139,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
             <Button type="submit">{t('queues.show')}</Button>
           </form>
 
+          {list.searchTruncated && <Alert tone="info">{t('queues.searchTruncated')}</Alert>}
           {list.items.length === 0 ? (
             <Card>
               <EmptyState title={t('queues.emptyTitle')} text={list.searchTooShort ? t('queues.searchTooShort') : q || tag ? t('queues.emptySearch') : t('queues.emptyText')} />

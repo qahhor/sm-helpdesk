@@ -11,7 +11,8 @@ const baseURL = `http://localhost:${PORT}`;
 export const MAIL_DIR = resolve('test-results/mail');
 /** Секрет вебхука почты браузерных тестов: whsec_ и 24 байта в base64. */
 export const E2E_WEBHOOK_SECRET = `whsec_${Buffer.alloc(24, 7).toString('base64')}`;
-const E2E_DB = 'hub_e2e';
+// Имя базы задаёт E2E_DB_NAME: параллельные рабочие копии одной машины не делят журнал миграций.
+const E2E_DB = process.env.E2E_DB_NAME || 'hub_e2e';
 /** Тот же адрес подключения, другая база. */
 const withDatabase = (url: string, db: string): string => {
   const parsed = new URL(url);

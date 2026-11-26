@@ -826,6 +826,10 @@
         "knowledge": {
           "title": "Yechimlar",
           "text": "Yechimlar havola qila oladigan domenlar."
+        },
+        "search": {
+          "title": "Qidiruv",
+          "text": "Sinonimlar, o'zbek tili lug'ati va maslahatdagi yechimlarni mahkamlash."
         }
       },
       "servers": {
@@ -1992,6 +1996,41 @@
           "saved": "AI chaqiruvlari chegarasi saqlandi.",
           "invalid": "0 dan 10 000 gacha butun son kiriting."
         }
+      },
+      "search": {
+        "title": "Qidiruv",
+        "intro": "Bu to'plamlar xatoga chidamli qidiruvda ishlaydi: ish joyida, yechimlar maslahatida va g'oyalar taxtasida. O'zgarishlar bir necha soniyada qidiruvga yetadi. # bilan boshlangan qator hisobga olinmaydi.",
+        "reauth": "Qaytadan kirish",
+        "errors": {
+          "line": "\"{section}\" bo'limi, {line}-qator: qator namunadagidek yozilmagan. Hech narsa saqlanmadi.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun qaytadan kiring.",
+          "forbidden": "Sozlamani faqat administrator o'zgartiradi.",
+          "invalid_input": "Matn juda uzun. Hech narsa saqlanmadi."
+        },
+        "synonyms": {
+          "title": "Sinonimlar",
+          "intro": "Har qatorda bitta to'plam. Vergul bilan yozilgan so'zlar bir-birini topadi: склад, ombor, warehouse. => belgisi bilan chapdagi so'rov o'ngdagi so'zlarni topadi, teskarisi emas. 300 tagacha to'plam, har birida 20 tagacha so'z.",
+          "label": "Sinonimlar to'plamlari",
+          "example": "склад, ombor, warehouse\nнакладная => yuk xati, invoice",
+          "save": "Sinonimlarni saqlash",
+          "saved": "Sinonimlar saqlandi."
+        },
+        "stems": {
+          "title": "O'zbek tili lug'ati",
+          "intro": "So'z shakllari va ularning asosi: so'z = asos, har qatorda bitta juft. Asos bo'yicha qidiruv yozilgan barcha shakllarni topadi. 2000 tagacha juft. Saqlangandan keyin yechimlar va g'oyalar qayta indekslanadi, bu bir daqiqagacha davom etadi.",
+          "label": "So'z = asos juftlari",
+          "example": "to'lovlar = to'lov\nhisobotlar = hisobot",
+          "save": "Lug'atni saqlash",
+          "saved": "Lug'at saqlandi."
+        },
+        "curation": {
+          "title": "Yechimlarni mahkamlash",
+          "intro": "So'rov | yechim raqami | 1 dan 10 gacha o'rin. Mijoz so'rovida bu so'zlar bo'lsa, yechim shu o'rinda ko'rsatiladi. Ichki yechim mijozga bu yerda ham ko'rsatilmaydi. 200 tagacha qoida.",
+          "label": "Mahkamlash qoidalari",
+          "example": "накладная | 1042 | 1",
+          "save": "Qoidalarni saqlash",
+          "saved": "Mahkamlash qoidalari saqlandi."
+        }
       }
     },
     "queues": {
@@ -2132,7 +2171,8 @@
       },
       "tag": "Teg",
       "anyTag": "Barcha teglar",
-      "byTag": "{name} tegi bor murojaatlarni ko'rsatish"
+      "byTag": "{name} tegi bor murojaatlarni ko'rsatish",
+      "searchTruncated": "Eng mos natijalar ko'rsatilgan. Qolganlarini topish uchun so'rovni aniqlashtiring."
     },
     "ticket": {
       "files": "Fayllar",
@@ -2799,7 +2839,16 @@
         "noCode": "kodsiz",
         "noSample": "matn yo'q",
         "create": "Yechim yaratish",
-        "empty": "Bu davrda yechim maslahatlari ko'rsatilmagan."
+        "empty": "Bu davrda yechim maslahatlari ko'rsatilmagan.",
+        "missesTitle": "Mijozlar nimani qidiradi va topmaydi",
+        "missesHint": "Murojaat shaklidagi maslahatning oxirgi so'rovi, undan keyin yechim topilmagan, 7 kun uchun. Telefonlar, manzillar va raqamlar yashirilgan. Matnlar 90 kun saqlanadi.",
+        "missesEmpty": "So'nggi kunlarda bunday so'rovlar yo'q.",
+        "missesWeek": "7 kunda yechimsiz so'rovlar modul va til bo'yicha",
+        "missesModule": "Modul",
+        "missesLocale": "Til",
+        "missesCount": "So'rovlar",
+        "missesNoModule": "Modul tanlanmagan",
+        "missesRecent": "Oxirgi so'rovlar"
       }
     },
     "solutions": {
@@ -3651,7 +3700,11 @@
       "automation_dropped": "Smartup Hub: bir soat ichida {count} ta avtomatlashtirish hodisasi qayta ishlanmadi. Ular bo'yicha qoidalar va bildirishnomalar bajarilmadi, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
       "automation_lag": "Smartup Hub: avtomatlashtirish hodisalari {minutes} daqiqadan beri qayta ishlanmayapti, navbatda: {count}. Qoidalar va bildirishnomalar kechikmoqda, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
       "builtin_rule_inactive": "Smartup Hub: o'rnatilgan bildirishnomalar ishlamayapti, qoidalar: {count} ({rules}). Qoida o'chirilgan yoki nosoz: navbatchilarga P1 haqida, rahbarga muddat buzilishi yoki past baho haqida xabarlar yuborilmayapti. Sozlamalarda avtomatlashtirish qoidalarini tekshiring.",
-      "backup_stale": "Smartup Hub: baza zaxira nusxalari eskirgan ({kinds}), turlar: {count}. dump: tungi nusxa 26 soatdan ko'p vaqt yo'q, base: asosiy nusxa 8 kundan ko'p vaqt yo'q, wal: baza jurnali 26 soatdan ko'p vaqt arxivga saqlanmagan. Serverdagi nusxa ssenariylari jurnalini ko'ring."
+      "backup_stale": "Smartup Hub: baza zaxira nusxalari eskirgan ({kinds}), turlar: {count}. dump: tungi nusxa 26 soatdan ko'p vaqt yo'q, base: asosiy nusxa 8 kundan ko'p vaqt yo'q, wal: baza jurnali 26 soatdan ko'p vaqt arxivga saqlanmagan. Serverdagi nusxa ssenariylari jurnalini ko'ring.",
+      "search_unavailable": "Smartup Hub: Typesense qidiruvi javob bermayapti, bir soatda PostgreSQL ga qaytishlar: {count}. Qidiruv xatolar va sinonimlarsiz ishlaydi.",
+      "search_lag": "Smartup Hub: qidiruv indeksi {minutes} daqiqadan beri yangilanmayapti, yozilishini kutayotganlar: {count}.",
+      "search_drift": "Smartup Hub: qidiruv indeksini solishtirish farqlarni topdi: {count} (to'plamlar: {collections}). Yetishmayotganlari qaytadan yoziladi.",
+      "search_isolation": "Smartup Hub: qidiruv mijozga boshqa tashkilot identifikatorlarini qaytardi, ularni baza tekshiruvi tashlab yubordi: bir soatda {count}. Qidiruv kaliti filtrini tekshiring."
     }
   },
   "dev": {

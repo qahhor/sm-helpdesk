@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { runCli } from '@/cli/commands';
 import { pools } from './helpers/db';
-import { resetTypesense, typesenseMasterKey, typesenseSkip, typesenseUrl } from './helpers/search';
+import { liveSearch, resetTypesense, typesenseMasterKey, typesenseSkip, typesenseUrl } from './helpers/search';
+import { seedTwoOrgs } from './isolation/fixture';
 
 // Команды hub search:* на настоящем Typesense (план W6, задачи 2-4): ключи процессов с аудитом без значений.
 
@@ -35,6 +36,26 @@ describe.skipIf(typesenseSkip !== null)(`hub search:keys${typesenseSkip ? ` (п�
     expect(old.status).toBe(401);
     const fresh = await fetch(`${typesenseUrl}/collections`, { headers: { 'x-typesense-api-key': keyOf(second.lines, 'TYPESENSE_WRITE_KEY') } });
     expect(fresh.status).toBe(200);
+  });
+
+  test('search:reindex строит все коллекции, search:status показывает документы и очередь', async () => {
+    const f = await seedTwoOrgs();
+    const live = await liveSearch();
+    const env = { SEARCH_PROVIDER: 'typesense', TYPESENSE_URL: typesenseUrl, TYPESENSE_WRITE_KEY: live.keys.write };
+    const run = fakeIo(env);
+    expect(await runCli(['search:reindex'], run.io), run.errors.join('\n')).toBe(0);
+    expect(run.lines).toContain('tickets: построена hub_tickets_v2, документов 5.');
+    expect(run.lines.find((l) => l.startsWith('ticket_texts:'))).toMatch(/документов 10\.$/);
+    const status = fakeIo(env);
+    expect(await runCli(['search:status'], status.io)).toBe(0);
+    expect(status.lines).toContain('Typesense: отвечает.');
+    expect(status.lines).toContain('tickets: hub_tickets_v2, документов 5.');
+    expect(status.lines.join('\n')).not.toContain(live.keys.write);
+    expect(status.lines.join('\n')).not.toContain(f.tickets.aOrg.title);
+    const bad = fakeIo(env);
+    expect(await runCli(['search:reindex', '--collection', 'secrets'], bad.io)).toBe(2);
+    const off = fakeIo({ SEARCH_PROVIDER: 'postgres' });
+    expect(await runCli(['search:reindex'], off.io)).toBe(2);
   });
 
   test('без адреса: неверный вызов, ничего не создаётся', async () => {

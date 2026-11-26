@@ -11,6 +11,9 @@ import { signatureFromText } from '@/modules/hdk/signature';
 import { clientCtx, staffCtx, staffWithRole } from '../integration/helpers/auth';
 import { pools } from '../integration/helpers/db';
 import { seedTwoOrgs } from '../integration/isolation/fixture';
+import { liveSearch } from '../integration/helpers/search';
+import { runSearchSync, setSearchForTests, setSearchKeysForTests } from '@/modules/hdc/api';
+import { registerSearch } from '@/worker/search';
 import { type EvalCase, type EvalReport, formatReport, parseEvalSet, scoreEval } from './score';
 
 // Прогон проверочного набора поиска (ТЗ 15.4; план M5, задача 11) по настоящей базе: решения набора публикуются
@@ -22,7 +25,11 @@ import { type EvalCase, type EvalReport, formatReport, parseEvalSet, scoreEval }
 export const EVAL_DIR = 'tests/eval/search';
 const SYSTEM: SystemActor = { type: 'system', job: 'kb.index' };
 
-export async function runSearchEval(dir: string = EVAL_DIR): Promise<{ report: EvalReport; lines: string[]; cases: EvalCase[] }> {
+/**
+ * typesense: слова подсказки из настоящего Typesense (план W6, задача 6): индекс строится тем же search.sync, что у
+ * фонового процесса. Без контейнера (TYPESENSE_TEST_URL) прогон с этим ключом невозможен и бросает.
+ */
+export async function runSearchEval(dir: string = EVAL_DIR, opts: { typesense?: boolean } = {}): Promise<{ report: EvalReport; lines: string[]; cases: EvalCase[] }> {
   const set = parseEvalSet(readFileSync(join(dir, 'solutions.json'), 'utf8'), readFileSync(join(dir, 'queries.json'), 'utf8'));
   const f = await seedTwoOrgs();
   await pools.root.query(`delete from hdk_search_documents`);
@@ -44,12 +51,23 @@ export async function runSearchEval(dir: string = EVAL_DIR): Promise<{ report: E
     await runIndexJob(SYSTEM, { articleId: created.articleId });
     refOf.set(created.articleId, s.ref);
   }
+  if (opts.typesense) {
+    registerSearch();
+    const live = await liveSearch();
+    setSearchForTests(live.reader, live.writer);
+    setSearchKeysForTests({ client: live.keys.clientSearch, staff: live.keys.staffSearch });
+    await runSearchSync(SYSTEM, live.writer);
+  }
   const client = (await clientCtx(f.aUser)).actor;
   const cases: EvalCase[] = [];
   for (const query of set.queries) {
     const { items } = await searchSolutions(client, { text: query.query, signature: signatureFromText(query.query), moduleId: null, locale: query.locale, audiences: ['clients'] });
     cases.push({ query, shown: items.map((item) => refOf.get(item.articleId) ?? `#${item.number}`) });
   }
+  if (opts.typesense) {
+    setSearchForTests(null);
+    setSearchKeysForTests(null);
+  }
   const report = scoreEval(cases);
-  return { report, cases, lines: formatReport(report, { embedder: getEmbedder().name, solutions: set.solutions.length, queries: set.queries.length }) };
+  return { report, cases, lines: formatReport(report, { embedder: `${getEmbedder().name}${opts.typesense ? ', слова из Typesense' : ''}`, solutions: set.solutions.length, queries: set.queries.length }) };
 }

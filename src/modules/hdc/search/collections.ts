@@ -11,6 +11,18 @@ export const UZ_STEMS = 'hub_uz_stems';
 export const SYNONYM_SET = 'hub_synonyms';
 export const CURATION_SET = 'hub_solutions_curation';
 
+/**
+ * Стоп-слова (api/stopwords): вежливые и служебные слова длинных описаний клиентов отбрасываются из запроса, не из
+ * индекса. Один набор с locale ru: без locale Typesense 30.2 не применял набор к полю с locale ru, набор с locale ru
+ * действует и на поля uz, en и *_fold, а список наборов через запятую 30.2 не принимает (проверено). Список ведёт код.
+ */
+export const STOPWORDS: Record<'ru' | 'uz' | 'en', string[]> = {
+  ru: ['пожалуйста', 'помогите', 'помочь', 'подскажите', 'срочно', 'здравствуйте', 'добрый', 'день', 'спасибо', 'заранее', 'привет'],
+  uz: ['iltimos', 'yordam', 'bering', 'salom', 'assalomu', 'alaykum', 'rahmat', 'tezroq', 'илтимос', 'ёрдам', 'беринг', 'салом', 'рахмат'],
+  en: ['please', 'help', 'hello', 'hi', 'thanks', 'thank', 'urgent', 'urgently'],
+};
+export const STOPWORD_SETS = 'hub_stopwords';
+
 export type FieldSpec = {
   name: string;
   type: 'string' | 'string[]' | 'int64' | 'bool';
@@ -35,17 +47,28 @@ function localized(base: string, opts: { uzDictionary: boolean }): FieldSpec[] {
 }
 
 const version: FieldSpec = { name: 'version', type: 'int64' };
+/**
+ * Отпечаток индексируемых полей (SHA-256 без version): сверка сравнивает содержимое, а не время изменения строки.
+ * Время изменения растёт и от правок вне индекса (статус, назначение, голоса, категория), и сверка считала бы такие
+ * документы устаревшими (независимая проверка W6, замечание 1). Поле только хранится, не индексируется.
+ */
+const contentHash: FieldSpec = { name: 'content_hash', type: 'string', optional: true, index: false };
 
 export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
   tickets: {
     fields: [
       { name: 'org_id', type: 'string' },
+      // Автор и видимость нужны только фильтру ключа клиента: личное обращение коллеги не занимает место в выдаче
+      // (независимая проверка W6, замечание 4). Имени автора нет, только идентификатор.
+      { name: 'author_id', type: 'string' },
+      { name: 'visibility', type: 'string' },
       { name: 'number', type: 'int64' },
       ...localized('title', { uzDictionary: false }),
       ...localized('description', { uzDictionary: false }),
       { name: 'title_fold', type: 'string', optional: true },
       { name: 'created_on', type: 'int64' },
       version,
+      contentHash,
     ],
     synonym_sets: [SYNONYM_SET],
   },
@@ -58,6 +81,7 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
       { name: 'is_internal', type: 'bool' },
       ...localized('body', { uzDictionary: false }),
       version,
+      contentHash,
     ],
     synonym_sets: [SYNONYM_SET],
   },
@@ -72,6 +96,7 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
       { name: 'title_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
       { name: 'body_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
       version,
+      contentHash,
     ],
     synonym_sets: [SYNONYM_SET],
     curation_sets: [CURATION_SET],
@@ -87,6 +112,7 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
       { name: 'title_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
       { name: 'body_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
       version,
+      contentHash,
     ],
     synonym_sets: [SYNONYM_SET],
   },
@@ -100,15 +126,15 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
       { name: 'state', type: 'string' },
       { name: 'kind', type: 'string' },
       version,
+      contentHash,
     ],
   },
   people: {
     fields: [
       { name: 'name', type: 'string' },
       { name: 'name_fold', type: 'string', optional: true },
-      { name: 'is_staff', type: 'bool' },
-      { name: 'org_ids', type: 'string[]', optional: true },
       version,
+      contentHash,
     ],
   },
 };

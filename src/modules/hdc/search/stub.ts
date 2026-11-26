@@ -46,19 +46,41 @@ function tokenMatches(query: string, word: string, prefix: boolean, numTypos: nu
   return distance(query, word, allowed) <= allowed;
 }
 
-/** Условие filter_by в простых видах: поле:=значение, поле:=[a,b], поле:!=[a,b], через &&. */
+/** Условие filter_by в простых видах: поле:=значение, поле:=[a,b], поле:!=[a,b], через && и || со скобками. */
 function matchesFilter(doc: SearchDocument, filter: string | undefined): boolean {
   if (!filter) return true;
-  return filter.split('&&').every((part) => {
-    const m = /^\s*([a-z_]+):(!?=)\s*(\[[^\]]*\]|[^\s]+)\s*$/.exec(part);
+  const split = (text: string, op: string) => {
+    const parts: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '(') depth++;
+      else if (text[i] === ')') depth--;
+      else if (depth === 0 && text.startsWith(op, i)) {
+        parts.push(text.slice(start, i));
+        start = i + op.length;
+      }
+    }
+    parts.push(text.slice(start));
+    return parts.map((p) => p.trim());
+  };
+  const evalExpr = (expr: string): boolean => {
+    const ors = split(expr, '||');
+    if (ors.length > 1) return ors.some(evalExpr);
+    const ands = split(expr, '&&');
+    if (ands.length > 1) return ands.every(evalExpr);
+    const e = expr.trim();
+    if (e.startsWith('(') && e.endsWith(')')) return evalExpr(e.slice(1, -1));
+    const m = /^([a-z_]+):(!=|=)?\s*(\[[^\]]*\]|[^\s]+)$/.exec(e);
     if (!m) throw new Error('Заглушка поиска: условие не разобрано');
-    const [, field, op, raw] = m as unknown as [string, string, string, string];
+    const [, field, op, raw] = m as unknown as [string, string, string | undefined, string];
     const values = raw.startsWith('[') ? raw.slice(1, -1).split(',').map((v) => v.trim()) : [raw];
     const actual = doc[field];
     const have = Array.isArray(actual) ? actual.map(String) : actual === undefined ? [] : [String(actual)];
     const hit = have.some((v) => values.includes(v));
-    return op === '=' ? hit : !hit;
-  });
+    return op === '!=' ? !hit : hit;
+  };
+  return evalExpr(filter);
 }
 
 export type StubSearch = SearchReader &
@@ -71,6 +93,8 @@ export type StubSearch = SearchReader &
     synonyms: readonly SynonymItem[];
     curations: readonly CurationItem[];
     stems: readonly StemPair[];
+    /** Сколько раз набор уходил в Typesense: проверка, что настройки применены. */
+    configWrites: { synonyms: number; stems: number; curations: number };
     clear(): void;
     /** Сколько поисков пришло: проверка, что путь Typesense вообще вызывался. */
     calls: number;
@@ -80,7 +104,7 @@ export function createStubSearch(): StubSearch {
   const store: Store = new Map();
   let broken = false;
   let failure: SearchFallback['reason'] | null = null;
-  const state = { synonyms: [] as SynonymItem[], curations: [] as CurationItem[], stems: [] as StemPair[], calls: 0 };
+  const state = { synonyms: [] as SynonymItem[], curations: [] as CurationItem[], stems: [] as StemPair[], calls: 0, writes: { synonyms: 0, stems: 0, curations: 0 } };
   const coll = (c: SearchCollection) => {
     let m = store.get(c);
     if (!m) store.set(c, (m = new Map()));
@@ -106,9 +130,12 @@ export function createStubSearch(): StubSearch {
         const last = i === queryWords.length - 1;
         if ([...words].some((w) => tokenMatches(q, w, last && spec.prefix === true, spec.numTypos ?? 2))) matched++;
       });
-      // Как drop_tokens: документ с частью слов тоже находится, но ниже.
       if (matched > 0 || spec.q === '*') scored.push({ doc, matched });
     }
+    // Как drop_tokens_threshold 1 по умолчанию: слова отбрасываются, только если со всеми словами ничего нет. Остаются
+    // документы с наибольшим числом совпавших слов.
+    const best = Math.max(0, ...scored.map((x) => x.matched));
+    scored.splice(0, scored.length, ...scored.filter((x) => x.matched === best || spec.q === '*'));
     scored.sort((a, b) => b.matched - a.matched || a.doc.id.localeCompare(b.doc.id));
     // Курирование: закреплённые документы первыми, если правило совпало с запросом.
     const pinned = state.curations
@@ -156,17 +183,23 @@ export function createStubSearch(): StubSearch {
     async removeWhere(collection, filterBy) {
       for (const [id, doc] of coll(collection)) if (matchesFilter(doc, filterBy)) coll(collection).delete(id);
     },
-    async exportVersions(collection) {
-      return new Map([...coll(collection).values()].map((d) => [d.id, d.version]));
+    async exportDocs(collection) {
+      return new Map([...coll(collection).values()].map((d) => [d.id, { version: d.version, hash: typeof d.content_hash === 'string' ? d.content_hash : null }]));
     },
     async putSynonyms(items) {
       state.synonyms = [...items];
+      state.writes.synonyms++;
     },
     async putCurations(items) {
       state.curations = [...items];
+      state.writes.curations++;
     },
     async putStems(pairs) {
       state.stems = [...pairs];
+      state.writes.stems++;
+    },
+    async readStems() {
+      return [...state.stems];
     },
     async listCollections() {
       return [...store.entries()].map(([name, docs]) => ({ name: `hub_${name}_v1`, numDocuments: docs.size, createdAt: 0 }));
@@ -202,6 +235,9 @@ export function createStubSearch(): StubSearch {
     },
     get stems() {
       return state.stems;
+    },
+    get configWrites() {
+      return state.writes;
     },
     clear() {
       store.clear();

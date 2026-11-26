@@ -76,9 +76,15 @@ export function isDatabaseReady(opts: ReadyOptions = {}): Promise<boolean> {
 export {
   aliasOf,
   COLLECTION_SCHEMAS,
+  createStubSearch,
   type CurationItem,
   filterValues,
+  FOLD_WEIGHT,
   foldText,
+  mergeRanked,
+  type RankedList,
+  SEARCH_TIMEOUT_MS,
+  STOPWORD_SETS,
   getSearchReader,
   getSearchWriter,
   HIDDEN_IDEA_STATUSES,
@@ -107,3 +113,30 @@ export {
   TEXT_LIMITS,
 } from './search';
 export { issueSearchKeys } from './search/admin';
+export {
+  cleanupDroppedOutbox,
+  DRIFT_ALERT_SHARE,
+  KIND_OF,
+  pendingEntities,
+  reconcileCollection,
+  type ReconcileReport,
+  prepareSearchIndex,
+  applyAllConfig,
+  registerSearchSources,
+  reindexCollection,
+  runSearchSync,
+  type SearchSource,
+  searchQueueState,
+  type SourceKind,
+  type SyncResult,
+} from './search/sync';
+export {
+  curationSchema,
+  type CurationRules,
+  SEARCH_SETTING_CODES,
+  SEARCH_SETTINGS_LIMITS,
+  stemPairsSchema,
+  type StemPairs,
+  synonymSetsSchema,
+  type SynonymSets,
+} from './search/config';

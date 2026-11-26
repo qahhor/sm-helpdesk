@@ -196,3 +196,18 @@ export const kbDeflectionEvents = pgTable('hdk_deflection_events', {
   zone: text('zone').$type<DeflectionZone>().notNull().default('portal'),
   ...stampColumns,
 });
+
+/**
+ * Запросы подсказки без результата (план W6, решение 17; миграция 0089): строка на сессию формы, текст после маски
+ * данных, 90 дней. Пишет система, читают администратор и роли публикации решений.
+ */
+export const kbSuggestMisses = pgTable('hdk_suggest_misses', {
+  missId: uuid('miss_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  moduleId: uuid('module_id'),
+  sessionId: uuid('session_id').notNull(),
+  locale: text('locale').$type<Locale>().notNull(),
+  queryText: text('query_text').notNull(),
+  ...stampColumns,
+});

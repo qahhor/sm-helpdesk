@@ -8,6 +8,7 @@ import { authSession, authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
 import { memberships, organizations, servers, staff, userProfiles } from '../schema';
 import { signInMemberships } from './access';
+import { directoryOrgIds } from './directory-search';
 
 // Модуль hdu, слой core: организации пользователя и активная организация сессии (ТЗ 11.1, FR-ID-05).
 // Без библиотеки входа: колонки activeOrgId и lastOrgId принадлежат порталу, библиотека их только хранит.
@@ -81,9 +82,15 @@ const orgColumns = {
 
 /** Поиск по названию, ИНН и идентификатору компании, без учёта регистра. limit + 1 строка: есть ли ещё. */
 export async function searchOrgs(actor: StaffActor, input: { query: string; offset: number; limit: number }): Promise<OrgRow[]> {
-  const filter = input.query
-    ? or(containsText(organizations.name, input.query), containsText(organizations.inn, input.query), containsText(organizations.externalCompanyId, input.query))
-    : undefined;
+  // Текст ищет Typesense (план W6, задача 5): до 250 лучших, порядок списка прежний (по названию). Не ответил или
+  // совпадений больше 250 (лучшие 250 не дают листать дальше, M6 независимой проверки): прежний ILIKE.
+  const directory = input.query ? await directoryOrgIds(actor, input.query) : null;
+  const found = directory && !directory.truncated ? directory.ids : null;
+  const filter = found
+    ? inArray(organizations.orgId, found)
+    : input.query
+      ? or(containsText(organizations.name, input.query), containsText(organizations.inn, input.query), containsText(organizations.externalCompanyId, input.query))
+      : undefined;
   return withActor(actor, (tx) =>
     tx
       .select(orgColumns)

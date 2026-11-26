@@ -50,12 +50,12 @@ test('клиент со входом старше 15 минут завершае
   await page.goto('/ru/settings');
   await page.getByRole('button', { name: 'Завершить все другие сессии' }).click();
   await expect(page).toHaveURL(/session=stale/);
-  await expect(page.getByRole('alert')).toContainText('нужен вход не старше 15 минут');
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('нужен вход не старше 15 минут');
   await expect(sessions(page)).toHaveCount(2);
 
   await page.getByRole('button', { name: 'Войти заново' }).click();
   await expect(page).toHaveURL(/\/ru\/login\?reauth=1/);
-  await expect(page.getByRole('status')).toContainText('Войдите заново, чтобы продолжить');
+  await expect(page.getByText('Войдите заново, чтобы продолжить.')).toBeVisible();
   await page.getByRole('link', { name: /Войти через Smartup/ }).click();
   await page.locator('input[name="claim_sub"]').fill(claims.sub);
   await page.locator('input[name="claim_name"]').fill(claims.name);

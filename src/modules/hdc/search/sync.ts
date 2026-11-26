@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, asc, count, eq, inArray, lt, lte, min, ne } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, lt, lte, min, ne, sql } from 'drizzle-orm';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
@@ -103,7 +103,13 @@ export async function applyEntities(system: SystemActor, writer: SearchIndexWrit
 
 type Claimed = { outboxId: string; entityKind: SearchEntityKind; entityId: string; attempts: number };
 
-async function claim(system: SystemActor, now: Date, batch: number): Promise<Claimed[]> {
+/**
+ * Захват ждущих строк. Время сравнивается часами базы (clock_timestamp), если вызывающий не задал своё: строка получает
+ * время попытки now() базы с микросекундами, а Date процесса знает только миллисекунды. Строку, записанную в ту же
+ * миллисекунду, сравнение с Date процесса пропускало до следующего прохода (тесты на быстрой машине CI).
+ */
+async function claim(system: SystemActor, at: Date | null, batch: number): Promise<Claimed[]> {
+  const now = at ?? sql`clock_timestamp()`;
   return withActor(system, async (tx) => {
     const rows = await tx
       .select({ outboxId: searchOutbox.outboxId, entityKind: searchOutbox.entityKind, entityId: searchOutbox.entityId, attempts: searchOutbox.attempts })
@@ -115,7 +121,7 @@ async function claim(system: SystemActor, now: Date, batch: number): Promise<Cla
     if (rows.length > 0)
       await tx
         .update(searchOutbox)
-        .set({ nextAttemptOn: new Date(now.getTime() + LEASE_SECONDS * 1000) })
+        .set({ nextAttemptOn: at ? new Date(at.getTime() + LEASE_SECONDS * 1000) : sql`clock_timestamp() + make_interval(secs => ${LEASE_SECONDS})` })
         .where(inArray(searchOutbox.outboxId, rows.map((r) => r.outboxId)));
     return rows;
   });
@@ -201,7 +207,7 @@ export async function runSearchSync(system: SystemActor, writer: SearchIndexWrit
     const cleared = await withActor(system, async (tx) => (await tx.delete(searchOutbox).where(ne(searchOutbox.entityKind, 'config')).returning({ id: searchOutbox.outboxId })).length);
     return { written: 0, failed: 0, dropped: 0, cleared };
   }
-  const rows = await claim(system, now, opts.batch ?? BATCH);
+  const rows = await claim(system, opts.now ?? null, opts.batch ?? BATCH);
   const result: SyncResult = { written: 0, failed: 0, dropped: 0, cleared: 0 };
   const byKind = new Map<SearchEntityKind, Claimed[]>();
   for (const row of rows) byKind.set(row.entityKind, [...(byKind.get(row.entityKind) ?? []), row]);

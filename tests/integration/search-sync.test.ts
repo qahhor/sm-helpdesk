@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { withActor } from '@/db/with-actor';
 import { setLogSinkForTests } from '@/lib/log';
@@ -49,6 +49,21 @@ test('строка очереди в транзакции изменения: о
   expect(await queue()).toEqual([]);
   await asActor(pools.app, f.l1.actor, (c) => c.query(`update hdt_tickets set title = 'Новая тема' where ticket_id = $1`, [ticketId]));
   expect(await queue()).toEqual([{ entity_kind: 'ticket', entity_id: ticketId, op: 'upsert', attempts: 0, last_error_code: null }]);
+});
+
+test('строка, записанная в ту же миллисекунду, берётся сразу: время попытки сравнивается часами базы, а не процесса', async () => {
+  await pools.root.query(`delete from hdc_search_outbox`);
+  await asActor(pools.app, f.l1.actor, (c) => c.query(`update hdt_tickets set title = 'Тема в ту же миллисекунду' where ticket_id = $1`, [f.tickets.aOrg.ticketId]));
+  // Время строки в микросекундах; Date процесса знает только миллисекунды и на быстрой машине отстаёт на доли мс.
+  const at = (await pools.root.query(`select (extract(epoch from next_attempt_on) * 1000)::float8 as ms from hdc_search_outbox`)).rows[0].ms as number;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(Math.floor(at)));
+  try {
+    expect(await runSearchSync(system, stub)).toMatchObject({ written: 1 });
+  } finally {
+    vi.useRealTimers();
+  }
+  expect(docsOf('tickets').map((d) => d.title_ru)).toEqual(['Тема в ту же миллисекунду']);
 });
 
 test('клиент и сотрудник очередь не читают и не меняют; система читает', async () => {

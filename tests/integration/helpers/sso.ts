@@ -11,7 +11,16 @@ import { newJar, type TestRequest } from './auth';
 
 export type Claims = Record<string, unknown> & { sub: string };
 
-export type MockServer = { code: string; url: string; setNextClaims(claims: Claims): void; stop(): Promise<void> };
+export type MockServer = {
+  code: string;
+  url: string;
+  setNextClaims(claims: Claims): void;
+  /** Сервер не выполняет prompt=login и max_age=0: входа заново нет, auth_time остаётся временем прежнего входа. */
+  setIgnoresPrompt(ignores: boolean): void;
+  /** Параметры последнего запроса авторизации. */
+  lastAuthorize(): URLSearchParams;
+  stop(): Promise<void>;
+};
 
 const system: SystemActor = { type: 'system', job: 'test' };
 
@@ -22,8 +31,17 @@ export async function startMockOidc(code: string, port: number): Promise<MockSer
   // Адрес сервера входа должен совпасть с тем, что записан в реестре портала.
   server.issuer.url = `http://localhost:${port}`;
   let next: Claims = { sub: 'nobody' };
+  // У Smartup Web уже открыта сессия: вход в ней был час назад. prompt=login или max_age=0 требуют войти заново,
+  // тогда auth_time равен текущему времени (OpenID Connect Core 1.0, 3.1.2.1).
+  const smartupSessionSince = Math.floor(Date.now() / 1000) - 3600;
+  let ignoresPrompt = false;
+  let authorize = new URLSearchParams();
+  server.service.on(Events.BeforeAuthorizeRedirect, (_redirect: unknown, req: { url?: string; originalUrl?: string }) => {
+    authorize = new URL(req.originalUrl ?? req.url ?? '/', 'http://mock').searchParams;
+  });
   server.service.on(Events.BeforeTokenSigning, (token: { payload: Record<string, unknown> }) => {
-    Object.assign(token.payload, next);
+    const reauth = !ignoresPrompt && (authorize.get('prompt') === 'login' || authorize.get('max_age') === '0');
+    Object.assign(token.payload, { auth_time: reauth ? Math.floor(Date.now() / 1000) : smartupSessionSince }, next);
   });
   server.service.on(Events.BeforeUserinfo, (response: { body: Record<string, unknown> }) => {
     response.body = { ...next };
@@ -34,6 +52,10 @@ export async function startMockOidc(code: string, port: number): Promise<MockSer
     setNextClaims: (claims) => {
       next = claims;
     },
+    setIgnoresPrompt: (ignores) => {
+      ignoresPrompt = ignores;
+    },
+    lastAuthorize: () => authorize,
     stop: () => server.stop(),
   };
 }
@@ -61,10 +83,10 @@ export function requestWithServerCookie(code: string): TestRequest {
  * Полный вход клиента через ложный сервер: начало входа на портале, страница сервера,
  * возврат на единственный открытый адрес библиотеки входа. Возвращает сессию.
  */
-export async function ssoSignIn(mock: MockServer, claims: Claims, opts: { next?: string } = {}): Promise<SessionData> {
+export async function ssoSignIn(mock: MockServer, claims: Claims, opts: { next?: string; reauth?: boolean } = {}): Promise<SessionData> {
   mock.setNextClaims(claims);
   const jar = newJar({ cookie: `hub_server=${mock.code}`, 'x-forwarded-for': '203.0.113.30' });
-  const started = await startSmartupSignIn({ locale: 'ru', next: opts.next }, jar.request);
+  const started = await startSmartupSignIn({ locale: 'ru', next: opts.next, ...(opts.reauth ? { reauth: true } : {}) }, jar.request);
   if (!('url' in started)) throw new Error(`Вход не начался: ${started.error}`);
   const authorize = await fetch(started.url, { redirect: 'manual' });
   const callback = authorize.headers.get('location');

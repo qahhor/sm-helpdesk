@@ -6,6 +6,7 @@ import { RATE_RULES } from '@/modules/hdc/pref';
 import { clientIp, consumeRateLimit, ipRateKey } from '@/modules/hdc/api';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
+import { reauthCookie } from '../auth/reauth';
 import { SERVER_CODE_PATTERN } from '../pref';
 import { safeReturnPath } from '../util';
 import type { RequestInfo } from './request';
@@ -53,7 +54,7 @@ export async function describeLoginServer(request: Pick<RequestInfo, 'headers'>)
  * Библиотека входа ставит куку состояния и запоминает проверочный код PKCE.
  */
 export async function startSmartupSignIn(
-  input: { next?: unknown; locale: Locale },
+  input: { next?: unknown; locale: Locale; reauth?: boolean },
   request: RequestInfo,
 ): Promise<{ url: string } | { error: 'no_server' | 'rate_limited' | 'server_unavailable' }> {
   const limit = await consumeRateLimit(ipRateKey('sso-start:ip', request.headers), RATE_RULES.ssoStartPerIp);
@@ -73,6 +74,8 @@ export async function startSmartupSignIn(
         // После входа сначала шаг первого входа: он сам пропускает дальше, если не нужен (FR-ID-07).
         callbackURL: `/${input.locale}/welcome?next=${encodeURIComponent(safeReturnPath(input.next, `/${input.locale}`))}`,
         errorCallbackURL: `/${input.locale}/login?error=sso`,
+        // Вход заново (ASVS 7.5): сервер Smartup должен спросить пароль, а не войти по открытой сессии Smartup Web.
+        ...(input.reauth ? { additionalParams: { prompt: 'login', max_age: '0' } } : {}),
       },
       headers: request.headers,
       returnHeaders: true,
@@ -87,6 +90,8 @@ export async function startSmartupSignIn(
     throw error;
   }
   request.setCookies(result.headers);
+  if (input.reauth)
+    request.setCookies(new Headers({ 'set-cookie': reauthCookie(getEnv().HUB_URL.startsWith('https://'), Math.floor(Date.now() / 1000)) }));
   return { url: result.response.url };
 }
 

@@ -70,7 +70,7 @@ Portalda bildirishnomalar doim keladi: sarlavhadagi qo'ng'iroqcha. Ularni yana q
 
 Telegramda bildirishnoma olish uchun profilda «Telegramni bog'lash» ni bosing. Smartup Hub boti ochiladi: unda ishga tushirish tugmasini bosing va portalga qayting. Botni uzish: «Uzish».
 
-Profilda qaysi qurilmalarda kirilgani ham ko'rinadi («Seanslar» bloki). Notanish qurilmani «Yakunlash» tugmasi bilan yakunlang. Ancha oldin kirgan bo'lsangiz, portal «Qayta kirish» ni so'raydi: shunda seanslaringizni boshqa hech kim yakunlay olmaydi va kirish manzilini o'zgartira olmaydi.
+Profilda qaysi qurilmalarda kirilgani ham ko'rinadi («Seanslar» bloki). Notanish qurilmani «Yakunlash» tugmasi bilan yakunlang. Ancha oldin kirgan bo'lsangiz, portal «Qayta kirish» ni so'raydi: seanslarni yakunlash va kirish manzilini o'zgartirish faqat yaqinda kirgandan keyin mumkin. Umumiy kompyuterda ishlasangiz, ketayotganda portaldan va Smartup Web dan chiqing.
 
 ## 7. Smartup Web dan qo'llab-quvvatlash
 

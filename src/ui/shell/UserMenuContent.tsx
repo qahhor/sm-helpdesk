@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/components/dropdown-menu';
+import { clearDeviceData } from '@/ui/drafts';
 import { LABELLED_TRIGGER } from '@/ui/menu-trigger';
 import type { UserMenuLink } from './UserMenu';
 
@@ -40,7 +41,13 @@ export default function UserMenuContent({
           </DropdownMenuItem>
         ))}
         {links.length > 0 && <DropdownMenuSeparator />}
-        <DropdownMenuItem onSelect={() => startTransition(() => signOut())}>
+        {/* Перед выходом с устройства убираются черновики и другие записи портала (ASVS 5.0.0, 14.3.1). */}
+        <DropdownMenuItem
+          onSelect={() => {
+            clearDeviceData();
+            startTransition(() => signOut());
+          }}
+        >
           <LogOut className="size-4" aria-hidden />
           {signOutLabel}
         </DropdownMenuItem>

@@ -224,3 +224,17 @@ test('соединения с базой при двух копиях порта
   expect(launch).toContain('DB_POOL_MAX=6');
   expect(launch).toContain('HUB_UPSTREAMS="web:3000 web2:3000"');
 });
+
+test('Caddy отвечает 405 на TRACE и TRACK до портала (ASVS 5.0.0, требование 13.4.4; план подготовки M9, задача 1)', () => {
+  // Next.js отвечает на TRACE ошибкой 500: метод не поддерживается, но ответ выглядит как сбой.
+  expect(caddyfile).toMatch(/@trace method TRACE TRACK\n\s*respond @trace 405/);
+  // Отказ стоит выше проксирования: запрос до портала не доходит.
+  expect(caddyfile.indexOf('respond @trace 405')).toBeLessThan(caddyfile.indexOf('reverse_proxy'));
+});
+
+test('Caddy не затирает Referrer-Policy страниц виджета: своё значение только для ответа без него (ASVS 5.0.0, требование 3.4.5)', () => {
+  // Страницы виджета и мобильного приложения отвечают no-referrer (src/security/csp.ts, план M6). Заголовок без "?"
+  // Caddy ставил поверх ответа портала (проверено на Caddy 2.10.2 при подготовке M9).
+  expect(caddyfile).toMatch(/\?Referrer-Policy "strict-origin-when-cross-origin"/);
+  expect(caddyfile).not.toMatch(/^\s*Referrer-Policy /m);
+});

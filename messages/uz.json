@@ -1091,6 +1091,7 @@
             "invited": "Xodim taklif qilindi",
             "created": "Xodim qo'shildi",
             "reset": "Xodimning kirishi tiklandi",
+            "password_changed": "Xodim parolini o'zgartirdi",
             "signed_in": "Xodim kirdi",
             "role_changed": "Xodim roli o'zgartirildi",
             "state_changed": "Xodim bloklandi yoki blokdan chiqarildi",
@@ -1320,6 +1321,7 @@
           "events": "Hodisalar",
           "urlChanged": "Manzil o'zgardi",
           "isEnabled": "Yoqilgan",
+          "sessionsEnded": "Yakunlangan seanslar",
           "kind": "Turi",
           "sizeBytes": "Hajmi, bayt",
           "dump": "tungi nusxa",
@@ -3248,6 +3250,24 @@
         "releaseVersion": "Smartup versiyasi",
         "releaseDate": "Chiqarilgan sana",
         "releaseSubmit": "Chiqarildi"
+      }
+    },
+    "password": {
+      "title": "Parol",
+      "intro": "Parol o'zgartirilgandan keyin barcha seanslaringiz yakunlanadi, shu qurilmada ham. Yangi parol va ilovadagi kod bilan qayta kiring.",
+      "current": "Joriy parol",
+      "next": "Yangi parol",
+      "nextHint": "Kamida 12 belgi. Password12345 yoki qwerty kabi keng tarqalgan parollar qabul qilinmaydi: o'zingizning bir necha so'zingizdan iborat ibora yaxshiroq",
+      "repeat": "Yangi parol yana bir marta",
+      "submit": "Parolni o'zgartirish",
+      "errors": {
+        "invalid_credentials": "Joriy parol noto'g'ri.",
+        "same_password": "Yangi parol joriy parol bilan bir xil.",
+        "rate_limited": "Urinishlar juda ko'p. {minutes, plural, one {# daqiqadan} other {# daqiqadan}} keyin qayta urinib ko'ring.",
+        "invalid_input": "Parollarni tekshiring.",
+        "password_short": "Parol kamida 12 belgidan iborat bo'lishi kerak.",
+        "weak_password": "Bunday parol juda keng tarqalgan: uni birinchi bo'lib tanlab ko'rishadi. Boshqasini kiriting, masalan, o'zingizning bir necha so'zingizdan iborat ibora.",
+        "password_mismatch": "Parollar mos kelmadi."
       }
     }
   },

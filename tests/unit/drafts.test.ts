@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { clearDraft, clearIfSent, draftKey, forgetSent, loadDraft, rememberSent, saveDraft, sentMatches } from '@/ui/drafts';
+import { clearDeviceData, clearDraft, clearIfSent, draftKey, forgetSent, loadDraft, rememberSent, saveDraft, sentMatches } from '@/ui/drafts';
 
 // Черновик обращения и ответа на устройстве (UX-C-02, FR-TK-16, решение 0026 пункт 8).
 
@@ -105,4 +105,28 @@ test('неудачная отправка снимает отметку: чер�
   saveDraft(local, key, { title: 'a', description: 'b' });
   rememberSent(session, key, { description: 'b', title: 'a' });
   expect(sentMatches(local, session, key)).toBe(true);
+});
+
+// ASVS 5.0.0, требование 14.3.1 (план подготовки M9, задача 1): после выхода на устройстве не остаются черновики
+// обращений и ответов, недавние модули, копии решений и подсказки виджета. Чужие ключи страницы не трогаются.
+test('при выходе удаляются все записи портала в обоих хранилищах браузера', () => {
+  class ListStore extends MemoryStore {
+    get length() {
+      return this.data.size;
+    }
+    key(index: number) {
+      return [...this.data.keys()][index] ?? null;
+    }
+  }
+  const local = new ListStore();
+  const session = new ListStore();
+  saveDraft(local, draftKey('user-1', 'new-ticket'), { description: 'текст обращения' });
+  local.setItem('hub:recent:user-1:module', '["m1"]');
+  local.setItem('hub:solution-draft:12:ru', '{}');
+  local.setItem('other-site', 'x');
+  session.setItem('hub:sent:user-1:new-ticket', '{}');
+  session.setItem('hub.widget-handoff', '{}');
+  clearDeviceData([local, session, null]);
+  expect([...local.data.keys()]).toEqual(['other-site']);
+  expect([...session.data.keys()]).toEqual([]);
 });

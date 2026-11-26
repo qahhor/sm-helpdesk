@@ -1091,6 +1091,7 @@
             "invited": "Staff member invited",
             "created": "Staff member created",
             "reset": "Staff access reset",
+            "password_changed": "Staff member changed their password",
             "signed_in": "Staff sign-in",
             "role_changed": "Staff role changed",
             "state_changed": "Staff member blocked or unblocked",
@@ -1320,6 +1321,7 @@
           "events": "Events",
           "urlChanged": "Address changed",
           "isEnabled": "Enabled",
+          "sessionsEnded": "Sessions ended",
           "kind": "Kind",
           "sizeBytes": "Size, bytes",
           "dump": "nightly backup",
@@ -3248,6 +3250,24 @@
         "releaseVersion": "Smartup version",
         "releaseDate": "Release date",
         "releaseSubmit": "Released"
+      }
+    },
+    "password": {
+      "title": "Password",
+      "intro": "After the password change all your sessions end, on this device too. Sign in again with the new password and the code from the app.",
+      "current": "Current password",
+      "next": "New password",
+      "nextHint": "At least 12 characters. Common passwords such as Password12345 or qwerty are not accepted: a phrase of several words of your own works best",
+      "repeat": "New password again",
+      "submit": "Change password",
+      "errors": {
+        "invalid_credentials": "The current password is wrong.",
+        "same_password": "The new password is the same as the current one.",
+        "rate_limited": "Too many attempts. Try again in {minutes, plural, one {# minute} other {# minutes}}.",
+        "invalid_input": "Check the passwords.",
+        "password_short": "The password must be at least 12 characters long.",
+        "weak_password": "This password is too common: it is among the first to be guessed. Choose another one, for example a phrase of several words of your own.",
+        "password_mismatch": "The passwords do not match."
       }
     }
   },

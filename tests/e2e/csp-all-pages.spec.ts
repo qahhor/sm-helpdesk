@@ -81,6 +81,8 @@ function expectCommon(response: APIResponse, label: string): string {
   // Политика действует, отчётной копии нет ни в одном ответе (решение 2 плана подготовки).
   expect(headers['content-security-policy-report-only'], label).toBeUndefined();
   expect(headers['x-content-type-options'], label).toBe('nosniff');
+  // Портал не разрешает чужим сайтам читать ответы (ASVS 5.0.0, требование 3.4.2): заголовков CORS нет нигде.
+  expect(headers['access-control-allow-origin'], label).toBeUndefined();
   const csp = cspOf(response).join('\n');
   expect(csp, label).toContain("object-src 'none'");
   expect(csp, label).toContain("base-uri 'none'");
@@ -101,6 +103,8 @@ test('каждая страница: политика с одноразовым 
     expect(csp, label).toMatch(/style-src 'self' 'nonce-/);
     expect(csp, label).toContain("form-action 'self'");
     expect(csp, label).toContain('report-uri /api/csp-report');
+    // Страница с данными не остаётся в кеше браузера и промежуточных узлов (ASVS 5.0.0, требование 14.3.2).
+    if (response.status() !== 307) expect(response.headers()['cache-control'], label).toContain('no-store');
     const ancestors = cspOf(response).map((value) => /frame-ancestors ([^;]+)/.exec(value)?.[1]).filter(Boolean);
     if (page.embedKey) {
       // Страница виджета с ключом сервера mock: только адреса этого сервера, запрета 'none' нет ни в одном заголовке.

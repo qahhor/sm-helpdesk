@@ -9,6 +9,8 @@ export const AUDIT_ACTIONS = [
   'staff.invited',
   'staff.created',
   'staff.reset',
+  // Сотрудник сам сменил пароль (план подготовки M9, задача 1): все его сессии завершены.
+  'staff.password_changed',
   'staff.signed_in',
   'staff.sign_in_failed',
   'staff.role_changed',
@@ -206,6 +208,9 @@ export const RATE_RULES = {
   staffTotpCodeOnce: { limit: 1, windowSec: 120 },
   /** Запись о блокировке входа сотрудника в журнал: раз за окно блокировки (итоговая проверка доработки). */
   staffFailureAuditOnce: { limit: 1, windowSec: 900 },
+  // Смена пароля сотрудником (план подготовки M9, задача 1): 5 попыток за 15 минут, проверка текущего пароля не
+  // становится обходом предела попыток входа.
+  staffPasswordChange: { limit: 5, windowSec: 900 },
   /** Поиск сервера Smartup по адресу на странице входа. */
   serverLookupPerIp: { limit: 20, windowSec: 3600 },
   /** Запрос подтверждения email. */

@@ -7,10 +7,12 @@ import { Card, CardContent } from '@/ui/components/card';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { SessionsList } from '@/ui/components/SessionsList';
 import { sessionItems } from '../../../sessions-view';
+import { PasswordForm } from './PasswordForm';
 import { revokeOtherStaffSessionsAction, revokeStaffSessionAction, saveStaffIdeaPrefAction, saveStaffPrefsAction } from './actions';
 import { firstParam } from '@/lib/search-params';
 
-// Учётная запись сотрудника: какие письма получать (решение 7 вехи M4) и сессии, где выполнен вход.
+// Учётная запись сотрудника: какие письма получать (решение 7 вехи M4), смена пароля (план подготовки M9, задача 1)
+// и сессии, где выполнен вход.
 // Сессия сотрудника живёт 12 часов (FR-ID-10).
 export default async function AccountPage({ searchParams }: PageProps<'/[locale]/agent/account'>) {
   const staff = await requireStaffActor();
@@ -52,6 +54,22 @@ export default async function AccountPage({ searchParams }: PageProps<'/[locale]
         savedLabel={t('common.notifications.settings.saved')}
         saved={firstParam(params.prefs) === 'ideas'}
       />
+      <Card>
+        <CardContent className="flex flex-col gap-3 pt-6">
+          <h2 className="text-lg font-semibold">{t('agent.password.title')}</h2>
+          <p className="text-sm text-secondary-foreground">{t('agent.password.intro')}</p>
+          <PasswordForm
+            email={staff.user.email}
+            labels={{
+              current: t('agent.password.current'),
+              next: t('agent.password.next'),
+              nextHint: t('agent.password.nextHint'),
+              repeat: t('agent.password.repeat'),
+              submit: t('agent.password.submit'),
+            }}
+          />
+        </CardContent>
+      </Card>
       <Card>
         <CardContent className="pt-6">
           <SessionsList items={items} labels={labels} revoke={revokeStaffSessionAction} revokeOthers={revokeOtherStaffSessionsAction} />

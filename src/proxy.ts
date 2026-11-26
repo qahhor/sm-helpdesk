@@ -1,6 +1,6 @@
 import createMiddleware from 'next-intl/middleware';
 import { type NextRequest, NextResponse } from 'next/server';
-import { LOCALE_COOKIE } from '@/i18n/locales';
+import { localeFromCookies } from '@/i18n/locales';
 import { localizedPath, resolveLocale } from '@/i18n/resolve-locale';
 import { routing } from '@/i18n/routing';
 import { sessionCookieRefresh } from '@/modules/hdu/api/session-cookie';
@@ -56,7 +56,7 @@ async function pageCsp(request: NextRequest, nonce: string): Promise<string> {
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const target = localizedPath(request.nextUrl.pathname, () =>
     resolveLocale({
-      userPref: request.cookies.get(LOCALE_COOKIE)?.value,
+      userPref: localeFromCookies(request.cookies),
       acceptLanguage: request.headers.get('accept-language'),
     }),
   );

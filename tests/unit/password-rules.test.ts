@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { COMMON_PASSWORDS } from '@/modules/hdu/common-passwords';
 import { isCommonPassword } from '@/modules/hdu/password-rules';
 
 // Пароль сотрудника не из частых (аудит 23.11.2026, находка S11). Список встроенный: запросов в сеть нет.
@@ -108,4 +109,21 @@ test('пароль в 128 знаков проверяется быстро', () 
   const started = performance.now();
   for (const long of ['a1'.repeat(64), 'password'.repeat(16), 'qwertyuiop'.repeat(12) + 'zx!45678', 'x'.repeat(127) + 'y', '9z$K'.repeat(32)]) isCommonPassword(long);
   expect(performance.now() - started).toBeLessThan(200);
+});
+
+// ASVS 5.0.0, требование 6.2.4 (план подготовки M9, задача 1): пароль сверяется со списком из 3000 самых частых
+// паролей, которые проходят правило длины портала (от 12 знаков). Правила выше пропускали 2472 из них.
+test('3000 самых частых паролей от 12 знаков отклоняются, в любом регистре', () => {
+  for (const weak of ['Mailcreated5240', 'leavemealone', 'sonyericsson', 'finalfantasy', 'LEAVEMEALONE', 'justinbieber', 'counterstrike', 'whosyourdaddy', 'iseedeadpeople', 'jamesbond007'])
+    expect(isCommonPassword(weak), weak).toBe(true);
+});
+
+test('встроенный список частых паролей: 3000 строк от 12 знаков, строчными, без повторов', () => {
+  const list = [...COMMON_PASSWORDS];
+  expect(list).toHaveLength(3000);
+  expect(new Set(list).size).toBe(3000);
+  for (const entry of list) {
+    expect(entry.length, entry).toBeGreaterThanOrEqual(12);
+    expect(entry, entry).toBe(entry.toLowerCase());
+  }
 });

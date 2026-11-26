@@ -14,7 +14,7 @@ import { type ClientContext, type ClientDenial, resolveClient, switchOrganizatio
 import { listMySessions, revokeMySession, revokeOtherSessions, type SessionView } from './sessions';
 import { rememberLocale } from './telegram';
 import { readSession, type RequestInfo, type SessionData } from './request';
-import { resolveStaff, type StaffContext, type StaffDenial } from './session';
+import { resolveStaff, type StaffContext, type StaffDenial, staffAccess } from './session';
 
 // Вход в защищённые разделы: проверка сессии и роли на каждом запросе (ТЗ 9.4, правило 7).
 // Раскладка и страница вызывают эти функции каждая сама: одинаковые проверки в пределах одного запроса
@@ -55,13 +55,13 @@ const clientOfRequest = cache(async (): Promise<ClientContext | ClientDenial> =>
  */
 export async function requireStaffActor(opts: { roles?: readonly StaffRole[] } = {}): Promise<StaffContext> {
   const result = await staffOfRequest();
+  const access = staffAccess(result, opts.roles, (await sessionOfRequest())?.user.id);
+  if (access === 'not_found') notFound();
   if ('denied' in result) {
-    if (result.denied === 'not_staff') notFound();
     const locale = await getLocale();
     const next = safeReturnPath(await currentPath(), `/${locale}/agent`);
     redirect(`/${locale}/staff/login?next=${encodeURIComponent(next)}`);
   }
-  if (opts.roles && !opts.roles.includes(result.actor.staffRole)) notFound();
   return result;
 }
 

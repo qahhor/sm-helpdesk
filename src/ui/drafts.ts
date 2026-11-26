@@ -119,3 +119,26 @@ export function useDraft(key: string, sent = false): { hydrated: boolean; draft:
   }, [hydrated, key, sent]);
   return { hydrated, draft };
 }
+
+type ListedStore = Pick<Storage, 'length' | 'key' | 'removeItem'>;
+
+/**
+ * Выход из портала (ASVS 5.0.0, требование 14.3.1): удаляет с устройства все записи портала в localStorage и
+ * sessionStorage: черновики, отметки отправки, недавние значения, копии решений, подсказки виджета. Ключи портала
+ * начинаются с "hub:" или "hub.". Черновик после выхода не нужен: на общем устройстве его увидел бы следующий.
+ */
+export function clearDeviceData(stores: readonly (ListedStore | null)[] = [browserDrafts() as ListedStore | null, browserSession() as ListedStore | null]): void {
+  for (const store of stores) {
+    try {
+      if (!store) continue;
+      const keys: string[] = [];
+      for (let index = 0; index < store.length; index++) {
+        const key = store.key(index);
+        if (key && (key.startsWith('hub:') || key.startsWith('hub.'))) keys.push(key);
+      }
+      for (const key of keys) store.removeItem(key);
+    } catch {
+      // Хранилище закрыто: удалять нечего.
+    }
+  }
+}

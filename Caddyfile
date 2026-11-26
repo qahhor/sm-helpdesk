@@ -8,6 +8,10 @@
 	@untrusted not remote_ip {$TRUSTED_PROXIES}
 	respond @untrusted 403
 
+	# TRACE и TRACK портал не поддерживает (ASVS 5.0.0, требование 13.4.4): отказ здесь, Next.js ответил бы ошибкой 500.
+	@trace method TRACE TRACK
+	respond @trace 405
+
 	# Журнал доступа строками JSON (ТЗ 13.8): время ответа каждого запроса. Секреты и адреса с токенами в журнал
 	# не пишутся: одноразовые значения из адреса запроса вырезаются, заголовки с секретом вебхука Telegram и подписью
 	# вебхука почты удаляются, Referer и Location удаляются целиком (в них бывает адрес страницы с ?token=).
@@ -39,7 +43,8 @@
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
-		Referrer-Policy "strict-origin-when-cross-origin"
+		# "?": только если портал не задал свой. Страницы виджета отвечают no-referrer (план M6), его Caddy не трогает.
+		?Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}

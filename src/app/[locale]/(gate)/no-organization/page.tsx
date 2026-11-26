@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { signOutAction } from '@/app/[locale]/session-actions';
+import { SignOutForm } from '@/ui/shell/SignOutForm';
 import { listMyOrganizations, requireSignedInClient } from '@/modules/hdu/api';
 import { Button } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
@@ -21,11 +22,11 @@ export default async function NoOrganizationPage() {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm text-secondary-foreground">{t('signedInAs', { name: user.name })}</p>
-        <form action={signOutAction}>
+        <SignOutForm action={signOutAction}>
           <Button type="submit" variant="secondary" className="w-full">
             {t('signOut')}
           </Button>
-        </form>
+        </SignOutForm>
       </CardContent>
     </Card>
   );

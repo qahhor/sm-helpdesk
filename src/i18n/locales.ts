@@ -34,6 +34,17 @@ export const TIME_ZONE = 'Asia/Tashkent';
 export const LOCALE_COOKIE = 'hub_locale';
 export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
+/**
+ * Имя куки языка: на https с приставкой __Host- (только этот хост, Secure, Path=/; ASVS 5.0.0, требования 3.3.1 и
+ * 3.3.3), на http без неё: браузер не принял бы __Host- без Secure. Как у кук входа (решение 0021).
+ */
+export const localeCookieName = (https: boolean): string => (https ? `__Host-${LOCALE_COOKIE}` : LOCALE_COOKIE);
+
+/** Язык из кук запроса: кука с приставкой важнее прежней без неё. */
+export function localeFromCookies(cookies: { get(name: string): { value: string } | undefined }): string | undefined {
+  return cookies.get(localeCookieName(true))?.value ?? cookies.get(localeCookieName(false))?.value;
+}
+
 export function isLocale(value: string): value is Locale {
   return (LOCALES as readonly string[]).includes(value);
 }

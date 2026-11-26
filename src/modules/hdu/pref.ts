@@ -22,8 +22,13 @@ export type MembershipSource = (typeof MEMBERSHIP_SOURCES)[number];
 export const RECORD_STATES = ['active', 'passive'] as const;
 export type RecordState = (typeof RECORD_STATES)[number];
 
-/** Сессия клиента: 30 дней с продлением при активности (FR-ID-10). */
+/** Сессия клиента: 30 дней с продлением при активности (FR-ID-10). Без активности 30 суток выход (ASVS 7.3.1). */
 export const SESSION_TTL_SEC = 30 * 24 * 3600;
+/**
+ * Сессия клиента живёт не дольше 90 суток от входа, сколько бы человек ни работал (ASVS 7.3.2;
+ * ответ владельца 26.11.2026, решение 0067). Продление при активности этот предел не сдвигает.
+ */
+export const CLIENT_SESSION_MAX_SEC = 90 * 24 * 3600;
 /** Приставка имён кук библиотеки входа: кука сессии hub.session_token, на https __Host-hub.session_token. */
 export const AUTH_COOKIE_PREFIX = 'hub';
 /** Куки библиотеки входа и её дополнений, которым на https задаётся имя с приставкой __Host- (решение 0021). */

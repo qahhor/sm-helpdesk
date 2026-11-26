@@ -101,8 +101,8 @@ test('заглушка: вложенный фильтр, опечатки, на�
   const stub = createStubSearch();
   const other = '00000000-0000-7000-8000-0000000000b2';
   await stub.upsert('tickets', [
-    { id: 't1', version: 1, org_id: client.orgId, title_ru: 'Оплата не проходит', number: 1, created_on: 1 },
-    { id: 't2', version: 1, org_id: other, title_ru: 'Оплата не проходит у нас', number: 2, created_on: 1 },
+    { id: 't1', version: 1, org_id: client.orgId, author_id: client.userId, visibility: 'org', title_ru: 'Оплата не проходит', number: 1, created_on: 1 },
+    { id: 't2', version: 1, org_id: other, author_id: client.userId, visibility: 'org', title_ru: 'Оплата не проходит у нас', number: 2, created_on: 1 },
   ]);
   const scope = scopeFor(client, 'tickets', keys);
   const ids = async (q: string, prefix = false) => {
@@ -118,7 +118,7 @@ test('заглушка: вложенный фильтр, опечатки, на�
   expect(await ids('оплата')).toBe('timeout');
   // Старая версия не перезаписывает новую.
   stub.failWith(null);
-  await stub.upsert('tickets', [{ id: 't1', version: 5, org_id: client.orgId, title_ru: 'Новое', number: 1, created_on: 1 }]);
-  await stub.upsert('tickets', [{ id: 't1', version: 4, org_id: client.orgId, title_ru: 'Старое', number: 1, created_on: 1 }]);
+  await stub.upsert('tickets', [{ id: 't1', version: 5, org_id: client.orgId, author_id: client.userId, visibility: 'org', title_ru: 'Новое', number: 1, created_on: 1 }]);
+  await stub.upsert('tickets', [{ id: 't1', version: 4, org_id: client.orgId, author_id: client.userId, visibility: 'org', title_ru: 'Старое', number: 1, created_on: 1 }]);
   expect(stub.documents('tickets').find((d) => d.id === 't1')?.title_ru).toBe('Новое');
 });

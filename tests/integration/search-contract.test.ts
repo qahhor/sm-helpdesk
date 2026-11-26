@@ -13,7 +13,7 @@ const orgB = '00000000-0000-7000-8000-0000000000b2';
 const clientA: ClientActor = { type: 'client', userId: '00000000-0000-7000-8000-000000000001', orgId: orgA, orgRole: 'client_user' };
 const staff: StaffActor = { type: 'staff', userId: '00000000-0000-7000-8000-000000000002', staffRole: 'agent_l1' };
 
-const ticket = (id: string, org: string, title: string, version = 1) => ({ id, org_id: org, number: 1000 + Number(id.slice(-1)), title_ru: title, title_fold: title, created_on: 1, version });
+const ticket = (id: string, org: string, title: string, version = 1) => ({ id, org_id: org, author_id: '00000000-0000-7000-8000-0000000000c1', visibility: 'org', number: 1000 + Number(id.slice(-1)), title_ru: title, title_fold: title, created_on: 1, version });
 const ticketSpec = (q: string): SearchSpec => ({ collection: 'tickets', q, queryBy: ['title_ru', 'description_ru'], perPage: 50 });
 
 describe.skipIf(typesenseSkip !== null)(`Typesense 30.2: договор${typesenseSkip ? ` (пропущено: ${typesenseSkip})` : ''}`, () => {

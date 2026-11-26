@@ -81,6 +81,27 @@ describe('поиск клиента по своим обращениям', () =>
     expect((await searchCounters(system)).isolationDrops).toBe(0);
   });
 
+  test('личные обращения коллег не вытесняют свои: 260 чужих личных выше по выдаче, своё находится', async () => {
+    await pools.root.query(
+      `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source)
+       select $1, $2, 'bug', 'minor', 'p3', 'private', 'Склад остаток ' || g, 'описание', 'ru', 'portal' from generate_series(1, 260) g`,
+      [f.orgA.orgId, f.aAdmin.userId],
+    );
+    const own = (
+      await pools.root.query(
+        `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source) values ($1, $2, 'bug', 'minor', 'p3', 'private', 'Склад остаток мой', 'описание', 'ru', 'portal') returning number`,
+        [f.orgA.orgId, f.aUser.userId],
+      )
+    ).rows[0].number;
+    await runSearchSync(system, stub);
+    const mine = await listTickets(await clientCtx(f.aUser), { q: 'склад остаток' });
+    expect(mine.items.map((t) => t.number)).toEqual([Number(own)]);
+    // Администратор клиента видит личные обращения своей организации, как и раньше.
+    const admin = await listTickets(await clientCtx(f.aAdmin), { q: 'склад остаток' });
+    expect(admin.items.length).toBe(20);
+    expect((await searchCounters(system)).isolationDrops).toBe(0);
+  });
+
   test('Typesense не отвечает: прежний поиск по части текста', async () => {
     stub.failWith('unreachable');
     expect(await clientNumbers('оплата не проходит')).toEqual([f.tickets.aOrg.number]);

@@ -46,11 +46,32 @@ function tokenMatches(query: string, word: string, prefix: boolean, numTypos: nu
   return distance(query, word, allowed) <= allowed;
 }
 
-/** Условие filter_by в простых видах: поле:=значение, поле:=[a,b], поле:!=[a,b], через &&. */
+/** Условие filter_by в простых видах: поле:=значение, поле:=[a,b], поле:!=[a,b], через && и || со скобками. */
 function matchesFilter(doc: SearchDocument, filter: string | undefined): boolean {
   if (!filter) return true;
-  return filter.split('&&').every((part) => {
-    const m = /^\s*([a-z_]+):(!=|=)?\s*(\[[^\]]*\]|[^\s]+)\s*$/.exec(part);
+  const split = (text: string, op: string) => {
+    const parts: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '(') depth++;
+      else if (text[i] === ')') depth--;
+      else if (depth === 0 && text.startsWith(op, i)) {
+        parts.push(text.slice(start, i));
+        start = i + op.length;
+      }
+    }
+    parts.push(text.slice(start));
+    return parts.map((p) => p.trim());
+  };
+  const evalExpr = (expr: string): boolean => {
+    const ors = split(expr, '||');
+    if (ors.length > 1) return ors.some(evalExpr);
+    const ands = split(expr, '&&');
+    if (ands.length > 1) return ands.every(evalExpr);
+    const e = expr.trim();
+    if (e.startsWith('(') && e.endsWith(')')) return evalExpr(e.slice(1, -1));
+    const m = /^([a-z_]+):(!=|=)?\s*(\[[^\]]*\]|[^\s]+)$/.exec(e);
     if (!m) throw new Error('Заглушка поиска: условие не разобрано');
     const [, field, op, raw] = m as unknown as [string, string, string | undefined, string];
     const values = raw.startsWith('[') ? raw.slice(1, -1).split(',').map((v) => v.trim()) : [raw];
@@ -58,7 +79,8 @@ function matchesFilter(doc: SearchDocument, filter: string | undefined): boolean
     const have = Array.isArray(actual) ? actual.map(String) : actual === undefined ? [] : [String(actual)];
     const hit = have.some((v) => values.includes(v));
     return op === '!=' ? !hit : hit;
-  });
+  };
+  return evalExpr(filter);
 }
 
 export type StubSearch = SearchReader &

@@ -58,6 +58,10 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
   tickets: {
     fields: [
       { name: 'org_id', type: 'string' },
+      // Автор и видимость нужны только фильтру ключа клиента: личное обращение коллеги не занимает место в выдаче
+      // (независимая проверка W6, замечание 4). Имени автора нет, только идентификатор.
+      { name: 'author_id', type: 'string' },
+      { name: 'visibility', type: 'string' },
       { name: 'number', type: 'int64' },
       ...localized('title', { uzDictionary: false }),
       ...localized('description', { uzDictionary: false }),

@@ -23,6 +23,8 @@ export async function buildTicketDocs(system: SystemActor, ids: readonly string[
       .select({
         ticketId: tickets.ticketId,
         orgId: tickets.orgId,
+        authorId: tickets.authorId,
+        visibility: tickets.visibility,
         number: tickets.number,
         title: tickets.title,
         description: sql<string>`left(${tickets.description}, ${TEXT_LIMITS.ticketDescription})`,
@@ -38,6 +40,8 @@ export async function buildTicketDocs(system: SystemActor, ids: readonly string[
       {
         id: row.ticketId,
         org_id: row.orgId,
+        author_id: row.authorId,
+        visibility: row.visibility,
         number: row.number,
         [localeField('title', row.locale)]: row.title,
         [localeField('description', row.locale)]: row.description,

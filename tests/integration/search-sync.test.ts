@@ -76,7 +76,7 @@ test('обращения и переписка: состав документа,
   expect(result).toMatchObject({ written: 2, failed: 0 });
   expect(await queue()).toEqual([]);
   const [doc] = docsOf('tickets');
-  expect(Object.keys(doc!).sort()).toEqual(['content_hash', 'created_on', 'description_ru', 'id', 'number', 'org_id', 'title_fold', 'title_ru', 'version']);
+  expect(Object.keys(doc!).sort()).toEqual(['author_id', 'content_hash', 'created_on', 'description_ru', 'id', 'number', 'org_id', 'title_fold', 'title_ru', 'version', 'visibility']);
   expect(doc).toMatchObject({ id: ticketId, org_id: f.orgA.orgId, number, title_ru: 'Накладная не печатается', title_fold: 'nakladnaya ne pechataesya' });
   // Ни автора, ни названия организации, ни адресов.
   const all = JSON.stringify(stub.documents('tickets'));

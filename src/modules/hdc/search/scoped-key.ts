@@ -37,7 +37,9 @@ export function generateScopedKey(parentKey: string, params: Record<string, unkn
 function filterFor(actor: ClientActor | StaffActor, purpose: SearchPurpose): string | undefined {
   switch (purpose) {
     case 'tickets':
-      return actor.type === 'client' ? `org_id:=${actor.orgId}` : undefined;
+      // Как политика hdt_tickets_client_select: обращения организации, личные только свои, администратору клиента все.
+      if (actor.type !== 'client') return undefined;
+      return actor.orgRole === 'client_admin' ? `org_id:=${actor.orgId}` : `org_id:=${actor.orgId} && (visibility:=org || author_id:=${actor.userId})`;
     case 'solutions':
       return actor.type === 'client' ? 'audience:=clients' : 'audience:=[clients,internal]';
     case 'ideas':
@@ -56,7 +58,7 @@ export function scopeFor(actor: ClientActor | StaffActor, purpose: SearchPurpose
   if (actor.type === 'client' && purpose === 'directory') throw new Error('Поиск: справочники организаций и людей клиенту недоступны');
   const parent = actor.type === 'client' ? keys.client : keys.staff;
   if (!parent) throw new Error('Поиск: нет ключа поиска');
-  if (actor.type === 'client' && !/^[0-9a-f-]{36}$/i.test(actor.orgId)) throw new Error('Поиск: организация актора не похожа на идентификатор');
+  if (actor.type === 'client' && !(/^[0-9a-f-]{36}$/i.test(actor.orgId) && /^[0-9a-f-]{36}$/i.test(actor.userId))) throw new Error('Поиск: организация или пользователь актора не похожи на идентификатор');
   const filter = filterFor(actor, purpose);
   const embedded: EmbeddedParams = {
     ...(filter ? { filter_by: filter } : {}),

@@ -55,8 +55,10 @@ const SYSTEM: SystemActor = { type: 'system', job: 'search.isolation' };
  * Клиент: обращения своей организации (фильтр вложен в ключ). Без переписки: клиентский ключ её не видит. Проверку
  * после (RLS) делает вызывающий, отброшенное считает noteClientDrops.
  */
-export function clientTextSearch(actor: ClientActor, text: string): Promise<TextSearch | null> {
-  return run(actor, text, false, SEARCH_TIMEOUT_MS.client);
+export async function clientTextSearch(actor: ClientActor, text: string): Promise<TextSearch | null> {
+  const found = await run(actor, text, false, SEARCH_TIMEOUT_MS.client);
+  // Больше 250 совпадений: лучшие 250 не дают листать дальше. Прежний путь (часть текста под RLS) отдаёт все.
+  return found && !found.truncated ? found : null;
 }
 
 /**

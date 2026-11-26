@@ -49,7 +49,9 @@
    - `curl -fsS https://<домен>/api/ready` возвращает `"status":"ready"`;
    - сотрудник входит, последнее обращение перед аварией на месте;
    - политики на месте: `hubc exec -T postgres psql -U postgres -d hub -Atc "select count(*) from pg_class where relkind = 'r' and relnamespace = 'public'::regnamespace and not (relrowsecurity and relforcerowsecurity)"` возвращает 0;
-   - в `hubc logs worker` есть "Фоновый процесс запущен".
+   - функции пересчёта счётчиков идей принадлежат роли `hub_hdi_counter` (решение 0065; без неё голос за идею не пересчитывается): `hubc exec -T postgres psql -U postgres -d hub -Atc "select p.proname, pg_get_userbyid(p.proowner) from pg_proc p where p.pronamespace = 'app'::regnamespace and p.proname like 'hdi\_%' and p.prosecdef order by 1"` называет у каждой функции `hub_hdi_counter`. Если роль другая или функций нет, восстановление шло без `bootstrap` (шаг 2): выполнить его и восстановить заново;
+   - в `hubc logs worker` есть "Фоновый процесс запущен";
+   - фоновый процесс берёт задачи: `curl -fsS https://<домен>/api/ready/worker` через 1-2 минуты возвращает `"status":"ready"`.
 8. Файлы вложений лежат в R2 и копией базы не затрагиваются. Если бакет файлов тоже потерян, восстановить версии объектов средствами R2 (ТЗ 13.7).
 9. После восстановления на staging удалить данные production со staging.
 

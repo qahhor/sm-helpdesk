@@ -148,3 +148,43 @@ test('ссылка "Помогло" из письма Теза: открытие
   await expect(link.getByText('Уже учтено.')).toBeVisible();
   await guest.close();
 });
+
+test('блок AI у сотрудника: причина передачи, резюме с пометкой рядом с исходным текстом, "Принять" меняет заголовок (задача 7)', async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const word = tag();
+  await publishSolution(browser, `Заказ ${word} не сохраняется, разбор: нет остатка на складе`);
+  await createTicket(page, word);
+  const message = page.getByTestId('tez-message');
+  await expect(message).toBeVisible({ timeout: 45_000 });
+  // Клиент не видит ни резюме, ни предложений разбора (FR-TRI-06).
+  await expect(page.getByText('Клиент не может напечатать документ.')).toHaveCount(0);
+  await message.getByRole('button', { name: 'Нужен сотрудник' }).click();
+  await expect(page.getByText('Передал обращение сотруднику.').first()).toBeVisible();
+  const number = Number(/SUP-(\d+)/.exec(page.url())?.[1]);
+
+  const context = await browser.newContext({ storageState: storageStateOf('l1') });
+  const agent = await context.newPage();
+  await agent.goto(`/ru/agent/tickets/SUP-${number}`);
+  const block = agent.getByTestId('ai-block');
+  await expect(block).toContainText('Передано: клиент попросил сотрудника');
+  await expect(block).toContainText('Ответов помощника: 1');
+  await expect(block.locator('[data-ai-summary]')).toHaveText('Клиент не может напечатать документ.');
+  await expect(block).toContainText('AI, не проверено');
+  await expect(block.getByText('Исходный текст обращения')).toBeVisible();
+  // Найденные решения с оценкой (FR-AI-13).
+  await expect(block.getByText(`Заказ ${word} не сохраняется, разбор: нет остатка на складе`)).toBeVisible();
+  expect((await new AxeBuilder({ page: agent }).include('[data-testid="ai-block"]').analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  // Без нажатия заголовок не меняется (FR-TRI-02).
+  const title = async () => (await dbRows<{ title: string }>(`select title from hdt_tickets where number = $1`, [number]))[0]?.title;
+  expect(await title()).not.toBe('Не печатается накладная');
+  await block.locator('[data-triage-field="title"]').getByRole('button', { name: 'Принять: Заголовок' }).click();
+  await expect(agent.getByText('Предложение разбора принято.')).toBeVisible();
+  expect(await title()).toBe('Не печатается накладная');
+  await expect(agent.getByTestId('ai-block').locator('[data-triage-field="title"]')).toContainText('Принято');
+  // Узкая ширина интерфейса сотрудника: ноутбук при масштабе 200% (как agent.spec.ts).
+  await agent.setViewportSize({ width: 640, height: 400 });
+  await agent.reload();
+  await expect(agent.getByTestId('ai-block')).toBeVisible();
+  expect(await agent.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await context.close();
+});

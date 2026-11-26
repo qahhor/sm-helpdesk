@@ -7,6 +7,7 @@ import { HdtError } from '../error';
 import { parseInput, staffCreateInput } from '../input';
 import { MAX_FILES_PER_MESSAGE } from '../pref';
 import { titleFromDescription } from '../util';
+import { startTriage } from './ai';
 import { recordTicketSignature, wakeAutomation } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 
@@ -27,6 +28,8 @@ export async function createTicketForClient(ctx: StaffContext, input: unknown): 
   });
   // Сигнатура ошибки из описания (план M5, задача 8), как у обращения клиента.
   await recordTicketSignature({ ticketId, orgId: data.orgId, authorId: data.authorId, description: data.description, context: null, moduleId: data.moduleId ?? null });
+  // Помощник не отвечает на обращение от сотрудника, но разбор предлагается (план M5b, решение 6).
+  await startTriage({ ticketId, orgId: data.orgId });
   await wakeOutbox();
   await wakeAutomation();
   return { number };

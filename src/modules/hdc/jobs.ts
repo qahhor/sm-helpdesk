@@ -7,9 +7,12 @@ import { env } from '@/env';
 // Схему и очереди создаёт скрипт миграций (scripts/db/pgboss.mjs): у hub_app нет прав на объекты схемы.
 
 export const JOB_NAMES = [
-  // AI первой линии (веха M5b): пределы расходов раз в 10 минут, ответ первой линии, сторожевая проверка.
+  // AI первой линии (веха M5b): пределы расходов раз в 10 минут, ответ первой линии, сторожевая проверка, разбор без
+  // ответа и ночная проверка доли принятых предложений разбора.
   'ai.budget',
   'ai.first_line',
+  'ai.triage',
+  'ai.triage_review',
   'ai.watchdog',
   'attachment.scan',
   'attachment.sweep',
@@ -70,8 +73,8 @@ export function createPgBossQueue(boss: PgBoss): JobQueue {
   return {
     async send(name, data, opts) {
       // Одна задача на файл или входящее письмо (exclusive); на решение одна ждущая и одна выполняемая (stately, kb.index).
-      // Первая линия: одна ждущая и одна выполняемая на обращение (stately, план M5b, решение 5).
-      const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId, data.ideaId, name === 'ai.first_line' ? data.ticketId : undefined].find(
+      // Первая линия и разбор: одна ждущая и одна выполняемая на обращение (stately, план M5b, решения 5, 6).
+      const key = [data.attachmentId, data.inboundId, data.fileId, data.articleId, data.ideaId, name === 'ai.first_line' || name === 'ai.triage' ? data.ticketId : undefined].find(
         (value): value is string => typeof value === 'string',
       );
       await boss.send(name, data, { ...(key ? { singletonKey: key } : {}), ...(opts?.startAfterSeconds ? { startAfter: opts.startAfterSeconds } : {}) });

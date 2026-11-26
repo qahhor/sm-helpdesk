@@ -1218,7 +1218,8 @@
             "tag_removed": "Tag removed from a ticket",
             "csat_reviewed": "Rating review note written",
             "ai_handoff": "The AI assistant handed the request to staff",
-            "ai_feedback": "The client answered the AI assistant's message"
+            "ai_feedback": "The client answered the AI assistant's message",
+            "triage_accepted": "AI triage suggestion accepted"
           },
           "attachment": {
             "infected": "Infected file found",
@@ -2099,7 +2100,8 @@
           "models": "Models saved.",
           "models_changed": "Models saved. After changing a model, run the evaluation set.",
           "lifted": "Cut-off lifted.",
-          "topics": "Mandatory topics saved."
+          "topics": "Mandatory topics saved.",
+          "field_on": "Triage field turned on again."
         },
         "errors": {
           "stale_session": "Sign in again to change settings.",
@@ -2173,6 +2175,11 @@
             "security": "Security",
             "legal": "Legal questions"
           }
+        },
+        "autoOff": {
+          "title": "Turned off by the nightly check",
+          "row": "{field}: {share} of {count} suggestions accepted this month",
+          "lift": "Turn on again"
         }
       }
     },
@@ -2362,7 +2369,12 @@
         "devTaskLinked": "{actor}: handed over to development, task {ref}",
         "devTaskUnlinked": "{actor}: development task {ref} unlinked",
         "devTaskClosed": "Development task {ref} closed ({status}). The assignee was reminded to check and tell the client",
-        "csat_review": "{actor}: wrote a rating review note"
+        "csat_review": "{actor}: wrote a rating review note",
+        "ai_handoff": "Handed to staff: {reason}",
+        "triage_accepted": "{actor}: triage suggestion accepted",
+        "ai_state": "Assistant turned on",
+        "ai_answer": "Assistant replied",
+        "ai_feedback": "{actor}: reaction to the assistant message"
       },
       "ruleActions": {
         "set_queue": "queue {to}",
@@ -2495,7 +2507,8 @@
           "untagged": "Tag removed",
           "dev_sent": "Ticket handed over to development",
           "dev_unlinked": "Development task unlinked",
-          "dev_status": "Task status saved"
+          "dev_status": "Task status saved",
+          "triaged": "Triage suggestion accepted."
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -2697,6 +2710,48 @@
         "platform": "Platform: {value}",
         "errorCode": "Error code: {value}",
         "errorText": "Error text: {value}"
+      },
+      "ai": {
+        "title": "AI assistant",
+        "states": {
+          "none": "The assistant did not reply",
+          "active": "The assistant is handling the request",
+          "handed_off": "Handed to staff",
+          "resolved_by_ai": "Resolved by the assistant"
+        },
+        "handedOff": "Handed over: {reason}",
+        "replies": "Assistant replies: {count}",
+        "summary": "Summary",
+        "unverified": "AI, not verified",
+        "unverifiedHint": "Not a basis for actions with rights, data or payments. Check against the original text.",
+        "original": "Original request text",
+        "found": "Solutions found",
+        "triage": "Triage suggestions",
+        "fields": {
+          "module": "Module",
+          "type": "Type",
+          "title": "Title",
+          "summary": "Summary"
+        },
+        "accept": "Accept",
+        "acceptField": "Accept: {field}",
+        "acceptAll": "Accept all",
+        "accepted": "Accepted",
+        "checkPriority": "Check the priority: the problem looks more serious than the client said"
+      },
+      "aiReasons": {
+        "customer_request": "the client asked for staff",
+        "not_helped": "did not help",
+        "no_solution": "no matching solution",
+        "restricted_topic": "staff-only topic",
+        "p1": "priority P1",
+        "low_confidence": "the assistant is not sure",
+        "reply_limit": "three assistant replies",
+        "ai_failure": "AI failure",
+        "ai_disabled": "the assistant is off",
+        "ai_limit": "AI spending limit",
+        "no_text": "request without text",
+        "language": "language not supported"
       }
     },
     "playbooks": {

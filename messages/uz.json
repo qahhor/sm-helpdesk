@@ -1218,7 +1218,8 @@
             "tag_removed": "Murojaatdan teg olib tashlandi",
             "csat_reviewed": "Baho tahlili qaydi yozildi",
             "ai_handoff": "AI-yordamchi murojaatni xodimga o'tkazdi",
-            "ai_feedback": "Mijoz AI-yordamchi xabariga javob berdi"
+            "ai_feedback": "Mijoz AI-yordamchi xabariga javob berdi",
+            "triage_accepted": "AI saralash taklifi qabul qilindi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi",
@@ -2099,7 +2100,8 @@
           "models": "Modellar saqlandi.",
           "models_changed": "Modellar saqlandi. Model almashgandan keyin tekshiruv to'plamini ishga tushiring.",
           "lifted": "O'chirish bekor qilindi.",
-          "topics": "Majburiy mavzular saqlandi."
+          "topics": "Majburiy mavzular saqlandi.",
+          "field_on": "Saralash maydoni qayta yoqildi."
         },
         "errors": {
           "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
@@ -2173,6 +2175,11 @@
             "security": "Xavfsizlik",
             "legal": "Huquqiy masalalar"
           }
+        },
+        "autoOff": {
+          "title": "Tungi tekshiruv o'chirdi",
+          "row": "{field}: oy davomida {count} ta taklifdan {share} qabul qilindi",
+          "lift": "Qayta yoqish"
         }
       }
     },
@@ -2362,7 +2369,12 @@
         "devTaskLinked": "{actor}: ishlab chiqishga berildi, vazifa {ref}",
         "devTaskUnlinked": "{actor}: {ref} ishlab chiqish vazifasi uzildi",
         "devTaskClosed": "{ref} ishlab chiqish vazifasi yopildi ({status}). Ijrochiga tekshirish va mijozga xabar berish haqida eslatma yuborildi",
-        "csat_review": "{actor}: baho tahlili qaydi yozildi"
+        "csat_review": "{actor}: baho tahlili qaydi yozildi",
+        "ai_handoff": "Xodimga topshirildi: {reason}",
+        "triage_accepted": "{actor}: saralash taklifi qabul qilindi",
+        "ai_state": "Yordamchi yoqildi",
+        "ai_answer": "Yordamchi javob berdi",
+        "ai_feedback": "{actor}: yordamchi xabariga javob"
       },
       "ruleActions": {
         "set_queue": "navbat {to}",
@@ -2495,7 +2507,8 @@
           "untagged": "Teg olib tashlandi",
           "dev_sent": "Murojaat ishlab chiqishga berildi",
           "dev_unlinked": "Ishlab chiqish vazifasi uzildi",
-          "dev_status": "Vazifa holati saqlandi"
+          "dev_status": "Vazifa holati saqlandi",
+          "triaged": "Saralash taklifi qabul qilindi."
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -2697,6 +2710,48 @@
         "platform": "Platforma: {value}",
         "errorCode": "Xato kodi: {value}",
         "errorText": "Xato matni: {value}"
+      },
+      "ai": {
+        "title": "AI-yordamchi",
+        "states": {
+          "none": "Yordamchi javob bermagan",
+          "active": "Yordamchi murojaatni olib bormoqda",
+          "handed_off": "Xodimga topshirildi",
+          "resolved_by_ai": "Yordamchi hal qildi"
+        },
+        "handedOff": "Topshirildi: {reason}",
+        "replies": "Yordamchi javoblari: {count}",
+        "summary": "Qisqacha mazmun",
+        "unverified": "AI, tekshirilmagan",
+        "unverifiedHint": "Huquqlar, ma'lumotlar va to'lov bilan bog'liq harakatlar uchun asos emas. Asl matn bilan solishtiring.",
+        "original": "Murojaatning asl matni",
+        "found": "Topilgan yechimlar",
+        "triage": "Saralash takliflari",
+        "fields": {
+          "module": "Modul",
+          "type": "Turi",
+          "title": "Sarlavha",
+          "summary": "Qisqacha mazmun"
+        },
+        "accept": "Qabul qilish",
+        "acceptField": "Qabul qilish: {field}",
+        "acceptAll": "Hammasini qabul qilish",
+        "accepted": "Qabul qilindi",
+        "checkPriority": "Ustuvorlikni tekshiring: muammo mijoz ko'rsatganidan jiddiyroqqa o'xshaydi"
+      },
+      "aiReasons": {
+        "customer_request": "mijoz xodimni so'radi",
+        "not_helped": "yordam bermadi",
+        "no_solution": "mos yechim yo'q",
+        "restricted_topic": "faqat xodim uchun mavzu",
+        "p1": "P1 ustuvorlik",
+        "low_confidence": "yordamchi ishonchsiz",
+        "reply_limit": "yordamchining uchta javobi",
+        "ai_failure": "AI nosozligi",
+        "ai_disabled": "yordamchi o'chirilgan",
+        "ai_limit": "AI xarajatlari chegarasi",
+        "no_text": "matnsiz murojaat",
+        "language": "til qo'llab-quvvatlanmaydi"
       }
     },
     "playbooks": {

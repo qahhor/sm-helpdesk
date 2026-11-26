@@ -12,6 +12,7 @@ import { PageHeader } from '@/ui/components/PageHeader';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { acceptOf, STATUS_TONE } from '@/ui/ticket-status';
 import { inviteSenderAction } from './actions';
+import { AiBlock } from './AiBlock';
 import { Composer } from './Composer';
 import { DevTaskBlock } from './DevTaskBlock';
 import { MacroMenu } from './MacroMenu';
@@ -201,6 +202,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
         </div>
         <aside className="flex flex-col gap-4" aria-label={t('ticket.details')}>
           <TicketControls ticket={ticket} me={staff.user.id} role={staff.actor.staffRole} staff={assignable} modules={modules} />
+          <AiBlock staff={staff} ticketId={ticket.ticketId} number={ticket.number} locale={ticket.locale} canWrite={canWrite} />
           <TicketTags number={ticket.number} tags={ticket.tags} known={knownTags} canWrite={canWrite} />
           <DevTaskBlock number={ticket.number} devTask={devTask} canManage={canDevelop} canHandOver={canHandOver} mode={devMode} />
           <SolutionBlock staff={staff} ticketId={ticket.ticketId} number={ticket.number} status={ticket.status} />

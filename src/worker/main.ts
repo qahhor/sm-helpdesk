@@ -10,6 +10,7 @@ import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
 import { runAiBudget } from '@/modules/hda/api/budget';
 import { runFirstLineJob, runWatchdogJob } from '@/modules/hda/api/first-line';
+import { runTriageJob, runTriageReview } from '@/modules/hda/api/triage-jobs';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
@@ -54,6 +55,8 @@ export const SCHEDULES = [
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
   // Сверка поискового индекса подсказки (план M5, задача 9): после ночной очистки.
   { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
+  // Доля принятых предложений разбора за месяц (план M5b, задача 7, FR-TRI-04): ночью после сверки индекса.
+  { name: 'ai.triage_review', cron: '45 3 * * *', tz: 'Asia/Tashkent' },
   // Сводка модерации идей роли product (план M7, задача 8, решение 15): раз в день в 09:30 по Ташкенту.
   { name: 'ideas.moderation_digest', cron: '30 9 * * *', tz: 'Asia/Tashkent' },
   // Отбор месяца (план M7, задача 9, решение 16): 1-го числа в 09:00 по Ташкенту.
@@ -232,6 +235,14 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('ai.first_line', { ...polling, localConcurrency: 2 }, ([job]) => timedJob('ai.first_line', async () => {
     // Ответ первой линии (план M5b, задача 4): в задании только идентификатор обращения. Сбой внутри ведёт к передаче.
     await runFirstLineJob(actor('ai.first_line'), job?.data);
+  }));
+  await boss.work('ai.triage', polling, ([job]) => timedJob('ai.triage', async () => {
+    // Разбор без ответа помощника (план M5b, решение 6): в задании только идентификатор обращения.
+    await runTriageJob(actor('ai.triage'), job?.data);
+  }));
+  await boss.work('ai.triage_review', polling, () => timedJob('ai.triage_review', async () => {
+    const off = await runTriageReview(actor('ai.triage_review'));
+    if (off.length > 0) console.info(`AI: отключены предложения разбора полей ${off.join(', ')}`);
   }));
   await boss.work('ai.watchdog', polling, ([job]) => timedJob('ai.watchdog', async () => {
     // Через 60 секунд после создания или ответа клиента (с обращением) и раз в минуту по расписанию (без него).

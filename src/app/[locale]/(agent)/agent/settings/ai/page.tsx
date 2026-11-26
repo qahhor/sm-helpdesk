@@ -1,6 +1,7 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { AI_MODELS, AI_PURPOSES, RESTRICTED_TOPICS, TRIAGE_FIELDS } from '@/modules/hda/api/constants';
 import { aiSettingsView } from '@/modules/hda/api/settings';
+import { triageFieldOffs } from '@/modules/hda/api/triage';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
@@ -12,13 +13,13 @@ import { Select } from '@/ui/components/select';
 import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { Textarea } from '@/ui/components/textarea';
 import { settingsNav } from '../sections';
-import { liftAiCutoffAction, saveAiModelsAction, saveAiSettingsAction, saveRestrictedTopicsAction } from './actions';
+import { liftAiCutoffAction, liftTriageFieldOffAction, saveAiModelsAction, saveAiSettingsAction, saveRestrictedTopicsAction } from './actions';
 
 // "AI-помощник" (план M5b, задача 1; FR-ADM-09, FR-AI-17, FR-TRI-04, 9.2): общий переключатель, разбор, порог
 // уверенности, пределы и расход за месяц, отключённые организации, модели по целям, отключённые поля разбора. Меняет
 // только администратор со свежим входом; каждое изменение пишется в журнал аудита.
 
-const DONE = new Set(['saved', 'models', 'models_changed', 'lifted', 'topics']);
+const DONE = new Set(['saved', 'models', 'models_changed', 'lifted', 'topics', 'field_on']);
 const LANGS = ['ru', 'uz', 'en'] as const;
 const ERRORS = new Set(['forbidden', 'invalid_input']);
 
@@ -30,6 +31,8 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
   const format = await getFormatter();
   const { done, error } = await searchParams;
   const view = await aiSettingsView(staff);
+  // Поля разбора, отключённые ночной задачей за низкую долю принятых (FR-TRI-04).
+  const offs = await triageFieldOffs(staff);
   const money = (usd: number) => format.number(usd, { style: 'currency', currency: 'USD' });
   const reauth = `/${locale}/staff/login?reauth=1&next=${encodeURIComponent(`/${locale}/agent/settings/ai`)}`;
   return (
@@ -133,6 +136,26 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
                 {a('save')}
               </Button>
             </form>
+            {offs.length > 0 && (
+              <section className="mt-6 flex flex-col gap-2" aria-labelledby="ai-auto-off" data-testid="triage-auto-off">
+                <h3 id="ai-auto-off" className="font-semibold">
+                  {a('autoOff.title')}
+                </h3>
+                <ul className="flex flex-col gap-2">
+                  {offs.map((off) => (
+                    <li key={off.offId} className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="break-words">{a('autoOff.row', { field: a(`fields.${off.field}`), share: format.number(off.share, { style: 'percent' }), count: off.decisions })}</span>
+                      <form action={liftTriageFieldOffAction}>
+                        <input type="hidden" name="offId" value={off.offId} />
+                        <Button type="submit" variant="secondary" size="small">
+                          {a('autoOff.lift')}
+                        </Button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </CardContent>
         </Card>
 

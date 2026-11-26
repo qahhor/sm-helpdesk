@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { AI_PURPOSES, RESTRICTED_TOPICS } from '@/modules/hda/api/constants';
 import { isHdaError, liftAiCutoff, saveAiModels, saveAiSettings, saveRestrictedTopics } from '@/modules/hda/api/settings';
+import { liftTriageFieldOff } from '@/modules/hda/api/triage';
 import { requireStaffActor } from '@/modules/hdu/api';
 
 // Раздел "AI-помощник" настроек (план M5b, задача 1; FR-ADM-09, FR-AI-17). Права, свежий вход и значения проверяет
@@ -55,4 +56,10 @@ export async function saveRestrictedTopicsAction(form: FormData): Promise<void> 
   const staff = await requireStaffActor({ roles: ['admin'] });
   const fields = RESTRICTED_TOPICS.flatMap((topic) => (['ru', 'uz', 'en'] as const).map((lang) => [`${topic}.${lang}`, String(form.get(`${topic}.${lang}`) ?? '')] as const));
   await run('topics', () => saveRestrictedTopics(staff, Object.fromEntries(fields)));
+}
+
+/** Включить обратно поле разбора, отключённое ночной задачей (план M5b, задача 7; FR-TRI-04). */
+export async function liftTriageFieldOffAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor({ roles: ['admin'] });
+  await run('field_on', () => liftTriageFieldOff(staff, { offId: String(form.get('offId') ?? '') }));
 }

@@ -5,7 +5,7 @@ import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { enqueue, wakeAutomation } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
-import { assistantEligible } from '@/modules/hda/api/eligibility';
+import { assistantEligible, triageEligible } from '@/modules/hda/api/eligibility';
 import { activateAiTx, type FirstLineTicket, firstLineTicketTx, handoffTx, postAiMessageTx, silentAssistantTx } from '../core/ai';
 import { HdtError } from '../error';
 import { AI_HANDOFF_REASONS, type AiHandoffReason, type AiPayload } from '../pref';
@@ -31,7 +31,10 @@ function assertSystem(actor: SystemActor): void {
  */
 export async function startAssistant(input: { ticketId: string; orgId: string }): Promise<boolean> {
   try {
-    if (!(await assistantEligible(SYSTEM, { orgId: input.orgId }))) return false;
+    if (!(await assistantEligible(SYSTEM, { orgId: input.orgId }))) {
+      await startTriage(input);
+      return false;
+    }
     if (!(await withActor(SYSTEM, (tx) => activateAiTx(tx, input.ticketId)))) return false;
   } catch (error) {
     console.error(`Помощник не включён в обращении ${input.ticketId}: ${error instanceof Error ? error.message : 'ошибка'}`);
@@ -40,6 +43,21 @@ export async function startAssistant(input: { ticketId: string; orgId: string })
   await enqueue('ai.first_line', { ticketId: input.ticketId });
   await enqueue('ai.watchdog', { ticketId: input.ticketId }, { startAfterSeconds: 60 });
   return true;
+}
+
+/**
+ * Разбор без ответа (план M5b, задача 7, решение 6): помощник не отвечает (выключен администратором или обращение создал
+ * сотрудник), а AI-обработка организации и предложения разбора включены. Сбой постановки обращение не задерживает.
+ */
+export async function startTriage(input: { ticketId: string; orgId: string }): Promise<boolean> {
+  try {
+    if (!(await triageEligible(SYSTEM, { orgId: input.orgId }))) return false;
+    await enqueue('ai.triage', { ticketId: input.ticketId });
+    return true;
+  } catch (error) {
+    console.error(`Разбор не поставлен для обращения ${input.ticketId}: ${error instanceof Error ? error.message : 'ошибка'}`);
+    return false;
+  }
 }
 
 const uuid = z.uuid();

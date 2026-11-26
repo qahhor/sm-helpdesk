@@ -2,6 +2,7 @@ import 'server-only';
 import type { ClientActor, SystemActor } from '@/db/with-actor';
 import { LOCALES, type Locale } from '@/i18n/locales';
 import { logEvent } from '@/lib/log';
+import { enqueue } from '@/modules/hdc/api';
 import { type AssistantSolution, assistantSolution } from '@/modules/hdk/api/assistant';
 import { type FoundSolution, searchSolutions } from '@/modules/hdk/api/suggest';
 import { aiHandoff, type AiHandoffReason, firstLineTicket, type FirstLineTicket, postAiMessage, silentAssistantTickets } from '@/modules/hdt/api/ai';
@@ -11,11 +12,12 @@ import { replyRole } from '@/modules/hdu/api/recipients';
 import { assembleFirstLineData } from '../assemble';
 import { aiConfig } from '../api/config';
 import { callAi } from '../api/run';
-import { recordDecision } from '../api/runs';
+import { recordDecision, recordFound } from '../api/runs';
 import { detectLanguage } from '../language';
 import { AI_FIRST_LINE_TIMEOUT_MS, HANDOFF_QUESTIONS_MAX, type HandoffQuestionId, QUESTIONS_BY_TYPE } from '../pref';
 import { asksHuman, matchRestrictedTopic } from '../topics';
 import { type FirstLineOutput, firstLineOutput } from './schema';
+import { saveTriage } from './triage';
 
 // Модуль hda: задача первой линии (ТЗ 11.12, FR-AI-01..07, 11, 12, 20, FR-TRI-05; план M5b, задача 4, решения 5, 7, 8,
 // 12, 13, 16, 17, 21, 22). Модель советует, код решает:
@@ -120,8 +122,9 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
   const userLocale = (LOCALES as readonly string[]).includes(t.locale) ? (t.locale as Locale) : 'ru';
   const lang = detectLanguage(all, userLocale);
   if (!lang) return handoff('language');
-  if (asksHuman(all)) return handoff('customer_request', [], lang);
-  if (matchRestrictedTopic(all, config.restrictedTopics)) return handoff('restricted_topic', [], lang);
+  // Передача кодом до вызова модели: разбор отдельным вызовом ai.triage (решение 6), чтобы у сотрудника были предложения.
+  if (asksHuman(all)) return withTriage(t, () => handoff('customer_request', [], lang));
+  if (matchRestrictedTopic(all, config.restrictedTopics)) return withTriage(t, () => handoff('restricted_topic', [], lang));
 
   // 3. Известная проблема (M5c).
   await matchKnownProblem({ signature: t.errorSignature, moduleId: t.moduleId });
@@ -135,7 +138,7 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
   const confident = items.filter((s) => s.exact || s.score >= config.minScore).slice(0, SOLUTIONS_MAX);
   const exact = confident.find((s) => s.exact) ?? null;
   // P1 без точного совпадения: передача сразу (FR-AI-07).
-  if (t.priority === 'p1' && !exact) return handoff('p1', [], lang);
+  if (t.priority === 'p1' && !exact) return withTriage(t, () => handoff('p1', [], lang));
   const solutions = (await Promise.all(confident.map((s) => assistantSolution(author, { number: s.number, locale: s.locale })))).filter((s): s is AssistantSolution => s !== null);
   const known = new Map(solutions.map((s) => [s.articleId, s]));
   const scoreOf = new Map<string, FoundSolution>(confident.map((s) => [s.articleId, s]));
@@ -178,6 +181,12 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
     return handoff('low_confidence', [], lang);
   }
   const out: FirstLineOutput = outcome.value;
+  // Найденные решения для блока AI сотрудника и предложения разбора из того же вызова (FR-TRI-05). Сбой записи разбора
+  // ответ клиенту не задерживает.
+  await recordFound(system, runId, confident.map((s) => ({ articleId: s.articleId, number: s.number, score: Math.round(s.score * 1e6) / 1e6 })));
+  await saveTriage(system, { ticket: t, runId, advice: out.triage }).catch((error: unknown) => {
+    logEvent('warn', 'ai.triage_save_failed', { code: error instanceof Error && 'code' in error ? String((error as { code: unknown }).code) : 'unexpected' });
+  });
 
   // 6. Правила кода сильнее ответа модели: флаги модели только добавляют передачу.
   const pass = async (reason: AiHandoffReason, questionIds: readonly string[] = []) => {
@@ -215,6 +224,13 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
     return { status: 'clarified' };
   }
   return pass(solutions.length > 0 ? 'low_confidence' : 'no_solution', out.questionIds);
+}
+
+/** Передача без вызова модели и задание разбора после неё (решение 6). Разбор проверит, включён ли он. */
+async function withTriage(t: FirstLineTicket, pass: () => Promise<FirstLineResult>): Promise<FirstLineResult> {
+  const result = await pass();
+  await enqueue('ai.triage', { ticketId: t.ticketId }).catch(() => undefined);
+  return result;
 }
 
 const isRefused = (error: unknown) => error instanceof Error && 'code' in error && (error as { code: unknown }).code === 'transition_refused';

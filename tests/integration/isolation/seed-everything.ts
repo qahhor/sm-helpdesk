@@ -116,6 +116,10 @@ export async function seedEverything() {
   await pools.root.query(`insert into hda_runs (org_id, purpose, model, outcome) values ($1, 'solution_draft', 'stub-model', 'ok')`, [f.orgA.orgId]);
   // Отключение помощника пределом расходов (веха M5b, задача 1).
   await pools.root.query(`insert into hda_org_cutoffs (org_id, month, reason) values ($1, date_trunc('month', now())::date, 'budget_share')`, [f.orgA.orgId]);
+  // Предложение разбора по обращению организации A и отключённое поле разбора (веха M5b, задача 7).
+  const triageRun = (await pools.root.query(`insert into hda_runs (org_id, purpose, model, outcome, ticket_id) values ($1, 'first_line', 'stub-model', 'ok', $2) returning run_id`, [f.orgA.orgId, f.tickets.aOrg.ticketId])).rows[0].run_id;
+  await pools.root.query(`insert into hda_triage_suggestions (org_id, ticket_id, run_id, field, value) values ($1, $2, $3, 'summary', 'Резюме для сотрудника')`, [f.orgA.orgId, f.tickets.aOrg.ticketId, triageRun]);
+  await pools.root.query(`insert into hda_triage_field_offs (field, month, share, decisions) values ('module', date_trunc('month', now())::date, 0.5, 40)`);
   // Идеи (веха M7, задача 1): опубликованная идея организации Б, идея Б на модерации и своя идея А на модерации; голоса,
   // подписки, комментарии (опубликованный, чужой на проверке и свой на проверке), отборы (завершённый и открытый),
   // вложения (чистое и непроверенное у опубликованной идеи Б). Клиент А должен видеть опубликованное Б и своё.

@@ -125,6 +125,14 @@ export const AI_SETTINGS = {
 /** Поля предложений разбора (10.5 triage_suggestions, FR-TRI-01, 03). */
 export const TRIAGE_FIELDS = ['module', 'type', 'title', 'summary', 'priority_hint'] as const;
 export type TriageField = (typeof TRIAGE_FIELDS)[number];
+/** Поля, которые принятие меняет в обращении. Резюме и пометка приоритета только показываются сотруднику. */
+export const TRIAGE_APPLIED_FIELDS = ['module', 'type', 'title'] as const satisfies readonly TriageField[];
+export type TriageAppliedField = (typeof TRIAGE_APPLIED_FIELDS)[number];
+export const TRIAGE_STATUSES = ['pending', 'accepted', 'rejected'] as const;
+export type TriageStatus = (typeof TRIAGE_STATUSES)[number];
+/** Ночная проверка (FR-TRI-04): доля принятых за месяц ниже этой при не менее чем TRIAGE_REVIEW_MIN решениях. */
+export const TRIAGE_REVIEW_SHARE = 0.7;
+export const TRIAGE_REVIEW_MIN = 30;
 
 /**
  * Значения по умолчанию (решения 8 и 11). Помощник выключен, пока администратор его не включит (решение 4: "помощник

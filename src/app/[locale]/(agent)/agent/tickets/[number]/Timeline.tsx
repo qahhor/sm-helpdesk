@@ -110,6 +110,9 @@ export async function TicketTimeline({ ticket, from }: Props) {
           return t('ticket.events.devTaskClosed', { ref, status: t.has(`ticket.devTask.statuses.${String(p.status)}`) ? t(`ticket.devTask.statuses.${String(p.status)}`) : String(p.status ?? '') });
         return t(p.action === 'unlinked' ? 'ticket.events.devTaskUnlinked' : 'ticket.events.devTaskLinked', { actor, ref });
       }
+      case 'ai_handoff':
+        // Передача помощником сотруднику (план M5b, задача 7): причина из перечня FR-AI-14.
+        return t('ticket.events.ai_handoff', { reason: t.has(`ticket.aiReasons.${String(p.reason)}`) ? t(`ticket.aiReasons.${String(p.reason)}`) : '' });
       case 'due':
         return t('ticket.events.due', { kind: t.has(`ticket.dueKinds.${String(p.kind)}`) ? t(`ticket.dueKinds.${String(p.kind)}`) : '' });
       default:

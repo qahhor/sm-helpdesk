@@ -7,16 +7,18 @@ import { withActor } from '@/db/with-actor';
 import { env } from '@/env';
 import { LOCALES, type Locale } from '@/i18n/locales';
 import { logEvent } from '@/lib/log';
-import { consumeRateLimit, rateKey, type StaffContext } from '@/modules/hdc/api';
+import { consumeRateLimit, noteIsolationDrop, pendingEntities, rateKey, type StaffContext } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { ticketSearchKey } from '@/modules/hdt/api/solution-source';
 import type { ClientContext } from '@/modules/hdu/api/orgs';
 import { hybridSearchTx, publishedForArticleTx } from '../core/search';
+import { typesenseWords } from '../core/word-search';
+import { noteSuggestOutcome } from './misses';
 import { EmbeddingUnavailableError, getEmbedder } from '../embeddings';
 import { HdkError } from '../error';
 import { type KbAudience, ORG_COUNT_MIN, QUERY_EMBED_TIMEOUT_MS, SHOWN_PER_SESSION_MAX, SUGGEST_QUERY_MAX, SUGGEST_QUERY_MIN } from '../pref';
 import { type ExactHit, rankHits, type RankedHit } from '../ranking';
-import { kbArticles, kbDeflectionEvents, kbErrorSignatures, kbSignatureOrgs } from '../schema';
+import { kbArticles, kbDeflectionEvents, kbErrorSignatures, kbPublished, kbSignatureOrgs } from '../schema';
 import { signatureFromText, ticketErrorSignature } from '../signature';
 
 // Модуль hdk, слой api: подсказка решений и связанные решения (план M5, задача 10; ТЗ 11.6, FR-SOL-08..14, FR-AG-05,
@@ -85,6 +87,23 @@ async function exactMatch(actor: ClientActor | StaffActor, signature: string, lo
 }
 
 /**
+ * Проверка после (план W6, решение 2): решение, которое Typesense дал клиенту, а политика не отдала. Если копия
+ * решения внутренняя и строка очереди индекса по нему не ждёт, фильтр ключа сломан: событие и сигнал search_isolation.
+ * Решение, ставшее внутренним секунды назад (очередь ещё не разобрана), сигналом не считается.
+ */
+async function noteSolutionDrops(words: readonly { refId: string; locale: Locale }[], hits: readonly { articleId: string; locale: Locale }[]): Promise<void> {
+  const seen = new Set(hits.map((h) => `${h.articleId}_${h.locale}`));
+  const dropped = [...new Set(words.filter((w) => !seen.has(`${w.refId}_${w.locale}`)).map((w) => w.refId))];
+  if (dropped.length === 0) return;
+  const internal = await withActor(SYSTEM, (tx) =>
+    tx.selectDistinct({ articleId: kbPublished.articleId }).from(kbPublished).where(and(inArray(kbPublished.articleId, dropped), eq(kbPublished.audience, 'internal'))),
+  );
+  if (internal.length === 0) return;
+  const pending = await pendingEntities(SYSTEM, 'solution', internal.map((r) => r.articleId));
+  await noteIsolationDrop('solutions', internal.filter((r) => !pending.has(r.articleId)).length);
+}
+
+/**
  * Поиск решений по разделу 11.6 от имени актора: точная сигнатура, слова, триграммы, смысл; не больше трёх уверенных.
  * Вызывают подсказка клиента и блок "Связанные решения" сотрудника.
  */
@@ -94,7 +113,12 @@ export async function searchSolutions(actor: ClientActor | StaffActor, input: Se
   const words = input.text.match(/[\p{L}\p{N}]{2,}/gu)?.length ?? 0;
   const vector = words < 2 ? null : await queryVector(input.text);
   const exact = input.signature ? await exactMatch(actor, input.signature, locales, input.audiences) : { hit: null, orgCount: 0 };
-  const hits = words < 2 ? [] : await withActor(actor, (tx) => hybridSearchTx(tx, { text: input.text, vector, locales, audiences: input.audiences }));
+  // Слова ищет Typesense (план W6, задача 6): опечатки, синонимы, свёртка письменности; смысл остаётся в pgvector.
+  // Не ответил: прежние списки SQL (полнотекстовый и триграммы).
+  const tsWords = words < 2 ? null : await typesenseWords(actor, 'solutions', input.text, locales);
+  const hits =
+    words < 2 ? [] : await withActor(actor, (tx) => hybridSearchTx(tx, { text: input.text, vector, locales, audiences: input.audiences, ...(tsWords ? { words: tsWords } : {}) }));
+  if (actor.type === 'client' && tsWords) await noteSolutionDrops(tsWords, hits);
   const ranked = rankHits(hits, { exact: exact.hit, moduleId: input.moduleId, locales });
   return {
     items: ranked.map((item) => ({ ...item, orgCount: item.exact && exact.orgCount >= ORG_COUNT_MIN ? exact.orgCount : null })),
@@ -174,6 +198,7 @@ export async function suggestForClient(ctx: Pick<ClientContext, 'actor'>, input:
   const signature = signatureFromText(text);
   const { items } = await searchSolutions(ctx.actor, { text, signature, moduleId: parsed.data.moduleId ?? null, locale: parsed.data.locale, audiences: ['clients'] });
   if (items.length > 0) await noteShown(ctx.actor, parsed.data.sessionId, { text, signature, articleIds: items.map((i) => i.articleId) });
+  await noteSuggestOutcome(ctx.actor, { sessionId: parsed.data.sessionId, text, locale: parsed.data.locale, moduleId: parsed.data.moduleId ?? null, found: items.length > 0 });
   return { items: items.map(({ number, slug, title, exact, orgCount }) => ({ number, slug, title, exact, orgCount })), limited: false };
 }
 
@@ -207,6 +232,7 @@ export async function suggestForWidget(ctx: Pick<ClientContext, 'actor'>, input:
   if (!perUser.allowed || !perOrg.allowed) return { items: [], limited: true };
   const { items } = await searchSolutions(ctx.actor, { text, signature, moduleId: data.moduleId ?? null, locale: data.locale, audiences: ['clients'] });
   if (items.length > 0) await noteShown(ctx.actor, data.sessionId, { text, signature, articleIds: items.map((i) => i.articleId), zone: 'widget' });
+  await noteSuggestOutcome(ctx.actor, { sessionId: data.sessionId, text, locale: data.locale, moduleId: data.moduleId ?? null, found: items.length > 0 });
   return { items: items.map(({ number, slug, title, exact, orgCount }) => ({ number, slug, title, exact, orgCount })), limited: false };
 }
 

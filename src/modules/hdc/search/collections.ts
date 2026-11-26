@@ -11,6 +11,18 @@ export const UZ_STEMS = 'hub_uz_stems';
 export const SYNONYM_SET = 'hub_synonyms';
 export const CURATION_SET = 'hub_solutions_curation';
 
+/**
+ * Стоп-слова (api/stopwords): вежливые и служебные слова длинных описаний клиентов отбрасываются из запроса, не из
+ * индекса. Один набор с locale ru: без locale Typesense 30.2 не применял набор к полю с locale ru, набор с locale ru
+ * действует и на поля uz, en и *_fold, а список наборов через запятую 30.2 не принимает (проверено). Список ведёт код.
+ */
+export const STOPWORDS: Record<'ru' | 'uz' | 'en', string[]> = {
+  ru: ['пожалуйста', 'помогите', 'помочь', 'подскажите', 'срочно', 'здравствуйте', 'добрый', 'день', 'спасибо', 'заранее', 'привет'],
+  uz: ['iltimos', 'yordam', 'bering', 'salom', 'assalomu', 'alaykum', 'rahmat', 'tezroq', 'илтимос', 'ёрдам', 'беринг', 'салом', 'рахмат'],
+  en: ['please', 'help', 'hello', 'hi', 'thanks', 'thank', 'urgent', 'urgently'],
+};
+export const STOPWORD_SETS = 'hub_stopwords';
+
 export type FieldSpec = {
   name: string;
   type: 'string' | 'string[]' | 'int64' | 'bool';

@@ -1,7 +1,7 @@
 import 'server-only';
 import * as z from 'zod';
 import { type Breaker, createBreaker } from './breaker';
-import { COLLECTION_SCHEMAS, CURATION_SET, SYNONYM_SET, UZ_STEMS } from './collections';
+import { COLLECTION_SCHEMAS, CURATION_SET, STOPWORD_SETS, STOPWORDS, SYNONYM_SET, UZ_STEMS } from './collections';
 import { foldText } from './fold';
 import { isScopedKey } from './scoped-key';
 import {
@@ -233,6 +233,7 @@ export function createTypesenseWriter(cfg: { url: string; key: string; fetch?: t
         await call('POST', `/stemming/dictionaries/import?id=${UZ_STEMS}`, { ndjson: JSON.stringify({ word: 'hubhub', root: 'hubhub' }) });
       if ((await call('GET', `/synonym_sets/${SYNONYM_SET}`, { allow404: true })).status === 404) await call('PUT', `/synonym_sets/${SYNONYM_SET}`, { body: { items: [] } });
       if ((await call('GET', `/curation_sets/${CURATION_SET}`, { allow404: true })).status === 404) await call('PUT', `/curation_sets/${CURATION_SET}`, { body: { items: [] } });
+      await call('PUT', `/stopwords/${STOPWORD_SETS}`, { body: { stopwords: Object.values(STOPWORDS).flat(), locale: 'ru' } });
       const existing = new Set((await this.listCollections()).map((c) => c.name));
       for (const collection of SEARCH_COLLECTIONS) {
         if (await this.aliasTarget(collection)) continue;

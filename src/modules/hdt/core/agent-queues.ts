@@ -16,7 +16,11 @@ import { ticketTagsTx } from './tags';
 
 export { QUEUE_KEYS, QUEUE_SORTS, type QueueKey, type QueueSort } from './agent-queue-keys';
 
-export type QueueSearch = { number?: number; text?: string; orgIds: string[]; authorIds: string[] };
+/**
+ * textIds: обращения, найденные по тексту в Typesense (план W6, решение 4). Есть: условие ticket_id = any(ids) вместо
+ * двух containsText по теме и описанию. Нет (Typesense выключен или не ответил): прежний containsText.
+ */
+export type QueueSearch = { number?: number; text?: string; textIds?: string[]; orgIds: string[]; authorIds: string[] };
 
 export type QueueRecord = {
   ticketId: string;
@@ -84,7 +88,9 @@ function searchWhere(search: QueueSearch | undefined): SQL | undefined {
   if (!search) return undefined;
   const parts: SQL[] = [];
   if (search.number !== undefined) parts.push(eq(tickets.number, search.number));
-  if (search.text) parts.push(containsText(tickets.title, search.text), containsText(tickets.description, search.text));
+  if (search.textIds) {
+    if (search.textIds.length > 0) parts.push(inArray(tickets.ticketId, search.textIds));
+  } else if (search.text) parts.push(containsText(tickets.title, search.text), containsText(tickets.description, search.text));
   if (search.orgIds.length > 0) parts.push(inArray(tickets.orgId, search.orgIds));
   if (search.authorIds.length > 0) parts.push(inArray(tickets.authorId, search.authorIds));
   // Строка поиска была, а совпадений ни по чему нет: пусто, а не вся очередь.

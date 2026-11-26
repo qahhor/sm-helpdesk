@@ -55,6 +55,11 @@ export const QUEUES = {
   'ideas.moderation_digest': { policy: 'short', retryLimit: 2, retryDelay: 300, expireInSeconds: 600 },
   // Отбор месяца (план M7, задача 9): 1-го числа в 09:00 по Ташкенту. Повтор безвреден: месяц уникален, снимок один.
   'ideas.cycle': { policy: 'short', retryLimit: 3, retryDelay: 300, expireInSeconds: 600 },
+  // Индекс поиска Typesense (план W6, решения 11 и 12): разбор очереди hdc_search_outbox раз в минуту, внутри запуска
+  // до 50 секунд с опросом каждые 2 секунды. singleton: не больше одного выполняемого запуска, порядок записи один.
+  // Повторы ведёт сама очередь (attempts в hdc_search_outbox). Ночная сверка без повторов: следующая ночь догонит.
+  'search.sync': { policy: 'singleton', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
+  'search.reconcile': { policy: 'short', retryLimit: 0, expireInSeconds: 3600, deleteAfterSeconds: 86_400 },
   // Разбор входящего письма (веха M4, решение 10): одна задача на письмо, повторы при сбое сервиса почты.
   'email.inbound': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
 };

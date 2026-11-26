@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { containsText } from '@/db/contains';
 import type { Locale } from '@/i18n/locales';
@@ -29,7 +29,7 @@ export type StaffIdeaRow = {
 
 export type StaffListQuery =
   | { tab: 'moderation' }
-  | { tab: 'all'; status: IdeaStatus | null; moduleId: string | null; orgIds: string[] | null; q: string | null; after: number | null };
+  | { tab: 'all'; status: IdeaStatus | null; moduleId: string | null; orgIds: string[] | null; q: string | null; after: number | null; textIds?: string[] | null };
 
 /** Список идей для сотрудника: "Модерация" от старых к новым, "Все" от новых к старым с фильтрами (решение 22 для сотрудника). */
 export async function staffListTx(tx: Tx, query: StaffListQuery): Promise<{ rows: StaffIdeaRow[]; next: number | null }> {
@@ -40,7 +40,14 @@ export async function staffListTx(tx: Tx, query: StaffListQuery): Promise<{ rows
           query.status ? eq(ideas.status, query.status) : undefined,
           query.moduleId ? eq(ideas.moduleId, query.moduleId) : undefined,
           query.orgIds ? inArray(ideas.orgId, query.orgIds.length > 0 ? query.orgIds : ['00000000-0000-0000-0000-000000000000']) : undefined,
-          query.q ? inArray(ideas.ideaId, tx.select({ id: ideaTranslations.ideaId }).from(ideaTranslations).where(containsText(ideaTranslations.title, query.q))) : undefined,
+          // Сотрудник видит и неопубликованные идеи, которых нет в Typesense: найденное Typesense (опечатки, письменность)
+          // добавляется к прежнему поиску по части заголовка (план W6, задача 7).
+          query.q
+            ? or(
+                inArray(ideas.ideaId, tx.select({ id: ideaTranslations.ideaId }).from(ideaTranslations).where(containsText(ideaTranslations.title, query.q))),
+                query.textIds && query.textIds.length > 0 ? inArray(ideas.ideaId, query.textIds) : undefined,
+              )
+            : undefined,
           query.after ? lt(ideas.number, query.after) : undefined,
         );
   const rows = await tx

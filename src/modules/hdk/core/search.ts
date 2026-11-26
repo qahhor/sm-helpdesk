@@ -36,6 +36,11 @@ export type SearchQuery = {
   vector: readonly number[] | null;
   locales: readonly Locale[];
   audiences: readonly KbAudience[];
+  /**
+   * Список слов из Typesense (план W6, решение 6): документы <решение, язык> по месту, признак "все слова". Есть: он
+   * заменяет полнотекстовый и триграммный списки, смысловой остаётся в pgvector. Нет: прежние списки SQL.
+   */
+  words?: readonly { refId: string; locale: Locale; allWords: boolean }[];
 };
 
 /**
@@ -65,23 +70,7 @@ function hybridCte(query: SearchQuery, kind: SearchKind) {
         from hdk_search_documents d, q
        where d.kind = ${kind} and d.audience = any(${sql.param(query.audiences)}::text[]) and d.locale = any(${sql.param(query.locales)}::text[])
     ),
-    fts as (
-      select id, row_number() over (order by ts_rank(tsv, any_words) desc, id) as r,
-             numnode(all_words) >= 3 and tsv @@ all_words as every_word
-        from docs
-       where any_words is not null and tsv @@ any_words
-       order by r
-       limit ${SEARCH_LIST_LIMIT}
-    ),
-    trg as (
-      select id, row_number() over (order by sim desc, id) as r
-        from (select id,
-                     case when char_length(title) >= ${query.text.length} then word_similarity(${query.text}, title) else word_similarity(title, ${query.text}) end as sim
-                from docs) s
-       where sim >= ${TRIGRAM_MIN_SIMILARITY}
-       order by r
-       limit ${SEARCH_LIST_LIMIT}
-    ),
+    ${query.words ? wordsLists(query.words) : sqlLists(query.text)},
     vec as (
       select id, row_number() over (order by dist, id) as r, dist
         from (select v.search_document_id as id, v.embedding <=> ${vector}::vector as dist
@@ -93,6 +82,44 @@ function hybridCte(query: SearchQuery, kind: SearchKind) {
        limit ${SEARCH_LIST_LIMIT}
     ),
     hits as (select id from fts union select id from trg union select id from vec)`;
+}
+
+/** Полнотекстовый и триграммный списки SQL (ТЗ 11.6): путь без Typesense. */
+function sqlLists(text: string) {
+  return sql`fts as (
+      select id, row_number() over (order by ts_rank(tsv, any_words) desc, id) as r,
+             numnode(all_words) >= 3 and tsv @@ all_words as every_word
+        from docs
+       where any_words is not null and tsv @@ any_words
+       order by r
+       limit ${SEARCH_LIST_LIMIT}
+    ),
+    trg as (
+      select id, row_number() over (order by sim desc, id) as r
+        from (select id,
+                     case when char_length(title) >= ${text.length} then word_similarity(${text}, title) else word_similarity(title, ${text}) end as sim
+                from docs) s
+       where sim >= ${TRIGRAM_MIN_SIMILARITY}
+       order by r
+       limit ${SEARCH_LIST_LIMIT}
+    )`;
+}
+
+/**
+ * Список слов из Typesense вместо fts и trg (план W6, решение 6): место документа в списке Typesense, строки индекса
+ * берутся из docs, то есть под тем же отбором аудитории и языка и под RLS актора. Триграммный список пуст: опечатки и
+ * начало слова уже учёл Typesense.
+ */
+function wordsLists(words: NonNullable<SearchQuery['words']>) {
+  const top = words.slice(0, SEARCH_LIST_LIMIT);
+  return sql`ts as (
+      select * from unnest(${sql.param(top.map((w) => w.refId))}::uuid[], ${sql.param(top.map((w) => w.locale))}::text[], ${sql.param(top.map((w) => w.allWords))}::boolean[])
+        with ordinality as t(ref_id, locale, every_word, r)
+    ),
+    fts as (
+      select d.id, ts.r, ts.every_word from ts join docs d on d.ref_id = ts.ref_id and d.locale = ts.locale
+    ),
+    trg as (select null::uuid as id, null::bigint as r where false)`;
 }
 
 /** Очки и признаки уверенности документа по трём спискам (RRF). */

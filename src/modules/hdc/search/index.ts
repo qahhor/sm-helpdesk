@@ -120,6 +120,7 @@ export async function searchCounters(actor: SystemActor = SYSTEM, now: Date = ne
 export { foldText } from './fold';
 export { HIDDEN_IDEA_STATUSES, isScopedKey, scopeFor } from './scoped-key';
 export { createStubSearch, type StubSearch } from './stub';
-export { COLLECTION_SCHEMAS, localeField, localizedFields, TEXT_LIMITS } from './collections';
+export { COLLECTION_SCHEMAS, localeField, localizedFields, STOPWORD_SETS, TEXT_LIMITS } from './collections';
 export { filterValues } from './typesense';
+export { FOLD_WEIGHT, mergeRanked, type RankedList, RRF_K, SEARCH_TIMEOUT_MS } from './rank';
 export * from './types';

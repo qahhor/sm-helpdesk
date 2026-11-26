@@ -14,6 +14,8 @@ const SECTIONS = [
   { key: 'webhooks', href: '/agent/settings/webhooks' },
   { key: 'mail', href: '/agent/settings/mail' },
   { key: 'knowledge', href: '/agent/settings/knowledge' },
+  // Синонимы, словарь узбекского и курирование (план W6, ответ владельца 0070, пункт 4).
+  { key: 'search', href: '/agent/settings/search' },
   { key: 'audit', href: '/agent/settings/audit' },
 ] as const;
 

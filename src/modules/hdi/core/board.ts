@@ -98,13 +98,16 @@ function orderOf(tx: Tx, tab: BoardTab, mode: VoteMode, after: number | null): {
   };
 }
 
-export type BoardQuery = { tab: BoardTab; moduleId: string | null; q: string | null; after: number | null; locale: Locale };
+/** textIds: идеи, найденные Typesense (план W6, задача 7); есть, и они заменяют поиск containsText по заголовку. */
+export type BoardQuery = { tab: BoardTab; moduleId: string | null; q: string | null; after: number | null; locale: Locale; textIds?: string[] | null };
 
 /** Страница вкладки доски: до BOARD_PAGE карточек и номер последней для следующей страницы. */
 export async function boardTx(tx: Tx, query: BoardQuery, userId: string | null, mode: VoteMode): Promise<{ items: BoardCard[]; next: number | null }> {
   const { order, cursor } = orderOf(tx, query.tab, mode, query.after);
   // Поиск по заголовку на языке пользователя и по оригиналу (решение 22): знаки шаблона экранирует containsText.
-  const search = query.q
+  const search = query.q && query.textIds
+    ? inArray(ideas.ideaId, query.textIds.length > 0 ? query.textIds : ['00000000-0000-0000-0000-000000000000'])
+    : query.q
     ? inArray(
         ideas.ideaId,
         tx

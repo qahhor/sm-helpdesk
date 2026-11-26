@@ -9,3 +9,10 @@ test('проверочный набор поиска: доля правильн�
   console.log(lines.join('\n'));
   if (process.env.EVAL_STRICT === '1') expect(report.passed, 'пороги 15.4').toBe(true);
 });
+
+// Тот же набор со словами из Typesense (план W6, задача 6): подсказок не меньше и ложных не больше, чем у пути SQL.
+test.skipIf(!process.env.TYPESENSE_TEST_URL)('проверочный набор поиска со словами из Typesense', async () => {
+  const { report, lines } = await runSearchEval(process.env.EVAL_SEARCH_DIR || EVAL_DIR, { typesense: true });
+  console.log(lines.join('\n'));
+  if (process.env.EVAL_STRICT === '1') expect(report.passed, 'пороги 15.4').toBe(true);
+});

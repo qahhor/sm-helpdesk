@@ -94,3 +94,24 @@ export const domainEvents = pgTable('hdc_domain_events', {
   /** Не раньше какого момента разбирать событие снова после сбоя. Колонка добавлена миграцией 0068. */
   nextAttemptOn: timestamp('next_attempt_on', { withTimezone: true }),
 });
+
+/** Вид объекта в очереди индекса поиска (миграция 0088). */
+export type SearchEntityKind = 'ticket' | 'ticket_text' | 'solution' | 'idea' | 'org' | 'person' | 'config';
+
+/**
+ * Очередь записи в индекс поиска Typesense (план W6, миграция 0088): пишут триггеры исходных таблиц, разбирает
+ * задача search.sync (src/modules/hdc/search/sync.ts). Только вид и идентификатор, без текста.
+ */
+export const searchOutbox = pgTable('hdc_search_outbox', {
+  orgId: uuid('org_id'),
+  outboxId: uuid('outbox_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  entityKind: text('entity_kind').$type<SearchEntityKind>().notNull(),
+  entityId: text('entity_id').notNull(),
+  op: text('op').$type<'upsert' | 'delete'>().notNull().default('upsert'),
+  attempts: smallint('attempts').notNull().default(0),
+  nextAttemptOn: timestamp('next_attempt_on', { withTimezone: true }).notNull().defaultNow(),
+  lastErrorCode: text('last_error_code'),
+  createdOn: timestamp('created_on', { withTimezone: true }).notNull().defaultNow(),
+});

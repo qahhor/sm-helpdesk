@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, asc, desc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { containsText } from '@/db/contains';
+import { clientTextSearch, noteClientDrops, visibleTicketIds } from './text-search';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { emitEventTx, writeAudit } from '@/modules/hdc/api';
@@ -249,8 +250,16 @@ export async function listTicketRows(actor: ClientActor, filters: ListFilters): 
   // Поиск: номер обращения или текст темы и описания. Цифры ищутся и как номер, и как текст (код ошибки, документ).
   const search: SQL[] = [];
   if (filters.number !== undefined) search.push(eq(tickets.number, filters.number));
-  if (filters.text) search.push(containsText(tickets.title, filters.text), containsText(tickets.description, filters.text));
+  // Текст ищет Typesense с ключом организации актора (план W6, задача 8, решение 5); строки читаются ниже под RLS.
+  // Не ответил: прежний containsText.
+  const found = filters.text ? await clientTextSearch(actor, filters.text) : null;
+  if (found) {
+    if (found.ids.length > 0) search.push(inArray(tickets.ticketId, found.ids));
+    // Проверка после (решение 2) на первой странице: чужое, что отбросила политика, даёт событие и сигнал.
+    if (!filters.after && found.ids.length > 0) await noteClientDrops(actor, found.ids, await visibleTicketIds(actor, found.ids));
+  } else if (filters.text) search.push(containsText(tickets.title, filters.text), containsText(tickets.description, filters.text));
   if (search.length > 0) where.push(or(...search) as SQL);
+  else if (found) where.push(sql`false`);
   if (filters.after) where.push(sql`(${tickets.modifiedOn}, ${tickets.ticketId}) < (${filters.after.modifiedOn}::timestamptz, ${filters.after.ticketId}::uuid)`);
   return withActor(actor, (tx) =>
     tx

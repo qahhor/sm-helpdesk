@@ -50,14 +50,14 @@ function tokenMatches(query: string, word: string, prefix: boolean, numTypos: nu
 function matchesFilter(doc: SearchDocument, filter: string | undefined): boolean {
   if (!filter) return true;
   return filter.split('&&').every((part) => {
-    const m = /^\s*([a-z_]+):(!?=)\s*(\[[^\]]*\]|[^\s]+)\s*$/.exec(part);
+    const m = /^\s*([a-z_]+):(!=|=)?\s*(\[[^\]]*\]|[^\s]+)\s*$/.exec(part);
     if (!m) throw new Error('Заглушка поиска: условие не разобрано');
-    const [, field, op, raw] = m as unknown as [string, string, string, string];
+    const [, field, op, raw] = m as unknown as [string, string, string | undefined, string];
     const values = raw.startsWith('[') ? raw.slice(1, -1).split(',').map((v) => v.trim()) : [raw];
     const actual = doc[field];
     const have = Array.isArray(actual) ? actual.map(String) : actual === undefined ? [] : [String(actual)];
     const hit = have.some((v) => values.includes(v));
-    return op === '=' ? hit : !hit;
+    return op === '!=' ? !hit : hit;
   });
 }
 
@@ -106,9 +106,12 @@ export function createStubSearch(): StubSearch {
         const last = i === queryWords.length - 1;
         if ([...words].some((w) => tokenMatches(q, w, last && spec.prefix === true, spec.numTypos ?? 2))) matched++;
       });
-      // Как drop_tokens: документ с частью слов тоже находится, но ниже.
       if (matched > 0 || spec.q === '*') scored.push({ doc, matched });
     }
+    // Как drop_tokens_threshold 1 по умолчанию: слова отбрасываются, только если со всеми словами ничего нет. Остаются
+    // документы с наибольшим числом совпавших слов.
+    const best = Math.max(0, ...scored.map((x) => x.matched));
+    scored.splice(0, scored.length, ...scored.filter((x) => x.matched === best || spec.q === '*'));
     scored.sort((a, b) => b.matched - a.matched || a.doc.id.localeCompare(b.doc.id));
     // Курирование: закреплённые документы первыми, если правило совпало с запросом.
     const pinned = state.curations

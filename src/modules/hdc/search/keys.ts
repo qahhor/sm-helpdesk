@@ -57,6 +57,7 @@ export async function createProcessKeys(url: string, masterKey: string, opts: { 
       'aliases:*',
       'synonym_sets:*',
       'curation_sets:*',
+      'stopwords:*',
       'stemming/dictionaries:get',
       'stemming/dictionaries:list',
       'stemming/dictionaries/import:create',

@@ -26,6 +26,8 @@ export const JOB_NAMES = [
   'ops.heartbeat',
   'ops.watch',
   'outbox.dispatch',
+  'search.reconcile',
+  'search.sync',
   'tickets.minute',
   'webhooks.dispatch',
 ] as const;

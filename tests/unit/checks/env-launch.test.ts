@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { envVarsMissingInLaunch, launchGaps } from '../../../scripts/checks/env-example.mjs';
+import { devOnlyNames, envVarsMissingInLaunch, launchGaps } from '../../../scripts/checks/env-example.mjs';
 
 // Памятка запуска сквозь все вехи (план подготовки M9, задача 8): каждая переменная схемы src/env.ts и каждая
 // переменная .env.example названа в docs/runbooks/launch.md; переменная только для разработки отмечена в .env.example
@@ -15,4 +15,9 @@ test('переменная, отмеченная в .env.example "только �
 
 test('каждая переменная src/env.ts и .env.example названа в памятке запуска', async () => {
   expect(await envVarsMissingInLaunch()).toEqual([]);
+});
+
+test('отметка "только разработка" действует только на следующую переменную (проверка M9, M5)', () => {
+  const example = ['# только разработка: пароль контейнера', '# пояснение', 'POSTGRES_PASSWORD=x', '# Образ базы', '# PG_IMAGE=y', 'HUB_URL=z'].join('\n');
+  expect([...devOnlyNames(example)]).toEqual(['POSTGRES_PASSWORD']);
 });

@@ -30,8 +30,13 @@ export function launchGaps(names, launch, devOnly) {
   return names.filter((name) => !devOnly.has(name) && !new RegExp(`(?<![A-Z0-9_])${name}(?![A-Z0-9_])`).test(launch));
 }
 
-/** Переменные .env.example со строкой "# только разработка" прямо над ними (через другие комментарии). */
-function devOnlyNames(example) {
+/**
+ * Переменные .env.example, отмеченные строкой "# только разработка": отметка действует на одну следующую переменную
+ * (между ними могут быть строки пояснения), дальше снимается.
+ * @param {string} example
+ * @returns {Set<string>}
+ */
+export function devOnlyNames(example) {
   /** @type {Set<string>} */
   const names = new Set();
   let marked = false;
@@ -40,6 +45,7 @@ function devOnlyNames(example) {
     const name = /^#?\s*([A-Z][A-Z0-9_]+)=/.exec(line)?.[1];
     if (name) {
       if (marked) names.add(name);
+      marked = false;
     } else if (!line.startsWith('#')) marked = false;
   }
   return names;

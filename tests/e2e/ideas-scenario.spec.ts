@@ -12,9 +12,36 @@ import { storageStateOf } from './helpers/staff';
 //
 // Отбор месяца общий для всей базы браузерных тестов, поэтому сценарий идёт только на ноутбуке, а месяц берётся
 // следующий за последним отбором в базе (не раньше 2100 года): повторный прогон не упирается в уже сделанный отбор.
+// После сценария его отборы (с 2100 года) и идеи (заголовок "Сценарий 7:") удаляются: иначе главная страница
+// показывала бы идею сценария выбранной навсегда (итоговая проверка M7, пункт M5). Чужие идеи сценарий не трогает:
+// перед отбором его идеи получают голосов больше, чем у любой другой открытой идеи базы, поэтому пятёрка не зависит
+// от идей других тестов.
+
+const SCENARIO_TITLE = 'Сценарий 7:%';
+const SCENARIO_CYCLES = '2100-01-01';
+/** Пометка машинного текста на узбекском (client.ideas.machine). */
+const UZ_MACHINE = 'Mashina tarjimasi';
 
 test.beforeEach(({}, info) => {
   test.skip(info.project.name !== 'desktop', 'отбор месяца общий для базы: сценарий идёт в одном проекте');
+});
+
+/** Удаляет отборы и идеи сценария со всеми их строками. Вызывается до сценария (остатки прерванного прогона) и после. */
+async function cleanupScenario(): Promise<void> {
+  await dbRows(`delete from hdi_cycles where cycle >= $1`, [SCENARIO_CYCLES]);
+  const ids = (await dbRows<{ idea_id: string }>(`select distinct idea_id from hdi_idea_translations where title like $1`, [SCENARIO_TITLE])).map((r) => r.idea_id);
+  if (ids.length === 0) return;
+  const tasks = (await dbRows<{ dev_task_id: string }>(`delete from hdw_dev_task_links where idea_id = any ($1) returning dev_task_id`, [ids])).map((r) => r.dev_task_id);
+  await dbRows(`delete from hdw_dev_tasks t where t.dev_task_id = any ($1) and not exists (select 1 from hdw_dev_task_links l where l.dev_task_id = t.dev_task_id)`, [tasks]);
+  await dbRows(`delete from hdn_outbox where payload ->> 'ideaId' = any ($1)`, [ids]);
+  await dbRows(`delete from hdk_search_documents where kind = 'idea' and ref_id = any ($1)`, [ids]);
+  for (const table of ['hdi_votes', 'hdi_subscriptions', 'hdi_comments', 'hdi_attachments', 'hdi_idea_translations']) await dbRows(`delete from ${table} where idea_id = any ($1)`, [ids]);
+  // Колокольчик удаляется вместе с идеей (hdn_notifications_f2 ON DELETE CASCADE).
+  await dbRows(`delete from hdi_ideas where idea_id = any ($1)`, [ids]);
+}
+
+test.afterAll(async ({}, info) => {
+  if (info.project.name === 'desktop') await cleanupScenario();
 });
 
 const tag = () =>
@@ -35,13 +62,24 @@ async function nextCycleMonth(): Promise<string> {
 }
 
 /** Лидер отбора: опубликованная идея организации А с четырьмя голосами клиентов, в индексе похожих. */
-async function leaderIdea(word: string, orgId: string): Promise<{ ideaId: string; number: number; title: string }> {
-  const users = await dbRows<{ user_id: string; name: string }>(
-    `with u as (insert into auth."user" (name, email, "emailVerified") select 'Сценарий 7, голос ' || g, 'scenario7-' || g || '-' || $2 || '@acme.example', true from generate_series(1, 4) g returning id, name)
+/** Новые клиенты организации: голосующие сценария. */
+async function newVoters(orgId: string, count: number): Promise<{ user_id: string; name: string }[]> {
+  return dbRows<{ user_id: string; name: string }>(
+    `with u as (insert into auth."user" (name, email, "emailVerified") select 'Сценарий 7, голос ' || g, 'scenario7-' || g || '-' || $2 || '@acme.example', true from generate_series(1, $3::int) g returning id, name)
      , m as (insert into hdu_memberships (org_id, user_id, role, source) select $1, id, 'client_user', 'invite' from u returning user_id)
      select m.user_id, u.name from m join u on u.id = m.user_id`,
-    [orgId, uniqueSub()],
+    [orgId, uniqueSub(), count],
   );
+}
+
+/** Голоса новых клиентов за опубликованную идею (строки под суперпользователем, триггеры пересчёта работают). */
+async function addVotes(ideaId: string, orgId: string, count: number): Promise<void> {
+  if (count <= 0) return;
+  for (const user of await newVoters(orgId, count)) await dbRows(`insert into hdi_votes (org_id, idea_id, user_id) values ($1, $2, $3)`, [orgId, ideaId, user.user_id]);
+}
+
+async function leaderIdea(word: string, orgId: string): Promise<{ ideaId: string; number: number; title: string }> {
+  const users = await newVoters(orgId, 4);
   const title = `Сценарий 7: ${word} печать накладных пачкой`;
   const body = 'Печатать все накладные дня одной кнопкой';
   const [idea] = await dbRows<{ idea_id: string; number: string }>(
@@ -56,11 +94,8 @@ async function leaderIdea(word: string, orgId: string): Promise<{ ideaId: string
 
 test('сценарий 7: подача, модерация, голоса двух клиентов, отбор месяца, выбор не лидера, разработка, "Выпущена"', async ({ browser }) => {
   test.setTimeout(180_000);
-  // Лидеры прошлых прогонов сценария остались в голосовании: они старше и заняли бы пятёрку.
-  await dbRows(
-    `update hdi_ideas set status = 'declined', decline_reason = 'Прошлый прогон сценария 7'
-      where status in ('open', 'shortlisted') and idea_id in (select idea_id from hdi_idea_translations where title like 'Сценарий 7:%')`,
-  );
+  // Остатки прерванного прогона: идеи и отборы сценария.
+  await cleanupScenario();
   const word = tag();
   const clientA = await browser.newContext({ storageState: CLIENT_STATE });
   const a = await clientA.newPage();
@@ -115,7 +150,16 @@ test('сценарий 7: подача, модерация, голоса дву�
   const votes = await dbRows<{ n: number; users: number }>(`select count(*)::int as n, count(distinct user_id)::int as users from hdi_votes where idea_id = $1`, [mine!.idea_id]);
   expect(votes[0]).toEqual({ n: 2, users: 2 });
 
-  // 5. Отбор месяца командой hub с подменой времени: 1-е число выбранного месяца, 09:00 по Ташкенту.
+  // 5. Отбор месяца командой hub с подменой времени: 1-е число выбранного месяца, 09:00 по Ташкенту. Пятёрка не
+  // зависит от идей других тестов: идея А и лидер получают голосов больше любой другой открытой идеи базы (с запасом на
+  // голоса параллельных тестов), лидер остаётся первым.
+  const [others] = await dbRows<{ top: number }>(
+    `select coalesce(max(vote_count), 0)::int as top from hdi_ideas where status = 'open' and idea_id <> all ($1)`,
+    [[leader.ideaId, mine!.idea_id]],
+  );
+  const mineVotes = Math.max(2, others!.top + 5);
+  await addVotes(mine!.idea_id, acme!.org_id, mineVotes - 2);
+  await addVotes(leader.ideaId, acme!.org_id, Math.max(0, mineVotes + 2 - 4));
   const month = await nextCycleMonth();
   const out = execFileSync(process.execPath, ['dist/hub.mjs', 'ideas:cycle', '--month', month], { encoding: 'utf8', env: process.env });
   expect(out).toContain(`Отбор ${month}-01 создан`);
@@ -170,7 +214,13 @@ test('сценарий 7: подача, модерация, голоса дву�
   await expect(archived).toContainText(`Печать по складам нужна всем клиентам с филиалами ${word}`);
   expect(await serious(a)).toEqual([]);
   await b.goto('/en/ideas/cycles');
-  await expect(b.getByTestId('cycles-archive').locator(`[data-cycle="${month}-01"]`)).toContainText(`Printing by warehouse helps every client with branches ${word}`);
+  const english = b.getByTestId('cycles-archive').locator(`[data-cycle="${month}-01"]`);
+  await expect(english).toContainText(`Printing by warehouse helps every client with branches ${word}`);
+  // Английский сотрудник поправил: пометки нет. Узбекский сохранён из черновика без правки: пометка "Машинный перевод"
+  // (итоговая проверка M7, пункт M6).
+  await expect(english).not.toContainText('Machine translation');
+  await b.goto('/uz/ideas/cycles');
+  await expect(b.getByTestId('cycles-archive').locator(`[data-cycle="${month}-01"]`)).toContainText(UZ_MACHINE);
 
   await Promise.all([clientA.close(), clientB.close(), staff.close()]);
 });

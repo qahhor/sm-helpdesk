@@ -25,9 +25,13 @@ async function pendingIdea(title: string, body: string): Promise<{ ideaId: strin
     [author!.org_id, author!.user_id, author!.name],
   );
   await dbRows(`insert into hdi_idea_translations (idea_id, locale, title, body, source_hash) values ($1, 'ru', $2, $3, repeat('a', 64))`, [idea!.idea_id, title, body]);
-  // Голос за идею на модерации ставит только её автор от своего имени (триггер): здесь строка голоса без триггеров.
+  // Голос за идею на модерации ставит только её автор от своего имени (решение 4): строка с параметрами, триггеры
+  // работают, переменные актора автора ставятся в той же команде, как их ставит withActor (итоговая проверка M7, M5).
   await dbRows(
-    `begin; set local session_replication_role = replica; insert into hdi_votes (org_id, idea_id, user_id) values ('${author!.org_id}', '${idea!.idea_id}', '${author!.user_id}'); commit`,
+    `insert into hdi_votes (org_id, idea_id, user_id)
+     select $1::uuid, $2::uuid, $3::uuid from (select set_config('app.actor_type', 'client', true), set_config('app.user_id', $4, true),
+                                    set_config('app.org_id', $5, true), set_config('app.org_role', 'client_user', true)) actor`,
+    [author!.org_id, idea!.idea_id, author!.user_id, author!.user_id, author!.org_id],
   );
   return { ideaId: idea!.idea_id, number: Number(idea!.number), voter: author!.name };
 }

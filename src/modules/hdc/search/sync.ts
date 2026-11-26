@@ -1,4 +1,5 @@
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { and, asc, count, eq, inArray, lt, lte, min } from 'drizzle-orm';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
@@ -66,12 +67,23 @@ export const SYNC_MAX_ATTEMPTS = 5;
 const LEASE_SECONDS = 300;
 const BATCH = 500;
 
+/** Отпечаток индексируемых полей документа: всё, кроме version и самого отпечатка, в порядке имён. */
+export function contentHashOf(doc: SearchDocument): string {
+  const fields = Object.keys(doc)
+    .filter((key) => key !== 'version' && key !== 'content_hash' && doc[key] !== undefined)
+    .sort()
+    .map((key) => [key, doc[key]]);
+  return createHash('sha256').update(JSON.stringify(fields)).digest('base64url').slice(0, 32);
+}
+
+const hashed = (doc: SearchDocument): SearchDocument => ({ ...doc, content_hash: contentHashOf(doc) });
+
 /** Пишет документы объектов одного вида: удаляет исчезнувшие и прежние языки, затем пачка upsert. */
 export async function applyEntities(system: SystemActor, writer: SearchIndexWriter, kind: SourceKind, ids: readonly string[], target?: { name: string }): Promise<{ upserted: number; removed: number }> {
   const source = sources.get(kind);
   if (!source) throw new SearchWriteError('no_source');
   const built = await source.build(system, ids);
-  const docs = [...built.values()].flat();
+  const docs = [...built.values()].flat().map(hashed);
   const gone = ids.filter((id) => (built.get(id) ?? []).length === 0);
   if (!target) {
     if (source.ownerField) {
@@ -228,7 +240,7 @@ export async function reconcileCollection(system: SystemActor, writer: SearchInd
   const kind = KIND_OF[collection];
   const source = sources.get(kind);
   if (!source) throw new SearchWriteError('no_source');
-  const indexed = await writer.exportVersions(collection);
+  const indexed = await writer.exportDocs(collection);
   const expected = new Map<string, number>();
   const queue = new Set<string>();
   let missing = 0;
@@ -243,8 +255,9 @@ export async function reconcileCollection(system: SystemActor, writer: SearchInd
       for (const doc of docs) {
         expected.set(doc.id, doc.version);
         const have = indexed.get(doc.id);
+        // Устаревший: другое содержимое индексируемых полей. Время изменения строки для сверки не годится.
         if (have === undefined) missing++;
-        else if (have < doc.version) stale++;
+        else if (have.hash !== contentHashOf(doc)) stale++;
         else continue;
         queue.add(entity);
       }

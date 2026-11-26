@@ -76,7 +76,7 @@ test('обращения и переписка: состав документа,
   expect(result).toMatchObject({ written: 2, failed: 0 });
   expect(await queue()).toEqual([]);
   const [doc] = docsOf('tickets');
-  expect(Object.keys(doc!).sort()).toEqual(['created_on', 'description_ru', 'id', 'number', 'org_id', 'title_fold', 'title_ru', 'version']);
+  expect(Object.keys(doc!).sort()).toEqual(['content_hash', 'created_on', 'description_ru', 'id', 'number', 'org_id', 'title_fold', 'title_ru', 'version']);
   expect(doc).toMatchObject({ id: ticketId, org_id: f.orgA.orgId, number, title_ru: 'Накладная не печатается', title_fold: 'nakladnaya ne pechataesya' });
   // Ни автора, ни названия организации, ни адресов.
   const all = JSON.stringify(stub.documents('tickets'));
@@ -147,7 +147,7 @@ describe('решения и идеи', () => {
     await runSearchSync(system, stub);
     expect(docsOf('ideas').map((d) => d.idea_id)).toEqual([target.ideaId]);
     const doc = docsOf('ideas')[0]!;
-    expect(Object.keys(doc).sort()).toEqual(['body_fold', 'body_ru', 'id', 'idea_id', 'locale', 'status', 'title_fold', 'title_ru', 'version']);
+    expect(Object.keys(doc).sort()).toEqual(['body_fold', 'body_ru', 'content_hash', 'id', 'idea_id', 'locale', 'status', 'title_fold', 'title_ru', 'version']);
     expect(JSON.stringify(doc)).not.toContain(f.bUser.name);
     await pools.root.query(`update hdi_ideas set status = 'open' where idea_id = $1`, [pending.ideaId]);
     await runSearchSync(system, stub);
@@ -161,15 +161,14 @@ describe('решения и идеи', () => {
   });
 });
 
-test('организации и люди без адресов почты; сотрудник отмечен', async () => {
+test('организации и люди без адресов почты; у людей только имя (минимум данных, замечание M1 проверки)', async () => {
   await runSearchSync(system, stub);
   const orgs = docsOf('orgs');
   expect(orgs.map((o) => o.name).sort()).toEqual(expect.arrayContaining([f.orgA.name, f.orgB.name]));
   const people = docsOf('people');
-  expect(people.find((p) => p.id === f.l1.userId)).toMatchObject({ name: f.l1.name, is_staff: true });
-  expect(people.find((p) => p.id === f.aUser.userId)).toMatchObject({ is_staff: false, org_ids: [f.orgA.orgId] });
+  expect(people.find((p) => p.id === f.l1.userId)).toMatchObject({ name: f.l1.name });
   expect(JSON.stringify(people)).not.toMatch(/@/);
-  for (const doc of people) expect(Object.keys(doc).sort().join(',')).toMatch(/^id,is_staff,name,name_fold,(org_ids,)?version$/);
+  for (const doc of people) expect(Object.keys(doc).sort().join(',')).toBe('content_hash,id,name,name_fold,version');
 });
 
 test('сбой записи оставляет строку с кодом и паузой; после пятого сбоя строка не берётся', async () => {
@@ -202,11 +201,11 @@ describe.skipIf(typesenseSkip !== null)(`переиндексация на Types
   test('строит v2, переключает псевдоним, число документов совпадает, аудит без текста', async () => {
     const live = await liveSearch();
     await runSearchSync(system, live.writer);
-    const before = await live.writer.exportVersions('tickets');
+    const before = await live.writer.exportDocs('tickets');
     const result = await reindexCollection(system, live.writer, 'tickets');
     expect(result).toEqual({ name: 'hub_tickets_v2', documents: 5 });
     expect(await live.writer.aliasTarget('tickets')).toBe('hub_tickets_v2');
-    expect([...(await live.writer.exportVersions('tickets')).keys()].sort()).toEqual([...before.keys()].sort());
+    expect([...(await live.writer.exportDocs('tickets')).keys()].sort()).toEqual([...before.keys()].sort());
     const audit = (await pools.root.query(`select diff from hdc_audit_log where action = 'search.reindexed'`)).rows;
     expect(audit).toEqual([{ diff: { collection: 'tickets', version: 2, documents: 5 } }]);
   });

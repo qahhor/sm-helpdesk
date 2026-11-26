@@ -261,13 +261,13 @@ export function createTypesenseWriter(cfg: { url: string; key: string; fetch?: t
     async removeWhere(collection, filterBy) {
       await call('DELETE', `/collections/${aliasOf(collection)}/documents?${new URLSearchParams({ filter_by: filterBy })}`);
     },
-    async exportVersions(collection) {
-      const { text } = await call('GET', `/collections/${aliasOf(collection)}/documents/export?include_fields=id,version`, { timeoutMs: IMPORT_TIMEOUT_MS });
-      const out = new Map<string, number>();
+    async exportDocs(collection) {
+      const { text } = await call('GET', `/collections/${aliasOf(collection)}/documents/export?include_fields=id,version,content_hash`, { timeoutMs: IMPORT_TIMEOUT_MS });
+      const out = new Map<string, { version: number; hash: string | null }>();
       for (const line of text.split('\n')) {
         if (!line.trim()) continue;
-        const row = json(line) as { id?: unknown; version?: unknown };
-        if (typeof row.id === 'string') out.set(row.id, typeof row.version === 'number' ? row.version : 0);
+        const row = json(line) as { id?: unknown; version?: unknown; content_hash?: unknown };
+        if (typeof row.id === 'string') out.set(row.id, { version: typeof row.version === 'number' ? row.version : 0, hash: typeof row.content_hash === 'string' ? row.content_hash : null });
       }
       return out;
     },

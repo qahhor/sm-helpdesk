@@ -7,6 +7,7 @@ import { searchReconcile, setSearchJobWriterForTests } from '@/worker/search-job
 import { registerSearch } from '@/worker/search';
 import { pools, system } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
+import { addIdea } from './isolation/ideas-fixture';
 
 // Сверка индекса и сигналы поиска (план W6, задача 4, решения 12 и 14; "На что смотреть", пункт 5): удалённый руками
 // и лишний документ чинятся сверкой; больше 0.1% расхождений даёт search_drift; строка очереди старше 5 минут даёт
@@ -39,6 +40,21 @@ test('сверка: удалённый руками документ возвр�
   expect(stub.documents('tickets').map((d) => d.id)).not.toContain('00000000-0000-7000-8000-0000000000ee');
   await runSearchSync(system, stub);
   expect(stub.documents('tickets').map((d) => d.id)).toContain(f.tickets.aOrg.ticketId);
+});
+
+test('сверка: правка неиндексируемых колонок (статус, назначение, голоса, категория) устаревшим документом не считается', async () => {
+  const f = await seedTwoOrgs();
+  const idea = await addIdea(f.orgB.orgId, f.bUser, 'open', { title: 'Печать накладных пачкой' });
+  await runSearchSync(system, stub);
+  await pools.root.query(`update hdt_tickets set status = 'in_progress', assignee_id = $2 where ticket_id = $1`, [f.tickets.aOrg.ticketId, f.l1.userId]);
+  await pools.root.query(`update hdi_ideas set vote_count = vote_count + 3 where idea_id = $1`, [idea.ideaId]);
+  await pools.root.query(`update hdu_organizations set category = 'A' where org_id = $1`, [f.orgA.orgId]);
+  await pools.root.query(`delete from hdc_search_outbox`);
+  for (const collection of ['tickets', 'ideas', 'orgs'] as const) expect((await reconcileCollection(system, stub, collection)).stale, collection).toBe(0);
+  // Правка темы устаревшим документом считается.
+  await pools.root.query(`update hdt_tickets set title = 'Новая тема' where ticket_id = $1`, [f.tickets.aOrg.ticketId]);
+  await pools.root.query(`delete from hdc_search_outbox`);
+  expect((await reconcileCollection(system, stub, 'tickets')).stale).toBe(1);
 });
 
 test('ночная сверка: расхождение больше 0.1% поднимает search_drift', async () => {

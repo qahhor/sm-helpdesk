@@ -113,13 +113,13 @@ describe.skipIf(typesenseSkip !== null)(`Typesense 30.2: договор${typesen
     expect(await ids(staff, [ticketSpec('новая')])).toEqual([['t1']]);
     expect(await ids(staff, [ticketSpec('старая')])).toEqual([[]]);
     await live.writer.upsert('tickets', [ticket('t2', orgA, 'Ещё', 1)]);
-    expect([...(await live.writer.exportVersions('tickets')).entries()].sort()).toEqual([
+    expect([...(await live.writer.exportDocs('tickets')).entries()].map(([id, d]) => [id, d.version]).sort()).toEqual([
       ['t1', 5],
       ['t2', 1],
     ]);
     await live.writer.removeWhere('tickets', 'id:!=[t2]');
     await live.writer.remove('tickets', ['t2']);
-    expect((await live.writer.exportVersions('tickets')).size).toBe(0);
+    expect((await live.writer.exportDocs('tickets')).size).toBe(0);
     expect(await live.writer.health()).toBe(true);
     expect(await live.writer.memory()).toMatchObject({ usedBytes: expect.any(Number) });
   });

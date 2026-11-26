@@ -47,6 +47,12 @@ function localized(base: string, opts: { uzDictionary: boolean }): FieldSpec[] {
 }
 
 const version: FieldSpec = { name: 'version', type: 'int64' };
+/**
+ * Отпечаток индексируемых полей (SHA-256 без version): сверка сравнивает содержимое, а не время изменения строки.
+ * Время изменения растёт и от правок вне индекса (статус, назначение, голоса, категория), и сверка считала бы такие
+ * документы устаревшими (независимая проверка W6, замечание 1). Поле только хранится, не индексируется.
+ */
+const contentHash: FieldSpec = { name: 'content_hash', type: 'string', optional: true, index: false };
 
 export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
   tickets: {
@@ -58,6 +64,7 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
       { name: 'title_fold', type: 'string', optional: true },
       { name: 'created_on', type: 'int64' },
       version,
+      contentHash,
     ],
     synonym_sets: [SYNONYM_SET],
   },
@@ -70,6 +77,7 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
       { name: 'is_internal', type: 'bool' },
       ...localized('body', { uzDictionary: false }),
       version,
+      contentHash,
     ],
     synonym_sets: [SYNONYM_SET],
   },
@@ -84,6 +92,7 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
       { name: 'title_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
       { name: 'body_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
       version,
+      contentHash,
     ],
     synonym_sets: [SYNONYM_SET],
     curation_sets: [CURATION_SET],
@@ -99,6 +108,7 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
       { name: 'title_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
       { name: 'body_fold', type: 'string', optional: true, stem_dictionary: UZ_STEMS },
       version,
+      contentHash,
     ],
     synonym_sets: [SYNONYM_SET],
   },
@@ -112,15 +122,15 @@ export const COLLECTION_SCHEMAS: Record<SearchCollection, CollectionSchema> = {
       { name: 'state', type: 'string' },
       { name: 'kind', type: 'string' },
       version,
+      contentHash,
     ],
   },
   people: {
     fields: [
       { name: 'name', type: 'string' },
       { name: 'name_fold', type: 'string', optional: true },
-      { name: 'is_staff', type: 'bool' },
-      { name: 'org_ids', type: 'string[]', optional: true },
       version,
+      contentHash,
     ],
   },
 };

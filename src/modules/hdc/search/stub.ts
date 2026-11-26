@@ -159,8 +159,8 @@ export function createStubSearch(): StubSearch {
     async removeWhere(collection, filterBy) {
       for (const [id, doc] of coll(collection)) if (matchesFilter(doc, filterBy)) coll(collection).delete(id);
     },
-    async exportVersions(collection) {
-      return new Map([...coll(collection).values()].map((d) => [d.id, d.version]));
+    async exportDocs(collection) {
+      return new Map([...coll(collection).values()].map((d) => [d.id, { version: d.version, hash: typeof d.content_hash === 'string' ? d.content_hash : null }]));
     },
     async putSynonyms(items) {
       state.synonyms = [...items];

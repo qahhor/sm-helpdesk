@@ -111,8 +111,8 @@ export interface SearchIndexWriter {
   remove(collection: SearchCollection, ids: readonly string[]): Promise<void>;
   /** Удаляет документы по условию (все языки решения или идеи, кроме оставшихся). */
   removeWhere(collection: SearchCollection, filterBy: string): Promise<void>;
-  /** Идентификаторы и версии всех документов коллекции: для сверки. */
-  exportVersions(collection: SearchCollection): Promise<Map<string, number>>;
+  /** Идентификаторы, версии и отпечатки содержимого всех документов коллекции: для сверки. */
+  exportDocs(collection: SearchCollection): Promise<Map<string, { version: number; hash: string | null }>>;
   putSynonyms(items: readonly SynonymItem[]): Promise<void>;
   putCurations(items: readonly CurationItem[]): Promise<void>;
   putStems(pairs: readonly StemPair[]): Promise<void>;

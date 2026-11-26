@@ -2046,7 +2046,8 @@
           "saved": "AI settings saved.",
           "models": "Models saved.",
           "models_changed": "Models saved. After changing a model, run the evaluation set.",
-          "lifted": "Cut-off lifted."
+          "lifted": "Cut-off lifted.",
+          "topics": "Mandatory topics saved."
         },
         "errors": {
           "stale_session": "Sign in again to change settings.",
@@ -2101,6 +2102,25 @@
           "claude-opus-5-5": "Claude Opus 5.5",
           "claude-sonnet-5-5": "Claude Sonnet 5.5",
           "claude-haiku-5-5": "Claude Haiku 5.5"
+        },
+        "topics": {
+          "title": "Mandatory topics",
+          "intro": "A request with these words goes straight to staff. One word or phrase per line. Uzbek in Latin or Cyrillic script: both are found.",
+          "save": "Save topics",
+          "langs": {
+            "ru": "Russian",
+            "uz": "Uzbek",
+            "en": "English"
+          },
+          "names": {
+            "payments": "Billing and payment",
+            "contract": "Contract",
+            "complaint": "Complaint",
+            "data_change": "Deleting or mass-changing data",
+            "access": "Access and rights",
+            "security": "Security",
+            "legal": "Legal questions"
+          }
         }
       }
     },

@@ -1,5 +1,5 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
-import { AI_MODELS, AI_PURPOSES, TRIAGE_FIELDS } from '@/modules/hda/api/constants';
+import { AI_MODELS, AI_PURPOSES, RESTRICTED_TOPICS, TRIAGE_FIELDS } from '@/modules/hda/api/constants';
 import { aiSettingsView } from '@/modules/hda/api/settings';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -10,14 +10,16 @@ import { Label } from '@/ui/components/label';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { Select } from '@/ui/components/select';
 import { SettingsLayout } from '@/ui/components/SettingsLayout';
+import { Textarea } from '@/ui/components/textarea';
 import { settingsNav } from '../sections';
-import { liftAiCutoffAction, saveAiModelsAction, saveAiSettingsAction } from './actions';
+import { liftAiCutoffAction, saveAiModelsAction, saveAiSettingsAction, saveRestrictedTopicsAction } from './actions';
 
 // "AI-помощник" (план M5b, задача 1; FR-ADM-09, FR-AI-17, FR-TRI-04, 9.2): общий переключатель, разбор, порог
 // уверенности, пределы и расход за месяц, отключённые организации, модели по целям, отключённые поля разбора. Меняет
 // только администратор со свежим входом; каждое изменение пишется в журнал аудита.
 
-const DONE = new Set(['saved', 'models', 'models_changed', 'lifted']);
+const DONE = new Set(['saved', 'models', 'models_changed', 'lifted', 'topics']);
+const LANGS = ['ru', 'uz', 'en'] as const;
 const ERRORS = new Set(['forbidden', 'invalid_input']);
 
 export default async function AiSettingsPage({ searchParams }: { searchParams: Promise<{ done?: string; error?: string }> }) {
@@ -129,6 +131,31 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
               </fieldset>
               <Button type="submit" className="self-start">
                 {a('save')}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <form action={saveRestrictedTopicsAction} className="flex flex-col gap-4">
+              <h2 className="text-lg font-semibold">{a('topics.title')}</h2>
+              <p className="text-sm text-secondary-foreground">{a('topics.intro')}</p>
+              {RESTRICTED_TOPICS.map((topic) => (
+                <fieldset key={topic} className="flex flex-col gap-2">
+                  <legend className="mb-1 font-semibold">{a(`topics.names.${topic}`)}</legend>
+                  <div className="grid gap-2 md:grid-cols-3">
+                    {LANGS.map((lang) => (
+                      <div key={lang} className="flex flex-col gap-1">
+                        <Label htmlFor={`topic-${topic}-${lang}`}>{a(`topics.langs.${lang}`)}</Label>
+                        <Textarea id={`topic-${topic}-${lang}`} name={`${topic}.${lang}`} rows={4} defaultValue={view.restrictedTopics[topic][lang].join('\n')} />
+                      </div>
+                    ))}
+                  </div>
+                </fieldset>
+              ))}
+              <Button type="submit" variant="secondary" className="self-start">
+                {a('topics.save')}
               </Button>
             </form>
           </CardContent>

@@ -2046,7 +2046,8 @@
           "saved": "AI sozlamalari saqlandi.",
           "models": "Modellar saqlandi.",
           "models_changed": "Modellar saqlandi. Model almashgandan keyin tekshiruv to'plamini ishga tushiring.",
-          "lifted": "O'chirish bekor qilindi."
+          "lifted": "O'chirish bekor qilindi.",
+          "topics": "Majburiy mavzular saqlandi."
         },
         "errors": {
           "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
@@ -2101,6 +2102,25 @@
           "claude-opus-5-5": "Claude Opus 5.5",
           "claude-sonnet-5-5": "Claude Sonnet 5.5",
           "claude-haiku-5-5": "Claude Haiku 5.5"
+        },
+        "topics": {
+          "title": "Majburiy mavzular",
+          "intro": "Bu so'zlar bo'yicha murojaat darhol xodimga o'tkaziladi. Har qatorga bitta so'z yoki birikma. O'zbekchani lotin yoki kirill yozuvida yozing: ikkalasi ham topiladi.",
+          "save": "Mavzularni saqlash",
+          "langs": {
+            "ru": "Ruscha",
+            "uz": "O'zbekcha",
+            "en": "Inglizcha"
+          },
+          "names": {
+            "payments": "Hisob-kitob va to'lov",
+            "contract": "Shartnoma",
+            "complaint": "Shikoyat",
+            "data_change": "Ma'lumotlarni o'chirish yoki ommaviy o'zgartirish",
+            "access": "Kirish va huquqlar",
+            "security": "Xavfsizlik",
+            "legal": "Huquqiy masalalar"
+          }
         }
       }
     },

@@ -163,3 +163,22 @@ test('снять отключение: администратор со свеж�
   // Сотрудник не администратор снять отключение не может и в базе.
   await expect(asActor(pools.app, f.care.actor, (c) => c.query(`update hda_org_cutoffs set lifted_on = now(), lifted_by = $1`, [f.care.userId]))).resolves.toMatchObject({ rowCount: 0 });
 });
+
+test('обязательные темы (план M5b, задача 2, решение 17): администратор со свежим входом правит списки, журнал аудита, код ищет по новым словам', async () => {
+  const { aiConfig } = await import('@/modules/hda/api/config');
+  const { matchRestrictedTopic } = await import('@/modules/hda/topics');
+  const { saveRestrictedTopics } = await import('@/modules/hda/api/settings');
+  const admin = staffCtx(f.adminStaff);
+  expect(matchRestrictedTopic('Нужен акт сверки', (await aiConfig()).restrictedTopics)).toBeNull();
+  const form: Record<string, string> = {};
+  for (const t of ['payments', 'contract', 'complaint', 'data_change', 'access', 'security', 'legal']) for (const l of ['ru', 'uz', 'en']) form[`${t}.${l}`] = 'оплат';
+  form['payments.ru'] = 'акт сверки\nоплат\n\nоплат';
+  await expect(saveRestrictedTopics(staffCtx(f.care), form)).rejects.toMatchObject({ code: 'forbidden' });
+  await expect(saveRestrictedTopics({ ...admin, freshAuthAt: new Date(Date.now() - 3600_000) }, form)).rejects.toMatchObject({ code: 'stale_session' });
+  await expect(saveRestrictedTopics(admin, { ...form, 'legal.en': 'x'.repeat(61) })).rejects.toMatchObject({ code: 'invalid_input' });
+  await saveRestrictedTopics(admin, form);
+  const lists = (await aiConfig()).restrictedTopics;
+  expect(lists.payments.ru).toEqual(['акт сверки', 'оплат']);
+  expect(matchRestrictedTopic('Нужен акт сверки', lists)).toBe('payments');
+  expect((await pools.root.query(`select count(*)::int as n from hdc_audit_log where object_id = 'ai.restricted_topics'`)).rows[0].n).toBe(1);
+});

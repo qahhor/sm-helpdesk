@@ -2,8 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { AI_PURPOSES } from '@/modules/hda/api/constants';
-import { isHdaError, liftAiCutoff, saveAiModels, saveAiSettings } from '@/modules/hda/api/settings';
+import { AI_PURPOSES, RESTRICTED_TOPICS } from '@/modules/hda/api/constants';
+import { isHdaError, liftAiCutoff, saveAiModels, saveAiSettings, saveRestrictedTopics } from '@/modules/hda/api/settings';
 import { requireStaffActor } from '@/modules/hdu/api';
 
 // Раздел "AI-помощник" настроек (план M5b, задача 1; FR-ADM-09, FR-AI-17). Права, свежий вход и значения проверяет
@@ -50,3 +50,9 @@ export async function liftAiCutoffAction(form: FormData): Promise<void> {
   await run('lifted', () => liftAiCutoff(staff, { cutoffId: String(form.get('cutoffId') ?? '') }));
 }
 
+/** Обязательные темы со списками слов по языкам (план M5b, задача 2, решение 17). */
+export async function saveRestrictedTopicsAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor({ roles: ['admin'] });
+  const fields = RESTRICTED_TOPICS.flatMap((topic) => (['ru', 'uz', 'en'] as const).map((lang) => [`${topic}.${lang}`, String(form.get(`${topic}.${lang}`) ?? '')] as const));
+  await run('topics', () => saveRestrictedTopics(staff, Object.fromEntries(fields)));
+}

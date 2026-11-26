@@ -8,6 +8,7 @@ import { currentMonth, monthSpendTx } from '../core/runs';
 import { HdaError } from '../error';
 import { AI_DAILY_LIMIT_MAX, AI_DAILY_LIMIT_SETTING, AI_MODELS, AI_PURPOSES, AI_SETTINGS, type AiCutoffReason, type AiModel, type AiPurpose, TRIAGE_FIELDS } from '../pref';
 import { aiOrgCutoffs } from '../schema';
+import { RESTRICTED_TOPICS } from '../topics';
 import { type AiConfig, aiConfig, aiConfigSchemas } from './config';
 import { aiDailyLimit, aiModelFor } from './run';
 
@@ -85,7 +86,7 @@ export async function saveAiSettings(ctx: StaffContext, input: unknown): Promise
   const parsed = generalInput.safeParse(input);
   if (!parsed.success) throw new HdaError('invalid_input');
   const d = parsed.data;
-  const next: Omit<AiConfig, 'models'> = {
+  const next: Omit<AiConfig, 'models' | 'restrictedTopics'> = {
     enabled: d.enabled !== undefined,
     triageEnabled: d.triageEnabled !== undefined,
     minScore: d.minScore,
@@ -97,6 +98,7 @@ export async function saveAiSettings(ctx: StaffContext, input: unknown): Promise
   };
   const current = await aiConfig();
   await withActor(ctx.actor, async (tx) => {
+    // Темы правятся своей формой: здесь их нет.
     for (const key of Object.keys(next) as (keyof typeof next)[])
       if (JSON.stringify(current[key]) !== JSON.stringify(next[key])) await writeSettingTx(tx, AI_SETTINGS[key], next[key]);
   });
@@ -131,3 +133,20 @@ export async function liftAiCutoff(ctx: StaffContext, input: unknown): Promise<v
   });
 }
 
+/** Строки поля "по одному в строке" в список: пустые и повторы отбрасываются. */
+const lines = (value: unknown) => [...new Set(String(value ?? '').split(/\r?\n|,/).map((w) => w.trim()).filter(Boolean))];
+
+/**
+ * Обязательные темы (решение 17): у каждой из семи тем списки слов и сочетаний на русском, узбекском и английском.
+ * Узбекский пишется латиницей или кириллицей: поиск находит обе письменности. Пустой список темы допускается: тогда
+ * тему находит только флаг модели. Запись в журнал аудита.
+ */
+export async function saveRestrictedTopics(ctx: StaffContext, input: unknown): Promise<void> {
+  requireFreshAdmin(ctx);
+  if (!input || typeof input !== 'object') throw new HdaError('invalid_input');
+  const raw = input as Record<string, unknown>;
+  const lists = Object.fromEntries(RESTRICTED_TOPICS.map((t) => [t, { ru: lines(raw[`${t}.ru`]), uz: lines(raw[`${t}.uz`]), en: lines(raw[`${t}.en`]) }]));
+  const parsed = aiConfigSchemas.restrictedTopics.safeParse(lists);
+  if (!parsed.success) throw new HdaError('invalid_input');
+  await withActor(ctx.actor, (tx) => writeSettingTx(tx, AI_SETTINGS.restrictedTopics, parsed.data));
+}

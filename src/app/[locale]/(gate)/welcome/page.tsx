@@ -7,7 +7,8 @@ import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { FormField } from '@/ui/components/form-field';
-import { acknowledgePolicyAction, sendWelcomeLinkAction, skipWelcomeAction } from './actions';
+import { ReauthNotice } from '@/ui/components/ReauthNotice';
+import { acknowledgePolicyAction, sendWelcomeLinkAction, skipWelcomeAction, welcomeReauthAction } from './actions';
 import { firstParam } from '@/lib/search-params';
 
 // Шаг первого входа (FR-ID-07): после входа через Smartup портал один раз предлагает указать email.
@@ -67,33 +68,36 @@ export default async function WelcomePage({ searchParams }: PageProps<'/[locale]
             </a>
           </>
         ) : (
-          <form className="flex flex-col gap-4">
-            <input type="hidden" name="next" value={next} />
-            {error && <Alert tone="danger">{t(error === 'rate_limited' ? 'errors.rateLimited' : 'errors.invalid')}</Alert>}
-            <FormField
-              name="email"
-              label={t('email')}
-              type="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              spellCheck={false}
-              maxLength={254}
-              defaultValue={client.user.claimedEmail ?? ''}
-            />
-            <Button type="submit" formAction={sendWelcomeLinkAction}>
-              {t('send')}
-            </Button>
-            {telegramEnabled() && (
-              // Бот открывается в новой вкладке: шаг остаётся открытым, его можно завершить после привязки.
-              <a href={`/${locale}/settings/telegram`} target="_blank" rel="noopener" className={buttonVariants({ variant: 'secondary' })}>
-                {t('telegram')}
-              </a>
-            )}
-            {/* Пропуск не требует адреса: проверка поля браузером здесь не нужна. */}
-            <Button type="submit" variant="secondary" formAction={skipWelcomeAction} formNoValidate>
-              {t('skip')}
-            </Button>
-          </form>
+          <>
+            {error === 'stale_session' && <ReauthNotice text={t('errors.stale')} label={t('reauth')} next={next} action={welcomeReauthAction} />}
+            <form className="flex flex-col gap-4">
+              <input type="hidden" name="next" value={next} />
+              {error && error !== 'stale_session' && <Alert tone="danger">{t(error === 'rate_limited' ? 'errors.rateLimited' : 'errors.invalid')}</Alert>}
+              <FormField
+                name="email"
+                label={t('email')}
+                type="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={254}
+                defaultValue={client.user.claimedEmail ?? ''}
+              />
+              <Button type="submit" formAction={sendWelcomeLinkAction}>
+                {t('send')}
+              </Button>
+              {telegramEnabled() && (
+                // Бот открывается в новой вкладке: шаг остаётся открытым, его можно завершить после привязки.
+                <a href={`/${locale}/settings/telegram`} target="_blank" rel="noopener" className={buttonVariants({ variant: 'secondary' })}>
+                  {t('telegram')}
+                </a>
+              )}
+              {/* Пропуск не требует адреса: проверка поля браузером здесь не нужна. */}
+              <Button type="submit" variant="secondary" formAction={skipWelcomeAction} formNoValidate>
+                {t('skip')}
+              </Button>
+            </form>
+          </>
         )}
       </CardContent>
     </Card>

@@ -9,7 +9,7 @@ import { expect, test } from 'vitest';
 
 const SCRIPT = join(process.cwd(), 'scripts/ops/backup.sh');
 
-function sandbox(opts: { dumpFails?: boolean; emptyDump?: boolean } = {}) {
+function sandbox(opts: { dumpFails?: boolean; emptyDump?: boolean; markFails?: boolean } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'hub-backup-'));
   const bin = join(root, 'bin');
   const backups = join(root, 'backups');
@@ -20,7 +20,9 @@ function sandbox(opts: { dumpFails?: boolean; emptyDump?: boolean } = {}) {
     chmodSync(join(bin, name), 0o755);
   };
   // pg_dump через docker compose exec: печатает копию в поток.
-  stub('docker', opts.dumpFails ? 'echo "pg_dump: ошибка" >&2; exit 1' : opts.emptyDump ? 'exit 0' : `printf 'PLAIN-DUMP-%.0s' {1..200}`);
+  // Отметка успешной копии командой hub (план подготовки M9, задача 3) отличается от pg_dump аргументами.
+  const dump = opts.dumpFails ? 'echo "pg_dump: ошибка" >&2; exit 1' : opts.emptyDump ? 'exit 0' : `printf 'PLAIN-DUMP-%.0s' {1..200}`;
+  stub('docker', `case "$*" in *ops:backup-mark*) echo "$@" >> "${root}/mark.args"; ${opts.markFails ? 'exit 1' : 'exit 0'};; *) ${dump};; esac`);
   // age читает поток и пишет зашифрованный файл в -o: открытого текста на диске нет.
   stub('age', `echo "$@" >> "${root}/age.args"; out=""; while [ $# -gt 0 ]; do if [ "$1" = "-o" ]; then out="$2"; fi; shift; done; { printf 'AGE:'; cat | tr 'A-Z' 'N-ZA-M'; } > "$out"`);
   stub('rclone', `echo "$@" >> "${root}/rclone.args"`);
@@ -89,4 +91,24 @@ test('копии старше срока хранения удаляются, с
   expect(box.run({ BACKUP_KEEP_DAYS: '14' }).status).toBe(0);
   expect(existsSync(old)).toBe(false);
   expect(existsSync(recent)).toBe(true);
+});
+
+test('после выгрузки копия отмечается в портале командой hub ops:backup-mark (план подготовки M9, задача 3)', () => {
+  const box = sandbox();
+  expect(box.run().status).toBe(0);
+  const file = readdirSync(box.backups).find((name) => name.startsWith('hub-'))!;
+  const size = readFileSync(join(box.backups, file)).length;
+  expect(box.read('mark.args').trim()).toBe(`compose -f ${join(box.root, 'compose.prod.yaml')} exec -T web node hub.mjs ops:backup-mark --kind dump --bytes ${size}`);
+  for (const opts of [{ dumpFails: true }, { emptyDump: true }]) {
+    const failed = sandbox(opts);
+    expect(failed.run().status).not.toBe(0);
+    expect(failed.read('mark.args'), JSON.stringify(opts)).toBe('');
+  }
+  // Отметка не записалась: копия выгружена, но сценарий завершается ошибкой, иначе сигнал backup_stale был бы
+  // неожиданным.
+  const unmarked = sandbox({ markFails: true });
+  const result = unmarked.run();
+  expect(result.status).not.toBe(0);
+  expect(unmarked.read('rclone.args')).toContain('r2-backups:hub-backups');
+  expect(result.stderr).toContain('ops:backup-mark');
 });

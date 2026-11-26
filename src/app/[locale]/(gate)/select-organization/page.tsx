@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { signOutAction } from '@/app/[locale]/session-actions';
+import { SignOutForm } from '@/ui/shell/SignOutForm';
 import { listMyOrganizations, requireSignedInClient, safeReturnPath } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
@@ -45,12 +46,12 @@ export default async function SelectOrganizationPage({ searchParams }: PageProps
             </li>
           ))}
         </ul>
-        <form action={signOutAction} className="border-t border-border pt-4 text-center">
+        <SignOutForm action={signOutAction} className="border-t border-border pt-4 text-center">
           <p className="mb-2 text-sm text-secondary-foreground">{t('signedInAs', { name: user.name })}</p>
           <button type="submit" className="text-sm font-medium text-link underline-offset-4 hover:underline">
             {t('signOut')}
           </button>
-        </form>
+        </SignOutForm>
       </CardContent>
     </Card>
   );

@@ -99,6 +99,7 @@ export {
 export { describeLoginServer, forgetServer, type LoginServerState, rememberServer, startSmartupSignIn } from './api/sso';
 export {
   acceptStaffInvitation,
+  changeStaffPassword,
   describeStaffInvitation,
   signInStaff,
   type StaffSignInResult,

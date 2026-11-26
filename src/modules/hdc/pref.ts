@@ -9,6 +9,8 @@ export const AUDIT_ACTIONS = [
   'staff.invited',
   'staff.created',
   'staff.reset',
+  // Сотрудник сам сменил пароль (план подготовки M9, задача 1): все его сессии завершены.
+  'staff.password_changed',
   'staff.signed_in',
   'staff.sign_in_failed',
   'staff.role_changed',
@@ -164,6 +166,11 @@ export const AUDIT_ACTIONS = [
   'idea.cycle_lapsed',
   'idea.cycle_decided',
   'idea.status_changed',
+  // Эксплуатация (план подготовки M9, задача 3): команда hub ops:backup-mark отметила удачную резервную копию.
+  'ops.backup_marked',
+  // Поиск (план W6, решения 3 и 12): команда hub создала ключи Typesense (без значений) и построила индекс заново.
+  'search.keys_created',
+  'search.reindexed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -204,6 +211,9 @@ export const RATE_RULES = {
   staffTotpCodeOnce: { limit: 1, windowSec: 120 },
   /** Запись о блокировке входа сотрудника в журнал: раз за окно блокировки (итоговая проверка доработки). */
   staffFailureAuditOnce: { limit: 1, windowSec: 900 },
+  // Смена пароля сотрудником (план подготовки M9, задача 1): 5 попыток за 15 минут, проверка текущего пароля не
+  // становится обходом предела попыток входа.
+  staffPasswordChange: { limit: 5, windowSec: 900 },
   /** Поиск сервера Smartup по адресу на странице входа. */
   serverLookupPerIp: { limit: 20, windowSec: 3600 },
   /** Запрос подтверждения email. */

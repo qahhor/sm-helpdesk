@@ -15,7 +15,7 @@ const RESTORE = join(process.cwd(), 'scripts/ops/restore-pitr.sh');
 const SEGMENT_A = '000000010000000000000003';
 const SEGMENT_B = '000000010000000000000004';
 
-function sandbox(opts: { ageFails?: boolean; rcloneFails?: boolean; emptyBase?: boolean; archiveOff?: boolean } = {}) {
+function sandbox(opts: { ageFails?: boolean; rcloneFails?: boolean; emptyBase?: boolean; archiveOff?: boolean; markFails?: boolean } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'hub-wal-'));
   const bin = join(root, 'bin');
   const wal = join(root, 'wal-archive');
@@ -35,7 +35,11 @@ function sandbox(opts: { ageFails?: boolean; rcloneFails?: boolean; emptyBase?: 
   stub('rclone', opts.rcloneFails ? `echo "$@" >> "${root}/rclone.args"; echo "rclone: нет связи" >&2; exit 1` : `echo "$@" >> "${root}/rclone.args"; if [ "$1" = "copy" ]; then mkdir -p "${root}/remote"; cp "$2" "${root}/remote/"; fi`);
   // docker compose exec: вопрос о режиме архива (psql) или поток базовой копии (pg_basebackup).
   const mode = opts.archiveOff ? 'off' : 'on';
-  stub('docker', `case "$*" in *archive_mode*) echo ${mode};; *) ${opts.emptyBase ? 'exit 0' : "printf 'PLAIN-BASE-%.0s' {1..200}"};; esac`);
+  // Отметка успешной копии командой hub (план подготовки M9, задача 3): вызов записывается, сбой можно подставить.
+  stub(
+    'docker',
+    `case "$*" in *ops:backup-mark*) echo "$@" >> "${root}/mark.args"; ${opts.markFails ? 'exit 1' : 'exit 0'};; *archive_mode*) echo ${mode};; *) ${opts.emptyBase ? 'exit 0' : "printf 'PLAIN-BASE-%.0s' {1..200}"};; esac`,
+  );
   const env = (extra: Record<string, string> = {}) => ({
     ...process.env,
     PATH: `${bin}:${process.env.PATH}`,
@@ -129,6 +133,23 @@ test('базовая копия шифруется потоком до запи�
   const refused = empty.run(BASE);
   expect(refused.status).not.toBe(0);
   expect(empty.read('rclone.args')).toBe('');
+});
+
+test('после выгрузки базовая копия отмечается в портале командой hub ops:backup-mark (план подготовки M9, задача 3)', () => {
+  const box = sandbox();
+  expect(box.run(BASE).status).toBe(0);
+  const size = readFileSync(join(box.backups, 'base', readdirSync(join(box.backups, 'base')).find((name) => name.startsWith('base-'))!)).length;
+  expect(box.read('mark.args').trim()).toBe(`compose -f ${join(box.root, 'compose.prod.yaml')} exec -T web node hub.mjs ops:backup-mark --kind base --bytes ${size}`);
+  // Неудачная копия не отмечается.
+  const empty = sandbox({ emptyBase: true });
+  expect(empty.run(BASE).status).not.toBe(0);
+  expect(empty.read('mark.args')).toBe('');
+  // Отметка не записалась: копия уже выгружена, но сценарий завершается ошибкой, чтобы это было видно.
+  const unmarked = sandbox({ markFails: true });
+  const result = unmarked.run(BASE);
+  expect(result.status).not.toBe(0);
+  expect(unmarked.read('rclone.args')).toContain('r2-backups:hub-backups/base');
+  expect(result.stderr).toContain('ops:backup-mark');
 });
 
 test('базовая копия при выключенном архиве журнала не делается: без сегментов она не восстанавливается (проверка волны 2)', () => {

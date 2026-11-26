@@ -39,7 +39,15 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // События предметной области (веха M8): пишет действие над обращением, разбирает и удаляет система, клиент не видит.
   hdc_domain_events: { client: 'none', app: IUD },
   hdc_ops_alerts: { client: 'none', app: IU },
+  // Отметки резервных копий (план подготовки M9, решение 6): ставит команда hub под системным актором, читает
+  // администратор портала. Строки не меняются и не удаляются.
+  hdc_ops_backups: { client: 'none', app: ['insert'] },
+  // Отметка "фоновый процесс жив" (план подготовки M9, решение 5): одна строка на процесс, обновляется раз в минуту.
+  hdc_ops_heartbeats: { client: 'none', app: IU },
   hdc_rate_limits: { client: 'none', app: IUD },
+  // Очередь записи в индекс поиска Typesense (план W6, решение 10): строку пишет триггер исходной таблицы от любого
+  // актора (hub_auth для организаций, участников и имён), читает, отмечает и удаляет только система. Клиент не видит.
+  hdc_search_outbox: { client: 'none', app: IUD, auth: ['insert'] },
   hdc_settings: { client: 'none', app: IUD },
   // Знания (веха M5, задача 2). Клиент получает текст решения только из копии опубликованного hdk_published и
   // находит его только через индекс hdk_search_documents, в обоих только audience = clients, одинаково для всех
@@ -60,6 +68,9 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdk_signature_orgs: { client: 'none', app: IU },
   hdk_search_documents: { client: 'clients-audience', app: IUD },
   hdk_deflection_events: { client: 'none', app: IUD },
+  // Запросы подсказки без результата (план W6, решение 17): текст после маски, 90 дней. Пишет и удаляет система,
+  // читают администратор и роли публикации решений. Клиент не видит.
+  hdk_suggest_misses: { client: 'none', app: IUD },
   // Идеи (веха M7, задача 1). Опубликованную идею видят клиенты всех организаций (FR-IDEA-06): границы организации
   // у неё нет, это и записано видом published-or-own. Идею на модерации видит только автор, отклонённую автор и
   // голосовавшие или подписчики, если она была опубликована (решение 2; проверяет ideas-direct.test.ts). Удаления

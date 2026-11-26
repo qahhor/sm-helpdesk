@@ -54,7 +54,8 @@
       },
       "revokeOthers": "Boshqa barcha seanslarni yakunlash",
       "othersDone": "Boshqa barcha seanslar yakunlandi.",
-      "hiddenNote": "So'nggi seanslar ko'rsatilgan. Yana {count} ta seans quyidagi tugma bilan boshqalari bilan birga yakunlanadi."
+      "hiddenNote": "So'nggi seanslar ko'rsatilgan. Yana {count} ta seans quyidagi tugma bilan boshqalari bilan birga yakunlanadi.",
+      "stale": "Seanslarni yakunlash uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qaytadan kiring va takrorlang."
     },
     "legal": {
       "privacy": "Ma'lumotlarni qayta ishlash siyosati",
@@ -575,7 +576,8 @@
         "sent": "Xat yubordik. Uni oching va «Manzilni tasdiqlash» tugmasini bosing.",
         "errors": {
           "invalid": "Email manzilini tekshiring.",
-          "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+          "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
+          "stale": "Kirish manzilini ko'rsatish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qaytadan kiring va takrorlang."
         }
       },
       "channels": {
@@ -592,7 +594,8 @@
           "unavailable": "Telegram hozir javob bermayapti. Botni bir necha daqiqadan keyin bog'lab ko'ring."
         },
         "blocked": "Bot Telegramda bloklangan, xabarlar kelmayapti. Botni blokdan chiqaring va Telegramni qayta bog'lang."
-      }
+      },
+      "reauth": "Qayta kirish"
     },
     "footer": {
       "support": "Qo'llab-quvvatlash: <address></address>"
@@ -823,6 +826,10 @@
         "knowledge": {
           "title": "Yechimlar",
           "text": "Yechimlar havola qila oladigan domenlar."
+        },
+        "search": {
+          "title": "Qidiruv",
+          "text": "Sinonimlar, o'zbek tili lug'ati va maslahatdagi yechimlarni mahkamlash."
         }
       },
       "servers": {
@@ -1078,7 +1085,8 @@
           "webhook_secret": "Vebhuk sirlari",
           "macro": "Makros",
           "dev_task": "Ishlab chiqish vazifasi",
-          "metrics": "Ko'rsatkichlar"
+          "metrics": "Ko'rsatkichlar",
+          "ops_backup": "Zaxira nusxa"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -1090,6 +1098,7 @@
             "invited": "Xodim taklif qilindi",
             "created": "Xodim qo'shildi",
             "reset": "Xodimning kirishi tiklandi",
+            "password_changed": "Xodim parolini o'zgartirdi",
             "signed_in": "Xodim kirdi",
             "role_changed": "Xodim roli o'zgartirildi",
             "state_changed": "Xodim bloklandi yoki blokdan chiqarildi",
@@ -1262,6 +1271,13 @@
             "cycle_lapsed": "Oy saralashi tanlovsiz yopildi",
             "cycle_decided": "Oy g'oyasi tanlandi",
             "status_changed": "G'oya holati o'zgartirildi"
+          },
+          "ops": {
+            "backup_marked": "Baza zaxira nusxasi belgilandi"
+          },
+          "search": {
+            "keys_created": "Qidiruv kalitlari yaratildi",
+            "reindexed": "Qidiruv indeksi qaytadan qurildi"
           }
         },
         "words": {
@@ -1315,7 +1331,12 @@
           "host": "Tugun",
           "events": "Hodisalar",
           "urlChanged": "Manzil o'zgardi",
-          "isEnabled": "Yoqilgan"
+          "isEnabled": "Yoqilgan",
+          "sessionsEnded": "Yakunlangan seanslar",
+          "kind": "Turi",
+          "sizeBytes": "Hajmi, bayt",
+          "dump": "tungi nusxa",
+          "base": "asosiy nusxa"
         }
       },
       "sla": {
@@ -1975,6 +1996,41 @@
           "saved": "AI chaqiruvlari chegarasi saqlandi.",
           "invalid": "0 dan 10 000 gacha butun son kiriting."
         }
+      },
+      "search": {
+        "title": "Qidiruv",
+        "intro": "Bu to'plamlar xatoga chidamli qidiruvda ishlaydi: ish joyida, yechimlar maslahatida va g'oyalar taxtasida. O'zgarishlar bir necha soniyada qidiruvga yetadi. # bilan boshlangan qator hisobga olinmaydi.",
+        "reauth": "Qaytadan kirish",
+        "errors": {
+          "line": "\"{section}\" bo'limi, {line}-qator: qator namunadagidek yozilmagan. Hech narsa saqlanmadi.",
+          "stale_session": "Sozlamalarni o'zgartirish uchun qaytadan kiring.",
+          "forbidden": "Sozlamani faqat administrator o'zgartiradi.",
+          "invalid_input": "Matn juda uzun. Hech narsa saqlanmadi."
+        },
+        "synonyms": {
+          "title": "Sinonimlar",
+          "intro": "Har qatorda bitta to'plam. Vergul bilan yozilgan so'zlar bir-birini topadi: склад, ombor, warehouse. => belgisi bilan chapdagi so'rov o'ngdagi so'zlarni topadi, teskarisi emas. 300 tagacha to'plam, har birida 20 tagacha so'z.",
+          "label": "Sinonimlar to'plamlari",
+          "example": "склад, ombor, warehouse\nнакладная => yuk xati, invoice",
+          "save": "Sinonimlarni saqlash",
+          "saved": "Sinonimlar saqlandi."
+        },
+        "stems": {
+          "title": "O'zbek tili lug'ati",
+          "intro": "So'z shakllari va ularning asosi: so'z = asos, har qatorda bitta juft. Asos bo'yicha qidiruv yozilgan barcha shakllarni topadi. 2000 tagacha juft. Saqlangandan keyin yechimlar va g'oyalar qayta indekslanadi, bu bir daqiqagacha davom etadi.",
+          "label": "So'z = asos juftlari",
+          "example": "to'lovlar = to'lov\nhisobotlar = hisobot",
+          "save": "Lug'atni saqlash",
+          "saved": "Lug'at saqlandi."
+        },
+        "curation": {
+          "title": "Yechimlarni mahkamlash",
+          "intro": "So'rov | yechim raqami | 1 dan 10 gacha o'rin. Mijoz so'rovida bu so'zlar bo'lsa, yechim shu o'rinda ko'rsatiladi. Ichki yechim mijozga bu yerda ham ko'rsatilmaydi. 200 tagacha qoida.",
+          "label": "Mahkamlash qoidalari",
+          "example": "накладная | 1042 | 1",
+          "save": "Qoidalarni saqlash",
+          "saved": "Mahkamlash qoidalari saqlandi."
+        }
       }
     },
     "queues": {
@@ -2115,7 +2171,8 @@
       },
       "tag": "Teg",
       "anyTag": "Barcha teglar",
-      "byTag": "{name} tegi bor murojaatlarni ko'rsatish"
+      "byTag": "{name} tegi bor murojaatlarni ko'rsatish",
+      "searchTruncated": "Eng mos natijalar ko'rsatilgan. Qolganlarini topish uchun so'rovni aniqlashtiring."
     },
     "ticket": {
       "files": "Fayllar",
@@ -2782,7 +2839,16 @@
         "noCode": "kodsiz",
         "noSample": "matn yo'q",
         "create": "Yechim yaratish",
-        "empty": "Bu davrda yechim maslahatlari ko'rsatilmagan."
+        "empty": "Bu davrda yechim maslahatlari ko'rsatilmagan.",
+        "missesTitle": "Mijozlar nimani qidiradi va topmaydi",
+        "missesHint": "Murojaat shaklidagi maslahatning oxirgi so'rovi, undan keyin yechim topilmagan, 7 kun uchun. Telefonlar, manzillar va raqamlar yashirilgan. Matnlar 90 kun saqlanadi.",
+        "missesEmpty": "So'nggi kunlarda bunday so'rovlar yo'q.",
+        "missesWeek": "7 kunda yechimsiz so'rovlar modul va til bo'yicha",
+        "missesModule": "Modul",
+        "missesLocale": "Til",
+        "missesCount": "So'rovlar",
+        "missesNoModule": "Modul tanlanmagan",
+        "missesRecent": "Oxirgi so'rovlar"
       }
     },
     "solutions": {
@@ -3241,6 +3307,24 @@
         "releaseDate": "Chiqarilgan sana",
         "releaseSubmit": "Chiqarildi"
       }
+    },
+    "password": {
+      "title": "Parol",
+      "intro": "Parol o'zgartirilgandan keyin barcha seanslaringiz yakunlanadi, shu qurilmada ham. Yangi parol va ilovadagi kod bilan qayta kiring.",
+      "current": "Joriy parol",
+      "next": "Yangi parol",
+      "nextHint": "Kamida 12 belgi. Password12345 yoki qwerty kabi keng tarqalgan parollar qabul qilinmaydi: o'zingizning bir necha so'zingizdan iborat ibora yaxshiroq",
+      "repeat": "Yangi parol yana bir marta",
+      "submit": "Parolni o'zgartirish",
+      "errors": {
+        "invalid_credentials": "Joriy parol noto'g'ri.",
+        "same_password": "Yangi parol joriy parol bilan bir xil.",
+        "rate_limited": "Urinishlar juda ko'p. {minutes, plural, one {# daqiqadan} other {# daqiqadan}} keyin qayta urinib ko'ring.",
+        "invalid_input": "Parollarni tekshiring.",
+        "password_short": "Parol kamida 12 belgidan iborat bo'lishi kerak.",
+        "weak_password": "Bunday parol juda keng tarqalgan: uni birinchi bo'lib tanlab ko'rishadi. Boshqasini kiriting, masalan, o'zingizning bir necha so'zingizdan iborat ibora.",
+        "password_mismatch": "Parollar mos kelmadi."
+      }
     }
   },
   "auth": {
@@ -3334,7 +3418,8 @@
         "serverDown": "Smartup serveri hozir javob bermayapti. Bir necha daqiqadan keyin kiring yoki email orqali havola bilan kiring."
       },
       "botIntro": "Smartupga kirish imkoni yo'qmi? Agar Telegram hisobingizga bog'langan bo'lsa, bot orqali kiring: unda «Kirish» tugmasini bosing.",
-      "botLink": "Smartup Hub botini ochish"
+      "botLink": "Smartup Hub botini ochish",
+      "reauth": "Davom etish uchun qaytadan kiring."
     },
     "gate": {
       "selectOrganization": {
@@ -3394,13 +3479,15 @@
       "continue": "Davom etish",
       "errors": {
         "invalid": "Email manzilini tekshiring.",
-        "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring."
+        "rateLimited": "So'rovlar juda ko'p. Bir soatdan keyin urinib ko'ring.",
+        "stale": "Kirish manzilini ko'rsatish uchun 15 daqiqadan eski bo'lmagan kirish kerak. Qaytadan kiring va takrorlang."
       },
       "telegram": "Telegramni bog'lash",
       "policyLine": "Portal ma'lumotlaringiz bilan qanday ishlashi <link>Ma'lumotlarni qayta ishlash siyosati</link> hujjatida yozilgan.",
       "policyTitle": "Ma'lumotlarni qayta ishlash siyosati yangilandi",
       "policyText": "Yangi tahrirni o'qing: <link>Ma'lumotlarni qayta ishlash siyosati</link>.",
-      "policyAcknowledge": "Tushunarli"
+      "policyAcknowledge": "Tushunarli",
+      "reauth": "Qayta kirish"
     },
     "invite": {
       "title": "{orgName} tashkilotiga taklif",
@@ -3612,7 +3699,12 @@
       "unidentified_flood": "Smartup Hub: bir soat ichida noma'lum manzillardan kelgan xatlardan {count} ta murojaat yaratildi. Xatlar oqimi bo'lishi mumkin. \"Aniqlanmaganlar\" va pochta sozlamalarini ko'ring.",
       "automation_dropped": "Smartup Hub: bir soat ichida {count} ta avtomatlashtirish hodisasi qayta ishlanmadi. Ular bo'yicha qoidalar va bildirishnomalar bajarilmadi, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
       "automation_lag": "Smartup Hub: avtomatlashtirish hodisalari {minutes} daqiqadan beri qayta ishlanmayapti, navbatda: {count}. Qoidalar va bildirishnomalar kechikmoqda, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
-      "builtin_rule_inactive": "Smartup Hub: o'rnatilgan bildirishnomalar ishlamayapti, qoidalar: {count} ({rules}). Qoida o'chirilgan yoki nosoz: navbatchilarga P1 haqida, rahbarga muddat buzilishi yoki past baho haqida xabarlar yuborilmayapti. Sozlamalarda avtomatlashtirish qoidalarini tekshiring."
+      "builtin_rule_inactive": "Smartup Hub: o'rnatilgan bildirishnomalar ishlamayapti, qoidalar: {count} ({rules}). Qoida o'chirilgan yoki nosoz: navbatchilarga P1 haqida, rahbarga muddat buzilishi yoki past baho haqida xabarlar yuborilmayapti. Sozlamalarda avtomatlashtirish qoidalarini tekshiring.",
+      "backup_stale": "Smartup Hub: baza zaxira nusxalari eskirgan ({kinds}), turlar: {count}. dump: tungi nusxa 26 soatdan ko'p vaqt yo'q, base: asosiy nusxa 8 kundan ko'p vaqt yo'q, wal: baza jurnali 26 soatdan ko'p vaqt arxivga saqlanmagan. Serverdagi nusxa ssenariylari jurnalini ko'ring.",
+      "search_unavailable": "Smartup Hub: Typesense qidiruvi javob bermayapti, bir soatda PostgreSQL ga qaytishlar: {count}. Qidiruv xatolar va sinonimlarsiz ishlaydi.",
+      "search_lag": "Smartup Hub: qidiruv indeksi {minutes} daqiqadan beri yangilanmayapti, yozilishini kutayotganlar: {count}.",
+      "search_drift": "Smartup Hub: qidiruv indeksini solishtirish farqlarni topdi: {count} (to'plamlar: {collections}). Yetishmayotganlari qaytadan yoziladi.",
+      "search_isolation": "Smartup Hub: qidiruv mijozga boshqa tashkilot identifikatorlarini qaytardi, ularni baza tekshiruvi tashlab yubordi: bir soatda {count}. Qidiruv kaliti filtrini tekshiring."
     }
   },
   "dev": {

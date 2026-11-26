@@ -7,6 +7,7 @@ import { withIdentity } from '@/db/with-identity';
 import { authUser } from '../auth-schema';
 import { organizations, servers, staff } from '../schema';
 import { isSyntheticEmail } from '../util';
+import { directoryOrgIds, directoryPersonIds } from './directory-search';
 
 // Модуль hdu, слой core: поиск организаций и людей для рабочего места (FR-AG-10; план M3, задача 5).
 // Организации читаются под актором сотрудника. Имена и адреса лежат в таблицах идентичности: их читает
@@ -14,9 +15,11 @@ import { isSyntheticEmail } from '../util';
 
 const LOOKUP_LIMIT = 200;
 
-/** Организации по названию или ИНН. */
+/** Организации по названию или ИНН: Typesense с опечатками и свёрткой (план W6), иначе прежний containsText. */
 export async function findOrgIdsTx(actor: StaffActor, query: string): Promise<string[]> {
   if (!searchable(query)) return [];
+  const found = await directoryOrgIds(actor, query);
+  if (found) return found.ids.slice(0, LOOKUP_LIMIT);
   const rows = await withActor(actor, (tx) =>
     tx
       .select({ orgId: organizations.orgId })
@@ -27,19 +30,28 @@ export async function findOrgIdsTx(actor: StaffActor, query: string): Promise<st
   return rows.map((row) => row.orgId);
 }
 
-/** Люди по имени или подтверждённому адресу. Служебные адреса без почты не ищутся. */
+/**
+ * Люди по имени или подтверждённому адресу. Служебные адреса без почты не ищутся. Имя ищет Typesense (план W6), адрес
+ * почты всегда PostgreSQL: адресов в индексе нет. Typesense не ответил: имя тоже прежним containsText.
+ */
 export async function findUserIdsTx(actor: StaffActor, query: string): Promise<string[]> {
   if (!searchable(query)) return [];
+  const byName = (await directoryPersonIds(actor, query))?.ids ?? null;
   const rows = await withIdentity(actor, (tx) =>
     tx
       .select({ id: authUser.id, email: authUser.email, emailVerified: authUser.emailVerified, name: authUser.name })
       .from(authUser)
-      .where(or(containsText(authUser.name, query), and(eq(authUser.emailVerified, true), containsText(authUser.email, query))))
+      .where(
+        byName
+          ? and(eq(authUser.emailVerified, true), containsText(authUser.email, query))
+          : or(containsText(authUser.name, query), and(eq(authUser.emailVerified, true), containsText(authUser.email, query))),
+      )
       .limit(LOOKUP_LIMIT),
   );
-  return rows
-    .filter((row) => row.name.toLowerCase().includes(query.toLowerCase()) || (row.emailVerified && !isSyntheticEmail(row.email)))
+  const byEmail = rows
+    .filter((row) => (!byName && row.name.toLowerCase().includes(query.toLowerCase())) || (row.emailVerified && !isSyntheticEmail(row.email)))
     .map((row) => row.id);
+  return [...new Set([...(byName ?? []), ...byEmail])].slice(0, LOOKUP_LIMIT);
 }
 
 export type OrgSummary = { orgId: string; name: string; inn: string | null; category: 'A' | 'B' | 'C' | 'D' | null; serverName: string };

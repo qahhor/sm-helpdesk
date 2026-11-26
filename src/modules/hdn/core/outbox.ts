@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, gt, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { getEnv } from '@/env';
@@ -349,13 +349,16 @@ export async function dispatchOutbox(
   return result;
 }
 
-/** Захват пачки: строки помечаются попыткой и сроком захвата, другой запуск их не возьмёт. */
+/**
+ * Захват пачки: строки помечаются попыткой и сроком захвата, другой запуск их не возьмёт. Срок сравнивается с концом
+ * миллисекунды now: время в базе точнее, и строка, записанная в ту же миллисекунду, иначе ждала бы следующего запуска.
+ */
 async function claimBatch(actor: SystemActor, now: Date): Promise<Row[]> {
   return withActor(actor, async (tx) => {
     const rows = await tx
       .select()
       .from(outbox)
-      .where(and(eq(outbox.status, 'queued'), lte(outbox.nextAttemptOn, now)))
+      .where(and(eq(outbox.status, 'queued'), lt(outbox.nextAttemptOn, new Date(now.getTime() + 1))))
       .orderBy(asc(outbox.nextAttemptOn))
       .limit(BATCH)
       .for('update', { skipLocked: true });

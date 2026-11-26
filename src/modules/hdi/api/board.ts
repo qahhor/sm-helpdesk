@@ -5,6 +5,7 @@ import { LOCALES } from '@/i18n/locales';
 import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import type { ClientContext } from '@/modules/hdu/api';
+import { ideaTextIds } from '../core/text-search';
 import { type BoardCard, boardTx, ideaOfMonthTx, type IdeaView, ideaViewTx, setFollowTx } from '../core/board';
 import { ideaByNumberTx } from '../core/ideas';
 import { HdiError } from '../error';
@@ -34,7 +35,8 @@ export async function listIdeas(ctx: Pick<ClientContext, 'actor'>, input: unknow
     if (!limit.allowed) throw new HdiError('rate_limited', { retryAfterSec: limit.retryAfterSec });
   }
   const mode = await voteMode();
-  return withActor(ctx.actor, (tx) => boardTx(tx, { tab: data.tab, locale: data.locale, moduleId: data.moduleId ?? null, q, after: data.after ?? null }, ctx.actor.userId, mode));
+  const textIds = q ? await ideaTextIds(ctx.actor, q) : null;
+  return withActor(ctx.actor, (tx) => boardTx(tx, { tab: data.tab, locale: data.locale, moduleId: data.moduleId ?? null, q, after: data.after ?? null, textIds }, ctx.actor.userId, mode));
 }
 
 const pageInput = z.strictObject({ number: ideaNumber, locale: z.enum(LOCALES) });

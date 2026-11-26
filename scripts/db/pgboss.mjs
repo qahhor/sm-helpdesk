@@ -30,6 +30,9 @@ export const QUEUES = {
   'devtasks.sync': { policy: 'short', retryLimit: 0, expireInSeconds: 600, deleteAfterSeconds: 86_400 },
   // Сигналы дежурным о состоянии портала (план W0, задача 4): раз в 5 минут, без повторов.
   'ops.watch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
+  // Отметка "фоновый процесс жив" для /api/ready/worker (план подготовки M9, решение 5): раз в минуту, без повторов,
+  // следующая минута догонит. Выполненные задачи хранятся сутки.
+  'ops.heartbeat': { policy: 'short', retryLimit: 0, expireInSeconds: 60, deleteAfterSeconds: 86_400 },
   // Проверка изображения решения (план M5, задача 3): как вложение обращения, одна задача на файл.
   'kb.scan': { policy: 'exclusive', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   // Поисковый индекс после публикации (план M5, задача 4 ставит, задача 9 пишет строки и вектор). stately: на решение
@@ -52,6 +55,11 @@ export const QUEUES = {
   'ideas.moderation_digest': { policy: 'short', retryLimit: 2, retryDelay: 300, expireInSeconds: 600 },
   // Отбор месяца (план M7, задача 9): 1-го числа в 09:00 по Ташкенту. Повтор безвреден: месяц уникален, снимок один.
   'ideas.cycle': { policy: 'short', retryLimit: 3, retryDelay: 300, expireInSeconds: 600 },
+  // Индекс поиска Typesense (план W6, решения 11 и 12): разбор очереди hdc_search_outbox раз в минуту, внутри запуска
+  // до 50 секунд с опросом каждые 2 секунды. singleton: не больше одного выполняемого запуска, порядок записи один.
+  // Повторы ведёт сама очередь (attempts в hdc_search_outbox). Ночная сверка без повторов: следующая ночь догонит.
+  'search.sync': { policy: 'singleton', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
+  'search.reconcile': { policy: 'short', retryLimit: 0, expireInSeconds: 3600, deleteAfterSeconds: 86_400 },
   // Разбор входящего письма (веха M4, решение 10): одна задача на письмо, повторы при сбое сервиса почты.
   'email.inbound': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
 };

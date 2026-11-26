@@ -1,6 +1,8 @@
 import 'server-only';
 import { isLocale, type Locale } from '@/i18n/locales';
 import { getAuth } from '../auth/instance';
+import { revokeSessionById } from '../core/sessions';
+import { CLIENT_SESSION_MAX_SEC } from '../pref';
 
 // Запрос глазами модуля идентичности: заголовки и место, куда положить куки ответа.
 // Серверное действие получает его от nextRequest() (api/next-request.ts), тест собирает сам.
@@ -49,6 +51,8 @@ const toDate = (value: Date | string) => (value instanceof Date ? value : new Da
 
 /**
  * Сессия по кукам запроса. Проверяет её библиотека входа по базе: отозванная или истёкшая сессия даёт null.
+ * Сессия старше 90 суток от входа не действует и отзывается, даже если срок в базе дальше (ASVS 7.3.2):
+ * так предел держится и для сессий, продлённых до этого правила. Сотрудника раньше остановит предел 12 часов.
  * Ни одно поле результата не берётся из тела запроса или адреса.
  */
 export async function readSession(request: Pick<RequestInfo, 'headers'>): Promise<SessionData | null> {
@@ -56,6 +60,10 @@ export async function readSession(request: Pick<RequestInfo, 'headers'>): Promis
   const data = await auth.api.getSession({ headers: request.headers });
   if (!data) return null;
   const { session, user } = data;
+  if (Date.now() - toDate(session.createdAt).getTime() > CLIENT_SESSION_MAX_SEC * 1000) {
+    await revokeSessionById(session.id);
+    return null;
+  }
   return {
     session: {
       id: session.id,

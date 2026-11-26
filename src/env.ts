@@ -99,26 +99,36 @@ const httpsOrigin = required().refine(
 );
 
 /**
- * Адрес TEI (план M5, решение 6): только внутренний, потому что вызывается мимо защиты исходящих запросов, а в запросе
- * текст клиента. Имя службы compose без точек, localhost или частный IPv4; без учётной записи, пути и параметров.
+ * Внутренний адрес службы (TEI, план M5, решение 6; Typesense, план W6, решение 15): вызывается мимо защиты исходящих
+ * запросов, а в запросе текст клиента. Имя службы compose без точек, localhost или частный IPv4; без учётной записи,
+ * пути и параметров.
  */
-const embeddingsUrl = z
+const internalUrl = (example: string) =>
+  z
+    .string()
+    .trim()
+    .refine(
+      (value) => {
+        const url = toUrl(value);
+        if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password || url.search || url.hash) return false;
+        if (url.pathname !== '/' && url.pathname !== '') return false;
+        const host = url.hostname;
+        if (LOCAL_HOSTS.has(host) || /^[a-z0-9][a-z0-9-]{0,62}$/i.test(host)) return true;
+        const ip = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+        if (!ip) return false;
+        const [a, b] = [Number(ip[1]), Number(ip[2])];
+        return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+      },
+      { error: `ожидается внутренний адрес вида ${example}: имя службы, localhost или частный IPv4, без пути` },
+    );
+
+const embeddingsUrl = internalUrl('http://tei:80');
+
+/** Ключ Typesense: печатные знаки ASCII без пробелов (уходит заголовком X-TYPESENSE-API-KEY). */
+const typesenseKey = z
   .string()
   .trim()
-  .refine(
-    (value) => {
-      const url = toUrl(value);
-      if (!url || (url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password || url.search || url.hash) return false;
-      if (url.pathname !== '/' && url.pathname !== '') return false;
-      const host = url.hostname;
-      if (LOCAL_HOSTS.has(host) || /^[a-z0-9][a-z0-9-]{0,62}$/i.test(host)) return true;
-      const ip = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-      if (!ip) return false;
-      const [a, b] = [Number(ip[1]), Number(ip[2])];
-      return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
-    },
-    { error: 'ожидается внутренний адрес вида http://tei:80: имя службы, localhost или частный IPv4, без пути' },
-  );
+  .regex(/^[\x21-\x7e]{16,256}$/, { error: 'ожидается ключ: от 16 до 256 печатных знаков без пробелов' });
 
 const schema = z
   .object({
@@ -222,6 +232,14 @@ const schema = z
     // вектор по буквосочетаниям прямо в процессе, tei ходит в локальный контейнер TEI с моделью BGE-M3.
     EMBEDDINGS: z.enum(['stub', 'tei'], { error: 'ожидается stub или tei' }).default('stub'),
     EMBEDDINGS_URL: embeddingsUrl.optional(),
+    // Поиск (план W6, решение 15): postgres ищет прежними запросами (по умолчанию; production до сервера 16 ГБ,
+    // решение 0070), typesense ходит в локальный Typesense за идентификаторами, stub держит индекс в памяти процесса
+    // (тесты и машина разработчика). Ключи поиска только documents:search: клиентский не видит переписку и
+    // справочники, ключ сотрудника видит. Ключа записи у портала нет: его разбирает parseSearchWriteEnv.
+    SEARCH_PROVIDER: z.enum(['postgres', 'typesense', 'stub'], { error: 'ожидается postgres, typesense или stub' }).default('postgres'),
+    TYPESENSE_URL: internalUrl('http://typesense:8108').optional(),
+    TYPESENSE_SEARCH_KEY: typesenseKey.optional(),
+    TYPESENSE_STAFF_SEARCH_KEY: typesenseKey.optional(),
     // Таск-менеджер разработки (ТЗ 7.9, решение 13 вехи M8): manual значит, что номер и ссылку задачи вводит сотрудник;
     // smartup: задачи создаёт портал через API таск-менеджера Smartup (docs/integrations/dev-tracker.md).
     DEV_TRACKER: z.enum(['manual', 'smartup'], { error: 'ожидается manual или smartup' }).default('manual'),
@@ -313,6 +331,13 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['CLAMAV_HOST'], message: 'не задан: на настоящем адресе в production файлы проверяет ClamAV' });
     if (value.EMBEDDINGS === 'tei' && !value.EMBEDDINGS_URL)
       ctx.addIssue({ code: 'custom', path: ['EMBEDDINGS_URL'], message: 'не задан, а EMBEDDINGS равен tei' });
+    if (value.SEARCH_PROVIDER === 'typesense')
+      for (const name of ['TYPESENSE_URL', 'TYPESENSE_SEARCH_KEY', 'TYPESENSE_STAFF_SEARCH_KEY'] as const)
+        if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а SEARCH_PROVIDER равен typesense' });
+    if (value.TYPESENSE_SEARCH_KEY && value.TYPESENSE_SEARCH_KEY === value.TYPESENSE_STAFF_SEARCH_KEY)
+      ctx.addIssue({ code: 'custom', path: ['TYPESENSE_STAFF_SEARCH_KEY'], message: 'совпадает с TYPESENSE_SEARCH_KEY: ключ сотрудника отдельный (решение 0070)' });
+    if (value.SEARCH_PROVIDER === 'stub' && !LOCAL_HOSTS.has(host))
+      ctx.addIssue({ code: 'custom', path: ['SEARCH_PROVIDER'], message: 'заглушка поиска допускается только для localhost и 127.0.0.1' });
     if (value.DEV_TRACKER === 'smartup')
       for (const name of ['DEV_TRACKER_URL', 'DEV_TRACKER_TOKEN', 'DEV_TRACKER_WEBHOOK_SECRET'] as const)
         if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а DEV_TRACKER равен smartup' });
@@ -394,6 +419,35 @@ export function parseAiEnv(source: Record<string, string | undefined>): AiEnv {
   if (value.AI_STUB === '1') return { mode: 'stub' };
   if (!value.ANTHROPIC_API_KEY || !value.AI_MODEL_FAST || !value.AI_MODEL_QUALITY) return { mode: 'none' };
   return { mode: 'anthropic', apiKey: value.ANTHROPIC_API_KEY, models: { fast: value.AI_MODEL_FAST, quality: value.AI_MODEL_QUALITY } };
+}
+
+// --- Запись в индекс поиска: только фоновый процесс и команда hub (план W6, решение 3) ---
+//
+// Ключ записи Typesense задаётся контейнерам worker и hub (файл .env.worker). Схема портала его не содержит: веб-процесс
+// ключа не требует и не читает. Главный ключ Typesense (TYPESENSE_API_KEY) читает только команда hub search:keys.
+
+const searchWriteSchema = z
+  .object({
+    SEARCH_PROVIDER: z.enum(['postgres', 'typesense', 'stub'], { error: 'ожидается postgres, typesense или stub' }).default('postgres'),
+    TYPESENSE_URL: internalUrl('http://typesense:8108').optional(),
+    TYPESENSE_WRITE_KEY: typesenseKey.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.SEARCH_PROVIDER === 'typesense')
+      for (const name of ['TYPESENSE_URL', 'TYPESENSE_WRITE_KEY'] as const)
+        if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а SEARCH_PROVIDER равен typesense' });
+  });
+
+/** Куда фоновый процесс пишет индекс: никуда (путь PostgreSQL), в заглушку или в Typesense. */
+export type SearchWriteEnv = { mode: 'postgres' } | { mode: 'stub' } | { mode: 'typesense'; url: string; key: string };
+
+export function parseSearchWriteEnv(source: Record<string, string | undefined>): SearchWriteEnv {
+  const result = searchWriteSchema.safeParse(source);
+  if (!result.success)
+    throw new EnvError(result.error.issues.map((issue) => ({ name: String(issue.path[0] ?? 'окружение'), reason: issue.message })));
+  const value = result.data;
+  if (value.SEARCH_PROVIDER === 'typesense' && value.TYPESENSE_URL && value.TYPESENSE_WRITE_KEY) return { mode: 'typesense', url: value.TYPESENSE_URL, key: value.TYPESENSE_WRITE_KEY };
+  return { mode: value.SEARCH_PROVIDER === 'stub' ? 'stub' : 'postgres' };
 }
 
 let cached: Env | undefined;

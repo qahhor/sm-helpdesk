@@ -3,9 +3,12 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { alertsRunbookCheck } from './alerts-runbook.mjs';
+import { guidesCheck } from './guides.mjs';
 import { checkContrast } from './contrast.mjs';
+import { cspPagesGaps } from './csp-pages.mjs';
 import { findDashes, isDashCheckedFile } from './dashes.mjs';
-import { missingInEnvExample } from './env-example.mjs';
+import { envVarsMissingInLaunch, missingInEnvExample } from './env-example.mjs';
 import { mailTokensDrift } from './mail-tokens.mjs';
 import { checkCompleteness, checkIcu, checkWords } from './messages.mjs';
 import { findForbiddenApis } from './forbidden-apis.mjs';
@@ -106,6 +109,26 @@ const extraChecks = [
     // каждая переменная схемы src/env.ts описана в .env.example
     name: 'env-example',
     run: async () => (await missingInEnvExample()).map((name) => `в .env.example нет переменной ${name}`),
+  },
+  {
+    // каждая переменная src/env.ts и .env.example названа в памятке запуска (план подготовки M9, задача 8)
+    name: 'env-launch',
+    run: async () => (await envVarsMissingInLaunch()).map((name) => `в docs/runbooks/launch.md не названа переменная ${name}`),
+  },
+  {
+    // инструкции docs/guides называют только то, что есть в интерфейсе (план подготовки M9, задача 7)
+    name: 'guides',
+    run: () => guidesCheck(),
+  },
+  {
+    // каждый сигнал ops.watch описан в разделе 6 памятки дежурного (план подготовки M9, задача 3)
+    name: 'alerts-runbook',
+    run: () => alertsRunbookCheck(),
+  },
+  {
+    // каждая страница и каждый обработчик src/app есть в обходе политики содержимого (план подготовки M9, задача 2)
+    name: 'csp-pages',
+    run: () => cspPagesGaps(),
   },
   {
     // docs/versions.md совпадает с package.json и установленными пакетами

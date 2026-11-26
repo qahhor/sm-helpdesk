@@ -45,6 +45,17 @@ export async function findOrCreateTagTx(tx: Tx, name: string): Promise<Tag & { c
   return { ...found, created: false };
 }
 
+/** Новый тег с цветом от администратора. Название занято (без учёта регистра): tag_taken. */
+export async function createTagTx(actor: StaffActor, input: { name: string; color: TagColor }): Promise<Tag> {
+  if (actor.staffRole !== 'admin') throw new HdrError('forbidden');
+  return withActor(actor, async (tx) => {
+    const [created] = await tx.insert(tags).values(input).onConflictDoNothing().returning(columns);
+    if (!created) throw new HdrError('tag_taken');
+    await writeAudit(tx, { action: 'tag.created', objectType: 'tag', objectId: created.tagId, diff: { name: input.name, color: input.color } });
+    return created;
+  });
+}
+
 /** Переименовать и перекрасить. Название занято другим тегом: tag_taken. Нет тега: not_found. */
 export async function updateTagTx(actor: StaffActor, input: { tagId: string; name: string; color: TagColor }): Promise<void> {
   if (actor.staffRole !== 'admin') throw new HdrError('forbidden');

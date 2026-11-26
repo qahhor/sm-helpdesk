@@ -4,7 +4,10 @@
 //   - целиком складывается из частых слов, кусков клавиатурных рядов, последовательностей и повторов;
 //   - частое слово от шести букв с короткой добавкой (MyPassword123, Summer2026!!);
 //   - на две трети один ряд, последовательность или повтор (Aa123456789!).
-// Фраза из своих слов и случайный пароль с частым словом внутри проходят.
+// Фраза из своих слов и случайный пароль с частым словом внутри проходят. Сверх правил пароль сверяется со списком
+// 3000 самых частых паролей от 12 знаков (ASVS 5.0.0, требование 6.2.4; common-passwords.ts).
+
+import { COMMON_PASSWORDS } from './common-passwords';
 
 /** Частые слова паролей и слова, которые первым делом попробуют для этого портала. Латиница и кириллица. */
 const COMMON_WORDS = [
@@ -127,7 +130,7 @@ function isMostlyOneRun(lower: string): boolean {
  */
 export function isCommonPassword(password: string): boolean {
   const lower = password.normalize('NFKC').toLowerCase();
-  if (COMMON_WHOLE.has(lower) || isShortPeriod(lower) || isMostlyOneRun(lower)) return true;
+  if (COMMON_PASSWORDS.has(lower) || COMMON_WHOLE.has(lower) || isShortPeriod(lower) || isMostlyOneRun(lower)) return true;
   const trimmed = lower.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
   const unleet = [...trimmed].map((char) => LEET[char] ?? char).join('');
   // Восклицательный знак бывает и заменой буквы (adm!n), и разделителем (Passw0rd!Passw0rd!): проверяются оба чтения.

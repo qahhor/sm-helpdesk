@@ -156,7 +156,10 @@ test('действие со старой страницы: клиент напи
   await client.getByLabel('Ответ', { exact: true }).fill('Подождите, ошибка осталась');
   await resetLimits();
   await client.getByRole('button', { name: 'Отправить', exact: true }).click();
-  await expect(client.getByRole('main')).toContainText('Подождите, ошибка осталась');
+  // Ждём ответа сервера: текст в поле ввода виден и до отправки, проверка всей страницы проходила сразу, и закрытие
+  // окна клиента прерывало запрос (макрос тогда видел свежую страницу и выполнялся).
+  await expect(client.getByRole('main').getByText('Ответ отправлен')).toBeVisible();
+  await expect(client.getByRole('main').locator('article').filter({ hasText: 'Подождите, ошибка осталась' })).toBeVisible();
   await clientContext.close();
   // Сотрудник со старой страницы ставит "Ждём клиента": действие не выполняется, страница говорит почему.
   await panel.getByLabel('Статус', { exact: true }).selectOption('waiting_customer');
@@ -185,7 +188,10 @@ test('обращение изменилось, пока агент писал: �
   await client.getByLabel('Ответ', { exact: true }).fill('Дополнение: ошибка только у одного агента');
   await resetLimits();
   await client.getByRole('button', { name: 'Отправить', exact: true }).click();
-  await expect(client.getByRole('main')).toContainText('Дополнение: ошибка только у одного агента');
+  // Ждём ответа сервера: текст в поле ввода виден и до отправки, проверка всей страницы проходила сразу, и закрытие
+  // окна клиента прерывало запрос (макрос тогда видел свежую страницу и выполнялся).
+  await expect(client.getByRole('main').getByText('Ответ отправлен')).toBeVisible();
+  await expect(client.getByRole('main').locator('article').filter({ hasText: 'Дополнение: ошибка только у одного агента' })).toBeVisible();
   await clientContext.close();
 
   await composer.getByRole('button', { name: 'Отправить', exact: true }).click();

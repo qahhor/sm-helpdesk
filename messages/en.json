@@ -54,7 +54,8 @@
       },
       "revokeOthers": "End all other sessions",
       "othersDone": "All other sessions have ended.",
-      "hiddenNote": "Recent sessions are shown. {count, plural, one {# more session ends} other {# more sessions end}} together with the others with the button below."
+      "hiddenNote": "Recent sessions are shown. {count, plural, one {# more session ends} other {# more sessions end}} together with the others with the button below.",
+      "stale": "To end sessions, you need a sign-in within the last 15 minutes. Sign in again and repeat."
     },
     "legal": {
       "privacy": "Data processing policy",
@@ -575,7 +576,8 @@
         "sent": "We have sent an email. Open it and press \"Confirm address\".",
         "errors": {
           "invalid": "Check the email address.",
-          "rateLimited": "Too many requests. Try again in an hour."
+          "rateLimited": "Too many requests. Try again in an hour.",
+          "stale": "To set your sign-in email, you need a sign-in within the last 15 minutes. Sign in again and repeat."
         }
       },
       "channels": {
@@ -592,7 +594,8 @@
           "unavailable": "Telegram is not responding right now. Try linking the bot again in a few minutes."
         },
         "blocked": "The bot is blocked in Telegram, messages do not arrive. Unblock the bot and link Telegram again."
-      }
+      },
+      "reauth": "Sign in again"
     },
     "footer": {
       "support": "Support: <address></address>"
@@ -823,6 +826,10 @@
         "knowledge": {
           "title": "Solutions",
           "text": "Domains that solutions may link to."
+        },
+        "search": {
+          "title": "Search",
+          "text": "Synonyms, the Uzbek dictionary and pinned solutions in suggestions."
         }
       },
       "servers": {
@@ -1078,7 +1085,8 @@
           "webhook_secret": "Webhook secrets",
           "macro": "Macro",
           "dev_task": "Development task",
-          "metrics": "Metrics"
+          "metrics": "Metrics",
+          "ops_backup": "Backup"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -1090,6 +1098,7 @@
             "invited": "Staff member invited",
             "created": "Staff member created",
             "reset": "Staff access reset",
+            "password_changed": "Staff member changed their password",
             "signed_in": "Staff sign-in",
             "role_changed": "Staff role changed",
             "state_changed": "Staff member blocked or unblocked",
@@ -1262,6 +1271,13 @@
             "cycle_lapsed": "Monthly selection closed without a choice",
             "cycle_decided": "Idea of the month selected",
             "status_changed": "Idea status changed"
+          },
+          "ops": {
+            "backup_marked": "Database backup recorded"
+          },
+          "search": {
+            "keys_created": "Search keys created",
+            "reindexed": "Search index rebuilt"
           }
         },
         "words": {
@@ -1315,7 +1331,12 @@
           "host": "Host",
           "events": "Events",
           "urlChanged": "Address changed",
-          "isEnabled": "Enabled"
+          "isEnabled": "Enabled",
+          "sessionsEnded": "Sessions ended",
+          "kind": "Kind",
+          "sizeBytes": "Size, bytes",
+          "dump": "nightly backup",
+          "base": "base backup"
         }
       },
       "sla": {
@@ -1975,6 +1996,41 @@
           "saved": "AI call limit saved.",
           "invalid": "Enter a whole number from 0 to 10,000."
         }
+      },
+      "search": {
+        "title": "Search",
+        "intro": "These sets apply to typo-tolerant search: in the workspace, in solution suggestions and on the ideas board. Changes reach search within a few seconds. Lines starting with # are ignored.",
+        "reauth": "Sign in again",
+        "errors": {
+          "line": "Section \"{section}\", line {line}: the line does not follow the example. Nothing was saved.",
+          "stale_session": "Sign in again to change settings.",
+          "forbidden": "Only an administrator can change this setting.",
+          "invalid_input": "The text is too long. Nothing was saved."
+        },
+        "synonyms": {
+          "title": "Synonyms",
+          "intro": "One set per line. Words separated by commas find each other: склад, ombor, warehouse. With an arrow => the query on the left finds the words on the right, but not the other way round. Up to 300 sets of 20 words.",
+          "label": "Synonym sets",
+          "example": "склад, ombor, warehouse\nнакладная => yuk xati, invoice",
+          "save": "Save synonyms",
+          "saved": "Synonyms saved."
+        },
+        "stems": {
+          "title": "Uzbek dictionary",
+          "intro": "Word forms and their stem: word = stem, one pair per line. Searching by the stem finds every listed form. Up to 2000 pairs. After saving, solutions and ideas are reindexed, which takes up to a minute.",
+          "label": "Pairs word = stem",
+          "example": "to'lovlar = to'lov\nhisobotlar = hisobot",
+          "save": "Save dictionary",
+          "saved": "Dictionary saved."
+        },
+        "curation": {
+          "title": "Pinned solutions",
+          "intro": "Query | solution number | position from 1 to 10. If a client's query contains these words, the solution is shown at that position. An internal solution is never shown to clients, here too. Up to 200 rules.",
+          "label": "Pinning rules",
+          "example": "накладная | 1042 | 1",
+          "save": "Save rules",
+          "saved": "Pinning rules saved."
+        }
       }
     },
     "queues": {
@@ -2115,7 +2171,8 @@
       },
       "tag": "Tag",
       "anyTag": "All tags",
-      "byTag": "Show tickets tagged {name}"
+      "byTag": "Show tickets tagged {name}",
+      "searchTruncated": "Showing the best matches. Refine the search to find the rest."
     },
     "ticket": {
       "files": "Files",
@@ -2782,7 +2839,16 @@
         "noCode": "no code",
         "noSample": "no text",
         "create": "Create a solution",
-        "empty": "No solution suggestions were shown in this period."
+        "empty": "No solution suggestions were shown in this period.",
+        "missesTitle": "What clients search for and do not find",
+        "missesHint": "The last suggestion query on the request form that found no solutions, for 7 days. Phones, addresses and numbers are hidden. Texts are kept for 90 days.",
+        "missesEmpty": "No such queries in recent days.",
+        "missesWeek": "Queries without solutions for 7 days by module and language",
+        "missesModule": "Module",
+        "missesLocale": "Language",
+        "missesCount": "Queries",
+        "missesNoModule": "No module selected",
+        "missesRecent": "Recent queries"
       }
     },
     "solutions": {
@@ -3241,6 +3307,24 @@
         "releaseDate": "Release date",
         "releaseSubmit": "Released"
       }
+    },
+    "password": {
+      "title": "Password",
+      "intro": "After the password change all your sessions end, on this device too. Sign in again with the new password and the code from the app.",
+      "current": "Current password",
+      "next": "New password",
+      "nextHint": "At least 12 characters. Common passwords such as Password12345 or qwerty are not accepted: a phrase of several words of your own works best",
+      "repeat": "New password again",
+      "submit": "Change password",
+      "errors": {
+        "invalid_credentials": "The current password is wrong.",
+        "same_password": "The new password is the same as the current one.",
+        "rate_limited": "Too many attempts. Try again in {minutes, plural, one {# minute} other {# minutes}}.",
+        "invalid_input": "Check the passwords.",
+        "password_short": "The password must be at least 12 characters long.",
+        "weak_password": "This password is too common: it is among the first to be guessed. Choose another one, for example a phrase of several words of your own.",
+        "password_mismatch": "The passwords do not match."
+      }
     }
   },
   "auth": {
@@ -3334,7 +3418,8 @@
         "serverDown": "The Smartup server is not responding right now. Try again in a few minutes or sign in with an email link."
       },
       "botIntro": "No access to Smartup? If Telegram is linked to your account, sign in through the bot: press \"Sign in\" there.",
-      "botLink": "Open the Smartup Hub bot"
+      "botLink": "Open the Smartup Hub bot",
+      "reauth": "Sign in again to continue."
     },
     "gate": {
       "selectOrganization": {
@@ -3394,13 +3479,15 @@
       "continue": "Continue",
       "errors": {
         "invalid": "Check the email address.",
-        "rateLimited": "Too many requests. Try again in an hour."
+        "rateLimited": "Too many requests. Try again in an hour.",
+        "stale": "To set your sign-in email, you need a sign-in within the last 15 minutes. Sign in again and repeat."
       },
       "telegram": "Link Telegram",
       "policyLine": "How the portal handles your data is described in the <link>Data processing policy</link>.",
       "policyTitle": "The data processing policy was updated",
       "policyText": "Read the new version: <link>Data processing policy</link>.",
-      "policyAcknowledge": "Got it"
+      "policyAcknowledge": "Got it",
+      "reauth": "Sign in again"
     },
     "invite": {
       "title": "Invitation to {orgName}",
@@ -3612,7 +3699,12 @@
       "unidentified_flood": "Smartup Hub: {count} requests were created from emails from unknown addresses within an hour. A flood is possible. Check \"Unidentified\" and the mail settings.",
       "automation_dropped": "Smartup Hub: {count} automation events were not processed within an hour. Their rules and notifications did not run, an on-call message about a P1 request may be among them. Check the background process log.",
       "automation_lag": "Smartup Hub: automation events have not been processed for {minutes} min, waiting: {count}. Rules and notifications are late, an on-call message about a P1 request may be among them. Check the background process log.",
-      "builtin_rule_inactive": "Smartup Hub: built-in notifications are not working, rules: {count} ({rules}). A rule is turned off or broken: on-call messages about P1, notices to the lead about a missed deadline or a low rating are not sent. Check the automation rules in settings."
+      "builtin_rule_inactive": "Smartup Hub: built-in notifications are not working, rules: {count} ({rules}). A rule is turned off or broken: on-call messages about P1, notices to the lead about a missed deadline or a low rating are not sent. Check the automation rules in settings.",
+      "backup_stale": "Smartup Hub: database backups are out of date ({kinds}), kinds: {count}. dump: no nightly backup for more than 26 hours, base: no base backup for more than 8 days, wal: the database log has not been archived for more than 26 hours. Check the backup scripts log on the server.",
+      "search_unavailable": "Smartup Hub: Typesense search is not responding, fallbacks to PostgreSQL in the last hour: {count}. Search works without typo tolerance and synonyms.",
+      "search_lag": "Smartup Hub: the search index has not been updated for {minutes} min, items waiting: {count}.",
+      "search_drift": "Smartup Hub: the search index check found {count} differences (collections: {collections}). Missing items will be written again.",
+      "search_isolation": "Smartup Hub: search returned another organization's ids to a client, the database check dropped them: {count} in the last hour. Check the search key filter."
     }
   },
   "dev": {

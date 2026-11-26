@@ -2,14 +2,15 @@ import 'server-only';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { clientIp } from '@/modules/hdc/api';
 import { type ClientSignInMethod, noteClientSignIn, TRUSTED_SIGN_IN_WAYS } from '../core/sign-in-audit';
-import { STAFF_SESSION_TTL_SEC } from '../pref';
+import { CLIENT_SESSION_MAX_SEC, STAFF_SESSION_TTL_SEC } from '../pref';
 import type { StaffInfo } from '../core/staff';
 
 // Перехватчики библиотеки входа. Они срабатывают и при вызове библиотеки как функции (решение 0012).
 //
 // Библиотека не обеспечивает сама три правила ТЗ, их держат эти перехватчики:
 //   1. сотрудник входит только по паролю с кодом второго фактора (FR-ID-09);
-//   2. сессия сотрудника живёт 12 часов и не продлевается (FR-ID-10);
+//   2. сессия сотрудника живёт 12 часов и не продлевается (FR-ID-10), сессия клиента продлевается
+//      при активности, но не дальше 90 суток от входа (ASVS 7.3.2, решение 0067);
 //   3. "доверенное устройство" обходит второй фактор и поэтому запрещено.
 
 export type StaffLookup = (userId: string) => Promise<StaffInfo | null>;
@@ -78,15 +79,18 @@ export function createSessionHooks(findStaff: StaffLookup, noteSignIn: SignInNot
       },
     },
     update: {
-      /** Библиотека продлевает сессию при активности. Сессию сотрудника продлить дальше 12 часов нельзя. */
+      /**
+       * Библиотека продлевает сессию при активности. Сессию сотрудника продлить дальше 12 часов от входа нельзя,
+       * сессию клиента дальше 90 суток от входа.
+       */
       async before(data: Record<string, unknown>, ctx: HookContext) {
         if (!('expiresAt' in data) || data.expiresAt == null) return undefined;
         const current = ctx?.context?.session;
         const userId = current?.user?.id;
         const createdAt = current?.session?.createdAt;
         if (!userId || !createdAt) return undefined;
-        if (!(await findStaff(userId))) return undefined;
-        const limit = new Date(createdAt).getTime() + STAFF_SESSION_TTL_SEC * 1000;
+        const ttl = (await findStaff(userId)) ? STAFF_SESSION_TTL_SEC : CLIENT_SESSION_MAX_SEC;
+        const limit = new Date(createdAt).getTime() + ttl * 1000;
         const wanted = new Date(data.expiresAt as Date | string).getTime();
         return { data: { ...data, expiresAt: new Date(Math.min(limit, wanted)) } };
       },

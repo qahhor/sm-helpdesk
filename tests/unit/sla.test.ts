@@ -96,3 +96,17 @@ test('запоминание границ не путает часовые по�
   // Зимой Берлин на час позже по UTC.
   expect(addWorkingMinutes(new Date('2026-03-22T00:00:00Z'), 1, berlin).toISOString()).toBe('2026-03-23T07:01:00.000Z');
 });
+
+// Предел счёта (замер подготовки M9, задача 4): страница очереди сравнивает рабочее время срока с остатком и не
+// должна проходить календарь за годы ради ответа "больше предела".
+test('рабочие минуты с пределом: до предела как без него, после предела ровно предел', () => {
+  const from = at('2024-11-25 08:00');
+  const to = at('2026-11-25 12:00');
+  const full = workingMinutesBetween(from, to, TASHKENT_DEFAULT);
+  expect(full).toBeGreaterThan(100_000);
+  for (const cap of [1, 59, 60, 61, 720, 5000, full - 1, full, full + 1]) expect(workingMinutesBetween(from, to, TASHKENT_DEFAULT, cap), String(cap)).toBe(Math.min(full, cap));
+  expect(workingMinutesBetween(at('2026-11-23 08:00'), at('2026-11-23 09:30'), TASHKENT_DEFAULT, 1000)).toBe(90);
+  expect(workingMinutesBetween(at('2026-11-23 08:00'), at('2026-11-23 09:30'), '24x7', 60)).toBe(60);
+  // Без рабочего времени между моментами предел ничего не меняет.
+  expect(workingMinutesBetween(at('2026-11-22 01:00'), at('2026-11-22 23:00'), TASHKENT_DEFAULT, 10)).toBe(0);
+});

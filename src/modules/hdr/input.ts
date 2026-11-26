@@ -116,4 +116,5 @@ export const tagNameInput = z
   .pipe(z.string().min(1).max(TAG_NAME_MAX));
 
 export const tagUpdateInput = z.object({ tagId: z.uuid(), name: tagNameInput, color: z.enum(TAG_COLORS) });
+export const tagCreateInput = z.object({ name: tagNameInput, color: z.enum(TAG_COLORS) });
 export const tagDeleteInput = z.object({ tagId: z.uuid() });

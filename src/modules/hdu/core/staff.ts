@@ -1,6 +1,7 @@
 import 'server-only';
+import { verifyPassword } from 'better-auth/crypto';
 import { and, asc, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
-import type { Actor } from '@/db/with-actor';
+import type { Actor, StaffActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
 import { authAccount, authTwoFactor, authUser, authVerification } from '../auth-schema';
@@ -344,5 +345,28 @@ export async function changeStaffRow(actor: Actor, userId: string, change: Staff
     if (stateChanged)
       await writeAudit(tx, { action: 'staff.state_changed', objectType: 'staff', objectId: userId, diff: { from: target.state, to: next.state } });
     return 'ok';
+  });
+}
+
+/**
+ * Сотрудник сам меняет пароль (ASVS 5.0.0, требования 6.2.2, 6.2.3 и 7.4.3; план подготовки M9, задача 1). Одна
+ * транзакция: строка пароля блокируется, текущий пароль сверяется с хешем, ставится новый хеш, завершаются все сессии
+ * сотрудника (и текущая: вход заново новым паролем и кодом), запись аудита от имени сотрудника. Неверный текущий
+ * пароль ничего не меняет.
+ */
+export async function changeStaffPasswordTx(actor: StaffActor, input: { currentPassword: string; newPasswordHash: string; ip?: string | null }): Promise<{ sessionsEnded: number }> {
+  return withIdentity(actor, async (tx) => {
+    const rows = await tx
+      .select({ id: authAccount.id, password: authAccount.password })
+      .from(authAccount)
+      .where(and(eq(authAccount.userId, actor.userId), eq(authAccount.providerId, CREDENTIAL)))
+      .limit(1)
+      .for('update');
+    const hash = rows[0]?.password;
+    if (!rows[0] || !hash || !(await verifyPassword({ hash, password: input.currentPassword }))) throw new HduError('invalid_credentials');
+    await tx.update(authAccount).set({ password: input.newPasswordHash, updatedAt: new Date() }).where(eq(authAccount.id, rows[0].id));
+    const sessionsEnded = await revokeUserSessions(tx, actor.userId);
+    await writeAudit(tx, { action: 'staff.password_changed', objectType: 'staff', objectId: actor.userId, diff: { sessionsEnded }, ip: input.ip ?? null });
+    return { sessionsEnded };
   });
 }

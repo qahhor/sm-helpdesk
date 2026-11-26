@@ -9,6 +9,7 @@
 | Node.js | 26.13.1 (LTS, ветка 26) | `.node-version`, `engines` в `package.json` |
 | pnpm | 12.21.0 | `packageManager` в `package.json` |
 | PostgreSQL | 18 с расширениями pgvector и pg_trgm, образ `pgvector/pgvector:pg18` | `compose.yaml` |
+| Typesense | 30.2, образ `typesense/typesense:30.2` по digest (план W6) | `compose.prod.yaml`, `tests/integration/setup/global-setup.ts` |
 
 ## Зависимости приложения
 

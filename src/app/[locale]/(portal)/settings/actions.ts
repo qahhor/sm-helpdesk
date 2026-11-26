@@ -3,7 +3,17 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { isHdnError, saveIdeaMailPref, savePrefs } from '@/modules/hdn/api/notifications';
-import { isHduError, nextRequest, requestEmailConfirmation, requireClientActor, revokeMySessionOfRequest, revokeOtherSessionsOfRequest, signOut, unlinkTelegram } from '@/modules/hdu/api';
+import {
+  isHduError,
+  nextRequest,
+  requestEmailConfirmation,
+  requireClientActor,
+  revokeMySessionOfRequest,
+  revokeOtherSessionsOfRequest,
+  safeReturnPath,
+  signOut,
+  unlinkTelegram,
+} from '@/modules/hdu/api';
 
 /** Раздел "Email для входа": письмо со ссылкой подтверждения адреса (FR-ID-07). */
 export async function requestEmailConfirmationAction(formData: FormData): Promise<void> {
@@ -21,7 +31,7 @@ export async function revokeSessionAction(formData: FormData): Promise<void> {
     ({ signedOut } = await revokeMySessionOfRequest(formData.get('sessionId')));
   } catch (error) {
     if (!isHduError(error)) throw error;
-    redirect(`/${locale}/settings?session=not_found`);
+    redirect(`/${locale}/settings?session=${error.code === 'stale_session' ? 'stale' : 'not_found'}`);
   }
   if (signedOut) {
     await signOut(await nextRequest());
@@ -30,11 +40,28 @@ export async function revokeSessionAction(formData: FormData): Promise<void> {
   redirect(`/${locale}/settings?session=revoked`);
 }
 
-/** Завершить все другие сессии: текущая остаётся. */
+/** Завершить все другие сессии: текущая остаётся. Вход старше 15 минут: страница просит войти заново. */
 export async function revokeOtherSessionsAction(): Promise<void> {
+  const locale = await getLocale();
   await requireClientActor();
-  await revokeOtherSessionsOfRequest();
-  redirect(`/${await getLocale()}/settings?session=others`);
+  try {
+    await revokeOtherSessionsOfRequest();
+  } catch (error) {
+    if (!isHduError(error) || error.code !== 'stale_session') throw error;
+    redirect(`/${locale}/settings?session=stale`);
+  }
+  redirect(`/${locale}/settings?session=others`);
+}
+
+/**
+ * "Войти заново" (ASVS 7.5, решение 0067): выход из этой сессии и страница входа с возвратом в профиль.
+ * Новая сессия даёт недавний вход для смены адреса и завершения сессий.
+ */
+export async function reauthAction(formData: FormData): Promise<void> {
+  const locale = await getLocale();
+  const next = safeReturnPath(formData.get('next'), `/${locale}/settings`);
+  await signOut(await nextRequest());
+  redirect(`/${locale}/login?reauth=1&next=${encodeURIComponent(next)}`);
 }
 
 /** Отвязка Telegram кнопкой в профиле. Бот подтверждает отвязку в диалоге. */

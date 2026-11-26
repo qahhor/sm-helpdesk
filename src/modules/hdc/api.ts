@@ -43,6 +43,20 @@ export {
 export { DOMAIN_EVENT_KINDS, type DomainEventKind } from './pref';
 // Сигналы дежурным о состоянии портала (ТЗ 13.8).
 export { type ArchiveState, archiveFailing, archiveState, claimOpsAlert, failedJobsSince, failedStaffSignIns, noteStaffSignInFailure, OPS_ALERT_EVERY_MS } from './ops-alerts';
+// Наблюдение без внешних сервисов (план подготовки M9, задача 3): отметка фонового процесса и отметки резервных копий.
+export {
+  BACKUP_KINDS,
+  BACKUP_STALE_HOURS,
+  type BackupKind,
+  beatWorker,
+  latestBackups,
+  type LatestBackups,
+  markBackup,
+  staleBackupKinds,
+  type StaleBackupKind,
+  WORKER_STALE_SEC,
+  workerReadyResponse,
+} from './ops-status';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';
 // Общие понятия для модулей ниже hdu (аудит 23.11.2026, находка A1): справочник контактов и контекст сотрудника.
@@ -57,3 +71,72 @@ export { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './staff-session';
 export function isDatabaseReady(opts: ReadyOptions = {}): Promise<boolean> {
   return pingDatabases(opts);
 }
+// Поиск на Typesense (план W6; ТЗ 11.11 SearchReader и SearchIndexWriter): ключ с областью из актора, откат на
+// PostgreSQL, свёртка написаний. Другие модули берут поиск только отсюда.
+export {
+  aliasOf,
+  COLLECTION_SCHEMAS,
+  createStubSearch,
+  type CurationItem,
+  filterValues,
+  FOLD_WEIGHT,
+  foldText,
+  mergeRanked,
+  type RankedList,
+  SEARCH_TIMEOUT_MS,
+  STOPWORD_SETS,
+  getSearchReader,
+  getSearchWriter,
+  HIDDEN_IDEA_STATUSES,
+  localeField,
+  localizedFields,
+  noteIsolationDrop,
+  processStub,
+  SEARCH_COLLECTIONS,
+  type SearchCollection,
+  searchAs,
+  searchCounters,
+  type SearchDocument,
+  type SearchFallback,
+  type SearchHitId,
+  type SearchIds,
+  type SearchIndexWriter,
+  type SearchPurpose,
+  type SearchReader,
+  type SearchSpec,
+  SearchWriteError,
+  setSearchForTests,
+  setSearchKeysForTests,
+  type StemPair,
+  type StubSearch,
+  type SynonymItem,
+  TEXT_LIMITS,
+} from './search';
+export { issueSearchKeys } from './search/admin';
+export {
+  cleanupDroppedOutbox,
+  DRIFT_ALERT_SHARE,
+  KIND_OF,
+  pendingEntities,
+  reconcileCollection,
+  type ReconcileReport,
+  prepareSearchIndex,
+  applyAllConfig,
+  registerSearchSources,
+  reindexCollection,
+  runSearchSync,
+  type SearchSource,
+  searchQueueState,
+  type SourceKind,
+  type SyncResult,
+} from './search/sync';
+export {
+  curationSchema,
+  type CurationRules,
+  SEARCH_SETTING_CODES,
+  SEARCH_SETTINGS_LIMITS,
+  stemPairsSchema,
+  type StemPairs,
+  synonymSetsSchema,
+  type SynonymSets,
+} from './search/config';

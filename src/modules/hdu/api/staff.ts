@@ -10,13 +10,14 @@ import { cookieValue } from '@/lib/cookies';
 import { getBotCheck } from '@/security/bot-check';
 import { getAuth } from '../auth/instance';
 import { revokeOtherOwnSessions, revokeSessionById } from '../core/sessions';
-import { acceptStaffInvitationTx, findPendingStaffUserId, findStaff, findStaffByEmail, findStaffInvitation } from '../core/staff';
+import { acceptStaffInvitationTx, changeStaffPasswordTx, findPendingStaffUserId, findStaff, findStaffByEmail, findStaffInvitation } from '../core/staff';
 import { HduError, type HduErrorCode } from '../error';
 import { emailInput, nameInput, parseInput, passwordInput, tokenInput, totpCodeInput } from '../input';
 import { isCommonPassword } from '../password-rules';
 import { AUTH_COOKIE_PREFIX } from '../pref';
 import { hashToken } from '../tokens';
 import { readSession, type RequestInfo } from './request';
+import type { StaffContext } from './session';
 
 // Вход сотрудника: пароль и обязательный второй фактор TOTP (FR-ID-09).
 // Вход по ссылке и через Smartup сотрудникам закрыт перехватчиками библиотеки входа.
@@ -25,6 +26,10 @@ const acceptInput = z.object({ token: tokenInput, name: nameInput, password: pas
 // При входе длина пароля не проверяется по правилу "не короче 12": неверный пароль просто не подойдёт.
 const signInInput = z.object({ email: emailInput, password: z.string().min(1).max(128) });
 const codeInput = z.object({ code: totpCodeInput });
+// Новый пароль не равен текущему: иначе "смена" только завершила бы сессии.
+const changeInput = z
+  .object({ currentPassword: z.string().min(1).max(128), newPassword: passwordInput })
+  .refine((data) => data.currentPassword !== data.newPassword, { path: ['newPassword'] });
 
 export type StaffSignInResult =
   | { step: 'code' }
@@ -99,6 +104,28 @@ export async function acceptStaffInvitation(input: unknown, request?: { headers:
     name: data.name,
     passwordHash: await hashPassword(data.password),
   });
+}
+
+/**
+ * Сотрудник сам меняет пароль на странице учётной записи (ASVS 5.0.0, требования 6.2.2, 6.2.3 и 7.4.3). Нужен
+ * текущий пароль; новый проверяется теми же правилами, что при приглашении (длина, частые пароли). Попыток не больше
+ * 5 за 15 минут на сотрудника: форма не становится обходом ограничения попыток входа. После смены все сессии
+ * сотрудника завершены, куки этого браузера убираются: дальше вход новым паролем и кодом.
+ */
+export async function changeStaffPassword(ctx: StaffContext, input: unknown, request: RequestInfo): Promise<void> {
+  const limit = await consumeRateLimit(rateKey('staff-password-change', ctx.user.id), RATE_RULES.staffPasswordChange);
+  if (!limit.allowed) throw new HduError('rate_limited', { retryAfterSec: limit.retryAfterSec });
+  const data = parseInput(changeInput, input);
+  if (isCommonPassword(data.newPassword)) throw new HduError('weak_password');
+  await changeStaffPasswordTx(ctx.actor, { currentPassword: data.currentPassword, newPasswordHash: await hashPassword(data.newPassword), ip: clientIp(request.headers) });
+  // Сессии уже удалены: библиотека входа только убирает куки этого браузера.
+  const auth = await getAuth();
+  try {
+    const result = await auth.api.signOut({ headers: request.headers, returnHeaders: true });
+    request.setCookies(result.headers);
+  } catch {
+    // Сессии нет: убирать нечего.
+  }
 }
 
 /** Заголовки запроса с куками, которые только что поставила библиотека: для следующего вызова в том же действии. */

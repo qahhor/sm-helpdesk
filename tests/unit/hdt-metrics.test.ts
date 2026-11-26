@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { TASHKENT_DEFAULT } from '@/modules/hdt/sla';
-import { average, buildCsv, CSV_BOM, csvCell, decimal, lineOf, lineUsage, median, METRICS_MAX_DAYS, parsePeriod, percent, splitMinutes } from '@/modules/hdt/metrics-util';
+import { average, buildCsv, channelOfSource, combineCounters, CSV_BOM, csvCell, decimal, lineOf, lineUsage, median, METRICS_MAX_DAYS, parsePeriod, percent, splitMinutes } from '@/modules/hdt/metrics-util';
 
 // Показатели (FR-MET-01, 04; план M8, задача 9, решения 15 и 16): разбор периода, сборка CSV и расчёт линии.
 // Чистые функции без базы.
@@ -121,4 +121,39 @@ test('время на линиях и возвраты по событиям о�
     minutes: { first: 60, second: 60 },
     returns: 0,
   });
+});
+
+// Сводка, источники и каналы считаются одним просмотром обращений периода по источникам (замер подготовки M9,
+// задача 4): сводка и каналы складываются из строк источников здесь.
+test('канал источника: оба источника виджета дают канал widget, остальные совпадают с источником', () => {
+  expect(['portal', 'widget_web', 'widget_mobile', 'email', 'staff'].map(channelOfSource)).toEqual(['portal', 'widget', 'widget', 'email', 'staff']);
+});
+
+test('счётчики источников складываются, средняя оценка считается по сумме оценок, а не средним средних', () => {
+  const row = (created: number, rated: number, csatSum: number) => ({
+    created,
+    resolved: created - 1,
+    closed: 1,
+    firstResponseTotal: created,
+    firstResponseOk: created - 1,
+    resolutionTotal: created,
+    resolutionOk: created - 2,
+    rated,
+    csatSum,
+    csatHigh: rated,
+  });
+  expect(combineCounters([row(10, 1, 5), row(4, 3, 6)])).toEqual({
+    created: 14,
+    resolved: 12,
+    closed: 2,
+    firstResponseTotal: 14,
+    firstResponseOk: 12,
+    resolutionTotal: 14,
+    resolutionOk: 10,
+    rated: 4,
+    csatAverage: 11 / 4,
+    csatHigh: 4,
+  });
+  expect(combineCounters([]).csatAverage).toBeNull();
+  expect(combineCounters([row(3, 0, 0)])).toMatchObject({ created: 3, rated: 0, csatAverage: null });
 });

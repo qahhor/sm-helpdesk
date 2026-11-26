@@ -100,6 +100,7 @@ pnpm hub maintenance:cleanup
 - Вход: клиенты через свой сервер Smartup, по ссылке на подтверждённый email или из бота Telegram; сотрудники по паролю и обязательному коду второго фактора. Таблицы идентичности работают под отдельной ролью базы `hub_auth` через `withIdentity`.
 - Внешние сервисы (Cloudflare Turnstile, Resend, Telegram, Cloudflare R2, ClamAV) включаются ключами в окружении; без ключей портал работает на заглушках (решения 0018, 0027).
 - Фоновый процесс `worker` (pg-boss в той же базе) проверяет вложения, обходит зависшие загрузки и чистит служебные таблицы ночью. В разработке его запускает `pnpm dev:up`, на сервере служба `worker` в `compose.prod.yaml` (решение 0028).
+- Поиск с опечатками, синонимами и свёрткой письменности идёт через локальный Typesense (`SEARCH_PROVIDER=typesense`, план W6): он отдаёт только идентификаторы, строки читаются через `withActor` под RLS, при любом сбое поиск идёт прежним путём PostgreSQL. По умолчанию `SEARCH_PROVIDER=postgres`. Тесты с базой поднимают Typesense 30.2 сами (`TYPESENSE_IMAGE` задаёт зеркало, `TYPESENSE_TESTS=0` выключает).
 - Почему сделано так, а не иначе: `docs/decisions/`.
 
 ## Документы
@@ -127,5 +128,7 @@ pnpm hub maintenance:cleanup
 ```bash
 PG_IMAGE=mirror.gcr.io/pgvector/pgvector:pg18 pnpm dev:up
 ```
+
+Typesense для тестов с базой: `TYPESENSE_IMAGE=mirror.gcr.io/typesense/typesense:30.2 pnpm test:integration` (digest тот же, что в `compose.prod.yaml`).
 
 Для сборки образа приложения: `docker build --build-arg NODE_IMAGE=mirror.gcr.io/library/node:26.13.1-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc .` (тот же digest, что в `Dockerfile`).

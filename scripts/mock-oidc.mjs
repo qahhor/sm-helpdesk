@@ -196,7 +196,9 @@ export async function startMockServer(code, config) {
     for (const field of CLAIM_FIELDS) custom[field] = query[`claim_${field}`];
     const persona = query.persona === 'custom' ? claimsOf(custom) : claimsOf(config.personas[query.persona] ?? {});
     const authCode = redirect.url.searchParams.get('code');
-    if (authCode && persona.sub) byCode.set(authCode, persona);
+    // Страница сервера спрашивает персону на каждом входе: сессии у ложного сервера нет, поэтому каждый вход новый,
+    // и auth_time равен времени выбора персоны (prompt=login и max_age=0 выполняются сами).
+    if (authCode && persona.sub) byCode.set(authCode, { ...persona, auth_time: Math.floor(Date.now() / 1000) });
   });
   service.on(Events.BeforeTokenSigning, (/** @type {{ payload: Record<string, unknown> }} */ token, /** @type {any} */ req) => {
     const persona = byCode.get(req.body?.code);

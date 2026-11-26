@@ -43,4 +43,10 @@ rclone copy "$file" "$BACKUP_REMOTE"
 find "$BACKUP_DIR" -name 'hub-*.dump.age' -mtime +"$BACKUP_KEEP_DAYS" -delete
 # Отметка последней удачной копии: по её возрасту внешняя проверка даёт сигнал дежурным.
 date -u +%Y-%m-%dT%H:%M:%SZ > "$BACKUP_DIR/last-success"
+# Отметка в портале (план подготовки M9, задача 3, решение 6): по её возрасту задача ops.watch шлёт дежурным сигнал
+# backup_stale. Копия уже выгружена; если отметка не записалась, сценарий завершается ошибкой, чтобы это было видно.
+if ! docker compose -f "$HUB_DIR/compose.prod.yaml" exec -T web node hub.mjs ops:backup-mark --kind dump --bytes "$size"; then
+  echo "Копия базы выгружена, но отметка в портале не записана (hub ops:backup-mark): дежурные получат сигнал backup_stale" >&2
+  exit 1
+fi
 echo "Копия базы выгружена: $(basename "$file"), $size байт"

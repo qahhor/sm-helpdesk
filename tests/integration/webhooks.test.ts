@@ -99,6 +99,18 @@ test('администратор создаёт адрес: секрет воз�
   expect(await readWebhook(admin, ID)).toBeNull();
 });
 
+test('доставка, записанная в ту же миллисекунду, отправляется сразу: время в базе точнее миллисекунды', async () => {
+  const hook = await receiver();
+  const { endpointId } = await createWebhook(admin, { name: 'Учёт', url: hook.url, events: ['client_replied'] });
+  await emit(f.tickets.aOrg, f.orgA.orgId);
+  expect(await drain()).toMatchObject({ processed: 1 });
+  // Время доставки хранится в микросекундах, Date процесса знает только миллисекунды: в ту же миллисекунду оно меньше.
+  const at = (await pools.root.query(`select (extract(epoch from next_attempt_on) * 1000)::float8 as ms from hdw_webhook_deliveries where endpoint_id = $1`, [endpointId])).rows[0].ms as number;
+  const now = new Date(Math.floor(at));
+  expect(await hasDueDeliveries(SYSTEM, now)).toBe(true);
+  expect(await dispatchWebhooks(SYSTEM, { now })).toMatchObject({ sent: 1 });
+});
+
 test('адрес при сохранении: только https, без учётной записи, узел внешний и разрешается во внешние адреса', async () => {
   const good = { name: 'Партнёр', events: [] };
   for (const url of ['http://hooks.partner.example/in', 'https://user:pass@hooks.partner.example/in', 'https://10.0.0.5/in', 'https://[::1]/in', 'https://db.internal/in', 'ftp://hooks.partner.example/in', 'не адрес'])

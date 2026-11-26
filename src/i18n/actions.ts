@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { getEnv } from '@/env';
 import { rememberMyLocale } from '@/modules/hdu/api';
 import { parseLocaleChoice } from './locale-choice';
-import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from './locales';
+import { LOCALE_COOKIE_MAX_AGE, localeCookieName } from './locales';
 import { localizedHref } from './paths';
 
 /**
@@ -16,13 +16,8 @@ import { localizedHref } from './paths';
 export async function chooseLocale(locale: string, pathname: string): Promise<void> {
   const choice = parseLocaleChoice(locale, pathname);
   const store = await cookies();
-  store.set(LOCALE_COOKIE, choice.locale, {
-    path: '/',
-    maxAge: LOCALE_COOKIE_MAX_AGE,
-    sameSite: 'lax',
-    httpOnly: true,
-    secure: getEnv().HUB_URL.startsWith('https:'),
-  });
+  const https = getEnv().HUB_URL.startsWith('https:');
+  store.set(localeCookieName(https), choice.locale, { path: '/', maxAge: LOCALE_COOKIE_MAX_AGE, sameSite: 'lax', httpOnly: true, secure: https });
   // Вошедшему пользователю язык запоминается и в учётной записи: на нём придут письма и сообщения бота.
   await rememberMyLocale(choice.locale);
   redirect(localizedHref(choice.locale, choice.path));

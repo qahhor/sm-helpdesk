@@ -3,12 +3,14 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { SystemActor } from '@/db/with-actor';
 import { addServer, checkServer, disableServer, getServer, listServers, resealServerSecrets, type ServerIssue, updateWidgetSettings } from '@/modules/hdu/api/servers';
-import { adminActorByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
+import { adminActorByEmail, adminContextByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
+import { runSeedPilot } from './seed-pilot';
 import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
-import { cleanupRateLimits } from '@/modules/hdc/api';
+import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, getSearchWriter, issueSearchKeys, markBackup, prepareSearchIndex, reindexCollection, SEARCH_COLLECTIONS, type SearchCollection, searchQueueState, SearchWriteError } from '@/modules/hdc/api';
+import { registerSearch } from '@/worker/search';
 import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
 import { type CorpusEntry, groupCorpus, parseCorpus } from '@/modules/hdk/api/signatures';
@@ -73,6 +75,15 @@ const HELP = `Использование: hub <команда> [ключи]
       с этим адресом, журнал аудита называет его. Модули добавляются и обновляются по коду, отсутствующие
       в файле скрываются. При ошибке справочник не меняется, команда называет запись и строку файла.
 
+  seed:pilot --file <путь> --admin <адрес> [--dry-run]
+      Начальные данные пилота одним файлом JSON (план подготовки M9, задача 6; пример docs/pilot/seed.example.json):
+      справочник модулей, праздники, сроки SLA и календарь, шаблоны ответов, памятки первой линии, теги, подсчёт
+      голосов за идеи, приглашения сотрудников письмом, черновики решений. Запись идёт от имени действующего
+      администратора с этим адресом и только там, где база отличается от файла: повторный запуск ничего не меняет.
+      Данных клиентов файл не принимает, решения не публикуются. --dry-run: показать изменения, ничего не записывая.
+      Весь файл проверяется до первой записи: ошибка проверки ничего не меняет, команда называет раздел и запись.
+      Если модуль портала отказал посреди записи, уже записанное остаётся: повторный запуск допишет остальное.
+
   signatures:test [--dir <каталог>]
       Проверить правила сигнатур ошибок (ТЗ 11.5) на корпусе текстов: файлы *.txt каталога, записи через пустую
       строку, строки с # пропускаются, метка ожидаемой группы в начале записи: [метка]. По умолчанию каталог
@@ -84,6 +95,11 @@ const HELP = `Использование: hub <команда> [ключи]
       прошлый невыбранный отбор закрывается, пятёрка лидеров по голосам переходит в шорт-лист, роль product
       получает уведомление. Повторный запуск за тот же месяц ничего не меняет. Для проверки и ручного запуска.
 
+  ops:backup-mark --kind <dump|base> [--bytes <размер>]
+      Отметить удачную резервную копию (план подготовки M9, задача 3): dump - ночная копия backup.sh, base - базовая
+      копия base-backup.sh. Сценарии вызывают команду сами после выгрузки. По возрасту отметок фоновый процесс шлёт
+      дежурным сигнал backup_stale. --bytes: размер зашифрованного файла копии.
+
   maintenance:cleanup
       Удалить просроченные служебные строки: счётчики частоты, номера событий Telegram, сессии
       и одноразовые значения входа. Запускать раз в сутки, пока нет фоновых задач (решение 0023).
@@ -92,6 +108,20 @@ const HELP = `Использование: hub <команда> [ключи]
       Замена ключа шифрования: перешифровать сохранённые секреты (серверы Smartup, бот дежурных, вебхуки) ключом
       из ENCRYPTION_KEY. Прежний ключ на время замены задаётся в ENCRYPTION_KEY_PREVIOUS.
       Код завершения 1, если какой-то секрет не открылся ни одним ключом.
+
+  search:keys [--rotate]
+      Ключи Typesense для портала и фонового процесса (план W6, решение 3): ключ поиска клиента, ключ поиска
+      сотрудника и ключ записи. Главный ключ берётся из TYPESENSE_API_KEY, иначе спрашивается без отображения;
+      адрес из TYPESENSE_URL. Ключи печатаются один раз. --rotate: прежние ключи портала удаляются, ключи с
+      областью от них перестают действовать сразу.
+
+  search:reindex [--collection <коллекция>]
+      Построить индекс поиска заново (план W6, решение 12): новая версия коллекции пачками, переключение
+      псевдонима, сверка. Без ключа все коллекции. Коллекции: tickets, ticket_texts, solutions, ideas, orgs, people.
+      Нужны SEARCH_PROVIDER=typesense, TYPESENSE_URL и TYPESENSE_WRITE_KEY (запуск в контейнере worker).
+
+  search:status
+      Состояние поиска: документы каждой коллекции, очередь записи, память Typesense.
 
   --help
       Эта справка.`;
@@ -127,10 +157,15 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'telegram:set-webhook': { options: {}, required: [] },
   'telegram:info': { options: {}, required: [] },
   'maintenance:cleanup': { options: {}, required: [] },
+  'ops:backup-mark': { options: { kind: { type: 'string' }, bytes: { type: 'string' } }, required: ['kind'] },
   'ideas:cycle': { options: { month: { type: 'string' } }, required: ['month'] },
   'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
   'signatures:test': { options: { dir: { type: 'string' } }, required: [] },
+  'search:keys': { options: { rotate: { type: 'boolean' } }, required: [] },
+  'search:reindex': { options: { collection: { type: 'string' } }, required: [] },
+  'search:status': { options: {}, required: [] },
+  'seed:pilot': { options: { file: { type: 'string' }, admin: { type: 'string' }, 'dry-run': { type: 'boolean' } }, required: ['file', 'admin'] },
 };
 
 /** Каталог корпуса сигнатур по умолчанию (план M5, задача 8). */
@@ -347,6 +382,62 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         );
         return 0;
       }
+      case 'search:keys': {
+        const url = io.env.TYPESENSE_URL;
+        if (!url) throw new UsageError('Не задан TYPESENSE_URL: адрес службы typesense, например http://typesense:8108.');
+        const masterKey = io.env.TYPESENSE_API_KEY || (await io.readSecret('Главный ключ Typesense: '));
+        if (!masterKey) throw new UsageError('Главный ключ Typesense не введён.');
+        const keys = await issueSearchKeys(ACTOR, { url, masterKey, rotate: values.rotate === true });
+        io.out('Ключи созданы. Они показываются один раз: перенесите их в файлы окружения сейчас.');
+        io.out(`Файл .env (портал): TYPESENSE_SEARCH_KEY=${keys.clientSearch}`);
+        io.out(`Файл .env (портал): TYPESENSE_STAFF_SEARCH_KEY=${keys.staffSearch}`);
+        io.out(`Файл .env.worker (фоновый процесс и hub): TYPESENSE_WRITE_KEY=${keys.write}`);
+        if (keys.removed > 0) io.out(`Прежних ключей удалено: ${keys.removed}. Перезапустите web и worker с новыми ключами.`);
+        return 0;
+      }
+      case 'search:reindex': {
+        const collection = values.collection as string | undefined;
+        if (collection !== undefined && !(SEARCH_COLLECTIONS as readonly string[]).includes(collection)) throw new UsageError(`Коллекция: ${SEARCH_COLLECTIONS.join(', ')}.`);
+        const writer = getSearchWriter(io.env);
+        if (!writer) throw new UsageError('Поиск на Typesense не включён: задайте SEARCH_PROVIDER=typesense, TYPESENSE_URL и TYPESENSE_WRITE_KEY.');
+        registerSearch();
+        // Коллекции и все настройки поиска (синонимы, словарь, курирование). При переиндексации одной коллекции смена
+        // словаря перестраивает решения и идеи сразу; без ключа их строит цикл ниже.
+        await prepareSearchIndex(ACTOR, writer, { reindexOnStems: collection !== undefined });
+        for (const name of collection ? [collection as SearchCollection] : SEARCH_COLLECTIONS) {
+          const result = await reindexCollection(ACTOR, writer, name);
+          io.out(`${name}: построена ${result.name}, документов ${result.documents}.`);
+        }
+        return 0;
+      }
+      case 'search:status': {
+        const writer = getSearchWriter(io.env);
+        const queue = await searchQueueState(ACTOR);
+        io.out(`Очередь записи: ждут ${queue.pending}, самая старая ${queue.lagSec} с, после пяти сбоев ${queue.dropped}.`);
+        if (!writer) {
+          io.out('Поиск идёт через PostgreSQL (SEARCH_PROVIDER не typesense).');
+          return 0;
+        }
+        io.out(`Typesense: ${(await writer.health()) ? 'отвечает' : 'не отвечает'}.`);
+        const collections = await writer.listCollections();
+        for (const name of SEARCH_COLLECTIONS) {
+          const target = await writer.aliasTarget(name);
+          const info = collections.find((c) => c.name === target);
+          io.out(`${name}: ${target ?? 'нет коллекции'}, документов ${info?.numDocuments ?? 0}.`);
+        }
+        const memory = await writer.memory();
+        if (memory) io.out(`Память: занято ${Math.round(memory.usedBytes / 1048576)} МБ из ${Math.round(memory.totalBytes / 1048576)} МБ сервера.`);
+        return 0;
+      }
+      case 'ops:backup-mark': {
+        const kind = text('kind');
+        if (!(BACKUP_KINDS as readonly string[]).includes(kind)) throw new UsageError(`Вид копии: ${BACKUP_KINDS.join(' или ')}.`);
+        const bytes = values.bytes;
+        if (bytes !== undefined && !(typeof bytes === 'string' && /^[1-9]\d{0,15}$/.test(bytes))) throw new UsageError('Размер копии --bytes: целое число байт больше нуля.');
+        await markBackup(ACTOR, { kind: kind as BackupKind, ...(bytes !== undefined && { sizeBytes: Number(bytes) }) });
+        io.out(`Отметка копии записана: ${kind}${bytes !== undefined ? `, ${bytes} байт` : ''}.`);
+        return 0;
+      }
       case 'secrets:reseal': {
         const serverSecrets = await resealServerSecrets(ACTOR);
         const channelSecrets = await resealChannelSecrets(ACTOR);
@@ -384,6 +475,35 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         io.out(`Справочник модулей загружен: добавлено ${result.added}, обновлено ${result.updated}, скрыто ${result.passive}.`);
         return 0;
       }
+      case 'seed:pilot': {
+        const admin = await adminContextByEmail(ACTOR, text('admin'));
+        let content: string;
+        try {
+          content = await readFile(text('file'), 'utf8');
+        } catch {
+          io.err(`Файл не прочитан: ${text('file')}`);
+          return 1;
+        }
+        const dryRun = values['dry-run'] === true;
+        let result: Awaited<ReturnType<typeof runSeedPilot>>;
+        try {
+          result = await runSeedPilot(admin, content, { dryRun });
+        } catch (error) {
+          // Файл проверен, отказал модуль при записи: записи до отказа остались (каждая своей транзакцией).
+          if (!dryRun) io.err('Запись остановлена отказом модуля: записанное до него осталось, повторный запуск допишет остальное.');
+          throw error;
+        }
+        if (!result.ok) {
+          io.err('Начальные данные не загружены: файл не прошёл проверку, база не изменена. Ошибки:');
+          for (const problem of result.problems) io.err(`  ${problem}`);
+          return 1;
+        }
+        if (dryRun) io.out('Сухой прогон: ничего не записано. Так изменилась бы база:');
+        for (const line of result.report.lines) io.out(line);
+        for (const warning of result.report.warnings) io.out(`Внимание: ${warning}`);
+        if (result.report.changes === 0) io.out('Изменений нет: база уже совпадает с файлом.');
+        return 0;
+      }
       case 'signatures:test':
         return await signaturesTest(typeof values.dir === 'string' && values.dir !== '' ? values.dir : CORPUS_DIR, io);
       case 'ideas:cycle': {
@@ -409,6 +529,11 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
     }
     if (isHduError(error)) {
       io.err(ERROR_TEXT[error.code] ?? `Ошибка: ${error.code}`);
+      return 1;
+    }
+    // Сбой Typesense: только код (адрес и ключ в вывод не идут).
+    if (error instanceof SearchWriteError) {
+      io.err(`Typesense не выполнил запрос: ${error.code}. Проверьте службу typesense и ключ записи.`);
       return 1;
     }
     // Подробности ошибки базы в вывод не идут: в них могут быть значения параметров.

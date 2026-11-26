@@ -1,4 +1,4 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { type ClientPrefs, readIdeaMailPref, readPrefs } from '@/modules/hdn/api/notifications';
 import { getTelegramLink, mySessions, requireClientActor, telegramEnabled } from '@/modules/hdu/api';
 import { telegramLinked } from '@/modules/hdu/api/recipients';
@@ -8,7 +8,8 @@ import { Alert } from '@/ui/components/alert';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { SessionsList } from '@/ui/components/SessionsList';
 import { sessionItems } from '../../sessions-view';
-import { revokeOtherSessionsAction, revokeSessionAction, saveClientIdeaPrefAction, saveClientPrefsAction } from './actions';
+import { ReauthNotice } from '@/ui/components/ReauthNotice';
+import { reauthAction, revokeOtherSessionsAction, revokeSessionAction, saveClientIdeaPrefAction, saveClientPrefsAction } from './actions';
 import { ChannelsSection } from './ChannelsSection';
 import { EmailSection } from './EmailSection';
 import { firstParam } from '@/lib/search-params';
@@ -19,6 +20,7 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
   const client = await requireClientActor();
   const params = await searchParams;
   const t = await getTranslations();
+  const locale = await getLocale();
   const { items, labels } = await sessionItems(await mySessions());
   const sessionStatus = firstParam(params.session);
   const prefs = (await readPrefs(client.actor)) as ClientPrefs;
@@ -27,10 +29,15 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
   const botOn = telegramEnabled();
   const telegramActive = botOn && (await telegramLinked(client.actor.userId));
   const link = botOn ? await getTelegramLink(client) : null;
+  const here = `/${locale}/settings`;
   return (
     <>
       <h1 className="text-2xl font-bold">{t('client.nav.profile')}</h1>
-      <EmailSection user={client.user} status={firstParam(params.email)} />
+      <EmailSection
+        user={client.user}
+        status={firstParam(params.email)}
+        reauth={<ReauthNotice text={t('client.settings.email.errors.stale')} label={t('client.settings.reauth')} next={here} action={reauthAction} />}
+      />
       {botOn && <ChannelsSection link={link} status={firstParam(params.telegram)} />}
       <ClientChannelsForm
         rows={[
@@ -75,6 +82,7 @@ export default async function ClientSettingsPage({ searchParams }: PageProps<'/[
           {sessionStatus === 'revoked' && <Alert tone="success">{t('common.sessions.done')}</Alert>}
           {sessionStatus === 'others' && <Alert tone="success">{t('common.sessions.othersDone')}</Alert>}
           {sessionStatus === 'not_found' && <Alert tone="danger">{t('common.sessions.notFound')}</Alert>}
+          {sessionStatus === 'stale' && <ReauthNotice text={t('common.sessions.stale')} label={t('client.settings.reauth')} next={here} action={reauthAction} />}
           <SessionsList items={items} labels={labels} revoke={revokeSessionAction} revokeOthers={revokeOtherSessionsAction} />
         </CardContent>
       </Card>

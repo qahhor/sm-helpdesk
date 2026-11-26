@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, inet, integer, jsonb, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, inet, integer, jsonb, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
 import type { DomainEventKind } from './pref';
 
@@ -46,6 +46,24 @@ export const opsAlerts = pgTable('hdc_ops_alerts', {
   ...stampColumns,
 });
 
+/** Отметки удачных резервных копий (миграция 0086; план подготовки M9, решение 6). Пишет команда hub ops:backup-mark. */
+export const opsBackups = pgTable('hdc_ops_backups', {
+  backupId: uuid('backup_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  kind: text('kind').$type<'dump' | 'base'>().notNull(),
+  sizeBytes: bigint('size_bytes', { mode: 'number' }),
+  finishedOn: timestamp('finished_on', { withTimezone: true }).notNull(),
+  ...stampColumns,
+});
+
+/** Отметка "фоновый процесс жив" (миграция 0087; план подготовки M9, решение 5). Одна строка на процесс. */
+export const opsHeartbeats = pgTable('hdc_ops_heartbeats', {
+  process: text('process').primaryKey(),
+  beatOn: timestamp('beat_on', { withTimezone: true }).notNull(),
+  ...stampColumns,
+});
+
 /** Счётчики ограничения частоты. Работать через consumeRateLimit (src/modules/hdc/rate-limit.ts). */
 export const rateLimits = pgTable('hdc_rate_limits', {
   rateLimitId: uuid('rate_limit_id')
@@ -75,4 +93,25 @@ export const domainEvents = pgTable('hdc_domain_events', {
   createdOn: timestamp('created_on', { withTimezone: true }).notNull().defaultNow(),
   /** Не раньше какого момента разбирать событие снова после сбоя. Колонка добавлена миграцией 0068. */
   nextAttemptOn: timestamp('next_attempt_on', { withTimezone: true }),
+});
+
+/** Вид объекта в очереди индекса поиска (миграция 0088). */
+export type SearchEntityKind = 'ticket' | 'ticket_text' | 'solution' | 'idea' | 'org' | 'person' | 'config';
+
+/**
+ * Очередь записи в индекс поиска Typesense (план W6, миграция 0088): пишут триггеры исходных таблиц, разбирает
+ * задача search.sync (src/modules/hdc/search/sync.ts). Только вид и идентификатор, без текста.
+ */
+export const searchOutbox = pgTable('hdc_search_outbox', {
+  orgId: uuid('org_id'),
+  outboxId: uuid('outbox_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  entityKind: text('entity_kind').$type<SearchEntityKind>().notNull(),
+  entityId: text('entity_id').notNull(),
+  op: text('op').$type<'upsert' | 'delete'>().notNull().default('upsert'),
+  attempts: smallint('attempts').notNull().default(0),
+  nextAttemptOn: timestamp('next_attempt_on', { withTimezone: true }).notNull().defaultNow(),
+  lastErrorCode: text('last_error_code'),
+  createdOn: timestamp('created_on', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
 import type { ClientContext } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -8,9 +9,10 @@ import { requestEmailConfirmationAction } from './actions';
 
 /**
  * Раздел профиля "Email для входа": подтверждённый адрес или форма, которая присылает ссылку подтверждения.
- * Данные берутся из проверенной сессии, а не из запроса браузера.
+ * Данные берутся из проверенной сессии, а не из запроса браузера. reauth: просьба войти заново, когда вход
+ * старше 15 минут (ASVS 7.5.1).
  */
-export async function EmailSection({ user, status }: { user: ClientContext['user']; status?: string }) {
+export async function EmailSection({ user, status, reauth }: { user: ClientContext['user']; status?: string; reauth: ReactNode }) {
   const t = await getTranslations('client.settings.email');
   return (
     <Card>
@@ -21,6 +23,7 @@ export async function EmailSection({ user, status }: { user: ClientContext['user
         {status === 'sent' && <Alert tone="success">{t('sent')}</Alert>}
         {status === 'invalid_input' && <Alert tone="danger">{t('errors.invalid')}</Alert>}
         {status === 'rate_limited' && <Alert tone="danger">{t('errors.rateLimited')}</Alert>}
+        {status === 'stale_session' && reauth}
         {user.email ? (
           <p>{t('verified', { email: user.email })}</p>
         ) : (

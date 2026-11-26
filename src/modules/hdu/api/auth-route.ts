@@ -2,6 +2,7 @@ import 'server-only';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { consumeRateLimit, ipRateKey, problemResponse } from '@/modules/hdc/api';
 import { getAuth } from '../auth/instance';
+import { clearReauthCookie, reauthStartedSec, withReauth } from '../auth/reauth';
 import { isAllowedAuthRequest } from '../util';
 
 /**
@@ -15,5 +16,12 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
     RATE_RULES.ssoCallbackPerIp,
   );
   if (!limit.allowed) return problemResponse(429, 'rate_limited', { 'Retry-After': String(limit.retryAfterSec) });
-  return (await getAuth()).handler(request);
+  const auth = await getAuth();
+  const started = reauthStartedSec(request.headers.get('cookie'));
+  if (started === null) return auth.handler(request);
+  // Возврат после "Войти заново": проверка пользователя видит время начала (auth/reauth.ts), кука после возврата не нужна.
+  const response = await withReauth(started, () => auth.handler(request));
+  const headers = new Headers(response.headers);
+  headers.append('set-cookie', clearReauthCookie(new URL(request.url).protocol === 'https:'));
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }

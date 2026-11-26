@@ -4,6 +4,7 @@ import type { Tx } from '@/db/client';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
 import { authSession } from '../auth-schema';
+import { CLIENT_SESSION_MAX_SEC } from '../pref';
 import { staff } from '../schema';
 
 // Модуль hdu, слой core: сессии. Без библиотеки входа: этот файл попадает и в команду консоли.
@@ -31,7 +32,14 @@ export async function listUserSessions(userId: string): Promise<SessionRow[]> {
     tx
       .select({ id: authSession.id, userAgent: authSession.userAgent, ipAddress: authSession.ipAddress, createdAt: authSession.createdAt, updatedAt: authSession.updatedAt })
       .from(authSession)
-      .where(and(eq(authSession.userId, userId), gt(authSession.expiresAt, sql`now()`)))
+      .where(
+        and(
+          eq(authSession.userId, userId),
+          gt(authSession.expiresAt, sql`now()`),
+          // Сессия старше предела 90 суток уже не действует (api/request.ts): в списке её нет.
+          gt(authSession.createdAt, sql`now() - make_interval(secs => ${CLIENT_SESSION_MAX_SEC})`),
+        ),
+      )
       .orderBy(desc(authSession.updatedAt), desc(authSession.createdAt)),
   );
 }

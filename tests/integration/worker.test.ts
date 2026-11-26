@@ -331,8 +331,13 @@ test('собранный worker.mjs запускается без каталог
     { name: 'ideas.moderation_digest', cron: '30 9 * * *', timezone: 'Asia/Tashkent' },
     { name: 'kb.reconcile', cron: '30 3 * * *', timezone: 'Asia/Tashkent' },
     { name: 'maintenance.cleanup', cron: '0 3 * * *', timezone: 'Asia/Tashkent' },
+    // Отметка фонового процесса для /api/ready/worker (план подготовки M9, задача 3).
+    { name: 'ops.heartbeat', cron: '* * * * *', timezone: 'UTC' },
     { name: 'ops.watch', cron: '*/5 * * * *', timezone: 'UTC' },
     { name: 'outbox.dispatch', cron: '* * * * *', timezone: 'UTC' },
+    // Индекс поиска (план W6): сверка в 04:10 по Ташкенту, разбор очереди раз в минуту.
+    { name: 'search.reconcile', cron: '10 4 * * *', timezone: 'Asia/Tashkent' },
+    { name: 'search.sync', cron: '* * * * *', timezone: 'UTC' },
     { name: 'tickets.minute', cron: '* * * * *', timezone: 'UTC' },
     { name: 'webhooks.dispatch', cron: '* * * * *', timezone: 'UTC' },
   ]);

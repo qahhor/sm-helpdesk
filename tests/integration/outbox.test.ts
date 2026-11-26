@@ -44,6 +44,12 @@ test('письмо в транзакции, которая откатилась,
   expect(provider.sent).toEqual([]);
 });
 
+test('письмо, записанное в ту же миллисекунду, уходит сразу: время в базе точнее миллисекунды', async () => {
+  const id = await withActor(f.l1.actor, (tx) => enqueueTx(tx, reply()));
+  const at = (await pools.root.query(`select (extract(epoch from next_attempt_on) * 1000)::float8 as ms from hdn_outbox where outbox_id = $1`, [id])).rows[0].ms as number;
+  expect(await dispatchOutbox(SYSTEM, new Date(Math.floor(at)), provider)).toMatchObject({ sent: 1 });
+});
+
 test('письмо уходит только после фиксации и один раз при двух параллельных отправках', async () => {
   const id = await withActor(f.l1.actor, (tx) => enqueueTx(tx, reply()));
   const now = new Date();

@@ -36,7 +36,21 @@ async function pendingIdea(title: string, body: string): Promise<{ ideaId: strin
   return { ideaId: idea!.idea_id, number: Number(idea!.number), voter: author!.name };
 }
 
+/**
+ * Вкладка "Модерация" показывает 30 самых старых идей на модерации, а база браузерных тестов переживает прогоны:
+ * идеи, поданные клиентами в других файлах прошлых прогонов, копятся и вытесняют идею этого теста со страницы.
+ * Идеи на модерации старше 30 минут оставлены прошлыми прогонами (тест длится секунды), их отклоняем; идеи
+ * текущего прогона из других файлов не трогаем, их за прогон около пяти.
+ */
+async function declineLeftoverIdeas(): Promise<void> {
+  await dbRows(
+    `update hdi_ideas set status = 'declined', decline_reason = 'e2e: осталась от прошлого прогона'
+     where status = 'pending_review' and created_on < now() - interval '30 minutes'`,
+  );
+}
+
 test('модератор публикует идею с находкой после отметки "Проверено"; разбивка без имён; первая линия без модерации', async ({ browser }) => {
+  await declineLeftoverIdeas();
   const word = tag();
   const idea = await pendingIdea(`${word} <b>жирный</b> заголовок`, 'Звоните +998 90 123 45 67 <script>window.__xss=1</script>');
   const admin = await browser.newContext({ storageState: storageStateOf('admin') });

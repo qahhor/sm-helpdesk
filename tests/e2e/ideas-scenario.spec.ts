@@ -134,18 +134,32 @@ test('сценарий 7: подача, модерация, голоса дву�
   await b.getByTestId('vote-button').click();
   await expect(b.getByTestId('vote-button')).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(async () => (await dbRows<{ vote_count: number }>(`select vote_count from hdi_ideas where number = $1`, [number]))[0]?.vote_count).toBe(2);
+  // Кнопка меняется сразу, до ответа сервера: после каждого нажатия ждём ответа (кнопка снова доступна) и строки в
+  // базе, иначе следующий шаг шёл бы, пока запрос ещё в пути, и отказ сервера (предел частоты голосов общей персоны,
+  // 60 в минуту) проходил бы незамеченным.
+  const voteCount = async () => (await dbRows<{ vote_count: number }>(`select vote_count from hdi_ideas where number = $1`, [number]))[0]?.vote_count;
+  const settled = async (page: Page) => {
+    await expect(page.getByTestId('vote-button')).toBeEnabled();
+    await expect(page.getByRole('alert').filter({ hasText: 'Голос не учтён' })).toHaveCount(0);
+  };
+  await dbRows(`delete from hdc_rate_limits where code like 'idea-vote:user:%'`);
   await a.goto(`/ru/ideas/${number}`);
   await expect(a.getByTestId('vote-button')).toHaveAttribute('aria-pressed', 'true');
   await a.getByTestId('vote-button').click();
   await expect(a.getByTestId('vote-button')).toHaveAttribute('aria-pressed', 'false');
+  await settled(a);
+  await expect.poll(voteCount).toBe(1);
   const stale = await clientA.newPage();
   await stale.goto(`/ru/ideas/${number}`);
   await expect(stale.getByTestId('vote-button')).toHaveAttribute('aria-pressed', 'false');
   await a.getByTestId('vote-button').click();
   await expect(a.getByTestId('vote-button')).toHaveAttribute('aria-pressed', 'true');
+  await settled(a);
+  await expect.poll(voteCount).toBe(2);
   // Вкладка ещё показывает "не голосовал": второй голос того же человека база не принимает, счётчик тот же.
   await stale.getByTestId('vote-button').click();
   await expect(stale.getByTestId('vote-button')).toHaveAttribute('aria-pressed', 'true');
+  await settled(stale);
   await expect(stale.getByTestId('vote-button')).toContainText('2');
   const votes = await dbRows<{ n: number; users: number }>(`select count(*)::int as n, count(distinct user_id)::int as users from hdi_votes where idea_id = $1`, [mine!.idea_id]);
   expect(votes[0]).toEqual({ n: 2, users: 2 });

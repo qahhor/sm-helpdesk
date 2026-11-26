@@ -134,6 +134,23 @@ function toRegExp(rule) {
   return new RegExp(`(?<!${LETTER})${word}${end}`, 'iu');
 }
 
+/**
+ * Запрещённые слова в произвольном тексте на языке locale (инструкции docs/guides, план подготовки M9, задача 7).
+ * clientFacing: текст читает клиент, добавляются слова только для клиента. extra: свои правила проверки сверх общих.
+ * @param {string} locale
+ * @param {string} text
+ * @param {boolean} clientFacing
+ * @param {WordRule[]} [extra]
+ * @returns {string[]} найденные слова правил
+ */
+export function forbiddenWordsIn(locale, text, clientFacing, extra = []) {
+  const rules = [...EVERYWHERE, ...(BY_LOCALE[locale] ?? []), ...extra, ...(clientFacing ? (CLIENT_ONLY[locale] ?? []) : [])];
+  return rules.filter((rule) => toRegExp(rule).test(text)).map((rule) => rule.word);
+}
+
+/** Правило слова начала: для проверок вне этого файла. */
+export const prefixRule = prefix;
+
 /** Имя правила в сообщении: слово "фич" показывается как запрещённое слово "фича". */
 const DISPLAY = { фич: 'фича' };
 

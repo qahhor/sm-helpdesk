@@ -209,7 +209,10 @@ test('макрос со старой страницы: клиент написа
   await client.getByLabel('Ответ', { exact: true }).fill('Подождите, ошибка осталась');
   await dbRows(`delete from hdc_rate_limits where code like 'ticket-reply:user:%'`);
   await client.getByRole('button', { name: 'Отправить', exact: true }).click();
-  await expect(client.getByRole('main')).toContainText('Подождите, ошибка осталась');
+  // Ждём ответа сервера: текст в поле ввода виден и до отправки, проверка всей страницы проходила сразу, и закрытие
+  // окна клиента прерывало запрос (макрос тогда видел свежую страницу и выполнялся).
+  await expect(client.getByRole('main').getByText('Ответ отправлен')).toBeVisible();
+  await expect(client.getByRole('main').locator('article').filter({ hasText: 'Подождите, ошибка осталась' })).toBeVisible();
   await clientContext.close();
 
   // Макрос со старой страницы: ни статуса, ни заметки; страница перечитана и говорит, что изменилось.

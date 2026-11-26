@@ -167,7 +167,10 @@ export function soonMoment(start: Date, due: Date | null, cal: Calendar): Date |
 export function slaPhase(due: Date | null, start: Date, now: Date, cal: Calendar): SlaPhase {
   if (!due) return 'calm';
   if (now.getTime() >= due.getTime()) return 'breached';
-  const total = workingMinutesBetween(start, due, cal);
   const left = workingMinutesBetween(now, due, cal);
+  // "Скоро", когда всего рабочего времени срока больше left / SOON_SHARE: дальше этого предела считать не нужно. У
+  // давнего обращения со сроком впереди полный счёт проходил календарь за годы на каждой строке очереди.
+  const bound = Math.ceil(left / SOON_SHARE) + 1;
+  const total = workingMinutesBetween(start, due, cal, bound);
   return total > 0 && left < total * SOON_SHARE ? 'soon' : 'calm';
 }

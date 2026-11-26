@@ -206,9 +206,11 @@ test('копия pg_dump восстанавливается в чистую ба
     const boss = new PgBoss(bossOptions(targetUrl('hub_app', passwords.app), 'sender'));
     await boss.start();
     try {
-      expect(await boss.send('ops.watch', {})).toBeTruthy();
-      const jobs = await boss.fetch('ops.watch');
-      expect(jobs.length).toBe(1);
+      // Очередь без ограничения "одна ждущая": в копии могут быть задачи, поставленные до неё.
+      const id = await boss.send('kb.translate', { restoreCheck: true });
+      expect(id).toBeTruthy();
+      const jobs = await boss.fetch('kb.translate', { batchSize: 100 });
+      expect(jobs.map((job) => job.id)).toContain(id);
     } finally {
       await boss.stop({ graceful: false });
     }

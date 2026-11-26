@@ -116,6 +116,15 @@
 | 7.12, FR-MET-01 | Новые и закрытые обращения. | Все блоки считают обращения, созданные в периоде; отдельное число "Завершено за период" по дате решения или закрытия. Оценки относятся к периоду создания обращения. | `docs/decisions/0042-metrics.md`, пункты 1 и 5 |
 | 13.7, 14.6 | Журнал аудита хранится 3 года. Удаление по сроку и копия вне сервера не описаны. | Записи старше 3 лет удаляет ночная очистка, свежую запись не удаляет никто. Раз в сутки новые записи уходят зашифрованными в бакет резервных копий. | `docs/decisions/0041-owner-decisions.md`, пункты 4 и 5 |
 | 14.2, угроза T16 | Адреса серверов Smartup проверяются при записи и в момент соединения для запросов портала. | Запросы библиотеки входа тоже проверяют адрес при соединении: проверка стоит в диспетчере запросов процесса (пакет `undici`). | `docs/decisions/0041-owner-decisions.md`, пункт 7 |
+| 10.4 | Поисковый индекс решений в PostgreSQL. | Производный индекс поиска в Typesense (обращения, переписка, решения из `hdk_published`, идеи, организации, люди); источник прежний, PostgreSQL. | `docs/decisions/0081-typesense-index-sync.md` |
+| 11.6 | Списки слов, триграмм и смысла в SQL. | Слова из Typesense (опечатки, синонимы, свёртка письменности), смысл из pgvector, слияние RRF прежнее; при сбое Typesense прежние списки SQL. | `docs/decisions/0082-typesense-search-paths.md` |
+| 11.11 | Внешние сервисы без поиска. | Интерфейсы `SearchReader` (портал) и `SearchIndexWriter` (фоновый процесс), реализации Typesense, заглушка и путь PostgreSQL. | `docs/decisions/0080-typesense-search.md` |
+| 13.2 | Сервер 8 ГБ. | Для Typesense на production нужен сервер 16 ГБ (ответ владельца 26.11.2026); до этого `SEARCH_PROVIDER=postgres`. | `docs/decisions/0070-typesense-owner-answers.md` |
+| 13.3 | Службы без поиска. | Служба `typesense` (30.2 по digest), внутренняя сеть `search` с порталом и фоновым процессом. | `docs/decisions/0081-typesense-index-sync.md` |
+| 13.5 | Переменные без поиска. | `SEARCH_PROVIDER`, `TYPESENSE_URL`, `TYPESENSE_SEARCH_KEY`, `TYPESENSE_STAFF_SEARCH_KEY` у портала, `TYPESENSE_WRITE_KEY` только у фонового процесса, `TYPESENSE_MEM_LIMIT`. | `docs/decisions/0080-typesense-search.md` |
+| 13.8 | Сигналы без поиска. | `search_unavailable`, `search_lag`, `search_drift`, `search_isolation`. | `docs/decisions/0081-typesense-index-sync.md` |
+| Внешние сервисы | Typesense не упомянут. | Согласован владельцем 26.11.2026 как локальный сервис без выхода в интернет. | `docs/decisions/0070-typesense-owner-answers.md` |
+| FR-MET-02 | Сводки пустых подсказок нет. | "Что клиенты ищут и не находят": число пустых подсказок по модулю и языку за неделю и тексты после маски, 90 дней. | `docs/decisions/0082-typesense-search-paths.md` |
 
 ## Открытые вопросы владельцу, от которых зависит текст ТЗ
 

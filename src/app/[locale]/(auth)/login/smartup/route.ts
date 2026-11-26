@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, { params }: RouteContext<'/[loca
   if (!isLocale(locale)) return new NextResponse(null, { status: 404 });
   const cookies = new Headers();
   const result = await startSmartupSignIn(
-    { locale, next: request.nextUrl.searchParams.get('next') },
+    { locale, next: request.nextUrl.searchParams.get('next'), reauth: request.nextUrl.searchParams.get('reauth') === '1' },
     { headers: request.headers, setCookies: (headers) => headers.getSetCookie().forEach((line) => cookies.append('set-cookie', line)) },
   );
   // Адрес портала берётся из настроек: за прокси и в автономной сборке адрес запроса внутренний (0.0.0.0).

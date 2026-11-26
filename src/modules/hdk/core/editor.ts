@@ -271,6 +271,8 @@ export type ListFilters = {
   mineOf?: string;
   /** Только решения на пересмотре (FR-SOL-19, решение 18; задача 11). */
   review?: boolean;
+  /** Язык оригинала и название любой его версии без учёта регистра: поиск черновика командой hub seed:pilot. */
+  original?: { locale: Locale; title: string };
 };
 
 export type ListRow = {
@@ -305,6 +307,10 @@ export async function listArticlesTx(tx: Tx, filters: ListFilters): Promise<List
   if (filters.moduleId) where.push(sql`a.module_id = ${filters.moduleId}::uuid`);
   if (filters.locale) where.push(sql`exists (select 1 from hdk_article_versions v where v.article_id = a.article_id and v.locale = ${filters.locale})`);
   if (filters.review) where.push(review);
+  if (filters.original)
+    where.push(
+      sql`a.original_locale = ${filters.original.locale} and exists (select 1 from hdk_article_versions v where v.article_id = a.article_id and v.locale = a.original_locale and lower(btrim(v.title)) = lower(${filters.original.title}))`,
+    );
   if (filters.mineOf) where.push(sql`a.owner_id = ${filters.mineOf}::uuid and a.status = 'active' and (d.version_id is not null or ${review})`);
   const result = await tx.execute<{
     article_id: string;

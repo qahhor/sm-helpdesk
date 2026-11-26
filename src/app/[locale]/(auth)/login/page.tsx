@@ -35,7 +35,9 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
   const showLink = firstParam(params.mode) === 'link';
   const lookup = firstParam(params.server);
   const error = firstParam(params.error);
-  const startHref = `/${locale}/login/smartup?next=${encodeURIComponent(next)}`;
+  const reauth = firstParam(params.reauth) === '1';
+  // Вход заново после просьбы профиля (ASVS 7.5): сервер Smartup должен спросить пароль, а не войти по своей сессии.
+  const startHref = `/${locale}/login/smartup?next=${encodeURIComponent(next)}${reauth ? '&reauth=1' : ''}`;
   const botLink = await getBotLink();
 
   return (
@@ -47,7 +49,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* Действие в профиле попросило недавний вход (ASVS 7.5, решение 0067): человек вышел и входит снова. */}
-        {firstParam(params.reauth) === '1' && <Alert tone="info">{t('reauth')}</Alert>}
+        {reauth && <Alert tone="info">{t('reauth')}</Alert>}
         {error && (
           <Alert tone="danger">
             {t(

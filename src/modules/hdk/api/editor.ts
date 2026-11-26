@@ -55,6 +55,8 @@ const listInput = z.strictObject({
   locale: locale.optional(),
   mine: z.boolean().optional(),
   review: z.boolean().optional(),
+  /** Решение по языку оригинала и названию (hub seed:pilot): список ограничен 200 строками, поиск по ключу нет. */
+  original: z.strictObject({ locale, title: z.string().trim().min(1).max(TITLE_MAX) }).optional(),
 });
 const saveInput = z.strictObject({
   number,
@@ -81,6 +83,7 @@ export async function listSolutions(ctx: StaffContext, input: unknown): Promise<
       ...(data.locale ? { locale: data.locale } : {}),
       ...(data.mine ? { mineOf: ctx.actor.userId } : {}),
       ...(data.review ? { review: true } : {}),
+      ...(data.original ? { original: data.original } : {}),
     }),
   );
 }

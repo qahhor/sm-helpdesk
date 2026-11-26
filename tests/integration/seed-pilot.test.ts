@@ -30,7 +30,11 @@ function seedFile(patch: (file: Record<string, unknown> & { [key: string]: never
   ];
   // По умолчанию per_user: значение из кода совпадает с файлом примера, и записывать нечего. Здесь другое значение.
   file.settings = { ideasVoteMode: 'per_org' };
-  file.sla = { policies: [{ priority: 'p1', firstResponseMinutes: 20, resolutionMinutes: 300, clock: '24x7' }] };
+  file.sla = {
+    policies: [{ priority: 'p1', firstResponseMinutes: 20, resolutionMinutes: 300, clock: '24x7' }],
+    // График отличается от графика по умолчанию: первый запуск его записывает, второй ничего не меняет.
+    calendar: { timeZone: 'Asia/Tashkent', week: { 0: null, 1: ['09:00', '18:00'], 2: ['09:00', '18:00'], 3: ['09:00', '18:00'], 4: ['09:00', '18:00'], 5: ['09:00', '17:00'], 6: null } },
+  };
   patch(file as never);
   const path = join(dir, `seed-${Math.random().toString(36).slice(2)}.json`);
   writeFileSync(path, JSON.stringify(file, null, 2));
@@ -137,6 +141,7 @@ test('ошибка в одной записи ничего не меняет и 
   );
   expect(broken.code).toBe(1);
   expect(broken.errors.join('\n')).toMatch(/templates, запись 2 \(rights\): body\.en/);
+  expect(broken.errors[0]).toBe('Начальные данные не загружены: файл не прошёл проверку, база не изменена. Ошибки:');
   // Ссылка на модуль, которого нет ни в файле, ни в справочнике.
   const unknownModule = await seed(
     seedFile((file) => {
@@ -178,4 +183,38 @@ test('изменённая запись обновляется, приглаше
   expect((await pools.root.query(`select title from hdr_reply_templates where shortcut = 'version'`)).rows).toEqual([{ title: 'Версия и снимок экрана' }]);
   expect((await pools.root.query(`select action from hdc_audit_log order by created_on offset $1`, [auditBefore])).rows).toEqual([{ action: 'template.saved' }]);
   expect(box.mailer.sent).toHaveLength(2);
+});
+
+test('черновик из файла не создаётся второй раз, даже когда решений больше, чем показывает список (200)', async () => {
+  const path = seedFile();
+  expect((await seed(path)).code).toBe(0);
+  // 200 более новых решений: черновик из файла уходит за первую страницу списка решений.
+  const author = (await pools.root.query(`select user_id from hdu_staff where role = 'admin' limit 1`)).rows[0].user_id as string;
+  await pools.root.query(
+    `with a as (
+       insert into hdk_articles (owner_id, original_locale, audience) select $1::uuid, 'ru', 'internal' from generate_series(1, 200) returning article_id
+     )
+     insert into hdk_article_versions (article_id, locale, number, title, doc, state, modified_on)
+     select article_id, 'ru', 1, 'Другое решение ' || article_id, '{"version": 1, "blocks": []}'::jsonb, 'draft', now() + interval '1 hour' from a`,
+    [author],
+  );
+  const result = await seed(path);
+  expect(result.lines.join('\n')).toMatch(/Решения \(черновики\): создано 0, уже есть 1/);
+  expect((await pools.root.query(`select count(*)::int as n from hdk_article_versions where title = 'Остатки на складе не обновились после документа'`)).rows).toEqual([{ n: 1 }]);
+});
+
+test('невидимые знаки в тексте: база хранит очищенный текст, повторный запуск ничего не меняет (проверка M9, M2)', async () => {
+  const path = seedFile((file) => {
+    const templates = file.templates as unknown as { title: string; body: { ru: string } }[];
+    templates[0]!.title = 'Запросить\u200b версию';
+    templates[0]!.body.ru = `${templates[0]!.body.ru}\u2060`;
+    (file.playbooks as unknown as { body: string }[])[0]!.body = 'Версия\u200b Smartup';
+    (file.tags as unknown as { name: string }[])[0]!.name = 'Пи\u200bлот';
+  });
+  expect((await seed(path)).code).toBe(0);
+  const after = await snapshot();
+  expect(after.templates.find((t) => t.shortcut === 'version')?.title).toBe('Запросить версию');
+  const second = await seed(path);
+  expect(second.lines.at(-1)).toBe('Изменений нет: база уже совпадает с файлом.');
+  expect(await snapshot()).toEqual(after);
 });

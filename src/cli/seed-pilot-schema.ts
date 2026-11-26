@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { cleanUserText } from '@/modules/hdc/api/text';
 import { safeParseSolutionDoc } from '@/modules/hdk/api/doc';
 
 // Файл начальных данных пилота для команды hub seed:pilot (план подготовки M9, задача 6, решение 9). Схема строгая на
@@ -20,6 +21,12 @@ export const SEED_PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
 export const CLIENT_DATA_FIELDS = ['organizations', 'orgs', 'clients', 'users', 'members', 'tickets', 'messages', 'ideas'] as const;
 
 const text = (max: number) => z.string({ error: 'ожидается строка' }).trim().min(1, { error: 'пустая строка' }).max(max);
+/**
+ * Текст, который модуль хранит после очистки от невидимых знаков (шаблоны, памятки, теги): схема очищает так же,
+ * иначе повторный запуск видел бы отличие от базы и писал запись заново.
+ */
+const cleanText = (max: number) => z.string({ error: 'ожидается строка' }).overwrite(cleanUserText).trim().min(1, { error: 'пустая строка' }).max(max);
+const cleanLocales = (max: number) => z.strictObject({ ru: cleanText(max), uz: cleanText(max), en: cleanText(max) }, { error: 'ожидается объект с текстами ru, uz, en' });
 /** Текст на трёх языках портала: каждый обязателен (решение 9, тест схемы). */
 const allLocales = (max: number) => z.strictObject({ ru: text(max), uz: text(max), en: text(max) }, { error: 'ожидается объект с текстами ru, uz, en' });
 
@@ -82,17 +89,18 @@ const template = z.strictObject({
     .trim()
     .transform((value) => value.toLowerCase())
     .pipe(z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, { error: 'код шаблона: строчные латинские буквы, цифры и дефис, до 40 знаков' })),
-  title: text(120),
-  body: allLocales(10000),
+  title: cleanText(120),
+  body: cleanLocales(10000),
   module: code.nullable().default(null),
   enabled: z.boolean().default(true),
 });
 
-const playbook = z.strictObject({ module: code.nullable().default(null), type: z.enum(SEED_TICKET_TYPES), body: text(10000) });
+const playbook = z.strictObject({ module: code.nullable().default(null), type: z.enum(SEED_TICKET_TYPES), body: cleanText(10000) });
 
 const tag = z.strictObject({
   name: z
     .string()
+    .overwrite(cleanUserText)
     .transform((value) => value.replace(/\s+/gu, ' ').trim())
     .pipe(z.string().min(1).max(40)),
   color: z.enum(SEED_TAG_COLORS).default('gray'),

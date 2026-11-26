@@ -19,7 +19,8 @@ export function isTheme(value: string): value is Theme {
  */
 export const THEME_SCRIPT =
   '(function(){try{' +
-  `var m=document.cookie.match(/(?:^|; )(?:__Host-)?${THEME_COOKIE}=(light|dark|system)/);` +
+  // При обеих куках важнее __Host-, как у куки языка.
+  `var m=document.cookie.match(/(?:^|; )__Host-${THEME_COOKIE}=(light|dark|system)/)||document.cookie.match(/(?:^|; )${THEME_COOKIE}=(light|dark|system)/);` +
   `var t=m?m[1]:'${DEFAULT_THEME}';` +
   "var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);" +
   "document.documentElement.classList.toggle('dark',d);" +

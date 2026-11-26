@@ -1,12 +1,8 @@
-"use server";
+'use server';
 
-import { redirect } from "next/navigation";
-import { getLocale } from "next-intl/server";
-import {
-  isHdnError,
-  saveIdeaMailPref,
-  savePrefs,
-} from "@/modules/hdn/api/notifications";
+import { redirect } from 'next/navigation';
+import { getLocale } from 'next-intl/server';
+import { isHdnError, saveIdeaMailPref, savePrefs } from '@/modules/hdn/api/notifications';
 import {
   isHduError,
   nextRequest,
@@ -17,19 +13,14 @@ import {
   safeReturnPath,
   signOut,
   unlinkTelegram,
-} from "@/modules/hdu/api";
+} from '@/modules/hdu/api';
 
 /** Раздел "Email для входа": письмо со ссылкой подтверждения адреса (FR-ID-07). */
-export async function requestEmailConfirmationAction(
-  formData: FormData,
-): Promise<void> {
+export async function requestEmailConfirmationAction(formData: FormData): Promise<void> {
   const locale = await getLocale();
   const client = await requireClientActor();
-  const result = await requestEmailConfirmation(client, {
-    email: formData.get("email"),
-    locale,
-  });
-  redirect(`/${locale}/settings?email=${result.ok ? "sent" : result.code}`);
+  const result = await requestEmailConfirmation(client, { email: formData.get('email'), locale });
+  redirect(`/${locale}/settings?email=${result.ok ? 'sent' : result.code}`);
 }
 
 /** Завершение сессии на другом устройстве. Завершение текущей сессии это выход. */
@@ -37,12 +28,10 @@ export async function revokeSessionAction(formData: FormData): Promise<void> {
   const locale = await getLocale();
   let signedOut = false;
   try {
-    ({ signedOut } = await revokeMySessionOfRequest(formData.get("sessionId")));
+    ({ signedOut } = await revokeMySessionOfRequest(formData.get('sessionId')));
   } catch (error) {
     if (!isHduError(error)) throw error;
-    redirect(
-      `/${locale}/settings?session=${error.code === "stale_session" ? "stale" : "not_found"}`,
-    );
+    redirect(`/${locale}/settings?session=${error.code === 'stale_session' ? 'stale' : 'not_found'}`);
   }
   if (signedOut) {
     await signOut(await nextRequest());
@@ -58,7 +47,7 @@ export async function revokeOtherSessionsAction(): Promise<void> {
   try {
     await revokeOtherSessionsOfRequest();
   } catch (error) {
-    if (!isHduError(error) || error.code !== "stale_session") throw error;
+    if (!isHduError(error) || error.code !== 'stale_session') throw error;
     redirect(`/${locale}/settings?session=stale`);
   }
   redirect(`/${locale}/settings?session=others`);
@@ -70,7 +59,7 @@ export async function revokeOtherSessionsAction(): Promise<void> {
  */
 export async function reauthAction(formData: FormData): Promise<void> {
   const locale = await getLocale();
-  const next = safeReturnPath(formData.get("next"), `/${locale}/settings`);
+  const next = safeReturnPath(formData.get('next'), `/${locale}/settings`);
   await signOut(await nextRequest());
   redirect(`/${locale}/login?reauth=1&next=${encodeURIComponent(next)}`);
 }
@@ -89,11 +78,11 @@ export async function unlinkTelegramAction(): Promise<void> {
 export async function saveClientPrefsAction(formData: FormData): Promise<void> {
   const locale = await getLocale();
   const client = await requireClientActor();
-  const on = (name: string) => formData.get(name) === "on";
+  const on = (name: string) => formData.get(name) === 'on';
   try {
     await savePrefs(client.actor, {
-      own: { email: on("ownEmail"), telegram: on("ownTelegram") },
-      watched: { email: on("watchedEmail"), telegram: on("watchedTelegram") },
+      own: { email: on('ownEmail'), telegram: on('ownTelegram') },
+      watched: { email: on('watchedEmail'), telegram: on('watchedTelegram') },
     });
   } catch (error) {
     if (!isHdnError(error)) throw error;
@@ -103,12 +92,8 @@ export async function saveClientPrefsAction(formData: FormData): Promise<void> {
 }
 
 /** Письма об идеях (план M7, задача 8, FR-NT-04): отключаются всегда, колокольчик остаётся. */
-export async function saveClientIdeaPrefAction(
-  formData: FormData,
-): Promise<void> {
+export async function saveClientIdeaPrefAction(formData: FormData): Promise<void> {
   const client = await requireClientActor();
-  await saveIdeaMailPref(client.actor, {
-    email: formData.get("ideasEmail") === "on",
-  });
+  await saveIdeaMailPref(client.actor, { email: formData.get('ideasEmail') === 'on' });
   redirect(`/${await getLocale()}/settings?prefs=ideas`);
 }

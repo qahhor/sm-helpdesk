@@ -139,18 +139,21 @@
   | `ENCRYPTION_KEY` | `openssl rand -base64 32`: ровно 32 байта, 44 знака со знаком `=` в конце; не совпадает с `BETTER_AUTH_SECRET` | `.env` |
   | `TELEGRAM_WEBHOOK_SECRET` | `openssl rand -hex 32` | `.env` |
   | `REPLY_HMAC_SECRET` | `openssl rand -hex 32` | `.env` |
+  | `EMBED_TOKEN_SECRET` | `openssl rand -base64 32` (не меньше 32 знаков, не совпадает с `BETTER_AUTH_SECRET` и `ENCRYPTION_KEY`) | `.env` |
   | `RESEND_WEBHOOK_SECRET` | из настроек вебхука Resend (шаг 4) | `.env` |
 
   Пароли в формате hex не требуют экранирования в адресах подключения. Потеря `ENCRYPTION_KEY` означает потерю секретов серверов Smartup: их придётся задать заново.
 
 - [ ] Пароль суперпользователя в файл без перевода строки: `printf '%s' '<пароль>' > /opt/smartup-hub/secrets/pg_superuser`.
-- [ ] Ключ Claude API (по желанию, план M5, решение 3): файл `/opt/smartup-hub/.env.worker`, его получает только контейнер `worker`. Без файла решения работают без AI: черновик из обращения заполняется темой, перевод пишет сотрудник. Исходящие запросы сервера к `api.anthropic.com` должны быть разрешены.
+- [ ] Ключ Claude API (по желанию, план M5, решение 3): файл `/opt/smartup-hub/.env.worker`, его получает только контейнер `worker` (`compose.prod.yaml`, `env_file` службы `worker`; в `.env` ключа нет, у `web` его нет никогда). Без файла решения работают без AI: черновик из обращения заполняется темой, перевод пишет сотрудник. Исходящие запросы сервера к `api.anthropic.com` должны быть разрешены.
 
   ```dotenv
   ANTHROPIC_API_KEY=<ключ>
   AI_MODEL_FAST=claude-haiku-5-5
   AI_MODEL_QUALITY=claude-sonnet-5-5
   ```
+
+  С ключом обязательны обе модели (`AI_MODEL_FAST` для черновиков и переводов, `AI_MODEL_QUALITY`), без ключа их не задавать. `AI_STUB` (заготовленные ответы вместо модели) в production не задаётся никогда: портал с `AI_STUB=1` на настоящем адресе не запускается, и вместе с ключом тоже. Выключить AI: удалить `.env.worker` (или строку ключа) и `hubc up -d worker`, см. `docs/runbooks/incident.md`, раздел 2.
 
 - [ ] Файл `/opt/smartup-hub/.env` (портал и фоновый процесс). Узел базы внутри сети Compose называется `postgres`:
 
@@ -168,6 +171,7 @@
   RESEND_WEBHOOK_SECRET=<секрет вебхука Resend>
   REPLY_DOMAIN=reply.smartup24.com
   REPLY_HMAC_SECRET=<секрет адресов ответа>
+  EMBED_TOKEN_SECRET=<секрет токена виджета>
   # Задаётся после первого настоящего письма (шаг 11, "Почта"). Пока не задан, отправитель письма не опознаётся.
   # INBOUND_AUTHSERV_ID=<имя сервиса приёма из Authentication-Results>
   TURNSTILE_SITE_KEY=<ключ сайта>
@@ -185,7 +189,23 @@
   EMBEDDINGS_URL=http://tei:80
   HUB_SHOWCASE=0
   LOG_LEVEL=info
+  LOG_FORMAT=json
   ```
+
+  Переменные, которых нет в файле выше, и когда они нужны:
+
+  | Переменная | Когда задаётся |
+  |---|---|
+  | `EMBED_TOKEN_SECRET` | Всегда в production: подпись токена виджета в Smartup Web (план M6). Без него на настоящем адресе портал не запускается |
+  | `ENCRYPTION_KEY_PREVIOUS` | Только на время замены `ENCRYPTION_KEY`: прежний ключ, затем `hub secrets:reseal` и убрать (`docs/runbooks/incident.md`, раздел 3) |
+  | `REPLY_HMAC_SECRET_PREVIOUS` | Только на время замены `REPLY_HMAC_SECRET`: прежний ключ на 30 суток, пока клиенты отвечают на старые письма |
+  | `LOG_FORMAT` | `json` (по умолчанию в production) или `text`. На сервере `json`: строки журнала читают как JSON |
+  | `DEV_TRACKER`, `DEV_TRACKER_URL`, `DEV_TRACKER_TOKEN`, `DEV_TRACKER_WEBHOOK_SECRET` | `DEV_TRACKER=manual` (по умолчанию): передача в разработку вручную, остальные три не задаются. `DEV_TRACKER=smartup` после описания API таск-менеджера: адрес API (только https), токен портала в таск-менеджере, секрет подписи вебхука `openssl rand -hex 32`; таск-менеджер шлёт события на `https://<домен>/api/webhooks/tracker` |
+  | `AI_STUB` | Никогда на сервере: только разработка на localhost |
+  | `ANTHROPIC_API_KEY`, `AI_MODEL_FAST`, `AI_MODEL_QUALITY` | Только в `.env.worker`, см. пункт выше |
+  | `EMBEDDINGS`, `EMBEDDINGS_URL` | `tei` и `http://tei:80`, когда веса модели скачаны (шаг 9); до этого `EMBEDDINGS=stub` |
+  | `HUB_OAUTH_CLIENT_SECRET` | Не в файле: переменная оболочки для одного вызова `hub server:add`, иначе команда спросит секрет без показа на экране |
+  | `HUB_DB_NAME` | В `.env.bootstrap`, если база называется не `hub` |
 
   `TELEGRAM_API_URL`, `CLAMAV_PORT`, `MAIL_FILE_DIR` и `FILE_STORAGE_DIR` на сервере не задаются. `DEV_TRACKER` не задаётся: передача в разработку работает в ручном режиме, пока нет описания API таск-менеджера Smartup (`docs/integrations/dev-tracker.md`). Полный перечень с пояснениями: `.env.example`. При неверном значении портал не запускается и в журнале называет переменную, не печатая значение.
 
@@ -234,7 +254,8 @@
 - [ ] Сертификат: в `hubc logs caddy` есть строка о выпуске сертификата (`certificate obtained successfully`). Если её нет 10 минут, проверить шаг 2 (Always Use HTTPS выключено) и что порт 80 открыт для адресов Cloudflare.
 - [ ] Портал отвечает: `curl -fsS https://<домен>/api/health` возвращает `{"status":"ok"}`, `curl -fsS https://<домен>/api/ready` возвращает `{"status":"ready","checks":{"db":"ok"}}`, то есть портал видит базу. Ответ 503 с `not_ready` означает, что база недоступна или неверны пароли в `.env`.
 - [ ] Фоновый процесс: в `hubc logs worker` есть "Фоновый процесс запущен".
-- [ ] Расписания фонового процесса (новая версия процесса, запущенная раньше миграций, ждёт свои очереди и не падает): `hubc exec postgres psql -U postgres -d hub -c "select name, cron, timezone from pgboss.schedule order by name"` показывает `attachment.sweep`, `kb.reconcile`, `maintenance.cleanup` и `tickets.minute`.
+- [ ] Фоновый процесс берёт задачи: `curl -fsS https://<домен>/api/ready/worker` возвращает `{"status":"ready","checks":{"worker":"ok"}}`. Ответ 503 значит, что процесс не отмечался дольше 3 минут (решение 0066).
+- [ ] Расписания фонового процесса (новая версия процесса, запущенная раньше миграций, ждёт свои очереди и не падает): `hubc exec postgres psql -U postgres -d hub -c "select name, cron, timezone from pgboss.schedule order by name"` показывает `attachment.sweep`, `automation.process`, `devtasks.sync`, `ideas.cycle` (1-го числа в 09:00 по Ташкенту), `ideas.moderation_digest` (в 09:30), `kb.reconcile`, `maintenance.cleanup`, `ops.heartbeat`, `ops.watch`, `outbox.dispatch`, `tickets.minute` и `webhooks.dispatch`.
 - [ ] Если служба не запускается: `hubc logs web` или `hubc logs worker`. Ошибка окружения называет переменную и причину.
 
 ## 10. Настройка портала
@@ -254,6 +275,17 @@
   hubc exec -T web sh -c 'cat > /tmp/modules.json' < modules.json
   hub modules:import --file /tmp/modules.json --admin <адрес администратора>
   ```
+
+- [ ] Начальные данные пилота одним файлом (план подготовки M9, задача 6): модули, праздники, сроки, шаблоны ответов, памятки первой линии, теги, подсчёт голосов за идеи, приглашения сотрудников, черновики решений. Образец: `docs/pilot/seed.example.json`. Данных клиентов файл не принимает, решения остаются черновиками. Администратор `--admin` уже вошёл в рабочее место (второй фактор подключён). Сначала сухой прогон, затем запись; повторный запуск ничего не меняет:
+
+  ```bash
+  hubc exec -T web sh -c 'cat > /tmp/seed.json' < seed.json
+  hub seed:pilot --file /tmp/seed.json --admin <адрес администратора> --dry-run
+  hub seed:pilot --file /tmp/seed.json --admin <адрес администратора>
+  ```
+
+  Сотрудники файла получают приглашение письмом. Строка "Внимание: Предустановленные правила" значит, что одно из трёх правил выключено: включить в "Правила автоматизации".
+- [ ] Виджет в Smartup Web (план M6) для каждого сервера: `hub server:widget --code <код> --key-mode jwks --jwks-url <адрес ключей сервера>` (или `--key-mode secret`: общий секрет печатается один раз, его передают разработчикам Smartup лично). Дополнительные адреса встраивания, если Smartup Web открывается не с адреса сервера: `--embed-origins https://a.example,https://b.example`. Команда печатает ключ встраивания (не секрет): его вписывают в подключение виджета в Smartup Web. Новые адреса встраивания портал читает до 60 секунд.
 
 **В рабочем месте, вход администратором:**
 
@@ -341,7 +373,7 @@
 - [ ] В бакете копий правила жизненного цикла R2 по каталогам: копии базы и архив журнала базы (всё, кроме каталога `audit`) удалять через 60 суток; каталог `audit` хранить 3 года и удалять после. Одно правило "старше 60 суток" на весь бакет стёрло бы копии журнала аудита. Запрет удаления объектов, если хранилище его умеет, включать только для каталога `audit`. Сценарий чистит только копии на сервере.
 - [ ] `.env.bootstrap` после начальной настройки базы удаляется с сервера. Для восстановления на новом сервере он собирается заново из паролей в менеджере паролей: пароль суперпользователя и адреса ролей (шаг 8).
 - [ ] Первая копия вручную, затем восстановление по `docs/runbooks/restore.md` на staging. Результат записать в таблицу в конце `restore.md`.
-- [ ] Возраст копии: внешняя проверка читает `/var/backups/smartup-hub/last-success` и даёт сигнал, если отметка старше 26 часов.
+- [ ] Отметка копии: после выгрузки `backup.sh` сам вызывает `hub ops:backup-mark --kind dump` (`base-backup.sh` с `--kind base`), отметка пишется в базу. По ней фоновый процесс шлёт дежурным `backup_stale`, если ночной копии нет дольше 26 часов (`docs/runbooks/incident.md`, раздел 6). Поэтому сценарии копий запускаются, когда служба `web` работает. Проверка после первой копии: `hubc exec -T postgres psql -U postgres -d hub -c "select kind, size_bytes, finished_on from hdc_ops_backups order by finished_on desc limit 3"`.
 
 **Непрерывный архив** (решение 0039; включается после решения владельца, без него остаётся ночная копия):
 
@@ -362,7 +394,7 @@
 - [ ] Дежурные заданы в "Настройки", "Уведомления и почта": портал сам шлёт им сигнал письмом и в чат, если упали фоновые задачи, встала отправка писем, письма клиентов не разбираются дольше 10 минут, за 15 минут 20 неудачных входов сотрудников или найден заражённый файл. Один вид сигнала приходит не чаще раза в час.
 - [ ] Журнал служб в формате JSON: `hubc logs web worker`. События: `db.slow_tx` (транзакция дольше 250 мс), `job.failed`, `outbox.state`, `ops.alerts_sent`. Журнал доступа с временем ответа каждого запроса: `hubc logs caddy`.
 - [ ] Медленные запросы базы: `hubc logs postgres | grep duration` (запросы дольше 250 мс, без значений параметров). Самые тяжёлые за всё время: `hubc exec -T postgres psql -U postgres -d hub -c "select calls, round(mean_exec_time) as ms, left(query, 100) from ops.pg_stat_statements order by total_exec_time desc limit 20"`.
-- [ ] Внешняя проверка доступности раз в минуту по адресу `https://<домен>/api/ready` с сигналом в Telegram-чат дежурных. Проверка работает вне сервера портала.
+- [ ] Две внешние проверки доступности раз в минуту, с сигналом в Telegram-чат дежурных и вне сервера портала: `https://<домен>/api/ready` (портал и база) и `https://<домен>/api/ready/worker` (фоновый процесс; если он упал, молчит и `ops.watch`). Пороги и действия: `docs/runbooks/incident.md`, раздел 6.
 - [ ] Сигнал при заполнении диска, памяти или процессора на 80% (агент мониторинга хостинга).
 - [ ] Свободное место под журналы и копии: не меньше 30% диска.
 
@@ -405,3 +437,9 @@
 - [ ] `pnpm install`, затем `pnpm dev:up`: создаёт `.env` со случайными паролями, поднимает PostgreSQL, роли, миграции и запускает приложение на `http://localhost:3000/ru`.
 - [ ] Вход клиента: `pnpm dev:oidc` в соседнем окне (ложные серверы Smartup). Вход сотрудника: `pnpm hub staff:create --email you@smartup.example --name "Имя" --role admin`.
 - [ ] Подробности и команды: `README.md`.
+
+## Журнал сухих прогонов памятки
+
+| Дата | Где | Что выполнено | Итог |
+|---|---|---|---|
+| 26.11.2026 | Машина разработки, PostgreSQL 18 (pgvector, `pg_stat_statements`) во временном контейнере, собранные `dist/hub.mjs`, `dist/worker.mjs` и портал из `pnpm build` вместо образа, `NODE_ENV=production`, `HUB_URL=http://localhost:3300` | Шаг 8: `docker compose -f compose.prod.yaml config -q` с пустыми файлами окружения и `HUB_IMAGE`, `HUB_DOMAIN` (проходит, службы с профилями `tools` и `replica`: postgres, web, web2, caddy, clamav, migrate, tei, tei-download, worker, bootstrap). Шаг 9: `bootstrap` дважды (повтор безопасен, роли `hub_owner`, `hub_app`, `hub_auth`, `hub_hdi_counter`), `migrate` дважды ("Применено миграций: 86", затем "База актуальна"). Шаг 10: `hub staff:create` (ссылка напечатана), `hub seed:pilot` с `docs/pilot/seed.example.json`: сухой прогон, запись, повтор ("Изменений нет: база уже совпадает с файлом", предустановленные правила на месте). Шаг 9, проверки: `/api/health` 200, `/api/ready` 200 `{"status":"ready","checks":{"db":"ok"}}`, `/api/ready/worker` 200; фоновый процесс остановлен в 09:54:52, `/api/ready/worker` ответил 503 в 09:57:52 (3 минуты), `/api/ready` всё время 200 | Шаги памятки верны. Не выполнялось здесь: сборка образа Docker и запуск через `hubc` (вместо них собранные файлы на машине), Caddy и сертификат, ClamAV, TEI, R2, Resend, Telegram. Администратор для `seed:pilot` заведён строкой в базе вместо входа по ссылке со вторым фактором (шаг 10 требует человека с телефоном) |

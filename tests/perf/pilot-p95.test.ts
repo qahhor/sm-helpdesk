@@ -97,16 +97,17 @@ test('пилот: p95 страниц и запросов на миллионе �
 
   // --- Набор ---
   let started = performance.now();
-  const bulk = await seedBulkTickets(TICKETS, ORGS, f.l1.userId, { serverId: f.server.serverId, finished: true });
+  await seedBulkTickets(TICKETS, ORGS, f.l1.userId, { serverId: f.server.serverId, finished: true });
   const ticketsSec = (performance.now() - started) / 1000;
-  // Организация А набора изоляции получает обращения одной из организаций набора (около 1000): клиент видит столько
-  // же, сколько обычная организация. Обращение с перепиской для страниц обращения.
+  // Организация А набора изоляции получает около 1000 обращений вразброс по набору: клиент видит столько же, сколько
+  // обычная организация. Не одну организацию набора целиком: у seedBulkTickets номер организации зависит от остатка
+  // номера, поэтому у каждой организации набора один статус и одна видимость. Обращение с перепиской для страниц обращения.
   const root = await pools.root.connect();
   try {
     await root.query(`set session_replication_role = replica`);
-    await root.query(`update hdt_tickets set org_id = $1, author_id = case when number % 3 = 0 then $3::uuid else $4::uuid end where org_id = $2`, [
+    await root.query(`update hdt_tickets set org_id = $1, author_id = case when number % 3 = 0 then $3::uuid else $4::uuid end where abs(hashtext(ticket_id::text)) % 1000 = $2`, [
       f.orgA.orgId,
-      bulk.orgId,
+      7,
       f.aUser.userId,
       f.aAdmin.userId,
     ]);
@@ -128,9 +129,9 @@ test('пилот: p95 страниц и запросов на миллионе �
   started = performance.now();
   const orgIds = (await pools.root.query(`select org_id from hdu_organizations where external_company_id like 'bulk-%' order by org_id`)).rows.map((r) => r.org_id as string);
   await seedBulkIdeas(IDEAS, orgIds, stubVector);
-  // Клиент А голосует за 300 идей и следит за 20: отметки "мой голос" на доске и на странице.
+  // Клиент А голосует за 300 открытых идей и следит за 20: отметки "мой голос" на доске и на странице.
   await pools.root.query(
-    `insert into hdi_votes (org_id, idea_id, user_id) select $1, md5('bulk-idea-' || g)::uuid, $2 from generate_series(20, 6000, 20) g`,
+    `insert into hdi_votes (org_id, idea_id, user_id) select $1, md5('bulk-idea-' || g)::uuid, $2 from generate_series(15, 6000, 13) g where g % 100 between 15 and 79`,
     [f.orgA.orgId, f.aUser.userId],
   );
   await pools.root.query(`insert into hdi_subscriptions (idea_id, user_id) select md5('bulk-idea-' || g)::uuid, $1 from generate_series(40, 800, 40) g`, [f.aUser.userId]);

@@ -1078,7 +1078,8 @@
           "webhook_secret": "Vebhuk sirlari",
           "macro": "Makros",
           "dev_task": "Ishlab chiqish vazifasi",
-          "metrics": "Ko'rsatkichlar"
+          "metrics": "Ko'rsatkichlar",
+          "ops_backup": "Zaxira nusxa"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -1262,6 +1263,9 @@
             "cycle_lapsed": "Oy saralashi tanlovsiz yopildi",
             "cycle_decided": "Oy g'oyasi tanlandi",
             "status_changed": "G'oya holati o'zgartirildi"
+          },
+          "ops": {
+            "backup_marked": "Baza zaxira nusxasi belgilandi"
           }
         },
         "words": {
@@ -1315,7 +1319,11 @@
           "host": "Tugun",
           "events": "Hodisalar",
           "urlChanged": "Manzil o'zgardi",
-          "isEnabled": "Yoqilgan"
+          "isEnabled": "Yoqilgan",
+          "kind": "Turi",
+          "sizeBytes": "Hajmi, bayt",
+          "dump": "tungi nusxa",
+          "base": "asosiy nusxa"
         }
       },
       "sla": {
@@ -3612,7 +3620,8 @@
       "unidentified_flood": "Smartup Hub: bir soat ichida noma'lum manzillardan kelgan xatlardan {count} ta murojaat yaratildi. Xatlar oqimi bo'lishi mumkin. \"Aniqlanmaganlar\" va pochta sozlamalarini ko'ring.",
       "automation_dropped": "Smartup Hub: bir soat ichida {count} ta avtomatlashtirish hodisasi qayta ishlanmadi. Ular bo'yicha qoidalar va bildirishnomalar bajarilmadi, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
       "automation_lag": "Smartup Hub: avtomatlashtirish hodisalari {minutes} daqiqadan beri qayta ishlanmayapti, navbatda: {count}. Qoidalar va bildirishnomalar kechikmoqda, orasida navbatchilarga P1 haqidagi xabar bo'lishi mumkin. Fon jarayoni jurnalini ko'ring.",
-      "builtin_rule_inactive": "Smartup Hub: o'rnatilgan bildirishnomalar ishlamayapti, qoidalar: {count} ({rules}). Qoida o'chirilgan yoki nosoz: navbatchilarga P1 haqida, rahbarga muddat buzilishi yoki past baho haqida xabarlar yuborilmayapti. Sozlamalarda avtomatlashtirish qoidalarini tekshiring."
+      "builtin_rule_inactive": "Smartup Hub: o'rnatilgan bildirishnomalar ishlamayapti, qoidalar: {count} ({rules}). Qoida o'chirilgan yoki nosoz: navbatchilarga P1 haqida, rahbarga muddat buzilishi yoki past baho haqida xabarlar yuborilmayapti. Sozlamalarda avtomatlashtirish qoidalarini tekshiring.",
+      "backup_stale": "Smartup Hub: baza zaxira nusxalari eskirgan ({kinds}), turlar: {count}. dump: tungi nusxa 26 soatdan ko'p vaqt yo'q, base: asosiy nusxa 8 kundan ko'p vaqt yo'q, wal: baza jurnali 26 soatdan ko'p vaqt arxivga saqlanmagan. Serverdagi nusxa ssenariylari jurnalini ko'ring."
     }
   },
   "dev": {

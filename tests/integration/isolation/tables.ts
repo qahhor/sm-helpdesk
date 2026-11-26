@@ -39,6 +39,11 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // События предметной области (веха M8): пишет действие над обращением, разбирает и удаляет система, клиент не видит.
   hdc_domain_events: { client: 'none', app: IUD },
   hdc_ops_alerts: { client: 'none', app: IU },
+  // Отметки резервных копий (план подготовки M9, решение 6): ставит команда hub под системным актором, читает
+  // администратор портала. Строки не меняются и не удаляются.
+  hdc_ops_backups: { client: 'none', app: ['insert'] },
+  // Отметка "фоновый процесс жив" (план подготовки M9, решение 5): одна строка на процесс, обновляется раз в минуту.
+  hdc_ops_heartbeats: { client: 'none', app: IU },
   hdc_rate_limits: { client: 'none', app: IUD },
   hdc_settings: { client: 'none', app: IUD },
   // Знания (веха M5, задача 2). Клиент получает текст решения только из копии опубликованного hdk_published и

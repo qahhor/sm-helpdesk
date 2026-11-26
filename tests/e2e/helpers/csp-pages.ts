@@ -132,6 +132,7 @@ export const CSP_HANDLERS: readonly CspHandler[] = [
   { route: 'api/health', path: '/api/health', who: 'guest' },
   { route: 'api/ideas/similar', path: '/api/ideas/similar', who: 'client' },
   { route: 'api/ready', path: '/api/ready', who: 'guest' },
+  { route: 'api/ready/worker', path: '/api/ready/worker', who: 'guest' },
   { route: 'api/suggest', path: '/api/suggest', who: 'client' },
   { route: 'api/uploads/complete', path: '/api/uploads/complete', who: 'client' },
   { route: 'api/uploads/local', path: '/api/uploads/local', who: 'client' },

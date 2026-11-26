@@ -49,4 +49,10 @@ mv "$part" "$file"
 rclone copy "$file" "$BACKUP_REMOTE/base"
 find "$BACKUP_DIR/base" -name 'base-*.tar.age' -mtime +"$BASE_KEEP_DAYS" -delete
 date -u +%Y-%m-%dT%H:%M:%SZ > "$BACKUP_DIR/base/last-success"
+# Отметка в портале (план подготовки M9, задача 3, решение 6): по её возрасту задача ops.watch шлёт дежурным сигнал
+# backup_stale. Копия уже выгружена; если отметка не записалась, сценарий завершается ошибкой, чтобы это было видно.
+if ! docker compose -f "$HUB_DIR/compose.prod.yaml" exec -T web node hub.mjs ops:backup-mark --kind base --bytes "$size"; then
+  echo "Базовая копия выгружена, но отметка в портале не записана (hub ops:backup-mark): дежурные получат сигнал backup_stale" >&2
+  exit 1
+fi
 echo "Базовая копия выгружена: $(basename "$file"), $size байт"

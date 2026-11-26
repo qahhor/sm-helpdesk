@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, inet, integer, jsonb, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, inet, integer, jsonb, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
 import type { DomainEventKind } from './pref';
 
@@ -43,6 +43,24 @@ export const auditLog = pgTable('hdc_audit_log', {
 export const opsAlerts = pgTable('hdc_ops_alerts', {
   code: text('code').primaryKey(),
   lastSentOn: timestamp('last_sent_on', { withTimezone: true }).notNull(),
+  ...stampColumns,
+});
+
+/** Отметки удачных резервных копий (миграция 0086; план подготовки M9, решение 6). Пишет команда hub ops:backup-mark. */
+export const opsBackups = pgTable('hdc_ops_backups', {
+  backupId: uuid('backup_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  kind: text('kind').$type<'dump' | 'base'>().notNull(),
+  sizeBytes: bigint('size_bytes', { mode: 'number' }),
+  finishedOn: timestamp('finished_on', { withTimezone: true }).notNull(),
+  ...stampColumns,
+});
+
+/** Отметка "фоновый процесс жив" (миграция 0087; план подготовки M9, решение 5). Одна строка на процесс. */
+export const opsHeartbeats = pgTable('hdc_ops_heartbeats', {
+  process: text('process').primaryKey(),
+  beatOn: timestamp('beat_on', { withTimezone: true }).notNull(),
   ...stampColumns,
 });
 

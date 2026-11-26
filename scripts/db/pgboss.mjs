@@ -30,6 +30,9 @@ export const QUEUES = {
   'devtasks.sync': { policy: 'short', retryLimit: 0, expireInSeconds: 600, deleteAfterSeconds: 86_400 },
   // Сигналы дежурным о состоянии портала (план W0, задача 4): раз в 5 минут, без повторов.
   'ops.watch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
+  // Отметка "фоновый процесс жив" для /api/ready/worker (план подготовки M9, решение 5): раз в минуту, без повторов,
+  // следующая минута догонит. Выполненные задачи хранятся сутки.
+  'ops.heartbeat': { policy: 'short', retryLimit: 0, expireInSeconds: 60, deleteAfterSeconds: 86_400 },
   // Проверка изображения решения (план M5, задача 3): как вложение обращения, одна задача на файл.
   'kb.scan': { policy: 'exclusive', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   // Поисковый индекс после публикации (план M5, задача 4 ставит, задача 9 пишет строки и вектор). stately: на решение

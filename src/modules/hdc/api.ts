@@ -43,6 +43,20 @@ export {
 export { DOMAIN_EVENT_KINDS, type DomainEventKind } from './pref';
 // Сигналы дежурным о состоянии портала (ТЗ 13.8).
 export { type ArchiveState, archiveFailing, archiveState, claimOpsAlert, failedJobsSince, failedStaffSignIns, noteStaffSignInFailure, OPS_ALERT_EVERY_MS } from './ops-alerts';
+// Наблюдение без внешних сервисов (план подготовки M9, задача 3): отметка фонового процесса и отметки резервных копий.
+export {
+  BACKUP_KINDS,
+  BACKUP_STALE_HOURS,
+  type BackupKind,
+  beatWorker,
+  latestBackups,
+  type LatestBackups,
+  markBackup,
+  staleBackupKinds,
+  type StaleBackupKind,
+  WORKER_STALE_SEC,
+  workerReadyResponse,
+} from './ops-status';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';
 // Общие понятия для модулей ниже hdu (аудит 23.11.2026, находка A1): справочник контактов и контекст сотрудника.

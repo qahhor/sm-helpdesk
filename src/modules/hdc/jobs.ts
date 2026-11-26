@@ -23,6 +23,7 @@ export const JOB_NAMES = [
   'kb.scan',
   'kb.translate',
   'maintenance.cleanup',
+  'ops.heartbeat',
   'ops.watch',
   'outbox.dispatch',
   'tickets.minute',

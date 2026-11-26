@@ -1078,7 +1078,8 @@
           "webhook_secret": "Webhook secrets",
           "macro": "Macro",
           "dev_task": "Development task",
-          "metrics": "Metrics"
+          "metrics": "Metrics",
+          "ops_backup": "Backup"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -1262,6 +1263,9 @@
             "cycle_lapsed": "Monthly selection closed without a choice",
             "cycle_decided": "Idea of the month selected",
             "status_changed": "Idea status changed"
+          },
+          "ops": {
+            "backup_marked": "Database backup recorded"
           }
         },
         "words": {
@@ -1315,7 +1319,11 @@
           "host": "Host",
           "events": "Events",
           "urlChanged": "Address changed",
-          "isEnabled": "Enabled"
+          "isEnabled": "Enabled",
+          "kind": "Kind",
+          "sizeBytes": "Size, bytes",
+          "dump": "nightly backup",
+          "base": "base backup"
         }
       },
       "sla": {
@@ -3612,7 +3620,8 @@
       "unidentified_flood": "Smartup Hub: {count} requests were created from emails from unknown addresses within an hour. A flood is possible. Check \"Unidentified\" and the mail settings.",
       "automation_dropped": "Smartup Hub: {count} automation events were not processed within an hour. Their rules and notifications did not run, an on-call message about a P1 request may be among them. Check the background process log.",
       "automation_lag": "Smartup Hub: automation events have not been processed for {minutes} min, waiting: {count}. Rules and notifications are late, an on-call message about a P1 request may be among them. Check the background process log.",
-      "builtin_rule_inactive": "Smartup Hub: built-in notifications are not working, rules: {count} ({rules}). A rule is turned off or broken: on-call messages about P1, notices to the lead about a missed deadline or a low rating are not sent. Check the automation rules in settings."
+      "builtin_rule_inactive": "Smartup Hub: built-in notifications are not working, rules: {count} ({rules}). A rule is turned off or broken: on-call messages about P1, notices to the lead about a missed deadline or a low rating are not sent. Check the automation rules in settings.",
+      "backup_stale": "Smartup Hub: database backups are out of date ({kinds}), kinds: {count}. dump: no nightly backup for more than 26 hours, base: no base backup for more than 8 days, wal: the database log has not been archived for more than 26 hours. Check the backup scripts log on the server."
     }
   },
   "dev": {

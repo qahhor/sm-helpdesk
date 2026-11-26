@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'vitest';
 import { setLogSinkForTests } from '@/lib/log';
-import { noteStaffSignInFailure } from '@/modules/hdc/api';
+import { markBackup, noteStaffSignInFailure } from '@/modules/hdc/api';
 import { createMemoryEmailProvider, type MemoryEmailProvider } from '@/modules/hdn/testing';
 import { opsAlertText } from '@/modules/hdn/api/ops';
 import { collectOpsAlerts, opsWatch } from '@/worker/ops-watch';
@@ -24,6 +24,10 @@ beforeEach(async () => {
   await pools.root.query(`delete from pgboss.job where state = 'failed'`);
   await pools.root.query(`update hdt_attachments set scan_status = 'clean' where scan_status = 'infected'`);
   await pools.root.query(`insert into hdc_settings (code, value) values ('notify.oncall_emails', '["duty@smartup24.com"]')`);
+  // Свежая ночная копия: без неё каждый запуск давал бы сигнал backup_stale (план подготовки M9, задача 3; его
+  // проверяет ops-watch-backup.test.ts).
+  await pools.root.query(`delete from hdc_ops_backups`);
+  await markBackup(SYSTEM, { kind: 'dump' }, new Date());
 });
 
 const watch = (now = new Date()) => opsWatch(SYSTEM, now, { provider: mail, oncall: { send: async (text) => void chat.push(text) } });

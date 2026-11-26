@@ -4,7 +4,7 @@ import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { getEnv, parseAiEnv } from '@/env';
 import { configureLog, logEvent, timedJob } from '@/lib/log';
-import { bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, createPgBossQueue, eventsState, JOB_NAMES, processEvents, setJobQueue } from '@/modules/hdc/api';
+import { beatWorker, bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, createPgBossQueue, eventsState, JOB_NAMES, processEvents, setJobQueue } from '@/modules/hdc/api';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
@@ -40,6 +40,8 @@ export const SCHEDULES = [
   // Опрос таск-менеджера Smartup (FR-DEV-04): раз в 15 минут; в ручном режиме задание ничего не делает.
   { name: 'devtasks.sync', cron: '*/15 * * * *', tz: 'UTC' },
   { name: 'ops.watch', cron: '*/5 * * * *', tz: 'UTC' },
+  // Отметка "фоновый процесс жив" для /api/ready/worker (план подготовки M9, решение 5).
+  { name: 'ops.heartbeat', cron: '* * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
   // Сверка поискового индекса подсказки (план M5, задача 9): после ночной очистки.
   { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
@@ -140,6 +142,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.start({ attempts: opts.startAttempts ?? START_ATTEMPTS });
   await waitForQueues(boss, opts.startAttempts ?? START_ATTEMPTS);
   setJobQueue(createPgBossQueue(boss));
+  // Отметка при запуске: после выкладки /api/ready/worker не отвечает 503 до первой минуты расписания.
+  await beatWorker(actor('ops.heartbeat'));
   const polling = { pollingIntervalSeconds: opts.pollingIntervalSeconds ?? 2 };
 
   await boss.work('attachment.scan', { ...polling, localConcurrency: 2 }, ([job]) => timedJob('attachment.scan', async () => {
@@ -249,6 +253,8 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const sent = await opsWatch(actor('ops.watch'));
     if (sent.length > 0) logEvent('warn', 'ops.alerts_sent', { codes: sent });
   }));
+  // Отметка раз в минуту идёт через очередь, как все задачи: она показывает, что процесс берёт задачи, а не только жив.
+  await boss.work('ops.heartbeat', polling, () => beatWorker(actor('ops.heartbeat')));
   await boss.work('maintenance.cleanup', polling, () => timedJob('maintenance.cleanup', async () => {
     const system = actor('maintenance.cleanup');
     const limits = await cleanupRateLimits();

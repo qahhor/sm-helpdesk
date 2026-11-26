@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { alertsRunbookCheck } from './alerts-runbook.mjs';
 import { checkContrast } from './contrast.mjs';
 import { cspPagesGaps } from './csp-pages.mjs';
 import { findDashes, isDashCheckedFile } from './dashes.mjs';
@@ -107,6 +108,11 @@ const extraChecks = [
     // каждая переменная схемы src/env.ts описана в .env.example
     name: 'env-example',
     run: async () => (await missingInEnvExample()).map((name) => `в .env.example нет переменной ${name}`),
+  },
+  {
+    // каждый сигнал ops.watch описан в разделе 6 памятки дежурного (план подготовки M9, задача 3)
+    name: 'alerts-runbook',
+    run: () => alertsRunbookCheck(),
   },
   {
     // каждая страница и каждый обработчик src/app есть в обходе политики содержимого (план подготовки M9, задача 2)

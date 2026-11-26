@@ -1,6 +1,6 @@
 import type { SystemActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
-import { archiveFailing, archiveState, claimOpsAlert, droppedEventsSince, eventsState, failedJobsSince, failedStaffSignIns } from '@/modules/hdc/api';
+import { archiveFailing, archiveState, claimOpsAlert, droppedEventsSince, eventsState, failedJobsSince, failedStaffSignIns, latestBackups, staleBackupKinds } from '@/modules/hdc/api';
 import { heldInboundCount, type OpsAlert, type OpsAlertCode, outboxFailedSince, outboxState, sendOpsAlert, staleInboundCount } from '@/modules/hdn/api/ops';
 import { infectedSince, unidentifiedSince } from '@/modules/hdt/api/jobs';
 import { inactiveBuiltinRules } from '@/modules/hdw/api/engine';
@@ -25,7 +25,7 @@ type Deps = Parameters<typeof sendOpsAlert>[2];
 
 export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<OpsAlert[]> {
   const hourAgo = new Date(now.getTime() - 60 * MINUTE);
-  const [jobs, failed, state, stuck, signIns, infected, archive, held, unidentified, dropped, events, inactive] = await Promise.all([
+  const [jobs, failed, state, stuck, signIns, infected, archive, held, unidentified, dropped, events, inactive, backups] = await Promise.all([
     failedJobsSince(actor, hourAgo),
     outboxFailedSince(actor, hourAgo),
     outboxState(actor, now),
@@ -38,6 +38,7 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
     droppedEventsSince(actor, hourAgo),
     eventsState(actor, now),
     inactiveBuiltinRules(actor),
+    latestBackups(actor),
   ]);
   const alerts: OpsAlert[] = [];
   if (jobs > 0) alerts.push({ code: 'jobs_failed', count: jobs });
@@ -61,6 +62,10 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date): Promise<O
   // Встроенное уведомление портала выключено, негодно или осталось без своего действия: пока это так, дежурные о
   // P1, руководитель линии о сроке или Customer Care о низкой оценке не узнают. Сигнал повторяется раз в час.
   if (inactive.length > 0) alerts.push({ code: 'builtin_rule_inactive', count: inactive.length, rules: inactive.join(', ') });
+  // Резервные копии устарели или не отмечены (план подготовки M9, решение 6): ночная, базовая, журнал базы. В тексте
+  // только виды копий, без адресов бакета и имён файлов.
+  const stale = staleBackupKinds(backups, archive, now);
+  if (stale.length > 0) alerts.push({ code: 'backup_stale', count: stale.length, kinds: stale.join(', ') });
   return alerts;
 }
 

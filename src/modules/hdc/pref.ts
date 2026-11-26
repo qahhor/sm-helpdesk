@@ -164,6 +164,8 @@ export const AUDIT_ACTIONS = [
   'idea.cycle_lapsed',
   'idea.cycle_decided',
   'idea.status_changed',
+  // Эксплуатация (план подготовки M9, задача 3): команда hub ops:backup-mark отметила удачную резервную копию.
+  'ops.backup_marked',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

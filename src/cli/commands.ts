@@ -8,7 +8,7 @@ import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
-import { cleanupRateLimits } from '@/modules/hdc/api';
+import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, markBackup } from '@/modules/hdc/api';
 import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
 import { type CorpusEntry, groupCorpus, parseCorpus } from '@/modules/hdk/api/signatures';
@@ -84,6 +84,11 @@ const HELP = `Использование: hub <команда> [ключи]
       прошлый невыбранный отбор закрывается, пятёрка лидеров по голосам переходит в шорт-лист, роль product
       получает уведомление. Повторный запуск за тот же месяц ничего не меняет. Для проверки и ручного запуска.
 
+  ops:backup-mark --kind <dump|base> [--bytes <размер>]
+      Отметить удачную резервную копию (план подготовки M9, задача 3): dump - ночная копия backup.sh, base - базовая
+      копия base-backup.sh. Сценарии вызывают команду сами после выгрузки. По возрасту отметок фоновый процесс шлёт
+      дежурным сигнал backup_stale. --bytes: размер зашифрованного файла копии.
+
   maintenance:cleanup
       Удалить просроченные служебные строки: счётчики частоты, номера событий Telegram, сессии
       и одноразовые значения входа. Запускать раз в сутки, пока нет фоновых задач (решение 0023).
@@ -127,6 +132,7 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'telegram:set-webhook': { options: {}, required: [] },
   'telegram:info': { options: {}, required: [] },
   'maintenance:cleanup': { options: {}, required: [] },
+  'ops:backup-mark': { options: { kind: { type: 'string' }, bytes: { type: 'string' } }, required: ['kind'] },
   'ideas:cycle': { options: { month: { type: 'string' } }, required: ['month'] },
   'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
@@ -345,6 +351,15 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         io.out(
           `Удалено просроченных строк: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, отправленные письма очереди ${sentMail}, разобранные входящие письма ${letters}.`,
         );
+        return 0;
+      }
+      case 'ops:backup-mark': {
+        const kind = text('kind');
+        if (!(BACKUP_KINDS as readonly string[]).includes(kind)) throw new UsageError(`Вид копии: ${BACKUP_KINDS.join(' или ')}.`);
+        const bytes = values.bytes;
+        if (bytes !== undefined && !(typeof bytes === 'string' && /^[1-9]\d{0,15}$/.test(bytes))) throw new UsageError('Размер копии --bytes: целое число байт больше нуля.');
+        await markBackup(ACTOR, { kind: kind as BackupKind, ...(bytes !== undefined && { sizeBytes: Number(bytes) }) });
+        io.out(`Отметка копии записана: ${kind}${bytes !== undefined ? `, ${bytes} байт` : ''}.`);
         return 0;
       }
       case 'secrets:reseal': {

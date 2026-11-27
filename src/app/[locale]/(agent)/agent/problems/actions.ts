@@ -14,6 +14,7 @@ import {
   setProblemShown,
   setProblemStatus,
 } from '@/modules/hdp/api/problems';
+import { confirmBroadcast, prepareBroadcast } from '@/modules/hdp/api/broadcasts';
 import { linkTicketToProblem, unlinkTicket } from '@/modules/hdp/api/links';
 import { listProblems } from '@/modules/hdp/api/problems';
 import { requireStaffActor } from '@/modules/hdu/api';
@@ -163,6 +164,46 @@ export async function unlinkTicketAction(form: FormData): Promise<void> {
   } catch (error) {
     if (!isHdpError(error)) throw error;
     target = `${base}?error=problem_${error.code}`;
+  }
+  redirect(target);
+}
+
+// --- Рассылка и закрытие (задача 5, решения 17-20) ---
+
+/** "Написать обновление всем" и "Закрыть проблему": черновик рассылки и переход на экран подтверждения. */
+export async function prepareBroadcastAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  const number = parseProblemRef(text(form, 'number'));
+  if (!number) redirect(`/${locale}/agent/problems`);
+  const kind = text(form, 'kind') === 'closing' ? 'closing' : 'update';
+  let target: string;
+  try {
+    const { broadcastId } = await prepareBroadcast(staff, { number, kind, body: text(form, 'body'), locale: text(form, 'locale') || locale });
+    target = `/${locale}/agent/problems/${number}/broadcast/${broadcastId}`;
+  } catch (error) {
+    if (!isHdpError(error)) throw error;
+    const kinds = error.findings.length > 0 ? `&kinds=${[...new Set(error.findings.map((f) => f.kind))].join(',')}` : '';
+    target = `/${locale}/agent/problems/${number}?status=error-${error.code}${kinds}&tab=updates`;
+  }
+  redirect(target);
+}
+
+/** Подтверждение рассылки: тексты на языках получателей из формы, флажок "текстом оригинала". */
+export async function confirmBroadcastAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  const number = parseProblemRef(text(form, 'number'));
+  const broadcastId = text(form, 'broadcastId');
+  if (!number) redirect(`/${locale}/agent/problems`);
+  const translations = Object.fromEntries(['ru', 'uz', 'en'].flatMap((lang) => (form.has(`text-${lang}`) ? [[lang, text(form, `text-${lang}`)]] : [])));
+  let target = `/${locale}/agent/problems/${number}?status=broadcast_sent&tab=updates`;
+  try {
+    await confirmBroadcast(staff, { broadcastId, translations, fallbackToOriginal: text(form, 'fallback') === 'on' });
+  } catch (error) {
+    if (!isHdpError(error)) throw error;
+    const kinds = error.findings.length > 0 ? `&kinds=${[...new Set(error.findings.map((f) => f.kind))].join(',')}` : '';
+    target = `/${locale}/agent/problems/${number}/broadcast/${broadcastId}?status=error-${error.code}${kinds}`;
   }
   redirect(target);
 }

@@ -22,6 +22,11 @@ export const HDP_ERROR_CODES = [
   'problem_inactive',
   // Массовое действие: больше 100 обращений (решение 10).
   'too_many',
+  // Рассылка: нет принятого текста на языке получателей и не выбран текст оригинала (решение 17).
+  'translation_required',
+  // Рассылка уже подтверждена или нет получателей.
+  'broadcast_closed',
+  'no_recipients',
 ] as const;
 export type HdpErrorCode = (typeof HDP_ERROR_CODES)[number];
 

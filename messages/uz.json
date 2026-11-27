@@ -99,7 +99,8 @@
         "idea_cycle": "Oy g'oyasi saralash beshligi tayyor",
         "idea_moderation_due": "Ikki ish kunidan ortiq moderatsiya kutayotgan g'oyalar: {count}",
         "idea_dev_task_closed": "I-{idea} g'oyasining ishlab chiqish vazifasi yopildi",
-        "ai_budget": "{percent, select, 100 {AI xarajatlari chegarasi tugadi: yordamchi oy oxirigacha o'chirildi} other {AI xarajati chegaraning 80%: o'chirilgan tashkilotlar {orgs}}}"
+        "ai_budget": "{percent, select, 100 {AI xarajatlari chegarasi tugadi: yordamchi oy oxirigacha o'chirildi} other {AI xarajati chegaraning 80%: o'chirilgan tashkilotlar {orgs}}}",
+        "problem_update": "SUP-{number} da ma'lum muammo bo'yicha yangilanish"
       },
       "settings": {
         "title": "Xatlar",
@@ -328,7 +329,8 @@
         },
         "mergedLink": "Murojaat {number} bilan birlashtirildi. O'sha yerda davom etamiz.",
         "mergedHidden": "Murojaat xuddi shu mavzudagi boshqa murojaat bilan birlashtirildi.",
-        "createdByStaff": "Bu murojaatni qo'ng'irog'ingiz yoki xatingiz bo'yicha qo'llab-quvvatlash xodimi yaratgan."
+        "createdByStaff": "Bu murojaatni qo'ng'irog'ingiz yoki xatingiz bo'yicha qo'llab-quvvatlash xodimi yaratgan.",
+        "problemUpdate": "Ma'lum muammo bo'yicha yangilanish"
       },
       "files": {
         "add": "Fayl yoki skrinshot",
@@ -1376,7 +1378,8 @@
             "shown_changed": "Ma'lum muammoni mijozlarga ko'rsatish o'zgardi",
             "signature_added": "Muammoga signatura qo'shildi",
             "signature_removed": "Muammodan signatura olib tashlandi",
-            "translation_saved": "Muammoning ochiq matni saqlandi"
+            "translation_saved": "Muammoning ochiq matni saqlandi",
+            "broadcast_confirmed": "Ma'lum muammo bo'yicha tarqatma tasdiqlandi"
           }
         },
         "words": {
@@ -3788,7 +3791,10 @@
         "already_linked": "Murojaat allaqachon ma'lum muammoga bog'langan",
         "ticket_closed": "Bu murojaatni bog'lab bo'lmaydi",
         "problem_inactive": "Muammo faol emas",
-        "too_many": "Bir martada 100 tadan ko'p murojaat emas"
+        "too_many": "Bir martada 100 tadan ko'p murojaat emas",
+        "translation_required": "Oluvchilarning bir qismi tilida matn yo'q: uni yozing yoki asl matnni yuborishni belgilang",
+        "broadcast_closed": "Bu tarqatma allaqachon tasdiqlangan",
+        "no_recipients": "Ochiq bog'langan murojaatlar yo'q: yuboradigan kishi yo'q"
       },
       "findings": {
         "phone": "telefon raqami",
@@ -3810,7 +3816,33 @@
         "translation": "Matn saqlandi",
         "translating": "Tarjima tayyorlanmoqda. Bir daqiqadan so'ng sahifani yangilang",
         "signature_added": "Signatura qo'shildi",
-        "signature_removed": "Signatura olib tashlandi"
+        "signature_removed": "Signatura olib tashlandi",
+        "broadcast_sent": "Tarqatma tasdiqlandi va yuborilmoqda"
+      },
+      "broadcast": {
+        "title": "Hammaga yangilanish yozish",
+        "closeTitle": "Muammoni yopish",
+        "body": "Yangilanish matni",
+        "closeBody": "Yakuniy matn",
+        "prepare": "Tekshirish va tayyorlash",
+        "prepareClose": "Yopishni tayyorlash",
+        "recipients": "Oladi: {tickets} ta murojaat, {orgs} ta tashkilot",
+        "closeHint": "Tasdiqlangandan so'ng muammo yopiladi, bog'langan ochiq murojaatlar shu matn bilan \"Hal qilindi\" holatiga o'tadi.",
+        "original": "Muallif tilidagi matn ({locale})",
+        "translation": "Oluvchilar uchun {locale} tilidagi matn",
+        "machineHint": "Mashina tarjimasi: tekshiring va tuzating. Maydondagi matn yuboriladi.",
+        "noMachine": "Hozircha tarjima yo'q: o'zingiz yozing yoki bir daqiqadan so'ng sahifani yangilang.",
+        "fallback": "O'z tilida matni yo'q oluvchilarga asl matnni yuborish",
+        "confirm": "Tasdiqlash va yuborish",
+        "confirmClose": "Yopishni tasdiqlash",
+        "alreadySent": "Bu tarqatma allaqachon tasdiqlangan.",
+        "delivered": "{tickets} tadan {delivered} tasi yetkazildi, tashkilotlar: {orgs}",
+        "statuses": {
+          "draft": "Qoralama",
+          "queued": "Navbatda",
+          "sending": "Yuborilmoqda",
+          "done": "Tarqatildi"
+        }
       }
     }
   },
@@ -4177,6 +4209,18 @@
       "text": "Murojaat xodimlarga o'tkazildi.",
       "dueStart": "{day} soat {time} dan keyin javob beramiz.",
       "due": "{when} gacha javob beramiz."
+    },
+    "problemUpdate": {
+      "heading": "SUP-{number} murojaati bo'yicha yangilanish",
+      "text": "{problem} ma'lum muammo bo'yicha yangilanish. Holat: {status}.",
+      "closing": "{problem} ma'lum muammo tuzatildi. Murojaat hal qilindi: hammasi ishlasa, portalda tasdiqlang, ishlamasa, xatga javob bering.",
+      "statuses": {
+        "investigating": "o'rganyapmiz",
+        "cause_found": "sabab topildi",
+        "fixing": "tuzatyapmiz",
+        "fixed": "tuzatildi",
+        "closed": "tuzatildi"
+      }
     }
   },
   "bot": {
@@ -4210,7 +4254,9 @@
       "reminder": "Javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi.",
       "tezAnswer": "Tez yechim taklif qildi: {solution}",
       "tezHelped": "Yordam berdi",
-      "tezNeedStaff": "Xodim kerak"
+      "tezNeedStaff": "Xodim kerak",
+      "problemUpdate": "{problem} ma'lum muammo bo'yicha yangilanish.",
+      "problemClosed": "{problem} ma'lum muammo tuzatildi. Murojaat hal qilindi."
     },
     "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
     "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}",

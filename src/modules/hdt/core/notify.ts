@@ -38,7 +38,8 @@ export type TicketNotice = {
     | 'dev_task_closed'
     | 'csat_low'
     | 'ai_answer'
-    | 'ai_ack';
+    | 'ai_ack'
+    | 'problem_update';
   /** Кто действовал: он не получает уведомления о своём действии. Система: null. */
   actorUserId: string | null;
   messageId?: string;
@@ -59,6 +60,8 @@ export type TicketNotice = {
   score?: number;
   /** Ответ Теза решением (план M5b, задача 6): вступление и решение из hdk_published, без слов модели. */
   aiAnswer?: { introId: string; solutionTitle: string; lines: string[]; articleNumber: number };
+  /** Рассылка по известной проблеме (веха M5c, FR-NT-12): номер и статус проблемы, итог закрытия. */
+  problemUpdate?: { problemRef: string; problemStatus: string; closing: boolean };
   /** Подтверждение без Теза: срок ответа сотрудника. */
   aiAck?: { dueOn: string | null; startOn: string | null; timeZone: string };
 };
@@ -219,6 +222,19 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
       )[0];
       if (!message) return;
       return tell(tx, e.ticketId, ticket, await people(tx, e.ticketId, ticket, e.actorUserId), 'ticket_reply', { template: 'ticket_reply', ...ref, body: message.body }, e.messageId);
+    }
+    case 'problem_update': {
+      // Текст только из сообщения рассылки этого обращения (T23): его выбирает модуль обращений по идентификатору.
+      if (!e.messageId || !e.problemUpdate) throw new Error('уведомление: нет сообщения рассылки');
+      const message = (
+        await tx
+          .select({ body: ticketMessages.body })
+          .from(ticketMessages)
+          .where(and(eq(ticketMessages.messageId, e.messageId), eq(ticketMessages.ticketId, e.ticketId), eq(ticketMessages.isInternal, false)))
+          .limit(1)
+      )[0];
+      if (!message) return;
+      return tell(tx, e.ticketId, ticket, await people(tx, e.ticketId, ticket, e.actorUserId), 'problem_update', { template: 'problem_update', ...ref, body: message.body, ...e.problemUpdate }, e.messageId);
     }
     case 'status':
       if (!e.to || !STATUS_MAILS.has(e.to)) return;

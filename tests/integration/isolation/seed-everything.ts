@@ -185,5 +185,7 @@ export async function seedEverything() {
     [shownProblem, hiddenProblem, closedProblem, f.adminStaff.userId],
   );
   await pools.root.query(`insert into hdp_problem_signatures (problem_id, signature) values ($1, repeat('b', 32)), ($2, repeat('c', 32))`, [shownProblem, hiddenProblem]);
+  // Рассылка по показанной проблеме (веха M5c, задача 5).
+  await pools.root.query(`insert into hdp_broadcasts (problem_id, author_id, kind, source_locale, body) values ($1, $2, 'update', 'ru', '{"ru": "Исправляем"}')`, [shownProblem, f.adminStaff.userId]);
   return f;
 }

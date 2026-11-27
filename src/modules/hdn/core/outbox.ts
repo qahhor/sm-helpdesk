@@ -29,7 +29,7 @@ const LEASE_MS = 5 * 60_000;
 const BATCH = 50;
 const MINUTE = 60_000;
 /** Письма клиенту об обращении: на них отвечают, ответ попадает в обращение. */
-const CLIENT_REPLY_TEMPLATES = new Set(['ticket_created', 'ticket_reply', 'ticket_status', 'ticket_resolved', 'waiting_reminder', 'unidentified_ack']);
+const CLIENT_REPLY_TEMPLATES = new Set(['ticket_created', 'ticket_reply', 'ticket_status', 'ticket_resolved', 'waiting_reminder', 'unidentified_ack', 'problem_update']);
 
 export type OutboxItem = {
   channel: 'email' | 'telegram';

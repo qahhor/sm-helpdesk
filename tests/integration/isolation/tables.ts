@@ -108,6 +108,9 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdp_problem_translations: { client: 'none', app: IU },
   hdp_problem_signatures: { client: 'none', app: IUD },
   hdp_problems_public: { client: 'shown-only' },
+  // Рассылки (веха M5c, задача 5): готовят и подтверждают agent_l2, care, admin, ход отправки ведёт система; удаления
+  // нет. Клиент не читает ни одной строки: он видит только сообщение рассылки в своём обращении.
+  hdp_broadcasts: { client: 'none', app: IU },
   // Уведомления
   // Очередь исходящих (веха M4): ставит действие, отправляет система, клиент не видит.
   hdn_outbox: { client: 'none', app: IUD },

@@ -36,6 +36,8 @@ export const CSP_PAGES: readonly CspPage[] = [
   // Известные проблемы (веха M5c): последняя проблема базы браузерных тестов, если её нет, "не найдено".
   { route: `${A}/problems`, path: '/ru/agent/problems', who: 'admin' },
   { route: `${A}/problems/[number]`, path: '/ru/agent/problems/{problem}', who: 'admin' },
+  // Подтверждение рассылки: несуществующая рассылка даёт "не найдено".
+  { route: `${A}/problems/[number]/broadcast/[id]`, path: '/ru/agent/problems/{problem}/broadcast/00000000-0000-7000-8000-000000000000', who: 'admin', status: 404 },
   { route: `${A}/ai-review`, path: '/ru/agent/ai-review', who: 'admin', walk: true },
   { route: `${A}/notifications`, path: '/ru/agent/notifications', who: 'admin' },
   { route: `${A}/organizations`, path: '/ru/agent/organizations', who: 'admin' },

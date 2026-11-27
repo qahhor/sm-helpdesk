@@ -18,6 +18,7 @@ import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/mo
 import { runModerationDigest } from '@/modules/hdi/api/notices';
 import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
 import { runProblemTranslationJob } from '@/modules/hdp/api/translate-jobs';
+import { runBroadcastJob, runBroadcastTranslationJob } from '@/modules/hdp/api/broadcast-jobs';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { cleanupSuggestMisses } from '@/modules/hdk/api/misses';
 import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
@@ -192,8 +193,15 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     await runIdeaTranslationJob(actor('ideas.translate'), job?.data);
   }));
   await boss.work('problems.translate', polling, ([job]) => timedJob('problems.translate', async () => {
-    // Машинный перевод публичного текста известной проблемы (план M5c, задача 2): клиенту не виден до принятия.
-    await runProblemTranslationJob(actor('problems.translate'), job?.data);
+    // Машинный перевод публичного текста известной проблемы (план M5c, задача 2) или рассылки (задача 5): клиенту не
+    // виден, пока сотрудник его не принял.
+    const data = job?.data as Record<string, unknown> | undefined;
+    if (data && 'broadcastId' in data) await runBroadcastTranslationJob(actor('problems.translate'), data);
+    else await runProblemTranslationJob(actor('problems.translate'), data);
+  }));
+  await boss.work('problems.broadcast', polling, ([job]) => timedJob('problems.broadcast', async () => {
+    // Рассылка по известной проблеме (план M5c, задача 5, решение 18): по одному обращению за транзакцию, без дублей.
+    await runBroadcastJob(actor('problems.broadcast'), job?.data);
   }));
   await boss.work('ideas.moderation_digest', polling, () => timedJob('ideas.moderation_digest', async () => {
     await runModerationDigest(actor('ideas.moderation_digest'), new Date());

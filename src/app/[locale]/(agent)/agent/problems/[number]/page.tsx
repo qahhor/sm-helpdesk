@@ -5,6 +5,8 @@ import { LOCALES } from '@/i18n/locales';
 import { firstParam } from '@/lib/search-params';
 import { HDP_ERROR_CODES, PROBLEM_WRITER_ROLES, parseProblemRef, problemRef, SETTABLE_PROBLEM_STATUSES } from '@/modules/hdp/api';
 import { problemCard } from '@/modules/hdp/api/problems';
+import { listBroadcasts } from '@/modules/hdp/api/broadcasts';
+import { namesOf } from '@/modules/hdu/api';
 import { listActiveModules } from '@/modules/hdr/api';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -16,7 +18,7 @@ import { PageHeader } from '@/ui/components/PageHeader';
 import { Select } from '@/ui/components/select';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { Textarea } from '@/ui/components/textarea';
-import { addSignatureAction, problemShownAction, problemStatusAction, problemTranslationAction, removeSignatureAction, requestTranslationAction, saveProblemAction } from '../actions';
+import { addSignatureAction, prepareBroadcastAction, problemShownAction, problemStatusAction, problemTranslationAction, removeSignatureAction, requestTranslationAction, saveProblemAction } from '../actions';
 import { PROBLEM_STATUS_TONE } from '../status-tone';
 
 // Карточка известной проблемы (ТЗ 8.12 "Известная проблема", образец "Карточка"; FR-KP-01, 02, 10, FR-ADM-12; план M5c,
@@ -26,7 +28,7 @@ import { PROBLEM_STATUS_TONE } from '../status-tone';
 
 const TABS = ['description', 'tickets', 'updates'] as const;
 type Tab = (typeof TABS)[number];
-const DONE = ['created', 'saved', 'status', 'shown', 'hidden', 'translation', 'translating', 'signature_added', 'signature_removed'];
+const DONE = ['created', 'saved', 'status', 'shown', 'hidden', 'translation', 'translating', 'signature_added', 'signature_removed', 'broadcast_sent'];
 const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link', 'org'];
 const label = 'text-xs font-medium text-secondary-foreground';
 
@@ -55,6 +57,8 @@ export default async function AgentProblemPage({ params, searchParams }: { param
   const canWrite = (PROBLEM_WRITER_ROLES as readonly string[]).includes(staff.actor.staffRole) && card.status !== 'closed';
   const when = (value: Date | null) => (value ? format.dateTime(value, { dateStyle: 'medium', timeStyle: 'short' }) : s('info.never'));
   const hidden = <input type="hidden" name="number" value={card.number} />;
+  const updates = await listBroadcasts(staff, card.number);
+  const authors = await namesOf(staff.actor, [...new Set(updates.map((u) => u.authorId))]);
   const categories = Object.entries(card.categories)
     .map(([key, count]) => `${key === 'none' ? s('info.categoryNone') : key} ${count}`)
     .join(', ');
@@ -83,7 +87,7 @@ export default async function AgentProblemPage({ params, searchParams }: { param
                 aria-current={value === tab ? 'page' : undefined}
                 className={`inline-flex min-h-control items-center rounded-chip border px-4 text-sm font-medium ${value === tab ? 'border-primary bg-selected text-selected-foreground' : 'border-border bg-card text-foreground hover:bg-card-soft'}`}
               >
-                {s(`tabs.${value}`, { count: value === 'tickets' ? card.ticketCount : 0 })}
+                {s(`tabs.${value}`, { count: value === 'tickets' ? card.ticketCount : updates.length })}
               </Link>
             ))}
           </nav>
@@ -250,9 +254,56 @@ export default async function AgentProblemPage({ params, searchParams }: { param
           )}
 
           {tab === 'updates' && (
-            <Card>
-              <CardContent className="pt-6 text-sm text-secondary-foreground">{s('updates.none')}</CardContent>
-            </Card>
+            <>
+              {canWrite && (
+                <div className="grid gap-4 laptop:grid-cols-2">
+                  {(['update', 'closing'] as const).map((kind) => (
+                    <Card key={kind}>
+                      <CardHeader>
+                        <h2 className="text-lg font-semibold">{kind === 'closing' ? s('broadcast.closeTitle') : s('broadcast.title')}</h2>
+                      </CardHeader>
+                      <CardContent>
+                        <form action={prepareBroadcastAction} className="flex flex-col gap-2" data-broadcast-form={kind}>
+                          {hidden}
+                          <input type="hidden" name="kind" value={kind} />
+                          <input type="hidden" name="locale" value={locale} />
+                          <Label htmlFor={`broadcast-body-${kind}`}>{kind === 'closing' ? s('broadcast.closeBody') : s('broadcast.body')}</Label>
+                          <Textarea id={`broadcast-body-${kind}`} name="body" required rows={4} maxLength={5000} aria-describedby={`broadcast-body-${kind}-hint`} />
+                          <p id={`broadcast-body-${kind}-hint`} className="text-xs text-muted-foreground">
+                            {s('public.hint')}
+                          </p>
+                          <Button type="submit" variant={kind === 'closing' ? 'secondary' : 'primary'} className="self-start">
+                            {kind === 'closing' ? s('broadcast.prepareClose') : s('broadcast.prepare')}
+                          </Button>
+                        </form>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              <Card>
+                {updates.length === 0 ? (
+                  <CardContent className="pt-6 text-sm text-secondary-foreground">{s('updates.none')}</CardContent>
+                ) : (
+                  <CardContent className="pt-6">
+                    <ul className="flex flex-col gap-3" data-testid="problem-updates">
+                      {updates.map((u) => (
+                        <li key={u.broadcastId} className="flex flex-col gap-1 border-b border-border pb-3 last:border-b-0">
+                          <p className="flex flex-wrap items-center gap-2 text-sm">
+                            <StatusLabel tone={u.status === 'done' ? 'green' : 'blue'}>{s(`broadcast.statuses.${u.status}`)}</StatusLabel>
+                            <span>{u.kind === 'closing' ? s('broadcast.closeTitle') : s('broadcast.title')}</span>
+                            <span className="text-secondary-foreground">{when(u.confirmedOn ?? u.createdOn)}</span>
+                            <span className="text-secondary-foreground">{authors.get(u.authorId) ?? ''}</span>
+                          </p>
+                          <p className="text-sm tabular-nums">{s('broadcast.delivered', { delivered: u.deliveredCount, tickets: u.recipientsCount, orgs: u.orgCount })}</p>
+                          <p className="whitespace-pre-wrap break-words text-sm">{u.body}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                )}
+              </Card>
+            </>
           )}
         </div>
 

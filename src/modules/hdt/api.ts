@@ -327,6 +327,8 @@ export type MessageView = {
   authorName: string | null;
   isMine: boolean;
   isAuto: boolean;
+  /** Сообщение рассылки по известной проблеме (веха M5c, решение 19): страница помечает его подписью. */
+  isProblemUpdate: boolean;
   body: string;
   createdOn: Date;
   attachments: AttachmentView[];
@@ -461,6 +463,7 @@ export async function getTicket(ctx: ClientActorContext, numberRaw: unknown, opt
       authorName: m.authorType === 'client' && m.authorId ? (names.get(m.authorId) ?? null) : null,
       isMine: m.authorId === me,
       isAuto: m.isAuto,
+      isProblemUpdate: m.broadcastId !== null,
       body: m.body,
       createdOn: m.createdOn,
       attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),

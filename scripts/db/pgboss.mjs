@@ -67,6 +67,9 @@ export const QUEUES = {
   'ideas.translate': { policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   // Известные проблемы (веха M5c, задача 2): машинный перевод публичного текста на язык; повтор при сбое модели.
   // Сотрудник может перевести сам, не дожидаясь задачи: задача не перезаписывает текст сотрудника.
+  // Рассылка по известной проблеме (задача 5, решение 18): одна ждущая и одна выполняемая на рассылку (ключ одиночки),
+  // повтор с паузой при сбое; дубли держит уникальный индекс сообщений, а не порядок задач.
+  'problems.broadcast': { policy: 'stately', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 900, expireInSeconds: 1800 },
   'problems.translate': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   // Сводка модерации идей роли product раз в день (план M7, задача 8): повтор в тот же день ничего не шлёт.
   'ideas.moderation_digest': { policy: 'short', retryLimit: 2, retryDelay: 300, expireInSeconds: 600 },

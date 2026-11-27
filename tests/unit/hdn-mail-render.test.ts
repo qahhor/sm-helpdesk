@@ -53,6 +53,8 @@ const SAMPLES: { [K in MailTemplate]: Omit<Extract<MailData, { template: K }>, k
     staffUrl: 'https://hub.example.test/ru/ai-answer?t=y',
   },
   tez_ack: { template: 'tez_ack', ...ticket, dueOn: '2026-11-30T03:00:00.000Z', startOn: '2026-11-30T03:00:00.000Z', timeZone: 'Asia/Tashkent' },
+  // Обновление по известной проблеме (веха M5c): текст рассылки сотрудника, номер и статус проблемы.
+  problem_update: { template: 'problem_update', ...ticket, body: 'Нашли причину. Исправление в версии **5.12.4**.', problemRef: 'KP-12', problemStatus: 'fixing', closing: false },
 };
 
 const TICKET_TEMPLATES: MailTemplate[] = [
@@ -70,6 +72,7 @@ const TICKET_TEMPLATES: MailTemplate[] = [
   'staff_rule',
   'oncall_rule',
   'staff_csat_low',
+  'problem_update',
 ];
 
 const cases = MAIL_TEMPLATES.flatMap((template) => LOCALES.map((locale) => [template, locale] as const));

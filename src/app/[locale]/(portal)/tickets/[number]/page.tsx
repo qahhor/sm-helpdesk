@@ -167,6 +167,12 @@ export default async function TicketPage({
                 <StatusLabel tone="gray">{t('page.autoReply')}</StatusLabel>
               </>
             )}
+            {m.isProblemUpdate && (
+              <>
+                {' '}
+                <StatusLabel tone="orange">{t('page.problemUpdate')}</StatusLabel>
+              </>
+            )}
           </p>
           <Markdown text={m.body} />
           {files(m.attachments)}

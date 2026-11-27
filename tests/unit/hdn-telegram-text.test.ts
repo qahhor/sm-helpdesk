@@ -24,7 +24,10 @@ test('каждый шаблон и статус даёт своё событие
   expect(event({ template: 'ticket_status', ...ref, status: 'closed', mergedInto: 1050 })).toBe('Объединено с SUP-1050. Переписка продолжится там.');
   expect(event({ template: 'ticket_resolved', ...ref })).toBe('Обращение решено. Оцените ответ или откройте обращение снова.');
   expect(event({ template: 'waiting_reminder', ...ref, closeInDays: 3 })).toBe('Ждём вашего ответа. Без ответа обращение закроется через 3 рабочих дня.');
-  expect([...TELEGRAM_TEMPLATES].sort()).toEqual(['tez_answer', 'ticket_created', 'ticket_reply', 'ticket_resolved', 'ticket_status', 'waiting_reminder']);
+  // Обновление по известной проблеме (веха M5c, FR-NT-14): только номер проблемы, текст рассылки в портале.
+  expect(event({ template: 'problem_update', ...ref, body: 'Текст рассылки', problemRef: 'KP-12', problemStatus: 'fixing', closing: false })).toBe('Обновление по известной проблеме KP-12.');
+  expect(event({ template: 'problem_update', ...ref, body: 'Итог', problemRef: 'KP-12', problemStatus: 'fixed', closing: true })).toBe('Известная проблема KP-12 исправлена. Обращение решено.');
+  expect([...TELEGRAM_TEMPLATES].sort()).toEqual(['problem_update', 'tez_answer', 'ticket_created', 'ticket_reply', 'ticket_resolved', 'ticket_status', 'waiting_reminder']);
 });
 
 test('на языке пользователя: узбекский и английский', () => {

@@ -99,7 +99,8 @@
         "idea_cycle": "The idea of the month shortlist is ready",
         "idea_moderation_due": "Ideas waiting for review over two working days: {count}",
         "idea_dev_task_closed": "The development task of idea I-{idea} is closed",
-        "ai_budget": "{percent, select, 100 {AI spending limit reached: the assistant is off until the end of the month} other {AI spending at 80% of the limit: organisations cut off {orgs}}}"
+        "ai_budget": "{percent, select, 100 {AI spending limit reached: the assistant is off until the end of the month} other {AI spending at 80% of the limit: organisations cut off {orgs}}}",
+        "problem_update": "Known problem update in SUP-{number}"
       },
       "settings": {
         "title": "Emails",
@@ -328,7 +329,8 @@
         },
         "mergedLink": "This request was merged with {number}. We will continue there.",
         "mergedHidden": "This request was merged with another request on the same topic.",
-        "createdByStaff": "A support agent created this request after your call or message."
+        "createdByStaff": "A support agent created this request after your call or message.",
+        "problemUpdate": "Known problem update"
       },
       "files": {
         "add": "File or screenshot",
@@ -1376,7 +1378,8 @@
             "shown_changed": "Known problem visibility to clients changed",
             "signature_added": "Signature added to problem",
             "signature_removed": "Signature removed from problem",
-            "translation_saved": "Problem public text saved"
+            "translation_saved": "Problem public text saved",
+            "broadcast_confirmed": "Known problem broadcast confirmed"
           }
         },
         "words": {
@@ -3788,7 +3791,10 @@
         "already_linked": "The request is already linked to a known problem",
         "ticket_closed": "This request cannot be linked",
         "problem_inactive": "The problem is not active",
-        "too_many": "No more than 100 requests at a time"
+        "too_many": "No more than 100 requests at a time",
+        "translation_required": "There is no text in the language of some recipients: write it or choose to send the original text",
+        "broadcast_closed": "This broadcast is already confirmed",
+        "no_recipients": "There are no open linked requests: nobody to send to"
       },
       "findings": {
         "phone": "phone number",
@@ -3810,7 +3816,33 @@
         "translation": "Text saved",
         "translating": "The translation is being prepared. Refresh the page in a minute",
         "signature_added": "Signature added",
-        "signature_removed": "Signature removed"
+        "signature_removed": "Signature removed",
+        "broadcast_sent": "The broadcast is confirmed and being sent"
+      },
+      "broadcast": {
+        "title": "Write an update to everyone",
+        "closeTitle": "Close the problem",
+        "body": "Update text",
+        "closeBody": "Final text",
+        "prepare": "Check and prepare",
+        "prepareClose": "Prepare closing",
+        "recipients": "Will receive: {tickets, plural, one {# request} other {# requests}}, {orgs, plural, one {# organization} other {# organizations}}",
+        "closeHint": "After you confirm, the problem closes and linked open requests move to \"Resolved\" with this text.",
+        "original": "Text in the author's language ({locale})",
+        "translation": "Text for recipients in {locale}",
+        "machineHint": "Machine translation: check and correct it. What is in the field is sent.",
+        "noMachine": "No translation yet: write it yourself or refresh the page in a minute.",
+        "fallback": "Send the original text to recipients without text in their language",
+        "confirm": "Confirm and send",
+        "confirmClose": "Confirm closing",
+        "alreadySent": "This broadcast is already confirmed.",
+        "delivered": "Delivered {delivered} of {tickets}, organizations: {orgs}",
+        "statuses": {
+          "draft": "Draft",
+          "queued": "Queued",
+          "sending": "Sending",
+          "done": "Sent"
+        }
       }
     }
   },
@@ -4177,6 +4209,18 @@
       "text": "Your request is passed to staff.",
       "dueStart": "We will answer {day} after {time}.",
       "due": "We will answer by {when}."
+    },
+    "problemUpdate": {
+      "heading": "Update on request SUP-{number}",
+      "text": "Update on known problem {problem}. Status: {status}.",
+      "closing": "Known problem {problem} is fixed. The request is resolved: if everything works, confirm it in the portal, if not, reply to this email.",
+      "statuses": {
+        "investigating": "investigating",
+        "cause_found": "cause found",
+        "fixing": "fixing",
+        "fixed": "fixed",
+        "closed": "fixed"
+      }
     }
   },
   "bot": {
@@ -4210,7 +4254,9 @@
       "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}.",
       "tezAnswer": "Tez suggested a solution: {solution}",
       "tezHelped": "Helped",
-      "tezNeedStaff": "Need staff"
+      "tezNeedStaff": "Need staff",
+      "problemUpdate": "Update on known problem {problem}.",
+      "problemClosed": "Known problem {problem} is fixed. The request is resolved."
     },
     "oncallP1": "P1: new urgent request SUP-{number}",
     "oncallP1Org": "P1: new urgent request SUP-{number}, {org}",

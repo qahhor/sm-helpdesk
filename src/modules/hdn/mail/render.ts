@@ -43,6 +43,8 @@ export const MAIL_TEMPLATES = [
   'tez_answer',
   // Подтверждение без Теза при передаче ai_disabled и ai_limit (FR-AI-15).
   'tez_ack',
+  // Обновление по известной проблеме (веха M5c, FR-NT-12): отдельный вид письма со статусом проблемы и ссылкой.
+  'problem_update',
 ] as const;
 export type MailTemplate = (typeof MAIL_TEMPLATES)[number];
 
@@ -96,7 +98,9 @@ export type MailPayload =
       helpedData?: string;
       staffData?: string;
     } & TicketRef)
-  | ({ template: 'tez_ack'; dueOn: string | null; startOn: string | null; timeZone: string } & TicketRef);
+  | ({ template: 'tez_ack'; dueOn: string | null; startOn: string | null; timeZone: string } & TicketRef)
+  // Текст рассылки сотрудника (только он, T23), номер и статус проблемы; closing: итог закрытия, обращение решено.
+  | ({ template: 'problem_update'; body: string; problemRef: string; problemStatus: string; closing: boolean } & TicketRef);
 
 export type MailData = MailPayload & MailCommon;
 
@@ -338,6 +342,21 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>, locale: 
         `<p style="${PARAGRAPH}">${esc(t('tezAnswer.caption'))}</p>`,
       ].join('');
       return { subject: ticketSubject(payload.number, payload.title), heading: t('tezAnswer.heading', { number: payload.number }), text, html, button: open(payload.url), reply: false, signature: true };
+    }
+    case 'problem_update': {
+      const markdown = payload.body.trim();
+      const known = (['investigating', 'cause_found', 'fixing', 'fixed', 'closed'] as const).find((value) => value === payload.problemStatus);
+      const status = known ? t(`problemUpdate.statuses.${known}`) : '';
+      const head = t(payload.closing ? 'problemUpdate.closing' : 'problemUpdate.text', { problem: payload.problemRef, status });
+      return {
+        subject: ticketSubject(payload.number, payload.title),
+        heading: t('problemUpdate.heading', { number: payload.number, problem: payload.problemRef }),
+        text: `${head}\n\n${markdown}`,
+        html: `<p style="${PARAGRAPH}">${esc(head)}</p>${markdownToHtml(markdown, { paragraph: PARAGRAPH, linkColor: LINK_COLOR })}`,
+        button: open(payload.url),
+        reply: true,
+        signature: true,
+      };
     }
     case 'tez_ack': {
       const tz = payload.timeZone;

@@ -25,3 +25,12 @@ export const PROBLEM_NUMBER_MAX = 1_000_000_000;
 
 /** Исправленная проблема видна клиентам на странице проблем столько суток (FR-KP-09). */
 export const FIXED_SHOWN_DAYS = 30;
+
+/** Рассылка (решения 17, 18, 20): обновление или итог закрытия; черновик окна подтверждения, подтверждена, идёт, разослана. */
+export const BROADCAST_KINDS = ['update', 'closing'] as const;
+export type BroadcastKind = (typeof BROADCAST_KINDS)[number];
+export const BROADCAST_STATUSES = ['draft', 'queued', 'sending', 'done'] as const;
+export type BroadcastStatus = (typeof BROADCAST_STATUSES)[number];
+/** Получатели рассылки: привязанные обращения в этих статусах (решение 17). */
+export const BROADCAST_TICKET_STATUSES = ['new', 'in_progress', 'waiting_customer', 'in_development'] as const;
+export const BROADCAST_BODY_MAX = 5000;

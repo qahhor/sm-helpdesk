@@ -84,16 +84,16 @@ export async function setTicketProblemTx(
   });
 }
 
-export type ProblemTicketRow = { ticketId: string; orgId: string; number: number; title: string; status: TicketStatus; locale: string; createdOn: Date };
+export type ProblemTicketRow = { ticketId: string; orgId: string; number: number; title: string; status: TicketStatus; locale: string; createdOn: Date; mergedIntoId: string | null };
 
 /** Обращения проблемы для карточки и рассылки, новые сверху. Объединённые не считаются отдельными (они закрыты навсегда). */
 export async function problemTicketsTx(tx: Tx, problemId: string, opts: { limit?: number } = {}): Promise<ProblemTicketRow[]> {
   return tx
-    .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, number: tickets.number, title: tickets.title, status: tickets.status, locale: tickets.locale, createdOn: tickets.createdOn })
+    .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, number: tickets.number, title: tickets.title, status: tickets.status, locale: tickets.locale, createdOn: tickets.createdOn, mergedIntoId: tickets.mergedIntoId })
     .from(tickets)
     .where(eq(tickets.knownProblemId, problemId))
     .orderBy(sql`${tickets.createdOn} desc`, asc(tickets.number))
-    .limit(opts.limit ?? 500);
+    .limit(opts.limit ?? 5000);
 }
 
 /** Сигнатуры привязанных обращений с числом обращений: из них сотрудник добавляет сигнатуру проблеме (раздел 8.12). */

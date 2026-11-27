@@ -1,8 +1,8 @@
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, integer, pgTable, pgView, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, integer, jsonb, pgTable, pgView, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
 import type { Locale } from '@/i18n/locales';
-import type { ProblemStatus } from './pref';
+import type { BroadcastKind, BroadcastStatus, ProblemStatus } from './pref';
 
 // Модуль hdp: известные проблемы, рассылки, объявления. Таблицы, ограничения, триггеры и политики RLS создаёт миграция
 // drizzle/0098_hdp_problems.sql. Здесь только описание колонок для запросов под ролью hub_app (withActor).
@@ -67,3 +67,24 @@ export const problemsPublic = pgView('hdp_problems_public', {
   publicTitle: text('public_title').notNull(),
   publicBody: text('public_body').notNull(),
 }).existing();
+
+/** Рассылки обновлений и закрытия проблемы (миграция 0101). Клиент не читает. */
+export const broadcasts = pgTable('hdp_broadcasts', {
+  broadcastId: uuid('broadcast_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  problemId: uuid('problem_id').notNull(),
+  authorId: uuid('author_id').notNull(),
+  kind: text('kind').$type<BroadcastKind>().notNull(),
+  sourceLocale: text('source_locale').$type<Locale>().notNull(),
+  body: jsonb('body').$type<Partial<Record<Locale, string>>>().notNull(),
+  machine: jsonb('machine').$type<Partial<Record<Locale, string>>>().notNull().default({}),
+  recipientIds: uuid('recipient_ids').array().notNull().default(sql`'{}'`),
+  recipientsCount: integer('recipients_count').notNull().default(0),
+  orgCount: integer('org_count').notNull().default(0),
+  deliveredCount: integer('delivered_count').notNull().default(0),
+  confirmedOn: timestamp('confirmed_on', { withTimezone: true }),
+  sentOn: timestamp('sent_on', { withTimezone: true }),
+  status: text('status').$type<BroadcastStatus>().notNull().default('draft'),
+  ...stampColumns,
+});

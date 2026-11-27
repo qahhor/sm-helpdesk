@@ -52,3 +52,25 @@ test('31 минута без действий: вход с возвратом н
   await expect(page.getByRole('main').getByLabel('Текст ответа')).toHaveValue('Черновик до перерыва на обед');
   await context.close();
 });
+
+test('обновление страницы без действия человека отметку активности не шлёт (независимая проверка M9, M1)', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await signInStaff(page, staffAccount('l1'));
+  await page.goto('/ru/agent/queues?queue=all');
+  const cookies = await context.cookies();
+  const token = decodeURIComponent(cookies.find((c) => c.name.endsWith('session_token'))?.value ?? '').split('.')[0];
+  // Отметка при открытии страницы ушла (сразу после входа в базу она не пишется: шаг минута); после неё последнее
+  // действие сессии 10 минут назад, следующая отметка записалась бы в базу.
+  await page.waitForLoadState('networkidle');
+  await dbRows(`update auth.session set "staffActiveAt" = now() - interval '10 minutes' where token = $1`, [token]);
+  // F7 обновляет список через router.refresh(); нажатие в пределах минуты после отметки новую отметку не шлёт, и
+  // перерисовка страницы её тоже не шлёт.
+  const refreshed = page.waitForResponse((response) => response.request().headers()['rsc'] === '1');
+  await page.keyboard.press('F7');
+  await refreshed;
+  await page.waitForTimeout(2_000);
+  const [row] = await dbRows<{ stale: boolean }>(`select "staffActiveAt" < now() - interval '9 minutes' as stale from auth.session where token = $1`, [token]);
+  expect(row?.stale).toBe(true);
+  await context.close();
+});

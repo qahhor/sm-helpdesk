@@ -414,7 +414,8 @@ export async function recentTicketIdsTx(tx: Tx, limit: number): Promise<string[]
 /** Ответы людей: публичные сообщения клиента или сотрудника. Автоматические ответы правил пишет система. */
 const REPLY_AUTHORS = { client_replied: 'client', staff_replied: 'staff' } as const;
 /** Изменения по истории обращения. Изменение, сделанное правилом (отметка byRule), правила администратора не запускает. */
-const CHANGE_KINDS = { status_changed: 'status', priority_changed: 'priority', rated: 'rated', sla_breached: 'due' } as const;
+// line_transferred (веха M8b): передача на вторую линию пишет событие истории queue.
+const CHANGE_KINDS = { status_changed: 'status', priority_changed: 'priority', rated: 'rated', sla_breached: 'due', line_transferred: 'queue' } as const;
 
 /**
  * Какие из обращений пережили событие вида kind (пробный прогон правила; волна 5, задача 2). Смотрится история

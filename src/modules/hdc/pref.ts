@@ -446,5 +446,7 @@ export const DOMAIN_EVENT_KINDS = [
   'sla_breached',
   'no_activity',
   'ai_handoff',
+  // Передача на вторую линию (веха M8b, задача 9): событие для AI-сотрудника.
+  'line_transferred',
 ] as const;
 export type DomainEventKind = (typeof DOMAIN_EVENT_KINDS)[number];

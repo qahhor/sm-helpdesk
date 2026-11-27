@@ -28,7 +28,7 @@ import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/m
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, type NoActivityOptions, runNoActivityRules } from '@/modules/hdw/api/engine';
 import { runCandidateJob, runCandidatesEmbed, runCandidatesSweep } from '@/modules/hda/api/candidates';
-import { runSpikeDetection } from '@/modules/hda/api/agent-jobs';
+import { cleanupAgentData, dispatchAgentEvents, handleAgentEvent, runSpikeDetection } from '@/modules/hda/api/agent-jobs';
 import { syncDevTasks } from '@/modules/hdw/api/dev-task-jobs';
 import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
@@ -48,6 +48,9 @@ export const SCHEDULES = [
   // Пределы расходов на AI (план M5b, решение 11): раз в 10 минут.
   // Всплеск сигнатуры для AI-сотрудника (веха M8b, задача 8, решение 25): раз в 5 минут.
   { name: 'agent.spikes', cron: '*/5 * * * *', tz: 'UTC' },
+  // События для AI-сотрудника (задача 9, решение 26): отправка раз в минуту, ночная очистка в 03:40 по Ташкенту.
+  { name: 'agent.events_dispatch', cron: '* * * * *', tz: 'UTC' },
+  { name: 'agent.cleanup', cron: '40 3 * * *', tz: 'Asia/Tashkent' },
   { name: 'ai.budget', cron: '*/10 * * * *', tz: 'UTC' },
   // Сторожевая проверка помощника (план M5b, решение 5): раз в минуту по всем обращениям у помощника.
   { name: 'ai.watchdog', cron: '* * * * *', tz: 'UTC' },
@@ -130,6 +133,8 @@ export async function automationTick(system: SystemActor, state: AutomationState
       async (tx, event) => {
         await handleRuleEvent(tx, event, run);
         await handleWebhookEvent(tx, event);
+        // События для AI-сотрудника (веха M8b, задача 9): своя точка сохранения, сбой не откатывает событие.
+        await handleAgentEvent(tx, event);
       },
       { stopped: opts.stopped },
     );
@@ -283,6 +288,14 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('agent.spikes', polling, () => timedJob('agent.spikes', async () => {
     const { detected } = await runSpikeDetection(actor('agent.spikes'));
     if (detected > 0) console.info(`AI-сотрудник: всплесков сигнатур найдено ${detected}`);
+  }));
+  await boss.work('agent.events_dispatch', polling, () => timedJob('agent.events_dispatch', async () => {
+    const { sent, failed } = await dispatchAgentEvents(actor('agent.events_dispatch'));
+    if (sent + failed > 0) console.info(`AI-сотрудник: событий отправлено ${sent}, неудачно ${failed}`);
+  }));
+  await boss.work('agent.cleanup', polling, () => timedJob('agent.cleanup', async () => {
+    const removed = await cleanupAgentData(actor('agent.cleanup'));
+    console.info(`AI-сотрудник: удалено строк журнала вызовов ${removed.calls}, событий ${removed.events}, токенов запуска ${removed.runTokens}`);
   }));
   await boss.work('ai.candidates_sweep', polling, () => timedJob('ai.candidates_sweep', async () => {
     const { queued } = await runCandidatesSweep(actor('ai.candidates_sweep'));

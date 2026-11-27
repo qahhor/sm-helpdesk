@@ -280,6 +280,20 @@ const schema = z
       .trim()
       .refine((value) => value.split(',').every((part) => isCidr(part.trim())), { error: 'ожидаются адреса или сети IPv4 и IPv6 через запятую, например 10.0.3.0/24' })
       .optional(),
+    // События для AI-сотрудника (ТЗ 13, FR-AGT-08; план M8b, решение 26): адрес приёма событий Hermes Agent и секрет
+    // подписи X-Hub-Signature. Задаются парой; без адреса события агенту не ставятся.
+    AGENT_WEBHOOK_URL: z
+      .string()
+      .trim()
+      .refine(
+        (value) => {
+          const url = toUrl(value);
+          return url !== null && (url.protocol === 'https:' || url.protocol === 'http:') && url.username === '' && url.password === '' && url.hash === '';
+        },
+        { error: 'ожидается адрес вида https://hermes.example.com/events без учётной записи' },
+      )
+      .optional(),
+    AGENT_WEBHOOK_SECRET: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
   })
   .superRefine((value, ctx) => {
     const host = new URL(value.HUB_URL).hostname;
@@ -368,6 +382,15 @@ const schema = z
     }
     if (value.DEV_TRACKER_WEBHOOK_SECRET && [value.BETTER_AUTH_SECRET, value.ENCRYPTION_KEY, value.DEV_TRACKER_TOKEN].includes(value.DEV_TRACKER_WEBHOOK_SECRET))
       ctx.addIssue({ code: 'custom', path: ['DEV_TRACKER_WEBHOOK_SECRET'], message: 'не должен совпадать с BETTER_AUTH_SECRET, ENCRYPTION_KEY и DEV_TRACKER_TOKEN' });
+    if (value.AGENT_WEBHOOK_URL && !value.AGENT_WEBHOOK_SECRET)
+      ctx.addIssue({ code: 'custom', path: ['AGENT_WEBHOOK_SECRET'], message: 'не задан, а AGENT_WEBHOOK_URL задан: задаются парой' });
+    if (value.AGENT_WEBHOOK_SECRET && !value.AGENT_WEBHOOK_URL)
+      ctx.addIssue({ code: 'custom', path: ['AGENT_WEBHOOK_URL'], message: 'не задан, а AGENT_WEBHOOK_SECRET задан: задаются парой' });
+    const agentHook = value.AGENT_WEBHOOK_URL ? toUrl(value.AGENT_WEBHOOK_URL) : null;
+    if (agentHook && agentHook.protocol !== 'https:' && !(LOCAL_HOSTS.has(host) && LOCAL_HOSTS.has(agentHook.hostname)))
+      ctx.addIssue({ code: 'custom', path: ['AGENT_WEBHOOK_URL'], message: 'http допускается только для localhost и только когда портал сам работает на localhost' });
+    if (value.AGENT_WEBHOOK_SECRET && [value.BETTER_AUTH_SECRET, value.ENCRYPTION_KEY].includes(value.AGENT_WEBHOOK_SECRET))
+      ctx.addIssue({ code: 'custom', path: ['AGENT_WEBHOOK_SECRET'], message: 'не должен совпадать с BETTER_AUTH_SECRET и ENCRYPTION_KEY' });
     if (value.HUB_SHOWCASE === '1' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({
         code: 'custom',

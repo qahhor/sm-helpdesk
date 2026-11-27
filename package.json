@@ -29,6 +29,7 @@
     "dev:oidc": "node scripts/mock-oidc.mjs",
     "dev:telegram": "node scripts/mock-telegram.mjs",
     "dev:tracker": "node scripts/mock-tracker.mjs",
+    "dev:agent": "node scripts/mock-agent.mjs",
     "dev:host": "node --env-file-if-exists=.env scripts/mock-smartup-host.mjs",
     "widget:build": "node scripts/widget-build.mjs"
   },

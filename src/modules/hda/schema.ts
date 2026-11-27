@@ -238,6 +238,24 @@ export const signatureSpikes = pgTable('hda_signature_spikes', {
   ...stampColumns,
 });
 
+/** Исходящая очередь событий для AI-сотрудника (веха M8b, задача 9; миграция 0115). Только система. */
+export const agentEvents = pgTable('hda_agent_events', {
+  eventId: uuid('event_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ticketId: uuid('ticket_id'),
+  spikeId: uuid('spike_id'),
+  runTokenId: uuid('run_token_id'),
+  kind: text('kind').notNull(),
+  body: jsonb('body').$type<Record<string, unknown>>().notNull(),
+  status: text('status').$type<'queued' | 'sent' | 'failed'>().notNull().default('queued'),
+  attempts: integer('attempts').notNull().default(0),
+  nextAttemptOn: moment('next_attempt_on').notNull().defaultNow(),
+  lastStatus: integer('last_status'),
+  sentOn: moment('sent_on'),
+  ...stampColumns,
+});
+
 export type AgentTokenRow = typeof agentTokens.$inferSelect;
 export type AgentToolCallRow = typeof agentToolCalls.$inferSelect;
 export type AgentReportRow = typeof agentReports.$inferSelect;

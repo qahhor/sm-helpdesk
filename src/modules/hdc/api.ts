@@ -41,6 +41,7 @@ export {
   wakeAutomation,
 } from './events';
 export { DOMAIN_EVENT_KINDS, type DomainEventKind } from './pref';
+export { DELIVERY_HEADER, EVENT_HEADER, SIGNATURE_HEADER, signatureHeader } from './webhook-sign';
 // Сигналы дежурным о состоянии портала (ТЗ 13.8).
 export { type ArchiveState, archiveFailing, archiveState, claimOpsAlert, failedJobsSince, failedStaffSignIns, noteStaffSignInFailure, OPS_ALERT_EVERY_MS } from './ops-alerts';
 // Наблюдение без внешних сервисов (план подготовки M9, задача 3): отметка фонового процесса и отметки резервных копий.

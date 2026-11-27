@@ -5,11 +5,13 @@ import { getEnv } from '@/env';
 import { logEvent } from '@/lib/log';
 import { type StaffContext, wakeAutomation, writeAudit } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
+import type { Tx } from '@/db/client';
+import { problemForDevTaskTx } from '@/modules/hdp/api/dev-task';
 import { devHandOverSourceTx, devHandOverTx, devLockTicketTx, devTaskHistoryTx, devTicketRefTx } from '@/modules/hdt/api/dev-tasks';
 import { DEVELOPMENT_ROLES } from '@/modules/hdt/pref';
 import { LOOPBACK_HOSTS } from '@/security/outbound';
 import { devTaskUrlOrNull } from '../dev-task-url';
-import { applyDevTaskStatusTx, type DevTask, devTaskByRefTx, devTaskOfTicketTx, type LinkInput, linkTicketTx, lockDevTaskTx, unlinkTicketTx } from '../core/dev-tasks';
+import { applyDevTaskStatusTx, type DevTask, devTaskByRefTx, devTaskOfProblemTx, devTaskOfTicketTx, type LinkInput, linkProblemTx, linkTicketTx, lockDevTaskTx, unlinkProblemTx, unlinkTicketTx } from '../core/dev-tasks';
 import { devTrackerMode, getDevTracker } from '../dev-tracker';
 import { HdwError } from '../error';
 import { DEV_TASK_REF_MAX, DEV_TASK_STATUSES, DEV_TASK_TITLE_MAX, DEV_TASK_VERSION_MAX } from '../pref';
@@ -237,4 +239,106 @@ export async function readDevTaskForTicket(ctx: StaffContext, number: unknown): 
     void _closedNotifiedOn;
     return { task, otherTickets: found.otherTickets };
   });
+}
+
+// --- Задача разработки у известной проблемы (ТЗ FR-KP-11, FR-DEV-06; план M5c, задача 8, решение 25) ---
+
+const problemNumber = z.number().int().positive().max(999_999_999_999);
+const problemManualInput = z.strictObject({ problemNumber, externalId, url: z.string().max(4000), title: z.string().trim().min(1).max(DEV_TASK_TITLE_MAX) });
+const problemApiInput = z.strictObject({ problemNumber, externalId: externalId.optional() });
+
+/** Привязка задачи к проблеме одной транзакцией: проблема заблокирована, задача найдена или создана, журнал аудита. */
+async function linkProblem(ctx: StaffContext, number: number, link: LinkInput): Promise<{ devTaskId: string; created: boolean }> {
+  return withActor(ctx.actor, async (tx) => {
+    const problem = await problemForDevTaskTx(tx, number, { lock: true });
+    const { task, created } = await linkProblemTx(tx, problem.problemId, link);
+    // В журнале номер задачи без адреса: в адресе бывают ключи доступа.
+    await writeAudit(tx, { action: 'devtask.linked', objectType: 'known_problem', objectId: problem.problemId, diff: { devTaskId: task.devTaskId, tracker: task.tracker, ref: task.externalId, created } });
+    return { devTaskId: task.devTaskId, created };
+  });
+}
+
+/**
+ * Привязать известную проблему к задаче разработки, существующей или новой (решение 25). Те же роли и тот же порядок,
+ * что у передачи обращения: ручной режим берёт номер, ссылку и название из формы; режим API находит задачу по номеру
+ * или создаёт её в таск-менеджере из внутреннего названия проблемы (это внутренняя система Smartup; публичный текст и
+ * обращения клиентов туда не уходят). Отказы: forbidden, invalid_input, invalid_url, not_found, already_linked,
+ * task_closed, task_not_found, tracker_unavailable. Статус проблемы не меняется.
+ */
+export async function linkDevTaskToProblem(ctx: StaffContext, input: unknown): Promise<{ devTaskId: string; created: boolean }> {
+  requireDeveloper(ctx);
+  if (devTrackerMode() !== 'smartup') {
+    const data = parse(problemManualInput, input);
+    const url = devTaskUrlOrNull(data.url, localPortal());
+    if (!url) throw new HdwError('invalid_url');
+    return linkProblem(ctx, data.problemNumber, { tracker: 'manual', externalId: data.externalId, url, title: data.title });
+  }
+  const data = parse(problemApiInput, input);
+  const { problem, known } = await withActor(ctx.actor, async (tx) => {
+    const found = await problemForDevTaskTx(tx, data.problemNumber);
+    if (await devTaskOfProblemTx(tx, found.problemId)) throw new HdwError('already_linked');
+    return { problem: found, known: data.externalId ? await devTaskByRefTx(tx, 'smartup', data.externalId) : null };
+  });
+  if (known) return linkProblem(ctx, problem.number, { tracker: 'smartup', externalId: known.externalId, url: known.url, title: known.title });
+  const tracker = getDevTracker();
+  if (data.externalId) {
+    let remote: Awaited<ReturnType<typeof tracker.getTask>>;
+    try {
+      remote = await tracker.getTask(data.externalId);
+    } catch {
+      throw new HdwError('tracker_unavailable');
+    }
+    if (!remote) throw new HdwError('task_not_found');
+    const url = devTaskUrlOrNull(remote.url, localPortal());
+    if (!url) throw new HdwError('tracker_unavailable');
+    return linkProblem(ctx, problem.number, { tracker: 'smartup', externalId: remote.ref, url, title: '', status: remote.status, version: remote.version ?? null });
+  }
+  const sourceUrl = `${getEnv().HUB_URL}/ru/agent/problems/${problem.number}`;
+  let created: { ref: string; url: string };
+  try {
+    created = await tracker.createTask({ title: problem.internalTitle, descriptionMd: `${problem.internalTitle}\n\n---\nSmartup Hub: ${sourceUrl}`, kind: 'bug', sourceUrl });
+  } catch {
+    throw new HdwError('tracker_unavailable');
+  }
+  try {
+    const url = devTaskUrlOrNull(created.url, localPortal());
+    if (!url) throw new HdwError('tracker_unavailable');
+    return await linkProblem(ctx, problem.number, { tracker: 'smartup', externalId: created.ref, url, title: problem.internalTitle.trim().slice(0, DEV_TASK_TITLE_MAX).trim() });
+  } catch (error) {
+    logEvent('error', 'devtask.orphan', { ref: created.ref, problemNumber: problem.number });
+    throw error;
+  }
+}
+
+/** Снять привязку проблемы к задаче. Привязки нет: not_found. Задача остаётся. */
+export async function unlinkDevTaskFromProblem(ctx: StaffContext, input: unknown): Promise<void> {
+  requireDeveloper(ctx);
+  const data = parse(z.strictObject({ problemNumber }), input);
+  await withActor(ctx.actor, async (tx) => {
+    const problem = await problemForDevTaskTx(tx, data.problemNumber, { lock: true });
+    const task = await unlinkProblemTx(tx, problem.problemId);
+    if (!task) throw new HdwError('not_found');
+    await writeAudit(tx, { action: 'devtask.unlinked', objectType: 'known_problem', objectId: problem.problemId, diff: { devTaskId: task.devTaskId, tracker: task.tracker, ref: task.externalId } });
+  });
+}
+
+/** Задача разработки проблемы для карточки. Читает любой сотрудник. Нет проблемы или привязки: null. */
+export async function readDevTaskForProblem(ctx: StaffContext, number: unknown): Promise<DevTaskView | null> {
+  if (ctx.actor.type !== 'staff') throw new HdwError('forbidden');
+  const parsed = problemNumber.safeParse(number);
+  if (!parsed.success) return null;
+  return withActor(ctx.actor, async (tx) => {
+    const problem = await problemForDevTaskTx(tx, parsed.data).catch(() => null);
+    if (!problem) return null;
+    const found = await devTaskOfProblemTx(tx, problem.problemId);
+    if (!found) return null;
+    const { closedNotifiedOn: _closedNotifiedOn, ...task } = found;
+    void _closedNotifiedOn;
+    return { task, otherTickets: [] };
+  });
+}
+
+/** Версия задачи разработки проблемы для итога закрытия fixed_in_version (решения 20, 25). Подключает src/wiring.ts. */
+export async function devTaskVersionOfProblemTx(tx: Tx, problemId: string): Promise<string | null> {
+  return (await devTaskOfProblemTx(tx, problemId))?.version ?? null;
 }

@@ -9,6 +9,7 @@ import { comparePlainInvariants } from '@/modules/hdk/api/text-checks';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 import { problemTicketsTx } from '@/modules/hdt/api/known-problems';
 import { broadcastDeliveredTx, postProblemMessageTx } from '@/modules/hdt/api/problem-messages';
+import { problemDevTaskVersionTx } from '../dev-task-version';
 import { requireProblemTx } from '../core/problems';
 import { broadcasts } from '../schema';
 import { problemRef } from '../util';
@@ -41,10 +42,12 @@ export async function runBroadcastJob(system: SystemActor, data: unknown): Promi
     if (row.status === 'queued') await tx.update(broadcasts).set({ status: 'sending' }).where(eq(broadcasts.broadcastId, broadcastId));
     const problem = await requireProblemTx(tx, { problemId: row.problemId });
     const locales = new Map((await problemTicketsTx(tx, row.problemId)).map((t) => [t.ticketId, t.locale]));
-    return { row, problem, locales };
+    // Итог закрытия (решения 20, 25): версия задачи разработки проблемы, если она известна, иначе "Решено".
+    const version = row.kind === 'closing' ? await problemDevTaskVersionTx(tx, row.problemId) : null;
+    return { row, problem, locales, version };
   });
   if (!loaded) return { delivered: 0, skipped: 0 };
-  const { row, problem, locales } = loaded;
+  const { row, problem, locales, version } = loaded;
   const original = row.body[row.sourceLocale] ?? '';
   let delivered = 0;
   let skipped = 0;
@@ -61,8 +64,7 @@ export async function runBroadcastJob(system: SystemActor, data: unknown): Promi
         body,
         problemRef: problemRef(problem.number),
         problemStatus: row.kind === 'closing' ? 'fixed' : problem.status,
-        // Версия из задачи разработки проблемы появится с задачей 8: до неё итог "Решено".
-        resolve: row.kind === 'closing' ? { resolutionType: 'solved', version: null } : null,
+        resolve: row.kind === 'closing' ? (version ? { resolutionType: 'fixed_in_version', version } : { resolutionType: 'solved', version: null }) : null,
       }),
     );
     if (result === 'delivered') delivered += 1;

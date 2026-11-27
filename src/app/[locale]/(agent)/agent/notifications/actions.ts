@@ -21,6 +21,8 @@ export async function openStaffNotificationAction(formData: FormData): Promise<v
   // Идеи (веха M7): сводка модерации ведёт во вкладку "Модерация", уведомление идеи на её карточку.
   if (row?.kind === 'idea_moderation_due') redirect(`/${locale}/agent/ideas?tab=moderation`);
   if (row?.kind === 'idea_cycle') redirect(`/${locale}/agent/ideas/cycles`);
+  // Задача разработки известной проблемы (веха M5c, решение 25): на карточку проблемы.
+  if (row?.kind === 'problem_dev_task' && typeof row.payload.problem === 'number') redirect(`/${locale}/agent/problems/${row.payload.problem}`);
   if (row && typeof row.payload.idea === 'number') redirect(`/${locale}/agent/ideas/${row.payload.idea}`);
   redirect(row?.ticketNumber ? `/${locale}/agent/tickets/SUP-${row.ticketNumber}` : `/${locale}/agent/notifications`);
 }

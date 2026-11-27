@@ -100,7 +100,8 @@
         "idea_moderation_due": "Ideas waiting for review over two working days: {count}",
         "idea_dev_task_closed": "The development task of idea I-{idea} is closed",
         "ai_budget": "{percent, select, 100 {AI spending limit reached: the assistant is off until the end of the month} other {AI spending at 80% of the limit: organisations cut off {orgs}}}",
-        "problem_update": "Known problem update in SUP-{number}"
+        "problem_update": "Known problem update in SUP-{number}",
+        "problem_dev_task": "Development task {ref} changed status: update the status of problem KP-{problem}"
       },
       "settings": {
         "title": "Emails",
@@ -3850,7 +3851,10 @@
         "translating": "The translation is being prepared. Refresh the page in a minute",
         "signature_added": "Signature added",
         "signature_removed": "Signature removed",
-        "broadcast_sent": "The broadcast is confirmed and being sent"
+        "broadcast_sent": "The broadcast is confirmed and being sent",
+        "dev_linked": "Development task linked",
+        "dev_unlinked": "Development task unlinked",
+        "dev_status": "Task status saved"
       },
       "broadcast": {
         "title": "Write an update to everyone",
@@ -3875,6 +3879,26 @@
           "queued": "Queued",
           "sending": "Sending",
           "done": "Sent"
+        }
+      },
+      "devTask": {
+        "none": "No task",
+        "open": "Link a development task",
+        "dialogTitle": "Development task of the problem",
+        "dialogText": "The problem status will not change. Clients see neither the task number nor the link.",
+        "apiText": "The portal will create a task in the Smartup task manager with the internal problem title and a link to the card. Public text and client requests are not sent.",
+        "submit": "Link",
+        "submitApi": "Create task and link",
+        "refHint": "As in the task manager, for example DEV-501. If a task with this number exists, the problem is linked to it.",
+        "statusHint": "When the status changes, the problem owner gets a notification.",
+        "errors": {
+          "invalid_url": "The task link must start with https://",
+          "already_linked": "The problem already has a development task",
+          "task_closed": "This task is already closed",
+          "not_manual": "The status of this task comes from the task manager",
+          "task_not_found": "No task with this number",
+          "tracker_unavailable": "The task manager did not respond. Try again later",
+          "other": "This action is available to the second line, Customer Care and the administrator"
         }
       }
     },
@@ -4299,6 +4323,17 @@
       "outage": "There is an outage right now. We know about it.",
       "workaround": "Workaround",
       "after": "A support specialist has your request. We will let you know as soon as it is fixed."
+    },
+    "staffProblemDevTask": {
+      "subject": "Development task of problem {problem}",
+      "text": "Development task {ref} changed status: {status}. Update the status of known problem {problem} and, if needed, write an update to clients.",
+      "version": "Version with the fix: {version}",
+      "statuses": {
+        "todo": "not started",
+        "in_progress": "in progress",
+        "done": "done",
+        "cancelled": "cancelled"
+      }
     }
   },
   "bot": {

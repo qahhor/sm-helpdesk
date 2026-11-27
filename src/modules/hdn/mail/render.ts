@@ -47,6 +47,8 @@ export const MAIL_TEMPLATES = [
   'problem_update',
   // Тез об известной проблеме или сбое (веха M5c, решения 22, 23): публичный текст сотрудника, затем передача.
   'tez_notice',
+  // Владельцу известной проблемы: статус её задачи разработки сменился, обновите статус проблемы (веха M5c, решение 25).
+  'staff_problem_dev_task',
 ] as const;
 export type MailTemplate = (typeof MAIL_TEMPLATES)[number];
 
@@ -104,6 +106,7 @@ export type MailPayload =
   // Текст рассылки сотрудника (только он, T23), номер и статус проблемы; closing: итог закрытия, обращение решено.
   | ({ template: 'problem_update'; body: string; problemRef: string; problemStatus: string; closing: boolean } & TicketRef)
   // Тез: известная проблема (номер, статус, обходной путь) или сбой. Заголовок и текст только сотрудника (решения 22, 23).
+  | { template: 'staff_problem_dev_task'; problem: string; ref: string; status: string; version: string | null; url: string }
   | ({ template: 'tez_notice'; notice: 'known_problem' | 'outage'; noticeTitle: string; noticeBody: string; problemRef?: string; problemStatus?: string; workaroundUrl?: string } & TicketRef);
 
 export type MailData = MailPayload & MailCommon;
@@ -384,8 +387,20 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>, locale: 
           `<p style="${PARAGRAPH}">${esc(t('tezNotice.after'))}</p>`,
         ].join(''),
         button: open(payload.url),
-        reply: true,
+        reply: false,
         signature: true,
+      };
+    }
+    case 'staff_problem_dev_task': {
+      const known = (['todo', 'in_progress', 'done', 'cancelled'] as const).find((value) => value === payload.status);
+      const status = known ? t(`staffProblemDevTask.statuses.${known}`) : '';
+      return {
+        subject: t('staffProblemDevTask.subject', { problem: payload.problem }),
+        heading: t('staffProblemDevTask.subject', { problem: payload.problem }),
+        text: [t('staffProblemDevTask.text', { ref: noLinks(payload.ref, NAME_MAX), problem: payload.problem, status }), payload.version ? t('staffProblemDevTask.version', { version: noLinks(payload.version, NAME_MAX) }) : ''].filter(Boolean).join('\n\n'),
+        button: open(payload.url),
+        reply: false,
+        signature: false,
       };
     }
     case 'tez_ack': {

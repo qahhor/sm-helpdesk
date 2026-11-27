@@ -55,6 +55,8 @@ const SAMPLES: { [K in MailTemplate]: Omit<Extract<MailData, { template: K }>, k
   tez_ack: { template: 'tez_ack', ...ticket, dueOn: '2026-11-30T03:00:00.000Z', startOn: '2026-11-30T03:00:00.000Z', timeZone: 'Asia/Tashkent' },
   // Обновление по известной проблеме (веха M5c): текст рассылки сотрудника, номер и статус проблемы.
   problem_update: { template: 'problem_update', ...ticket, body: 'Нашли причину. Исправление в версии **5.12.4**.', problemRef: 'KP-12', problemStatus: 'fixing', closing: false },
+  // Владельцу проблемы: статус задачи разработки сменился (веха M5c, решение 25).
+  staff_problem_dev_task: { template: 'staff_problem_dev_task', problem: 'KP-12', ref: 'DEV-501', status: 'done', version: '5.12.4', url: 'https://hub.example.test/ru/agent/problems/12' },
   // Тез об известной проблеме (веха M5c, решение 22): публичный текст сотрудника, номер, статус, обходной путь.
   tez_notice: { template: 'tez_notice', ...ticket, notice: 'known_problem', noticeTitle: 'Не проводятся накладные', noticeBody: 'Исправляем. Пока проводите через документ.', problemRef: 'KP-12', problemStatus: 'fixing', workaroundUrl: 'https://hub.example.test/ru/help/a/7-provesti' },
 };

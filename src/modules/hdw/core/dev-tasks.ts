@@ -3,6 +3,7 @@ import { and, asc, eq, isNotNull, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import type { StaffActor } from '@/db/with-actor';
 import { writeAudit } from '@/modules/hdc/api';
+import { problemDevTaskChangedTx } from '@/modules/hdp/api/dev-task';
 import { devTaskClosedTx, ticketNumbersTx } from '@/modules/hdt/api/dev-tasks';
 import { HdwError } from '../error';
 import { DEV_TASK_CLOSED, type DevTaskStatus, type DevTrackerKind } from '../pref';
@@ -116,6 +117,33 @@ export async function linkIdeaTx(tx: Tx, ideaId: string, input: LinkInput): Prom
   return { task, created };
 }
 
+/**
+ * Привязать известную проблему к задаче (ТЗ FR-KP-11, FR-DEV-06; план M5c, решение 25). Строка без организации:
+ * проблема общая для клиентов всех организаций. У проблемы одна задача: already_linked. Строку проблемы вызывающий
+ * уже заблокировал, привязку ставят те, кто ведёт проблемы (политика hdw_dev_task_links_problem_insert, миграция 0105).
+ */
+export async function linkProblemTx(tx: Tx, problemId: string, input: LinkInput): Promise<{ task: DevTask; created: boolean }> {
+  const [linked] = await tx.select({ linkId: devTaskLinks.linkId }).from(devTaskLinks).where(eq(devTaskLinks.knownProblemId, problemId)).limit(1);
+  if (linked) throw new HdwError('already_linked');
+  const { task, created } = await openTaskForLinkTx(tx, input);
+  await tx.insert(devTaskLinks).values({ orgId: null, devTaskId: task.devTaskId, knownProblemId: problemId });
+  return { task, created };
+}
+
+/** Снять привязку проблемы. Возвращает задачу, к которой она была привязана; привязки нет: null. */
+export async function unlinkProblemTx(tx: Tx, problemId: string): Promise<DevTask | null> {
+  const [removed] = await tx.delete(devTaskLinks).where(eq(devTaskLinks.knownProblemId, problemId)).returning({ devTaskId: devTaskLinks.devTaskId });
+  if (!removed) return null;
+  const [task] = await tx.select(columns).from(devTasks).where(eq(devTasks.devTaskId, removed.devTaskId)).limit(1);
+  return task ?? null;
+}
+
+/** Задача разработки известной проблемы. Привязки нет: null. */
+export async function devTaskOfProblemTx(tx: Tx, problemId: string): Promise<DevTask | null> {
+  const [row] = await tx.select(columns).from(devTaskLinks).innerJoin(devTasks, eq(devTasks.devTaskId, devTaskLinks.devTaskId)).where(eq(devTaskLinks.knownProblemId, problemId)).limit(1);
+  return row ?? null;
+}
+
 /** Задача разработки идеи. Привязки нет: null. */
 export async function devTaskOfIdeaTx(tx: Tx, ideaId: string): Promise<DevTask | null> {
   const [row] = await tx.select(columns).from(devTaskLinks).innerJoin(devTasks, eq(devTasks.devTaskId, devTaskLinks.devTaskId)).where(eq(devTaskLinks.ideaId, ideaId)).limit(1);
@@ -187,12 +215,16 @@ export async function applyDevTaskStatusTx(tx: Tx, task: DevTask, change: Status
       objectId: task.devTaskId,
       diff: { from: task.status, to: change.status, ...(version && version !== task.version ? { version } : {}) },
     });
-  if (!closed || task.closedNotifiedOn !== null) return { changed, reminded: 0 };
-  const links = await tx.select({ ticketId: devTaskLinks.ticketId, ideaId: devTaskLinks.ideaId }).from(devTaskLinks).where(eq(devTaskLinks.devTaskId, task.devTaskId));
+  const links = await tx.select({ ticketId: devTaskLinks.ticketId, ideaId: devTaskLinks.ideaId, knownProblemId: devTaskLinks.knownProblemId }).from(devTaskLinks).where(eq(devTaskLinks.devTaskId, task.devTaskId));
+  // Известные проблемы этой задачи (план M5c, решение 25): при любой смене статуса или версии владельцу проблемы
+  // уведомление "обновите статус проблемы"; клиентам ничего, статус проблемы не меняется.
+  const problemIds = links.flatMap((link) => (link.knownProblemId ? [link.knownProblemId] : []));
+  const problemsNotified = changed && problemIds.length > 0 ? await problemDevTaskChangedTx(tx, problemIds, { ref: task.externalId, status: change.status, version }, actor?.userId ?? null) : 0;
+  if (!closed || task.closedNotifiedOn !== null) return { changed, reminded: problemsNotified };
   const closedTask = { ref: task.externalId, status: change.status, version };
   const reminded = await devTaskClosedTx(tx, links.flatMap((link) => (link.ticketId ? [link.ticketId] : [])), closedTask, actor);
   // Идеи этой задачи (план M7, решение 18): статус идеи не меняется, модуль идей уведомляет роль product.
   const ideaIds = links.flatMap((link) => (link.ideaId ? [link.ideaId] : []));
   const ideasNotified = ideaIds.length > 0 ? await ideaDevTaskClosedTx(tx, ideaIds, closedTask) : 0;
-  return { changed, reminded: reminded + ideasNotified };
+  return { changed, reminded: reminded + ideasNotified + problemsNotified };
 }

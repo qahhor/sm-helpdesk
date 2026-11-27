@@ -1,8 +1,13 @@
 import { beforeEach, expect, test } from 'vitest';
 import { getAgentTicket, getTicket, setStatus, takeTicket } from '@/modules/hdt/api';
-import { devTrackerMode, readDevTaskForTicket, sendToDevelopment, setDevTaskStatus, unlinkFromDevelopment } from '@/modules/hdw/api/dev-tasks';
+import { devTrackerMode, linkDevTaskToProblem, readDevTaskForProblem, readDevTaskForTicket, sendToDevelopment, setDevTaskStatus, unlinkDevTaskFromProblem, unlinkFromDevelopment } from '@/modules/hdw/api/dev-tasks';
+import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
+import { confirmBroadcast, prepareBroadcast } from '@/modules/hdp/api/broadcasts';
+import { runBroadcastJob } from '@/modules/hdp/api/broadcast-jobs';
+import { linkTicketToProblem } from '@/modules/hdp/api/links';
+import { createProblem, saveProblemTranslation } from '@/modules/hdp/api/problems';
 import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
-import { asActor, pools } from './helpers/db';
+import { asActor, pools, system } from './helpers/db';
 import { type Fixture, seedTwoOrgs, type TicketRef } from './isolation/fixture';
 
 // Передача в разработку, ручной режим (ТЗ 7.9, FR-DEV-01, 02, 05, 06, сценарий S4; план M8, задача 7, решение 12).
@@ -284,4 +289,78 @@ test('клиент не видит ничего: таблицы задач за�
   // Сотрудник запись истории видит.
   const agent = await getAgentTicket(l2, t.number);
   expect(agent?.timeline.filter((e) => e.type === 'event' && e.kind === 'dev_task').map((e) => (e.type === 'event' ? e.payload.action : null))).toEqual(['linked', 'closed']);
+});
+
+// --- Задача разработки у известной проблемы (ТЗ FR-KP-11, FR-DEV-06; план M5c, задача 8, решение 25) ---
+
+const problemRow = (number: number) => pools.root.query(`select problem_id, status, owner_id from hdp_problems where number = $1`, [number]).then((r) => r.rows[0]);
+
+test('задача привязывается к проблеме новой или существующей; ровно одно из обращения, идеи, проблемы; права как у передачи', async () => {
+  const { number } = await createProblem(l2, { internalTitle: 'Накладные не проводятся' });
+  const { number: other } = await createProblem(l2, { internalTitle: 'Другая' });
+  expect(await readDevTaskForProblem(l2, number)).toBeNull();
+  const linked = await linkDevTaskToProblem(l2, { problemNumber: number, ...task() });
+  expect(linked.created).toBe(true);
+  expect(await readDevTaskForProblem(l1, number)).toMatchObject({ task: { externalId: 'DEV-501', status: 'todo', tracker: 'manual' }, otherTickets: [] });
+  // Вторая проблема с тем же номером задачи привязывается к ней же, адрес и название второй формы не берутся.
+  expect(await linkDevTaskToProblem(care, { problemNumber: other, externalId: 'dev-501', url: 'https://tracker.smartup.example/x', title: 'Другое' })).toMatchObject({ devTaskId: linked.devTaskId, created: false });
+  await expect(linkDevTaskToProblem(l2, { problemNumber: number, ...task('DEV-777') })).rejects.toMatchObject({ code: 'already_linked' });
+  await expect(linkDevTaskToProblem(l1, { problemNumber: number, ...task('DEV-778') })).rejects.toMatchObject({ code: 'forbidden' });
+  await expect(linkDevTaskToProblem(staffCtx(await staffWithRole('product')), { problemNumber: number, ...task('DEV-779') })).rejects.toMatchObject({ code: 'forbidden' });
+  const { problem_id: problemId } = await problemRow(number);
+  expect(await auditOf(problemId, 'devtask.')).toEqual([
+    { action: 'devtask.linked', actor_type: 'staff', actor_id: l2.user.id, object_type: 'known_problem', diff: { devTaskId: linked.devTaskId, tracker: 'manual', ref: 'DEV-501', created: true } },
+  ]);
+  // Проверка базы: строка с обращением и проблемой сразу не принимается.
+  await expect(
+    pools.root.query(`insert into hdw_dev_task_links (org_id, dev_task_id, ticket_id, known_problem_id) values ($1, $2, $3, $4)`, [f.orgA.orgId, linked.devTaskId, f.tickets.aOrg.ticketId, problemId]),
+  ).rejects.toMatchObject({ code: '23514' });
+  // Первая линия и в обход сервиса привязку проблемы не ставит.
+  const otherId = (await problemRow(other)).problem_id as string;
+  await pools.root.query(`delete from hdw_dev_task_links where known_problem_id = $1`, [otherId]);
+  await expect(asActor(pools.app, f.l1.actor, (c) => c.query(`insert into hdw_dev_task_links (dev_task_id, known_problem_id) values ($1, $2)`, [linked.devTaskId, otherId]))).rejects.toMatchObject({ code: '42501' });
+  // Отвязать: привязки нет, задача остаётся.
+  await unlinkDevTaskFromProblem(l2, { problemNumber: number });
+  expect(await readDevTaskForProblem(l2, number)).toBeNull();
+  expect(await auditOf(problemId, 'devtask.unlinked')).toHaveLength(1);
+});
+
+test('смена статуса задачи: владельцу проблемы уведомление и письмо, клиентам ничего, статус проблемы прежний', async () => {
+  const { number } = await createProblem(l2, { internalTitle: 'Накладные не проводятся' });
+  await linkTicketToProblem(l2, { ticketNumber: f.tickets.aOrg.number, problemNumber: number });
+  const { devTaskId } = await linkDevTaskToProblem(l2, { problemNumber: number, ...task() });
+  const outboxBefore = (await pools.root.query(`select count(*)::int as n from hdn_outbox`)).rows[0].n as number;
+  const messagesBefore = (await pools.root.query(`select count(*)::int as n from hdt_ticket_messages where ticket_id = $1`, [f.tickets.aOrg.ticketId])).rows[0].n as number;
+  await setDevTaskStatus(care, { devTaskId, status: 'in_progress' });
+  const owner = (await problemRow(number)).owner_id as string;
+  expect(owner).toBe(l2.user.id);
+  expect((await pools.root.query(`select kind, ticket_id, payload from hdn_notifications where user_id = $1 and kind = 'problem_dev_task'`, [owner])).rows).toEqual([
+    { kind: 'problem_dev_task', ticket_id: null, payload: { problem: number, ref: 'DEV-501', status: 'in_progress' } },
+  ]);
+  const mail = (await pools.root.query(`select recipient_user_id, payload from hdn_outbox where template = 'staff_problem_dev_task'`)).rows;
+  expect(mail).toEqual([{ recipient_user_id: owner, payload: expect.objectContaining({ problem: `KP-${number}`, ref: 'DEV-501', status: 'in_progress', url: `/agent/problems/${number}` }) }]);
+  // Кроме письма владельцу ничего: ни писем клиентам, ни сообщений в обращениях.
+  expect((await pools.root.query(`select count(*)::int as n from hdn_outbox`)).rows[0].n).toBe(outboxBefore + 1);
+  expect((await pools.root.query(`select count(*)::int as n from hdt_ticket_messages where ticket_id = $1`, [f.tickets.aOrg.ticketId])).rows[0].n).toBe(messagesBefore);
+  expect((await problemRow(number)).status).toBe('investigating');
+  // Владелец сам сменил статус: о своём действии он не уведомляется.
+  await setDevTaskStatus(l2, { devTaskId, status: 'done', version: '5.12.4' });
+  expect((await pools.root.query(`select count(*)::int as n from hdn_notifications where user_id = $1 and kind = 'problem_dev_task'`, [owner])).rows[0].n).toBe(1);
+});
+
+test('закрытие проблемы с задачей разработки: итог fixed_in_version с версией задачи', async () => {
+  setJobQueueForTests(new MemoryJobQueue());
+  try {
+    const { number } = await createProblem(l2, { internalTitle: 'Накладные не проводятся' });
+    await saveProblemTranslation(l2, { number, locale: 'ru', publicTitle: 'Не проводятся накладные', publicBody: 'Исправляем.' });
+    await linkTicketToProblem(l2, { ticketNumber: f.tickets.aOrg.number, problemNumber: number });
+    const { devTaskId } = await linkDevTaskToProblem(l2, { problemNumber: number, ...task() });
+    await setDevTaskStatus(l2, { devTaskId, status: 'done', version: '5.12.4' });
+    const { broadcastId } = await prepareBroadcast(l2, { number, kind: 'closing', body: 'Исправлено в версии 5.12.4.', locale: 'ru' });
+    await confirmBroadcast(l2, { broadcastId, translations: {}, fallbackToOriginal: true });
+    await runBroadcastJob(system, { broadcastId });
+    expect((await pools.root.query(`select status, resolution_type, resolved_version from hdt_tickets where ticket_id = $1`, [f.tickets.aOrg.ticketId])).rows[0]).toEqual({ status: 'resolved', resolution_type: 'fixed_in_version', resolved_version: '5.12.4' });
+  } finally {
+    setJobQueueForTests(null);
+  }
 });

@@ -18,7 +18,10 @@ import { PageHeader } from '@/ui/components/PageHeader';
 import { Select } from '@/ui/components/select';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { Textarea } from '@/ui/components/textarea';
-import { addSignatureAction, prepareBroadcastAction, problemShownAction, problemStatusAction, problemTranslationAction, removeSignatureAction, requestTranslationAction, saveProblemAction } from '../actions';
+import { DevTaskBlock } from '../../tickets/[number]/DevTaskBlock';
+import { DEV_TASK_ERROR_CODES, devTrackerMode, readDevTaskForProblem } from '@/modules/hdw/api/dev-tasks';
+import { DEVELOPMENT_ROLES } from '@/modules/hdt/api';
+import { addSignatureAction, problemDevTaskLinkAction, problemDevTaskStatusAction, problemDevTaskUnlinkAction, prepareBroadcastAction, problemShownAction, problemStatusAction, problemTranslationAction, removeSignatureAction, requestTranslationAction, saveProblemAction } from '../actions';
 import { PROBLEM_STATUS_TONE } from '../status-tone';
 
 // Карточка известной проблемы (ТЗ 8.12 "Известная проблема", образец "Карточка"; FR-KP-01, 02, 10, FR-ADM-12; план M5c,
@@ -28,7 +31,7 @@ import { PROBLEM_STATUS_TONE } from '../status-tone';
 
 const TABS = ['description', 'tickets', 'updates'] as const;
 type Tab = (typeof TABS)[number];
-const DONE = ['created', 'saved', 'status', 'shown', 'hidden', 'translation', 'translating', 'signature_added', 'signature_removed', 'broadcast_sent'];
+const DONE = ['created', 'saved', 'status', 'shown', 'hidden', 'translation', 'translating', 'signature_added', 'signature_removed', 'broadcast_sent', 'dev_linked', 'dev_unlinked', 'dev_status'];
 const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link', 'org'];
 const label = 'text-xs font-medium text-secondary-foreground';
 
@@ -46,6 +49,7 @@ export default async function AgentProblemPage({ params, searchParams }: { param
   const search = await searchParams;
   const status = firstParam(search.status) ?? '';
   const code = status.startsWith('error-') ? status.slice(6) : null;
+  const devCode = status.startsWith('dev-error-') ? status.slice(10) : null;
   const kinds = (firstParam(search.kinds) ?? '')
     .split(',')
     .filter((k) => FINDING_KINDS.includes(k))
@@ -58,6 +62,8 @@ export default async function AgentProblemPage({ params, searchParams }: { param
   const when = (value: Date | null) => (value ? format.dateTime(value, { dateStyle: 'medium', timeStyle: 'short' }) : s('info.never'));
   const hidden = <input type="hidden" name="number" value={card.number} />;
   const updates = await listBroadcasts(staff, card.number);
+  const devTask = await readDevTaskForProblem(staff, card.number);
+  const canDevelop = (DEVELOPMENT_ROLES as readonly string[]).includes(staff.actor.staffRole);
   const authors = await namesOf(staff.actor, [...new Set(updates.map((u) => u.authorId))]);
   const categories = Object.entries(card.categories)
     .map(([key, count]) => `${key === 'none' ? s('info.categoryNone') : key} ${count}`)
@@ -72,6 +78,7 @@ export default async function AgentProblemPage({ params, searchParams }: { param
       />
       <div className="grid gap-4 lg:grid-cols-3" data-testid="agent-problem">
         <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
+          {devCode && <Alert tone="danger">{s(`devTask.errors.${(DEV_TASK_ERROR_CODES as readonly string[]).includes(devCode) ? devCode : 'other'}`)}</Alert>}
           {code && <Alert tone="danger">{s(`errors.${(HDP_ERROR_CODES as readonly string[]).includes(code) ? code : 'forbidden'}`, { kinds })}</Alert>}
           {DONE.includes(status) && <Alert tone="success">{s(`done.${status}`)}</Alert>}
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -308,6 +315,14 @@ export default async function AgentProblemPage({ params, searchParams }: { param
         </div>
 
         <aside className="flex flex-col gap-4" aria-label={s('info.title')}>
+          <DevTaskBlock
+            number={card.number}
+            devTask={devTask}
+            canManage={canDevelop}
+            canHandOver={canDevelop && !devTask && card.status !== 'closed'}
+            mode={devTrackerMode()}
+            problem={{ actions: { send: problemDevTaskLinkAction, status: problemDevTaskStatusAction, unlink: problemDevTaskUnlinkAction } }}
+          />
           <Card>
             <CardContent className="flex flex-col gap-1 pt-6 text-sm">
               <h2 className={label}>{s('info.title')}</h2>

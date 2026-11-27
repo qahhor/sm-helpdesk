@@ -18,6 +18,8 @@ import { confirmBroadcast, prepareBroadcast } from '@/modules/hdp/api/broadcasts
 import { linkTicketToProblem, unlinkTicket } from '@/modules/hdp/api/links';
 import { listProblems } from '@/modules/hdp/api/problems';
 import { requireStaffActor } from '@/modules/hdu/api';
+import { isHdwError } from '@/modules/hdw/api';
+import { devTrackerMode, linkDevTaskToProblem, setDevTaskStatus, unlinkDevTaskFromProblem } from '@/modules/hdw/api/dev-tasks';
 
 // Действия карточки известной проблемы (план M5c, задача 2). Права (agent_l2, care, admin), данные и проверку текста
 // делает модуль hdp и ещё раз база; страница получает итог отметкой в адресе. Формы обычные: работают без скриптов.
@@ -206,4 +208,44 @@ export async function confirmBroadcastAction(form: FormData): Promise<void> {
     target = `/${locale}/agent/problems/${number}/broadcast/${broadcastId}?status=error-${error.code}${kinds}`;
   }
   redirect(target);
+}
+
+// --- Задача разработки у проблемы (план M5c, задача 8, решение 25) ---
+
+/** Как run, но для отказов модуля задач разработки: код в адрес с приставкой dev-error-. */
+async function runDev(form: FormData, action: (number: number) => Promise<unknown>, done: string): Promise<never> {
+  const locale = await getLocale();
+  const number = parseProblemRef(text(form, 'number'));
+  if (!number) redirect(`/${locale}/agent/problems`);
+  let status = done;
+  try {
+    await action(number);
+  } catch (error) {
+    if (!isHdwError(error)) throw error;
+    status = `dev-error-${error.code}`;
+  }
+  redirect(`/${locale}/agent/problems/${number}?status=${status}`);
+}
+
+export async function problemDevTaskLinkAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await runDev(
+    form,
+    async (number) => {
+      const externalId = text(form, 'externalId');
+      await linkDevTaskToProblem(staff, devTrackerMode() === 'manual' ? { problemNumber: number, externalId, url: text(form, 'url'), title: text(form, 'title') } : { problemNumber: number, ...(externalId ? { externalId } : {}) });
+    },
+    'dev_linked',
+  );
+}
+
+export async function problemDevTaskUnlinkAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await runDev(form, (number) => unlinkDevTaskFromProblem(staff, { problemNumber: number }), 'dev_unlinked');
+}
+
+/** Статус задачи в ручном режиме с карточки проблемы. Пустая версия: версия не меняется. */
+export async function problemDevTaskStatusAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await runDev(form, () => setDevTaskStatus(staff, { devTaskId: text(form, 'devTaskId'), status: text(form, 'status'), ...(text(form, 'version') ? { version: text(form, 'version') } : {}) }), 'dev_status');
 }

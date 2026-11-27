@@ -100,7 +100,8 @@
         "idea_moderation_due": "Ikki ish kunidan ortiq moderatsiya kutayotgan g'oyalar: {count}",
         "idea_dev_task_closed": "I-{idea} g'oyasining ishlab chiqish vazifasi yopildi",
         "ai_budget": "{percent, select, 100 {AI xarajatlari chegarasi tugadi: yordamchi oy oxirigacha o'chirildi} other {AI xarajati chegaraning 80%: o'chirilgan tashkilotlar {orgs}}}",
-        "problem_update": "SUP-{number} da ma'lum muammo bo'yicha yangilanish"
+        "problem_update": "SUP-{number} da ma'lum muammo bo'yicha yangilanish",
+        "problem_dev_task": "{ref} ishlab chiqish vazifasi holati o'zgardi: KP-{problem} muammosi holatini yangilang"
       },
       "settings": {
         "title": "Xatlar",
@@ -3850,7 +3851,10 @@
         "translating": "Tarjima tayyorlanmoqda. Bir daqiqadan so'ng sahifani yangilang",
         "signature_added": "Signatura qo'shildi",
         "signature_removed": "Signatura olib tashlandi",
-        "broadcast_sent": "Tarqatma tasdiqlandi va yuborilmoqda"
+        "broadcast_sent": "Tarqatma tasdiqlandi va yuborilmoqda",
+        "dev_linked": "Ishlab chiqish vazifasi bog'landi",
+        "dev_unlinked": "Ishlab chiqish vazifasi uzildi",
+        "dev_status": "Vazifa holati saqlandi"
       },
       "broadcast": {
         "title": "Hammaga yangilanish yozish",
@@ -3875,6 +3879,26 @@
           "queued": "Navbatda",
           "sending": "Yuborilmoqda",
           "done": "Tarqatildi"
+        }
+      },
+      "devTask": {
+        "none": "Vazifa yo'q",
+        "open": "Ishlab chiqish vazifasini bog'lash",
+        "dialogTitle": "Muammoning ishlab chiqish vazifasi",
+        "dialogText": "Muammo holati o'zgarmaydi. Mijozlar vazifa raqamini ham, havolasini ham ko'rmaydi.",
+        "apiText": "Portal Smartup vazifa menejerida muammoning ichki nomi va kartochka havolasi bilan vazifa yaratadi. Ommaviy matn va mijozlar murojaatlari yuborilmaydi.",
+        "submit": "Bog'lash",
+        "submitApi": "Vazifa yaratish va bog'lash",
+        "refHint": "Vazifa menejeridagidek, masalan DEV-501. Bunday raqamli vazifa bo'lsa, muammo unga bog'lanadi.",
+        "statusHint": "Holat o'zgarganda muammo egasi xabarnoma oladi.",
+        "errors": {
+          "invalid_url": "Vazifa havolasi https:// bilan boshlanishi kerak",
+          "already_linked": "Muammoda allaqachon ishlab chiqish vazifasi bor",
+          "task_closed": "Bu vazifa allaqachon yopilgan",
+          "not_manual": "Bu vazifa holati vazifa menejeridan keladi",
+          "task_not_found": "Bunday raqamli vazifa topilmadi",
+          "tracker_unavailable": "Vazifa menejeri javob bermadi. Keyinroq urinib ko'ring",
+          "other": "Bu amal ikkinchi liniya, Customer Care va administrator uchun"
         }
       }
     },
@@ -4299,6 +4323,17 @@
       "outage": "Hozir nosozlik bor. Biz bu haqda bilamiz.",
       "workaround": "Vaqtinchalik yechim",
       "after": "Murojaat xodimda. Tuzatishimiz bilan xabar beramiz."
+    },
+    "staffProblemDevTask": {
+      "subject": "{problem} muammosining ishlab chiqish vazifasi",
+      "text": "{ref} ishlab chiqish vazifasining holati o'zgardi: {status}. {problem} ma'lum muammosi holatini yangilang va kerak bo'lsa, mijozlarga yangilanish yozing.",
+      "version": "Tuzatilgan versiya: {version}",
+      "statuses": {
+        "todo": "boshlanmagan",
+        "in_progress": "ishlanmoqda",
+        "done": "tayyor",
+        "cancelled": "bekor qilingan"
+      }
     }
   },
   "bot": {

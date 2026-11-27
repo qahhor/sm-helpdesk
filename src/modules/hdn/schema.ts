@@ -78,6 +78,8 @@ export const NOTIFICATION_KINDS = [
   'ai_budget',
   // Обновление по известной проблеме (веха M5c, FR-NT-12).
   'problem_update',
+  // Веха M5c, задача 8: смена статуса задачи разработки известной проблемы, владельцу проблемы.
+  'problem_dev_task',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

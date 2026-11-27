@@ -5,6 +5,8 @@ import { contactDirectory } from '@/modules/hdu/api/contacts';
 import { embedOriginsByKey } from '@/modules/hdu/api/servers';
 import { registerEmbedOriginsLoader } from '@/security/embed-frame';
 import { registerIdeaDevTaskClosed } from '@/modules/hdw/api/idea-hook';
+import { registerProblemDevTaskVersion } from '@/modules/hdp/api/dev-task';
+import { devTaskVersionOfProblemTx } from '@/modules/hdw/api/dev-tasks';
 
 // Сборка процесса: связи между модулями, которые идут через интерфейсы общего модуля (аудит 23.11.2026,
 // находка A1). Модуль уведомлений не знает модуля пользователей: справочник контактов объявлен в hdc, реализацию
@@ -25,3 +27,5 @@ registerTezFeedback(async (userId, data) => (await import('@/modules/hdt/api/ai-
 // Закрытие задачи разработки идеи (план M7, задача 9): hdw не знает идей, уведомление роли product ставит модуль hdi.
 // Модуль идей загружается при первом закрытии задачи: сборка процесса не тянет его (и его зависимости) при запуске.
 registerIdeaDevTaskClosed(async (tx, ideaIds, task) => (await import('@/modules/hdi/api/dev-closed')).ideaDevTaskClosed(tx, ideaIds, task));
+// Итог закрытия известной проблемы (план M5c, задача 8): версию задачи разработки знает hdw, который стоит над hdp.
+registerProblemDevTaskVersion(devTaskVersionOfProblemTx);

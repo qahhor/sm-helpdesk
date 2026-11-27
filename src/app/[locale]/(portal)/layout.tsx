@@ -12,6 +12,7 @@ import { UserMenu } from '@/ui/shell/UserMenu';
 import { bellLabels } from '../notifications-view';
 import { clientUnreadAction } from './notifications/actions';
 import { switchOrganizationAction } from './actions';
+import { AnnouncementBanners } from './announcements-view';
 
 // Все страницы кабинета клиента идут в общей оболочке и только для участника организации (FR-ID-05).
 // Раскладка при переходе между страницами не перерисовывается, поэтому каждая страница
@@ -49,6 +50,8 @@ export default async function PortalLayout({ children }: LayoutProps<'/[locale]'
         />
       }
     >
+      {/* Объявления для всех и для сервера клиента (FR-ANN-02): над каждой страницей кабинета. */}
+      <AnnouncementBanners client={client} only="general" />
       {children}
     </ClientShell>
   );

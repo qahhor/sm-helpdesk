@@ -69,6 +69,8 @@ export const QUEUES = {
   // Сотрудник может перевести сам, не дожидаясь задачи: задача не перезаписывает текст сотрудника.
   // Рассылка по известной проблеме (задача 5, решение 18): одна ждущая и одна выполняемая на рассылку (ключ одиночки),
   // повтор с паузой при сбое; дубли держит уникальный индекс сообщений, а не порядок задач.
+  // Объявления (задача 6): машинный перевод на язык, как у проблем.
+  'announcements.translate': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   'problems.broadcast': { policy: 'stately', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 900, expireInSeconds: 1800 },
   'problems.translate': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   // Сводка модерации идей роли product раз в день (план M7, задача 8): повтор в тот же день ничего не шлёт.

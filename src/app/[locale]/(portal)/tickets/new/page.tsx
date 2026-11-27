@@ -4,6 +4,8 @@ import { assistantAnswersFirst } from '@/modules/hda/api/eligibility';
 import { listActiveModules } from '@/modules/hdr/api';
 import { ALLOWED_FILE_EXTENSIONS, IMPACTS, MAX_FILES_PER_MESSAGE, parseNumber, TICKET_TYPES, VISIBILITIES } from '@/modules/hdt/api';
 import { requireClientActor } from '@/modules/hdu/api';
+import { activeAnnouncements } from '@/modules/hdp/api/announcements';
+import { isLocale } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
 import { Alert } from '@/ui/components/alert';
 import { acceptOf } from '../status';
@@ -24,6 +26,9 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
   const modules = await listActiveModules(client.actor, locale);
   const tez = await getTranslations('client.tez');
   const tp = await getTranslations('client.problems');
+  const ta = await getTranslations('client.announcements');
+  // Объявления модуля над формой при выбранном модуле (решение 24): форма показывает те, чей модуль выбран.
+  const moduleAnnouncements = (await activeAnnouncements(client.actor, { locale: isLocale(locale) ? locale : 'ru', surface: 'portal' }).catch(() => [])).filter((a) => a.audience === 'module' && a.moduleId);
   // Подпись помощника (FR-AI-19): только если помощник действительно ответит первым.
   const aiFirst = await assistantAnswersFirst(client);
   return (
@@ -40,6 +45,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
       {search.error && <Alert tone="danger">{t.has(`errors.${search.error}`) ? t(`errors.${search.error}`) : t('errors.invalid_input')}</Alert>}
       <NewTicketForm
         userId={client.actor.userId}
+        announcements={moduleAnnouncements.map((a) => ({ id: a.announcementId, moduleId: a.moduleId!, kind: a.kind, kindLabel: ta(`kinds.${a.kind}`), title: a.title, body: a.body }))}
         sessionId={sessionId}
         initialOpen={search.open === '1'}
         relatedNumber={related}

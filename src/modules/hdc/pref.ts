@@ -188,6 +188,9 @@ export const AUDIT_ACTIONS = [
   'ticket.problem_linked',
   // Рассылка обновления или закрытия проблемы подтверждена (веха M5c, задача 5): число получателей, без текста.
   'problem.broadcast_confirmed',
+  // Объявления (веха M5c, задача 6): создание и правка, досрочное окончание. Текста объявления в журнале нет.
+  'announcement.saved',
+  'announcement.ended',
   'ticket.problem_unlinked',
   // Поиск (план W6, решения 3 и 12): команда hub создала ключи Typesense (без значений) и построила индекс заново.
   'search.keys_created',

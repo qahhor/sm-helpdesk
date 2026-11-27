@@ -34,6 +34,7 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: `${A}/ideas/cycles`, path: '/ru/agent/ideas/cycles', who: 'admin' },
   { route: `${A}/metrics`, path: '/ru/agent/metrics', who: 'admin', walk: true },
   // Известные проблемы (веха M5c): последняя проблема базы браузерных тестов, если её нет, "не найдено".
+  { route: `${A}/announcements`, path: '/ru/agent/announcements', who: 'admin' },
   { route: `${A}/problems`, path: '/ru/agent/problems', who: 'admin' },
   { route: `${A}/problems/[number]`, path: '/ru/agent/problems/{problem}', who: 'admin' },
   // Подтверждение рассылки: несуществующая рассылка даёт "не найдено".
@@ -108,6 +109,7 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: '[locale]/(portal)/notifications', path: '/ru/notifications', who: 'client' },
   // Страница организации открыта только её администратору, а клиент тестов обычный участник.
   { route: '[locale]/(portal)/org', path: '/ru/org', who: 'client', status: 404 },
+  { route: '[locale]/(portal)/announcements', path: '/ru/announcements', who: 'client' },
   { route: '[locale]/(portal)/problems', path: '/ru/problems', who: 'client' },
   { route: '[locale]/(portal)/settings', path: '/ru/settings', who: 'client' },
   { route: '[locale]/(portal)/tickets', path: '/uz/tickets', who: 'client', walk: true },
@@ -135,6 +137,7 @@ export const CSP_HANDLERS: readonly CspHandler[] = [
   { route: 'api/auth/[...all]', path: '/api/auth/get-session', who: 'guest' },
   { route: 'api/csp-report', path: '/api/csp-report', who: 'guest' },
   { route: 'api/embed/form', path: '/api/embed/form', who: 'guest' },
+  { route: 'api/embed/announcements', path: '/api/embed/announcements', who: 'guest' },
   { route: 'api/embed/problems/affected', path: '/api/embed/problems/affected', who: 'guest' },
   { route: 'api/embed/session', path: '/api/embed/session', who: 'guest' },
   { route: 'api/embed/solutions/[ref]', path: '/api/embed/solutions/{helpRef}', who: 'guest' },

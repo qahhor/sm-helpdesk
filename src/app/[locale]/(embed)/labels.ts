@@ -23,6 +23,7 @@ export async function widgetLabels(): Promise<WidgetLabels> {
     ['panel', 'widget.panel'],
     ['report', 'widget.report'],
     ['problems', 'widget.problems'],
+    ['announcements', 'client.announcements'],
     ['solution', 'widget.solution'],
     ['tickets', 'widget.tickets'],
     ['mobile', 'widget.mobile'],

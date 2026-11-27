@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { bigint, boolean, integer, jsonb, pgTable, pgView, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
 import type { Locale } from '@/i18n/locales';
-import type { BroadcastKind, BroadcastStatus, ProblemStatus } from './pref';
+import type { AnnouncementAudience, AnnouncementKind, BroadcastKind, BroadcastStatus, ProblemStatus } from './pref';
 
 // Модуль hdp: известные проблемы, рассылки, объявления. Таблицы, ограничения, триггеры и политики RLS создаёт миграция
 // drizzle/0098_hdp_problems.sql. Здесь только описание колонок для запросов под ролью hub_app (withActor).
@@ -86,5 +86,43 @@ export const broadcasts = pgTable('hdp_broadcasts', {
   confirmedOn: timestamp('confirmed_on', { withTimezone: true }),
   sentOn: timestamp('sent_on', { withTimezone: true }),
   status: text('status').$type<BroadcastStatus>().notNull().default('draft'),
+  ...stampColumns,
+});
+
+/** Объявления (миграция 0103). Клиент видит начавшиеся своей аудитории: действующие и архив за 90 суток. */
+export const announcements = pgTable('hdp_announcements', {
+  announcementId: uuid('announcement_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  serverId: uuid('server_id'),
+  moduleId: uuid('module_id'),
+  authorId: uuid('author_id').notNull(),
+  kind: text('kind').$type<AnnouncementKind>().notNull(),
+  audience: text('audience').$type<AnnouncementAudience>().notNull().default('all'),
+  sourceLocale: text('source_locale').$type<Locale>().notNull(),
+  startsOn: timestamp('starts_on', { withTimezone: true }).notNull(),
+  endsOn: timestamp('ends_on', { withTimezone: true }).notNull(),
+  ...stampColumns,
+});
+
+/** Заголовок и текст объявления по языкам. Машинный перевод клиенту не виден до принятия. */
+export const announcementTranslations = pgTable('hdp_announcement_translations', {
+  translationId: uuid('translation_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  announcementId: uuid('announcement_id').notNull(),
+  acceptedBy: uuid('accepted_by'),
+  locale: text('locale').$type<Locale>().notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull().default(''),
+  isMachine: boolean('is_machine').notNull().default(false),
+  acceptedOn: timestamp('accepted_on', { withTimezone: true }),
+  ...stampColumns,
+});
+
+/** Закрытые баннеры: свои строки пользователя. */
+export const announcementDismissals = pgTable('hdp_announcement_dismissals', {
+  userId: uuid('user_id').notNull(),
+  announcementId: uuid('announcement_id').notNull(),
   ...stampColumns,
 });

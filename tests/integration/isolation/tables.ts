@@ -17,13 +17,16 @@
 //               и комментарий на проверке другого клиента ему не видны. Что считается "своим" и "опубликованным" для
 //               каждой таблицы, задаёт PUBLISHED_OR_OWN в registry.test.ts.
 //   decided-only  отборы месяца (план M7): клиент видит только завершённые (decided, lapsed), и хотя бы один.
+//   active-audience  объявления (план M5c, решение 24): клиент видит только начавшиеся объявления, действующие и
+//               закончившиеся за 90 суток, с аудиторией "все", "модуль" или своим сервером, и только тексты сотрудника и
+//               принятые переводы, и хотя бы одно.
 //   shown-only  известные проблемы (план M5c, решение 2): клиент видит только проблемы с признаком показа, не закрытые
 //               и не исправленные больше 30 суток назад, и только тексты сотрудника и принятые переводы, и хотя бы одну.
 //
 // app, auth: какие изменения разрешены ролям hub_app и hub_auth. Тест сверяет с правами в базе,
 // а остальные проверки берут отсюда, что должно быть закрыто (проверка main, Q2).
 
-export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience' | 'published-or-own' | 'decided-only' | 'shown-only';
+export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience' | 'published-or-own' | 'decided-only' | 'shown-only' | 'active-audience';
 export type Write = 'insert' | 'update' | 'delete';
 export type DomainObject = { client: ClientAccess; app?: Write[]; auth?: Write[] };
 
@@ -111,6 +114,11 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Рассылки (веха M5c, задача 5): готовят и подтверждают agent_l2, care, admin, ход отправки ведёт система; удаления
   // нет. Клиент не читает ни одной строки: он видит только сообщение рассылки в своём обращении.
   hdp_broadcasts: { client: 'none', app: IU },
+  // Объявления (веха M5c, задача 6): пишут care, admin и система (машинный перевод), удаления нет, досрочное окончание
+  // это правка конца показа. Закрытие баннера только своё: клиент ставит его за себя, снять нельзя.
+  hdp_announcements: { client: 'active-audience', app: IU },
+  hdp_announcement_translations: { client: 'active-audience', app: IU },
+  hdp_announcement_dismissals: { client: 'own-user', app: ['insert'] },
   // Уведомления
   // Очередь исходящих (веха M4): ставит действие, отправляет система, клиент не видит.
   hdn_outbox: { client: 'none', app: IUD },

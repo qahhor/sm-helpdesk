@@ -16,6 +16,7 @@ export const JOB_NAMES = [
   'ai.triage',
   'ai.triage_review',
   'ai.watchdog',
+  'announcements.translate',
   'attachment.scan',
   'attachment.sweep',
   'automation.process',

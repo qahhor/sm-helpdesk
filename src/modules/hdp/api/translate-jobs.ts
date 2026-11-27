@@ -11,6 +11,8 @@ import { linkTicketTx } from '../core/links';
 import { activeProblemBySignatureTx, insertProblemTx, insertSignatureTx, requireProblemTx, translationsTx, upsertTranslationTx } from '../core/problems';
 import { HdpError } from '../error';
 import { draftInput, parseInput } from '../input';
+import { and, eq } from 'drizzle-orm';
+import { announcements, announcementTranslations } from '../schema';
 
 // Модуль hdp, слой api: задачи фонового процесса (план M5c, задача 2). Узкий файл без страниц и Next.js.
 //
@@ -90,4 +92,53 @@ async function linkSafely(fn: () => Promise<unknown>): Promise<boolean> {
     if (error instanceof HdpError) return false;
     throw error;
   }
+}
+
+// --- announcements.translate (задача 6, решение 24) ---
+
+const announcementJob = z.strictObject({ announcementId: z.uuid(), locale: z.enum(LOCALES) });
+
+/**
+ * Машинный перевод объявления на язык: строка с пометкой машинного, клиенту не видна до принятия сотрудником. Текст
+ * сотрудника на этом языке задача не трогает. Перевод, потерявший ссылки или числа, не сохраняется.
+ */
+export async function runAnnouncementTranslationJob(system: SystemActor, data: unknown): Promise<void> {
+  const { announcementId, locale } = announcementJob.parse(data);
+  const source = await withActor(system, async (tx) => {
+    const [head] = await tx.select().from(announcements).where(eq(announcements.announcementId, announcementId)).limit(1);
+    if (!head || head.sourceLocale === locale || head.endsOn <= new Date()) return null;
+    const texts = await tx.select().from(announcementTranslations).where(eq(announcementTranslations.announcementId, announcementId));
+    const original = texts.find((t) => t.locale === head.sourceLocale && !t.isMachine);
+    const target = texts.find((t) => t.locale === locale);
+    if (!original || (target && !target.isMachine)) return null;
+    return { head, original };
+  });
+  if (!source) return;
+  const outcome = await requestPublicTextTranslation(system, {
+    purpose: 'announcement_translation',
+    refId: announcementId,
+    from: source.head.sourceLocale,
+    to: locale,
+    title: source.original.title,
+    body: source.original.body,
+  });
+  if (outcome.status !== 'ok') return;
+  const original = { title: source.original.title, body: source.original.body };
+  if (comparePlainInvariants(original, outcome.value).length > 0 || !outcome.value.title.trim()) {
+    logEvent('warn', 'announcements.translate_rejected', { announcementId, locale });
+    return;
+  }
+  await withActor(system, async (tx) => {
+    const [current] = await tx
+      .select({ isMachine: announcementTranslations.isMachine })
+      .from(announcementTranslations)
+      .where(and(eq(announcementTranslations.announcementId, announcementId), eq(announcementTranslations.locale, locale)))
+      .limit(1);
+    if (current && !current.isMachine) return;
+    const text = { title: outcome.value.title.trim().slice(0, 200), body: outcome.value.body.slice(0, 3000), isMachine: true, acceptedBy: null, acceptedOn: null };
+    await tx
+      .insert(announcementTranslations)
+      .values({ announcementId, locale, ...text })
+      .onConflictDoUpdate({ target: [announcementTranslations.announcementId, announcementTranslations.locale], set: text });
+  });
 }

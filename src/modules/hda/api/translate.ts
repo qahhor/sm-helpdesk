@@ -124,7 +124,7 @@ export const publicTextTranslationSchema = z.object({ title: z.string().max(400)
  */
 export async function requestPublicTextTranslation(
   system: SystemActor,
-  input: { purpose: 'problem_translation'; refId: string; from: string; to: string; title: string; body: string },
+  input: { purpose: 'problem_translation' | 'announcement_translation'; refId: string; from: string; to: string; title: string; body: string },
 ): Promise<RunOutcome<{ title: string; body: string }>> {
   const data = assemblePublicTextData({ from: LOCALE_NAMES[input.from] ?? input.from, to: LOCALE_NAMES[input.to] ?? input.to, title: input.title, body: input.body });
   return runAi(system, { purpose: input.purpose, orgId: null, refId: input.refId, system: PUBLIC_TEXT_TRANSLATION_SYSTEM, data, schema: publicTextTranslationSchema, maxTokens: 4000 });

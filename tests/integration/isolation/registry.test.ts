@@ -84,7 +84,7 @@ test('клиент видит в каждой таблице ровно то, ч
       const column =
         rule.client === 'published-or-own'
           ? PUBLISHED_OR_OWN[name]!.column
-          : { none: '1', all: '1', 'own-org': 'org_id', 'org-people': 'user_id', 'own-user': 'user_id', 'clients-audience': 'audience', 'decided-only': 'status', 'shown-only': 'number, locale' }[rule.client];
+          : { none: '1', all: '1', 'own-org': 'org_id', 'org-people': 'user_id', 'own-user': 'user_id', 'clients-audience': 'audience', 'decided-only': 'status', 'shown-only': 'number, locale', 'active-audience': 'announcement_id' }[rule.client];
       const rows = await rowsOrDenied(asActor(pools.app, actor, (c) => c.query(`select ${column} from ${name}`)));
       seen += rows.length;
       const label = `${name} для ${actor.orgRole}`;
@@ -105,6 +105,20 @@ test('клиент видит в каждой таблице ровно то, ч
           [JSON.stringify(rows)],
         );
         expect(bad.rows, label).toEqual([]);
+      }
+      if (rule.client === 'active-audience') {
+        // Суперпользователь проверяет, что каждое прочитанное объявление начато, не старше архива и своей аудитории.
+        const bad = await pools.root.query(
+          `select a.announcement_id from hdp_announcements a
+            where a.announcement_id = any($1::uuid[])
+              and not (a.starts_on <= now() and a.ends_on > now() - interval '90 days'
+                       and (a.audience <> 'server' or a.server_id = (select o.server_id from hdu_organizations o where o.org_id = $2)))`,
+          [rows.map((row) => row.announcement_id), actor.orgId],
+        );
+        expect(bad.rows, label).toEqual([]);
+        // Непринятый машинный перевод клиенту не виден ни одной строкой.
+        if (name === 'hdp_announcement_translations')
+          expect((await asActor(pools.app, actor, (c) => c.query(`select 1 from hdp_announcement_translations where is_machine and accepted_by is null`))).rows, label).toEqual([]);
       }
       if (rule.client === 'published-or-own') {
         const probe = PUBLISHED_OR_OWN[name];

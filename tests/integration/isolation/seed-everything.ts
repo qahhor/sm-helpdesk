@@ -185,6 +185,27 @@ export async function seedEverything() {
     [shownProblem, hiddenProblem, closedProblem, f.adminStaff.userId],
   );
   await pools.root.query(`insert into hdp_problem_signatures (problem_id, signature) values ($1, repeat('b', 32)), ($2, repeat('c', 32))`, [shownProblem, hiddenProblem]);
+  // Объявления (веха M5c, задача 6): действующее для всех (текст сотрудника и непринятый машинный перевод), для чужого
+  // сервера и ещё не начавшееся; закрытие баннера клиентом А.
+  const otherServer = (
+    await pools.root.query(`insert into hdu_servers (name, base_url, issuer, oauth_client_id, oauth_client_secret, code) values ('Другой', 'https://other-seed.smartup.example', 'https://other-seed.smartup.example', 'hub', $1, 'other-seed') returning server_id`, [SEALED])
+  ).rows[0].server_id;
+  const announcement = async (audience: string, serverId: string | null, startsIn: string) =>
+    (
+      await pools.root.query(
+        `insert into hdp_announcements (server_id, author_id, kind, audience, source_locale, starts_on, ends_on)
+         values ($1, $2, 'maintenance', $3, 'ru', now() + $4::interval, now() + $4::interval + interval '2 days') returning announcement_id`,
+        [serverId, f.care.userId, audience, startsIn],
+      )
+    ).rows[0].announcement_id as string;
+  const forAll = await announcement('all', null, '-1 hour');
+  const foreign = await announcement('server', otherServer, '-1 hour');
+  const later = await announcement('all', null, '1 day');
+  await pools.root.query(
+    `insert into hdp_announcement_translations (announcement_id, locale, title, body, is_machine) values ($1, 'ru', 'Работы', 'Ночью', false), ($1, 'en', 'Works', 'At night', true), ($2, 'ru', 'Чужой сервер', 'Текст', false), ($3, 'ru', 'Позже', 'Текст', false)`,
+    [forAll, foreign, later],
+  );
+  await pools.root.query(`insert into hdp_announcement_dismissals (user_id, announcement_id) values ($1, $2)`, [f.aUser.userId, forAll]);
   // Рассылка по показанной проблеме (веха M5c, задача 5).
   await pools.root.query(`insert into hdp_broadcasts (problem_id, author_id, kind, source_locale, body) values ($1, $2, 'update', 'ru', '{"ru": "Исправляем"}')`, [shownProblem, f.adminStaff.userId]);
   return f;

@@ -710,7 +710,21 @@
         "active": "In progress",
         "fixed": "Fixed"
       },
-      "homeLink": "Known problems"
+      "homeLink": "Known problems",
+      "announcementsLink": "Announcements"
+    },
+    "announcements": {
+      "title": "Announcements",
+      "kinds": {
+        "maintenance": "Planned work",
+        "outage": "Outage",
+        "news": "News"
+      },
+      "dismiss": "Close announcement \"{title}\"",
+      "empty": "No announcements",
+      "emptyText": "Planned work, outages and portal news will appear here.",
+      "activeUntil": "Active: {start} - {end}",
+      "ended": "Was: {start} - {end}"
     }
   },
   "agent": {
@@ -1380,6 +1394,10 @@
             "signature_removed": "Signature removed from problem",
             "translation_saved": "Problem public text saved",
             "broadcast_confirmed": "Known problem broadcast confirmed"
+          },
+          "announcement": {
+            "saved": "Announcement saved",
+            "ended": "Announcement ended early"
           }
         },
         "words": {
@@ -2210,7 +2228,8 @@
           "idea_translation": "Idea translation",
           "message_translation": "Message translation",
           "thanks": "Thanks check",
-          "problem_translation": "Known problem translation"
+          "problem_translation": "Known problem translation",
+          "announcement_translation": "Announcement translation"
         },
         "modelNames": {
           "claude-opus-5-5": "Claude Opus 5.5",
@@ -3843,6 +3862,44 @@
           "sending": "Sending",
           "done": "Sent"
         }
+      }
+    },
+    "announcements": {
+      "title": "Announcements",
+      "create": "New announcement",
+      "save": "Save announcement",
+      "end": "End early",
+      "empty": "No announcements yet",
+      "emptyText": "Customer Care and administrators write announcements.",
+      "translation": "Text in {locale}",
+      "states": {
+        "scheduled": "Scheduled",
+        "active": "Active",
+        "ended": "Ended"
+      },
+      "audiences": {
+        "all": "All clients",
+        "server": "Smartup server",
+        "module": "Module"
+      },
+      "fields": {
+        "kind": "Kind",
+        "audience": "Audience",
+        "server": "Server",
+        "module": "Module",
+        "none": "Not selected",
+        "audienceHint": "Pick a server for the \"Smartup server\" audience and a module for the \"Module\" audience",
+        "startsOn": "Show from (Tashkent)",
+        "endsOn": "Show until (Tashkent)",
+        "periodHint": "No longer than 90 days",
+        "title": "Title",
+        "body": "Text"
+      },
+      "done": {
+        "saved": "Announcement saved",
+        "ended": "Announcement ended",
+        "translation": "Text saved",
+        "translating": "The translation is being prepared. Refresh the page in a minute"
       }
     }
   },

@@ -34,3 +34,18 @@ export type BroadcastStatus = (typeof BROADCAST_STATUSES)[number];
 /** Получатели рассылки: привязанные обращения в этих статусах (решение 17). */
 export const BROADCAST_TICKET_STATUSES = ['new', 'in_progress', 'waiting_customer', 'in_development'] as const;
 export const BROADCAST_BODY_MAX = 5000;
+
+/** Объявления (FR-ANN-01, решение 24): виды, аудитории, предел периода показа. */
+export const ANNOUNCEMENT_KINDS = ['maintenance', 'outage', 'news'] as const;
+export type AnnouncementKind = (typeof ANNOUNCEMENT_KINDS)[number];
+export const ANNOUNCEMENT_AUDIENCES = ['all', 'server', 'module'] as const;
+export type AnnouncementAudience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
+/** Кто пишет объявления (FR-ANN-01). Тот же перечень: app.hdp_can_announce. */
+export const ANNOUNCEMENT_WRITER_ROLES = ['care', 'admin'] as const;
+export const ANNOUNCEMENT_MAX_DAYS = 90;
+export const ANNOUNCEMENT_ARCHIVE_DAYS = 90;
+export const ANNOUNCEMENT_TITLE_MAX = 200;
+export const ANNOUNCEMENT_BODY_MAX = 3000;
+/** Где показывается баннер: главная и страницы портала, форма нового обращения, панель виджета. */
+export const ANNOUNCEMENT_SURFACES = ['portal', 'form', 'widget'] as const;
+export type AnnouncementSurface = (typeof ANNOUNCEMENT_SURFACES)[number];

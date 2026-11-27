@@ -5,6 +5,7 @@ import { ideaRef } from '@/modules/hdi/api/constants';
 import { listTickets } from '@/modules/hdt/api';
 import { hintsPending, requireClientActor } from '@/modules/hdu/api';
 import { Link } from '@/i18n/navigation';
+import { AnnouncementBanners } from './announcements-view';
 import { Button } from '@/ui/components/button';
 import { Card } from '@/ui/components/card';
 import { EmptyState } from '@/ui/components/EmptyState';
@@ -50,9 +51,16 @@ export default async function ClientHomePage() {
           <Link href="/ideas/new">{t('home.idea')}</Link>
         </Button>
       </div>
-      <Link href="/problems" className="self-start text-sm text-link underline underline-offset-2">
-        {tp('homeLink')}
-      </Link>
+      {/* Объявления модуля на главной видят все клиенты (решение 24): портал не знает, какими модулями пользуется клиент. */}
+      <AnnouncementBanners client={client} only="module" />
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <Link href="/problems" className="text-sm text-link underline underline-offset-2">
+          {tp('homeLink')}
+        </Link>
+        <Link href="/announcements" className="text-sm text-link underline underline-offset-2">
+          {tp('announcementsLink')}
+        </Link>
+      </div>
       <Card>
         {items.length === 0 ? (
           <EmptyState withTez title={t('home.myTickets')} text={t('tickets.empty')} />

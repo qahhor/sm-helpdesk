@@ -710,7 +710,21 @@
         "active": "Ishda",
         "fixed": "Tuzatildi"
       },
-      "homeLink": "Ma'lum muammolar"
+      "homeLink": "Ma'lum muammolar",
+      "announcementsLink": "E'lonlar"
+    },
+    "announcements": {
+      "title": "E'lonlar",
+      "kinds": {
+        "maintenance": "Rejali ishlar",
+        "outage": "Nosozlik",
+        "news": "Yangilik"
+      },
+      "dismiss": "«{title}» e'lonini yopish",
+      "empty": "E'lonlar yo'q",
+      "emptyText": "Bu yerda rejali ishlar, nosozliklar va portal yangiliklari paydo bo'ladi.",
+      "activeUntil": "Amalda: {start} - {end}",
+      "ended": "Bo'lgan: {start} - {end}"
     }
   },
   "agent": {
@@ -1380,6 +1394,10 @@
             "signature_removed": "Muammodan signatura olib tashlandi",
             "translation_saved": "Muammoning ochiq matni saqlandi",
             "broadcast_confirmed": "Ma'lum muammo bo'yicha tarqatma tasdiqlandi"
+          },
+          "announcement": {
+            "saved": "E'lon saqlandi",
+            "ended": "E'lon muddatidan oldin tugatildi"
           }
         },
         "words": {
@@ -2210,7 +2228,8 @@
           "idea_translation": "G'oya tarjimasi",
           "message_translation": "Xabar tarjimasi",
           "thanks": "Minnatdorchilikni tekshirish",
-          "problem_translation": "Ma'lum muammo tarjimasi"
+          "problem_translation": "Ma'lum muammo tarjimasi",
+          "announcement_translation": "E'lon tarjimasi"
         },
         "modelNames": {
           "claude-opus-5-5": "Claude Opus 5.5",
@@ -3843,6 +3862,44 @@
           "sending": "Yuborilmoqda",
           "done": "Tarqatildi"
         }
+      }
+    },
+    "announcements": {
+      "title": "E'lonlar",
+      "create": "Yangi e'lon",
+      "save": "E'lonni saqlash",
+      "end": "Muddatidan oldin tugatish",
+      "empty": "Hozircha e'lonlar yo'q",
+      "emptyText": "E'lonlarni Customer Care va administrator yozadi.",
+      "translation": "{locale} tilidagi matn",
+      "states": {
+        "scheduled": "Rejalashtirilgan",
+        "active": "Amalda",
+        "ended": "Tugagan"
+      },
+      "audiences": {
+        "all": "Barcha mijozlar",
+        "server": "Smartup serveri",
+        "module": "Modul"
+      },
+      "fields": {
+        "kind": "Turi",
+        "audience": "Auditoriya",
+        "server": "Server",
+        "module": "Modul",
+        "none": "Tanlanmagan",
+        "audienceHint": "Server \"Smartup serveri\" auditoriyasi uchun, modul \"Modul\" auditoriyasi uchun tanlanadi",
+        "startsOn": "Ko'rsatish boshlanishi (Toshkent)",
+        "endsOn": "Ko'rsatish tugashi (Toshkent)",
+        "periodHint": "90 kundan oshmasin",
+        "title": "Sarlavha",
+        "body": "Matn"
+      },
+      "done": {
+        "saved": "E'lon saqlandi",
+        "ended": "E'lon tugatildi",
+        "translation": "Matn saqlandi",
+        "translating": "Tarjima tayyorlanmoqda. Bir daqiqadan so'ng sahifani yangilang"
       }
     }
   },

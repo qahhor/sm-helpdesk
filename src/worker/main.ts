@@ -17,7 +17,7 @@ import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
 import { runModerationDigest } from '@/modules/hdi/api/notices';
 import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
-import { runProblemTranslationJob } from '@/modules/hdp/api/translate-jobs';
+import { runAnnouncementTranslationJob, runProblemTranslationJob } from '@/modules/hdp/api/translate-jobs';
 import { runBroadcastJob, runBroadcastTranslationJob } from '@/modules/hdp/api/broadcast-jobs';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { cleanupSuggestMisses } from '@/modules/hdk/api/misses';
@@ -198,6 +198,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const data = job?.data as Record<string, unknown> | undefined;
     if (data && 'broadcastId' in data) await runBroadcastTranslationJob(actor('problems.translate'), data);
     else await runProblemTranslationJob(actor('problems.translate'), data);
+  }));
+  await boss.work('announcements.translate', polling, ([job]) => timedJob('announcements.translate', async () => {
+    // Машинный перевод объявления (план M5c, задача 6): клиенту не виден, пока сотрудник его не принял.
+    await runAnnouncementTranslationJob(actor('announcements.translate'), job?.data);
   }));
   await boss.work('problems.broadcast', polling, ([job]) => timedJob('problems.broadcast', async () => {
     // Рассылка по известной проблеме (план M5c, задача 5, решение 18): по одному обращению за транзакцию, без дублей.

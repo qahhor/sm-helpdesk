@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { TezMark } from '@/ui/brand/TezMark';
 import { Alert } from '@/ui/components/alert';
 import { KnownProblemBanner } from '@/ui/components/KnownProblemBanner';
+import { AnnouncementBanner, DismissIcon } from '@/ui/components/AnnouncementBanner';
 import { Button } from '@/ui/components/button';
 import { FilePicker } from '@/ui/components/file-picker';
 import { Label } from '@/ui/components/label';
@@ -29,6 +30,7 @@ const SolutionPanel = lazy(() => import('./SolutionPanel').then((m) => ({ defaul
 
 type Module = { id: string; code: string; name: string };
 type Suggestion = { number: number; slug: string; title: string; exact: boolean; orgCount: number | null };
+type Announcement = { id: string; kind: 'maintenance' | 'outage' | 'news'; title: string; body: string };
 type KnownProblem = { number: number; status: string; publicTitle: string; publicBody: string; workaround: { number: number; slug: string; title: string } | null };
 
 export function ReportView({ accept, maxFiles }: { accept: string; maxFiles: number }) {
@@ -47,6 +49,7 @@ export function ReportView({ accept, maxFiles }: { accept: string; maxFiles: num
   const [problem, setProblem] = useState<KnownProblem | null>(null);
   const [otherProblem, setOtherProblem] = useState(false);
   const [already, setAlready] = useState(false);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [solution, setSolution] = useState<string | null>(null);
   const [created, setCreated] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
@@ -75,6 +78,23 @@ export function ReportView({ accept, maxFiles }: { accept: string; maxFiles: num
   // не выбирает ничего: он идёт только в контекст обращения.
   const hinted = modules.find((m) => m.code === hints.module) ?? null;
   const chosen = moduleId ?? hinted?.id ?? '';
+
+  // Объявления (FR-ANN-02, решение 24): для всех, для сервера клиента и для модуля формы или подсказки.
+  useEffect(() => {
+    let live = true;
+    w.request(`/api/embed/announcements?locale=${w.locale}${chosen ? `&module=${chosen}` : ''}`)
+      .then(async (response) => (response.ok ? ((await response.json()) as { items: Announcement[] }).items : []))
+      .catch(() => [])
+      .then((list) => live && setAnnouncements(list));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosen]);
+  const dismiss = (id: string) => {
+    setAnnouncements((list) => list.filter((a) => a.id !== id));
+    void w.request('/api/embed/announcements', { body: { announcementId: id } }).catch(() => undefined);
+  };
 
   const query = description.trim();
   useEffect(() => {
@@ -190,6 +210,24 @@ export function ReportView({ accept, maxFiles }: { accept: string; maxFiles: num
   return (
     <div className="flex flex-col gap-5">
       <h1 className="text-xl font-bold">{l['report.title']}</h1>
+      {announcements.length > 0 && (
+        <div className="flex flex-col gap-2" data-testid="widget-announcements">
+          {announcements.map((a) => (
+            <AnnouncementBanner
+              key={a.id}
+              kind={a.kind}
+              kindLabel={l[`announcements.kinds.${a.kind}`] ?? ''}
+              title={a.title}
+              body={a.body}
+              dismiss={
+                <Button variant="ghost" size="small" aria-label={fill(l['announcements.dismiss'] ?? '', { title: a.title })} onClick={() => dismiss(a.id)}>
+                  <DismissIcon />
+                </Button>
+              }
+            />
+          ))}
+        </div>
+      )}
       {hasError && (
         <section className="flex flex-col gap-1" data-testid="widget-error">
           <p className="font-semibold">{hinted ? fill(l['report.errorIn'] ?? '', { module: hinted.name }) : l['report.error']}</p>

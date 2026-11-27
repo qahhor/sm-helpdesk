@@ -14,6 +14,7 @@ import { browserDrafts, browserSession, clearDraft, type Draft, draftKey, forget
 import { handoffDescription, takeBrowserHandoff, type WidgetHandoff } from '@/ui/widget/handoff';
 import { createTicketAction, type NewTicketState, reportAffectedAction, type SuggestResult } from './actions';
 import { KnownProblemBanner } from '@/ui/components/KnownProblemBanner';
+import { AnnouncementBanner, type AnnouncementTone } from '@/ui/components/AnnouncementBanner';
 import { ModulePicker } from './ModulePicker';
 import { Select } from '@/ui/components/select';
 import { type SuggestLabels, Suggestions } from './Suggestions';
@@ -60,8 +61,12 @@ export type NewTicketLabels = {
 
 const INITIAL: NewTicketState = { error: null, field: null };
 
+/** Объявление модуля над формой (решение 24 плана M5c): показывается, когда выбран его модуль. */
+export type FormAnnouncement = { id: string; moduleId: string; kind: AnnouncementTone; kindLabel: string; title: string; body: string };
+
 type FormProps = {
   userId: string;
+  announcements: FormAnnouncement[];
   /** Сессия формы для исходов подсказки: выдаёт сервер (решение 12). */
   sessionId: string;
   /** Поля раскрыты сразу: возврат после "Не помогло". */
@@ -105,6 +110,7 @@ const pick = (value: string | undefined, options: RadioOption[], fallback: strin
 
 function Fields({
   userId,
+  announcements,
   sessionId,
   initialOpen,
   relatedNumber,
@@ -181,6 +187,11 @@ function Fields({
         </>
       )}
       {formError && <Alert tone="danger">{formError}</Alert>}
+      {announcements
+        .filter((a) => moduleId !== '' && a.moduleId === moduleId)
+        .map((a) => (
+          <AnnouncementBanner key={a.id} kind={a.kind} kindLabel={a.kindLabel} title={a.title} body={a.body} />
+        ))}
       {problem && (
         <KnownProblemBanner
           testId="known-problem-banner"

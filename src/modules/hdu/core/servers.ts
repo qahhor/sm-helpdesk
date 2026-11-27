@@ -1,7 +1,7 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import { and, asc, eq, isNotNull, ne, sql } from 'drizzle-orm';
-import type { Actor } from '@/db/with-actor';
+import { type Actor, type StaffActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
 import { getSecretBox } from '@/security/secret-box';
@@ -523,4 +523,9 @@ export async function readEmbedOrigins(): Promise<Map<string, string[]>> {
       .where(eq(servers.state, 'active')),
   );
   return new Map(rows.map((row) => [row.embedKey, [...new Set([new URL(row.baseUrl).origin, ...row.embedOrigins])]]));
+}
+
+/** Названия серверов Smartup для выбора аудитории объявления (план M5c, задача 6): сотрудник, под ролью hub_app. */
+export async function serverNamesOf(actor: StaffActor): Promise<{ serverId: string; name: string }[]> {
+  return withActor(actor, (tx) => tx.select({ serverId: servers.serverId, name: servers.name }).from(servers).orderBy(asc(servers.name)));
 }

@@ -10,6 +10,13 @@ import type {
   AiOutcome,
   AiPurpose,
   CandidateRejectReason,
+  CodeAnalysisSource,
+  CodeAnalysisStatus,
+  CodeChangeKind,
+  CodeEntryStatus,
+  CodeKind,
+  CodeLocation,
+  CodeScanStatus,
   CandidateStatus,
   ReportKind,
   ReportStatus,
@@ -257,6 +264,118 @@ export const agentEvents = pgTable('hda_agent_events', {
   sentOn: moment('sent_on'),
   ...stampColumns,
 });
+
+/** Причина отклонения отчёта о сканировании: код правила и путь поля, без значений (план M8c, решение 5). */
+export type CodeRejectReason = { rule: string; path: string };
+/** Экран модуля из карты модулей: код и название по языкам. */
+export type CodeScreen = { code: string; name: Record<string, string> };
+const confidence = customType<{ data: string }>({ dataType: () => 'numeric(3,2)' });
+
+/** История сканирований кода (логическое имя code_scans, веха M8c, задача 1; миграция 0118). Кода нет. */
+export const codeScans = pgTable('hda_code_scans', {
+  scanId: uuid('scan_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  tokenId: uuid('token_id').notNull(),
+  scanKey: text('scan_key').notNull(),
+  repository: text('repository').notNull(),
+  commitRef: text('commit_ref').notNull(),
+  status: text('status').$type<CodeScanStatus>().notNull().default('accepted'),
+  addedCount: integer('added_count').notNull().default(0),
+  changedCount: integer('changed_count').notNull().default(0),
+  removedCount: integer('removed_count').notNull().default(0),
+  errorCount: integer('error_count').notNull().default(0),
+  moduleCount: integer('module_count').notNull().default(0),
+  rejectReasons: jsonb('reject_reasons').$type<CodeRejectReason[]>().notNull().default([]),
+  receivedOn: moment('received_on').notNull().defaultNow(),
+  chatSentOn: moment('chat_sent_on'),
+  ...stampColumns,
+});
+
+/** Каталог ошибок из сканирования (логическое имя code_error_entries). Сигнатура генерируется базой из ключа. */
+export const codeErrorEntries = pgTable('hda_code_error_entries', {
+  entryId: uuid('entry_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  scanId: uuid('scan_id').notNull(),
+  moduleId: uuid('module_id'),
+  approvedBy: uuid('approved_by'),
+  key: text('key').notNull(),
+  signature: text('signature')
+    .notNull()
+    .generatedAlwaysAs(sql`app.hda_code_key_signature(key)`),
+  code: text('code'),
+  repository: text('repository').notNull(),
+  moduleCode: text('module_code'),
+  raisedIn: jsonb('raised_in').$type<CodeLocation[]>().notNull().default([]),
+  conditions: text('conditions').notNull(),
+  userCause: text('user_cause').notNull(),
+  whatToCheck: jsonb('what_to_check').$type<string[]>().notNull().default([]),
+  kind: text('kind').$type<CodeKind>().notNull(),
+  confidence: confidence('confidence').notNull(),
+  status: text('status').$type<CodeEntryStatus>().notNull().default('draft'),
+  changeKind: text('change_kind').$type<CodeChangeKind>().notNull().default('new'),
+  scanDigest: text('scan_digest').notNull(),
+  approvedOn: moment('approved_on'),
+  rejectReason: text('reject_reason'),
+  ...stampColumns,
+});
+
+/** Шаблоны сообщения записи по языкам (логическое имя code_error_templates). Выражение генерирует база. */
+export const codeErrorTemplates = pgTable('hda_code_error_templates', {
+  templateId: uuid('template_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  entryId: uuid('entry_id').notNull(),
+  locale: text('locale').notNull(),
+  template: text('template').notNull(),
+  pattern: text('pattern')
+    .notNull()
+    .generatedAlwaysAs(sql`app.hda_code_pattern(template)`),
+  ...stampColumns,
+});
+
+/** Карта модулей и экранов из сканирования (логическое имя code_module_notes). Утверждает администратор. */
+export const codeModuleNotes = pgTable('hda_code_module_notes', {
+  noteId: uuid('note_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  scanId: uuid('scan_id').notNull(),
+  decidedBy: uuid('decided_by'),
+  moduleCode: text('module_code').notNull(),
+  repository: text('repository').notNull(),
+  name: jsonb('name').$type<Record<string, string>>().notNull(),
+  summary: text('summary').notNull().default(''),
+  dependsOn: text('depends_on').array().notNull().default([]),
+  screens: jsonb('screens').$type<CodeScreen[]>().notNull().default([]),
+  status: text('status').$type<CodeEntryStatus>().notNull().default('draft'),
+  changeKind: text('change_kind').$type<CodeChangeKind>().notNull().default('new'),
+  scanDigest: text('scan_digest').notNull(),
+  decidedOn: moment('decided_on'),
+  ...stampColumns,
+});
+
+/** Запросы анализа обращения по коду (логическое имя code_analysis_requests). Клиент не видит. */
+export const codeAnalysisRequests = pgTable('hda_code_analysis_requests', {
+  orgId: uuid('org_id').notNull(),
+  requestId: uuid('request_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  ticketId: uuid('ticket_id').notNull(),
+  requestedBy: uuid('requested_by'),
+  noteMessageId: uuid('note_message_id'),
+  source: text('source').$type<CodeAnalysisSource>().notNull(),
+  status: text('status').$type<CodeAnalysisStatus>().notNull().default('pending'),
+  dueOn: moment('due_on').notNull(),
+  finishedOn: moment('finished_on'),
+  ...stampColumns,
+});
+
+export type CodeScanRow = typeof codeScans.$inferSelect;
+export type CodeEntryRow = typeof codeErrorEntries.$inferSelect;
+export type CodeTemplateRow = typeof codeErrorTemplates.$inferSelect;
+export type CodeModuleNoteRow = typeof codeModuleNotes.$inferSelect;
+export type CodeAnalysisRequestRow = typeof codeAnalysisRequests.$inferSelect;
 
 export type AgentTokenRow = typeof agentTokens.$inferSelect;
 export type AgentToolCallRow = typeof agentToolCalls.$inferSelect;

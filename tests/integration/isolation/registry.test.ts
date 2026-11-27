@@ -58,7 +58,10 @@ test('в каждой таблице набора есть данные для �
         ? await asActor(pools.app, f.agent, (c) => c.query(`select 1 from ${name} limit 1`))
         : name === 'hdu_user_profiles' || name === 'hdp_problems_public'
           ? await asActor(pools.app, { type: 'system', job: 'test' }, (c) => c.query(`select 1 from ${name} limit 1`))
-          : await pools.root.query(`select 1 from ${name} limit 1`);
+          : // Представление первой линии (веха M8c) отдаёт строки только сотрудникам.
+            name === 'hda_code_checks'
+            ? await asActor(pools.app, f.l1.actor, (c) => c.query(`select 1 from ${name} limit 1`))
+            : await pools.root.query(`select 1 from ${name} limit 1`);
     expect(found.rowCount, name).toBe(1);
   }
 });
@@ -151,6 +154,31 @@ test('агент с действующим токеном не читает ни
     for (const actor of [main.actor, run.actor]) {
       const label = `${name} для агента${actor.ticketId ? ' (токен запуска)' : ''}`;
       const seen = await rowsOrDenied(asActor(pools.app, actor, (c) => c.query(`select 1 from ${name}`)));
+      // Знания из кода (веха M8c): агент читает выводы и пишет их сканированием, но ничего не удаляет, кроме шаблона
+      // языка основным токеном; запросы анализа видит только по организациям с AI-обработкой. Остальное проверяет
+      // hda-code-access.test.ts.
+      if (rule.agent === 'code-catalog' || rule.agent === 'code-requests') {
+        if (rule.agent === 'code-requests') {
+          const visible = await pools.root.query(
+            `select 1 from ${name} r join hdu_organizations o on o.org_id = r.org_id
+              where o.kind = 'client' and o.is_ai_enabled and o.org_id <> app.service_org_id() and ($1::uuid is null or r.ticket_id = $1)`,
+            [actor.ticketId],
+          );
+          expect(seen.length, label).toBe(visible.rowCount);
+        }
+        const removable = name === 'hda_code_error_templates' && actor.ticketId === null;
+        if (!removable) {
+          const deleted = await asActor(pools.app, actor, (c) => c.query(`delete from ${name}`)).then(
+            (r) => r.rowCount ?? 0,
+            (error) => {
+              expect(String(error), `delete from ${name} под агентом`).toMatch(/permission denied/);
+              return 0;
+            },
+          );
+          expect(deleted, `delete from ${name} под агентом`).toBe(0);
+        }
+        continue;
+      }
       if (rule.agent === 'reference') expect(seen.length, label).toBe((await pools.root.query(`select 1 from ${name}`)).rowCount);
       else expect(seen, label).toEqual([]);
       // Изменение и удаление: отказ правом или ни одной строки по политике.

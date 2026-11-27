@@ -303,3 +303,32 @@ export const SPIKE_LIMITS = { orgCount: { min: 2, max: 100 }, windowMinutes: { m
 export const SPIKE_REPEAT_HOURS = 24;
 /** Идентификатор чата Telegram: число, у групп и каналов со знаком минус. */
 export const TELEGRAM_CHAT_ID = /^-?\d{5,15}$/;
+
+// --- Знания из кода (веха M8c; ТЗ 7.22 FR-CODE-01..15; план M8c, решения 1, 9, 12, 18, 21, 25) ---
+
+/** Статусы записи каталога ошибок и заметки о модуле: черновик, утверждена, отклонена, исчезла из сканирования. */
+export const CODE_ENTRY_STATUSES = ['draft', 'approved', 'rejected', 'removed'] as const;
+export type CodeEntryStatus = (typeof CODE_ENTRY_STATUSES)[number];
+/** Что с записью в последнем сканировании: появилась, изменилась, не изменилась (выделение в очереди). */
+export const CODE_CHANGE_KINDS = ['new', 'changed', 'same'] as const;
+export type CodeChangeKind = (typeof CODE_CHANGE_KINDS)[number];
+/** Предварительная оценка рода (FR-CODE-02): ошибка пользователя, настройка, данные, вероятный дефект. */
+export const CODE_KINDS = ['user_error', 'setting', 'data', 'probable_defect'] as const;
+export type CodeKind = (typeof CODE_KINDS)[number];
+/** Кто видит знания из кода (FR-CODE-11). Первая линия видит только "что проверить" утверждённых записей. */
+export const CODE_READER_ROLES = ['agent_l2', 'care', 'admin'] as const;
+export const CODE_CHECK_ROLES = ['agent_l1', 'agent_l2', 'care', 'admin'] as const;
+/** Статусы сканирования. */
+export const CODE_SCAN_STATUSES = ['accepted', 'rejected'] as const;
+export type CodeScanStatus = (typeof CODE_SCAN_STATUSES)[number];
+/** Статусы запроса анализа по коду (10.5) и откуда запрос. */
+export const CODE_ANALYSIS_STATUSES = ['pending', 'done', 'timeout'] as const;
+export type CodeAnalysisStatus = (typeof CODE_ANALYSIS_STATUSES)[number];
+export const CODE_ANALYSIS_SOURCES = ['staff', 'rule'] as const;
+export type CodeAnalysisSource = (typeof CODE_ANALYSIS_SOURCES)[number];
+/** Сколько минут ждём ответа агента (FR-CODE-10). */
+export const CODE_ANALYSIS_TIMEOUT_MINUTES = 10;
+/** Портал не принимает текста длиннее стольких строк (FR-CODE-12). */
+export const CODE_MAX_LINES = 10;
+/** Место в коде ссылкой (FR-CODE-12). */
+export type CodeLocation = { object: string; path: string; line: number | null };

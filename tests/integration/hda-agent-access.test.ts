@@ -26,7 +26,7 @@ test('агент с действующим токеном не читает ни
   await seedEverything();
   const { actor } = await seedAgentToken();
   // Справочники без данных клиентов (agent: 'reference') агент читает: это проверяет registry.test.ts.
-  for (const [name] of Object.entries(DOMAIN_OBJECTS).filter(([n, rule]) => !n.startsWith('hda_agent_') && rule.agent !== 'reference')) {
+  for (const [name] of Object.entries(DOMAIN_OBJECTS).filter(([n, rule]) => !n.startsWith('hda_agent_') && rule.agent !== 'reference' && rule.agent !== 'code-catalog' && rule.agent !== 'code-requests')) {
     // Представления клиента отдают строки только клиенту; столбец 1, а не *: на секретные столбцы прав нет.
     expect(await rows(actor, `select 1 from ${name}`), name).toEqual([]);
   }

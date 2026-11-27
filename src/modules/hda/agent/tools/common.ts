@@ -2,30 +2,50 @@ import 'server-only';
 import { inArray } from 'drizzle-orm';
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
+import { withActor } from '@/db/with-actor';
 import { moduleCodesTx, moduleIdsByCodesTx } from '@/modules/hdr/api';
+import { agentProblemOrgsTx, agentTicketPeopleTx } from '@/modules/hdt/api/agent-events';
 import { agentRedactionTerms } from '@/modules/hdu/api/orgs';
 import { HdaAgentError } from '../../error';
+import { candidateSources } from '../../schema';
 import { type AgentPerson, type AliasMap, anonymizeForAgent, emptyAliases } from '../anonymize';
+import type { Redactor, RedactScope } from '../tool';
 import { str } from '../util';
 import { agentProblemsView, agentSolutionsView } from '../views';
 
-// Общее для инструментов чтения (веха M8b, задача 5; план M8b, решение 8). Слова обезличивания (название и ИНН
-// организации, имена её участников и сотрудников портала) читает система: агенту они не уходят, по ним текст
-// заменяется обозначениями "Клиент 1", "Сотрудник 1", "[организация]". Обозначения устойчивы в пределах одного ответа.
+// Общее для инструментов чтения (веха M8b, задача 5; план M8b, решение 8; независимая проверка M8b, находки I1-I3).
+// Слова обезличивания (название и ИНН организаций, имена их участников, приглашённых и гостей, имена людей обращений
+// вне участников, имена каналов связи и сотрудников портала) читает система после транзакции агента: агенту они не
+// уходят, по ним текст заменяется обозначениями "Клиент 1", "Сотрудник 1", "[организация]". Обозначения устойчивы в
+// пределах одного ответа.
 
 const SYSTEM = { type: 'system', job: 'mcp.redact' } as const;
+const ORGS_MAX = 200;
+const PEOPLE_MAX = 5000;
 
-export type Redactor = (orgId: string | null, text: string) => string;
-
-/** Обезличивание текстов одного ответа: слова организаций orgIds и сотрудников, общая карта обозначений. */
-export async function redactorFor(orgIds: readonly string[]): Promise<Redactor> {
-  const terms = await agentRedactionTerms(SYSTEM, orgIds);
+/** Обезличивание текстов одного ответа по охвату scope. Две транзакции системы одна за другой, без вложения. */
+export async function redactorFor(scope: RedactScope): Promise<Redactor> {
+  const facts = await withActor(SYSTEM, async (tx) => {
+    const candidateIds = [...new Set(scope.candidateIds ?? [])];
+    const sources = candidateIds.length
+      ? await tx.select({ orgId: candidateSources.orgId, ticketId: candidateSources.ticketId }).from(candidateSources).where(inArray(candidateSources.candidateId, candidateIds))
+      : [];
+    const problemOrgs = await agentProblemOrgsTx(tx, scope.problemIds ?? []);
+    const ticketIds = [...new Set([...(scope.ticketIds ?? []), ...sources.map((s) => s.ticketId)])];
+    const userIds = await agentTicketPeopleTx(tx, ticketIds);
+    return { orgIds: [...(scope.orgIds ?? []), ...sources.map((s) => s.orgId), ...problemOrgs], userIds };
+  });
+  const terms = await agentRedactionTerms(SYSTEM, { orgIds: [...new Set(facts.orgIds)].slice(0, ORGS_MAX), userIds: facts.userIds.slice(0, PEOPLE_MAX) });
   const staff: AgentPerson[] = terms.staffNames.map((name) => ({ id: `staff:${name}`, name, kind: 'staff' }));
+  const others: AgentPerson[] = terms.otherNames.map((name) => ({ id: `client:other:${name}`, name, kind: 'client' }));
+  const membersOf = (orgId: string) => (terms.orgs.get(orgId)?.memberNames ?? []).map((name) => ({ id: `client:${orgId}:${name}`, name, kind: 'client' as const }));
+  const all = [...terms.orgs.keys()];
   let aliases: AliasMap = emptyAliases();
   return (orgId, text) => {
-    const org = orgId ? terms.orgs.get(orgId) : undefined;
-    const people: AgentPerson[] = [...(org?.memberNames ?? []).map((name) => ({ id: `client:${orgId}:${name}`, name, kind: 'client' as const })), ...staff];
-    const result = anonymizeForAgent(text, { people, orgTerms: org?.orgTerms ?? [] }, aliases);
+    const orgs = orgId === 'all' ? all : orgId ? [orgId] : [];
+    const people: AgentPerson[] = [...orgs.flatMap(membersOf), ...others, ...staff];
+    const orgTerms = orgs.flatMap((id) => terms.orgs.get(id)?.orgTerms ?? []);
+    const result = anonymizeForAgent(text, { people, orgTerms }, aliases);
     aliases = result.aliases;
     return result.text;
   };

@@ -5,7 +5,7 @@ import { containsText } from '@/db/contains';
 import { CANDIDATE_STATUSES } from '../../pref';
 import { HdaAgentError } from '../../error';
 import { agentExcerpt, anonymizeForAgent } from '../anonymize';
-import { defineTool } from '../tool';
+import { defineTool, type Redactor } from '../tool';
 import { AGENT_NOTICE, iso, moment, notice, str, UNTRUSTED_HINT } from '../util';
 import { agentCandidatesView, agentSolutionsView } from '../views';
 import { cap, moduleCode, moduleCodes, moduleIdOf } from './common';
@@ -13,7 +13,8 @@ import { cap, moduleCode, moduleCodes, moduleIdOf } from './common';
 // Инструменты решений (веха M8b, задача 5; FR-AGT-03; план M8b, решение 17): search_solutions, get_solution,
 // list_candidates. Решения только опубликованные (копия публикации обеих аудиторий, представление
 // hda_agent_solutions): черновиков, решений из кандидата до публикации и кандидатов в поиске решений нет. Тексты решений
-// и кандидатов пишут люди и AI: они обезличиваются общими правилами и лежат в untrusted_text.
+// пишут люди и AI: они обезличиваются общими правилами (их проверила публикация); тексты кандидатов, сделанные из
+// обращений, ещё и словами организаций и людей обращений-источников (находка I2). Всё лежит в untrusted_text.
 
 const LIST_MAX = 20;
 const CANDIDATES_MAX = 50;
@@ -149,6 +150,12 @@ export const listCandidates = defineTool({
       tx,
       rows.map((row) => row.moduleId),
     );
+    // Текст кандидата сделан из обращений: он обезличивается словами организаций и людей его обращений-источников и
+    // именами сотрудников (находка I2), их читает система после транзакции агента.
+    return {
+      redact: { candidateIds: rows.map((row) => row.candidateId) },
+      finish: (redact: Redactor) => {
+    const text = (value: string) => redact('all', value);
     const items = rows.map((row) => ({
       id: row.candidateId,
       status: row.status,
@@ -160,12 +167,14 @@ export const listCandidates = defineTool({
       created_on: row.createdOn.toISOString(),
       updated_on: iso(row.modifiedOn),
       untrusted_text: {
-        title: cap(clean(row.title), 500),
-        problem: cap(clean(row.problem), 4000),
-        steps: (Array.isArray(row.steps) ? row.steps : []).slice(0, 30).map((step) => cap(clean(String(step)), 2000)),
+        title: cap(text(row.title), 500),
+        problem: cap(text(row.problem), 4000),
+        steps: (Array.isArray(row.steps) ? row.steps : []).slice(0, 30).map((step) => cap(text(String(step)), 2000)),
       },
     }));
     return { result: { notice: AGENT_NOTICE, items }, objectRefs: items.map((item) => ({ kind: 'candidate' as const, ref: item.id })) };
+      },
+    };
   },
 });
 

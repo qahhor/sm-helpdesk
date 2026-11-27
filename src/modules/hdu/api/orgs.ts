@@ -221,10 +221,16 @@ export async function orgAiProfile(actor: SystemActor | StaffActor, input: { org
   return orgAiProfileOf(actor, orgId, userIds);
 }
 
-/** Слова обезличивания ответа сервера MCP (веха M8b, решение 8): только система, до 200 организаций за вызов. */
-export async function agentRedactionTerms(actor: SystemActor, orgIds: readonly string[]): Promise<AgentRedactionTerms> {
+/**
+ * Слова обезличивания ответа сервера MCP (веха M8b, решение 8; находка I1): только система, до 200 организаций и
+ * 5000 людей обращений за вызов.
+ */
+export async function agentRedactionTerms(actor: SystemActor, input: { orgIds: readonly string[]; userIds?: readonly string[] }): Promise<AgentRedactionTerms> {
   if (actor.type !== 'system') throw new HduError('forbidden');
-  return agentRedactionTermsOf(actor, z.array(z.uuid()).max(200).parse([...new Set(orgIds)]));
+  return agentRedactionTermsOf(actor, {
+    orgIds: z.array(z.uuid()).max(200).parse([...new Set(input.orgIds)]),
+    userIds: z.array(z.uuid()).max(5000).parse([...new Set(input.userIds ?? [])]),
+  });
 }
 
 /**

@@ -208,3 +208,82 @@ test('assistant_metrics совпадает с показателями помо�
     reopened_after_helped: staff.reopenedAfterHelped,
   });
 });
+
+test('имена людей вне участников: гость из письма, бывший участник, приглашённый и имя в Telegram не доходят до агента (находка I1)', async () => {
+  const { f, data } = await setup();
+  const signature = 'a1'.repeat(16);
+  const person = async (name: string) =>
+    (await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ($1, $2, false) returning id`, [name, `i1-${name.length}-${Date.now()}@users.invalid`])).rows[0].id as string;
+  const guest = await person('Шахноза Юсупова');
+  const former = await person('Бахтиёр Ахмедов');
+  await pools.root.query(`insert into hdu_memberships (org_id, user_id, source, state) values ($1, $2, 'smartup', 'passive')`, [f.orgA.orgId, former]);
+  await pools.root.query(
+    `insert into hdu_invitations (org_id, email, role, name, token_hash, expires_on) values ($1, 'lola@example.invalid', 'client_user', 'Лола Каримова', repeat('9', 64), now() + interval '1 day')`,
+    [f.orgA.orgId],
+  );
+  await pools.root.query(
+    `insert into hdu_contact_identities (user_id, kind, external_id, display_name, verified, verified_on) values ($1, 'telegram', $2, 'Sardorbek', 'linked', now()) on conflict do nothing`,
+    [f.aUser.userId, String(Date.now()).slice(-12)],
+  );
+  await pools.root.query(`update hdu_contact_identities set display_name = 'Sardorbek' where user_id = $1`, [f.aUser.userId]);
+  // Письмо гостя, который не участник организации: обращение организации А по домену отправителя.
+  const mail = (
+    await pools.root.query(
+      `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source, error_signature)
+       values ($1, $2, 'question', 'minor', 'p3', 'org', 'Письмо от Шахноза Юсупова', 'Добрый день! Бахтиёр и Лола Каримова в копии, Sardorbek тоже. С уважением, Шахноза Юсупова', 'ru', 'email', $3)
+       returning ticket_id, number`,
+      [f.orgA.orgId, guest, signature],
+    )
+  ).rows[0] as { ticket_id: string; number: number };
+  await pools.root.query(`update hdt_tickets set error_signature = $2 where ticket_id = $1`, [f.tickets.aOrg.ticketId, signature]);
+  const add = (authorId: string, authorType: string, body: string, internal: boolean) =>
+    pools.root.query(`insert into hdt_ticket_messages (org_id, ticket_id, author_id, author_type, body, is_internal) values ($1, $2, $3, $4, $5, $6)`, [
+      f.orgA.orgId,
+      mail.ticket_id,
+      authorId,
+      authorType,
+      body,
+      internal,
+    ]);
+  await add(guest, 'client', 'Шахноза снова пишет: Юсупова на связи', false);
+  await add(f.care.userId, 'staff', 'Звонила Шахноза, просила Бахтиёра перезвонить, Лола Каримова в копии; Sardorbek в чате', true);
+
+  const names = ['Шахноза', 'Юсупов', 'Бахтиёр', 'Ахмедов', 'Лола', 'Каримов', 'Sardorbek'];
+  const ticket = JSON.stringify(await data('get_ticket', { number: Number(mail.number) }));
+  for (const name of names) expect(ticket, `get_ticket ${name}`).not.toContain(name);
+  expect(ticket).toContain('Клиент');
+  const similar = await data('similar_tickets', { number: f.tickets.aOrg.number });
+  expect(similar.items!.map((item) => item.number)).toContain(Number(mail.number));
+  for (const name of names) expect(JSON.stringify(similar), `similar_tickets ${name}`).not.toContain(name);
+  const search = JSON.stringify(await data('search_tickets', { signature }));
+  for (const name of names) expect(search, `search_tickets ${name}`).not.toContain(name);
+});
+
+test('названия проблем, тексты идей и кандидатов обезличены словами своих организаций; проблема только организаций без AI-обработки не выдаётся (находка I2)', async () => {
+  const { f, data } = await setup();
+  const problem = async (title: string) => (await pools.root.query(`insert into hdp_problems (internal_title) values ($1) returning problem_id, number`, [title])).rows[0] as { problem_id: string; number: number };
+  const visible = await problem('ACME Trade: Азиз и Алишер разбирают сбой');
+  const hidden = await problem('Только Globex: сбой у Тимура');
+  const empty = await problem('Новая проблема без обращений');
+  await rootWithoutTriggers(`update hdt_tickets set known_problem_id = $2 where ticket_id = $1`, [f.tickets.aOrg.ticketId, visible.problem_id]);
+  await rootWithoutTriggers(`update hdt_tickets set known_problem_id = $2 where ticket_id = $1`, [f.tickets.bOrg.ticketId, hidden.problem_id]);
+  const problems = (await data('list_known_problems', {})).items!;
+  const numbers = problems.map((p) => p.number);
+  expect(numbers).toEqual(expect.arrayContaining([Number(visible.number), Number(empty.number)]));
+  expect(numbers).not.toContain(Number(hidden.number));
+  const title = (problems.find((p) => p.number === Number(visible.number))!.untrusted_text as { internal_title: string }).internal_title;
+  for (const word of ['ACME', 'Азиз', 'Алишер']) expect(title, word).not.toContain(word);
+  expect(title).toContain('[организация]');
+
+  await pools.root.query(`update hda_solution_candidates set title = 'Кандидат: накладная ACME Trade', problem = 'Алишер и Дильноза не видят накладную, помог Азиз'`);
+  const candidates = JSON.stringify((await data('list_candidates', {})).items);
+  for (const word of ['ACME', 'Алишер', 'Дильноза', 'Азиз']) expect(candidates, word).not.toContain(word);
+
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true where org_id = $1`, [f.orgB.orgId]);
+  await pools.root.query(
+    `update hdi_idea_translations set title = 'Идея Globex от Тимура', body = 'Зарина из Globex просит отчёт, Камила обещала' where idea_id in (select idea_id from hdi_ideas where status = 'open')`,
+  );
+  const ideas = JSON.stringify((await data('list_ideas', {})).items);
+  for (const word of ['Globex', 'Тимур', 'Зарина', 'Камила']) expect(ideas, word).not.toContain(word);
+  expect(ideas).not.toContain('org_id');
+});

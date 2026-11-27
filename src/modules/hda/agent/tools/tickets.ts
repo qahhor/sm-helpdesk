@@ -5,10 +5,10 @@ import { containsText } from '@/db/contains';
 import { PRIORITIES, QUEUES, TICKET_STATUSES } from '@/modules/hdt/pref';
 import { HdaAgentError } from '../../error';
 import { agentExcerpt } from '../anonymize';
-import { defineTool } from '../tool';
+import { defineTool, type Redactor, type RedactScope, type ToolOutcome } from '../tool';
 import { AGENT_NOTICE, iso, moment, notice, str, UNTRUSTED_HINT } from '../util';
 import { agentMessagesView, agentTicketsView } from '../views';
-import { cap, moduleCode, moduleCodes, moduleIdOf, numbersOf, redactorFor, signature } from './common';
+import { cap, moduleCode, moduleCodes, moduleIdOf, numbersOf, signature } from './common';
 
 // Инструменты чтения обращений (веха M8b, задача 5; FR-AGT-03, 06, 14, 15; план M8b, решения 6-9, 17; решение 0114):
 // search_tickets, get_ticket, similar_tickets, sla_risk_tickets. Строки отбирают представления hda_agent_tickets и
@@ -41,13 +41,16 @@ const summary = z.strictObject({
 type TicketRow = typeof agentTicketsView.$inferSelect;
 const orgOf = (row: TicketRow) => ({ id: row.orgId, category: (row.orgCategory as 'A' | 'B' | 'C' | 'D' | null) ?? null });
 
+/** Охват обезличивания строк: их организации и люди их обращений (находка I1). */
+const scopeOf = (rows: TicketRow[]): RedactScope => ({ orgIds: rows.map((row) => row.orgId), ticketIds: rows.map((row) => row.ticketId) });
+
+/** Краткие строки обращений: коды модулей читаются в транзакции агента, тексты обезличиваются после неё. */
 async function summaries(tx: Parameters<typeof moduleCodes>[0], rows: TicketRow[]) {
-  const redact = await redactorFor(rows.map((row) => row.orgId));
   const code = await moduleCodes(
     tx,
     rows.map((row) => row.moduleId),
   );
-  return rows.map((row) => ({
+  return (redact: Redactor) => rows.map((row) => ({
     number: row.number,
     status: row.status,
     priority: row.priority,
@@ -100,8 +103,14 @@ export const searchTickets = defineTool({
       .where(and(...where))
       .orderBy(desc(v.createdOn), desc(v.number))
       .limit(args.limit);
-    const items = await summaries(tx, rows);
-    return { result: { notice: AGENT_NOTICE, items }, objectRefs: ticketRefs(items) };
+    const build = await summaries(tx, rows);
+    return {
+      redact: scopeOf(rows),
+      finish: (redact: Redactor) => {
+        const items = build(redact);
+        return { result: { notice: AGENT_NOTICE, items }, objectRefs: ticketRefs(items) };
+      },
+    };
   },
 });
 
@@ -176,10 +185,23 @@ export const getTicket = defineTool({
       .where(eq(agentMessagesView.ticketId, row.ticketId))
       .orderBy(asc(agentMessagesView.createdOn), asc(agentMessagesView.itemId))
       .limit(MESSAGES_MAX + 51);
-    const redact = await redactorFor([row.orgId]);
-    const text = (value: string | null) => (value === null ? null : cap(redact(row.orgId, value), MESSAGE_MAX));
     const code = await moduleCodes(tx, [row.moduleId]);
     const numbers = await numbersOf(tx, { problemIds: [row.knownProblemId], solutionIds: [row.solutionId] });
+    return { redact: scopeOf([row]), finish: (redact: Redactor) => ticketOf(row, items, code, numbers, redact) };
+  },
+});
+
+type ItemRow = typeof agentMessagesView.$inferSelect;
+
+/** Ответ get_ticket из прочитанных строк с готовым обезличиванием. */
+function ticketOf(
+  row: TicketRow,
+  items: ItemRow[],
+  code: (id: string | null) => string | null,
+  numbers: Awaited<ReturnType<typeof numbersOf>>,
+  redact: Redactor,
+): ToolOutcome<unknown> {
+    const text = (value: string | null) => (value === null ? null : cap(redact(row.orgId, value), MESSAGE_MAX));
     const messages = items
       .filter((item) => item.itemKind === 'message')
       .map((item) => {
@@ -241,8 +263,7 @@ export const getTicket = defineTool({
       transfers,
     };
     return { result: { notice: AGENT_NOTICE, ticket }, objectRefs: [{ kind: 'ticket' as const, ref: row.number }] };
-  },
-});
+}
 
 // --- similar_tickets ---
 
@@ -298,7 +319,9 @@ export const similarTickets = defineTool({
       .sort((a, b) => b.score - a.score)
       .map((entry) => entry.row);
     const rows = [...bySignature, ...ranked].slice(0, SIMILAR_MAX);
-    const redact = await redactorFor(rows.map((row) => row.orgId));
+    return {
+      redact: scopeOf(rows),
+      finish: (redact: Redactor) => {
     const items = rows.map((row) => ({
       number: row.number,
       status: row.status,
@@ -309,6 +332,8 @@ export const similarTickets = defineTool({
       untrusted_customer_text: { title: cap(redact(row.orgId, row.title), TITLE_MAX), excerpt: agentExcerpt(redact(row.orgId, row.description), 300) },
     }));
     return { result: { notice: AGENT_NOTICE, items }, objectRefs: ticketRefs([{ number: base.number }, ...items]) };
+      },
+    };
   },
 });
 
@@ -350,12 +375,15 @@ export const slaRiskTickets = defineTool({
       })
       .sort((a, b) => Number(b.breached) - Number(a.breached) || (a.due?.getTime() ?? 0) - (b.due?.getTime() ?? 0))
       .slice(0, args.limit);
-    const base = await summaries(
-      tx,
-      graded.map((entry) => entry.row),
-    );
-    const items = base.map((item, i) => ({ ...item, risk: graded[i]!.risk, breached: graded[i]!.breached, due_on: iso(graded[i]!.due) }));
-    return { result: { notice: AGENT_NOTICE, items }, objectRefs: ticketRefs(items) };
+    const picked = graded.map((entry) => entry.row);
+    const build = await summaries(tx, picked);
+    return {
+      redact: scopeOf(picked),
+      finish: (redact: Redactor) => {
+        const items = build(redact).map((item, i) => ({ ...item, risk: graded[i]!.risk, breached: graded[i]!.breached, due_on: iso(graded[i]!.due) }));
+        return { result: { notice: AGENT_NOTICE, items }, objectRefs: ticketRefs(items) };
+      },
+    };
   },
 });
 

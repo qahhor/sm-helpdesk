@@ -4,13 +4,15 @@ import { moduleCodesTx, moduleIdsByCodesTx } from '@/modules/hdr/api';
 import { HdaAgentError } from '../../error';
 import { PROBLEM_STATUSES } from '@/modules/hdp/pref';
 import { anonymizeForAgent } from '../anonymize';
-import { defineTool } from '../tool';
+import { defineTool, type Redactor } from '../tool';
 import { iso, moment, notice, AGENT_NOTICE, str, UNTRUSTED_HINT } from '../util';
 import { agentProblemsView, agentSignaturesView } from '../views';
 
 // Инструмент list_known_problems (веха M8b, задачи 4-5; FR-AGT-03; план M8b, решение 17): известные проблемы с
 // внутренним названием, статусом, счётчиками и действующими сигнатурами, без разбивки по организациям. Строки отбирает
-// представление hda_agent_problems. Внутреннее название пишут сотрудники: оно обезличивается и лежит в untrusted_text.
+// представление hda_agent_problems (без проблем, все привязанные обращения которых из организаций без AI-обработки,
+// миграция 0117). Внутреннее название пишут сотрудники: оно обезличивается словами организаций привязанных обращений и
+// именами сотрудников (находка I2) и лежит в untrusted_text.
 
 const LIMIT = 50;
 const SIGNATURE = /^[0-9a-f]{32}$/;
@@ -51,13 +53,16 @@ export const listKnownProblems = defineTool({
       .where(and(statusFilter, args.signature ? arrayContains(agentProblemsView.signatures, [args.signature]) : undefined))
       .orderBy(desc(agentProblemsView.lastSeenOn), desc(agentProblemsView.number))
       .limit(args.limit);
-    const picked = rows;
-    const modules = await moduleCodesTx(tx, picked.flatMap((row) => (row.moduleId ? [row.moduleId] : [])));
-    const items = picked.map((row) => ({
+    const modules = await moduleCodesTx(tx, rows.flatMap((row) => (row.moduleId ? [row.moduleId] : [])));
+    // Название обезличивается словами организаций привязанных обращений и сотрудников (находка I2): их читает система.
+    return {
+      redact: { problemIds: rows.map((row) => row.problemId) },
+      finish: (redact: Redactor) => {
+    const items = rows.map((row) => ({
       number: row.number,
       status: row.status,
       module: row.moduleId ? (modules.get(row.moduleId) ?? null) : null,
-      untrusted_text: { internal_title: anonymizeForAgent(row.internalTitle, { people: [], orgTerms: [] }).text.slice(0, 400) },
+      untrusted_text: { internal_title: redact('all', row.internalTitle).slice(0, 400) },
       signatures: row.signatures.slice(0, 100),
       ticket_count: row.ticketCount,
       org_count: row.orgCount,
@@ -67,6 +72,8 @@ export const listKnownProblems = defineTool({
       shown_to_clients: row.showToClients,
     }));
     return { result: { notice: AGENT_NOTICE, items }, objectRefs: items.map((p) => ({ kind: 'problem' as const, ref: p.number })) };
+      },
+    };
   },
 });
 

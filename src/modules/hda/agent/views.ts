@@ -137,6 +137,8 @@ export const agentIdeasView = pgView('hda_agent_ideas', {
   originalLocale: text('original_locale').notNull(),
   title: text('title').notNull(),
   body: text('body').notNull(),
+  /** Миграция 0117: организация автора, только для обезличивания текста в коде сервера MCP (находка I2). */
+  orgId: uuid('org_id').notNull(),
 }).existing();
 
 export const agentSignaturesView = pgView('hda_agent_signatures', {

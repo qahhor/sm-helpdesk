@@ -2,8 +2,8 @@ import { and, desc, eq } from 'drizzle-orm';
 import * as z from 'zod';
 import { moduleCodesTx } from '@/modules/hdr/api';
 import { IDEA_STATUSES } from '@/modules/hdi/pref';
-import { agentExcerpt, anonymizeForAgent } from '../anonymize';
-import { defineTool } from '../tool';
+import { agentExcerpt } from '../anonymize';
+import { defineTool, type Redactor } from '../tool';
 import { AGENT_NOTICE, iso, moment, notice, str, UNTRUSTED_HINT } from '../util';
 import { agentIdeasView } from '../views';
 
@@ -35,8 +35,6 @@ const item = z.strictObject({
 });
 const output = z.strictObject({ notice, items: z.array(item).max(LIMIT) });
 
-const clean = (text: string) => anonymizeForAgent(text, { people: [], orgTerms: [] }).text;
-
 export const listIdeas = defineTool({
   name: 'list_ideas',
   kind: 'read',
@@ -51,6 +49,11 @@ export const listIdeas = defineTool({
       .orderBy(desc(agentIdeasView.voteCount), desc(agentIdeasView.number))
       .limit(args.limit);
     const modules = await moduleCodesTx(tx, rows.flatMap((row) => (row.moduleId ? [row.moduleId] : [])));
+    // Текст обезличивается словами организации автора и сотрудников (находка I2); организация агенту не отдаётся.
+    return {
+      redact: { orgIds: rows.map((row) => row.orgId) },
+      finish: (redact: Redactor) => {
+    const clean = (orgId: string, text: string) => redact(orgId, text);
     const items = rows.map((row) => ({
       number: row.number,
       status: row.status,
@@ -61,9 +64,11 @@ export const listIdeas = defineTool({
       published_on: iso(row.publishedOn),
       released_in: row.releasedIn ? row.releasedIn.slice(0, 60) : null,
       locale: row.originalLocale,
-      untrusted_customer_text: { title: agentExcerpt(clean(row.title), TITLE_MAX), body: agentExcerpt(clean(row.body), BODY_MAX) },
+      untrusted_customer_text: { title: agentExcerpt(clean(row.orgId, row.title), TITLE_MAX), body: agentExcerpt(clean(row.orgId, row.body), BODY_MAX) },
     }));
     return { result: { notice: AGENT_NOTICE, items }, objectRefs: items.map((idea) => ({ kind: 'idea' as const, ref: idea.number })) };
+      },
+    };
   },
 });
 

@@ -1,0 +1,63 @@
+{
+  "scanId": "2026-W47",
+  "repository": "smartup-core",
+  "commit": "abc1234",
+  "modules": [
+    {
+      "code": "orders",
+      "name": { "ru": "Заказы", "uz": "Buyurtmalar", "en": "Orders" },
+      "summary": "Создание и проведение заказов",
+      "dependsOn": ["stock", "prices"],
+      "screens": [{ "code": "order_edit", "name": { "ru": "Новый заказ", "en": "New order" } }]
+    },
+    {
+      "code": "stock",
+      "name": { "ru": "Склад" },
+      "summary": "Остатки и движения товаров",
+      "dependsOn": [],
+      "screens": [{ "code": "stock_balance", "name": { "ru": "Остатки" } }]
+    }
+  ],
+  "errors": [
+    {
+      "key": "orders.insufficient_stock",
+      "code": "ORA-20001",
+      "messageTemplates": {
+        "ru": "Недостаточно остатка товара {product} на складе {warehouse}",
+        "uz": "{warehouse} omborida {product} mahsuloti qoldig'i yetarli emas",
+        "en": "Not enough stock of {product} in warehouse {warehouse}"
+      },
+      "module": "orders",
+      "raisedIn": [{ "object": "ORDER_PKG.SAVE_ORDER", "path": "db/packages/order_pkg.pkb", "line": 412 }],
+      "conditions": "Количество в заказе больше доступного остатка при включённом контроле остатков",
+      "userCause": "На выбранном складе товара меньше, чем в заказе",
+      "whatToCheck": ["Остаток по товару на складе заказа", "Включён ли контроль остатков"],
+      "kind": "user_error",
+      "confidence": 0.8
+    },
+    {
+      "key": "stock.negative_balance",
+      "code": "ORA-20002",
+      "messageTemplates": { "ru": "Отрицательный остаток по товару {product} на дату {date}" },
+      "module": "stock",
+      "raisedIn": [{ "object": "STOCK_PKG.POST_MOVE", "path": "db/packages/stock_pkg.pkb", "line": 118 }],
+      "conditions": "Проведение расхода задним числом при запрете отрицательных остатков",
+      "userCause": "Расход проводится раньше прихода того же товара",
+      "whatToCheck": ["Дата прихода товара", "Дата документа расхода"],
+      "kind": "data",
+      "confidence": 0.7
+    },
+    {
+      "key": "routes.empty_points",
+      "messageTemplates": { "ru": "В маршруте {route} нет ни одной точки" },
+      "module": "routes",
+      "raisedIn": [{ "object": "ROUTE_PKG.CHECK", "path": "db/packages/route_pkg.pkb", "line": 55 }],
+      "conditions": "Маршрут сохраняется без торговых точек",
+      "userCause": "В маршрут не добавлены точки",
+      "whatToCheck": ["Точки маршрута"],
+      "kind": "setting",
+      "confidence": 0.9
+    }
+  ],
+  "changes": { "added": ["orders.insufficient_stock", "stock.negative_balance", "routes.empty_points"], "changed": [], "removed": [] }
+}

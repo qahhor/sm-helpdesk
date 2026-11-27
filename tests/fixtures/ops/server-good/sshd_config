@@ -1,0 +1,7 @@
+# Образец: sshd_config сервера после шагов памятки запуска (раздел 1).
+Include /etc/ssh/sshd_config.d/*.conf
+Port 22
+KbdInteractiveAuthentication no
+UsePAM yes
+X11Forwarding no
+Subsystem sftp /usr/lib/openssh/sftp-server

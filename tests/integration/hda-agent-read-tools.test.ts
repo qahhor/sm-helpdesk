@@ -288,3 +288,16 @@ test('названия проблем, тексты идей и кандидат
   for (const word of ['Globex', 'Тимур', 'Зарина', 'Камила']) expect(ideas, word).not.toContain(word);
   expect(ideas).not.toContain('org_id');
 });
+
+test('search_tickets ищет текст в обезличенной теме: имя человека не находится, остальные слова находятся (долг M8b M7)', async () => {
+  const { f, data } = await setup();
+  await pools.root.query(`update hdt_tickets set title = 'Алишер не может провести накладную' where ticket_id = $1`, [f.tickets.aOrg.ticketId]);
+  // По числу совпадений агент не узнаёт, встречается ли имя в обращениях.
+  expect((await data('search_tickets', { text: 'Алишер' })).items).toEqual([]);
+  expect((await data('search_tickets', { text: 'алишер' })).items).toEqual([]);
+  const found = (await data('search_tickets', { text: 'провести накладную' })).items!;
+  expect(found.map((i) => i.number)).toEqual([f.tickets.aOrg.number]);
+  expect(JSON.stringify(found)).not.toContain('Алишер');
+  // Текст ищется без учёта регистра и вместе с другими фильтрами и пределом.
+  expect((await data('search_tickets', { text: 'НАКЛАДНУЮ', limit: 1 })).items!.map((i) => i.number)).toEqual([f.tickets.aOrg.number]);
+});

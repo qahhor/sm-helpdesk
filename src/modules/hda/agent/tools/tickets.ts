@@ -1,7 +1,6 @@
 import 'server-only';
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, notInArray, or, type SQL, sql } from 'drizzle-orm';
 import * as z from 'zod';
-import { containsText } from '@/db/contains';
 import { PRIORITIES, QUEUES, TICKET_STATUSES } from '@/modules/hdt/pref';
 import { HdaAgentError } from '../../error';
 import { agentExcerpt } from '../anonymize';
@@ -17,6 +16,12 @@ import { cap, moduleCode, moduleCodes, moduleIdOf, numbersOf, signature } from '
 // (сотрудник, помощник, агент, система). Организация идентификатором и категорией. Номер вне видимости: not_found.
 
 const LIST_MAX = 50;
+/**
+ * Поиск по тексту темы идёт по обезличенной теме (долг M8b M7): иначе по числу совпадений агент проверил бы, есть ли
+ * имя в обращениях. Поэтому строки отбираются остальными фильтрами, не больше стольких новых, обезличиваются и только
+ * потом сверяются с текстом.
+ */
+const TEXT_SCAN_MAX = 500;
 const SIMILAR_MAX = 10;
 const TITLE_MAX = 500;
 const DESCRIPTION_MAX = 20_000;
@@ -71,7 +76,7 @@ const ticketRefs = (items: { number: number }[]) => items.map((item) => ({ kind:
 export const searchTickets = defineTool({
   name: 'search_tickets',
   kind: 'read',
-  description: `Search tickets visible to the AI staff by status, queue, module code, priority, period of creation, error signature and text in the subject. Newest first, at most ${LIST_MAX}. Organizations are given by id and category only. ${UNTRUSTED_HINT}`,
+  description: `Search tickets visible to the AI staff by status, queue, module code, priority, period of creation, error signature and text in the anonymized subject (among the newest ${TEXT_SCAN_MAX} tickets matching the other filters). Newest first, at most ${LIST_MAX}. Organizations are given by id and category only. ${UNTRUSTED_HINT}`,
   input: z.strictObject({
     status: z.array(z.enum(TICKET_STATUSES)).min(1).max(TICKET_STATUSES.length).optional(),
     queue: z.enum(QUEUES).optional(),
@@ -95,19 +100,20 @@ export const searchTickets = defineTool({
       args.created_from ? gte(v.createdOn, new Date(args.created_from)) : undefined,
       args.created_to ? lte(v.createdOn, new Date(args.created_to)) : undefined,
       args.signature ? eq(v.errorSignature, args.signature) : undefined,
-      args.text ? containsText(v.title, args.text) : undefined,
     ];
     const rows = await tx
       .select()
       .from(v)
       .where(and(...where))
       .orderBy(desc(v.createdOn), desc(v.number))
-      .limit(args.limit);
+      .limit(args.text ? TEXT_SCAN_MAX : args.limit);
     const build = await summaries(tx, rows);
+    const needle = args.text?.toLocaleLowerCase('ru');
     return {
       redact: scopeOf(rows),
       finish: (redact: Redactor) => {
-        const items = build(redact);
+        const all = build(redact);
+        const items = (needle ? all.filter((item) => item.untrusted_customer_text.title.toLocaleLowerCase('ru').includes(needle)) : all).slice(0, args.limit);
         return { result: { notice: AGENT_NOTICE, items }, objectRefs: ticketRefs(items) };
       },
     };

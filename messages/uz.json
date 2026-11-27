@@ -1459,7 +1459,9 @@
             "event_parent_set": "Hodisalar uchun AI-xodim tokeni tanlandi",
             "tool_refused": "Token ro'yxatidan tashqari vosita chaqiruvi rad etildi",
             "tool_called": "AI-xodim yozish vositasini chaqirdi",
-            "report_reviewed": "AI-xodim xulosasi ko'rib chiqilgan deb belgilandi"
+            "report_reviewed": "AI-xodim xulosasi ko'rib chiqilgan deb belgilandi",
+            "run_token_issued": "AI-xodim uchun ishga tushirish tokeni chiqarildi",
+            "run_token_revoked": "AI-xodimning ishga tushirish tokeni bekor qilindi"
           },
           "code": {
             "scan_accepted": "Kod skanerlash hisoboti qabul qilindi",
@@ -1542,7 +1544,12 @@
           "scope": "Qamrov",
           "revoked": "Yakunlandi",
           "all": "hammasi",
-          "user": "foydalanuvchi"
+          "user": "foydalanuvchi",
+          "parentId": "Asosiy token",
+          "purpose": "Maqsad",
+          "reason": "Sabab",
+          "replaced": "yangisi bilan almashtirildi",
+          "not_sent": "hodisa yuborilmadi"
         }
       },
       "sla": {

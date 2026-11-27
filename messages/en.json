@@ -1459,7 +1459,9 @@
             "event_parent_set": "AI staff token chosen for events",
             "tool_refused": "Tool call outside the token list refused",
             "tool_called": "AI staff called a write tool",
-            "report_reviewed": "AI staff digest marked as reviewed"
+            "report_reviewed": "AI staff digest marked as reviewed",
+            "run_token_issued": "AI staff run token issued",
+            "run_token_revoked": "AI staff run token revoked"
           },
           "code": {
             "scan_accepted": "Code scan report accepted",
@@ -1542,7 +1544,12 @@
           "scope": "Scope",
           "revoked": "Ended",
           "all": "all",
-          "user": "user"
+          "user": "user",
+          "parentId": "Main token",
+          "purpose": "Purpose",
+          "reason": "Reason",
+          "replaced": "replaced",
+          "not_sent": "event not sent"
         }
       },
       "sla": {

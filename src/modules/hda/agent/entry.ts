@@ -18,11 +18,12 @@ import { hashToken, ipAllowed, parseBearer } from './auth';
 // токены: чужие попытки с того же адреса не закрывают вход действующему агенту (M10). Адрес берётся из заголовка
 // доверенного прокси CLIENT_IP_HEADER: источник портала принимает соединения только от этого прокси (решение 0125).
 // Токен в памяти процесса не хранится: отзыв действует со следующего запроса. Причина отказа идёт только в журнал
-// работы, агенту одинаковые 401 и 403.
+// работы; агенту отказ по адресу и неверный токен отвечаются одинаковым 401 (долг M8b M9, план M9, решение 22).
 
 const SYSTEM = { type: 'system', job: 'mcp.entry' } as const;
 
-export type AgentAuth = { actor: AgentActor; dailyLimit: number; isRun: boolean };
+/** dailyTokenId: чей суточный счётчик расходует вызов; у токена запуска это родитель (долг M8b M1). */
+export type AgentAuth = { actor: AgentActor; dailyLimit: number; isRun: boolean; dailyTokenId: string };
 export type AgentDenied = { denied: 'unauthorized' | 'forbidden_ip' | 'rate_limited'; retryAfterSec?: number };
 export type AgentServerSettings = { allowedIps: readonly string[] | null };
 
@@ -65,6 +66,7 @@ export async function authenticateAgent(request: Request, settings: AgentServerS
         ticketId: agentTokens.ticketId,
         dailyLimit: agentTokens.dailyLimit,
         lastUsedAt: agentTokens.lastUsedAt,
+        parentTokenId: agentTokens.parentTokenId,
         parentDailyLimit: parent.dailyLimit,
         parentTools: parent.tools,
         parentAllowedIps: parent.allowedIps,
@@ -102,5 +104,7 @@ export async function authenticateAgent(request: Request, settings: AgentServerS
     );
 
   const isRun = row.ticketId !== null;
-  return { auth: { actor, dailyLimit: isRun ? (row.parentDailyLimit ?? row.dailyLimit) : row.dailyLimit, isRun } };
+  return {
+    auth: { actor, dailyLimit: isRun ? (row.parentDailyLimit ?? row.dailyLimit) : row.dailyLimit, isRun, dailyTokenId: row.parentTokenId ?? row.tokenId },
+  };
 }

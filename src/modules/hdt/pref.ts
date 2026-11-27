@@ -254,6 +254,9 @@ export const AI_HANDOFF_REASONS = [
   'ai_limit',
   'no_text',
   'language',
+  // M5c (решения 22, 23): ответ известной проблемой и сообщение о сбое, затем передача.
+  'known_problem',
+  'outage',
 ] as const;
 export type AiHandoffReason = (typeof AI_HANDOFF_REASONS)[number];
 
@@ -265,10 +268,14 @@ export const AI_SILENCE_SEC = 90;
 /**
  * Сообщение помощника: ссылки, а не текст (решение 9). answer: вступление и решение; clarify: вопрос между двумя
  * решениями; handoff: передача сотруднику со сроком; ack: подтверждение без знака Теза (FR-AI-15, при ai_disabled и
- * ai_limit). Заголовок и шаги решения показ берёт из hdk_published.
+ * ai_limit). Заголовок и шаги решения показ берёт из hdk_published. M5c (решения 22, 23): known_problem: ответ
+ * известной проблемой (номер; название, статус и обходной путь показ берёт из hdp_problems_public), outage: сообщение о
+ * действующем объявлении "сбой" (текст из hdp_announcement_translations).
  */
 export type AiPayload =
   | { kind: 'answer'; introId: string; articleId: string; articleNumber: number; locale: string }
   | { kind: 'clarify'; introId: string; options: { articleId: string; articleNumber: number }[]; locale: string }
   | { kind: 'handoff'; reason: AiHandoffReason; questionIds: string[]; dueOn: string | null; startOn: string | null; locale: string }
-  | { kind: 'ack'; reason: AiHandoffReason; dueOn: string | null; startOn: string | null; locale: string };
+  | { kind: 'ack'; reason: AiHandoffReason; dueOn: string | null; startOn: string | null; locale: string }
+  | { kind: 'known_problem'; problemNumber: number; locale: string }
+  | { kind: 'outage'; announcementId: string; locale: string };

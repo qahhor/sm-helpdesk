@@ -275,3 +275,13 @@ export async function activeOutage(system: SystemActor, input: { orgId: string; 
   );
   return row ?? null;
 }
+
+/**
+ * Одно объявление для сообщения Теза о сбое (решение 23) на языке клиента: только начавшееся объявление аудитории
+ * клиента (политика базы), текст сотрудника или принятый перевод. Невидимое или удалённое: null.
+ */
+export async function clientAnnouncement(ctx: { actor: ClientActor }, input: unknown): Promise<(ClientAnnouncement & { ended: boolean }) | null> {
+  const data = parseInput(z.strictObject({ announcementId: z.uuid(), locale: z.enum(LOCALES) }), input);
+  const [row] = await withActor(ctx.actor, (tx) => clientAnnouncementsTx(tx, data.locale, and(eq(announcements.announcementId, data.announcementId))));
+  return row ? { ...row, ended: row.endsOn.getTime() <= Date.now() } : null;
+}

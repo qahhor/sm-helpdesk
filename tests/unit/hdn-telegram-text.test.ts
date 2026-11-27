@@ -27,7 +27,9 @@ test('каждый шаблон и статус даёт своё событие
   // Обновление по известной проблеме (веха M5c, FR-NT-14): только номер проблемы, текст рассылки в портале.
   expect(event({ template: 'problem_update', ...ref, body: 'Текст рассылки', problemRef: 'KP-12', problemStatus: 'fixing', closing: false })).toBe('Обновление по известной проблеме KP-12.');
   expect(event({ template: 'problem_update', ...ref, body: 'Итог', problemRef: 'KP-12', problemStatus: 'fixed', closing: true })).toBe('Известная проблема KP-12 исправлена. Обращение решено.');
-  expect([...TELEGRAM_TEMPLATES].sort()).toEqual(['problem_update', 'tez_answer', 'ticket_created', 'ticket_reply', 'ticket_resolved', 'ticket_status', 'waiting_reminder']);
+  expect(event({ template: 'tez_notice', ...ref, notice: 'known_problem', noticeTitle: 'Не проводятся накладные', noticeBody: 'Текст', problemRef: 'KP-12', problemStatus: 'fixing' })).toBe('Тез: это известная проблема KP-12. Обращение у сотрудника.');
+  expect(event({ template: 'tez_notice', ...ref, notice: 'outage', noticeTitle: 'Сбой', noticeBody: 'Текст' })).toBe('Тез: сейчас действует сбой. Обращение у сотрудника.');
+  expect([...TELEGRAM_TEMPLATES].sort()).toEqual(['problem_update', 'tez_answer', 'tez_notice', 'ticket_created', 'ticket_reply', 'ticket_resolved', 'ticket_status', 'waiting_reminder']);
 });
 
 test('на языке пользователя: узбекский и английский', () => {

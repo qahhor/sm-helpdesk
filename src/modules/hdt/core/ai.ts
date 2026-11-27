@@ -7,7 +7,7 @@ import { HdtError } from '../error';
 import { AI_REPLY_LIMIT, type AiHandoffReason, type AiPayload, canTransition, type TicketStatus } from '../pref';
 import { ticketEvents, ticketMessages, tickets } from '../schema';
 import { nextWorkStart } from '../sla';
-import { notifyTicketTx } from './notify';
+import { type AiNoticeMail, notifyTicketTx } from './notify';
 import { calendarFor, refreshSla } from './sla';
 
 // Модуль hdt, слой core: помощник первой линии в обращении (план M5b, задача 3, решения 4, 9, 14, 15; FR-AI-09, 10,
@@ -23,6 +23,8 @@ const SERVICE_BODY: Record<AiPayload['kind'], string> = {
   clarify: 'Тез: уточняющий вопрос',
   handoff: 'Тез: передал обращение сотруднику',
   ack: 'Обращение передано сотрудникам',
+  known_problem: 'Тез: ответ известной проблемой',
+  outage: 'Тез: сообщение о сбое',
 };
 
 type Locked = { ticketId: string; orgId: string; status: TicketStatus; aiState: string; aiReplyCount: number; priority: string; firstRespondedOn: Date | null };
@@ -87,14 +89,16 @@ export async function postAiMessageTx(
     expectLastClientMessageId?: string | null;
     /** Заголовок и строки опубликованного решения для письма и Telegram (задача 6). */
     mail?: { solutionTitle: string; lines: string[] };
+    /**
+     * Передача сотруднику сразу после ответа в той же транзакции (точный ответ при P1, FR-AI-07; долг M5b M4): статус
+     * "Ждём вашего ответа" не ставится, обращение у сотрудника. Сбой между ответом и передачей невозможен.
+     */
+    thenHandoff?: ThenHandoff;
   },
 ): Promise<string> {
   const t = await lockAi(tx, input.ticketId);
-  if (t.aiState !== 'active' || t.aiReplyCount >= AI_REPLY_LIMIT) throw new HdtError('transition_refused');
-  // Второе задание на то же обращение уже ответило, пока это ждало модель: второго ответа нет (решение 5).
-  if (input.expectReplyCount !== undefined && t.aiReplyCount !== input.expectReplyCount) throw new HdtError('transition_refused');
-  if (input.expectLastClientMessageId !== undefined && (await lastClientMessageIdTx(tx, t.ticketId)) !== input.expectLastClientMessageId) throw new HdtError('transition_refused');
-  const to: TicketStatus = 'waiting_customer';
+  await assertCanPostTx(tx, t, input);
+  const to: TicketStatus = input.thenHandoff ? t.status : 'waiting_customer';
   if (t.status !== to) await aiStatusTx(tx, t, to);
   const [message] = await tx
     .insert(ticketMessages)
@@ -123,6 +127,52 @@ export async function postAiMessageTx(
       messageId: message!.messageId,
       aiAnswer: { introId: input.payload.introId, solutionTitle: input.mail.solutionTitle, lines: input.mail.lines, articleNumber: input.payload.articleNumber },
     });
+  if (input.thenHandoff) await handoffTx(tx, { ticketId: t.ticketId, now: input.now, ...input.thenHandoff });
+  return message!.messageId;
+}
+
+/** Передача, которая идёт сразу за сообщением помощника в той же транзакции. */
+export type ThenHandoff = { reason: AiHandoffReason; questionIds: readonly string[]; locale: string };
+
+/** Помощник может написать: активен, ответов меньше трёх, нет другого ответа и нового сообщения клиента (решение 5, I2). */
+async function assertCanPostTx(tx: Tx, t: Locked, input: { expectReplyCount?: number; expectLastClientMessageId?: string | null }): Promise<void> {
+  if (t.aiState !== 'active' || t.aiReplyCount >= AI_REPLY_LIMIT) throw new HdtError('transition_refused');
+  // Второе задание на то же обращение уже ответило, пока это ждало модель: второго ответа нет (решение 5).
+  if (input.expectReplyCount !== undefined && t.aiReplyCount !== input.expectReplyCount) throw new HdtError('transition_refused');
+  if (input.expectLastClientMessageId !== undefined && (await lastClientMessageIdTx(tx, t.ticketId)) !== input.expectLastClientMessageId) throw new HdtError('transition_refused');
+}
+
+/**
+ * Ответ известной проблемой или сообщение о сбое и передача сотруднику одной транзакцией (план M5c, решения 22, 23;
+ * FR-KP-12, FR-ANN-03). Модель не участвует: сообщение хранит номер проблемы или идентификатор объявления, текст
+ * сотрудника рисуется при показе. Ответ проблемой останавливает срок первого ответа, как ответ решением, и передача с
+ * причиной known_problem его не возобновляет; сообщение о сбое срок не останавливает. Передача по причине из
+ * handoff (known_problem, outage или p1) идёт в той же транзакции, статус "Ждём вашего ответа" не ставится.
+ */
+export async function postAiNoticeTx(
+  tx: Tx,
+  input: {
+    ticketId: string;
+    payload: Extract<AiPayload, { kind: 'known_problem' | 'outage' }>;
+    now: Date;
+    handoff: ThenHandoff;
+    expectReplyCount?: number;
+    expectLastClientMessageId?: string | null;
+    mail?: AiNoticeMail;
+  },
+): Promise<string> {
+  const t = await lockAi(tx, input.ticketId);
+  await assertCanPostTx(tx, t, input);
+  const [message] = await tx
+    .insert(ticketMessages)
+    .values({ orgId: t.orgId, ticketId: t.ticketId, authorType: 'ai', body: SERVICE_BODY[input.payload.kind], aiPayload: input.payload })
+    .returning({ messageId: ticketMessages.messageId });
+  const ref = input.payload.kind === 'known_problem' ? { kind: 'known_problem', problemNumber: input.payload.problemNumber } : { kind: 'outage', announcementId: input.payload.announcementId };
+  await tx.insert(ticketEvents).values({ orgId: t.orgId, ticketId: t.ticketId, kind: 'ai_answer', actorType: 'ai', payload: ref, isInternal: true });
+  const answered = input.payload.kind === 'known_problem' && !t.firstRespondedOn;
+  await refreshSla(tx, t.ticketId, input.now, { aiReplyCount: t.aiReplyCount + 1, ...(answered ? { firstRespondedOn: input.now } : {}) });
+  if (input.mail) await notifyTicketTx(tx, { ticketId: t.ticketId, kind: 'ai_notice', actorUserId: null, messageId: message!.messageId, aiNotice: input.mail });
+  await handoffTx(tx, { ticketId: t.ticketId, now: input.now, ...input.handoff, keepFirstResponse: input.handoff.reason === 'known_problem' });
   return message!.messageId;
 }
 
@@ -147,7 +197,18 @@ const ACK_REASONS: readonly AiHandoffReason[] = ['ai_failure', 'ai_disabled', 'a
  * событие ai_handoff для правил, журнал аудита, внутреннее событие истории. Уже передано или помощник не участвует:
  * ничего не меняется (false).
  */
-export async function handoffTx(tx: Tx, input: { ticketId: string; reason: AiHandoffReason; questionIds: readonly string[]; now: Date; locale: string }): Promise<boolean> {
+export async function handoffTx(
+  tx: Tx,
+  input: {
+    ticketId: string;
+    reason: AiHandoffReason;
+    questionIds: readonly string[];
+    now: Date;
+    locale: string;
+    /** Ответ известной проблемой уже остановил срок первого ответа (решение 22): передача его не возобновляет. */
+    keepFirstResponse?: boolean;
+  },
+): Promise<boolean> {
   const t = await lockAi(tx, input.ticketId);
   if (t.aiState !== 'active') return false;
   const status: TicketStatus = t.status === 'waiting_customer' ? 'in_progress' : t.status;
@@ -158,8 +219,7 @@ export async function handoffTx(tx: Tx, input: { ticketId: string; reason: AiHan
     aiHandoffReason: input.reason,
     aiHandoffOn: input.now,
     queue: 'l1',
-    firstRespondedOn: null,
-    firstResponseBreachedOn: null,
+    ...(input.keepFirstResponse ? {} : { firstRespondedOn: null, firstResponseBreachedOn: null }),
   });
   const config = await readSlaConfig(tx);
   const start = nextWorkStart(input.now, calendarFor(config, t.priority as Parameters<typeof calendarFor>[1]));

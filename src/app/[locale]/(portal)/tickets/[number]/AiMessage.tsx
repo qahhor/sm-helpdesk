@@ -1,6 +1,9 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import type { AiPayload } from '@/modules/hdt/api';
 import { clientSolutionPage } from '@/modules/hdk/api/client';
+import { clientAnnouncement } from '@/modules/hdp/api/announcements';
+import { publicProblemOfTicket } from '@/modules/hdp/api/client';
+import { isLocale } from '@/i18n/locales';
 import type { ClientContext } from '@/modules/hdu/api';
 import { Link } from '@/i18n/navigation';
 import { TezMark } from '@/ui/brand/TezMark';
@@ -13,6 +16,9 @@ import { aiFeedbackAction } from './actions';
 // не может получить текст клиента. Ни одного слова модели: вступление и вопросы по идентификаторам из messages/*.json,
 // уточняющий вопрос собирается из заголовков решений, заголовок и шаги берутся из hdk_published на языке клиента
 // (FR-SOL-10). Решение снято с публикации: "Решение больше не действует". Решение обновлено после ответа: пометка.
+// Известная проблема и сбой (веха M5c, решения 22, 23): публичное название, статус и обходной путь из
+// hdp_problems_public, заголовок и текст объявления на языке клиента в момент показа. Скрытая проблема и
+// закончившийся сбой: короткая строка без текста.
 
 type Props = {
   client: Pick<ClientContext, 'actor'>;
@@ -132,6 +138,48 @@ export async function AiMessage({ client, number, messageId, payload, createdOn,
         );
     }
     if (actionable && !actions) actions = <Buttons number={number} messageId={messageId} labels={buttons} extra={[]} />;
+  } else if (payload.kind === 'known_problem') {
+    const problems = await getTranslations('client.problems');
+    const problem = await publicProblemOfTicket(client, { ticketNumber: number, locale: isLocale(locale) ? locale : 'ru' });
+    body =
+      problem && problem.number === payload.problemNumber ? (
+        <>
+          <p>{t('knownProblem.title')}</p>
+          <h3 className="font-semibold break-words">{problem.publicTitle}</h3>
+          <p data-testid="tez-problem-status">{t('knownProblem.status', { status: problems(`statuses.${problem.status === 'closed' ? 'fixed' : problem.status}`) })}</p>
+          <p className="whitespace-pre-line break-words">{problem.publicBody}</p>
+          {problem.workaround && (
+            <p>
+              {t('knownProblem.workaround')}{' '}
+              <Link href={`/help/a/${problem.workaround.number}-${problem.workaround.slug}`} className="text-link underline underline-offset-2">
+                {problem.workaround.title}
+              </Link>
+            </p>
+          )}
+          <p>{t('knownProblem.after')}</p>
+        </>
+      ) : (
+        <p>{t('knownProblem.gone')}</p>
+      );
+  } else if (payload.kind === 'outage') {
+    const announcement = await clientAnnouncement(client, { announcementId: payload.announcementId, locale: isLocale(locale) ? locale : 'ru' });
+    body =
+      announcement && !announcement.ended ? (
+        <>
+          <p>{t('outage.title')}</p>
+          <h3 className="font-semibold break-words" lang={announcement.locale}>
+            {announcement.title}
+          </h3>
+          {announcement.body && (
+            <p className="whitespace-pre-line break-words" lang={announcement.locale}>
+              {announcement.body}
+            </p>
+          )}
+          <p>{t('outage.after')}</p>
+        </>
+      ) : (
+        <p>{t('outage.gone')}</p>
+      );
   } else {
     const due = dueText(payload, 'handoff');
     body = (
@@ -161,7 +209,7 @@ export async function AiMessage({ client, number, messageId, payload, createdOn,
         </span>
       </p>
       <div className="flex flex-col gap-2 rounded-card bg-card-soft p-4">{body}</div>
-      {payload.kind !== 'handoff' && <p className="text-sm text-muted-foreground">{t('caption')}</p>}
+      {(payload.kind === 'answer' || payload.kind === 'clarify') && <p className="text-sm text-muted-foreground">{t('caption')}</p>}
       {actions}
     </article>
   );

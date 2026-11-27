@@ -42,6 +42,9 @@ export const AI_HANDOFF_REASONS = [
   'ai_limit',
   'no_text',
   'language',
+  // M5c (решения 22, 23): ответ известной проблемой и сообщение о сбое, затем передача.
+  'known_problem',
+  'outage',
 ] as const;
 export type AiHandoffReason = (typeof AI_HANDOFF_REASONS)[number];
 

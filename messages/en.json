@@ -683,7 +683,19 @@
         "period_filters": "Which period and filters did you choose?",
         "other_user": "Does another user see the same?"
       },
-      "formHint": "The AI assistant answers first. You can call staff at any time."
+      "formHint": "The AI assistant answers first. You can call staff at any time.",
+      "knownProblem": {
+        "title": "This is a known problem. We are already working on it.",
+        "status": "Status: {status}",
+        "workaround": "For now you can do this:",
+        "after": "A support specialist has your request. We will post here as soon as it is fixed.",
+        "gone": "The problem is no longer shown. A specialist has your request."
+      },
+      "outage": {
+        "title": "There is an outage right now. We know about it.",
+        "after": "A support specialist has your request. We will let you know when everything works again.",
+        "gone": "The outage is over. If the error is still there, write here."
+      }
     },
     "problems": {
       "heading": "We know about this problem",
@@ -2843,7 +2855,9 @@
         "ai_disabled": "the assistant is off",
         "ai_limit": "AI spending limit",
         "no_text": "request without text",
-        "language": "language not supported"
+        "language": "language not supported",
+        "known_problem": "known problem",
+        "outage": "outage in progress"
       },
       "flag": {
         "open": "Mark the answer as wrong",
@@ -4278,6 +4292,13 @@
         "fixed": "fixed",
         "closed": "fixed"
       }
+    },
+    "tezNotice": {
+      "heading": "Tez replied to request SUP-{number}",
+      "knownProblem": "This is a known problem {problem}. Status: {status}.",
+      "outage": "There is an outage right now. We know about it.",
+      "workaround": "Workaround",
+      "after": "A support specialist has your request. We will let you know as soon as it is fixed."
     }
   },
   "bot": {
@@ -4313,7 +4334,9 @@
       "tezHelped": "Helped",
       "tezNeedStaff": "Need staff",
       "problemUpdate": "Update on known problem {problem}.",
-      "problemClosed": "Known problem {problem} is fixed. The request is resolved."
+      "problemClosed": "Known problem {problem} is fixed. The request is resolved.",
+      "tezKnownProblem": "Tez: this is a known problem {problem}. A specialist has your request.",
+      "tezOutage": "Tez: there is an outage right now. A specialist has your request."
     },
     "oncallP1": "P1: new urgent request SUP-{number}",
     "oncallP1Org": "P1: new urgent request SUP-{number}, {org}",

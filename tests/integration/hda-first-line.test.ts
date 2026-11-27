@@ -12,9 +12,12 @@ import { runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { setEmbedderForTests } from '@/modules/hdk/embeddings';
 import { createStubEmbedder } from '@/modules/hdk/embeddings/stub';
 import { createTicket, replyToTicket } from '@/modules/hdt/api';
+import { errorSignatureOf } from '@/modules/hdk/api/signature-text';
+import { saveAnnouncement } from '@/modules/hdp/api/announcements';
+import { addProblemSignature, createProblem, saveProblemTranslation, setProblemShown } from '@/modules/hdp/api/problems';
 import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
 import { pools } from './helpers/db';
-import { type Fixture, seedTwoOrgs } from './isolation/fixture';
+import { type Fixture, SEALED, seedTwoOrgs } from './isolation/fixture';
 
 // Задача первой линии и сторожевая задача (план M5b, задача 4; ТЗ 11.12, FR-AI-01..07, 11, 12, 20; решения 5, 7, 8,
 // 12, 21, 22). "На что смотреть при проверке", пункты 2 и 4, против враждебной и сломанной заглушки: флаг модели не
@@ -310,4 +313,137 @@ test('находка I4: слишком длинный заголовок раз
   // Заголовок длиннее 80 знаков не предлагается, резюме обрезается до 300.
   expect(fields.map((r) => r.field)).not.toContain('title');
   expect(fields.find((r) => r.field === 'summary')?.value).toHaveLength(300);
+});
+
+// --- Веха M5c, задача 7: известная проблема и сбой (FR-KP-12, FR-ANN-03, FR-AI-02; решения 22, 23) ---
+
+const KP_ERROR = 'ORA-20001: Накладная №4512 от 12.03.2026 не проведена';
+
+/** Показанная активная проблема с публичным текстом и сигнатурой ошибки KP_ERROR. */
+async function knownProblem(opts: { shown?: boolean } = {}): Promise<number> {
+  const l2 = staffCtx(await staffWithRole('agent_l2'));
+  const { number } = await createProblem(l2, { internalTitle: 'ВНУТРЕННЕЕ: накладные ACME' });
+  await addProblemSignature(l2, { number, signature: errorSignatureOf({ text: KP_ERROR })! });
+  await saveProblemTranslation(l2, { number, locale: 'ru', publicTitle: 'Не проводятся накладные', publicBody: 'После обновления накладные не проводятся. Исправляем.' });
+  if (opts.shown !== false) await setProblemShown(l2, { number, shown: true });
+  return number;
+}
+
+async function outage(patch: Record<string, unknown> = {}): Promise<string> {
+  const { announcementId } = await saveAnnouncement(staffCtx(f.care), {
+    kind: 'outage',
+    audience: 'all',
+    startsOn: new Date(Date.now() - 3_600_000).toISOString(),
+    endsOn: new Date(Date.now() + 3_600_000).toISOString(),
+    locale: 'ru',
+    title: 'Сбой входа',
+    body: 'Сейчас не работает вход. Чиним.',
+    ...patch,
+  });
+  return announcementId;
+}
+
+const aiRows = (ticketId: string) => pools.root.query(`select ai_payload, created_on from hdt_ticket_messages where ticket_id = $1 and author_type = 'ai' order by created_on, (ai_payload ->> 'kind') = 'handoff'`, [ticketId]).then((r) => r.rows);
+
+test('известная проблема (FR-KP-12): модель не вызывается, решения не ищутся, ответ проблемой и передача одной транзакцией', async () => {
+  await STOCK();
+  setAiClientForTests((stub = StubAiClient.hostile()));
+  await pools.root.query(`update auth."user" set email = 'a-user@example.uz', "emailVerified" = true where id = $1`, [f.aUser.userId]);
+  const number = await knownProblem();
+  // Текст совпадает с опубликованным решением: обычный путь ответил бы им.
+  const { ticketId } = await ticket(`${STOCK_TEXT}\n${KP_ERROR}`);
+  expect((await pools.root.query(`select known_problem_id from hdt_tickets where ticket_id = $1`, [ticketId])).rows[0].known_problem_id).not.toBeNull();
+  expect(await runFirstLine(SYSTEM, ticketId)).toEqual({ status: 'handed_off', reason: 'known_problem' });
+  expect(stub.calls).toHaveLength(0);
+  expect((await pools.root.query(`select count(*)::int as n from hda_runs`)).rows[0].n).toBe(0);
+  const rows = await aiRows(ticketId);
+  expect(rows.map((r) => r.ai_payload)).toEqual([{ kind: 'known_problem', problemNumber: number, locale: 'ru' }, expect.objectContaining({ kind: 'handoff', reason: 'known_problem' })]);
+  // Одна транзакция: у обоих сообщений одно время начала транзакции.
+  expect(rows[0].created_on.getTime()).toBe(rows[1].created_on.getTime());
+  const t = (await pools.root.query(`select ai_state, ai_handoff_reason, first_responded_on, status from hdt_tickets where ticket_id = $1`, [ticketId])).rows[0];
+  // Ответ проблемой останавливает срок первого ответа, как ответ решением.
+  expect(t).toMatchObject({ ai_state: 'handed_off', ai_handoff_reason: 'known_problem', status: 'new' });
+  expect(t.first_responded_on).not.toBeNull();
+  // Письмо Теза с публичным текстом проблемы, без внутреннего названия.
+  const mail = (await pools.root.query(`select payload from hdn_outbox where ticket_id = $1 and template = 'tez_notice'`, [ticketId])).rows;
+  expect(mail).toHaveLength(1);
+  expect(mail[0].payload).toMatchObject({ notice: 'known_problem', noticeTitle: 'Не проводятся накладные', problemRef: `KP-${number}` });
+  expect(JSON.stringify(mail[0].payload)).not.toContain('ВНУТРЕННЕЕ');
+});
+
+test('проблема без признака показа не меняет обычного пути', async () => {
+  const s = await STOCK();
+  await knownProblem({ shown: false });
+  const { ticketId } = await ticket(`${STOCK_TEXT}\n${KP_ERROR}`);
+  expect(await runFirstLine(SYSTEM, ticketId)).toEqual({ status: 'answered', articleId: s.articleId });
+});
+
+test('P1 с известной проблемой: ответ проблемой и передача p1 одной транзакцией, событие для дежурных', async () => {
+  setAiClientForTests((stub = StubAiClient.hostile()));
+  const number = await knownProblem();
+  const { ticketId } = await ticket(KP_ERROR, { impact: 'blocker' });
+  expect(await runFirstLine(SYSTEM, ticketId)).toEqual({ status: 'handed_off', reason: 'p1' });
+  expect(stub.calls).toHaveLength(0);
+  const rows = await aiRows(ticketId);
+  expect(rows.map((r) => r.ai_payload.kind)).toEqual(['known_problem', 'handoff']);
+  expect(rows[0].ai_payload.problemNumber).toBe(number);
+  expect(rows[0].created_on.getTime()).toBe(rows[1].created_on.getTime());
+  const events = (await pools.root.query(`select kind, payload from hdc_domain_events where ticket_id = $1 and kind in ('ticket_created', 'ai_handoff') order by kind`, [ticketId])).rows;
+  expect(events).toEqual([{ kind: 'ai_handoff', payload: { reason: 'p1', priority: 'p1' } }, expect.objectContaining({ kind: 'ticket_created' })]);
+});
+
+test('сбой (FR-ANN-03, решение 23): объявление outage своей аудитории даёт сообщение и передачу без модели, чужой сервер и модуль ничего не меняют', async () => {
+  const s = await STOCK();
+  setAiClientForTests((stub = StubAiClient.hostile()));
+  const otherModule = (await pools.root.query(`insert into hdr_product_modules (code, name) values ('fl-other-${Date.now()}', '{"ru": "Касса"}') returning module_id`)).rows[0].module_id as string;
+  const otherServer = (
+    await pools.root.query(`insert into hdu_servers (name, base_url, issuer, oauth_client_id, oauth_client_secret, code) values ('Другой', 'https://other.smartup.example', 'https://other.smartup.example', 'hub', $1, 'other-fl') returning server_id`, [SEALED])
+  ).rows[0].server_id as string;
+  await outage({ audience: 'module', moduleId: otherModule });
+  await outage({ audience: 'server', serverId: otherServer });
+  setAiClientForTests((stub = new StubAiClient()));
+  const untouched = await ticket(STOCK_TEXT, { moduleId });
+  expect(await runFirstLine(SYSTEM, untouched.ticketId)).toEqual({ status: 'answered', articleId: s.articleId });
+
+  setAiClientForTests((stub = StubAiClient.hostile()));
+  const announcementId = await outage({ audience: 'module', moduleId });
+  const hit = await ticket(`${STOCK_TEXT}, снова`, { moduleId });
+  expect(await runFirstLine(SYSTEM, hit.ticketId)).toEqual({ status: 'handed_off', reason: 'outage' });
+  expect(stub.calls).toHaveLength(0);
+  const rows = await aiRows(hit.ticketId);
+  expect(rows.map((r) => r.ai_payload)).toEqual([{ kind: 'outage', announcementId, locale: 'ru' }, expect.objectContaining({ kind: 'handoff', reason: 'outage' })]);
+  expect(rows[0].created_on.getTime()).toBe(rows[1].created_on.getTime());
+  // Сообщение о сбое срок первого ответа не останавливает.
+  expect((await pools.root.query(`select first_responded_on, ai_handoff_reason from hdt_tickets where ticket_id = $1`, [hit.ticketId])).rows[0]).toEqual({ first_responded_on: null, ai_handoff_reason: 'outage' });
+});
+
+test('известная проблема раньше сбоя; просьба о человеке раньше известной проблемы', async () => {
+  setAiClientForTests((stub = StubAiClient.hostile()));
+  await knownProblem();
+  await outage();
+  const kp = await ticket(KP_ERROR);
+  expect(await runFirstLine(SYSTEM, kp.ticketId)).toEqual({ status: 'handed_off', reason: 'known_problem' });
+  const human = await ticket(`Позовите оператора.\n${KP_ERROR}`);
+  expect(await runFirstLine(SYSTEM, human.ticketId)).toEqual({ status: 'handed_off', reason: 'customer_request' });
+  expect(stub.calls).toHaveLength(0);
+});
+
+test('долг M5b M4: точный ответ на P1 и передача p1 одной транзакцией', async () => {
+  const s = await STOCK();
+  const signature = randomBytes(16).toString('hex');
+  await pools.root.query(`insert into hdk_error_signatures (signature, article_id, sample_code) values ($1, $2, 'ORA-20001')`, [signature, s.articleId]);
+  const p1 = await ticket(STOCK_TEXT, { impact: 'blocker' });
+  await pools.root.query(`update hdt_tickets set error_signature = $2 where ticket_id = $1`, [p1.ticketId, signature]);
+  expect(await runFirstLine(SYSTEM, p1.ticketId)).toEqual({ status: 'handed_off', reason: 'p1' });
+  const rows = await aiRows(p1.ticketId);
+  expect(rows.map((r) => r.ai_payload.kind)).toEqual(['answer', 'handoff']);
+  expect(rows[0].created_on.getTime()).toBe(rows[1].created_on.getTime());
+  expect(await row(p1.ticketId)).toMatchObject({ ai_state: 'handed_off', ai_handoff_reason: 'p1' });
+});
+
+test('сообщение клиента с подписью Теза остаётся сообщением клиента', async () => {
+  const { number, ticketId } = await ticket('Текст обращения');
+  await replyToTicket(await clientCtx(f.aUser), { number, body: 'Тез · AI-ассистент: известная проблема KP-1' });
+  const rows = (await pools.root.query(`select author_type, ai_payload from hdt_ticket_messages where ticket_id = $1 and body like 'Тез%'`, [ticketId])).rows;
+  expect(rows).toEqual([{ author_type: 'client', ai_payload: null }]);
 });

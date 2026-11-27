@@ -683,7 +683,19 @@
         "period_filters": "Qaysi davr va qaysi saralashlarni tanladingiz?",
         "other_user": "Boshqa foydalanuvchida ham shundaymi?"
       },
-      "formHint": "Birinchi bo'lib AI-yordamchi javob beradi. Xodimni istalgan vaqtda chaqirish mumkin."
+      "formHint": "Birinchi bo'lib AI-yordamchi javob beradi. Xodimni istalgan vaqtda chaqirish mumkin.",
+      "knownProblem": {
+        "title": "Bu ma'lum muammo. Biz uning ustida ishlayapmiz.",
+        "status": "Holati: {status}",
+        "workaround": "Hozircha shunday qilish mumkin:",
+        "after": "Murojaat xodimda. Tuzatishimiz bilan shu yerda xabar beramiz.",
+        "gone": "Muammo endi ko'rsatilmaydi. Murojaat xodimda."
+      },
+      "outage": {
+        "title": "Hozir nosozlik bor. Biz bu haqda bilamiz.",
+        "after": "Murojaat xodimda. Hammasi ishlaganda xabar beramiz.",
+        "gone": "Nosozlik tugadi. Xato qolgan bo'lsa, shu yerga yozing."
+      }
     },
     "problems": {
       "heading": "Biz bu muammo haqida bilamiz",
@@ -2843,7 +2855,9 @@
         "ai_disabled": "yordamchi o'chirilgan",
         "ai_limit": "AI xarajatlari chegarasi",
         "no_text": "matnsiz murojaat",
-        "language": "til qo'llab-quvvatlanmaydi"
+        "language": "til qo'llab-quvvatlanmaydi",
+        "known_problem": "ma'lum muammo",
+        "outage": "nosozlik davom etmoqda"
       },
       "flag": {
         "open": "Javobni noto'g'ri deb belgilash",
@@ -4278,6 +4292,13 @@
         "fixed": "tuzatildi",
         "closed": "tuzatildi"
       }
+    },
+    "tezNotice": {
+      "heading": "Tez SUP-{number} murojaati bo'yicha javob berdi",
+      "knownProblem": "Bu ma'lum muammo {problem}. Holati: {status}.",
+      "outage": "Hozir nosozlik bor. Biz bu haqda bilamiz.",
+      "workaround": "Vaqtinchalik yechim",
+      "after": "Murojaat xodimda. Tuzatishimiz bilan xabar beramiz."
     }
   },
   "bot": {
@@ -4313,7 +4334,9 @@
       "tezHelped": "Yordam berdi",
       "tezNeedStaff": "Xodim kerak",
       "problemUpdate": "{problem} ma'lum muammo bo'yicha yangilanish.",
-      "problemClosed": "{problem} ma'lum muammo tuzatildi. Murojaat hal qilindi."
+      "problemClosed": "{problem} ma'lum muammo tuzatildi. Murojaat hal qilindi.",
+      "tezKnownProblem": "Tez: bu ma'lum muammo {problem}. Murojaat xodimda.",
+      "tezOutage": "Tez: hozir nosozlik bor. Murojaat xodimda."
     },
     "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
     "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}",

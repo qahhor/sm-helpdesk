@@ -39,6 +39,7 @@ export type TicketNotice = {
     | 'csat_low'
     | 'ai_answer'
     | 'ai_ack'
+    | 'ai_notice'
     | 'problem_update';
   /** Кто действовал: он не получает уведомления о своём действии. Система: null. */
   actorUserId: string | null;
@@ -62,9 +63,17 @@ export type TicketNotice = {
   aiAnswer?: { introId: string; solutionTitle: string; lines: string[]; articleNumber: number };
   /** Рассылка по известной проблеме (веха M5c, FR-NT-12): номер и статус проблемы, итог закрытия. */
   problemUpdate?: { problemRef: string; problemStatus: string; closing: boolean };
+  /**
+   * Сообщение Теза об известной проблеме или сбое (веха M5c, решения 22, 23): публичный текст сотрудника на языке
+   * клиента в момент отправки, ни одного слова модели.
+   */
+  aiNotice?: AiNoticeMail;
   /** Подтверждение без Теза: срок ответа сотрудника. */
   aiAck?: { dueOn: string | null; startOn: string | null; timeZone: string };
 };
+
+/** Данные письма Теза об известной проблеме (номер, статус, обходной путь) или о сбое. */
+export type AiNoticeMail = { notice: 'known_problem' | 'outage'; noticeTitle: string; noticeBody: string; problemRef?: string; problemStatus?: string; workaroundUrl?: string };
 
 /** Смены статуса, о которых клиенту уходит письмо (решение 6). "Решено" идёт отдельным письмом. */
 const STATUS_MAILS = new Set<TicketStatus>(['waiting_customer', 'in_development', 'closed']);
@@ -278,6 +287,10 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
         ...signed,
       }, e.messageId);
     }
+    case 'ai_notice':
+      // Известная проблема или сбой (решения 22, 23): только автору, текст сотрудника, без кнопок ответа решением.
+      if (!e.aiNotice || !e.messageId) return;
+      return tell(tx, e.ticketId, ticket, [ticket.authorId], 'ticket_reply', { template: 'tez_notice', ...ref, ...e.aiNotice }, e.messageId);
     case 'ai_ack':
       // Подтверждение без Теза при передаче ai_disabled и ai_limit (FR-AI-15): автору, со сроком ответа сотрудника.
       if (!e.aiAck) return;

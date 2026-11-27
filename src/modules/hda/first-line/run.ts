@@ -5,7 +5,10 @@ import { logEvent } from '@/lib/log';
 import { enqueue } from '@/modules/hdc/api';
 import { type AssistantSolution, assistantSolution } from '@/modules/hdk/api/assistant';
 import { type FoundSolution, searchSolutions } from '@/modules/hdk/api/suggest';
-import { aiHandoff, type AiHandoffReason, firstLineTicket, type FirstLineTicket, postAiMessage, silentAssistantTickets } from '@/modules/hdt/api/ai';
+import { isActiveProblem, problemRef } from '@/modules/hdp/api';
+import { activeOutage, clientAnnouncement } from '@/modules/hdp/api/announcements';
+import { type PublicProblemCard, publicProblemOfTicket } from '@/modules/hdp/api/client';
+import { aiHandoff, type AiHandoffReason, type AiNoticeMail, type AiPayload, firstLineTicket, type FirstLineTicket, postAiMessage, postAiNotice, silentAssistantTickets } from '@/modules/hdt/api/ai';
 import { stripQuote } from '@/modules/hdn/api/inbound';
 import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { replyRole } from '@/modules/hdu/api/recipients';
@@ -23,7 +26,9 @@ import { saveTriage } from './triage';
 // 12, 13, 16, 17, 21, 22). Модель советует, код решает:
 //   1. помощник включён в обращении (иначе молчит), ответов меньше трёх, помощник и AI-обработка включены;
 //   2. обязательная передача кодом: нет текста, язык не из языков портала, просьба о человеке, обязательная тема;
-//   3. известная проблема (M5c: точка расширения, пока "нет");
+//   3. известная проблема (M5c, решение 22): обращение привязано к активной показанной проблеме - ответ её публичным
+//      текстом и передача known_problem (при P1 - p1) одной транзакцией, модель не вызывается, решения не ищутся;
+//      затем действующее объявление "сбой" аудитории обращения (решение 23) - сообщение о сбое и передача outage;
 //   4. поиск тем же searchSolutions от имени автора обращения с аудиторией clients, порог уверенности; P1 без точного
 //      совпадения сигнатуры: передача сразу;
 //   5. один вызов модели: вход только перечня 14.3, ответ схемы 11.12 с идентификаторами, повтор входа модель не вызывает;
@@ -72,10 +77,14 @@ export type FirstLineResult =
   | { status: 'clarified' }
   | { status: 'handed_off'; reason: AiHandoffReason };
 
-/** Известная проблема по сигнатуре и модулю (FR-KP-12): веха M5c. Пока известных проблем нет. */
-export async function matchKnownProblem(input: { signature: string | null; moduleId: string | null }): Promise<null> {
-  void input;
-  return null;
+/**
+ * Известная проблема обращения (FR-KP-12, решение 22): обращение привязано (по сигнатуре при создании, вручную или
+ * правилом) к активной проблеме, которую видит автор, то есть показанной клиентам с публичным текстом. Читается от
+ * имени автора из hdp_problems_public: без признака показа и исправленная - null, обычный путь.
+ */
+export async function matchKnownProblem(author: ClientActor, input: { ticketNumber: number; locale: Locale }): Promise<PublicProblemCard | null> {
+  const card = await publicProblemOfTicket({ actor: author }, { ticketNumber: input.ticketNumber, locale: input.locale });
+  return card && isActiveProblem(card.status) ? card : null;
 }
 
 /** Вопросы перед передачей: только из списка для типа обращения и не больше трёх (FR-AI-05). */
@@ -130,13 +139,31 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
   if (matchRestrictedTopic(all, config.restrictedTopics)) return withTriage(t, () => handoff('restricted_topic', [], lang ?? userLocale));
   if (!lang) return handoff('language');
 
-  // 3. Известная проблема (M5c).
-  await matchKnownProblem({ signature: t.errorSignature, moduleId: t.moduleId });
-
-  // 4. Поиск от имени автора с аудиторией clients (решение 7).
   const role = await replyRole(t.authorId, t.orgId);
   if (!role) return handoff('ai_disabled', [], lang);
   const author: ClientActor = { type: 'client', userId: t.authorId, orgId: t.orgId, orgRole: role };
+
+  // 3. Известная проблема (шаг 4 порядка 7.13, решение 22), затем сбой (решение 23): без модели и без поиска решений.
+  const problem = await matchKnownProblem(author, { ticketNumber: t.number, locale: lang });
+  if (problem) {
+    const mail: AiNoticeMail = {
+      notice: 'known_problem',
+      noticeTitle: problem.publicTitle,
+      noticeBody: problem.publicBody,
+      problemRef: problemRef(problem.number),
+      problemStatus: problem.status,
+      ...(problem.workaround ? { workaroundUrl: `/help/a/${problem.workaround.number}-${problem.workaround.slug}` } : {}),
+    };
+    return notice(system, t, { kind: 'known_problem', problemNumber: problem.number, locale: lang }, t.priority === 'p1' ? 'p1' : 'known_problem', mail, now);
+  }
+  const outage = await activeOutage(system, { orgId: t.orgId, moduleId: t.moduleId });
+  const announcement = outage ? await clientAnnouncement({ actor: author }, { announcementId: outage.announcementId, locale: lang }) : null;
+  if (outage && announcement) {
+    const mail: AiNoticeMail = { notice: 'outage', noticeTitle: announcement.title, noticeBody: announcement.body };
+    return notice(system, t, { kind: 'outage', announcementId: outage.announcementId, locale: lang }, t.priority === 'p1' ? 'p1' : 'outage', mail, now);
+  }
+
+  // 4. Поиск от имени автора с аудиторией clients (решение 7).
   const query = [text.title, text.description, text.messages.at(-1) ?? ''].join(' ').slice(0, 500);
   const { items } = await searchSolutions(author, { text: query, signature: t.errorSignature, moduleId: t.moduleId, locale: lang, audiences: ['clients'] });
   const confident = items.filter((s) => s.exact || s.score >= config.minScore).slice(0, SOLUTIONS_MAX);
@@ -180,12 +207,15 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
 
   // P1 (FR-AI-07): отвечается только точное совпадение сигнатуры, и передача всё равно сразу. Держится и на повторе
   // входа (независимая проверка M5b, I1).
+  // Ответ и передача одной транзакцией (долг M5b M4): сбой между ними не оставит обращение с ответом без передачи.
   const p1 = async (questionIds: readonly string[]) => {
     const exactSolution = exact ? known.get(exact.articleId) : undefined;
     if (exactSolution?.invariantsOk) {
-      const posted = await answer(system, t, exactSolution, 'exact_error', null, record, now, { keepGoing: true });
+      const posted = await answer(system, t, exactSolution, 'exact_error', null, record, now, { thenHandoff: { reason: 'p1', questionIds: questionsFor(t.type, questionIds), locale: lang } });
       if (posted.status === 'skipped') return posted;
-    } else await record({ decision: 'handoff', handoffReason: 'p1' });
+      return { status: 'handed_off', reason: 'p1' } as const;
+    }
+    await record({ decision: 'handoff', handoffReason: 'p1' });
     return handoff('p1', questionIds, lang);
   };
 
@@ -247,6 +277,36 @@ async function withTriage(t: FirstLineTicket, pass: () => Promise<FirstLineResul
   return result;
 }
 
+/**
+ * Ответ известной проблемой или сообщение о сбое и передача одной транзакцией (решения 22, 23). Разбор моделью не
+ * ставится: при известной проблеме и сбое модель не вызывается совсем (пункт 6 "На что смотреть").
+ */
+async function notice(
+  system: SystemActor,
+  t: FirstLineTicket,
+  payload: Extract<AiPayload, { kind: 'known_problem' | 'outage' }>,
+  reason: AiHandoffReason,
+  mail: AiNoticeMail,
+  now: () => Date,
+): Promise<FirstLineResult> {
+  try {
+    await postAiNotice(system, {
+      ticketId: t.ticketId,
+      payload,
+      handoff: { reason, questionIds: [], locale: payload.locale },
+      now: now(),
+      expectReplyCount: t.aiReplyCount,
+      expectLastClientMessageId: t.lastClientMessageId,
+      mail,
+    });
+  } catch (error) {
+    if (isRefused(error)) return { status: 'skipped', why: 'busy' };
+    throw error;
+  }
+  logEvent('info', 'ai.first_line_notice', { kind: payload.kind, reason });
+  return { status: 'handed_off', reason };
+}
+
 const isRefused = (error: unknown) => error instanceof Error && 'code' in error && (error as { code: unknown }).code === 'transition_refused';
 
 /** Ответ решением: вступление по идентификатору, решение из найденных; сообщение хранит ссылки (решение 9). */
@@ -258,7 +318,7 @@ async function answer(
   score: number | null,
   record: (d: Parameters<typeof recordDecision>[2]) => Promise<void>,
   now: () => Date,
-  opts: { keepGoing?: boolean } = {},
+  opts: { thenHandoff?: { reason: AiHandoffReason; questionIds: readonly string[]; locale: Locale } } = {},
 ): Promise<FirstLineResult> {
   try {
     await postAiMessage(system, {
@@ -269,13 +329,14 @@ async function answer(
       // Клиент написал, пока модель думала: ответ на старый текст не уходит, новое задание ответит с его сообщением (I2).
       expectLastClientMessageId: t.lastClientMessageId,
       mail: { solutionTitle: chosen.title, lines: chosen.text.split('\n') },
+      ...(opts.thenHandoff ? { thenHandoff: opts.thenHandoff } : {}),
     });
   } catch (error) {
     // Второе задание на то же обращение уже ответило (решение 5): второго ответа нет.
     if (isRefused(error)) return { status: 'skipped', why: 'busy' };
     throw error;
   }
-  await record({ decision: opts.keepGoing ? 'handoff' : 'answer', solutionId: chosen.articleId, confidence: score, ...(opts.keepGoing ? { handoffReason: 'p1' } : {}) });
+  await record({ decision: opts.thenHandoff ? 'handoff' : 'answer', solutionId: chosen.articleId, confidence: score, ...(opts.thenHandoff ? { handoffReason: opts.thenHandoff.reason } : {}) });
   return { status: 'answered', articleId: chosen.articleId };
 }
 

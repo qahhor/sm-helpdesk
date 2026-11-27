@@ -6,7 +6,8 @@ import { withActor } from '@/db/with-actor';
 import { enqueue, wakeAutomation } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 import { assistantEligible, triageEligible } from '@/modules/hda/api/eligibility';
-import { activateAiTx, type FirstLineTicket, firstLineTicketTx, handoffTx, postAiMessageTx, silentAssistantTx } from '../core/ai';
+import { activateAiTx, type FirstLineTicket, firstLineTicketTx, handoffTx, postAiMessageTx, postAiNoticeTx, silentAssistantTx, type ThenHandoff } from '../core/ai';
+import type { AiNoticeMail } from '../core/notify';
 import { HdtError } from '../error';
 import { AI_HANDOFF_REASONS, type AiHandoffReason, type AiPayload } from '../pref';
 import { tickets } from '../schema';
@@ -81,11 +82,14 @@ export async function postAiMessage(
     expectReplyCount?: number;
     expectLastClientMessageId?: string | null;
     mail?: { solutionTitle: string; lines: string[] };
+    /** Передача сразу после ответа в той же транзакции (точный ответ при P1; долг M5b M4). */
+    thenHandoff?: ThenHandoff;
   },
 ): Promise<string> {
   assertSystem(actor);
   const ticketId = uuid.parse(input.ticketId);
   const payload = answerPayload.parse(input.payload) as Extract<AiPayload, { kind: 'answer' | 'clarify' }>;
+  const thenHandoff = input.thenHandoff ? thenHandoffInput.parse({ ...input.thenHandoff, questionIds: [...input.thenHandoff.questionIds] }) : undefined;
   const messageId = await withActor(actor, (tx) =>
     postAiMessageTx(tx, {
       ticketId,
@@ -94,6 +98,7 @@ export async function postAiMessage(
       ...(input.expectReplyCount !== undefined ? { expectReplyCount: input.expectReplyCount } : {}),
       ...(input.expectLastClientMessageId !== undefined ? { expectLastClientMessageId: input.expectLastClientMessageId === null ? null : uuid.parse(input.expectLastClientMessageId) } : {}),
       ...(input.mail ? { mail: { solutionTitle: input.mail.solutionTitle.slice(0, 200), lines: input.mail.lines.slice(0, 30).map((l) => l.slice(0, 500)) } } : {}),
+      ...(thenHandoff ? { thenHandoff } : {}),
     }),
   );
   // Письмо и сообщение в Telegram об ответе Теза уже в очереди.
@@ -101,6 +106,64 @@ export async function postAiMessage(
   await wakeAutomation();
   return messageId;
 }
+
+const thenHandoffInput = z.strictObject({
+  reason: z.enum(AI_HANDOFF_REASONS),
+  questionIds: z.array(z.string().regex(/^[a-z_]{1,40}$/)).max(3),
+  locale: z.enum(['ru', 'uz', 'en']),
+});
+
+const noticePayload = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('known_problem'), problemNumber: z.number().int().positive(), locale: z.enum(['ru', 'uz', 'en']) }),
+  z.strictObject({ kind: z.literal('outage'), announcementId: z.uuid(), locale: z.enum(['ru', 'uz', 'en']) }),
+]);
+const noticeMail = z.strictObject({
+  notice: z.enum(['known_problem', 'outage']),
+  noticeTitle: z.string().max(300),
+  noticeBody: z.string().max(10_000),
+  problemRef: z.string().regex(/^KP-\d{1,12}$/).optional(),
+  problemStatus: z.string().regex(/^[a-z_]{1,20}$/).optional(),
+  workaroundUrl: z.string().regex(/^\/help\/a\/[\w-]{1,300}$/).optional(),
+});
+
+/**
+ * Ответ известной проблемой или сообщение о сбое и передача одной транзакцией (план M5c, решения 22, 23). Возвращает
+ * идентификатор сообщения; помощник не активен, уже ответил или клиент написал новое: transition_refused.
+ */
+export async function postAiNotice(
+  actor: SystemActor,
+  input: {
+    ticketId: string;
+    payload: Extract<AiPayload, { kind: 'known_problem' | 'outage' }>;
+    handoff: ThenHandoff;
+    now?: Date;
+    expectReplyCount?: number;
+    expectLastClientMessageId?: string | null;
+    mail?: AiNoticeMail;
+  },
+): Promise<string> {
+  assertSystem(actor);
+  const ticketId = uuid.parse(input.ticketId);
+  const payload = noticePayload.parse(input.payload) as Extract<AiPayload, { kind: 'known_problem' | 'outage' }>;
+  const handoff = thenHandoffInput.parse({ ...input.handoff, questionIds: [...input.handoff.questionIds] });
+  const mail = input.mail ? noticeMail.parse(input.mail) : undefined;
+  const messageId = await withActor(actor, (tx) =>
+    postAiNoticeTx(tx, {
+      ticketId,
+      payload,
+      handoff,
+      now: input.now ?? new Date(),
+      ...(input.expectReplyCount !== undefined ? { expectReplyCount: input.expectReplyCount } : {}),
+      ...(input.expectLastClientMessageId !== undefined ? { expectLastClientMessageId: input.expectLastClientMessageId === null ? null : uuid.parse(input.expectLastClientMessageId) } : {}),
+      ...(mail ? { mail: stripUndefined(mail) } : {}),
+    }),
+  );
+  await wakeOutbox();
+  await wakeAutomation();
+  return messageId;
+}
+
+const stripUndefined = <T extends Record<string, unknown>>(value: T): T => Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
 
 const handoffInput = z.strictObject({
   ticketId: z.uuid(),
@@ -157,3 +220,5 @@ export async function assistantOnClientReply(ticketId: string): Promise<void> {
   await enqueue('ai.first_line', { ticketId });
   await enqueue('ai.watchdog', { ticketId }, { startAfterSeconds: 60 });
 }
+export type { AiNoticeMail } from '../core/notify';
+export type { ThenHandoff } from '../core/ai';

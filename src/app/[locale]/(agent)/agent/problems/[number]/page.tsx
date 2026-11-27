@@ -335,7 +335,8 @@ export default async function AgentProblemPage({ params, searchParams }: { param
           )}
         </div>
 
-        <aside className="flex flex-col gap-4" aria-label={s('info.title')}>
+        {/* min-w-0 у обеих колонок: иначе на узкой ширине колонка сетки берёт ширину содержимого правой колонки (решение 0126). */}
+        <aside className="flex min-w-0 flex-col gap-4" aria-label={s('info.title')}>
           <DevTaskBlock
             number={card.number}
             devTask={devTask}

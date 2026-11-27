@@ -198,10 +198,12 @@ test('вебхук: неверная подпись и устаревшее вр
   mock.setStatus(ref, 'done');
   // Чужой секрет.
   expect((await mock.sendWebhook(ref, { secret: 'другой секрет подписи, не короче тридцати двух' })).status).toBe(401);
-  // Время старше и новее пяти минут: подпись верна, запрос не принимается.
+  // Время старше и новее пяти минут: подпись верна, запрос не принимается. Запас 10 секунд: обработчик берёт своё время
+  // позже теста, и переход секунды между ними делал +301 равным 300 (принят). Ровно 300 и 301 проверяет
+  // tests/unit/hdw/tracker-sign.test.ts на заданном времени.
   const now = Math.floor(Date.now() / 1000);
-  expect((await mock.sendWebhook(ref, { timestamp: now - 301 })).status).toBe(401);
-  expect((await mock.sendWebhook(ref, { timestamp: now + 301 })).status).toBe(401);
+  expect((await mock.sendWebhook(ref, { timestamp: now - 310 })).status).toBe(401);
+  expect((await mock.sendWebhook(ref, { timestamp: now + 310 })).status).toBe(401);
   const body = event(ref, 'done');
   // Подпись от другого тела, подпись без времени в расчёте, нет заголовков.
   expect((await post(body, signed(event(ref, 'todo')))).status).toBe(401);

@@ -48,7 +48,9 @@ test('передача от помощника, передача на втору
       `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source, error_signature) values ($1, $2, 'bug', 'major', 'p3', 'org', 'Ошибка', 'E-17', 'ru', 'portal', repeat('f', 32))`,
       [org, f.aUser.userId],
     );
-  expect(await runSpikeDetection(SYSTEM)).toEqual({ detected: 1 });
+  // Конец окна на секунду позже вставок: created_on в микросекундах, а Date в миллисекундах. Вставка и new Date() в одной
+  // миллисекунде давали created_on позже конца окна, и последнее обращение выпадало из подсчёта.
+  expect(await runSpikeDetection(SYSTEM, new Date(Date.now() + 1000))).toEqual({ detected: 1 });
   const rows = await queue();
   expect(rows.map((r) => r.kind).sort()).toEqual(['ai_handoff', 'line_transferred', 'signature_spike', 'sla_breached']);
   expect(rows.every((r) => r.status === 'queued')).toBe(true);

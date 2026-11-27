@@ -154,7 +154,8 @@ export default async function AgentCandidatePage({ params, searchParams }: { par
             </Card>
           )}
         </div>
-        <aside className="flex flex-col gap-4" aria-label={s('info')}>
+        {/* min-w-0 у обеих колонок: иначе на узкой ширине колонка сетки берёт ширину содержимого правой колонки (решение 0126). */}
+        <aside className="flex min-w-0 flex-col gap-4" aria-label={s('info')}>
           <Card>
             <CardContent className="flex flex-col gap-2 pt-6 text-sm">
               <h2 className={label}>{s('info')}</h2>

@@ -1375,7 +1375,8 @@
             "signature_bound": "Solution linked to an error signature",
             "signature_unbound": "Solution unlinked from an error signature",
             "untrusted_confirmed": "Untrusted text findings marked as checked",
-            "created_from_candidate": "Solution created from a candidate"
+            "created_from_candidate": "Solution created from a candidate",
+            "created_from_code": "Solution draft created from an error catalog entry"
           },
           "client": {
             "embed_session": "Widget session inside Smartup"
@@ -1438,6 +1439,16 @@
             "tool_refused": "Tool call outside the token list refused",
             "tool_called": "AI staff called a write tool",
             "report_reviewed": "AI staff digest marked as reviewed"
+          },
+          "code": {
+            "scan_accepted": "Code scan report accepted",
+            "scan_rejected": "Code scan report rejected",
+            "entry_approved": "Error catalog entry approved",
+            "entry_edited": "Error catalog entry edited",
+            "entry_rejected": "Error catalog entry rejected",
+            "module_approved": "Module note applied to the module list",
+            "module_rejected": "Module note rejected",
+            "analysis_requested": "Code analysis of a request asked for"
           }
         },
         "words": {
@@ -2406,7 +2417,8 @@
           "add_internal_note": "Internal note and memo for the second line",
           "draft_solution": "Solution draft",
           "draft_known_problem": "Known problem draft",
-          "create_report": "Digest in the «Digests» section"
+          "create_report": "Digest in the «Digests» section",
+          "code_catalog_upsert": "Code scan report into the error catalog"
         },
         "eventParent": {
           "title": "Token for events",
@@ -4281,7 +4293,14 @@
         "sla_risk": "Deadline at risk: {count}"
       },
       "tickets": "Requests:",
-      "open": "Digest: {url}"
+      "open": "Digest: {url}",
+      "codeScan": {
+        "title": "Code scan: {repository}, version {commit}",
+        "added": "New errors: {count}",
+        "changed": "Changed: {count}",
+        "removed": "Gone: {count}",
+        "open": "Approval queue: {url}"
+      }
     },
     "digests": {
       "title": "Digests",

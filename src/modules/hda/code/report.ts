@@ -21,7 +21,12 @@ const LETTERS_MIN = 8;
 const line = (max: number) => z.string().trim().min(1).max(max).regex(/^[^\r\n]*$/u);
 const prose = (max: number) => z.string().trim().min(1).max(max);
 const moduleCode = z.string().regex(/^[a-z0-9][a-z0-9_.-]{0,79}$/);
-const names = z.partialRecord(z.enum(CODE_TEMPLATE_LOCALES), line(200)).refine((value) => Object.keys(value).length > 0);
+/** Текст по языкам продукта: строгий объект, хотя бы один язык. */
+const byLocale = (max: number) =>
+  z
+    .strictObject(Object.fromEntries(CODE_TEMPLATE_LOCALES.map((locale) => [locale, line(max).optional()])) as Record<(typeof CODE_TEMPLATE_LOCALES)[number], z.ZodOptional<ReturnType<typeof line>>>)
+    .refine((value) => Object.values(value).some((text) => typeof text === 'string'));
+const names = byLocale(200);
 /** Ключ записи (решение 25): слова через точку, до 120 знаков. */
 export const codeEntryKey = z.string().max(120).regex(/^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,4}$/);
 /** Путь к файлу относительно корня репозитория: без "..", без начальной косой черты и букв диска. */
@@ -52,7 +57,7 @@ const codeError = z.strictObject({
     .string()
     .regex(/^[A-Z]{2,5}-\d{1,6}$/)
     .optional(),
-  messageTemplates: z.partialRecord(z.enum(CODE_TEMPLATE_LOCALES), line(500)).refine((value) => Object.keys(value).length > 0),
+  messageTemplates: byLocale(500),
   module: moduleCode.optional(),
   raisedIn: z.array(location).max(10),
   conditions: prose(2000),

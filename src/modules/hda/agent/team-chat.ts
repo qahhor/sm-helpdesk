@@ -29,3 +29,22 @@ export function teamChatText(fields: TeamChatFields, opts: { locale: Locale; hub
   lines.push(t('open', { url: `${base}/${opts.locale}/agent/digests/${opts.reportId}` }));
   return lines.join('\n');
 }
+
+export type CodeScanChatFields = { repository: string; commit: string; added: number; changed: number; removed: number };
+
+/**
+ * Сводка о сканировании кода в чат команды (веха M8c, FR-CODE-14; план M8c, решение 15): репозиторий, версия, числа
+ * и ссылка на очередь утверждения. Выводов агента у функции на входе нет.
+ */
+export function codeScanChatText(fields: CodeScanChatFields, opts: { locale: Locale; hubUrl: string }): string {
+  const t = createTranslator({ locale: opts.locale, messages: MESSAGES[opts.locale], namespace: 'agent.teamChat.codeScan' });
+  const base = opts.hubUrl.replace(/\/+$/, '');
+  const safe = (value: number) => (Number.isSafeInteger(value) && value >= 0 ? value : 0);
+  return [
+    t('title', { repository: fields.repository.replace(/[^a-z0-9._-]/g, ''), commit: fields.commit.replace(/[^0-9a-f]/g, '').slice(0, 12) }),
+    t('added', { count: safe(fields.added) }),
+    t('changed', { count: safe(fields.changed) }),
+    t('removed', { count: safe(fields.removed) }),
+    t('open', { url: `${base}/${opts.locale}/agent/code-knowledge` }),
+  ].join('\n');
+}

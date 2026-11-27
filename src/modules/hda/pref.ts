@@ -252,8 +252,11 @@ export const AGENT_READ_TOOLS = [
   'list_ideas',
   'assistant_metrics',
 ] as const;
-/** Инструменты записи (FR-AGT-04, решение 18): только то, что видят сотрудники. code_catalog_upsert появится в M8c. */
-export const AGENT_WRITE_TOOLS = ['add_internal_note', 'draft_solution', 'draft_known_problem', 'create_report'] as const;
+/**
+ * Инструменты записи (FR-AGT-04, решение 18): только то, что видят сотрудники. code_catalog_upsert: отчёт о
+ * сканировании кода черновиками каталога ошибок (веха M8c, решение 3 плана M8c).
+ */
+export const AGENT_WRITE_TOOLS = ['add_internal_note', 'draft_solution', 'draft_known_problem', 'create_report', 'code_catalog_upsert'] as const;
 export const AGENT_TOOLS = [...AGENT_READ_TOOLS, ...AGENT_WRITE_TOOLS] as const;
 export type AgentReadTool = (typeof AGENT_READ_TOOLS)[number];
 export type AgentWriteTool = (typeof AGENT_WRITE_TOOLS)[number];

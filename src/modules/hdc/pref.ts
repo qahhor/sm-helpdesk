@@ -222,6 +222,18 @@ export const AUDIT_ACTIONS = [
   'problem.draft_rejected',
   // Сводка AI-сотрудника отмечена "Просмотрено" (веха M8b, задача 10, решение 22).
   'agent.report_reviewed',
+  // Знания из кода (веха M8c, решение 26 плана M8c): приём и отклонение отчёта о сканировании, утверждение, правка и
+  // отклонение записи каталога, решение по заметке о модуле, запрос анализа по коду, решение из записи. Текстов
+  // записей в журнале нет: ключи, числа и номера.
+  'code.scan_accepted',
+  'code.scan_rejected',
+  'code.entry_approved',
+  'code.entry_edited',
+  'code.entry_rejected',
+  'code.module_approved',
+  'code.module_rejected',
+  'code.analysis_requested',
+  'solution.created_from_code',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

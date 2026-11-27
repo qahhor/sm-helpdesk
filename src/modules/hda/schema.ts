@@ -211,7 +211,7 @@ export const agentToolCalls = pgTable('hda_agent_tool_calls', {
 });
 
 /** Объект вызова в журнале: вид и номер (обращение, решение, проблема, идея) или идентификатор (кандидат). */
-export type AgentObjectRef = { kind: 'ticket' | 'solution' | 'problem' | 'idea' | 'candidate' | 'report'; ref: string | number };
+export type AgentObjectRef = { kind: 'ticket' | 'solution' | 'problem' | 'idea' | 'candidate' | 'report' | 'code_scan' | 'code_entry'; ref: string | number };
 
 /** Сводки AI-сотрудника (логическое имя agent_reports). */
 export const agentReports = pgTable('hda_agent_reports', {

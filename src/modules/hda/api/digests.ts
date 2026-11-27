@@ -7,10 +7,10 @@ import { getEnv } from '@/env';
 import { logEvent } from '@/lib/log';
 import { readSetting, type StaffContext, writeAudit } from '@/modules/hdc/api';
 import { staffBotSender } from '@/modules/hdn/api/oncall';
-import { teamChatText } from '../agent/team-chat';
+import { codeScanChatText, teamChatText } from '../agent/team-chat';
 import { HdaError } from '../error';
 import { AGENT_SETTINGS, REPORT_CHAT_KEYS, REPORT_KINDS, type ReportKind, TELEGRAM_CHAT_ID } from '../pref';
-import { agentReports } from '../schema';
+import { agentReports, codeScans } from '../schema';
 
 // Модуль hda, слой api: раздел "Сводки" (веха M8b, задача 10; FR-AGT-04, 07, 13, 8.12, 10.5 "Запись: А. Чтение: С.
 // К: нет"; план M8b, решения 22-24). Сводки читают все сотрудники, отметку "Просмотрено" ставит сотрудник от своего
@@ -131,6 +131,35 @@ export async function sendTeamChatMessages(system: SystemActor, now: Date = new 
       sent += 1;
     } catch (error) {
       logEvent('warn', 'agent.team_chat_failed', { reportId: row.reportId, error: error instanceof Error ? error.name : 'ошибка' });
+    }
+  }
+  // Сводки о принятых сканированиях кода (веха M8c, FR-CODE-14): из чисел строки истории, без выводов агента.
+  const scans = await withActor(system, (tx) =>
+    tx
+      .select()
+      .from(codeScans)
+      .where(and(eq(codeScans.status, 'accepted'), isNull(codeScans.chatSentOn), gt(codeScans.receivedOn, new Date(now.getTime() - CHAT_WINDOW_MS))))
+      .orderBy(codeScans.receivedOn)
+      .limit(20),
+  );
+  for (const scan of scans) {
+    const text = codeScanChatText(
+      { repository: scan.repository, commit: scan.commitRef, added: scan.addedCount, changed: scan.changedCount, removed: scan.removedCount },
+      { locale: 'ru', hubUrl: getEnv().HUB_URL },
+    );
+    const marked = await withActor(system, (tx) =>
+      tx
+        .update(codeScans)
+        .set({ chatSentOn: now })
+        .where(and(eq(codeScans.scanId, scan.scanId), isNull(codeScans.chatSentOn)))
+        .returning({ id: codeScans.scanId }),
+    );
+    if (marked.length === 0) continue;
+    try {
+      await sender.send(text);
+      sent += 1;
+    } catch (error) {
+      logEvent('warn', 'agent.team_chat_failed', { scanId: scan.scanId, error: error instanceof Error ? error.name : 'ошибка' });
     }
   }
   return { sent };

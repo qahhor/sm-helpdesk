@@ -1375,7 +1375,8 @@
             "signature_bound": "Yechim xato imzosiga bog'landi",
             "signature_unbound": "Yechim xato imzosidan uzildi",
             "untrusted_confirmed": "Ishonchsiz matn topilmalari tekshirilgan deb belgilandi",
-            "created_from_candidate": "Yechim nomzoddan yaratildi"
+            "created_from_candidate": "Yechim nomzoddan yaratildi",
+            "created_from_code": "Yechim qoralamasi xatolar katalogi yozuvidan yaratildi"
           },
           "client": {
             "embed_session": "Smartup ichidagi vidjet seansi"
@@ -1438,6 +1439,16 @@
             "tool_refused": "Token ro'yxatidan tashqari vosita chaqiruvi rad etildi",
             "tool_called": "AI-xodim yozish vositasini chaqirdi",
             "report_reviewed": "AI-xodim xulosasi ko'rib chiqilgan deb belgilandi"
+          },
+          "code": {
+            "scan_accepted": "Kod skanerlash hisoboti qabul qilindi",
+            "scan_rejected": "Kod skanerlash hisoboti rad etildi",
+            "entry_approved": "Xatolar katalogi yozuvi tasdiqlandi",
+            "entry_edited": "Xatolar katalogi yozuvi o'zgartirildi",
+            "entry_rejected": "Xatolar katalogi yozuvi rad etildi",
+            "module_approved": "Modul haqidagi qayd ma'lumotnomaga qo'llandi",
+            "module_rejected": "Modul haqidagi qayd rad etildi",
+            "analysis_requested": "Murojaatni kod bo'yicha tahlil qilish so'raldi"
           }
         },
         "words": {
@@ -2406,7 +2417,8 @@
           "add_internal_note": "Ichki eslatma va ikkinchi liniya uchun xat",
           "draft_solution": "Yechim qoralamasi",
           "draft_known_problem": "Ma'lum muammo qoralamasi",
-          "create_report": "«Xulosalar» bo'limiga xulosa"
+          "create_report": "«Xulosalar» bo'limiga xulosa",
+          "code_catalog_upsert": "Kod skanerlash hisobotini xatolar katalogiga"
         },
         "eventParent": {
           "title": "Hodisalar uchun token",
@@ -4281,7 +4293,14 @@
         "sla_risk": "Muddati xavf ostida: {count}"
       },
       "tickets": "Murojaatlar:",
-      "open": "Xulosa: {url}"
+      "open": "Xulosa: {url}",
+      "codeScan": {
+        "title": "Kod skanerlash: {repository}, versiya {commit}",
+        "added": "Yangi xatolar: {count}",
+        "changed": "O'zgargan: {count}",
+        "removed": "Yo'qolgan: {count}",
+        "open": "Tasdiqlash navbati: {url}"
+      }
     },
     "digests": {
       "title": "Xulosalar",

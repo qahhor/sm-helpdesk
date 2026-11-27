@@ -433,6 +433,8 @@ export async function ticketsWithEventTx(tx: Tx, ticketIds: readonly string[], k
   const ids = [...new Set(ticketIds)];
   if (ids.length === 0) return new Set();
   if (kind === 'ticket_created') return new Set(ids);
+  // Запрос анализа по коду (веха M8c) правил не запускает: событие только для AI-сотрудника.
+  if (kind === 'code_analysis_requested') return new Set();
   // Передача помощником (план M5b, задача 8): у обращения есть момент передачи.
   if (kind === 'ai_handoff') {
     const rows = await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(and(inArray(tickets.ticketId, ids), isNotNull(tickets.aiHandoffOn)));

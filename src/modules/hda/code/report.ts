@@ -37,7 +37,8 @@ const relativePath = z
   .regex(/^(?![/\\])(?![A-Za-z]:)[A-Za-z0-9_./-]+$/)
   .refine((path) => !path.split('/').includes('..'));
 
-const location = z.strictObject({
+/** Место в коде ссылкой (FR-CODE-12): объект, относительный путь, строка. */
+export const codeLocation = z.strictObject({
   object: z.string().min(1).max(200).regex(/^[A-Za-z0-9_.$#:-]+$/),
   path: relativePath,
   line: z.number().int().min(1).max(10_000_000).nullable().optional(),
@@ -59,7 +60,7 @@ const codeError = z.strictObject({
     .optional(),
   messageTemplates: byLocale(500),
   module: moduleCode.optional(),
-  raisedIn: z.array(location).max(10),
+  raisedIn: z.array(codeLocation).max(10),
   conditions: prose(2000),
   userCause: prose(2000),
   whatToCheck: z.array(prose(300)).min(1).max(10),

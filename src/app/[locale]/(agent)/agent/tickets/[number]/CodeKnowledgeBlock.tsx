@@ -1,11 +1,12 @@
-import { getTranslations } from 'next-intl/server';
+import { getFormatter, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { canRequestCodeAnalysis, codeAnalysisState } from '@/modules/hda/api/code-analysis';
 import { ticketCodeKnowledge } from '@/modules/hda/api/code-knowledge';
 import type { StaffContext } from '@/modules/hdu/api';
 import { Button } from '@/ui/components/button';
 import { Card, CardContent } from '@/ui/components/card';
 import { StatusLabel } from '@/ui/components/StatusLabel';
-import { createSolutionFromEntryAction } from './code-actions';
+import { createSolutionFromEntryAction, requestAnalysisAction } from './code-actions';
 
 // Блок "Что известно по коду" в правой колонке обращения сотрудника (ТЗ 8.12, FR-CODE-06, 07, 11; план M8c, задача 6,
 // решения 16, 17). agent_l2, care, admin: запись по сигнатуре и записи по шаблону, черновики с пометкой "не
@@ -19,6 +20,11 @@ export async function CodeKnowledgeBlock({ staff, number }: { staff: StaffContex
   const knowledge = await ticketCodeKnowledge(staff, { number });
   if (knowledge.view === 'none') return null;
   const hidden = <input type="hidden" name="number" value={number} />;
+  // "Разобрать по коду" и состояние анализа (задача 7; FR-CODE-08, 10): только тем, кто видит знания из кода.
+  const full = knowledge.view === 'full';
+  const [analysis, canAnalyze] = full ? await Promise.all([codeAnalysisState(staff, { number }), canRequestCodeAnalysis(staff, { number })]) : [null, false];
+  const format = await getFormatter();
+  const time = (date: Date) => format.dateTime(date, { timeStyle: 'short' });
   return (
     <Card>
       <CardContent className="flex flex-col gap-3 pt-6 text-sm" data-code-knowledge>
@@ -77,6 +83,28 @@ export async function CodeKnowledgeBlock({ staff, number }: { staff: StaffContex
               )}
             </div>
           ))
+        )}
+        {full && (
+          <div className="flex flex-col gap-2 border-t border-border pt-3" data-code-analysis={analysis?.status ?? 'none'}>
+            {analysis?.status === 'pending' && <p>{t('pending', { time: time(analysis.requestedOn), due: time(analysis.dueOn) })}</p>}
+            {analysis?.status === 'timeout' && <p className="text-secondary-foreground">{t('timeout')}</p>}
+            {analysis?.status === 'done' && analysis.finishedOn && <p>{t('done', { time: time(analysis.finishedOn) })}</p>}
+            {canAnalyze ? (
+              analysis?.status !== 'pending' && (
+                <form action={requestAnalysisAction} className="flex flex-col gap-1">
+                  {hidden}
+                  <Button type="submit" size="small" className="self-start" aria-describedby={`code-analyze-hint-${number}`}>
+                    {t('analyze')}
+                  </Button>
+                  <p id={`code-analyze-hint-${number}`} className="text-xs text-secondary-foreground">
+                    {t('analyzeHint')}
+                  </p>
+                </form>
+              )
+            ) : (
+              <p className="text-xs text-secondary-foreground">{t('aiDisabled')}</p>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

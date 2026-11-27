@@ -2418,7 +2418,9 @@
           "draft_solution": "Yechim qoralamasi",
           "draft_known_problem": "Ma'lum muammo qoralamasi",
           "create_report": "«Xulosalar» bo'limiga xulosa",
-          "code_catalog_upsert": "Kod skanerlash hisobotini xatolar katalogiga"
+          "code_catalog_upsert": "Kod skanerlash hisobotini xatolar katalogiga",
+          "search_code_catalog": "Koddan saqlangan xulosalar",
+          "submit_code_analysis": "Murojaatni kod bo'yicha tahlil qaydi"
         },
         "eventParent": {
           "title": "Hodisalar uchun token",
@@ -2815,7 +2817,8 @@
           "flagged": "Javob noto'g'ri deb belgilandi.",
           "translating": "Tarjima tayyorlanmoqda.",
           "problem_linked": "Murojaat ma'lum muammoga bog'landi",
-          "problem_unlinked": "Murojaat ma'lum muammodan ajratildi"
+          "problem_unlinked": "Murojaat ma'lum muammodan ajratildi",
+          "code_requested": "Kod bo'yicha tahlil so'raldi. Javob AI-xodimning ichki qaydi bo'lib keladi."
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -3107,7 +3110,14 @@
         "raisedIn": "Koddagi joy:",
         "createSolution": "Yozuvdan yechim yaratish",
         "openEntry": "Yozuvni ochish",
-        "solutionTaken": "Qoralama yaratildi. Bu xato boshqa yechimga bog'langan: yangisi kerakligini tekshiring."
+        "solutionTaken": "Qoralama yaratildi. Bu xato boshqa yechimga bog'langan: yangisi kerakligini tekshiring.",
+        "analyze": "Kod bo'yicha tahlil qilish",
+        "analyzeHint": "AI-xodim murojaatni mijoz kontaktlarisiz oladi, kodni tahlil qiladi va ichki qayd qoldiradi.",
+        "aiDisabled": "Tashkilot AI-ishlovdan voz kechgan: kod bo'yicha tahlil mavjud emas.",
+        "pending": "Tahlil {time} da so'raldi, {due} gacha kutamiz",
+        "timeout": "Tahlil bajarilmadi: AI-xodim 10 daqiqada javob bermadi. Murojaat bilan odatdagidek ishlang yoki qayta so'rang.",
+        "done": "Tahlil {time} da tayyor: qayd yozishmada AI-xodim belgisi bilan.",
+        "requested": "Kod bo'yicha tahlil so'raldi. Javob ichki qayd bo'lib keladi."
       }
     },
     "playbooks": {
@@ -4292,7 +4302,8 @@
       "mark": "AI-xodim, tekshirilmagan",
       "memoTitle": "AI-xodim eslatmasi qoralamasi",
       "memoHint": "Eslatma faqat siz uchun: u uzatish maydonlarini to'ldirmaydi, ularni tekshirib o'zingiz yozing.",
-      "revises": "{ref} yechimiga tuzatish taklif qiladi"
+      "revises": "{ref} yechimiga tuzatish taklif qiladi",
+      "codeAnalysis": "Kod bo'yicha tahlil"
     },
     "teamChat": {
       "title": "AI-xodim xulosasi: {kind}",

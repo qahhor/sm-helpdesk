@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { isLocale } from '@/i18n/locales';
+import { requestCodeAnalysis } from '@/modules/hda/api/code-analysis';
 import { createSolutionFromCodeEntry } from '@/modules/hda/api/code-knowledge';
 import { isHdaError } from '@/modules/hda/api/agent-admin';
 import { requireStaffActor } from '@/modules/hdu/api';
@@ -31,4 +32,20 @@ export async function createSolutionFromEntryAction(form: FormData): Promise<voi
     target = `${ticketPage}?error=code_${error.code}`;
   }
   redirect(target);
+}
+
+/** "Разобрать по коду": запрос анализа AI-сотруднику; ответ придёт внутренней заметкой. */
+export async function requestAnalysisAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  const number = Number(text(form, 'number'));
+  const ticketPage = `/${locale}/agent/tickets/SUP-${Number.isInteger(number) ? number : 0}`;
+  let status = 'done=code_requested';
+  try {
+    await requestCodeAnalysis(staff, { number });
+  } catch (error) {
+    if (!isHdaError(error)) throw error;
+    status = `error=code_${error.code}`;
+  }
+  redirect(`${ticketPage}?${status}`);
 }

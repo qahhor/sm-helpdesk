@@ -2418,7 +2418,9 @@
           "draft_solution": "Solution draft",
           "draft_known_problem": "Known problem draft",
           "create_report": "Digest in the «Digests» section",
-          "code_catalog_upsert": "Code scan report into the error catalog"
+          "code_catalog_upsert": "Code scan report into the error catalog",
+          "search_code_catalog": "Saved conclusions from the code",
+          "submit_code_analysis": "Code analysis note for a request"
         },
         "eventParent": {
           "title": "Token for events",
@@ -2815,7 +2817,8 @@
           "flagged": "The answer is marked as wrong.",
           "translating": "The translation is being prepared.",
           "problem_linked": "The request is linked to the known problem",
-          "problem_unlinked": "The request is unlinked from the known problem"
+          "problem_unlinked": "The request is unlinked from the known problem",
+          "code_requested": "Code analysis asked for. The answer arrives as an internal note of the AI staff member."
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -3107,7 +3110,14 @@
         "raisedIn": "Place in the code:",
         "createSolution": "Create a solution from the entry",
         "openEntry": "Open the entry",
-        "solutionTaken": "Draft created. This error is already linked to another solution: check whether a new one is needed."
+        "solutionTaken": "Draft created. This error is already linked to another solution: check whether a new one is needed.",
+        "analyze": "Analyze by code",
+        "analyzeHint": "The AI staff member gets the request without client contacts, reviews the code and leaves an internal note.",
+        "aiDisabled": "The organization opted out of AI processing: code analysis is not available.",
+        "pending": "Analysis asked for at {time}, waiting until {due}",
+        "timeout": "Analysis not done: the AI staff member did not answer within 10 minutes. Work with the request as usual or ask again.",
+        "done": "Analysis ready at {time}: the note is in the conversation with the AI staff mark.",
+        "requested": "Code analysis asked for. The answer arrives as an internal note."
       }
     },
     "playbooks": {
@@ -4292,7 +4302,8 @@
       "mark": "AI staff, not verified",
       "memoTitle": "AI staff memo draft",
       "memoHint": "The memo is for you only: it does not fill the transfer fields, check and write them yourself.",
-      "revises": "Proposes a change to solution {ref}"
+      "revises": "Proposes a change to solution {ref}",
+      "codeAnalysis": "Code analysis"
     },
     "teamChat": {
       "title": "AI staff digest: {kind}",

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import type { SystemActor } from '@/db/with-actor';
-import { AGENT_RUN_TOOLS, type AgentTool } from '../pref';
+import { AGENT_CODE_RUN_TOOLS, AGENT_RUN_TOOLS, type AgentTool } from '../pref';
 import { agentTokens } from '../schema';
 import { generateTokenValue, hashToken, tokenLast4 } from './auth';
 
@@ -21,7 +21,12 @@ const RUN_NOTE_LIMIT = 1;
 export type RunToken = { tokenId: string; value: string; expiresAt: Date; tools: AgentTool[] };
 
 /** Выпуск токена запуска; null, если у основного токена нет get_ticket (агенту нечем прочитать обращение). */
-export async function issueTicketRunTokenTx(tx: Tx, system: SystemActor, input: { parentTokenId: string; ticketId: string }, now: Date = new Date()): Promise<RunToken | null> {
+export async function issueTicketRunTokenTx(
+  tx: Tx,
+  system: SystemActor,
+  input: { parentTokenId: string; ticketId: string; purpose?: 'ticket' | 'code_analysis' },
+  now: Date = new Date(),
+): Promise<RunToken | null> {
   if (system.type !== 'system') throw new Error('Токен запуска выпускает только система');
   const [parent] = await tx
     .select({ tokenId: agentTokens.tokenId, name: agentTokens.name, userId: agentTokens.staffUserId, tools: agentTokens.tools, allowedIps: agentTokens.allowedIps, dailyLimit: agentTokens.dailyLimit })
@@ -29,7 +34,9 @@ export async function issueTicketRunTokenTx(tx: Tx, system: SystemActor, input: 
     .where(and(eq(agentTokens.tokenId, input.parentTokenId), isNull(agentTokens.parentTokenId), isNull(agentTokens.revokedAt)))
     .limit(1);
   if (!parent) throw new Error('Токен запуска: основной токен не найден или отозван');
-  const tools: AgentTool[] = AGENT_RUN_TOOLS.filter((tool) => (parent.tools as readonly string[]).includes(tool));
+  // Запуск анализа по коду (веха M8c, решение 19): обращение, сохранённые выводы и одна заметка анализа.
+  const catalog: readonly AgentTool[] = input.purpose === 'code_analysis' ? AGENT_CODE_RUN_TOOLS : AGENT_RUN_TOOLS;
+  const tools: AgentTool[] = catalog.filter((tool) => (parent.tools as readonly string[]).includes(tool));
   if (!tools.includes('get_ticket')) return null;
   // Прежние токены запуска того же основного токена и обращения перестают действовать.
   await tx

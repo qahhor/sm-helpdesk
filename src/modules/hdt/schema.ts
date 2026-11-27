@@ -126,7 +126,7 @@ export const ticketMessages = pgTable('hdt_ticket_messages', {
   // Миграция 0101 (веха M5c): сообщение рассылки по известной проблеме. Одно на обращение и рассылку.
   broadcastId: uuid('broadcast_id'),
   // Миграция 0113 (веха M8b): вид записи AI-сотрудника, только у author_type = agent (решение 19 плана M8b).
-  agentNoteKind: text('agent_note_kind').$type<'note' | 'handoff_memo'>(),
+  agentNoteKind: text('agent_note_kind').$type<'note' | 'handoff_memo' | 'code_analysis'>(),
 });
 
 export const ticketEvents = pgTable('hdt_ticket_events', {

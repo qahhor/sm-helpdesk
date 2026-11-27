@@ -251,18 +251,22 @@ export const AGENT_READ_TOOLS = [
   'list_known_problems',
   'list_ideas',
   'assistant_metrics',
+  // Сохранённые выводы из кода (веха M8c, FR-CODE-08): записи каталога ошибок без выражений.
+  'search_code_catalog',
 ] as const;
 /**
  * Инструменты записи (FR-AGT-04, решение 18): только то, что видят сотрудники. code_catalog_upsert: отчёт о
  * сканировании кода черновиками каталога ошибок (веха M8c, решение 3 плана M8c).
  */
-export const AGENT_WRITE_TOOLS = ['add_internal_note', 'draft_solution', 'draft_known_problem', 'create_report', 'code_catalog_upsert'] as const;
+export const AGENT_WRITE_TOOLS = ['add_internal_note', 'draft_solution', 'draft_known_problem', 'create_report', 'code_catalog_upsert', 'submit_code_analysis'] as const;
 export const AGENT_TOOLS = [...AGENT_READ_TOOLS, ...AGENT_WRITE_TOOLS] as const;
 export type AgentReadTool = (typeof AGENT_READ_TOOLS)[number];
 export type AgentWriteTool = (typeof AGENT_WRITE_TOOLS)[number];
 export type AgentTool = (typeof AGENT_TOOLS)[number];
 /** Перечень токена запуска по обращению (FR-AGT-12, решение 15): чтение обращения и одна заметка. */
 export const AGENT_RUN_TOOLS = ['get_ticket', 'add_internal_note'] as const satisfies readonly AgentTool[];
+/** Перечень токена запуска анализа по коду (веха M8c, решение 19): обращение, сохранённые выводы и одна заметка анализа. */
+export const AGENT_CODE_RUN_TOOLS = ['get_ticket', 'search_code_catalog', 'submit_code_analysis'] as const satisfies readonly AgentTool[];
 
 /** Итог вызова в журнале вызовов (решение 14). */
 export const AGENT_CALL_STATUSES = ['ok', 'refused', 'invalid', 'rate_limited', 'error'] as const;

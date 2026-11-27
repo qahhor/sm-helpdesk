@@ -29,6 +29,7 @@ import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, type NoActivityOptions, runNoActivityRules } from '@/modules/hdw/api/engine';
 import { runCandidateJob, runCandidatesEmbed, runCandidatesSweep } from '@/modules/hda/api/candidates';
 import { cleanupAgentData, dispatchAgentEvents, handleAgentEvent, runSpikeDetection } from '@/modules/hda/api/agent-jobs';
+import { markAnalysisTimeouts } from '@/modules/hda/api/code-analysis';
 import { sendTeamChatMessages } from '@/modules/hda/api/digests';
 import { syncDevTasks } from '@/modules/hdw/api/dev-task-jobs';
 import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
@@ -296,6 +297,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Сообщения в чат команды по новым сводкам (задача 10, решение 24): та же минутная задача.
     const chat = await sendTeamChatMessages(actor('agent.events_dispatch'));
     if (chat.sent > 0) console.info(`AI-сотрудник: сообщений в чат команды ${chat.sent}`);
+    // Срок ответа на "Разобрать по коду" (веха M8c, FR-CODE-10): через 10 минут запрос "анализ не выполнен".
+    const analysis = await markAnalysisTimeouts(actor('agent.events_dispatch'));
+    if (analysis.timedOut > 0) console.info(`AI-сотрудник: анализов по коду без ответа ${analysis.timedOut}`);
   }));
   await boss.work('agent.cleanup', polling, () => timedJob('agent.cleanup', async () => {
     const removed = await cleanupAgentData(actor('agent.cleanup'));

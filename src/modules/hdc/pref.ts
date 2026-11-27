@@ -469,5 +469,7 @@ export const DOMAIN_EVENT_KINDS = [
   'ai_handoff',
   // Передача на вторую линию (веха M8b, задача 9): событие для AI-сотрудника.
   'line_transferred',
+  // Запрошен анализ по коду (веха M8c, задача 7): событие для AI-сотрудника.
+  'code_analysis_requested',
 ] as const;
 export type DomainEventKind = (typeof DOMAIN_EVENT_KINDS)[number];

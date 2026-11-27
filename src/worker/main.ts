@@ -4,7 +4,7 @@ import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { getEnv, parseAiEnv } from '@/env';
 import { configureLog, logEvent, runJobSteps, timedJob } from '@/lib/log';
-import { beatWorker, bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, createPgBossQueue, eventsState, JOB_NAMES, processEvents, setJobQueue } from '@/modules/hdc/api';
+import { beatWorker, bossOptions, cleanupAudit, cleanupDomainEvents, cleanupHostMarks, cleanupRateLimits, createPgBossQueue, eventsState, JOB_NAMES, processEvents, setJobQueue } from '@/modules/hdc/api';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
@@ -405,6 +405,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Тексты запросов подсказки без результата хранятся 90 суток (план W6, ответ владельца 0070, пункт 5).
     const misses = await cleanupSuggestMisses(system);
     if (misses > 0) console.info(`Ночная очистка: запросы подсказки без результата старше 90 суток ${misses}`);
+    // Отметки ресурсов снятых серверов хранятся 7 суток (независимая проверка M9, M2; решение 0145).
+    const hosts = await cleanupHostMarks(system);
+    if (hosts > 0) console.info(`Ночная очистка: отметки ресурсов серверов старше 7 суток ${hosts}`);
     const audit = await cleanupAudit(system);
     if (audit > 0) console.info(`Ночная очистка: записи журнала аудита старше 3 лет ${audit}`);
     console.info(

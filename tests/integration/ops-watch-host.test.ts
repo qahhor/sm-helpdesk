@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'vitest';
 import { runCli } from '@/cli/commands';
-import { HOST_MARK_STALE_MIN, HOST_PRESSURE_PCT, hostAlerts, latestHostMarks, markHost } from '@/modules/hdc/api';
+import { cleanupHostMarks, HOST_MARK_KEEP_DAYS, HOST_MARK_STALE_MIN, HOST_PRESSURE_PCT, hostAlerts, latestHostMarks, markHost } from '@/modules/hdc/api';
 import { opsAlertText } from '@/modules/hdn/api/ops';
 import { createMemoryEmailProvider, type MemoryEmailProvider } from '@/modules/hdn/testing';
 import { collectOpsAlerts, opsWatch } from '@/worker/ops-watch';
@@ -106,4 +106,23 @@ test('hub ops:host-mark пишет отметку; неверные доли: к
   expect(await runCli(['ops:host-mark', '--disk', '142', '--mem', '1', '--cpu', '1'], io)).toBe(2);
   expect(await runCli(['ops:host-mark', '--disk', '1'], io)).toBe(2);
   expect(hostAlerts([], now)).toEqual([]);
+});
+
+test('hub ops:host-mark без --host: код 2, имя контейнера не подставляется (независимая проверка M9, M2)', async () => {
+  const errors: string[] = [];
+  const io = { env: { ...process.env }, out: () => undefined, err: (l: string) => void errors.push(l), readSecret: async () => '' };
+  expect(await runCli(['ops:host-mark', '--disk', '42', '--mem', '63', '--cpu', '7'], io)).toBe(2);
+  expect(await runCli(['ops:host-mark', '--host', 'Bad_Host!', '--disk', '42', '--mem', '63', '--cpu', '7'], io)).toBe(2);
+  expect((await pools.root.query(`select host from hdc_ops_host_marks`)).rows).toEqual([]);
+});
+
+test('ночная очистка убирает отметки старше 7 суток: снятый сервер не даёт вечный host_mark_stale (M2)', async () => {
+  expect(HOST_MARK_KEEP_DAYS).toBe(7);
+  await markHost(SYSTEM, { host: 'hub-old', diskPct: 10, memPct: 10, cpuPct: 10, at: ago(7 * 24 * 60 + 1) });
+  await markHost(SYSTEM, { host: 'hub-week', diskPct: 10, memPct: 10, cpuPct: 10, at: ago(6 * 24 * 60) });
+  await markHost(SYSTEM, { host: 'hub-prod', diskPct: 10, memPct: 10, cpuPct: 10, at: ago(1) });
+  expect(await cleanupHostMarks(SYSTEM, now)).toBe(1);
+  expect((await latestHostMarks(SYSTEM)).map((m) => m.host).sort()).toEqual(['hub-prod', 'hub-week']);
+  // Сотрудник и клиент строк не видят и не удаляют.
+  await expect(cleanupHostMarks(f.aAdmin.actor as never, now)).rejects.toThrow();
 });

@@ -1,5 +1,5 @@
 import 'server-only';
-import { eq, max } from 'drizzle-orm';
+import { eq, lt, max } from 'drizzle-orm';
 import * as z from 'zod';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { writeAudit } from './audit';
@@ -145,6 +145,20 @@ export async function markHost(actor: SystemActor, input: { host: string; diskPc
       .values({ host, diskPct, memPct, cpuPct, markedOn })
       .onConflictDoUpdate({ target: opsHostMarks.host, set: { diskPct, memPct, cpuPct, markedOn } }),
   );
+}
+
+/** Сколько суток хранится отметка сервера: старше неё сервер считается снятым (независимая проверка M9, M2). */
+export const HOST_MARK_KEEP_DAYS = 7;
+
+/**
+ * Ночная очистка: удаляет отметки старше 7 суток. Без неё строка снятого или переименованного сервера давала бы
+ * host_mark_stale без конца (решение 0145). Только системный актор; возвращает число удалённых строк.
+ */
+export async function cleanupHostMarks(actor: SystemActor, now: Date = new Date()): Promise<number> {
+  if (actor?.type !== 'system') throw new Error('Отметки ресурсов удаляет только система');
+  const before = new Date(now.getTime() - HOST_MARK_KEEP_DAYS * 86_400_000);
+  const rows = await withActor(actor, (tx) => tx.delete(opsHostMarks).where(lt(opsHostMarks.markedOn, before)).returning({ host: opsHostMarks.host }));
+  return rows.length;
 }
 
 /** Последние отметки всех серверов. */

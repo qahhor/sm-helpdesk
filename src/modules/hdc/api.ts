@@ -57,6 +57,8 @@ export {
   type StaleBackupKind,
   WORKER_STALE_SEC,
   workerReadyResponse,
+  cleanupHostMarks,
+  HOST_MARK_KEEP_DAYS,
   HOST_MARK_STALE_MIN,
   HOST_PRESSURE_PCT,
   type HostAlert,

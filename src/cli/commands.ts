@@ -1,5 +1,4 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { SystemActor } from '@/db/with-actor';
@@ -106,11 +105,11 @@ const HELP = `Использование: hub <команда> [ключи]
       Завершить сессии при инциденте (план M9, решение 9): одного пользователя по адресу, всех сотрудников или
       всех. Вход потребуется заново. Пишет session.revoked_bulk в журнал аудита: охват и число, без адресов.
 
-  ops:host-mark --disk <п> --mem <п> --cpu <п> [--host <имя>]
+  ops:host-mark --host <имя> --disk <п> --mem <п> --cpu <п>
       Отметить ресурсы сервера (план M9, решение 17): доли занятого диска томов базы и копий, памяти и процессора,
       целые от 0 до 100. Вызывает сценарий scripts/ops/host-watch.sh по таймеру раз в 5 минут. По отметкам фоновый
       процесс шлёт дежурным сигналы host_pressure (80% и выше) и host_mark_stale (отметок нет 15 минут).
-      --host: имя сервера, по умолчанию имя машины.
+      --host: имя сервера, обязательно: имя машины внутри контейнера меняется при каждом пересоздании.
 
   maintenance:cleanup
       Удалить просроченные служебные строки: счётчики частоты, номера событий Telegram, сессии
@@ -171,7 +170,7 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'maintenance:cleanup': { options: {}, required: [] },
   'sessions:revoke': { options: { user: { type: 'string' }, staff: { type: 'boolean' }, all: { type: 'boolean' } }, required: [] },
   'ops:backup-mark': { options: { kind: { type: 'string' }, bytes: { type: 'string' } }, required: ['kind'] },
-  'ops:host-mark': { options: { disk: { type: 'string' }, mem: { type: 'string' }, cpu: { type: 'string' }, host: { type: 'string' } }, required: ['disk', 'mem', 'cpu'] },
+  'ops:host-mark': { options: { disk: { type: 'string' }, mem: { type: 'string' }, cpu: { type: 'string' }, host: { type: 'string' } }, required: ['host', 'disk', 'mem', 'cpu'] },
   'ideas:cycle': { options: { month: { type: 'string' } }, required: ['month'] },
   'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
@@ -458,7 +457,9 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
           if (!/^(100|[1-9]?\d)$/.test(value)) throw new UsageError(`Доля --${name}: целое число от 0 до 100.`);
           return Number(value);
         };
-        const host = (typeof values.host === 'string' ? values.host : hostname()).toLowerCase();
+        // Имя сервера только из --host (независимая проверка M9, M2): hostname() контейнера меняется при пересоздании
+        // и оставлял бы строки, по которым ops.watch слал host_mark_stale без конца.
+        const host = text('host').toLowerCase();
         if (!/^[a-z0-9][a-z0-9.-]{0,62}$/.test(host)) throw new UsageError('Имя сервера --host: латинские буквы, цифры, точка и дефис, до 63 знаков.');
         const [diskPct, memPct, cpuPct] = [share('disk'), share('mem'), share('cpu')];
         await markHost(ACTOR, { host, diskPct, memPct, cpuPct });

@@ -1,7 +1,7 @@
 import 'server-only';
 import * as z from 'zod';
 import { type SystemActor, withActor } from '@/db/with-actor';
-import { consumeRateLimit, FRESH_SIGN_IN_SEC, isFresh, rateKey, readSetting, writeSettingTx } from '@/modules/hdc/api';
+import { consumeRateLimit, FRESH_SIGN_IN_SEC, isFresh, lockSettingTx, rateKey, readSetting, writeSettingTx } from '@/modules/hdc/api';
 import { pilotRunStats } from '@/modules/hda/api/metrics';
 import { cleanUserText, RATE_RULES } from '@/modules/hdc/pref';
 import { listActiveModules, moduleCodesTx, type Priority, readSlaConfig, type SlaConfig } from '@/modules/hdr/api';
@@ -514,12 +514,18 @@ export async function setPilotOrg(ctx: StaffContext, input: unknown, now: Date =
   if (ctx?.actor?.type !== 'staff' || ctx.actor.staffRole !== 'admin') throw new HdtError('forbidden');
   if (!isFresh(ctx, now, FRESH_SIGN_IN_SEC)) throw new HdtError('stale_session');
   const data = parseInput(pilotOrgInput, input);
-  if (!(await getOrganization(ctx, data.orgId))) throw new HdtError('not_found');
-  const current = await pilotOrgIds();
-  const next = data.pilot ? [...new Set([...current, data.orgId])] : current.filter((id) => id !== data.orgId);
-  if (next.length > PILOT_ORGS_MAX) throw new HdtError('invalid_input');
-  if (next.length === current.length && next.every((id, i) => id === current[i])) return;
-  await withActor(ctx.actor, (tx) => writeSettingTx(tx, PILOT_ORGS_SETTING, next));
+  // В пилот входит только организация клиента: служебная "Неопознанные" (kind = 'service') нет (проверка M9, M4).
+  const org = await getOrganization(ctx, data.orgId);
+  if (!org || (data.pilot && org.kind !== 'client')) throw new HdtError('not_found');
+  // Чтение и запись списка одной транзакцией с блокировкой строки настройки: одновременные отметки не теряются (M4).
+  await withActor(ctx.actor, async (tx) => {
+    const parsed = pilotIdsSchema.safeParse(await lockSettingTx(tx, PILOT_ORGS_SETTING));
+    const current = parsed.success ? [...new Set(parsed.data)] : [];
+    const next = data.pilot ? [...new Set([...current, data.orgId])] : current.filter((id) => id !== data.orgId);
+    if (next.length > PILOT_ORGS_MAX) throw new HdtError('invalid_input');
+    if (next.length === current.length && next.every((id, i) => id === current[i])) return;
+    await writeSettingTx(tx, PILOT_ORGS_SETTING, next);
+  });
 }
 
 export type PilotRow = {

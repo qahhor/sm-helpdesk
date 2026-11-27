@@ -67,6 +67,8 @@ export type OrgRow = {
   aiConsentOn: string | null;
   aiConsentRef: string | null;
   state: 'active' | 'passive';
+  /** Вид: client или служебная service (миграция 0035). */
+  kind: 'client' | 'service';
   /** Действующих участников. */
   memberCount: number;
 };
@@ -78,6 +80,7 @@ const orgColumns = {
   serverName: servers.name,
   category: organizations.category,
   isAiEnabled: organizations.isAiEnabled,
+  kind: organizations.kind,
   aiConsentOn: organizations.aiConsentOn,
   aiConsentRef: organizations.aiConsentRef,
   state: organizations.state,

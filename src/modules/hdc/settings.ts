@@ -17,6 +17,19 @@ export async function readSetting(code: string): Promise<unknown> {
 }
 
 /**
+ * Значение настройки с блокировкой до конца транзакции администратора: чтение и запись списка одной транзакцией без
+ * потерянных правок (независимая проверка M9, M4). Строка есть: SELECT ... FOR UPDATE. Строки ещё нет: блокировка
+ * транзакции по коду настройки, затем чтение заново: вторая такая же транзакция ждёт и видит строку первой.
+ */
+export async function lockSettingTx(tx: Tx, code: string): Promise<unknown> {
+  const read = async () => (await tx.select({ value: appSettings.value }).from(appSettings).where(eq(appSettings.code, code)).limit(1).for('update'))[0];
+  const row = await read();
+  if (row) return row.value;
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`hdc_settings:${code}`}, 0))`);
+  return (await read())?.value;
+}
+
+/**
  * Запись настройки в транзакции администратора (политика базы пускает только его) с записью журнала: код и новое
  * значение. Секретов в настройках нет (раздел 11.11): значение в журнале безопасно.
  */

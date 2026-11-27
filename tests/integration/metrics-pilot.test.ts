@@ -136,3 +136,14 @@ test('выгрузка сводки тем же механизмом: тольк
   await expect(exportMetrics(staffCtx(await staffWithRole('product')), { report: 'pilot', period: '7' }, NOW)).rejects.toMatchObject({ code: 'forbidden' });
   expect((await pools.root.query(`select diff ->> 'report' as report from hdc_audit_log where action = 'metrics.exported'`)).rows).toEqual([{ report: 'pilot' }]);
 });
+
+test('одновременные отметки разных организаций не теряют друг друга; служебная организация не пилот (проверка M9, M4)', async () => {
+  for (let round = 0; round < 5; round += 1) {
+    await pools.root.query(`delete from hdc_settings where code = 'pilot.org_ids'`);
+    await Promise.all([setPilotOrg(staffCtx(f.adminStaff), { orgId: f.orgA.orgId, pilot: true }), setPilotOrg(staffCtx(f.adminStaff), { orgId: f.orgB.orgId, pilot: true })]);
+    const [row] = (await pools.root.query(`select value from hdc_settings where code = 'pilot.org_ids'`)).rows;
+    expect([...(row.value as string[])].sort(), String(round)).toEqual([f.orgA.orgId, f.orgB.orgId].sort());
+  }
+  const service = (await pools.root.query(`select org_id from hdu_organizations where kind = 'service'`)).rows[0]?.org_id as string | undefined;
+  if (service) await expect(setPilotOrg(staffCtx(f.adminStaff), { orgId: service, pilot: true })).rejects.toMatchObject({ code: 'not_found' });
+});

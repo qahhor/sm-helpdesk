@@ -1857,7 +1857,8 @@
           "notify_oncall_p1": "Navbatchilarga P1 haqida xabar berish (bir marta, birinchi javobgacha)",
           "notify_sla_breach": "Liniya rahbarlarini muddat o'tgani haqida xabardor qilish",
           "notify_csat_low": "Customer Care ni past baho haqida xabardor qilish",
-          "link_known_problem": "Ma'lum muammoga bog'lash"
+          "link_known_problem": "Ma'lum muammoga bog'lash",
+          "request_code_analysis": "Kod bo'yicha tahlil so'rash"
         },
         "actionValues": {
           "set_queue": "Navbat",
@@ -1937,7 +1938,8 @@
           "resolution_required": "yechim yakuni kerak",
           "refused": "amal rad etildi",
           "event_mismatch": "hodisada muddat yo'q",
-          "not_low_rating": "baho yo'q yoki u 2 dan yuqori"
+          "not_low_rating": "baho yo'q yoki u 2 dan yuqori",
+          "ai_disabled": "tashkilot AI-ishlovdan voz kechgan"
         },
         "runs": {
           "title": "Ishga tushishlar jurnali",
@@ -2696,7 +2698,8 @@
         "notify_oncall_p1": "navbatchilarga P1 haqida xabar yuborildi",
         "notify_sla_breach": "liniya rahbarlariga muddat o'tgani haqida bildirishnoma yuborildi",
         "notify_csat_low": "Customer Care ga {to} baho haqida bildirishnoma yuborildi",
-        "link_known_problem": "{to} ma'lum muammoga bog'landi"
+        "link_known_problem": "{to} ma'lum muammoga bog'landi",
+        "request_code_analysis": "kod bo'yicha tahlil so'raldi"
       },
       "ruleActionNames": {
         "set_queue": "navbatni almashtirish",
@@ -2714,7 +2717,8 @@
         "notify_oncall_p1": "navbatchilarga P1 haqida xabar",
         "notify_sla_breach": "muddat o'tgani haqida bildirishnoma",
         "notify_csat_low": "past baho haqida bildirishnoma",
-        "link_known_problem": "ma'lum muammoga bog'lash"
+        "link_known_problem": "ma'lum muammoga bog'lash",
+        "request_code_analysis": "kod bo'yicha tahlil so'rovi"
       },
       "ruleActionFailed": "{name}: bajarilmadi",
       "dueKinds": {

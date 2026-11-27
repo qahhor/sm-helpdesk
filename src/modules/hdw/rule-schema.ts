@@ -79,6 +79,8 @@ export const actionSchemas = {
   webhook: z.strictObject({ action: z.literal('webhook'), endpointId: z.uuid() }),
   // Привязать к известной проблеме (веха M5c, решение 11; FR-AUTO-04): номер проблемы KP-n, только активной.
   link_known_problem: z.strictObject({ action: z.literal('link_known_problem'), problemNumber: z.number().int().positive().max(1_000_000_000) }),
+  // Запросить анализ по коду (веха M8c, FR-CODE-09): событие AI-сотруднику, как кнопка "Разобрать по коду".
+  request_code_analysis: z.strictObject({ action: z.literal('request_code_analysis') }),
   // Действия только предустановленных правил (FR-AUTO-12; план M8, задача 10): прежние встроенные уведомления с их
   // получателями и шаблонами. Значения у них нет. В каком правиле действие допустимо, проверяет слой api.
   notify_oncall_p1: z.strictObject({ action: z.literal('notify_oncall_p1') }),
@@ -100,6 +102,7 @@ const action = z.discriminatedUnion('action', [
   actionSchemas.set_status,
   actionSchemas.webhook,
   actionSchemas.link_known_problem,
+  actionSchemas.request_code_analysis,
   actionSchemas.notify_oncall_p1,
   actionSchemas.notify_sla_breach,
   actionSchemas.notify_csat_low,

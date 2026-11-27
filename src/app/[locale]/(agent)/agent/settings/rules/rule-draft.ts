@@ -58,7 +58,7 @@ export type ConditionOp = (typeof FIELD_OPS)[FieldKind][number];
 export const kindOf = (field: string): FieldKind => (FIELD_KINDS as Record<string, FieldKind>)[field] ?? 'list';
 
 /** Действия, которые предлагает редактор. Вебхук выбирается из списка адресов администратора (FR-AUTO-10). */
-export const ACTION_KINDS = ['set_queue', 'assign', 'assign_round_robin', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status', 'webhook', 'link_known_problem'] as const;
+export const ACTION_KINDS = ['set_queue', 'assign', 'assign_round_robin', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status', 'webhook', 'link_known_problem', 'request_code_analysis'] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
 
 /** Значение "тот, кто запустил макрос" в списке исполнителей: в макросе это действие assign_me. */

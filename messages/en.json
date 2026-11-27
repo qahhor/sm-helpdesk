@@ -1857,7 +1857,8 @@
           "notify_oncall_p1": "Message on-call about P1 (once, until the first response)",
           "notify_sla_breach": "Notify line leads about a missed deadline",
           "notify_csat_low": "Notify Customer Care about a low rating",
-          "link_known_problem": "Link to a known problem"
+          "link_known_problem": "Link to a known problem",
+          "request_code_analysis": "Ask for a code analysis"
         },
         "actionValues": {
           "set_queue": "Queue",
@@ -1937,7 +1938,8 @@
           "resolution_required": "a resolution is required",
           "refused": "action refused",
           "event_mismatch": "the event has no deadline",
-          "not_low_rating": "no rating or it is above 2"
+          "not_low_rating": "no rating or it is above 2",
+          "ai_disabled": "the organization opted out of AI processing"
         },
         "runs": {
           "title": "Run log",
@@ -2696,7 +2698,8 @@
         "notify_oncall_p1": "P1 message sent to on-call",
         "notify_sla_breach": "missed deadline notification sent to line leads",
         "notify_csat_low": "rating {to} notification sent to Customer Care",
-        "link_known_problem": "linked to known problem {to}"
+        "link_known_problem": "linked to known problem {to}",
+        "request_code_analysis": "code analysis asked for"
       },
       "ruleActionNames": {
         "set_queue": "queue change",
@@ -2714,7 +2717,8 @@
         "notify_oncall_p1": "P1 message to on-call",
         "notify_sla_breach": "missed deadline notification",
         "notify_csat_low": "low rating notification",
-        "link_known_problem": "linking to a known problem"
+        "link_known_problem": "linking to a known problem",
+        "request_code_analysis": "code analysis request"
       },
       "ruleActionFailed": "{name}: not done",
       "dueKinds": {

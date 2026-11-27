@@ -1857,7 +1857,8 @@
           "notify_oncall_p1": "Сообщить дежурным о P1 (один раз, пока нет первого ответа)",
           "notify_sla_breach": "Уведомить руководителей линии о нарушении срока",
           "notify_csat_low": "Уведомить Customer Care о низкой оценке",
-          "link_known_problem": "Привязать к известной проблеме"
+          "link_known_problem": "Привязать к известной проблеме",
+          "request_code_analysis": "Запросить анализ по коду"
         },
         "actionValues": {
           "set_queue": "Очередь",
@@ -1937,7 +1938,8 @@
           "resolution_required": "нужен итог решения",
           "refused": "действие отклонено",
           "event_mismatch": "у события нет срока",
-          "not_low_rating": "оценки нет или она выше 2"
+          "not_low_rating": "оценки нет или она выше 2",
+          "ai_disabled": "организация отказалась от AI-обработки"
         },
         "runs": {
           "title": "Журнал срабатываний",
@@ -2696,7 +2698,8 @@
         "notify_oncall_p1": "дежурным отправлено сообщение о P1",
         "notify_sla_breach": "руководителям линии отправлено уведомление о нарушении срока",
         "notify_csat_low": "Customer Care отправлено уведомление об оценке {to}",
-        "link_known_problem": "привязано к известной проблеме {to}"
+        "link_known_problem": "привязано к известной проблеме {to}",
+        "request_code_analysis": "запрошен анализ по коду"
       },
       "ruleActionNames": {
         "set_queue": "смена очереди",
@@ -2714,7 +2717,8 @@
         "notify_oncall_p1": "сообщение дежурным о P1",
         "notify_sla_breach": "уведомление о нарушении срока",
         "notify_csat_low": "уведомление о низкой оценке",
-        "link_known_problem": "привязка к известной проблеме"
+        "link_known_problem": "привязка к известной проблеме",
+        "request_code_analysis": "запрос анализа по коду"
       },
       "ruleActionFailed": "{name}: не выполнено",
       "dueKinds": {

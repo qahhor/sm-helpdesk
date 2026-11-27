@@ -41,7 +41,55 @@ export function guideProblems(path, text, messages) {
   return problems;
 }
 
-/** @returns {string[]} нарушения настоящих инструкций */
+// --- Черновики юридических текстов docs/legal (план M9, задача 11, решение 19) ---
+
+export const LEGAL_FILES = ['privacy-draft', 'ai-consent-draft'].flatMap((kind) => ['ru', 'uz', 'en'].map((locale) => `docs/legal/${kind}.${locale}.md`));
+const LEGAL_MARK = /^> Черновик для юриста/;
+/** Субобработчики раздела 14.6 ТЗ версии 1.2 (Hermes Agent обрабатывает обезличенные тексты, решение ТЗ 79). */
+export const SUBPROCESSORS = ['Hetzner', 'Cloudflare', 'Resend', 'Telegram', 'Anthropic', 'OpenAI', 'Hermes Agent'];
+const SUBPROCESSOR_HEADINGS = /^## (Кому передаются данные|Ma'lumotlar kimga uzatiladi|Who receives the data)\s*$/m;
+
+/** @param {string} text @returns {string[] | null} имена субобработчиков из пунктов раздела, null без раздела */
+function subprocessorsOf(text) {
+  const start = text.search(SUBPROCESSOR_HEADINGS);
+  if (start < 0) return null;
+  const rest = text.slice(start).split('\n').slice(1);
+  const end = rest.findIndex((line) => line.startsWith('## '));
+  const lines = end < 0 ? rest : rest.slice(0, end);
+  return lines
+    .filter((line) => line.startsWith('- ') && line.includes(':'))
+    .flatMap((line) => line.slice(2, line.indexOf(':')).split(/\s+(?:и|va|and|через|orqali|via)\s+|,\s*/))
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
+/**
+ * @param {string} path путь черновика docs/legal/<вид>.<язык>.md
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function legalProblems(path, text) {
+  const locale = /\.(ru|uz|en)\.md$/.exec(path)?.[1] ?? 'ru';
+  /** @type {string[]} */
+  const problems = [];
+  if (!LEGAL_MARK.test(text.split('\n')[0] ?? '')) problems.push(`${path}:1 нет пометки "Черновик для юриста" в первой строке`);
+  if (path.includes('privacy-draft')) {
+    const names = subprocessorsOf(text);
+    if (names === null) problems.push(`${path}: нет раздела о субобработчиках`);
+    else {
+      for (const name of names) if (!SUBPROCESSORS.includes(name)) problems.push(`${path}: субобработчик ${name} не назван в разделе 14.6 ТЗ`);
+      for (const name of SUBPROCESSORS) if (!names.includes(name)) problems.push(`${path}: нет субобработчика ${name} из раздела 14.6 ТЗ`);
+    }
+  }
+  text.split('\n').forEach((line, index) => {
+    // Строки ">" для юриста в портал не переносятся: в них можно назвать запрещённое слово, если его обсуждают.
+    if (line.startsWith('>')) return;
+    for (const word of forbiddenWordsIn(locale, line, true, PROMISES[locale] ?? [])) problems.push(`${path}:${index + 1} запрещённое слово ${word}`);
+  });
+  return problems;
+}
+
+/** @returns {string[]} нарушения настоящих инструкций и черновиков юридических текстов */
 export function guidesCheck() {
   const messages = Object.fromEntries(['ru', 'uz', 'en'].map((locale) => [locale, JSON.parse(readFileSync(resolve(root, `messages/${locale}.json`), 'utf8'))]));
   return GUIDE_FILES.flatMap((path) => {
@@ -52,5 +100,15 @@ export function guidesCheck() {
       return [`${path}: файла нет`];
     }
     return guideProblems(path, text, messages);
-  });
+  }).concat(
+    LEGAL_FILES.flatMap((path) => {
+      let text;
+      try {
+        text = readFileSync(resolve(root, path), 'utf8');
+      } catch {
+        return [`${path}: файла нет`];
+      }
+      return legalProblems(path, text);
+    }),
+  );
 }

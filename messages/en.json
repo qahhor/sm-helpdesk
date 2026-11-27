@@ -99,7 +99,9 @@
         "idea_cycle": "The idea of the month shortlist is ready",
         "idea_moderation_due": "Ideas waiting for review over two working days: {count}",
         "idea_dev_task_closed": "The development task of idea I-{idea} is closed",
-        "ai_budget": "{percent, select, 100 {AI spending limit reached: the assistant is off until the end of the month} other {AI spending at 80% of the limit: organisations cut off {orgs}}}"
+        "ai_budget": "{percent, select, 100 {AI spending limit reached: the assistant is off until the end of the month} other {AI spending at 80% of the limit: organisations cut off {orgs}}}",
+        "problem_update": "Known problem update in SUP-{number}",
+        "problem_dev_task": "Development task {ref} changed status: update the status of problem KP-{problem}"
       },
       "settings": {
         "title": "Emails",
@@ -313,7 +315,8 @@
           "ai_helped": "Glad it helped. The request is resolved.",
           "ai_not_helped": "I passed your request to staff.",
           "ai_need_staff": "I passed your request to staff.",
-          "ai_picked": "Here is the chosen solution."
+          "ai_picked": "Here is the chosen solution.",
+          "already_reported": "You have already reported this problem. We will post here as soon as it is fixed."
         },
         "otherOrg": {
           "text": "Request {number} belongs to {org}. Switch to it to open the request.",
@@ -327,7 +330,8 @@
         },
         "mergedLink": "This request was merged with {number}. We will continue there.",
         "mergedHidden": "This request was merged with another request on the same topic.",
-        "createdByStaff": "A support agent created this request after your call or message."
+        "createdByStaff": "A support agent created this request after your call or message.",
+        "problemUpdate": "Known problem update"
       },
       "files": {
         "add": "File or screenshot",
@@ -680,7 +684,60 @@
         "period_filters": "Which period and filters did you choose?",
         "other_user": "Does another user see the same?"
       },
-      "formHint": "The AI assistant answers first. You can call staff at any time."
+      "formHint": "The AI assistant answers first. You can call staff at any time.",
+      "knownProblem": {
+        "title": "This is a known problem. We are already working on it.",
+        "status": "Status: {status}",
+        "workaround": "For now you can do this:",
+        "after": "A support specialist has your request. We will post here as soon as it is fixed.",
+        "gone": "The problem is no longer shown. A specialist has your request."
+      },
+      "outage": {
+        "title": "There is an outage right now. We know about it.",
+        "after": "A support specialist has your request. We will let you know when everything works again.",
+        "gone": "The outage is over. If the error is still there, write here."
+      }
+    },
+    "problems": {
+      "heading": "We know about this problem",
+      "status": "Status: {status}",
+      "statuses": {
+        "investigating": "investigating",
+        "cause_found": "cause found",
+        "fixing": "fixing",
+        "fixed": "fixed"
+      },
+      "workaround": "Workaround:",
+      "openWorkaround": "Open",
+      "affected": "This affects me too",
+      "affectedHint": "We will let you know as soon as it is fixed.",
+      "other": "I have a different problem",
+      "already": "You have already reported this problem: {number}",
+      "inTicket": "This request is linked to a known problem. We will post here as soon as it is fixed.",
+      "page": {
+        "title": "Known problems",
+        "intro": "Problems we know about and are working on. Fixed ones stay here for 30 days.",
+        "empty": "There are no known problems right now",
+        "emptyText": "If something does not work, describe it in a request.",
+        "fixedOn": "Fixed on {date}",
+        "active": "In progress",
+        "fixed": "Fixed"
+      },
+      "homeLink": "Known problems",
+      "announcementsLink": "Announcements"
+    },
+    "announcements": {
+      "title": "Announcements",
+      "kinds": {
+        "maintenance": "Planned work",
+        "outage": "Outage",
+        "news": "News"
+      },
+      "dismiss": "Close announcement \"{title}\"",
+      "empty": "No announcements",
+      "emptyText": "Planned work, outages and portal news will appear here.",
+      "activeUntil": "Active: {start} - {end}",
+      "ended": "Was: {start} - {end}"
     }
   },
   "agent": {
@@ -1221,7 +1278,9 @@
             "ai_feedback": "The client answered the AI assistant's message",
             "triage_accepted": "AI triage suggestion accepted",
             "ai_answer_flagged": "AI assistant answer marked as wrong",
-            "ai_answer_reviewed": "AI answer review result recorded"
+            "ai_answer_reviewed": "AI answer review result recorded",
+            "problem_linked": "Request linked to a known problem",
+            "problem_unlinked": "Request unlinked from a known problem"
           },
           "attachment": {
             "infected": "Infected file found",
@@ -1309,7 +1368,9 @@
             "file_infected": "Antivirus found an infected solution image",
             "created_from_ticket": "Solution created from a request",
             "signature_bound": "Solution linked to an error signature",
-            "signature_unbound": "Solution unlinked from an error signature"
+            "signature_unbound": "Solution unlinked from an error signature",
+            "untrusted_confirmed": "Untrusted text findings marked as checked",
+            "created_from_candidate": "Solution created from a candidate"
           },
           "client": {
             "embed_session": "Widget session inside Smartup"
@@ -1338,6 +1399,28 @@
           "search": {
             "keys_created": "Search keys created",
             "reindexed": "Search index rebuilt"
+          },
+          "problem": {
+            "created": "Known problem created",
+            "updated": "Known problem changed",
+            "status_changed": "Known problem status changed",
+            "shown_changed": "Known problem visibility to clients changed",
+            "signature_added": "Signature added to problem",
+            "signature_removed": "Signature removed from problem",
+            "translation_saved": "Problem public text saved",
+            "broadcast_confirmed": "Known problem broadcast confirmed",
+            "translations_outdated": "Accepted problem translations hidden: the original text changed"
+          },
+          "announcement": {
+            "saved": "Announcement saved",
+            "ended": "Announcement ended early",
+            "translations_outdated": "Accepted announcement translations hidden: the original text changed"
+          },
+          "candidate": {
+            "returned": "Solution candidate returned to the queue",
+            "accepted": "Candidate turned into a solution draft",
+            "merged": "Candidate merged with a solution",
+            "rejected": "Candidate rejected"
           }
         },
         "words": {
@@ -1709,7 +1792,9 @@
           "hours_since_client": "Hours since client message",
           "hours_since_staff": "Hours since staff reply",
           "rating": "Rating",
-          "ai_reason": "AI handoff reason"
+          "ai_reason": "AI handoff reason",
+          "signature": "Error signature",
+          "known_problem": "Known problem"
         },
         "ops": {
           "is": "is",
@@ -1738,7 +1823,8 @@
           "webhook": "Call webhook",
           "notify_oncall_p1": "Message on-call about P1 (once, until the first response)",
           "notify_sla_breach": "Notify line leads about a missed deadline",
-          "notify_csat_low": "Notify Customer Care about a low rating"
+          "notify_csat_low": "Notify Customer Care about a low rating",
+          "link_known_problem": "Link to a known problem"
         },
         "actionValues": {
           "set_queue": "Queue",
@@ -1751,7 +1837,8 @@
           "notify": "Whom to notify",
           "snooze": "For how many hours",
           "set_status": "Status",
-          "webhook": "Webhook address"
+          "webhook": "Webhook address",
+          "link_known_problem": "Problem"
         },
         "targets": {
           "oncall": "On-call: chat and email",
@@ -1857,6 +1944,16 @@
         "embedded": {
           "text": "Built into the portal: client reminder and auto-close (configured in \"Timings\").",
           "link": "Open reminder and auto-close timings"
+        },
+        "flags": {
+          "signature": {
+            "present": "present",
+            "absent": "absent"
+          },
+          "known_problem": {
+            "linked": "linked",
+            "unlinked": "not linked"
+          }
         }
       },
       "webhooks": {
@@ -2104,7 +2201,8 @@
           "models_changed": "Models saved. After changing a model, run the evaluation set.",
           "lifted": "Cut-off lifted.",
           "topics": "Mandatory topics saved.",
-          "field_on": "Triage field turned on again."
+          "field_on": "Triage field turned on again.",
+          "candidates": "Candidate settings saved."
         },
         "errors": {
           "stale_session": "Sign in again to change settings.",
@@ -2153,7 +2251,10 @@
           "translation": "Solution translation",
           "idea_translation": "Idea translation",
           "message_translation": "Message translation",
-          "thanks": "Thanks check"
+          "thanks": "Thanks check",
+          "problem_translation": "Known problem translation",
+          "announcement_translation": "Announcement translation",
+          "candidate": "Solution candidate"
         },
         "modelNames": {
           "claude-opus-5-5": "Claude Opus 5.5",
@@ -2183,6 +2284,16 @@
           "title": "Turned off by the nightly check",
           "row": "{field}: {share} of {count} suggestions accepted this month",
           "lift": "Turn on again"
+        },
+        "candidates": {
+          "title": "Solution candidates",
+          "intro": "AI prepares solution drafts from closed requests without a solution. Only staff see the draft; clients do not see it until a staff member publishes the solution.",
+          "enabled": "Prepare candidates",
+          "dailyLimit": "Model calls per day",
+          "published": "Similarity to a published solution, %",
+          "merge": "Similarity to merge candidates, %",
+          "hint": "The thresholds are initial: they will be tuned on real vectors.",
+          "save": "Save candidate settings"
         }
       }
     },
@@ -2265,14 +2376,16 @@
           "assign": "Assign",
           "queue_l2": "Transfer to the second line",
           "queue_l1": "Return to the first line",
-          "duplicate": "Close as duplicate"
+          "duplicate": "Close as duplicate",
+          "link_problem": "Link to a known problem"
         },
         "submit": "Apply to selected",
         "done": "Done: {count}",
         "refused": "{number}: {reason}",
         "invalid": "Select tickets and fill in the action fields.",
         "select": "Select {number}",
-        "selectColumn": "Select"
+        "selectColumn": "Select",
+        "problem": "Problem number"
       },
       "thanks": {
         "link": "Did not reopen the ticket",
@@ -2380,7 +2493,9 @@
         "triage_accepted": "{actor}: triage suggestion accepted",
         "ai_state": "Assistant turned on",
         "ai_answer": "Assistant replied",
-        "ai_feedback": "{actor}: reaction to the assistant message"
+        "ai_feedback": "{actor}: reaction to the assistant message",
+        "problemLinked": "{actor}: linked to known problem {ref}",
+        "problemUnlinked": "{actor}: unlinked from known problem {ref}"
       },
       "ruleActions": {
         "set_queue": "queue {to}",
@@ -2398,7 +2513,8 @@
         "unchanged": "no changes",
         "notify_oncall_p1": "P1 message sent to on-call",
         "notify_sla_breach": "missed deadline notification sent to line leads",
-        "notify_csat_low": "rating {to} notification sent to Customer Care"
+        "notify_csat_low": "rating {to} notification sent to Customer Care",
+        "link_known_problem": "linked to known problem {to}"
       },
       "ruleActionNames": {
         "set_queue": "queue change",
@@ -2415,7 +2531,8 @@
         "webhook": "webhook",
         "notify_oncall_p1": "P1 message to on-call",
         "notify_sla_breach": "missed deadline notification",
-        "notify_csat_low": "low rating notification"
+        "notify_csat_low": "low rating notification",
+        "link_known_problem": "linking to a known problem"
       },
       "ruleActionFailed": "{name}: not done",
       "dueKinds": {
@@ -2516,7 +2633,9 @@
           "dev_status": "Task status saved",
           "triaged": "Triage suggestion accepted.",
           "flagged": "The answer is marked as wrong.",
-          "translating": "The translation is being prepared."
+          "translating": "The translation is being prepared.",
+          "problem_linked": "The request is linked to the known problem",
+          "problem_unlinked": "The request is unlinked from the known problem"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -2759,7 +2878,9 @@
         "ai_disabled": "the assistant is off",
         "ai_limit": "AI spending limit",
         "no_text": "request without text",
-        "language": "language not supported"
+        "language": "language not supported",
+        "known_problem": "known problem",
+        "outage": "outage in progress"
       },
       "flag": {
         "open": "Mark the answer as wrong",
@@ -2782,6 +2903,15 @@
         "failed": "The translation failed.",
         "machine": "Machine translation",
         "hint": "Not a basis for actions with rights, data or payments"
+      },
+      "knownProblem": {
+        "title": "Known problem",
+        "none": "Not linked",
+        "create": "Create known problem",
+        "link": "Link to a problem",
+        "linkHint": "Number KP-12 or part of an active problem title",
+        "linkSubmit": "Link",
+        "unlink": "Unlink"
       }
     },
     "playbooks": {
@@ -3095,6 +3225,25 @@
         "handoffs": "Handoffs to staff by reason",
         "count": "Requests",
         "hint": "Counts requests created in the period that the assistant handled. First reply time in seconds around the clock: the assistant replies at any time. Spending for the current calendar month in Tashkent time."
+      },
+      "noProblems": "Without known problems",
+      "hours": "{hours} h",
+      "problems": {
+        "title": "Known problems",
+        "active": "Active now",
+        "fixed": "Fixed in the period",
+        "toFix": "From first request to fix",
+        "problem": "Problem",
+        "tickets": "Requests",
+        "orgs": "Organizations"
+      },
+      "candidates": {
+        "title": "Solution candidates",
+        "created": "Appeared",
+        "accepted": "Turned into drafts",
+        "merged": "Merged",
+        "rejected": "Rejected",
+        "toPublish": "From appearance to publishing"
       }
     },
     "solutions": {
@@ -3122,7 +3271,8 @@
         "helped": "Helped",
         "notHelped": "Did not help",
         "updated": "Changed",
-        "assistant": "Assistant answers"
+        "assistant": "Assistant answers",
+        "staffUseful": "Useful to staff"
       },
       "locales": {
         "ru": "Russian",
@@ -3372,6 +3522,17 @@
         "unbound": "The signature is unlinked.",
         "taken": "This signature is already linked to solution {number}. Unlink it there first.",
         "invalid": "Enter an error code or text."
+      },
+      "untrusted": {
+        "title": "Text from a candidate: check every finding",
+        "hint": "AI prepared this draft from client correspondence. You can publish once every finding is checked. Editing the text clears the checks.",
+        "kinds": {
+          "phone": "Phone",
+          "email": "Email",
+          "command": "Command",
+          "code": "Code"
+        },
+        "checked": "checked"
       }
     },
     "ideas": {
@@ -3601,6 +3762,306 @@
       "errors": {
         "forbidden": "Second line, care and admin write the review result.",
         "invalid_input": "Check the selected result."
+      }
+    },
+    "problems": {
+      "title": "Known problems",
+      "create": "Create problem",
+      "createTitle": "New known problem",
+      "internalTitle": "Internal title",
+      "internalTitleHint": "Visible to staff only",
+      "filters": {
+        "label": "Problem filters",
+        "status": "Status",
+        "module": "Module",
+        "q": "Number or title",
+        "any": "All",
+        "active": "Active",
+        "apply": "Show"
+      },
+      "columns": {
+        "number": "Number",
+        "title": "Title",
+        "status": "Status",
+        "module": "Module",
+        "tickets": "Requests",
+        "orgs": "Organizations",
+        "lastSeen": "Last seen"
+      },
+      "empty": "No known problems",
+      "emptyText": "Create a problem from a request or with the button above.",
+      "statuses": {
+        "investigating": "Investigating",
+        "cause_found": "Cause found",
+        "fixing": "Fixing",
+        "fixed": "Fixed",
+        "closed": "Closed"
+      },
+      "shown": "Shown to clients",
+      "hidden": "Not shown to clients",
+      "tabs": {
+        "label": "Problem sections",
+        "description": "Description",
+        "tickets": "Requests {count}",
+        "updates": "Updates {count}"
+      },
+      "info": {
+        "title": "Details",
+        "tickets": "Requests",
+        "orgs": "Organizations",
+        "categories": "Categories",
+        "categoryNone": "no category",
+        "firstSeen": "First",
+        "lastSeen": "Last",
+        "owner": "Owner",
+        "fixedOn": "Fixed",
+        "closedOn": "Closed",
+        "never": "none"
+      },
+      "fields": {
+        "module": "Module",
+        "noModule": "Not selected",
+        "workaround": "Workaround: solution number",
+        "workaroundHint": "Clients see the solution only if it is published for clients",
+        "status": "Status",
+        "showToClients": "Show to clients",
+        "showHint": "A public title and description in at least one language are required"
+      },
+      "save": "Save",
+      "changeStatus": "Change status",
+      "show": "Show to clients",
+      "hide": "Hide from clients",
+      "public": {
+        "title": "Public text {locale}",
+        "publicTitle": "Public title",
+        "publicBody": "What is happening",
+        "hint": "Clients see this. Do not write organization names, people's names or contacts.",
+        "machine": "Machine translation",
+        "accepted": "Translation accepted",
+        "notAccepted": "Hidden from clients until the translation is accepted",
+        "original": "Original language",
+        "save": "Save text",
+        "accept": "Accept translation",
+        "translate": "Translate from the original language",
+        "empty": "No text in this language"
+      },
+      "signatures": {
+        "title": "Signatures",
+        "none": "No signatures",
+        "tickets": "{count, plural, one {# request} other {# requests}}",
+        "inactive": "inactive",
+        "remove": "Remove",
+        "add": "Add signature",
+        "addHint": "From signatures of linked requests",
+        "manual": "Signature (32 characters)"
+      },
+      "tickets": {
+        "none": "No linked requests",
+        "number": "Request",
+        "title": "Subject",
+        "status": "Status",
+        "org": "Organization",
+        "created": "Created"
+      },
+      "updates": {
+        "none": "No updates yet"
+      },
+      "errors": {
+        "forbidden": "This action is available to the second line, Customer Care and administrators",
+        "invalid_input": "Check the form fields",
+        "not_found": "Problem not found",
+        "rate_limited": "Too often. Try again later",
+        "public_text_required": "Write a public title and description first",
+        "text_findings": "The text has something that must not be shown to clients: {kinds}",
+        "signature_taken": "This signature already belongs to another active problem",
+        "problem_closed": "The problem is closed and cannot be changed",
+        "already_linked": "The request is already linked to a known problem",
+        "ticket_closed": "This request cannot be linked",
+        "problem_inactive": "The problem is not active",
+        "too_many": "No more than 100 requests at a time",
+        "translation_required": "There is no text in the language of some recipients: write it or choose to send the original text",
+        "broadcast_closed": "This broadcast is already confirmed",
+        "no_recipients": "There are no open linked requests: nobody to send to"
+      },
+      "findings": {
+        "phone": "phone number",
+        "email": "email address",
+        "inn": "TIN",
+        "pinfl": "PINFL",
+        "digits": "long number",
+        "server": "server address",
+        "internal": "internal name",
+        "link": "link outside allowed sites",
+        "org": "organization name or TIN"
+      },
+      "done": {
+        "created": "Problem created",
+        "saved": "Saved",
+        "status": "Status changed",
+        "shown": "The problem is shown to clients",
+        "hidden": "The problem is hidden from clients",
+        "translation": "Text saved",
+        "translating": "The translation is being prepared. Refresh the page in a minute",
+        "signature_added": "Signature added",
+        "signature_removed": "Signature removed",
+        "broadcast_sent": "The broadcast is confirmed and being sent",
+        "dev_linked": "Development task linked",
+        "dev_unlinked": "Development task unlinked",
+        "dev_status": "Task status saved"
+      },
+      "broadcast": {
+        "title": "Write an update to everyone",
+        "closeTitle": "Close the problem",
+        "body": "Update text",
+        "closeBody": "Final text",
+        "prepare": "Check and prepare",
+        "prepareClose": "Prepare closing",
+        "recipients": "Will receive: {tickets, plural, one {# request} other {# requests}}, {orgs, plural, one {# organization} other {# organizations}}",
+        "closeHint": "After you confirm, the problem closes and linked open requests move to \"Resolved\" with this text.",
+        "original": "Text in the author's language ({locale})",
+        "translation": "Text for recipients in {locale}",
+        "machineHint": "Machine translation: check and correct it. What is in the field is sent.",
+        "noMachine": "No translation yet: write it yourself or refresh the page in a minute.",
+        "fallback": "Send the original text to recipients without text in their language",
+        "confirm": "Confirm and send",
+        "confirmClose": "Confirm closing",
+        "alreadySent": "This broadcast is already confirmed.",
+        "delivered": "Delivered {delivered} of {tickets}, organizations: {orgs}",
+        "statuses": {
+          "draft": "Draft",
+          "queued": "Queued",
+          "sending": "Sending",
+          "done": "Sent"
+        }
+      },
+      "devTask": {
+        "none": "No task",
+        "open": "Link a development task",
+        "dialogTitle": "Development task of the problem",
+        "dialogText": "The problem status will not change. Clients see neither the task number nor the link.",
+        "apiText": "The portal will create a task in the Smartup task manager with the internal problem title and a link to the card. Public text and client requests are not sent.",
+        "submit": "Link",
+        "submitApi": "Create task and link",
+        "refHint": "As in the task manager, for example DEV-501. If a task with this number exists, the problem is linked to it.",
+        "statusHint": "When the status changes, the problem owner gets a notification.",
+        "errors": {
+          "invalid_url": "The task link must start with https://",
+          "already_linked": "The problem already has a development task",
+          "task_closed": "This task is already closed",
+          "not_manual": "The status of this task comes from the task manager",
+          "task_not_found": "No task with this number",
+          "tracker_unavailable": "The task manager did not respond. Try again later",
+          "other": "This action is available to the second line, Customer Care and the administrator"
+        }
+      }
+    },
+    "announcements": {
+      "title": "Announcements",
+      "create": "New announcement",
+      "save": "Save announcement",
+      "end": "End early",
+      "empty": "No announcements yet",
+      "emptyText": "Customer Care and administrators write announcements.",
+      "translation": "Text in {locale}",
+      "states": {
+        "scheduled": "Scheduled",
+        "active": "Active",
+        "ended": "Ended"
+      },
+      "audiences": {
+        "all": "All clients",
+        "server": "Smartup server",
+        "module": "Module"
+      },
+      "fields": {
+        "kind": "Kind",
+        "audience": "Audience",
+        "server": "Server",
+        "module": "Module",
+        "none": "Not selected",
+        "audienceHint": "Pick a server for the \"Smartup server\" audience and a module for the \"Module\" audience",
+        "startsOn": "Show from (Tashkent)",
+        "endsOn": "Show until (Tashkent)",
+        "periodHint": "No longer than 90 days",
+        "title": "Title",
+        "body": "Text"
+      },
+      "done": {
+        "saved": "Announcement saved",
+        "ended": "Announcement ended",
+        "translation": "Text saved",
+        "translating": "The translation is being prepared. Refresh the page in a minute"
+      }
+    },
+    "candidates": {
+      "title": "Solution candidates",
+      "card": "Candidate",
+      "intro": "Solution drafts that AI prepared from closed requests without a solution. Clients do not see them and suggestions do not find them until a solution is published.",
+      "filters": {
+        "label": "Filter candidates",
+        "status": "Status",
+        "module": "Module",
+        "any": "Any",
+        "q": "Search",
+        "apply": "Show"
+      },
+      "statuses": {
+        "new": "New",
+        "accepted": "Turned into a draft",
+        "merged": "Merged",
+        "rejected": "Rejected"
+      },
+      "columns": {
+        "title": "Title",
+        "module": "Module",
+        "sources": "Requests",
+        "orgs": "Organizations",
+        "created": "Appeared"
+      },
+      "empty": "No candidates",
+      "emptyText": "They appear after requests close without a solution from the knowledge base.",
+      "aiDraft": "AI prepared this draft. Check the text.",
+      "findings": "What to check",
+      "kinds": {
+        "phone": "Phone",
+        "email": "Email",
+        "inn": "TIN",
+        "pinfl": "PINFL",
+        "digits": "Long number",
+        "server": "Server address",
+        "internal": "Internal name",
+        "link": "Link"
+      },
+      "toDraft": "Turn into a solution draft",
+      "toDraftHint": "The solution editor opens with this text and all source requests. The solution stays internal until you change the audience.",
+      "mergeNumber": "Solution number",
+      "merge": "Merge with a solution",
+      "rejectReason": "Rejection reason",
+      "chooseReason": "Choose a reason",
+      "reasons": {
+        "duplicate": "Duplicate",
+        "too_specific": "Too specific",
+        "not_a_solution": "Not a solution",
+        "wrong_data": "Wrong data",
+        "other": "Other"
+      },
+      "rejectComment": "Comment",
+      "reject": "Reject",
+      "info": "Details",
+      "counts": "Requests: {sources}, organizations: {orgs}",
+      "createdOn": "Appeared {date}",
+      "sources": "Source requests",
+      "similar": "Similar solution",
+      "similarValue": "A published solution exists, similarity {percent}%",
+      "noSimilar": "No similar published solutions",
+      "done": {
+        "merged": "Candidate merged with the solution",
+        "rejected": "Candidate rejected"
+      },
+      "errors": {
+        "forbidden": "This action is not available to your role",
+        "invalid_input": "Check the form fields",
+        "not_found": "Solution or candidate not found"
       }
     }
   },
@@ -3967,6 +4428,36 @@
       "text": "Your request is passed to staff.",
       "dueStart": "We will answer {day} after {time}.",
       "due": "We will answer by {when}."
+    },
+    "problemUpdate": {
+      "heading": "Update on request SUP-{number}",
+      "text": "Update on known problem {problem}. Status: {status}.",
+      "closing": "Known problem {problem} is fixed. The request is resolved: if everything works, confirm it in the portal, if not, reply to this email.",
+      "statuses": {
+        "investigating": "investigating",
+        "cause_found": "cause found",
+        "fixing": "fixing",
+        "fixed": "fixed",
+        "closed": "fixed"
+      }
+    },
+    "tezNotice": {
+      "heading": "Tez replied to request SUP-{number}",
+      "knownProblem": "This is a known problem {problem}. Status: {status}.",
+      "outage": "There is an outage right now. We know about it.",
+      "workaround": "Workaround",
+      "after": "A support specialist has your request. We will let you know as soon as it is fixed."
+    },
+    "staffProblemDevTask": {
+      "subject": "Development task of problem {problem}",
+      "text": "Development task {ref} changed status: {status}. Update the status of known problem {problem} and, if needed, write an update to clients.",
+      "version": "Version with the fix: {version}",
+      "statuses": {
+        "todo": "not started",
+        "in_progress": "in progress",
+        "done": "done",
+        "cancelled": "cancelled"
+      }
     }
   },
   "bot": {
@@ -4000,7 +4491,11 @@
       "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}.",
       "tezAnswer": "Tez suggested a solution: {solution}",
       "tezHelped": "Helped",
-      "tezNeedStaff": "Need staff"
+      "tezNeedStaff": "Need staff",
+      "problemUpdate": "Update on known problem {problem}.",
+      "problemClosed": "Known problem {problem} is fixed. The request is resolved.",
+      "tezKnownProblem": "Tez: this is a known problem {problem}. A specialist has your request.",
+      "tezOutage": "Tez: there is an outage right now. A specialist has your request."
     },
     "oncallP1": "P1: new urgent request SUP-{number}",
     "oncallP1Org": "P1: new urgent request SUP-{number}, {org}",
@@ -4174,6 +4669,25 @@
     },
     "mobile": {
       "reopen": "Open this page again from the Smartup app."
+    },
+    "problems": {
+      "heading": "We know about this problem",
+      "status": "Status: {status}",
+      "statuses": {
+        "investigating": "investigating",
+        "cause_found": "cause found",
+        "fixing": "fixing",
+        "fixed": "fixed"
+      },
+      "workaround": "Workaround:",
+      "openWorkaround": "Open",
+      "affected": "This affects me too",
+      "affectedHint": "We will let you know as soon as it is fixed.",
+      "other": "I have a different problem",
+      "sending": "Sending...",
+      "created": "Request {number} created. We will let you know as soon as it is fixed.",
+      "already": "You have already reported this problem: {number}",
+      "failed": "Could not send. Please try again."
     }
   }
 }

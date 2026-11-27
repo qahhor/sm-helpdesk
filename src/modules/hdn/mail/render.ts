@@ -43,6 +43,12 @@ export const MAIL_TEMPLATES = [
   'tez_answer',
   // Подтверждение без Теза при передаче ai_disabled и ai_limit (FR-AI-15).
   'tez_ack',
+  // Обновление по известной проблеме (веха M5c, FR-NT-12): отдельный вид письма со статусом проблемы и ссылкой.
+  'problem_update',
+  // Тез об известной проблеме или сбое (веха M5c, решения 22, 23): публичный текст сотрудника, затем передача.
+  'tez_notice',
+  // Владельцу известной проблемы: статус её задачи разработки сменился, обновите статус проблемы (веха M5c, решение 25).
+  'staff_problem_dev_task',
 ] as const;
 export type MailTemplate = (typeof MAIL_TEMPLATES)[number];
 
@@ -96,7 +102,12 @@ export type MailPayload =
       helpedData?: string;
       staffData?: string;
     } & TicketRef)
-  | ({ template: 'tez_ack'; dueOn: string | null; startOn: string | null; timeZone: string } & TicketRef);
+  | ({ template: 'tez_ack'; dueOn: string | null; startOn: string | null; timeZone: string } & TicketRef)
+  // Текст рассылки сотрудника (только он, T23), номер и статус проблемы; closing: итог закрытия, обращение решено.
+  | ({ template: 'problem_update'; body: string; problemRef: string; problemStatus: string; closing: boolean } & TicketRef)
+  // Тез: известная проблема (номер, статус, обходной путь) или сбой. Заголовок и текст только сотрудника (решения 22, 23).
+  | { template: 'staff_problem_dev_task'; problem: string; ref: string; status: string; version: string | null; url: string }
+  | ({ template: 'tez_notice'; notice: 'known_problem' | 'outage'; noticeTitle: string; noticeBody: string; problemRef?: string; problemStatus?: string; workaroundUrl?: string } & TicketRef);
 
 export type MailData = MailPayload & MailCommon;
 
@@ -338,6 +349,59 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>, locale: 
         `<p style="${PARAGRAPH}">${esc(t('tezAnswer.caption'))}</p>`,
       ].join('');
       return { subject: ticketSubject(payload.number, payload.title), heading: t('tezAnswer.heading', { number: payload.number }), text, html, button: open(payload.url), reply: false, signature: true };
+    }
+    case 'problem_update': {
+      const markdown = payload.body.trim();
+      const known = (['investigating', 'cause_found', 'fixing', 'fixed', 'closed'] as const).find((value) => value === payload.problemStatus);
+      const status = known ? t(`problemUpdate.statuses.${known}`) : '';
+      const head = t(payload.closing ? 'problemUpdate.closing' : 'problemUpdate.text', { problem: payload.problemRef, status });
+      return {
+        subject: ticketSubject(payload.number, payload.title),
+        heading: t('problemUpdate.heading', { number: payload.number, problem: payload.problemRef }),
+        text: `${head}\n\n${markdown}`,
+        html: `<p style="${PARAGRAPH}">${esc(head)}</p>${markdownToHtml(markdown, { paragraph: PARAGRAPH, linkColor: LINK_COLOR })}`,
+        button: open(payload.url),
+        reply: true,
+        signature: true,
+      };
+    }
+    case 'tez_notice': {
+      const markdown = payload.noticeBody.trim();
+      const known = (['investigating', 'cause_found', 'fixing', 'fixed', 'closed'] as const).find((value) => value === payload.problemStatus);
+      const head =
+        payload.notice === 'known_problem'
+          ? t('tezNotice.knownProblem', { problem: payload.problemRef ?? '', status: known ? t(`problemUpdate.statuses.${known}`) : '' })
+          : t('tezNotice.outage');
+      const title = noLinks(payload.noticeTitle, TITLE_MAX);
+      const workaround = payload.workaroundUrl ? `${t('tezNotice.workaround')}: ${payload.workaroundUrl}` : '';
+      return {
+        subject: ticketSubject(payload.number, payload.title),
+        heading: t('tezNotice.heading', { number: payload.number }),
+        text: [t('tezAnswer.signature'), head, title, markdown, workaround, t('tezNotice.after')].filter(Boolean).join('\n\n'),
+        html: [
+          `<p style="${PARAGRAPH}"><strong>${esc(t('tezAnswer.signature'))}</strong></p>`,
+          `<p style="${PARAGRAPH}">${esc(head)}</p>`,
+          `<p style="${PARAGRAPH}"><strong>${esc(title)}</strong></p>`,
+          markdownToHtml(markdown, { paragraph: PARAGRAPH, linkColor: LINK_COLOR }),
+          payload.workaroundUrl ? `<p style="${PARAGRAPH}">${link(payload.workaroundUrl, t('tezNotice.workaround'), LINK_COLOR)}</p>` : '',
+          `<p style="${PARAGRAPH}">${esc(t('tezNotice.after'))}</p>`,
+        ].join(''),
+        button: open(payload.url),
+        reply: false,
+        signature: true,
+      };
+    }
+    case 'staff_problem_dev_task': {
+      const known = (['todo', 'in_progress', 'done', 'cancelled'] as const).find((value) => value === payload.status);
+      const status = known ? t(`staffProblemDevTask.statuses.${known}`) : '';
+      return {
+        subject: t('staffProblemDevTask.subject', { problem: payload.problem }),
+        heading: t('staffProblemDevTask.subject', { problem: payload.problem }),
+        text: [t('staffProblemDevTask.text', { ref: noLinks(payload.ref, NAME_MAX), problem: payload.problem, status }), payload.version ? t('staffProblemDevTask.version', { version: noLinks(payload.version, NAME_MAX) }) : ''].filter(Boolean).join('\n\n'),
+        button: open(payload.url),
+        reply: false,
+        signature: false,
+      };
     }
     case 'tez_ack': {
       const tz = payload.timeZone;

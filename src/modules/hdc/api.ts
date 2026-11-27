@@ -62,6 +62,8 @@ export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './le
 // Общие понятия для модулей ниже hdu (аудит 23.11.2026, находка A1): справочник контактов и контекст сотрудника.
 export { type ContactDirectory, contacts, type MailContact, registerContactDirectory, type TelegramContact } from './contacts';
 export { recordTicketSignature, registerTicketSignatureRecorder, type TicketSignatureInput, type TicketSignatureRecorder } from './ticket-signatures';
+// Известная проблема по сигнатуре нового обращения (веха M5c): обращения в hdt, проблемы в hdp.
+export { type KnownProblemLinker, linkKnownProblem, registerKnownProblemLinker } from './known-problems';
 export { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './staff-session';
 // Кнопки под ответом Теза в Telegram (веха M5b): бот в hdu, реализация в hdt.
 export { registerTezFeedback, tezFeedback, type TezFeedbackHandler, type TezFeedbackResult } from './tez-feedback';

@@ -3,6 +3,7 @@ import * as z from 'zod';
 import { LOCALES } from '@/i18n/locales';
 import { problemResponse } from '@/modules/hdc/api';
 import { withEmbedRequest } from '@/modules/hdu/api/embed';
+import type { ClientContext } from '@/modules/hdu/api';
 import type { SolutionDoc } from '../doc-schema';
 import { HdkError } from '../error';
 import { clientSolutionPage, recordSolutionFeedback } from './client';
@@ -26,7 +27,10 @@ const notHelpedInput = z.strictObject({ outcome: z.literal('not_helped'), sessio
  * POST /api/suggest. Тело подсказки (описание, сессия формы, язык, модуль, код и текст ошибки из подсказок хозяина)
  * или исход "Не помогло" ({ outcome: 'not_helped', sessionId }). Сверх предела подсказка просто пуста: форма работает.
  */
-export function handleWidgetSuggest(request: Request): Promise<Response> {
+export function handleWidgetSuggest(
+  request: Request,
+  opts: { extra?: (ctx: Pick<ClientContext, 'actor'>, body: unknown) => Promise<Record<string, unknown>> } = {},
+): Promise<Response> {
   return withEmbedRequest(request, async (ctx, body) => {
     try {
       const notHelped = notHelpedInput.safeParse(body);
@@ -35,7 +39,10 @@ export function handleWidgetSuggest(request: Request): Promise<Response> {
         return new Response(null, { status: 204 });
       }
       const result = await suggestForWidget(ctx, body);
-      return Response.json(result);
+      // Дополнение ответа другим модулем (известная проблема, план M5c, решение 13): модуль знаний о нём не знает.
+      // Сбой дополнения подсказку не ломает.
+      const extra = opts.extra ? await opts.extra(ctx, body).catch(() => ({})) : {};
+      return Response.json({ ...result, ...extra });
     } catch (error) {
       return hdkProblem(error);
     }

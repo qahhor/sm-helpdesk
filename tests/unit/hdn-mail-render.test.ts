@@ -53,6 +53,12 @@ const SAMPLES: { [K in MailTemplate]: Omit<Extract<MailData, { template: K }>, k
     staffUrl: 'https://hub.example.test/ru/ai-answer?t=y',
   },
   tez_ack: { template: 'tez_ack', ...ticket, dueOn: '2026-11-30T03:00:00.000Z', startOn: '2026-11-30T03:00:00.000Z', timeZone: 'Asia/Tashkent' },
+  // Обновление по известной проблеме (веха M5c): текст рассылки сотрудника, номер и статус проблемы.
+  problem_update: { template: 'problem_update', ...ticket, body: 'Нашли причину. Исправление в версии **5.12.4**.', problemRef: 'KP-12', problemStatus: 'fixing', closing: false },
+  // Владельцу проблемы: статус задачи разработки сменился (веха M5c, решение 25).
+  staff_problem_dev_task: { template: 'staff_problem_dev_task', problem: 'KP-12', ref: 'DEV-501', status: 'done', version: '5.12.4', url: 'https://hub.example.test/ru/agent/problems/12' },
+  // Тез об известной проблеме (веха M5c, решение 22): публичный текст сотрудника, номер, статус, обходной путь.
+  tez_notice: { template: 'tez_notice', ...ticket, notice: 'known_problem', noticeTitle: 'Не проводятся накладные', noticeBody: 'Исправляем. Пока проводите через документ.', problemRef: 'KP-12', problemStatus: 'fixing', workaroundUrl: 'https://hub.example.test/ru/help/a/7-provesti' },
 };
 
 const TICKET_TEMPLATES: MailTemplate[] = [
@@ -70,6 +76,8 @@ const TICKET_TEMPLATES: MailTemplate[] = [
   'staff_rule',
   'oncall_rule',
   'staff_csat_low',
+  'problem_update',
+  'tez_notice',
 ];
 
 const cases = MAIL_TEMPLATES.flatMap((template) => LOCALES.map((locale) => [template, locale] as const));
@@ -200,4 +208,11 @@ test('письмо дежурным о P1 не несёт тему обраще�
     expect(mail.text, locale).toContain('ООО Клиент');
     expect(mail.html, locale).toContain('https://hub.example.test/ru/agent/tickets/1042');
   }
+});
+
+test('письмо Теза о сбое: заголовок и текст объявления, без статуса проблемы (решение 23)', async () => {
+  const mail = await renderMail('tez_notice', 'ru', { template: 'tez_notice', number: 1042, title: 'Не входит', url: 'https://hub.example.test/ru/tickets/SUP-1042', notice: 'outage', noticeTitle: 'Сбой входа', noticeBody: 'Чиним.', ...common } as MailData);
+  expect(mail.text).toContain('Сейчас действует сбой');
+  expect(mail.text).toContain('Сбой входа');
+  expect(mail.text).not.toContain('Статус');
 });

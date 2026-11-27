@@ -233,3 +233,41 @@ export function readiness(input: { title: string; moduleId: string | null; doc: 
     blocked,
   };
 }
+
+// --- Недоверенный текст (веха M5c, задача 10, решение 30; FR-CAND-09, угроза T33) ---
+
+/** Вид находки недоверенного текста: команда оболочки или SQL, код в обратных кавычках или блоке. */
+export type CommandFinding = { kind: 'command' | 'code'; text: string };
+
+const SHELL = /(?:^|[\s(])(?:sudo\s+\S+|rm\s+-{1,2}\w*|curl\s+\S+|wget\s+\S+|powershell(?:\.exe)?\b|cmd(?:\.exe)?\s+\/\w|chmod\s+\S+|del\s+\/\w|reg\s+(?:add|delete)\s+\S+)[^\n]*/gi;
+const SQL_COMMAND = /\b(?:drop\s+(?:table|database|index|view|schema|user)\s+\S+|delete\s+from\s+\S+|update\s+[\w.]+\s+set\s+\S+|truncate\s+(?:table\s+)?[\w.]+|insert\s+into\s+[\w.]+|alter\s+table\s+[\w.]+|grant\s+\w+\s+on\s+\S+)[^\n]*/gi;
+const CODE_BLOCK = /```[\s\S]*?```/g;
+const INLINE_CODE = /`[^`\n]+`/g;
+
+/**
+ * Команды и код в тексте: строки с sudo, rm, curl, wget, powershell, cmd, chmod, SQL drop, delete from, update ... set,
+ * truncate, insert into, alter table и grant, обратные кавычки и блоки кода. Обычные слова ("удалите строку",
+ * "обновите страницу", "delete the line") находкой не считаются: нужна форма команды.
+ */
+export function findCommands(raw: string): CommandFinding[] {
+  const text = scanText(raw);
+  const out: CommandFinding[] = [];
+  const seen = new Set<string>();
+  const push = (kind: CommandFinding['kind'], value: string) => {
+    const clean = value.trim();
+    const key = `${kind}:${clean}`;
+    if (clean && !seen.has(key)) {
+      seen.add(key);
+      out.push({ kind, text: clean.slice(0, 300) });
+    }
+  };
+  for (const m of text.matchAll(CODE_BLOCK)) push('code', m[0]);
+  const withoutBlocks = text.replace(CODE_BLOCK, ' ');
+  for (const m of withoutBlocks.matchAll(INLINE_CODE)) push('code', m[0]);
+  for (const m of withoutBlocks.matchAll(SHELL)) push('command', m[0]);
+  for (const m of withoutBlocks.matchAll(SQL_COMMAND)) push('command', m[0]);
+  return out;
+}
+
+/** Находка недоверенного текста с отпечатком: вид и текст, по ним сотрудник ставит "Проверено". */
+export type UntrustedFinding = { kind: 'phone' | 'email' | 'command' | 'code'; text: string; fingerprint: string };

@@ -99,7 +99,9 @@
         "idea_cycle": "Oy g'oyasi saralash beshligi tayyor",
         "idea_moderation_due": "Ikki ish kunidan ortiq moderatsiya kutayotgan g'oyalar: {count}",
         "idea_dev_task_closed": "I-{idea} g'oyasining ishlab chiqish vazifasi yopildi",
-        "ai_budget": "{percent, select, 100 {AI xarajatlari chegarasi tugadi: yordamchi oy oxirigacha o'chirildi} other {AI xarajati chegaraning 80%: o'chirilgan tashkilotlar {orgs}}}"
+        "ai_budget": "{percent, select, 100 {AI xarajatlari chegarasi tugadi: yordamchi oy oxirigacha o'chirildi} other {AI xarajati chegaraning 80%: o'chirilgan tashkilotlar {orgs}}}",
+        "problem_update": "SUP-{number} da ma'lum muammo bo'yicha yangilanish",
+        "problem_dev_task": "{ref} ishlab chiqish vazifasi holati o'zgardi: KP-{problem} muammosi holatini yangilang"
       },
       "settings": {
         "title": "Xatlar",
@@ -313,7 +315,8 @@
           "ai_helped": "Yordam berganidan xursandmiz. Murojaat hal qilindi.",
           "ai_not_helped": "Murojaatni xodimga o'tkazdim.",
           "ai_need_staff": "Murojaatni xodimga o'tkazdim.",
-          "ai_picked": "Tanlangan yechimni ko'rsatdim."
+          "ai_picked": "Tanlangan yechimni ko'rsatdim.",
+          "already_reported": "Siz bu muammo haqida allaqachon xabar bergansiz. Tuzatishimiz bilan shu yerda xabar beramiz."
         },
         "otherOrg": {
           "text": "{number} murojaati {org} tashkilotiga tegishli. Murojaatni ochish uchun unga o'ting.",
@@ -327,7 +330,8 @@
         },
         "mergedLink": "Murojaat {number} bilan birlashtirildi. O'sha yerda davom etamiz.",
         "mergedHidden": "Murojaat xuddi shu mavzudagi boshqa murojaat bilan birlashtirildi.",
-        "createdByStaff": "Bu murojaatni qo'ng'irog'ingiz yoki xatingiz bo'yicha qo'llab-quvvatlash xodimi yaratgan."
+        "createdByStaff": "Bu murojaatni qo'ng'irog'ingiz yoki xatingiz bo'yicha qo'llab-quvvatlash xodimi yaratgan.",
+        "problemUpdate": "Ma'lum muammo bo'yicha yangilanish"
       },
       "files": {
         "add": "Fayl yoki skrinshot",
@@ -680,7 +684,60 @@
         "period_filters": "Qaysi davr va qaysi saralashlarni tanladingiz?",
         "other_user": "Boshqa foydalanuvchida ham shundaymi?"
       },
-      "formHint": "Birinchi bo'lib AI-yordamchi javob beradi. Xodimni istalgan vaqtda chaqirish mumkin."
+      "formHint": "Birinchi bo'lib AI-yordamchi javob beradi. Xodimni istalgan vaqtda chaqirish mumkin.",
+      "knownProblem": {
+        "title": "Bu ma'lum muammo. Biz uning ustida ishlayapmiz.",
+        "status": "Holati: {status}",
+        "workaround": "Hozircha shunday qilish mumkin:",
+        "after": "Murojaat xodimda. Tuzatishimiz bilan shu yerda xabar beramiz.",
+        "gone": "Muammo endi ko'rsatilmaydi. Murojaat xodimda."
+      },
+      "outage": {
+        "title": "Hozir nosozlik bor. Biz bu haqda bilamiz.",
+        "after": "Murojaat xodimda. Hammasi ishlaganda xabar beramiz.",
+        "gone": "Nosozlik tugadi. Xato qolgan bo'lsa, shu yerga yozing."
+      }
+    },
+    "problems": {
+      "heading": "Biz bu muammo haqida bilamiz",
+      "status": "Holat: {status}",
+      "statuses": {
+        "investigating": "o'rganyapmiz",
+        "cause_found": "sabab topildi",
+        "fixing": "tuzatyapmiz",
+        "fixed": "tuzatildi"
+      },
+      "workaround": "Aylanma yo'l:",
+      "openWorkaround": "Ochish",
+      "affected": "Bu menga ham ta'sir qildi",
+      "affectedHint": "Tuzatishimiz bilan xabar beramiz.",
+      "other": "Menda boshqa muammo",
+      "already": "Siz bu muammo haqida allaqachon xabar bergansiz: {number}",
+      "inTicket": "Bu murojaat ma'lum muammo bilan bog'liq. Tuzatishimiz bilan shu yerda xabar beramiz.",
+      "page": {
+        "title": "Ma'lum muammolar",
+        "intro": "Biz biladigan va ustida ishlayotgan muammolar. Tuzatilganlari 30 kun ko'rsatiladi.",
+        "empty": "Hozir ma'lum muammolar yo'q",
+        "emptyText": "Agar biror narsa ishlamasa, uni murojaatda tasvirlab bering.",
+        "fixedOn": "{date} tuzatildi",
+        "active": "Ishda",
+        "fixed": "Tuzatildi"
+      },
+      "homeLink": "Ma'lum muammolar",
+      "announcementsLink": "E'lonlar"
+    },
+    "announcements": {
+      "title": "E'lonlar",
+      "kinds": {
+        "maintenance": "Rejali ishlar",
+        "outage": "Nosozlik",
+        "news": "Yangilik"
+      },
+      "dismiss": "«{title}» e'lonini yopish",
+      "empty": "E'lonlar yo'q",
+      "emptyText": "Bu yerda rejali ishlar, nosozliklar va portal yangiliklari paydo bo'ladi.",
+      "activeUntil": "Amalda: {start} - {end}",
+      "ended": "Bo'lgan: {start} - {end}"
     }
   },
   "agent": {
@@ -1221,7 +1278,9 @@
             "ai_feedback": "Mijoz AI-yordamchi xabariga javob berdi",
             "triage_accepted": "AI saralash taklifi qabul qilindi",
             "ai_answer_flagged": "AI-yordamchi javobi noto'g'ri deb belgilandi",
-            "ai_answer_reviewed": "AI javobi tahlili natijasi yozildi"
+            "ai_answer_reviewed": "AI javobi tahlili natijasi yozildi",
+            "problem_linked": "Murojaat ma'lum muammoga bog'landi",
+            "problem_unlinked": "Murojaat ma'lum muammodan ajratildi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi",
@@ -1309,7 +1368,9 @@
             "file_infected": "Antivirus yechim rasmida virus topdi",
             "created_from_ticket": "Yechim murojaatdan yaratildi",
             "signature_bound": "Yechim xato imzosiga bog'landi",
-            "signature_unbound": "Yechim xato imzosidan uzildi"
+            "signature_unbound": "Yechim xato imzosidan uzildi",
+            "untrusted_confirmed": "Ishonchsiz matn topilmalari tekshirilgan deb belgilandi",
+            "created_from_candidate": "Yechim nomzoddan yaratildi"
           },
           "client": {
             "embed_session": "Smartup ichidagi vidjet seansi"
@@ -1338,6 +1399,28 @@
           "search": {
             "keys_created": "Qidiruv kalitlari yaratildi",
             "reindexed": "Qidiruv indeksi qaytadan qurildi"
+          },
+          "problem": {
+            "created": "Ma'lum muammo yaratildi",
+            "updated": "Ma'lum muammo o'zgartirildi",
+            "status_changed": "Ma'lum muammo holati o'zgardi",
+            "shown_changed": "Ma'lum muammoni mijozlarga ko'rsatish o'zgardi",
+            "signature_added": "Muammoga signatura qo'shildi",
+            "signature_removed": "Muammodan signatura olib tashlandi",
+            "translation_saved": "Muammoning ochiq matni saqlandi",
+            "broadcast_confirmed": "Ma'lum muammo bo'yicha tarqatma tasdiqlandi",
+            "translations_outdated": "Muammoning qabul qilingan tarjimalari ko'rsatilmaydi: asl matn o'zgardi"
+          },
+          "announcement": {
+            "saved": "E'lon saqlandi",
+            "ended": "E'lon muddatidan oldin tugatildi",
+            "translations_outdated": "E'lonning qabul qilingan tarjimalari ko'rsatilmaydi: asl matn o'zgardi"
+          },
+          "candidate": {
+            "returned": "Yechim nomzodi navbatga qaytdi",
+            "accepted": "Nomzoddan yechim qoralamasi yaratildi",
+            "merged": "Nomzod yechim bilan birlashtirildi",
+            "rejected": "Nomzod rad etildi"
           }
         },
         "words": {
@@ -1709,7 +1792,9 @@
           "hours_since_client": "Mijoz xabaridan beri soat",
           "hours_since_staff": "Xodim javobidan beri soat",
           "rating": "Baho",
-          "ai_reason": "AI topshirish sababi"
+          "ai_reason": "AI topshirish sababi",
+          "signature": "Xato signaturasi",
+          "known_problem": "Ma'lum muammo"
         },
         "ops": {
           "is": "teng",
@@ -1738,7 +1823,8 @@
           "webhook": "Vebhukni chaqirish",
           "notify_oncall_p1": "Navbatchilarga P1 haqida xabar berish (bir marta, birinchi javobgacha)",
           "notify_sla_breach": "Liniya rahbarlarini muddat o'tgani haqida xabardor qilish",
-          "notify_csat_low": "Customer Care ni past baho haqida xabardor qilish"
+          "notify_csat_low": "Customer Care ni past baho haqida xabardor qilish",
+          "link_known_problem": "Ma'lum muammoga bog'lash"
         },
         "actionValues": {
           "set_queue": "Navbat",
@@ -1751,7 +1837,8 @@
           "notify": "Kimni xabardor qilish",
           "snooze": "Necha soatga",
           "set_status": "Holat",
-          "webhook": "Vebhuk manzili"
+          "webhook": "Vebhuk manzili",
+          "link_known_problem": "Muammo"
         },
         "targets": {
           "oncall": "Navbatchilar: chat va pochta",
@@ -1857,6 +1944,16 @@
         "embedded": {
           "text": "Portalga o'rnatilgan: mijozga eslatma va avtomatik yopish («Muddatlar» bo'limida sozlanadi).",
           "link": "Eslatma va avtomatik yopish muddatlarini ochish"
+        },
+        "flags": {
+          "signature": {
+            "present": "bor",
+            "absent": "yo'q"
+          },
+          "known_problem": {
+            "linked": "bog'langan",
+            "unlinked": "bog'lanmagan"
+          }
         }
       },
       "webhooks": {
@@ -2104,7 +2201,8 @@
           "models_changed": "Modellar saqlandi. Model almashgandan keyin tekshiruv to'plamini ishga tushiring.",
           "lifted": "O'chirish bekor qilindi.",
           "topics": "Majburiy mavzular saqlandi.",
-          "field_on": "Saralash maydoni qayta yoqildi."
+          "field_on": "Saralash maydoni qayta yoqildi.",
+          "candidates": "Nomzodlar sozlamalari saqlandi."
         },
         "errors": {
           "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
@@ -2153,7 +2251,10 @@
           "translation": "Yechim tarjimasi",
           "idea_translation": "G'oya tarjimasi",
           "message_translation": "Xabar tarjimasi",
-          "thanks": "Minnatdorchilikni tekshirish"
+          "thanks": "Minnatdorchilikni tekshirish",
+          "problem_translation": "Ma'lum muammo tarjimasi",
+          "announcement_translation": "E'lon tarjimasi",
+          "candidate": "Yechim nomzodi"
         },
         "modelNames": {
           "claude-opus-5-5": "Claude Opus 5.5",
@@ -2183,6 +2284,16 @@
           "title": "Tungi tekshiruv o'chirdi",
           "row": "{field}: oy davomida {count} ta taklifdan {share} qabul qilindi",
           "lift": "Qayta yoqish"
+        },
+        "candidates": {
+          "title": "Yechim nomzodlari",
+          "intro": "AI yechimsiz yopilgan murojaatlardan yechim qoralamalarini tayyorlaydi. Qoralamani faqat xodimlar ko'radi, xodim yechimni chop etmaguncha mijozlarga ko'rsatilmaydi.",
+          "enabled": "Nomzodlarni tayyorlash",
+          "dailyLimit": "Sutkada model chaqiruvlari",
+          "published": "Chop etilgan yechim bilan o'xshashlik, %",
+          "merge": "Nomzodlarni birlashtirish uchun o'xshashlik, %",
+          "hint": "Chegaralar boshlang'ich: ular haqiqiy vektorlarda sozlanadi.",
+          "save": "Nomzodlar sozlamalarini saqlash"
         }
       }
     },
@@ -2265,14 +2376,16 @@
           "assign": "Tayinlash",
           "queue_l2": "Ikkinchi liniyaga o'tkazish",
           "queue_l1": "Birinchi liniyaga qaytarish",
-          "duplicate": "Takroriy sifatida yopish"
+          "duplicate": "Takroriy sifatida yopish",
+          "link_problem": "Ma'lum muammoga bog'lash"
         },
         "submit": "Tanlanganlarga qo'llash",
         "done": "Bajarildi: {count}",
         "refused": "{number}: {reason}",
         "invalid": "Murojaatlarni belgilang va amal maydonlarini to'ldiring.",
         "select": "{number} ni tanlash",
-        "selectColumn": "Tanlash"
+        "selectColumn": "Tanlash",
+        "problem": "Muammo raqami"
       },
       "thanks": {
         "link": "Murojaatni ochmaganlar",
@@ -2380,7 +2493,9 @@
         "triage_accepted": "{actor}: saralash taklifi qabul qilindi",
         "ai_state": "Yordamchi yoqildi",
         "ai_answer": "Yordamchi javob berdi",
-        "ai_feedback": "{actor}: yordamchi xabariga javob"
+        "ai_feedback": "{actor}: yordamchi xabariga javob",
+        "problemLinked": "{actor}: {ref} ma'lum muammoga bog'landi",
+        "problemUnlinked": "{actor}: {ref} ma'lum muammodan ajratildi"
       },
       "ruleActions": {
         "set_queue": "navbat {to}",
@@ -2398,7 +2513,8 @@
         "unchanged": "o'zgarishsiz",
         "notify_oncall_p1": "navbatchilarga P1 haqida xabar yuborildi",
         "notify_sla_breach": "liniya rahbarlariga muddat o'tgani haqida bildirishnoma yuborildi",
-        "notify_csat_low": "Customer Care ga {to} baho haqida bildirishnoma yuborildi"
+        "notify_csat_low": "Customer Care ga {to} baho haqida bildirishnoma yuborildi",
+        "link_known_problem": "{to} ma'lum muammoga bog'landi"
       },
       "ruleActionNames": {
         "set_queue": "navbatni almashtirish",
@@ -2415,7 +2531,8 @@
         "webhook": "vebhuk",
         "notify_oncall_p1": "navbatchilarga P1 haqida xabar",
         "notify_sla_breach": "muddat o'tgani haqida bildirishnoma",
-        "notify_csat_low": "past baho haqida bildirishnoma"
+        "notify_csat_low": "past baho haqida bildirishnoma",
+        "link_known_problem": "ma'lum muammoga bog'lash"
       },
       "ruleActionFailed": "{name}: bajarilmadi",
       "dueKinds": {
@@ -2516,7 +2633,9 @@
           "dev_status": "Vazifa holati saqlandi",
           "triaged": "Saralash taklifi qabul qilindi.",
           "flagged": "Javob noto'g'ri deb belgilandi.",
-          "translating": "Tarjima tayyorlanmoqda."
+          "translating": "Tarjima tayyorlanmoqda.",
+          "problem_linked": "Murojaat ma'lum muammoga bog'landi",
+          "problem_unlinked": "Murojaat ma'lum muammodan ajratildi"
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -2759,7 +2878,9 @@
         "ai_disabled": "yordamchi o'chirilgan",
         "ai_limit": "AI xarajatlari chegarasi",
         "no_text": "matnsiz murojaat",
-        "language": "til qo'llab-quvvatlanmaydi"
+        "language": "til qo'llab-quvvatlanmaydi",
+        "known_problem": "ma'lum muammo",
+        "outage": "nosozlik davom etmoqda"
       },
       "flag": {
         "open": "Javobni noto'g'ri deb belgilash",
@@ -2782,6 +2903,15 @@
         "failed": "Tarjima chiqmadi.",
         "machine": "Mashina tarjimasi",
         "hint": "Huquqlar, ma'lumotlar va to'lov bilan bog'liq harakatlar uchun asos emas"
+      },
+      "knownProblem": {
+        "title": "Ma'lum muammo",
+        "none": "Bog'lanmagan",
+        "create": "Ma'lum muammo yaratish",
+        "link": "Muammoga bog'lash",
+        "linkHint": "KP-12 raqami yoki faol muammo nomining bir qismi",
+        "linkSubmit": "Bog'lash",
+        "unlink": "Ajratish"
       }
     },
     "playbooks": {
@@ -3095,6 +3225,25 @@
         "handoffs": "Sabablar bo'yicha xodimga topshirishlar",
         "count": "Murojaatlar",
         "hint": "Davrda yaratilgan va yordamchi olib borgan murojaatlar hisoblanadi. Birinchi javob vaqti soniyalarda, kecha-kunduz: yordamchi istalgan vaqtda javob beradi. Xarajat Toshkent bo'yicha joriy kalendar oyi uchun."
+      },
+      "noProblems": "Ma'lum muammolarsiz",
+      "hours": "{hours} soat",
+      "problems": {
+        "title": "Ma'lum muammolar",
+        "active": "Hozir faol",
+        "fixed": "Davr ichida tuzatilgan",
+        "toFix": "Birinchi murojaatdan tuzatishgacha",
+        "problem": "Muammo",
+        "tickets": "Murojaatlar",
+        "orgs": "Tashkilotlar"
+      },
+      "candidates": {
+        "title": "Yechim nomzodlari",
+        "created": "Paydo bo'ldi",
+        "accepted": "Qoralama qilindi",
+        "merged": "Birlashtirildi",
+        "rejected": "Rad etildi",
+        "toPublish": "Paydo bo'lishdan chop etishgacha"
       }
     },
     "solutions": {
@@ -3122,7 +3271,8 @@
         "helped": "Yordam berdi",
         "notHelped": "Yordam bermadi",
         "updated": "O'zgartirilgan",
-        "assistant": "Yordamchi javoblari"
+        "assistant": "Yordamchi javoblari",
+        "staffUseful": "Xodimlarga foydali"
       },
       "locales": {
         "ru": "Ruscha",
@@ -3372,6 +3522,17 @@
         "unbound": "Imzo uzildi.",
         "taken": "Bu imzo allaqachon {number} yechimiga bog'langan. Avval uni o'sha yerda uzing.",
         "invalid": "Xato kodi yoki matnini kiriting."
+      },
+      "untrusted": {
+        "title": "Nomzoddan olingan matn: har bir topilmani tekshiring",
+        "hint": "Qoralamani AI mijoz yozishmasi bo'yicha tayyorlagan. Har bir topilma belgilanganda chop etish mumkin. Matnni tahrirlash belgilarni olib tashlaydi.",
+        "kinds": {
+          "phone": "Telefon",
+          "email": "Pochta",
+          "command": "Buyruq",
+          "code": "Kod"
+        },
+        "checked": "tekshirildi"
       }
     },
     "ideas": {
@@ -3601,6 +3762,306 @@
       "errors": {
         "forbidden": "Tahlil natijasini ikkinchi liniya, care va administrator yozadi.",
         "invalid_input": "Tanlangan natijani tekshiring."
+      }
+    },
+    "problems": {
+      "title": "Ma'lum muammolar",
+      "create": "Muammo yaratish",
+      "createTitle": "Yangi ma'lum muammo",
+      "internalTitle": "Ichki nom",
+      "internalTitleHint": "Faqat xodimlar ko'radi",
+      "filters": {
+        "label": "Muammo filtrlari",
+        "status": "Holat",
+        "module": "Modul",
+        "q": "Raqam yoki nom",
+        "any": "Hammasi",
+        "active": "Faollari",
+        "apply": "Ko'rsatish"
+      },
+      "columns": {
+        "number": "Raqam",
+        "title": "Nom",
+        "status": "Holat",
+        "module": "Modul",
+        "tickets": "Murojaatlar",
+        "orgs": "Tashkilotlar",
+        "lastSeen": "Oxirgi paydo bo'lishi"
+      },
+      "empty": "Ma'lum muammolar yo'q",
+      "emptyText": "Muammo murojaatdan yoki yuqoridagi tugma bilan yaratiladi.",
+      "statuses": {
+        "investigating": "O'rganyapmiz",
+        "cause_found": "Sabab topildi",
+        "fixing": "Tuzatyapmiz",
+        "fixed": "Tuzatildi",
+        "closed": "Yopildi"
+      },
+      "shown": "Mijozlarga ko'rsatiladi",
+      "hidden": "Mijozlarga ko'rsatilmaydi",
+      "tabs": {
+        "label": "Muammo bo'limlari",
+        "description": "Tavsif",
+        "tickets": "Murojaatlar {count}",
+        "updates": "Yangilanishlar {count}"
+      },
+      "info": {
+        "title": "Ma'lumotlar",
+        "tickets": "Murojaatlar",
+        "orgs": "Tashkilotlar",
+        "categories": "Toifalar",
+        "categoryNone": "toifasiz",
+        "firstSeen": "Birinchi",
+        "lastSeen": "Oxirgi",
+        "owner": "Mas'ul",
+        "fixedOn": "Tuzatildi",
+        "closedOn": "Yopildi",
+        "never": "yo'q"
+      },
+      "fields": {
+        "module": "Modul",
+        "noModule": "Tanlanmagan",
+        "workaround": "Aylanma yo'l: yechim raqami",
+        "workaroundHint": "Mijoz yechimni faqat mijozlar uchun e'lon qilingan bo'lsa ko'radi",
+        "status": "Holat",
+        "showToClients": "Mijozlarga ko'rsatish",
+        "showHint": "Kamida bitta tilda ochiq nom va tavsif kerak"
+      },
+      "save": "Saqlash",
+      "changeStatus": "Holatni o'zgartirish",
+      "show": "Mijozlarga ko'rsatish",
+      "hide": "Mijozlardan yashirish",
+      "public": {
+        "title": "Ochiq matn {locale}",
+        "publicTitle": "Ochiq nom",
+        "publicBody": "Nima bo'lyapti",
+        "hint": "Buni mijozlar ko'radi. Tashkilot nomlari, ismlar va kontaktlarni yozmang.",
+        "machine": "Mashina tarjimasi",
+        "accepted": "Tarjima qabul qilindi",
+        "notAccepted": "Tarjima qabul qilinmaguncha mijozga ko'rinmaydi",
+        "original": "Asl til",
+        "save": "Matnni saqlash",
+        "accept": "Tarjimani qabul qilish",
+        "translate": "Asl tildan tarjima qilish",
+        "empty": "Bu tilda matn yo'q"
+      },
+      "signatures": {
+        "title": "Signaturalar",
+        "none": "Signaturalar yo'q",
+        "tickets": "{count} ta murojaat",
+        "inactive": "faol emas",
+        "remove": "Olib tashlash",
+        "add": "Signatura qo'shish",
+        "addHint": "Bog'langan murojaatlar signaturalaridan",
+        "manual": "Signatura (32 belgi)"
+      },
+      "tickets": {
+        "none": "Bog'langan murojaatlar yo'q",
+        "number": "Murojaat",
+        "title": "Mavzu",
+        "status": "Holat",
+        "org": "Tashkilot",
+        "created": "Yaratilgan"
+      },
+      "updates": {
+        "none": "Hali yangilanishlar bo'lmagan"
+      },
+      "errors": {
+        "forbidden": "Bu amal ikkinchi liniya, Customer Care va administrator uchun",
+        "invalid_input": "Forma maydonlarini tekshiring",
+        "not_found": "Muammo topilmadi",
+        "rate_limited": "Juda tez-tez. Keyinroq urinib ko'ring",
+        "public_text_required": "Avval ochiq nom va tavsifni yozing",
+        "text_findings": "Matnda mijozlarga ko'rsatib bo'lmaydigan narsa bor: {kinds}",
+        "signature_taken": "Bu signatura boshqa faol muammoda bor",
+        "problem_closed": "Muammo yopilgan, uni o'zgartirib bo'lmaydi",
+        "already_linked": "Murojaat allaqachon ma'lum muammoga bog'langan",
+        "ticket_closed": "Bu murojaatni bog'lab bo'lmaydi",
+        "problem_inactive": "Muammo faol emas",
+        "too_many": "Bir martada 100 tadan ko'p murojaat emas",
+        "translation_required": "Oluvchilarning bir qismi tilida matn yo'q: uni yozing yoki asl matnni yuborishni belgilang",
+        "broadcast_closed": "Bu tarqatma allaqachon tasdiqlangan",
+        "no_recipients": "Ochiq bog'langan murojaatlar yo'q: yuboradigan kishi yo'q"
+      },
+      "findings": {
+        "phone": "telefon raqami",
+        "email": "pochta manzili",
+        "inn": "STIR",
+        "pinfl": "JShShIR",
+        "digits": "uzun raqam",
+        "server": "server manzili",
+        "internal": "xizmat nomi",
+        "link": "ruxsat etilmagan saytga havola",
+        "org": "tashkilot nomi yoki STIR"
+      },
+      "done": {
+        "created": "Muammo yaratildi",
+        "saved": "Saqlandi",
+        "status": "Holat o'zgardi",
+        "shown": "Muammo mijozlarga ko'rsatiladi",
+        "hidden": "Muammo mijozlardan yashirildi",
+        "translation": "Matn saqlandi",
+        "translating": "Tarjima tayyorlanmoqda. Bir daqiqadan so'ng sahifani yangilang",
+        "signature_added": "Signatura qo'shildi",
+        "signature_removed": "Signatura olib tashlandi",
+        "broadcast_sent": "Tarqatma tasdiqlandi va yuborilmoqda",
+        "dev_linked": "Ishlab chiqish vazifasi bog'landi",
+        "dev_unlinked": "Ishlab chiqish vazifasi uzildi",
+        "dev_status": "Vazifa holati saqlandi"
+      },
+      "broadcast": {
+        "title": "Hammaga yangilanish yozish",
+        "closeTitle": "Muammoni yopish",
+        "body": "Yangilanish matni",
+        "closeBody": "Yakuniy matn",
+        "prepare": "Tekshirish va tayyorlash",
+        "prepareClose": "Yopishni tayyorlash",
+        "recipients": "Oladi: {tickets} ta murojaat, {orgs} ta tashkilot",
+        "closeHint": "Tasdiqlangandan so'ng muammo yopiladi, bog'langan ochiq murojaatlar shu matn bilan \"Hal qilindi\" holatiga o'tadi.",
+        "original": "Muallif tilidagi matn ({locale})",
+        "translation": "Oluvchilar uchun {locale} tilidagi matn",
+        "machineHint": "Mashina tarjimasi: tekshiring va tuzating. Maydondagi matn yuboriladi.",
+        "noMachine": "Hozircha tarjima yo'q: o'zingiz yozing yoki bir daqiqadan so'ng sahifani yangilang.",
+        "fallback": "O'z tilida matni yo'q oluvchilarga asl matnni yuborish",
+        "confirm": "Tasdiqlash va yuborish",
+        "confirmClose": "Yopishni tasdiqlash",
+        "alreadySent": "Bu tarqatma allaqachon tasdiqlangan.",
+        "delivered": "{tickets} tadan {delivered} tasi yetkazildi, tashkilotlar: {orgs}",
+        "statuses": {
+          "draft": "Qoralama",
+          "queued": "Navbatda",
+          "sending": "Yuborilmoqda",
+          "done": "Tarqatildi"
+        }
+      },
+      "devTask": {
+        "none": "Vazifa yo'q",
+        "open": "Ishlab chiqish vazifasini bog'lash",
+        "dialogTitle": "Muammoning ishlab chiqish vazifasi",
+        "dialogText": "Muammo holati o'zgarmaydi. Mijozlar vazifa raqamini ham, havolasini ham ko'rmaydi.",
+        "apiText": "Portal Smartup vazifa menejerida muammoning ichki nomi va kartochka havolasi bilan vazifa yaratadi. Ommaviy matn va mijozlar murojaatlari yuborilmaydi.",
+        "submit": "Bog'lash",
+        "submitApi": "Vazifa yaratish va bog'lash",
+        "refHint": "Vazifa menejeridagidek, masalan DEV-501. Bunday raqamli vazifa bo'lsa, muammo unga bog'lanadi.",
+        "statusHint": "Holat o'zgarganda muammo egasi xabarnoma oladi.",
+        "errors": {
+          "invalid_url": "Vazifa havolasi https:// bilan boshlanishi kerak",
+          "already_linked": "Muammoda allaqachon ishlab chiqish vazifasi bor",
+          "task_closed": "Bu vazifa allaqachon yopilgan",
+          "not_manual": "Bu vazifa holati vazifa menejeridan keladi",
+          "task_not_found": "Bunday raqamli vazifa topilmadi",
+          "tracker_unavailable": "Vazifa menejeri javob bermadi. Keyinroq urinib ko'ring",
+          "other": "Bu amal ikkinchi liniya, Customer Care va administrator uchun"
+        }
+      }
+    },
+    "announcements": {
+      "title": "E'lonlar",
+      "create": "Yangi e'lon",
+      "save": "E'lonni saqlash",
+      "end": "Muddatidan oldin tugatish",
+      "empty": "Hozircha e'lonlar yo'q",
+      "emptyText": "E'lonlarni Customer Care va administrator yozadi.",
+      "translation": "{locale} tilidagi matn",
+      "states": {
+        "scheduled": "Rejalashtirilgan",
+        "active": "Amalda",
+        "ended": "Tugagan"
+      },
+      "audiences": {
+        "all": "Barcha mijozlar",
+        "server": "Smartup serveri",
+        "module": "Modul"
+      },
+      "fields": {
+        "kind": "Turi",
+        "audience": "Auditoriya",
+        "server": "Server",
+        "module": "Modul",
+        "none": "Tanlanmagan",
+        "audienceHint": "Server \"Smartup serveri\" auditoriyasi uchun, modul \"Modul\" auditoriyasi uchun tanlanadi",
+        "startsOn": "Ko'rsatish boshlanishi (Toshkent)",
+        "endsOn": "Ko'rsatish tugashi (Toshkent)",
+        "periodHint": "90 kundan oshmasin",
+        "title": "Sarlavha",
+        "body": "Matn"
+      },
+      "done": {
+        "saved": "E'lon saqlandi",
+        "ended": "E'lon tugatildi",
+        "translation": "Matn saqlandi",
+        "translating": "Tarjima tayyorlanmoqda. Bir daqiqadan so'ng sahifani yangilang"
+      }
+    },
+    "candidates": {
+      "title": "Yechim nomzodlari",
+      "card": "Nomzod",
+      "intro": "AI yechimsiz yopilgan murojaatlardan tayyorlagan yechim qoralamalari. Yechim chop etilmaguncha mijozlar ularni ko'rmaydi, maslahat ularni topmaydi.",
+      "filters": {
+        "label": "Nomzodlarni saralash",
+        "status": "Holat",
+        "module": "Modul",
+        "any": "Istalgan",
+        "q": "Qidiruv",
+        "apply": "Ko'rsatish"
+      },
+      "statuses": {
+        "new": "Yangi",
+        "accepted": "Qoralama qilingan",
+        "merged": "Birlashtirilgan",
+        "rejected": "Rad etilgan"
+      },
+      "columns": {
+        "title": "Sarlavha",
+        "module": "Modul",
+        "sources": "Murojaatlar",
+        "orgs": "Tashkilotlar",
+        "created": "Paydo bo'lgan"
+      },
+      "empty": "Nomzodlar yo'q",
+      "emptyText": "Ular bazadan yechimsiz murojaatlar yopilgandan keyin paydo bo'ladi.",
+      "aiDraft": "Qoralamani AI tayyorlagan. Matnni tekshiring.",
+      "findings": "Nimani tekshirish kerak",
+      "kinds": {
+        "phone": "Telefon",
+        "email": "Pochta",
+        "inn": "STIR",
+        "pinfl": "JShShIR",
+        "digits": "Uzun raqam",
+        "server": "Server manzili",
+        "internal": "Ichki nom",
+        "link": "Havola"
+      },
+      "toDraft": "Yechim qoralamasi qilish",
+      "toDraftHint": "Shu matn va barcha manba murojaatlari bilan yechim muharriri ochiladi. Auditoriyani o'zgartirmaguningizcha yechim ichki bo'ladi.",
+      "mergeNumber": "Yechim raqami",
+      "merge": "Yechim bilan birlashtirish",
+      "rejectReason": "Rad etish sababi",
+      "chooseReason": "Sababni tanlang",
+      "reasons": {
+        "duplicate": "Takror",
+        "too_specific": "Juda xususiy holat",
+        "not_a_solution": "Yechim emas",
+        "wrong_data": "Noto'g'ri ma'lumot",
+        "other": "Boshqa"
+      },
+      "rejectComment": "Izoh",
+      "reject": "Rad etish",
+      "info": "Ma'lumot",
+      "counts": "Murojaatlar: {sources}, tashkilotlar: {orgs}",
+      "createdOn": "Paydo bo'lgan: {date}",
+      "sources": "Manba murojaatlar",
+      "similar": "O'xshash yechim",
+      "similarValue": "Chop etilgan yechim bor, o'xshashlik {percent}%",
+      "noSimilar": "O'xshash chop etilgan yechimlar yo'q",
+      "done": {
+        "merged": "Nomzod yechim bilan birlashtirildi",
+        "rejected": "Nomzod rad etildi"
+      },
+      "errors": {
+        "forbidden": "Bu amal rolingiz uchun mavjud emas",
+        "invalid_input": "Forma maydonlarini tekshiring",
+        "not_found": "Yechim yoki nomzod topilmadi"
       }
     }
   },
@@ -3967,6 +4428,36 @@
       "text": "Murojaat xodimlarga o'tkazildi.",
       "dueStart": "{day} soat {time} dan keyin javob beramiz.",
       "due": "{when} gacha javob beramiz."
+    },
+    "problemUpdate": {
+      "heading": "SUP-{number} murojaati bo'yicha yangilanish",
+      "text": "{problem} ma'lum muammo bo'yicha yangilanish. Holat: {status}.",
+      "closing": "{problem} ma'lum muammo tuzatildi. Murojaat hal qilindi: hammasi ishlasa, portalda tasdiqlang, ishlamasa, xatga javob bering.",
+      "statuses": {
+        "investigating": "o'rganyapmiz",
+        "cause_found": "sabab topildi",
+        "fixing": "tuzatyapmiz",
+        "fixed": "tuzatildi",
+        "closed": "tuzatildi"
+      }
+    },
+    "tezNotice": {
+      "heading": "Tez SUP-{number} murojaati bo'yicha javob berdi",
+      "knownProblem": "Bu ma'lum muammo {problem}. Holati: {status}.",
+      "outage": "Hozir nosozlik bor. Biz bu haqda bilamiz.",
+      "workaround": "Vaqtinchalik yechim",
+      "after": "Murojaat xodimda. Tuzatishimiz bilan xabar beramiz."
+    },
+    "staffProblemDevTask": {
+      "subject": "{problem} muammosining ishlab chiqish vazifasi",
+      "text": "{ref} ishlab chiqish vazifasining holati o'zgardi: {status}. {problem} ma'lum muammosi holatini yangilang va kerak bo'lsa, mijozlarga yangilanish yozing.",
+      "version": "Tuzatilgan versiya: {version}",
+      "statuses": {
+        "todo": "boshlanmagan",
+        "in_progress": "ishlanmoqda",
+        "done": "tayyor",
+        "cancelled": "bekor qilingan"
+      }
     }
   },
   "bot": {
@@ -4000,7 +4491,11 @@
       "reminder": "Javobingizni kutyapmiz. Javob bo'lmasa, murojaat {days, plural, other {# ish kunidan}} keyin yopiladi.",
       "tezAnswer": "Tez yechim taklif qildi: {solution}",
       "tezHelped": "Yordam berdi",
-      "tezNeedStaff": "Xodim kerak"
+      "tezNeedStaff": "Xodim kerak",
+      "problemUpdate": "{problem} ma'lum muammo bo'yicha yangilanish.",
+      "problemClosed": "{problem} ma'lum muammo tuzatildi. Murojaat hal qilindi.",
+      "tezKnownProblem": "Tez: bu ma'lum muammo {problem}. Murojaat xodimda.",
+      "tezOutage": "Tez: hozir nosozlik bor. Murojaat xodimda."
     },
     "oncallP1": "P1: yangi shoshilinch murojaat SUP-{number}",
     "oncallP1Org": "P1: yangi shoshilinch murojaat SUP-{number}, {org}",
@@ -4174,6 +4669,25 @@
     },
     "mobile": {
       "reopen": "Bu sahifani Smartup ilovasidan qaytadan oching."
+    },
+    "problems": {
+      "heading": "Biz bu muammo haqida bilamiz",
+      "status": "Holat: {status}",
+      "statuses": {
+        "investigating": "o'rganyapmiz",
+        "cause_found": "sabab topildi",
+        "fixing": "tuzatyapmiz",
+        "fixed": "tuzatildi"
+      },
+      "workaround": "Aylanma yo'l:",
+      "openWorkaround": "Ochish",
+      "affected": "Bu menga ham ta'sir qildi",
+      "affectedHint": "Tuzatishimiz bilan xabar beramiz.",
+      "other": "Menda boshqa muammo",
+      "sending": "Yuborilmoqda...",
+      "created": "{number} murojaati yaratildi. Tuzatishimiz bilan xabar beramiz.",
+      "already": "Siz bu muammo haqida allaqachon xabar bergansiz: {number}",
+      "failed": "Yuborib bo'lmadi. Yana urinib ko'ring."
     }
   }
 }

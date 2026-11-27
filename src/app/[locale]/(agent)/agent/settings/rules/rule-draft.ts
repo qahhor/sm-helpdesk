@@ -19,7 +19,7 @@ export type RuleDraft = { ruleId?: string; name: string; event: string; hours: s
 export const EMPTY_DRAFT: RuleDraft = { name: '', event: 'ticket_created', hours: '', match: 'all', conditions: [], actions: [], isStop: false };
 
 /** Вид поля условия: от него зависят операторы и поле значения. */
-export type FieldKind = 'list' | 'tags' | 'words' | 'work' | 'hours' | 'rating';
+export type FieldKind = 'list' | 'tags' | 'words' | 'work' | 'hours' | 'rating' | 'flag';
 export const FIELD_KINDS = {
   priority: 'list',
   type: 'list',
@@ -38,6 +38,9 @@ export const FIELD_KINDS = {
   hours_since_client: 'hours',
   hours_since_staff: 'hours',
   rating: 'rating',
+  // Веха M5c (решение 11): есть ли сигнатура ошибки, привязано ли обращение к известной проблеме.
+  signature: 'flag',
+  known_problem: 'flag',
 } as const satisfies Record<string, FieldKind>;
 export type ConditionField = keyof typeof FIELD_KINDS;
 export const CONDITION_FIELDS = Object.keys(FIELD_KINDS) as ConditionField[];
@@ -48,13 +51,14 @@ export const FIELD_OPS = {
   work: ['is'],
   hours: ['gte', 'lt'],
   rating: ['is', 'lte', 'gte'],
+  flag: ['is'],
 } as const satisfies Record<FieldKind, readonly string[]>;
 export type ConditionOp = (typeof FIELD_OPS)[FieldKind][number];
 
 export const kindOf = (field: string): FieldKind => (FIELD_KINDS as Record<string, FieldKind>)[field] ?? 'list';
 
 /** Действия, которые предлагает редактор. Вебхук выбирается из списка адресов администратора (FR-AUTO-10). */
-export const ACTION_KINDS = ['set_queue', 'assign', 'assign_round_robin', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status', 'webhook'] as const;
+export const ACTION_KINDS = ['set_queue', 'assign', 'assign_round_robin', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status', 'webhook', 'link_known_problem'] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
 
 /** Значение "тот, кто запустил макрос" в списке исполнителей: в макросе это действие assign_me. */
@@ -83,6 +87,7 @@ function conditionOf(row: ConditionDraft): Record<string, unknown> {
     case 'words':
       return { ...base, words: wordsOf(row.text) };
     case 'work':
+    case 'flag':
       return { ...base, value: row.text };
     case 'hours':
     case 'rating':
@@ -120,6 +125,8 @@ function actionOf(row: ActionDraft): Record<string, unknown> {
       return { action, status: row.value };
     case 'webhook':
       return { action, endpointId: row.value };
+    case 'link_known_problem':
+      return { action, problemNumber: numberOf(row.value) };
     default:
       return { action };
   }
@@ -175,7 +182,7 @@ export function actionDrafts(actions: readonly Record<string, unknown>[]): Actio
           : target.kind === 'role'
             ? `role:${text(target.role)}`
             : `user:${text(target.userId)}`
-        : text(item.queue ?? item.userId ?? item.priority ?? item.tagId ?? item.templateId ?? item.hours ?? item.status ?? item.endpointId);
+        : text(item.queue ?? item.userId ?? item.priority ?? item.tagId ?? item.templateId ?? item.hours ?? item.status ?? item.endpointId ?? item.problemNumber);
     return { key: index + 1, action: text(item.action), value, text: text(item.text) };
   });
 }

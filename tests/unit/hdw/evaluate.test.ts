@@ -35,6 +35,8 @@ const snapshot = (patch: Partial<TicketSnapshot> = {}): TicketSnapshot => ({
   isWorkingTime: true,
   assigneeId: null,
   aiHandoffReason: null,
+  hasSignature: false,
+  knownProblemId: null,
   ...patch,
 });
 const one = (item: Condition, patch: Partial<TicketSnapshot> = {}) => evaluate({ conditions: { match: 'all', items: [item] } }, snapshot(patch), NOW);
@@ -145,4 +147,13 @@ test('оценка: равно, не больше, не меньше; без о�
   expect(one({ field: 'rating', op: 'gte', value: 4 }, { rating: 5 })).toBe(true);
   expect(one({ field: 'rating', op: 'gte', value: 4 }, { rating: 3 })).toBe(false);
   for (const op of ['is', 'lte', 'gte'] as const) expect(one({ field: 'rating', op, value: 3 })).toBe(false);
+});
+
+test('сигнатура есть или нет, известная проблема привязана или нет (веха M5c, решение 11)', () => {
+  expect(one({ field: 'signature', op: 'is', value: 'present' }, { hasSignature: true })).toBe(true);
+  expect(one({ field: 'signature', op: 'is', value: 'present' })).toBe(false);
+  expect(one({ field: 'signature', op: 'is', value: 'absent' })).toBe(true);
+  expect(one({ field: 'known_problem', op: 'is', value: 'unlinked' })).toBe(true);
+  expect(one({ field: 'known_problem', op: 'is', value: 'linked' }, { knownProblemId: OTHER })).toBe(true);
+  expect(one({ field: 'known_problem', op: 'is', value: 'unlinked' }, { knownProblemId: OTHER })).toBe(false);
 });

@@ -3,7 +3,8 @@ import { and, eq, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import type { Locale } from '@/i18n/locales';
 import { writeAudit } from '@/modules/hdc/api';
-import { checkSolution, type Finding, readiness, type Readiness, solutionBodyText } from '../checks';
+import { checkSolution, type Finding, readiness, type Readiness, solutionBodyText, type UntrustedFinding } from '../checks';
+import { confirmedFor, untrustedFindings, untrustedTextHash } from './untrusted';
 import { collectImageFileIds, safeParseSolutionDoc, type SolutionDoc } from '../doc-schema';
 import { solutionSlug } from '../slug';
 import { compareInvariants, type InvariantIssue } from '../translation';
@@ -21,7 +22,15 @@ import { changedSinceTx } from './translations';
  * он с текста действующего оригинала (блоки не менялись); у оригинала: не отстал ли ни один опубликованный перевод;
  * null: переводов нет.
  */
-export type Review = { findings: Finding[]; readiness: Readiness; filesNotClean: string[]; invariants: InvariantIssue[]; translationsCurrent: boolean | null };
+export type Review = {
+  findings: Finding[];
+  readiness: Readiness;
+  filesNotClean: string[];
+  invariants: InvariantIssue[];
+  translationsCurrent: boolean | null;
+  /** Решение из кандидата (веха M5c, решение 30): находки недоверенного текста и уже отмеченные. Иначе null. */
+  untrusted: { findings: UntrustedFinding[]; confirmed: string[] } | null;
+};
 
 /** Действующая опубликованная версия оригинала: с ней сверяется перевод. */
 export type OriginalText = { versionId: string; title: string; doc: SolutionDoc };
@@ -44,7 +53,7 @@ export async function originalPublishedTx(tx: Tx, article: ArticleRow): Promise<
 export async function reviewTx(
   tx: Tx,
   article: ArticleRow,
-  content: { title: string; doc: SolutionDoc; isMachine: boolean; sourceVersionId?: string | null },
+  content: { title: string; doc: SolutionDoc; isMachine: boolean; sourceVersionId?: string | null; untrustedConfirmed?: { textHash: string; fingerprints: string[] } | null },
   allowedDomains: readonly string[],
   original: OriginalText | null = null,
 ): Promise<Review> {
@@ -68,6 +77,7 @@ export async function reviewTx(
     filesNotClean: fileIds.filter((id) => !cleanIds.has(id)),
     invariants,
     translationsCurrent,
+    untrusted: article.isUntrusted ? { findings: untrustedFindings(content), confirmed: [...confirmedFor(content, content.untrustedConfirmed ?? null)] } : null,
   };
 }
 
@@ -80,7 +90,15 @@ async function originalTranslationsCurrentTx(tx: Tx, article: ArticleRow): Promi
   return rows.length === 0 ? null : rows.every((row) => row.status !== 'outdated');
 }
 
-export type PublishInput = { locale: Locale; versionId: string; revision: string; confirmFindings: boolean; allowedDomains: readonly string[] };
+export type PublishInput = {
+  locale: Locale;
+  versionId: string;
+  revision: string;
+  confirmFindings: boolean;
+  allowedDomains: readonly string[];
+  /** Отпечатки находок недоверенного текста, отмеченных "Проверено" в окне публикации (веха M5c, решение 30). */
+  untrustedConfirmed?: readonly string[];
+};
 export type PublishOutcome =
   | { status: 'published'; versionNumber: number }
   | ({ status: 'not_ready' } & Review)
@@ -112,9 +130,26 @@ export async function publishTx(tx: Tx, article: ArticleRow, input: PublishInput
   if (!parsed.success) return { status: 'not_found' };
   const doc = parsed.data;
 
-  const review = await reviewTx(tx, article, { title: version.title, doc, isMachine: version.isMachine, sourceVersionId: version.sourceVersionId }, input.allowedDomains, original);
+  const review = await reviewTx(
+    tx,
+    article,
+    { title: version.title, doc, isMachine: version.isMachine, sourceVersionId: version.sourceVersionId, untrustedConfirmed: version.untrustedConfirmed },
+    input.allowedDomains,
+    original,
+  );
   // Ссылка вне списка не публикуется никогда, остальные находки только с подтверждением.
   if (!review.readiness.ready || review.filesNotClean.length > 0 || (review.readiness.needsConfirm && !input.confirmFindings)) return { status: 'not_ready', ...review };
+  // Решение из кандидата (решение 30): каждая находка телефона, почты, команды и кода отмечена "Проверено" для этого
+  // текста, отметками версии или окна публикации. Иначе публикации нет.
+  if (review.untrusted) {
+    const confirmed = new Set([...review.untrusted.confirmed, ...(input.untrustedConfirmed ?? [])]);
+    if (review.untrusted.findings.some((f) => !confirmed.has(f.fingerprint))) return { status: 'not_ready', ...review };
+    if (review.untrusted.findings.length > 0) {
+      const fingerprints = review.untrusted.findings.map((f) => f.fingerprint);
+      await tx.update(kbArticleVersions).set({ untrustedConfirmed: { textHash: untrustedTextHash({ title: version.title, doc }), fingerprints } }).where(eq(kbArticleVersions.versionId, version.versionId));
+      await writeAudit(tx, { action: 'solution.untrusted_confirmed', objectType: 'article', objectId: article.articleId, diff: { versionId: version.versionId, findings: fingerprints.length } });
+    }
+  }
 
   if (republish) {
     // У архивного решения уже есть черновик (страница возврата устарела): конфликт, а не ошибка базы (0057, M3m).

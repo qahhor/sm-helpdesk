@@ -123,6 +123,9 @@ export async function seedEverything() {
   // Машинный перевод сообщения клиента для сотрудника (веха M5b, задача 9).
   await pools.root.query(`insert into hda_message_translations (org_id, ticket_id, message_id, locale, status, text, requested_by) values ($1, $2, $3, 'ru', 'ready', 'Отчёт не открывается', $4)`, [f.orgA.orgId, f.tickets.aOrg.ticketId, seedMessage, f.l1.userId]);
   await pools.root.query(`insert into hda_triage_field_offs (field, month, share, decisions) values ('module', date_trunc('month', now())::date, 0.5, 40)`);
+  // Кандидат в решение и его источник (веха M5c, задача 9): только сотрудникам, клиенту ни одной строки.
+  const candidate = (await pools.root.query(`insert into hda_solution_candidates (locale, title, problem, source_count, org_count) values ('ru', 'Кандидат: накладная', 'Текст', 1, 1) returning candidate_id`)).rows[0].candidate_id;
+  await pools.root.query(`insert into hda_candidate_sources (org_id, candidate_id, ticket_id) values ($1, $2, $3)`, [f.orgA.orgId, candidate, f.tickets.aOrg.ticketId]);
   // Идеи (веха M7, задача 1): опубликованная идея организации Б, идея Б на модерации и своя идея А на модерации; голоса,
   // подписки, комментарии (опубликованный, чужой на проверке и свой на проверке), отборы (завершённый и открытый),
   // вложения (чистое и непроверенное у опубликованной идеи Б). Клиент А должен видеть опубликованное Б и своё.
@@ -167,5 +170,46 @@ export async function seedEverything() {
     f.orgA.orgId,
     f.aUser.userId,
   ]);
+  // Известные проблемы (веха M5c, задача 1): показанная с текстом сотрудника, принятым и непринятым машинными
+  // переводами; скрытая; закрытая. Клиент через представление должен видеть только показанную и только принятые тексты.
+  const problem = async (title: string, shown: boolean) =>
+    (await pools.root.query(`insert into hdp_problems (internal_title, show_to_clients) values ($1, $2) returning problem_id`, [title, shown])).rows[0].problem_id as string;
+  const shownProblem = await problem('Накладные ACME не проводятся', true);
+  const hiddenProblem = await problem('Скрытая проблема', false);
+  const closedProblem = await problem('Закрытая проблема', true);
+  await pools.root.query(`update hdp_problems set status = 'closed' where problem_id = $1`, [closedProblem]);
+  await pools.root.query(
+    `insert into hdp_problem_translations (problem_id, locale, public_title, public_body, is_machine, accepted_by, accepted_on)
+     values ($1, 'ru', 'Не проводятся накладные', 'Исправляем', false, null, null),
+            ($1, 'en', 'Invoices are not posted', 'Fixing', true, $4, now()),
+            ($1, 'uz', 'Nakladnoylar o''tmayapti', 'Tuzatyapmiz', true, null, null),
+            ($2, 'ru', 'Скрытая', 'Текст', false, null, null),
+            ($3, 'ru', 'Закрытая', 'Текст', false, null, null)`,
+    [shownProblem, hiddenProblem, closedProblem, f.adminStaff.userId],
+  );
+  await pools.root.query(`insert into hdp_problem_signatures (problem_id, signature) values ($1, repeat('b', 32)), ($2, repeat('c', 32))`, [shownProblem, hiddenProblem]);
+  // Объявления (веха M5c, задача 6): действующее для всех (текст сотрудника и непринятый машинный перевод), для чужого
+  // сервера и ещё не начавшееся; закрытие баннера клиентом А.
+  const otherServer = (
+    await pools.root.query(`insert into hdu_servers (name, base_url, issuer, oauth_client_id, oauth_client_secret, code) values ('Другой', 'https://other-seed.smartup.example', 'https://other-seed.smartup.example', 'hub', $1, 'other-seed') returning server_id`, [SEALED])
+  ).rows[0].server_id;
+  const announcement = async (audience: string, serverId: string | null, startsIn: string) =>
+    (
+      await pools.root.query(
+        `insert into hdp_announcements (server_id, author_id, kind, audience, source_locale, starts_on, ends_on)
+         values ($1, $2, 'maintenance', $3, 'ru', now() + $4::interval, now() + $4::interval + interval '2 days') returning announcement_id`,
+        [serverId, f.care.userId, audience, startsIn],
+      )
+    ).rows[0].announcement_id as string;
+  const forAll = await announcement('all', null, '-1 hour');
+  const foreign = await announcement('server', otherServer, '-1 hour');
+  const later = await announcement('all', null, '1 day');
+  await pools.root.query(
+    `insert into hdp_announcement_translations (announcement_id, locale, title, body, is_machine) values ($1, 'ru', 'Работы', 'Ночью', false), ($1, 'en', 'Works', 'At night', true), ($2, 'ru', 'Чужой сервер', 'Текст', false), ($3, 'ru', 'Позже', 'Текст', false)`,
+    [forAll, foreign, later],
+  );
+  await pools.root.query(`insert into hdp_announcement_dismissals (user_id, announcement_id) values ($1, $2)`, [f.aUser.userId, forAll]);
+  // Рассылка по показанной проблеме (веха M5c, задача 5).
+  await pools.root.query(`insert into hdp_broadcasts (problem_id, author_id, kind, source_locale, body) values ($1, $2, 'update', 'ru', '{"ru": "Исправляем"}')`, [shownProblem, f.adminStaff.userId]);
   return f;
 }

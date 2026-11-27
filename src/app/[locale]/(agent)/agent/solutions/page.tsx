@@ -56,7 +56,7 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
       <table className="w-full text-sm" aria-label={label} data-testid={testId}>
         <thead>
           <tr className="border-b border-border text-muted-foreground">
-            {(['number', 'title', 'module', 'language', 'status', 'shown', 'helped', 'notHelped', 'assistant', 'updated'] as const).map((column) => (
+            {(['number', 'title', 'module', 'language', 'status', 'shown', 'helped', 'notHelped', 'assistant', 'staffUseful', 'updated'] as const).map((column) => (
               <th key={column} scope="col" className="px-3 py-2 text-start font-medium">
                 {s(`columns.${column}`)}
               </th>
@@ -86,6 +86,7 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
               <td className="px-3 py-3 tabular-nums" data-column="helped">{format.number(row.helpedCount)}</td>
               <td className="px-3 py-3 tabular-nums" data-column="not-helped">{format.number(row.notHelpedCount)}</td>
               <td className="px-3 py-3 tabular-nums" data-column="assistant">{format.number(byAssistant.get(row.articleId) ?? 0)}</td>
+              <td className="px-3 py-3 tabular-nums" data-column="staff-useful">{format.number(row.staffUsefulCount)}</td>
               <td className="px-3 py-3 whitespace-nowrap">
                 {format.dateTime(row.updatedOn, {
                   dateStyle: 'medium',

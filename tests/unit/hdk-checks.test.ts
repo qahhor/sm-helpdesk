@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { checkSolution, findInText, isAllowedDomain, normalizeDomain, readiness, solutionBodyText } from '@/modules/hdk/checks';
+import { findCommands } from '@/modules/hdk/checks';
 import type { SolutionDoc } from '@/modules/hdk/doc-schema';
 
 // Проверка текста решения перед публикацией (FR-SOL-04; план M5, задача 4, решение 14) и панель готовности
@@ -152,4 +153,27 @@ describe('обход проверки другими цифрами, полно�
   test.each(['Срок 25.11.2026', 'Срок 25/11/2026', 'Срок 25.11.2026 10:30', 'Период 01.11.2026-30.11.2026', 'Версия 5.12.3'])('даты и версии не находка: %s', (input) => {
     expect(findInText(input)).toEqual([]);
   });
+});
+
+// --- Команды и код в недоверенном тексте (веха M5c, задача 10, решение 30; FR-CAND-09) ---
+
+test.each([
+  ['ru', 'Выполните sudo systemctl restart smartup', 'command'],
+  ['uz', "Serverda rm -rf /var/cache/smartup buyrug'ini bajaring", 'command'],
+  ['en', 'Run curl -X POST https://smartup.uz/api/reset', 'command'],
+  ['ru', 'Скачайте wget https://smartup.uz/fix.sh', 'command'],
+  ['en', 'Open powershell and run Get-Service', 'command'],
+  ['ru', 'Наберите cmd /c del report.tmp', 'command'],
+  ['ru', 'Выполните DROP TABLE orders;', 'command'],
+  ['en', 'Run delete from orders where id = 5', 'command'],
+  ['uz', 'update orders set status = 2 where id = 5 ni bajaring', 'command'],
+  ['ru', 'Затем truncate table journal', 'command'],
+  ['ru', 'Введите `reset_cache()` в консоли', 'code'],
+  ['en', 'Paste this:\n```\nselect * from users\n```', 'code'],
+])('findCommands (%s): %s', (_locale, text, kind) => {
+  expect(findCommands(text).map((f) => f.kind)).toContain(kind);
+});
+
+test.each(['Удалите строку из документа и сохраните', "Hujjatdan qatorni o'chiring", 'Delete the line and update the order status in the form', 'Обновите страницу и выберите склад'])('обычный текст не находка: %s', (text) => {
+  expect(findCommands(text)).toEqual([]);
 });

@@ -116,6 +116,9 @@ export async function TicketTimeline({ ticket, from, canFlag = false, translatio
           return t('ticket.events.devTaskClosed', { ref, status: t.has(`ticket.devTask.statuses.${String(p.status)}`) ? t(`ticket.devTask.statuses.${String(p.status)}`) : String(p.status ?? '') });
         return t(p.action === 'unlinked' ? 'ticket.events.devTaskUnlinked' : 'ticket.events.devTaskLinked', { actor, ref });
       }
+      case 'known_problem':
+        // Привязка к известной проблеме и отвязка (план M5c, решение 9). Клиент этих записей не видит.
+        return t(p.action === 'unlinked' ? 'ticket.events.problemUnlinked' : 'ticket.events.problemLinked', { actor, ref: `KP-${Number(p.problemNumber) || ''}` });
       case 'ai_handoff':
         // Передача помощником сотруднику (план M5b, задача 7): причина из перечня FR-AI-14.
         return t('ticket.events.ai_handoff', { reason: t.has(`ticket.aiReasons.${String(p.reason)}`) ? t(`ticket.aiReasons.${String(p.reason)}`) : '' });

@@ -17,6 +17,8 @@ import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
 import { runModerationDigest } from '@/modules/hdi/api/notices';
 import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
+import { runAnnouncementTranslationJob, runProblemTranslationJob } from '@/modules/hdp/api/translate-jobs';
+import { runBroadcastJob, runBroadcastTranslationJob } from '@/modules/hdp/api/broadcast-jobs';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { cleanupSuggestMisses } from '@/modules/hdk/api/misses';
 import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
@@ -25,6 +27,7 @@ import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, type NoActivityOptions, runNoActivityRules } from '@/modules/hdw/api/engine';
+import { runCandidateJob, runCandidatesEmbed, runCandidatesSweep } from '@/modules/hda/api/candidates';
 import { syncDevTasks } from '@/modules/hdw/api/dev-task-jobs';
 import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
@@ -58,6 +61,9 @@ export const SCHEDULES = [
   { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
   // Доля принятых предложений разбора за месяц (план M5b, задача 7, FR-TRI-04): ночью после сверки индекса.
   { name: 'ai.triage_review', cron: '45 3 * * *', tz: 'Asia/Tashkent' },
+  // Кандидаты в решения (план M5c, решения 26, 28): обход раз в 15 минут, досчёт векторов ночью.
+  { name: 'ai.candidates_sweep', cron: '*/15 * * * *', tz: 'UTC' },
+  { name: 'ai.candidates_embed', cron: '20 4 * * *', tz: 'Asia/Tashkent' },
   // Сводка модерации идей роли product (план M7, задача 8, решение 15): раз в день в 09:30 по Ташкенту.
   { name: 'ideas.moderation_digest', cron: '30 9 * * *', tz: 'Asia/Tashkent' },
   // Отбор месяца (план M7, задача 9, решение 16): 1-го числа в 09:00 по Ташкенту.
@@ -190,6 +196,21 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Машинный перевод идеи (план M7, задача 4): модель вызывает только фоновый процесс, сбой повторяет pg-boss.
     await runIdeaTranslationJob(actor('ideas.translate'), job?.data);
   }));
+  await boss.work('problems.translate', polling, ([job]) => timedJob('problems.translate', async () => {
+    // Машинный перевод публичного текста известной проблемы (план M5c, задача 2) или рассылки (задача 5): клиенту не
+    // виден, пока сотрудник его не принял.
+    const data = job?.data as Record<string, unknown> | undefined;
+    if (data && 'broadcastId' in data) await runBroadcastTranslationJob(actor('problems.translate'), data);
+    else await runProblemTranslationJob(actor('problems.translate'), data);
+  }));
+  await boss.work('announcements.translate', polling, ([job]) => timedJob('announcements.translate', async () => {
+    // Машинный перевод объявления (план M5c, задача 6): клиенту не виден, пока сотрудник его не принял.
+    await runAnnouncementTranslationJob(actor('announcements.translate'), job?.data);
+  }));
+  await boss.work('problems.broadcast', polling, ([job]) => timedJob('problems.broadcast', async () => {
+    // Рассылка по известной проблеме (план M5c, задача 5, решение 18): по одному обращению за транзакцию, без дублей.
+    await runBroadcastJob(actor('problems.broadcast'), job?.data);
+  }));
   await boss.work('ideas.moderation_digest', polling, () => timedJob('ideas.moderation_digest', async () => {
     await runModerationDigest(actor('ideas.moderation_digest'), new Date());
   }));
@@ -255,6 +276,18 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('ai.triage_review', polling, () => timedJob('ai.triage_review', async () => {
     const off = await runTriageReview(actor('ai.triage_review'));
     if (off.length > 0) console.info(`AI: отключены предложения разбора полей ${off.join(', ')}`);
+  }));
+  await boss.work('ai.candidates_sweep', polling, () => timedJob('ai.candidates_sweep', async () => {
+    const { queued } = await runCandidatesSweep(actor('ai.candidates_sweep'));
+    if (queued > 0) console.info(`AI: кандидатов в решения поставлено ${queued}`);
+  }));
+  await boss.work('ai.candidate', polling, ([job]) => timedJob('ai.candidate', async () => {
+    // Кандидат по закрытому обращению (план M5c, задача 9): в задании только идентификатор обращения.
+    await runCandidateJob(actor('ai.candidate'), job?.data);
+  }));
+  await boss.work('ai.candidates_embed', polling, () => timedJob('ai.candidates_embed', async () => {
+    const { embedded, merged } = await runCandidatesEmbed(actor('ai.candidates_embed'));
+    if (embedded > 0) console.info(`AI: векторов кандидатов досчитано ${embedded}, склеено ${merged}`);
   }));
   await boss.work('ai.watchdog', polling, ([job]) => timedJob('ai.watchdog', async () => {
     // Через 60 секунд после создания или ответа клиента (с обращением) и раз в минуту по расписанию (без него).

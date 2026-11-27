@@ -7,6 +7,8 @@ import {
   getOrgRow,
   type OrgAiProfile,
   orgAiProfileOf,
+  type OrgFacts,
+  orgFactsOf,
   loadClientAccess,
   type MyOrganization,
   type OrgRow,
@@ -215,4 +217,13 @@ export async function orgAiProfile(actor: SystemActor | StaffActor, input: { org
   const orgId = z.uuid().parse(input.orgId);
   const userIds = z.array(z.uuid()).max(500).parse(input.userIds);
   return orgAiProfileOf(actor, orgId, userIds);
+}
+
+/**
+ * Сведения организаций для известных проблем (план M5c, задачи 2 и 5): категории в сведениях проблемы, названия и ИНН
+ * для проверки публичного текста. Только система и сотрудник; клиенту функция не дана.
+ */
+export async function orgFacts(actor: SystemActor | StaffActor, orgIds: readonly string[]): Promise<OrgFacts[]> {
+  if (actor.type !== 'system' && actor.type !== 'staff') throw new HduError('forbidden');
+  return orgFactsOf(actor, z.array(z.uuid()).max(10_000).parse(orgIds));
 }

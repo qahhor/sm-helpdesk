@@ -1,6 +1,6 @@
 // Модуль hda, слой error: ошибки модуля (docs/naming.md, раздел 5; правило ошибок: решение 0022).
 
-export const HDA_ERROR_CODES = ['forbidden', 'invalid_input', 'stale_session'] as const;
+export const HDA_ERROR_CODES = ['forbidden', 'invalid_input', 'stale_session', 'not_found'] as const;
 export type HdaErrorCode = (typeof HDA_ERROR_CODES)[number];
 
 export class HdaError extends Error {

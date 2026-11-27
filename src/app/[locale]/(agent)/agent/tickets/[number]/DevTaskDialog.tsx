@@ -31,9 +31,9 @@ export type DevTaskDialogLabels = {
   submitApi: string;
 };
 
-type Props = { number: number; mode: 'manual' | 'smartup'; limits: { ref: number; url: number; title: number }; labels: DevTaskDialogLabels };
+type Props = { number: number; mode: 'manual' | 'smartup'; limits: { ref: number; url: number; title: number }; labels: DevTaskDialogLabels; action?: (form: FormData) => Promise<void> };
 
-export function DevTaskDialog({ number, mode, limits, labels }: Props) {
+export function DevTaskDialog({ number, mode, limits, labels, action = sendToDevAction }: Props) {
   const [ref, setRef] = useState('');
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -48,7 +48,7 @@ export function DevTaskDialog({ number, mode, limits, labels }: Props) {
       </DialogTrigger>
       <DialogContent closeLabel={labels.close}>
         <DialogTitle>{labels.title}</DialogTitle>
-        <form action={sendToDevAction} className="flex flex-col gap-4">
+        <form action={action} className="flex flex-col gap-4">
           <input type="hidden" name="number" value={number} />
           <p className="text-sm text-secondary-foreground">{manual ? labels.text : labels.apiText}</p>
           <div className="flex flex-col gap-1">

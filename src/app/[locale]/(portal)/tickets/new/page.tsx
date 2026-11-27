@@ -4,7 +4,10 @@ import { assistantAnswersFirst } from '@/modules/hda/api/eligibility';
 import { listActiveModules } from '@/modules/hdr/api';
 import { ALLOWED_FILE_EXTENSIONS, IMPACTS, MAX_FILES_PER_MESSAGE, parseNumber, TICKET_TYPES, VISIBILITIES } from '@/modules/hdt/api';
 import { requireClientActor } from '@/modules/hdu/api';
+import { activeAnnouncements } from '@/modules/hdp/api/announcements';
+import { isLocale } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
+import { Alert } from '@/ui/components/alert';
 import { acceptOf } from '../status';
 import { NewTicketForm } from './NewTicketForm';
 
@@ -12,7 +15,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Новое обращение (ТЗ 8.3): описание, подсказка решений, затем поля. Сессию формы для исходов подсказки выдаёт сервер
 // (план M5, решение 12); со страницы решения после "Не помогло" она возвращается в адресе (?s=, open=1, FR-SOL-11).
-export default async function NewTicketPage({ searchParams }: { searchParams: Promise<{ related?: string; s?: string; open?: string }> }) {
+export default async function NewTicketPage({ searchParams }: { searchParams: Promise<{ related?: string; s?: string; open?: string; error?: string }> }) {
   const client = await requireClientActor();
   const locale = await getLocale();
   const t = await getTranslations('client.tickets');
@@ -22,6 +25,10 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
   const sessionId = search.s && UUID.test(search.s) ? search.s.toLowerCase() : randomUUID();
   const modules = await listActiveModules(client.actor, locale);
   const tez = await getTranslations('client.tez');
+  const tp = await getTranslations('client.problems');
+  const ta = await getTranslations('client.announcements');
+  // Объявления модуля над формой при выбранном модуле (решение 24): форма показывает те, чей модуль выбран.
+  const moduleAnnouncements = (await activeAnnouncements(client.actor, { locale: isLocale(locale) ? locale : 'ru', surface: 'portal' }).catch(() => [])).filter((a) => a.audience === 'module' && a.moduleId);
   // Подпись помощника (FR-AI-19): только если помощник действительно ответит первым.
   const aiFirst = await assistantAnswersFirst(client);
   return (
@@ -35,8 +42,10 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
           {tez('formHint')}
         </p>
       )}
+      {search.error && <Alert tone="danger">{t.has(`errors.${search.error}`) ? t(`errors.${search.error}`) : t('errors.invalid_input')}</Alert>}
       <NewTicketForm
         userId={client.actor.userId}
+        announcements={moduleAnnouncements.map((a) => ({ id: a.announcementId, moduleId: a.moduleId!, kind: a.kind, kindLabel: ta(`kinds.${a.kind}`), title: a.title, body: a.body }))}
         sessionId={sessionId}
         initialOpen={search.open === '1'}
         relatedNumber={related}
@@ -67,6 +76,15 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
           submit: t('new.submit'),
           ideaLink: ti('ticketLink'),
           ideaLinkAction: ti('ticketLinkAction'),
+          problem: {
+            heading: tp('heading'),
+            status: tp.raw('status') as string,
+            statuses: Object.fromEntries((['investigating', 'cause_found', 'fixing', 'fixed'] as const).map((s) => [s, tp(`statuses.${s}`)])),
+            workaround: tp('workaround'),
+            open: tp('openWorkaround'),
+            affected: tp('affected'),
+            affectedHint: tp('affectedHint'),
+          },
           suggest: { title: t('new.suggest.title'), exact: t('new.suggest.exact'), notHelped: t('new.suggest.notHelped'), sendAnyway: t('new.suggest.sendAnyway') },
           busy: t('files.busy'),
           errors: Object.fromEntries(

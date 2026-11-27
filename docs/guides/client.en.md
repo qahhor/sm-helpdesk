@@ -97,3 +97,11 @@ Do not write phone numbers, tax numbers or other data in ideas: clients of all o
 Tez, the support AI assistant, replies first to a new request. Its message is signed «Tez · AI assistant» with a line saying the answer was prepared by AI from the solution base. Tez shows only published solutions: the title and steps are the same as on the solution page.
 
 Under the answer there are three buttons: «Helped» (the request is resolved), «Did not help» and «Need staff» (the request goes to staff, Tez names the reply time). If two solutions fit, Tez asks which one is closer. Tez does not answer about payments, the contract, access rights, deleting data and other important topics: such requests go to staff at once. The same buttons are in the email and in Telegram.
+
+## 10. Known problems and announcements
+
+If support already knows about an error, a "We know about this problem" block appears above the new request form and in the Smartup Web support window: what is happening, the status and, if there is one, a workaround. Press "This affects me too": a request is created for you, and we will post in it as soon as the problem is fixed. Pressing again shows the number of the request already created. If your problem is different, press "I have a different problem" and describe it in the usual form.
+
+A request linked to a known problem has a block with its status. Updates about the problem arrive in the request, by email and in Telegram, like ordinary replies. When the problem is fixed, the request moves to "Resolved": confirm that everything works or reopen the request. The list of known problems and those fixed in the last 30 days is on the "Known problems" page linked from the home page.
+
+Support publishes planned work, outages and news as announcements: a banner above the cabinet pages, on the home page and in the support window. You can close a banner with the cross: it will not appear for you again either in the cabinet or in Smartup Web, while your colleagues still see it. Active announcements and those that ended within 90 days are on the "Announcements" page linked from the home page. During an outage Tez reports it in the request and hands the request to a specialist right away.

@@ -61,12 +61,14 @@ export async function requestMessageTranslation(ctx: StaffContext, input: unknow
       .returning({ id: aiMessageTranslations.translationId });
     if (inserted[0]) return { id: inserted[0].id, fresh: true };
     const [row] = await tx
-      .select({ id: aiMessageTranslations.translationId })
+      .select({ id: aiMessageTranslations.translationId, status: aiMessageTranslations.status })
       .from(aiMessageTranslations)
       .where(and(eq(aiMessageTranslations.messageId, message.messageId), eq(aiMessageTranslations.locale, parsed.data.locale)))
       .limit(1);
     if (!row) throw new HdaError('invalid_input');
-    return { id: row.id, fresh: false };
+    // Неудачный перевод повторное нажатие ставит снова (долг M5b M1): задание перепишет строку. Предел пользователя
+    // на перевод сообщений держит повторы.
+    return { id: row.id, fresh: row.status === 'failed' };
   });
   if (translationId.fresh) await enqueue('ai.message_translation', { translationId: translationId.id });
   return { translationId: translationId.id };
@@ -101,7 +103,8 @@ export async function runMessageTranslationJob(system: SystemActor, data: unknow
   if (system.type !== 'system') throw new Error('hda: задача только для системы');
   const { translationId } = z.strictObject({ translationId: z.uuid() }).parse(data);
   const [row] = await withActor(system, (tx) => tx.select().from(aiMessageTranslations).where(eq(aiMessageTranslations.translationId, translationId)).limit(1));
-  if (!row || row.status !== 'pending') return 'skipped';
+  // Неудачный перевод берётся снова: его поставило повторное нажатие "Перевести" (долг M5b M1). Готовый не трогается.
+  if (!row || row.status === 'ready') return 'skipped';
   const finish = (set: { status: 'ready'; text: string } | { status: 'failed' }) =>
     withActor(system, (tx) => tx.update(aiMessageTranslations).set({ ...set, ...(set.status === 'failed' ? { text: null } : {}) }).where(eq(aiMessageTranslations.translationId, translationId)));
   const message = await clientMessageForAi(system, row.messageId);

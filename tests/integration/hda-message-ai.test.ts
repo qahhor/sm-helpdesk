@@ -174,3 +174,18 @@ test('перевод сообщения считается в пределе п�
   expect(stub.calls).toHaveLength(0);
   expect((await pools.root.query(`select outcome from hda_runs where purpose = 'message_translation'`)).rows.map((r) => r.outcome)).toEqual(['limited']);
 });
+
+test('долг M5b M1: повторное "Перевести" после неудачного перевода ставит задание снова, удачный перевод не переставляется', async () => {
+  const messageId = await clientMessage('Hisobot ochilmayapti');
+  stub.broken = 'not_json';
+  const { translationId } = await requestMessageTranslation(staffCtx(f.l1), { messageId, locale: 'ru' });
+  expect(await runMessageTranslationJob(SYSTEM, { translationId })).toBe('failed');
+  jobs.sent.length = 0;
+  stub.broken = null;
+  expect(await requestMessageTranslation(staffCtx(f.l1), { messageId, locale: 'ru' })).toEqual({ translationId });
+  expect(jobs.sent.filter((j) => j.name === 'ai.message_translation').map((j) => j.data)).toEqual([{ translationId }]);
+  expect(await runMessageTranslationJob(SYSTEM, { translationId })).toBe('ready');
+  jobs.sent.length = 0;
+  await requestMessageTranslation(staffCtx(f.l1), { messageId, locale: 'ru' });
+  expect(jobs.sent).toEqual([]);
+});

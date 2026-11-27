@@ -299,7 +299,7 @@ const clientTicketColumns = Object.fromEntries(
   Object.entries(allTicketColumns).filter(([name]) => !(STAFF_ONLY_TICKET_COLUMNS as readonly string[]).includes(name)),
 ) as Omit<typeof allTicketColumns, StaffOnlyColumn>;
 export type TicketRecord = Omit<typeof tickets.$inferSelect, StaffOnlyColumn>;
-export type MessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'createdOn' | 'isAuto' | 'aiPayload'>;
+export type MessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'createdOn' | 'isAuto' | 'aiPayload' | 'broadcastId'>;
 export type EventRecord = Pick<typeof ticketEvents.$inferSelect, 'kind' | 'actorType' | 'actorId' | 'payload' | 'createdOn'>;
 export type AttachmentRecord = Pick<
   typeof attachments.$inferSelect,
@@ -328,6 +328,7 @@ export async function readTicket(
         authorType: ticketMessages.authorType,
         body: ticketMessages.body,
         isAuto: ticketMessages.isAuto,
+        broadcastId: ticketMessages.broadcastId,
         aiPayload: ticketMessages.aiPayload,
         createdOn: ticketMessages.createdOn,
       })

@@ -252,7 +252,7 @@ export function RuleEditor({ initial, options, labels, reauthHref, state, eventL
   };
   const changeField = (key: number, field: string) => {
     const kind = kindOf(field);
-    patchCondition(key, { field, op: FIELD_OPS[kind][0], values: [], text: kind === 'work' ? 'working' : '' });
+    patchCondition(key, { field, op: FIELD_OPS[kind][0], values: [], text: kind === 'work' ? 'working' : kind === 'flag' ? (options.values[field]?.[0]?.value ?? '') : '' });
   };
 
   const save = () =>
@@ -459,7 +459,7 @@ export function RuleEditor({ initial, options, labels, reauthHref, state, eventL
                         onChange={(event) => patchCondition(row.key, { text: event.target.value })}
                       >
                         {kind === 'rating' && <option value="">{labels.pick}</option>}
-                        {(kind === 'rating' ? RATINGS.map((value) => ({ value, label: value })) : options.workTime).map((option) => (
+                        {(kind === 'rating' ? RATINGS.map((value) => ({ value, label: value })) : kind === 'flag' ? valuesOf(row.field) : options.workTime).map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>

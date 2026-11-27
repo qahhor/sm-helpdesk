@@ -11,7 +11,7 @@ import { Textarea } from '@/ui/components/textarea';
 import { bulkQueueAction, type BulkState } from './actions';
 
 // Массовые действия в очереди (FR-AG-20, UX-A-10): назначить, передать на вторую линию с запиской, вернуть на
-// первую с пояснением, закрыть как дубль. Флажки строк принадлежат этой форме (атрибут form). Итог по каждому.
+// первую с пояснением, закрыть как дубль, привязать к известной проблеме (веха M5c). Флажки строк принадлежат этой форме (атрибут form). Итог по каждому.
 
 export const BULK_FORM_ID = 'bulk-form';
 
@@ -20,7 +20,7 @@ type Option = { value: string; label: string };
 export type BulkLabels = {
   title: string;
   action: string;
-  actions: Record<'assign' | 'queue_l2' | 'queue_l1' | 'duplicate', string>;
+  actions: Record<'assign' | 'queue_l2' | 'queue_l1' | 'duplicate' | 'link_problem', string>;
   assignee: string;
   unassigned: string;
   reason: string;
@@ -29,6 +29,7 @@ export type BulkLabels = {
   needed: string;
   explanation: string;
   into: string;
+  problem: string;
   submit: string;
   done: string;
   refused: string;
@@ -89,6 +90,12 @@ export function BulkBar({ staff, reasons, labels }: { staff: Option[]; reasons: 
           <div className="flex flex-col gap-1">
             <Label htmlFor="bulk-into">{labels.into}</Label>
             <Input id="bulk-into" name="into" required maxLength={20} placeholder="SUP-1042" />
+          </div>
+        )}
+        {kind === 'link_problem' && (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="bulk-problem">{labels.problem}</Label>
+            <Input id="bulk-problem" name="problem" required maxLength={20} placeholder="KP-12" />
           </div>
         )}
         <Button type="submit" disabled={pending}>

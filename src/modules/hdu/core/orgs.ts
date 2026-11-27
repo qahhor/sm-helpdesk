@@ -176,3 +176,17 @@ export async function orgAiProfileOf(actor: SystemActor | StaffActor, orgId: str
     return { ...org, people, memberNames: members.map((m) => m.name).filter((name): name is string => Boolean(name)) };
   });
 }
+
+export type OrgFacts = { orgId: string; name: string; inn: string | null; category: 'A' | 'B' | 'C' | 'D' | null; serverId: string | null };
+
+/** Название, ИНН, категория и сервер организаций: сведения известной проблемы и проверка её публичного текста (план M5c). */
+export async function orgFactsOf(actor: SystemActor | StaffActor, orgIds: readonly string[]): Promise<OrgFacts[]> {
+  const ids = [...new Set(orgIds)];
+  if (ids.length === 0) return [];
+  return withActor(actor, (tx) =>
+    tx
+      .select({ orgId: organizations.orgId, name: organizations.name, inn: organizations.inn, category: organizations.category, serverId: organizations.serverId })
+      .from(organizations)
+      .where(inArray(organizations.orgId, ids)),
+  );
+}

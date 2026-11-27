@@ -21,9 +21,11 @@ import { ticketEvents, tickets } from '../schema';
 // Решение: обращение решено, либо отметка стоит, либо срок прошёл и не стоит на паузе. Объединённые дубли в расчёт
 // сроков и в "решено" не входят: их закрывает объединение, а не работа над ними.
 
-export type Range = { from: Date; to: Date };
+/** withoutProblems: только обращения без известной проблемы (FR-KP-13; план M5c, решение 12). */
+export type Range = { from: Date; to: Date; withoutProblems?: boolean };
 
-const inPeriod = (range: Range): SQL => and(gte(tickets.createdOn, range.from), lt(tickets.createdOn, range.to)) as SQL;
+const noProblem = (range: Range): SQL | undefined => (range.withoutProblems ? isNull(tickets.knownProblemId) : undefined);
+const inPeriod = (range: Range): SQL => and(gte(tickets.createdOn, range.from), lt(tickets.createdOn, range.to), noProblem(range)) as SQL;
 
 /** Обращение решено: статус "Решено" или "Закрыто" с датой решения, не дубль. Открытое заново сюда не входит. */
 const RESOLVED = sql`(${tickets.status} in ('resolved', 'closed') and ${tickets.resolvedOn} is not null and ${tickets.mergedIntoId} is null)`;
@@ -82,7 +84,7 @@ export async function finishedTx(tx: Tx, range: Range): Promise<number> {
   const [row] = await tx
     .select({ n: count() })
     .from(tickets)
-    .where(and(sql`${FINISHED_ON} >= ${range.from.toISOString()}::timestamptz`, sql`${FINISHED_ON} < ${range.to.toISOString()}::timestamptz`, inArray(tickets.status, ['resolved', 'closed']), isNull(tickets.mergedIntoId)));
+    .where(and(sql`${FINISHED_ON} >= ${range.from.toISOString()}::timestamptz`, sql`${FINISHED_ON} < ${range.to.toISOString()}::timestamptz`, inArray(tickets.status, ['resolved', 'closed']), isNull(tickets.mergedIntoId), noProblem(range)));
   return row?.n ?? 0;
 }
 

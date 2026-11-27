@@ -13,7 +13,7 @@ import { noLinks, plain } from '../mail/sanitize';
 const MESSAGES = { ru, uz, en } as const;
 
 /** Шаблоны событий обращения, о которых клиенту уходит сообщение в Telegram. */
-export const TELEGRAM_TEMPLATES: ReadonlySet<MailTemplate> = new Set(['ticket_created', 'ticket_reply', 'ticket_status', 'ticket_resolved', 'waiting_reminder', 'tez_answer']);
+export const TELEGRAM_TEMPLATES: ReadonlySet<MailTemplate> = new Set(['ticket_created', 'ticket_reply', 'ticket_status', 'ticket_resolved', 'waiting_reminder', 'tez_answer', 'problem_update', 'tez_notice']);
 
 /**
  * Telegram сам делает нажимаемыми домены в любом регистре букв, команды бота, упоминания и метки. В теме обращения
@@ -35,7 +35,7 @@ const TITLE_MAX = 57;
 /** choices: кнопки ответа Теза с подписанными данными (план M5b, задача 6). */
 export type TelegramNotice = { text: string; button: { text: string; url: string }; choices?: { text: string; data: string }[] };
 
-type TicketPayload = Extract<MailPayload, { template: 'ticket_created' | 'ticket_reply' | 'ticket_status' | 'ticket_resolved' | 'waiting_reminder' | 'tez_answer' }>;
+type TicketPayload = Extract<MailPayload, { template: 'ticket_created' | 'ticket_reply' | 'ticket_status' | 'ticket_resolved' | 'waiting_reminder' | 'tez_answer' | 'problem_update' | 'tez_notice' }>;
 
 export function isTelegramPayload(payload: MailPayload): payload is TicketPayload {
   return TELEGRAM_TEMPLATES.has(payload.template);
@@ -64,6 +64,14 @@ export function telegramNoticeText(payload: TicketPayload, locale: Locale, hubUr
       break;
     case 'waiting_reminder':
       event = t('reminder', { days: payload.closeInDays });
+      break;
+    case 'problem_update':
+      // Обновление по известной проблеме (FR-NT-14): только номер проблемы, текст рассылки в портале и письме.
+      event = t(payload.closing ? 'problemClosed' : 'problemUpdate', { problem: payload.problemRef });
+      break;
+    case 'tez_notice':
+      // Известная проблема или сбой (решения 22, 23): только номер проблемы, текст сотрудника в портале и письме.
+      event = payload.notice === 'known_problem' ? t('tezKnownProblem', { problem: payload.problemRef ?? '' }) : t('tezOutage');
       break;
     case 'tez_answer':
       // Заголовок решения обезврежен, как тема: в Telegram не становится ссылкой и командой бота. Шагов нет: они в портале.

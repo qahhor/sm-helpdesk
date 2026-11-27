@@ -33,6 +33,10 @@ export type TicketSnapshot = {
   assigneeId: string | null;
   /** Причина передачи помощником (FR-AI-14). null: помощник не передавал обращение. */
   aiHandoffReason: string | null;
+  /** Есть ли у обращения сигнатура ошибки (веха M5c). Саму сигнатуру условия не видят. */
+  hasSignature: boolean;
+  /** Известная проблема обращения. null: не привязано. */
+  knownProblemId: string | null;
 };
 
 const HOUR_MS = 3_600_000;
@@ -68,6 +72,10 @@ function holds(condition: Condition, snapshot: TicketSnapshot, now: Date): boole
       return inList(snapshot.orgId, condition.values, condition.op);
     case 'ai_reason':
       return inList(snapshot.aiHandoffReason, condition.values, condition.op);
+    case 'signature':
+      return snapshot.hasSignature === (condition.value === 'present');
+    case 'known_problem':
+      return (snapshot.knownProblemId !== null) === (condition.value === 'linked');
     case 'tags': {
       const has = (tagId: string) => snapshot.tagIds.includes(tagId);
       if (condition.op === 'has_all') return condition.values.every(has);

@@ -40,7 +40,17 @@ const policies = async () =>
 
 test('политики: прежние только сужены условием ticket_id IS NOT NULL, чтение то же, у идеи своя вставка и нет удаления', async () => {
   const p = await policies();
-  expect(Object.keys(p)).toEqual(['hdw_dev_task_links_developer_delete', 'hdw_dev_task_links_developer_insert', 'hdw_dev_task_links_internal_select', 'hdw_dev_task_links_moderator_insert']);
+  // Веха M5c, задача 8 (миграция 0105): две политики только для строк известных проблем.
+  expect(Object.keys(p)).toEqual([
+    'hdw_dev_task_links_developer_delete',
+    'hdw_dev_task_links_developer_insert',
+    'hdw_dev_task_links_internal_select',
+    'hdw_dev_task_links_moderator_insert',
+    'hdw_dev_task_links_problem_delete',
+    'hdw_dev_task_links_problem_insert',
+  ]);
+  expect(p.hdw_dev_task_links_problem_insert?.check).toMatch(/^\(\(known_problem_id IS NOT NULL\) AND \(ticket_id IS NULL\) AND \(idea_id IS NULL\) AND \(org_id IS NULL\) AND app\.hdp_can_write\(\)\)$/);
+  expect(p.hdw_dev_task_links_problem_delete?.qual).toMatch(/^\(\(known_problem_id IS NOT NULL\) AND app\.hdp_can_write\(\)\)$/);
   expect(p.hdw_dev_task_links_internal_select).toEqual({ cmd: 'SELECT', qual: 'app.is_internal()', check: null });
   expect(p.hdw_dev_task_links_developer_insert?.check).toMatch(/^\(\(ticket_id IS NOT NULL\) AND \(app\.actor_type\(\) = 'staff'::text\) AND \(app\.staff_role\(\) = ANY \(ARRAY\['agent_l2'::text, 'care'::text, 'admin'::text\]\)\)\)$/);
   expect(p.hdw_dev_task_links_developer_delete?.qual).toMatch(/^\(\(ticket_id IS NOT NULL\) AND \(app\.actor_type\(\) = 'staff'::text\) AND \(app\.staff_role\(\) = ANY \(ARRAY\['agent_l2'::text, 'care'::text, 'admin'::text\]\)\)\)$/);

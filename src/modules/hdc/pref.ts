@@ -176,6 +176,33 @@ export const AUDIT_ACTIONS = [
   'idea.status_changed',
   // Эксплуатация (план подготовки M9, задача 3): команда hub ops:backup-mark отметила удачную резервную копию.
   'ops.backup_marked',
+  // Известные проблемы (веха M5c): создание, правка, статус, признак показа, сигнатуры, публичный текст, привязка
+  // обращения и отвязка. Текста проблемы и обращения в журнале нет.
+  'problem.created',
+  'problem.updated',
+  'problem.status_changed',
+  'problem.shown_changed',
+  'problem.signature_added',
+  'problem.signature_removed',
+  'problem.translation_saved',
+  'ticket.problem_linked',
+  // Рассылка обновления или закрытия проблемы подтверждена (веха M5c, задача 5): число получателей, без текста.
+  'problem.broadcast_confirmed',
+  // Текст оригинала изменён: принятые машинные переводы сняты с показа (независимая проверка M5c, решение 0109).
+  'problem.translations_outdated',
+  // Объявления (веха M5c, задача 6): создание и правка, досрочное окончание. Текста объявления в журнале нет.
+  'announcement.saved',
+  'announcement.ended',
+  'announcement.translations_outdated',
+  'ticket.problem_unlinked',
+  // Кандидаты в решения (веха M5c, задачи 9 и 10): возврат отклонённого в очередь, черновик решения, объединение с
+  // решением, отклонение с причиной, отметка проверенных находок недоверенного текста. Текста кандидата в журнале нет.
+  'candidate.returned',
+  'candidate.accepted',
+  'candidate.merged',
+  'candidate.rejected',
+  'solution.untrusted_confirmed',
+  'solution.created_from_candidate',
   // Поиск (план W6, решения 3 и 12): команда hub создала ключи Typesense (без значений) и построила индекс заново.
   'search.keys_created',
   'search.reindexed',

@@ -38,6 +38,9 @@ export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | nu
       tags: lists.tags.map((tag) => ({ value: tag.tagId, label: tag.name })),
       // Причина передачи от AI (план M5b, задача 8): перечень FR-AI-14.
       ai_reason: AI_HANDOFF_REASONS.map((value) => ({ value, label: t(`ticket.aiReasons.${value}`) })),
+      // Веха M5c (решение 11): сигнатура ошибки и известная проблема.
+      signature: (['present', 'absent'] as const).map((value) => ({ value, label: r(`flags.signature.${value}`) })),
+      known_problem: (['linked', 'unlinked'] as const).map((value) => ({ value, label: r(`flags.known_problem.${value}`) })),
     },
     workTime: (['working', 'off'] as const).map((value) => ({ value, label: r(`workTime.${value}`) })),
     actionValues: {
@@ -50,6 +53,7 @@ export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | nu
       reply_template: lists.templates.map((item) => ({ value: item.templateId, label: item.isEnabled ? item.title : r('templateDisabled', { title: item.title }) })),
       set_status: lists.statusTargets.map((value) => ({ value, label: t(`queues.statuses.${value}`) })),
       webhook: lists.webhooks.map((item) => ({ value: item.endpointId, label: item.isEnabled ? item.name : r('webhookDisabled', { name: item.name }) })),
+      link_known_problem: lists.problems.map((item) => ({ value: String(item.number), label: `KP-${item.number} ${item.internalTitle}` })),
     },
     notify: {
       oncall: { value: 'oncall', label: r('targets.oncall') },
@@ -102,7 +106,7 @@ export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | nu
     newDisabled: e('newDisabled'),
     reauth: r('reauth'),
     ops: Object.fromEntries([...new Set(Object.values(FIELD_OPS).flat())].map((op) => [op, r(`ops.${op}`)])),
-    actionValues: Object.fromEntries(['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status', 'webhook'].map((key) => [key, r(`actionValues.${key}`)])),
+    actionValues: Object.fromEntries(['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'add_note', 'reply_template', 'notify', 'snooze', 'set_status', 'webhook', 'link_known_problem'].map((key) => [key, r(`actionValues.${key}`)])),
     targets: { roles: r('targets.roles'), staff: r('targets.staff') },
     issues: {
       event_not_ready: r('issues.event_not_ready'),

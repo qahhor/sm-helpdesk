@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { Button } from '@/ui/components/button';
-import { suggestAction, suggestNotHelpedAction, type SuggestItem } from './actions';
+import { type SuggestItem, type SuggestResult, suggestAction, suggestNotHelpedAction } from './actions';
 
 // Блок "Похоже, это уже решали" (экран 8.3, FR-SOL-08..13; план M5, задача 10). Запрос уходит через 400 мс после
 // последнего символа, ответ старее последнего запроса отбрасывается. Код намеренно маленький: страница укладывается
@@ -23,6 +23,7 @@ export function Suggestions({
   labels,
   onChange,
   onNotHelped,
+  onProblem,
 }: {
   text: string;
   moduleId: string;
@@ -31,6 +32,8 @@ export function Suggestions({
   labels: SuggestLabels;
   onChange: (shown: boolean) => void;
   onNotHelped: () => void;
+  /** Известная проблема по сигнатуре текста (план M5c): баннер рисует форма над полями. */
+  onProblem?: (problem: SuggestResult['knownProblem']) => void;
 }) {
   const [items, setItems] = useState<SuggestItem[]>([]);
   const last = useRef(0);
@@ -43,12 +46,16 @@ export function Suggestions({
     if (query.length < MIN) return;
     const timer = setTimeout(() => {
       suggestAction({ text: query, sessionId, moduleId: moduleId || null })
-        .catch(() => [])
+        .catch((): SuggestResult => ({ items: [], knownProblem: null }))
         .then((found) => {
-          if (id === last.current) setItems(found);
+          if (id !== last.current) return;
+          setItems(found.items);
+          onProblem?.(found.knownProblem);
         });
     }, DELAY_MS);
     return () => clearTimeout(timer);
+    // onProblem задаёт родитель один раз.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, moduleId, sessionId]);
 
   // Родитель сворачивает поля, пока подсказка видна.

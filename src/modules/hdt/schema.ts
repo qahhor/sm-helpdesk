@@ -123,6 +123,8 @@ export const ticketMessages = pgTable('hdt_ticket_messages', {
   isAuto: boolean('is_auto').notNull().default(false),
   // Миграция 0092 (веха M5b): ссылки сообщения помощника вместо текста (решение 9). Есть только у author_type = ai.
   aiPayload: jsonb('ai_payload').$type<AiPayload>(),
+  // Миграция 0101 (веха M5c): сообщение рассылки по известной проблеме. Одно на обращение и рассылку.
+  broadcastId: uuid('broadcast_id'),
 });
 
 export const ticketEvents = pgTable('hdt_ticket_events', {

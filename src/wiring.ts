@@ -1,9 +1,11 @@
-import { registerContactDirectory, registerTezFeedback, registerTicketSignatureRecorder } from '@/modules/hdc/api';
+import { registerContactDirectory, registerKnownProblemLinker, registerTezFeedback, registerTicketSignatureRecorder } from '@/modules/hdc/api';
+import { knownProblemLinker } from '@/modules/hdp/api/links';
 import { ticketSignatureRecorder } from '@/modules/hdk/api/signatures';
 import { contactDirectory } from '@/modules/hdu/api/contacts';
 import { embedOriginsByKey } from '@/modules/hdu/api/servers';
 import { registerEmbedOriginsLoader } from '@/security/embed-frame';
 import { registerIdeaDevTaskClosed } from '@/modules/hdw/api/idea-hook';
+import { registerProblemDevTaskVersion } from '@/modules/hdp/api/dev-task-version';
 
 // Сборка процесса: связи между модулями, которые идут через интерфейсы общего модуля (аудит 23.11.2026,
 // находка A1). Модуль уведомлений не знает модуля пользователей: справочник контактов объявлен в hdc, реализацию
@@ -14,6 +16,8 @@ import { registerIdeaDevTaskClosed } from '@/modules/hdw/api/idea-hook';
 registerContactDirectory(contactDirectory);
 // Сигнатуру ошибки нового обращения (план M5, задача 8) считает модуль знаний hdk: hdt знает только интерфейс в hdc.
 registerTicketSignatureRecorder(ticketSignatureRecorder);
+// Привязка нового обращения к известной проблеме по сигнатуре (план M5c, задача 3): проблемы ведёт модуль hdp.
+registerKnownProblemLinker(knownProblemLinker);
 // Адреса встраивания страниц виджета для прокси (план M6, задача 3): прокси к базе не ходит, список читает из памяти
 // процесса, а загружает его этот загрузчик. В фоновом процессе и команде консоли он не вызывается ни разу.
 registerEmbedOriginsLoader(embedOriginsByKey);
@@ -22,3 +26,6 @@ registerTezFeedback(async (userId, data) => (await import('@/modules/hdt/api/ai-
 // Закрытие задачи разработки идеи (план M7, задача 9): hdw не знает идей, уведомление роли product ставит модуль hdi.
 // Модуль идей загружается при первом закрытии задачи: сборка процесса не тянет его (и его зависимости) при запуске.
 registerIdeaDevTaskClosed(async (tx, ideaIds, task) => (await import('@/modules/hdi/api/dev-closed')).ideaDevTaskClosed(tx, ideaIds, task));
+// Итог закрытия известной проблемы (план M5c, задача 8): версию задачи разработки знает hdw, который стоит над hdp.
+// Модуль задач разработки загружается при первом закрытии проблемы: сборка процесса не тянет его при запуске.
+registerProblemDevTaskVersion(async (tx, problemId) => (await import('@/modules/hdw/api/dev-tasks')).devTaskVersionOfProblemTx(tx, problemId));

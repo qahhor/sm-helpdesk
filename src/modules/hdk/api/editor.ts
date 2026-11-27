@@ -170,7 +170,7 @@ export async function solutionEditorState(ctx: StaffContext, input: unknown): Pr
       })),
       canWrite: canWriteSolutions(ctx),
       canPublish: canPublishSolutions(ctx),
-      review: await reviewTx(tx, article, { title: current.title, doc: safeDoc, isMachine: current.isMachine, sourceVersionId: current.sourceVersionId }, allowedDomains, original),
+      review: await reviewTx(tx, article, { title: current.title, doc: safeDoc, isMachine: current.isMachine, sourceVersionId: current.sourceVersionId, untrustedConfirmed: current.untrustedConfirmed }, allowedDomains, original),
       languages: await languagesTx(tx, article),
       original: original ? { title: original.title, doc: original.doc, changedBlockIds: await changedSinceTx(tx, article.articleId, current.sourceVersionId, original.doc) } : null,
     };

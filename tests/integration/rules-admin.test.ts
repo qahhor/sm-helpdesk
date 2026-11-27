@@ -74,9 +74,10 @@ test('правка, включение, порядок и удаление: ка
 test('схема: правило с неподдержанным событием, условием или лишним полем не сохраняется, отказ называет поле и код', async () => {
   // "AI передал обращение" принимается с вехи M5b (задача 8); неизвестное событие нет.
   await expect(saveRule(admin, { ...base, event: 'ai_answered' })).rejects.toMatchObject({ code: 'invalid_input' });
+  // Условие "известная проблема" принимается с вехи M5c (решение 11) только значениями linked и unlinked.
   await expect(saveRule(admin, { ...base, conditions: { match: 'all', items: [{ field: 'known_problem', op: 'is', value: true }] } })).rejects.toMatchObject({
     code: 'invalid_input',
-    issues: [{ path: 'conditions.items.0', code: 'condition_not_ready' }],
+    issues: [{ path: 'conditions.items.0.value', code: 'invalid' }],
   });
   await expect(saveRule(admin, { ...base, event: 'no_activity' })).rejects.toMatchObject({ code: 'invalid_input', issues: [{ path: 'hours', code: 'hours_required' }] });
   await expect(saveRule(admin, { ...base, script: 'x' })).rejects.toMatchObject({ code: 'invalid_input' });

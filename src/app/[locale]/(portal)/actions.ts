@@ -4,6 +4,8 @@ import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { dismissHints, isHduError, requireClientActor, switchOrganizationOfRequest } from '@/modules/hdu/api';
+import { isHdpError } from '@/modules/hdp/api';
+import { dismissAnnouncement } from '@/modules/hdp/api/announcements';
 
 /**
  * Переключение организации из шапки кабинета. Идентификатор из формы проверяет модуль идентичности:
@@ -28,4 +30,15 @@ export async function dismissHintsAction(): Promise<void> {
   const client = await requireClientActor();
   await dismissHints(client);
   redirect(`/${await getLocale()}`);
+}
+
+/** Закрыть баннер объявления (FR-ANN-04): закрытие за себя хранится в базе, страница перерисовывается без баннера. */
+export async function dismissAnnouncementAction(form: FormData): Promise<void> {
+  const client = await requireClientActor();
+  try {
+    await dismissAnnouncement(client, { announcementId: String(form.get('announcementId') ?? '') });
+  } catch (error) {
+    if (!isHdpError(error)) throw error;
+  }
+  refresh();
 }

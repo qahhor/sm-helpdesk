@@ -58,6 +58,7 @@ export async function articleByIdTx(tx: Tx, articleId: string): Promise<ArticleR
       originalLocale: kbArticles.originalLocale,
       status: kbArticles.status,
       ownerId: kbArticles.ownerId,
+      isUntrusted: kbArticles.isUntrusted,
     })
     .from(kbArticles)
     .where(eq(kbArticles.articleId, articleId))

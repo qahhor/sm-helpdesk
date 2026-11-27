@@ -22,6 +22,7 @@ import { PresenceBar } from './PresenceBar';
 import { SeenMark } from './SeenMark';
 import { ReturnDialog } from './ReturnDialog';
 import { TicketControls } from './TicketControls';
+import { KnownProblemBlock } from './KnownProblemBlock';
 import { SolutionBlock } from './SolutionBlock';
 import { RelatedSolutions } from './RelatedSolutions';
 import { loadTicketPage, type TicketPageSearch } from './loader';
@@ -114,9 +115,11 @@ export default async function AgentTicketPage({ params, searchParams }: { params
           {done && <Alert tone="success">{t(`ticket.controls.done.${done}`)}</Alert>}
           {error && (
             <Alert tone="danger">
-              {t.has(`ticket.controls.errors.${error}`)
-                ? t(`ticket.controls.errors.${error}`, { holder: ticket.assignee?.name ?? t('ticket.controls.someone') })
-                : t('ticket.controls.errors.other')}
+              {error.startsWith('problem_')
+                ? t(`problems.errors.${error.slice('problem_'.length)}`, { kinds: '' })
+                : t.has(`ticket.controls.errors.${error}`)
+                  ? t(`ticket.controls.errors.${error}`, { holder: ticket.assignee?.name ?? t('ticket.controls.someone') })
+                  : t('ticket.controls.errors.other')}
               {error === 'changed' && changed && (
                 <ul className="list-disc ps-5">
                   {changed.newMessages > 0 && <li>{t('ticket.composer.changed.messages', { count: changed.newMessages })}</li>}
@@ -212,6 +215,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
           <TicketControls ticket={ticket} me={staff.user.id} role={staff.actor.staffRole} staff={assignable} modules={modules} />
           <AiBlock staff={staff} ticketId={ticket.ticketId} number={ticket.number} locale={ticket.locale} canWrite={canWrite} />
           <TicketTags number={ticket.number} tags={ticket.tags} known={knownTags} canWrite={canWrite} />
+          <KnownProblemBlock staff={staff} number={ticket.number} canLink={canWrite && ticket.status !== 'closed' && ticket.mergedInto === null} />
           <DevTaskBlock number={ticket.number} devTask={devTask} canManage={canDevelop} canHandOver={canHandOver} mode={devMode} />
           <SolutionBlock staff={staff} ticketId={ticket.ticketId} number={ticket.number} status={ticket.status} />
           <RelatedSolutions staff={staff} ticketId={ticket.ticketId} locale={ticket.locale} canWrite={canWrite} />

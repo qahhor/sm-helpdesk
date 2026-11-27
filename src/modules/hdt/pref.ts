@@ -46,7 +46,7 @@ export type TicketSource = (typeof TICKET_SOURCES)[number];
 export const AUTHOR_TYPES = ['client', 'staff', 'system', 'ai', 'agent'] as const;
 export type AuthorType = (typeof AUTHOR_TYPES)[number];
 
-export const EVENT_KINDS = ['created', 'status', 'visibility', 'rated', 'priority', 'assignee', 'queue', 'due', 'rule', 'merge', 'type', 'module', 'snooze', 'bound', 'tag', 'dev_task', 'csat_review', 'ai_state', 'ai_answer', 'ai_handoff', 'ai_feedback', 'triage_accepted'] as const;
+export const EVENT_KINDS = ['created', 'status', 'visibility', 'rated', 'priority', 'assignee', 'queue', 'due', 'rule', 'merge', 'type', 'module', 'snooze', 'bound', 'tag', 'dev_task', 'csat_review', 'ai_state', 'ai_answer', 'ai_handoff', 'ai_feedback', 'triage_accepted', 'known_problem'] as const;
 /** События, которые клиент может видеть. Остальные база принимает только внутренними (миграция 0021). */
 export const CLIENT_VISIBLE_EVENT_KINDS: readonly EventKind[] = ['created', 'status', 'visibility', 'rated', 'merge'];
 /** Кто из сотрудников ведёт обращения: product только читает (ТЗ 5.2). */
@@ -254,6 +254,9 @@ export const AI_HANDOFF_REASONS = [
   'ai_limit',
   'no_text',
   'language',
+  // M5c (решения 22, 23): ответ известной проблемой и сообщение о сбое, затем передача.
+  'known_problem',
+  'outage',
 ] as const;
 export type AiHandoffReason = (typeof AI_HANDOFF_REASONS)[number];
 
@@ -265,10 +268,14 @@ export const AI_SILENCE_SEC = 90;
 /**
  * Сообщение помощника: ссылки, а не текст (решение 9). answer: вступление и решение; clarify: вопрос между двумя
  * решениями; handoff: передача сотруднику со сроком; ack: подтверждение без знака Теза (FR-AI-15, при ai_disabled и
- * ai_limit). Заголовок и шаги решения показ берёт из hdk_published.
+ * ai_limit). Заголовок и шаги решения показ берёт из hdk_published. M5c (решения 22, 23): known_problem: ответ
+ * известной проблемой (номер; название, статус и обходной путь показ берёт из hdp_problems_public), outage: сообщение о
+ * действующем объявлении "сбой" (текст из hdp_announcement_translations).
  */
 export type AiPayload =
   | { kind: 'answer'; introId: string; articleId: string; articleNumber: number; locale: string }
   | { kind: 'clarify'; introId: string; options: { articleId: string; articleNumber: number }[]; locale: string }
   | { kind: 'handoff'; reason: AiHandoffReason; questionIds: string[]; dueOn: string | null; startOn: string | null; locale: string }
-  | { kind: 'ack'; reason: AiHandoffReason; dueOn: string | null; startOn: string | null; locale: string };
+  | { kind: 'ack'; reason: AiHandoffReason; dueOn: string | null; startOn: string | null; locale: string }
+  | { kind: 'known_problem'; problemNumber: number; locale: string }
+  | { kind: 'outage'; announcementId: string; locale: string };

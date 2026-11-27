@@ -1,5 +1,5 @@
 import { cn } from '@/ui/cn';
-import { pickTezAsset, TEZ_ASSETS } from './tez-assets';
+import { pickTezAsset, TEZ_ASSETS, TEZ_POSES, type TezPose } from './tez-assets';
 
 // Размеры Теза в интерфейсе и охранное поле для каждого (1/6 размера, tezClearSpace).
 // Список закрытый: поле задаётся классом, а не вычисленным стилем.
@@ -21,8 +21,16 @@ export type TezSize = keyof typeof SIZES;
  *
  * onDark не задан: фон следует за темой, файл подбирается сам.
  * onDark задан: фон постоянный, например тёмная шапка в обеих темах.
+ * pose: поза из пакета бренда под смысл экрана (TEZ_POSES); у позы один файл на оба фона.
  */
-export function TezMark({ size, onDark, className }: { size: TezSize; onDark?: boolean; className?: string }) {
+export function TezMark({ size, onDark, pose, className }: { size: TezSize; onDark?: boolean; pose?: TezPose; className?: string }) {
+  if (pose)
+    return (
+      <span data-tez={size > 40 ? 'main' : 'icon'} data-pose={pose} className={cn('inline-flex shrink-0', SIZES[size], className)}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- см. ниже: next/image нарушает CSP */}
+        <img src={`/brand/tez/${TEZ_POSES[pose]}`} width={size} height={size} alt="" aria-hidden />
+      </span>
+    );
   const image = (dark: boolean, visibility?: string) => {
     const asset = pickTezAsset(size, dark);
     if (!asset) return null;

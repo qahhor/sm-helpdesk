@@ -6,12 +6,13 @@ import { Card, CardContent } from '@/ui/components/card';
 import { Input } from '@/ui/components/input';
 import { Select } from '@/ui/components/select';
 import { StatusLabel, type StatusTone } from '@/ui/components/StatusLabel';
-import { devTaskStatusAction, unlinkDevAction } from './actions';
+import { devTaskStatusAction, sendToDevAction, unlinkDevAction } from './actions';
 import { DevTaskDialog } from './DevTaskDialog';
 
 // Блок "Задача разработки" в боковой панели обращения (раздел 8.4 "РАЗРАБОТКА", FR-DEV-02, 05, 06; план M8,
 // задача 7). Номер задачи это обычная внешняя ссылка: портал по ней не ходит. Блок видят все сотрудники, формы
-// только роли, которым разрешён статус "В разработке". Клиентские страницы блока не показывают.
+// только роли, которым разрешён статус "В разработке". Клиентские страницы блока не показывают. Тот же блок стоит на
+// карточке известной проблемы (план M5c, задача 8): свои действия и подписи передаёт карточка.
 
 const TONE: Record<DevTaskStatus, StatusTone> = { todo: 'gray', in_progress: 'blue', done: 'green', cancelled: 'orange' };
 const label = 'text-xs font-medium text-secondary-foreground';
@@ -25,10 +26,18 @@ type Props = {
   canHandOver: boolean;
   /** Режим таск-менеджера: в ручном окно передачи спрашивает номер, ссылку и название задачи. */
   mode: DevTrackerKind;
+  /** Карточка известной проблемы: свои действия и подписи (agent.problems.devTask поверх agent.ticket.devTask). */
+  problem?: { actions: { send: (form: FormData) => Promise<void>; status: (form: FormData) => Promise<void>; unlink: (form: FormData) => Promise<void> } };
 };
 
-export async function DevTaskBlock({ number, devTask, canManage, canHandOver, mode }: Props) {
-  const t = await getTranslations('agent.ticket.devTask');
+const OVERRIDES = ['none', 'open', 'dialogTitle', 'dialogText', 'apiText', 'submit', 'submitApi', 'refHint', 'statusHint'] as const;
+
+export async function DevTaskBlock({ number, devTask, canManage, canHandOver, mode, problem }: Props) {
+  const base = await getTranslations('agent.ticket.devTask');
+  const own = await getTranslations('agent.problems.devTask');
+  const t = ((key: string, values?: Record<string, string | number>) =>
+    problem && (OVERRIDES as readonly string[]).includes(key) ? own(key as (typeof OVERRIDES)[number]) : base(key as Parameters<typeof base>[0], values as never)) as (key: string, values?: Record<string, string | number>) => string;
+  const actions = problem?.actions ?? { send: sendToDevAction, status: devTaskStatusAction, unlink: unlinkDevAction };
   const hidden = <input type="hidden" name="number" value={number} />;
   const task = devTask?.task ?? null;
   return (
@@ -61,7 +70,7 @@ export async function DevTaskBlock({ number, devTask, canManage, canHandOver, mo
               </p>
             )}
             {canManage && task.tracker === 'manual' && (
-              <form action={devTaskStatusAction} className="flex flex-col gap-1">
+              <form action={actions.status} className="flex flex-col gap-1">
                 {hidden}
                 <input type="hidden" name="devTaskId" value={task.devTaskId} />
                 <label htmlFor="dev-task-status" className={label}>
@@ -81,6 +90,7 @@ export async function DevTaskBlock({ number, devTask, canManage, canHandOver, mo
                 <p id="dev-task-version-hint" className="text-xs text-muted-foreground">
                   {t('versionHint')}
                 </p>
+                {problem && <p className="text-xs text-muted-foreground">{t('statusHint')}</p>}
                 <Button type="submit" variant="secondary">
                   {t('changeStatus')}
                 </Button>
@@ -88,7 +98,7 @@ export async function DevTaskBlock({ number, devTask, canManage, canHandOver, mo
             )}
             {task.tracker === 'smartup' && <p className="text-xs text-muted-foreground">{t('synced')}</p>}
             {canManage && (
-              <form action={unlinkDevAction}>
+              <form action={actions.unlink}>
                 {hidden}
                 <Button type="submit" variant="ghost" size="small">
                   {t('unlink')}
@@ -101,6 +111,7 @@ export async function DevTaskBlock({ number, devTask, canManage, canHandOver, mo
           <DevTaskDialog
             number={number}
             mode={mode}
+            action={actions.send}
             limits={{ ref: DEV_TASK_REF_MAX, url: DEV_TASK_URL_MAX, title: DEV_TASK_TITLE_MAX }}
             labels={{
               open: t('open'),

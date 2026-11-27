@@ -1,9 +1,11 @@
 import 'server-only';
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
-import type { StaffActor, SystemActor } from '@/db/with-actor';
+import { and, asc, gte, inArray, isNull } from 'drizzle-orm';
+import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { setErrorSignatureTx, type SolutionSource, solutionSourceOf, type TicketMissingSignature, type TicketSearchKey, ticketSearchKeyOf, ticketsMissingSignatureOf } from '../core/solution-source';
 import { HdtError } from '../error';
+import { tickets } from '../schema';
 
 // Модуль hdt, слой api: публичная переписка обращения для решения (план M5, задачи 5 и 7; FR-SOL-02, 03, ТЗ 14.3).
 // Узкий файл: его тянет и фоновый процесс (задача черновика kb.draft), страниц и Next.js в нём нет. Внутренние
@@ -51,4 +53,26 @@ export async function ticketsMissingSignature(actor: SystemActor, input: unknown
   const parsed = missingInput.safeParse(input);
   if (!parsed.success) throw new HdtError('invalid_input');
   return ticketsMissingSignatureOf(actor, parsed.data);
+}
+
+const candidateInput = z.strictObject({ since: z.date(), resolutions: z.array(z.string().regex(/^[a-z_]{1,40}$/)).min(1).max(6), limit: z.int().positive().max(1000) });
+
+/**
+ * Решённые и закрытые обращения окна без решения из базы (план M5c, задача 9, решение 26): итог из списка, решены не
+ * раньше since, solution_id пусто. Источники решений, журнал вызовов и выключенную AI-обработку проверяет модуль hda.
+ * Только система.
+ */
+export async function resolvedWithoutSolution(actor: SystemActor, input: unknown): Promise<{ ticketId: string; orgId: string }[]> {
+  if (actor.type !== 'system') throw new HdtError('forbidden');
+  const parsed = candidateInput.safeParse(input);
+  if (!parsed.success) throw new HdtError('invalid_input');
+  const { since, resolutions, limit } = parsed.data;
+  return withActor(actor, (tx) =>
+    tx
+      .select({ ticketId: tickets.ticketId, orgId: tickets.orgId })
+      .from(tickets)
+      .where(and(inArray(tickets.status, ['resolved', 'closed']), inArray(tickets.resolutionType, resolutions), isNull(tickets.solutionId), isNull(tickets.mergedIntoId), gte(tickets.resolvedOn, since)))
+      .orderBy(asc(tickets.resolvedOn))
+      .limit(limit),
+  );
 }

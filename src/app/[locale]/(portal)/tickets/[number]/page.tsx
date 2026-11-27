@@ -25,6 +25,7 @@ import { acceptOf, STATUS_TONE } from '../status';
 import { switchToTicketAction } from './actions';
 import { AiMessage } from './AiMessage';
 import { AiThinking } from './AiThinking';
+import { KnownProblemBlock } from './KnownProblemBlock';
 import { ReplyForm } from './ReplyForm';
 import { StatusLine } from './StatusLine';
 import { TicketActions } from './TicketActions';
@@ -166,6 +167,12 @@ export default async function TicketPage({
                 <StatusLabel tone="gray">{t('page.autoReply')}</StatusLabel>
               </>
             )}
+            {m.isProblemUpdate && (
+              <>
+                {' '}
+                <StatusLabel tone="orange">{t('page.problemUpdate')}</StatusLabel>
+              </>
+            )}
           </p>
           <Markdown text={m.body} />
           {files(m.attachments)}
@@ -246,6 +253,8 @@ export default async function TicketPage({
       )}
       {done && t.has(`page.done.${done}`) && <Alert tone="success">{t(`page.done.${done}`)}</Alert>}
       {error && <Alert tone="danger">{t.has(`errors.${error}`) ? t(`errors.${error}`) : t('errors.invalid_input')}</Alert>}
+
+      <KnownProblemBlock client={client} number={ticket.number} />
 
       <StatusLine
         status={ticket.status}

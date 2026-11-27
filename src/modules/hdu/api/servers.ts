@@ -19,6 +19,7 @@ import {
   type ServerWidget,
   updateServerRow,
   updateWidgetRow,
+  serverNamesOf,
 } from '../core/servers';
 import { HduError } from '../error';
 import { parseInput } from '../input';
@@ -363,4 +364,10 @@ export async function findServerByAddress(address: unknown): Promise<{ code: str
   if (!host) return null;
   const found = (await readActiveServers()).find((s) => new URL(s.baseUrl).host === host);
   return found ? { code: found.code } : null;
+}
+
+/** Серверы для аудитории объявления (план M5c, задача 6): только сотрудник; без адресов, ключей и секретов. */
+export async function serverOptions(actor: StaffActor): Promise<{ serverId: string; name: string }[]> {
+  if (actor.type !== 'staff') throw new HduError('forbidden');
+  return serverNamesOf(actor);
 }

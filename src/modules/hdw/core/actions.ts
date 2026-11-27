@@ -23,6 +23,7 @@ import {
   ruleSnoozeTx,
 } from '@/modules/hdt/api/automation';
 import { canTransition, type Queue, TRANSFERABLE_STATUSES } from '@/modules/hdt/pref';
+import { ruleLinkProblemTx } from '@/modules/hdp/api/links';
 import type { StaffMember } from '@/modules/hdu/api/automation';
 import type { TicketSnapshot } from '../evaluate';
 import { isHdwError } from '../error';
@@ -139,6 +140,9 @@ async function run(c: ActionContext, tx: Tx, action: RuleAction): Promise<RuleAc
       const result = await deliverWebhook(tx, { endpointId: action.endpointId, ticketId: ticket.ticketId, orgId: ticket.orgId, ruleId: c.rule.ruleId, event: c.rule.event, eventId: c.eventId, now: c.now });
       return result.ok ? { ok: true, ...(result.name !== undefined ? { to: result.name } : {}) } : { ok: false, detail: result.detail ?? 'webhook_failed' };
     }
+    // Привязка к известной проблеме (веха M5c, решение 11): общая функция привязки модуля проблем.
+    case 'link_known_problem':
+      return ruleLinkProblemTx(tx, { ticketId: ticket.ticketId, problemNumber: action.problemNumber });
     // Действия предустановленных правил (FR-AUTO-12): прежние встроенные уведомления модуля обращений.
     case 'notify_oncall_p1':
       return ruleOncallP1Tx(tx, ticket);
@@ -308,6 +312,8 @@ export function describeAction(action: RuleAction, snapshot: TicketSnapshot, ref
       if (!endpoint) return fail('endpoint_missing');
       return endpoint.isEnabled ? { action: action.action, ok: true, to: endpoint.name } : fail('endpoint_disabled');
     }
+    case 'link_known_problem':
+      return snapshot.knownProblemId ? fail('already_linked') : { action: action.action, ok: true, from: null, to: `KP-${action.problemNumber}` };
     // Уведомления предустановленных правил. Однократность сообщения дежурным и то, какой срок нарушен, знает только
     // само срабатывание: прогон показывает, что уведомление было бы отправлено.
     case 'notify_oncall_p1':

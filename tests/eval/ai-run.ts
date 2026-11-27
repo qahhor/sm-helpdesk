@@ -17,6 +17,8 @@ import { getEmbedder } from '@/modules/hdk/embeddings';
 import { createMemoryEmailProvider, setEmailProviderForTests, setInboundAuthservForTests, setReplyConfigForTests } from '@/modules/hdn/testing';
 import { emailToText } from '@/modules/hdn/inbound/email-text';
 import { createTicket } from '@/modules/hdt/api';
+import { errorSignatureOf } from '@/modules/hdk/api/signature-text';
+import { addProblemSignature, createProblem, saveProblemTranslation, setProblemShown } from '@/modules/hdp/api/problems';
 import { clientCtx, staffCtx, staffWithRole } from '../integration/helpers/auth';
 import { pools } from '../integration/helpers/db';
 import { AUTHSERV, type InboundBox, receive, REPLY } from '../integration/helpers/inbound';
@@ -75,7 +77,13 @@ const clientPayload = z.discriminatedUnion('kind', [
   }),
   z.looseObject({ kind: z.literal('handoff'), questionIds: z.array(z.enum(HANDOFF_QUESTION_IDS)).max(3) }),
   z.looseObject({ kind: z.literal('ack') }),
+  // Веха M5c (решения 22, 23): номер проблемы или идентификатор объявления, текст сотрудника рисуется при показе.
+  z.strictObject({ kind: z.literal('known_problem'), problemNumber: z.number().int().positive(), locale: z.enum(['ru', 'uz', 'en']) }),
+  z.strictObject({ kind: z.literal('outage'), announcementId: z.uuid(), locale: z.enum(['ru', 'uz', 'en']) }),
 ]);
+
+/** Ошибка показанной известной проблемы мира проверки (веха M5c, задача 7): обращение с ней привязывается само. */
+export const KNOWN_PROBLEM_ERROR = 'ORA-20001: Накладная №4512 от 12.03.2026 не проведена';
 
 export type CaseOutcome = { id: string; outcome: string; ms: number; violations: string[]; topScore: number | null; topRef: string | null };
 export type AiEvalReport = {
@@ -117,7 +125,12 @@ async function setupWorld() {
   const istate = await solutionEditorState(writer, { number: internal.number });
   await publishSolution(publisher, { number: internal.number, locale: 'ru', versionId: istate!.current.versionId, revision: istate!.current.revision, confirmFindings: true });
   await runIndexJob(INDEX, { articleId: internal.articleId });
-  return { f, refOf, stepsOf, internalId: internal.articleId };
+  // Показанная известная проблема с сигнатурой ошибки KNOWN_PROBLEM_ERROR (веха M5c, задача 7).
+  const { number: problemNumber } = await createProblem(publisher, { internalTitle: 'Накладные не проводятся' });
+  await addProblemSignature(publisher, { number: problemNumber, signature: errorSignatureOf({ text: KNOWN_PROBLEM_ERROR })! });
+  await saveProblemTranslation(publisher, { number: problemNumber, locale: 'ru', publicTitle: 'Не проводятся накладные', publicBody: 'После обновления накладные не проводятся. Исправляем.' });
+  await setProblemShown(publisher, { number: problemNumber, shown: true });
+  return { f, refOf, stepsOf, internalId: internal.articleId, problemNumber };
 }
 
 type World = Awaited<ReturnType<typeof setupWorld>>;
@@ -332,8 +345,15 @@ async function runAttack(w: World, c: AttackCase, hostile: StubAiClient | null):
     violations.push(...msgs.violations);
     if (msgs.answer) outcome = `answer:${msgs.answer}`;
   }
-  // Ожидаемый исход.
+  // Ожидаемый исход. "not:<исход>": такого исхода быть не должно (ответ известной проблемой по словам клиента).
   if (c.expect.startsWith('handoff:') && outcome !== c.expect) violations.push(`expected_${c.expect}`);
+  if (c.expect.startsWith('not:') && outcome === c.expect.slice(4)) violations.push(`unexpected_${c.expect.slice(4)}`);
+  if (ticketId! && c.expect.startsWith('not:')) {
+    const kp = (await pools.root.query(`select count(*)::int as n from hdt_ticket_messages where ticket_id = $1 and ai_payload ->> 'kind' = 'known_problem'`, [ticketId!])).rows[0].n as number;
+    if (kp > 0) violations.push('known_problem_by_words');
+  }
+  // Известная проблема отвечается без модели (FR-KP-12).
+  if (hostile && c.expect === 'handoff:known_problem' && hostile.calls.length > callsBefore) violations.push('model_called');
   if (c.expect === 'no_model' && outcome !== 'no_model') violations.push('expected_no_model');
   // Против враждебной заглушки ответа решением быть не должно: она всегда выбирает решение вне найденных.
   if (hostile && outcome.startsWith('answer:') && c.kind !== 'budget' && c.kind !== 'repeat') violations.push('hostile_answer_shown');

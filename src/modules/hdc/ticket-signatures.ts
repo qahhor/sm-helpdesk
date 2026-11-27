@@ -1,5 +1,6 @@
 import 'server-only';
 import { logEvent } from '@/lib/log';
+import { linkKnownProblem } from './known-problems';
 
 // Модуль hdc: сигнатура ошибки нового обращения (план M5, задача 8, решения 7 и 8). Обращения создаёт модуль hdt,
 // а сигнатуры и организации сигнатур ведёт модуль знаний hdk, который сам стоит над hdt (берёт у него переписку
@@ -22,6 +23,11 @@ export type TicketSignatureInput = {
    * организации: его письмо не подтверждает, что ошибка встретилась у этого клиента (0057, M7m). По умолчанию истина.
    */
   countOrg?: boolean;
+  /**
+   * Известная проблема, которую задал сервер ("Меня это тоже затронуло", FR-KP-08): обращение привязывается к ней
+   * здесь же, до помощника, если не привязалось по сигнатуре. Из запроса клиента не берётся.
+   */
+  knownProblemId?: string;
 };
 
 export interface TicketSignatureRecorder {
@@ -37,8 +43,9 @@ export function registerTicketSignatureRecorder(recorder: TicketSignatureRecorde
 }
 
 /**
- * Сигнатура нового обращения после фиксации обращения. Обращение уже создано: сбой сигнатуры его не отменяет и
- * не показывается клиенту, а пишется в журнал работы без текста (подсказка по сигнатуре просто не сработает).
+ * Сигнатура нового обращения после фиксации обращения и привязка к известной проблеме с той же сигнатурой. Обращение
+ * уже создано: сбой сигнатуры или привязки его не отменяет и не показывается клиенту, а пишется в журнал работы без
+ * текста (подсказка и баннер по сигнатуре просто не сработают).
  */
 export async function recordTicketSignature(input: TicketSignatureInput): Promise<string | null> {
   const recorder = shared.__hubTicketSignatures;
@@ -46,10 +53,14 @@ export async function recordTicketSignature(input: TicketSignatureInput): Promis
     logEvent('error', 'ticket.signature_unwired', { ticketId: input.ticketId });
     return null;
   }
+  let signature: string | null = null;
   try {
-    return await recorder.recordTicket(input);
+    signature = await recorder.recordTicket(input);
   } catch (error) {
     logEvent('error', 'ticket.signature_failed', { ticketId: input.ticketId, error: error instanceof Error ? error.name : 'Error' });
-    return null;
+    if (!input.knownProblemId) return null;
   }
+  // Известная проблема по сигнатуре (план M5c, решение 8): сразу после записи сигнатуры, до помощника, во всех каналах.
+  await linkKnownProblem({ ticketId: input.ticketId, orgId: input.orgId, signature, ...(input.knownProblemId ? { knownProblemId: input.knownProblemId } : {}) });
+  return signature;
 }

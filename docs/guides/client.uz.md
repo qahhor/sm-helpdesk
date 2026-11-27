@@ -99,3 +99,11 @@ G'oyalarda telefon, STIR va boshqa ma'lumotlarni yozmang: g'oyani barcha tashkil
 Yangi murojaatga birinchi bo'lib qo'llab-quvvatlashning AI-yordamchisi Tez javob beradi. Uning xabarida «Tez · AI-yordamchi» imzosi va javob yechimlar bazasi bo'yicha AI tomonidan tayyorlangani haqida qator bor. Tez faqat chop etilgan yechimlarni ko'rsatadi: sarlavha va qadamlar yechim sahifasidagi bilan bir xil.
 
 Javob ostida uchta tugma: «Yordam berdi» (murojaat hal qilindi), «Yordam bermadi» va «Xodim kerak» (murojaat xodimga o'tadi, Tez javob muddatini aytadi). Ikki yechim mos kelsa, Tez qaysi biri yaqinroq ekanini so'raydi. To'lov, shartnoma, kirish huquqlari, ma'lumotlarni o'chirish va boshqa muhim mavzularda Tez javob bermaydi: bunday murojaatlar darhol xodimga o'tadi. Xuddi shu tugmalar xatda va Telegramda ham bor.
+
+## 10. Ma'lum muammolar va e'lonlar
+
+Agar xato qo'llab-quvvatlashga allaqachon ma'lum bo'lsa, yangi murojaat formasi ustida va Smartup Web qo'llab-quvvatlash oynasida «Biz bu muammo haqida bilamiz» bloki paydo bo'ladi: nima bo'layapti, holati va, agar bo'lsa, vaqtinchalik yechim. «Bu menga ham ta'sir qildi» tugmasini bosing: murojaat o'zi yaratiladi va tuzatishimiz bilan unda xabar beramiz. Qayta bosish allaqachon yaratilgan murojaat raqamini ko'rsatadi. Agar muammongiz boshqa bo'lsa, «Menda boshqa muammo» tugmasini bosing va uni oddiy formada yozing.
+
+Ma'lum muammo bilan bog'langan murojaatda uning holati bilan blok bor. Muammo bo'yicha yangiliklar murojaatga, pochtaga va Telegramga oddiy javoblar kabi keladi. Muammo tuzatilgach, murojaat «Hal qilindi» holatiga o'tadi: hammasi ishlayotganini tasdiqlang yoki murojaatni qayta oching. Ma'lum muammolar va oxirgi 30 kunda tuzatilganlar ro'yxati: bosh sahifadagi «Ma'lum muammolar» sahifasi.
+
+Rejali ishlar, nosozliklar va yangiliklarni qo'llab-quvvatlash e'lonlar bilan chop etadi: kabinet sahifalari ustida, bosh sahifada va qo'llab-quvvatlash oynasida banner. Bannerni xoch bilan yopish mumkin: u sizda kabinetda ham, Smartup Webda ham boshqa chiqmaydi, hamkasblaringizda qoladi. Amaldagi va 90 kun ichida tugagan e'lonlar: bosh sahifadagi «E'lonlar» sahifasi. Nosozlik paytida Tez bu haqda murojaatda xabar beradi va murojaatni darhol xodimga topshiradi.

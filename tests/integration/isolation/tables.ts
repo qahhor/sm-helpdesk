@@ -17,11 +17,16 @@
 //               и комментарий на проверке другого клиента ему не видны. Что считается "своим" и "опубликованным" для
 //               каждой таблицы, задаёт PUBLISHED_OR_OWN в registry.test.ts.
 //   decided-only  отборы месяца (план M7): клиент видит только завершённые (decided, lapsed), и хотя бы один.
+//   active-audience  объявления (план M5c, решение 24): клиент видит только начавшиеся объявления, действующие и
+//               закончившиеся за 90 суток, с аудиторией "все", "модуль" или своим сервером, и только тексты сотрудника и
+//               принятые переводы, и хотя бы одно.
+//   shown-only  известные проблемы (план M5c, решение 2): клиент видит только проблемы с признаком показа, не закрытые
+//               и не исправленные больше 30 суток назад, и только тексты сотрудника и принятые переводы, и хотя бы одну.
 //
 // app, auth: какие изменения разрешены ролям hub_app и hub_auth. Тест сверяет с правами в базе,
 // а остальные проверки берут отсюда, что должно быть закрыто (проверка main, Q2).
 
-export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience' | 'published-or-own' | 'decided-only';
+export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience' | 'published-or-own' | 'decided-only' | 'shown-only' | 'active-audience';
 export type Write = 'insert' | 'update' | 'delete';
 export type DomainObject = { client: ClientAccess; app?: Write[]; auth?: Write[] };
 
@@ -44,6 +49,12 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // Машинный перевод сообщения клиента для сотрудника (план M5b, задача 9, решение 24): запрос ставит сотрудник,
   // текст пишет и строки старше 24 часов удаляет система, клиент не видит ни одной строки (FR-AG-11).
   hda_message_translations: { client: 'none', app: IUD },
+  // Кандидаты в решения (веха M5c, задача 9): создаёт и склеивает система, решают сотрудники с правом черновика
+  // решения; опустевшего после ночной склейки нерешённого кандидата удаляет система. Клиент не видит ни одной строки
+  // (15.2 "Не найдено").
+  hda_solution_candidates: { client: 'none', app: IUD },
+  // Источники кандидата: добавляет и переносит при ночной склейке только система, строки не удаляются.
+  hda_candidate_sources: { client: 'none', app: IU },
   // Ядро. Журнал аудита только пополняется (решение 0019).
   // Удаление: только ночная очистка под системным актором и только записи старше 3 лет (срок хранения журнала,
   // решение владельца 24.11.2026, решение 0041). Свежую запись политика не отдаёт ни одному актору: retention.test.ts.
@@ -98,6 +109,22 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdi_cycles: { client: 'decided-only', app: IU },
   // Изображения идеи: свои любые, чужие только чистые у опубликованной; убирает автор до публикации, модератор и система.
   hdi_attachments: { client: 'published-or-own', app: IUD },
+  // Известные проблемы (веха M5c, задача 1). Клиент не читает таблиц проблем, текстов и сигнатур ни одной строки:
+  // его вид только представление hdp_problems_public (решение 2). Пишут agent_l2, care, admin и система; первая линия
+  // при привязке обращения только пересчитывает счётчики (t_hdp_problems_guard). Удаления проблем и текстов нет:
+  // история остаётся; сигнатуру сотрудник убирает.
+  hdp_problems: { client: 'none', app: IU },
+  hdp_problem_translations: { client: 'none', app: IU },
+  hdp_problem_signatures: { client: 'none', app: IUD },
+  hdp_problems_public: { client: 'shown-only' },
+  // Рассылки (веха M5c, задача 5): готовят и подтверждают agent_l2, care, admin, ход отправки ведёт система; удаления
+  // нет. Клиент не читает ни одной строки: он видит только сообщение рассылки в своём обращении.
+  hdp_broadcasts: { client: 'none', app: IU },
+  // Объявления (веха M5c, задача 6): пишут care, admin и система (машинный перевод), удаления нет, досрочное окончание
+  // это правка конца показа. Закрытие баннера только своё: клиент ставит его за себя, снять нельзя.
+  hdp_announcements: { client: 'active-audience', app: IU },
+  hdp_announcement_translations: { client: 'active-audience', app: IU },
+  hdp_announcement_dismissals: { client: 'own-user', app: ['insert'] },
   // Уведомления
   // Очередь исходящих (веха M4): ставит действие, отправляет система, клиент не видит.
   hdn_outbox: { client: 'none', app: IUD },

@@ -33,6 +33,8 @@ export type ReviewLabels = {
   notReady: string;
   conflict: string;
   failed: string;
+  /** Недоверенный текст решения из кандидата (веха M5c, решение 30): отметка каждой находки. */
+  untrusted: { title: string; hint: string; kinds: Record<'phone' | 'email' | 'command' | 'code', string>; checked: string };
   /** Сверка перевода с оригиналом (задача 6, поправка 101). */
   invariants: { title: string; hint: string; kinds: Record<SolutionReview['invariants'][number]['kind'], string>; original: string; translation: string };
 };
@@ -58,20 +60,22 @@ export function ReviewPanel({
   saved: boolean;
   labels: ReviewLabels;
   onShow: (blockId: string | null) => void;
-  onPublish: (confirmFindings: boolean) => Promise<'published' | 'not_ready' | 'conflict' | 'failed'>;
+  onPublish: (confirmFindings: boolean, untrustedConfirmed: string[]) => Promise<'published' | 'not_ready' | 'conflict' | 'failed'>;
   onTextRead: () => Promise<boolean>;
 }) {
   const [confirmed, setConfirmed] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(review.untrusted?.confirmed ?? []));
+  const untrustedLeft = (review.untrusted?.findings ?? []).filter((f) => !checked.has(f.fingerprint));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const { readiness, findings, filesNotClean, invariants } = review;
   const items = (['title', 'module', 'steps', 'checks', ...(isMachine ? (['textRead'] as const) : [])] as const).map((key) => ({ key, ok: readiness.items[key] }));
-  const canSubmit = canPublish && saved && readiness.ready && filesNotClean.length === 0 && (!readiness.needsConfirm || confirmed) && !busy;
+  const canSubmit = canPublish && saved && readiness.ready && filesNotClean.length === 0 && (!readiness.needsConfirm || confirmed) && untrustedLeft.length === 0 && !busy;
 
   const publish = async () => {
     setBusy(true);
     setMessage(null);
-    const result = await onPublish(readiness.needsConfirm && confirmed).catch(() => 'failed' as const);
+    const result = await onPublish(readiness.needsConfirm && confirmed, [...checked]).catch(() => 'failed' as const);
     setBusy(false);
     if (result !== 'published') setMessage(result === 'conflict' ? labels.conflict : result === 'not_ready' ? labels.notReady : labels.failed);
   };
@@ -125,6 +129,39 @@ export function ReviewPanel({
         )}
         {filesNotClean.length > 0 && <Alert tone="danger">{labels.filesNotClean}</Alert>}
       </section>
+
+      {review.untrusted && review.untrusted.findings.length > 0 && (
+        <section aria-labelledby="review-untrusted" className="flex flex-col gap-2" data-testid="solution-untrusted">
+          <h3 id="review-untrusted" className="font-semibold">
+            {labels.untrusted.title}
+          </h3>
+          <p className="text-sm text-secondary-foreground">{labels.untrusted.hint}</p>
+          <ul className="flex flex-col gap-2">
+            {review.untrusted.findings.map((finding) => (
+              <li key={finding.fingerprint} data-kind={finding.kind} className="flex flex-col gap-1 text-sm">
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    className="mt-1 size-4 accent-primary"
+                    checked={checked.has(finding.fingerprint)}
+                    onChange={(event) =>
+                      setChecked((prev) => {
+                        const next = new Set(prev);
+                        if (event.target.checked) next.add(finding.fingerprint);
+                        else next.delete(finding.fingerprint);
+                        return next;
+                      })
+                    }
+                  />
+                  <span>
+                    <span className="font-medium">{labels.untrusted.kinds[finding.kind]}</span>: <code className="break-all rounded-control bg-card-soft px-1">{finding.text}</code> ({labels.untrusted.checked})
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {invariants.length > 0 && (
         <section aria-labelledby="review-invariants" className="flex flex-col gap-2" data-testid="solution-invariants">

@@ -23,7 +23,8 @@ export const AGENT_NAV_GROUPS: readonly AgentNavGroup[] = [
     key: 'knowledge',
     items: [
       { key: 'solutions', href: '/agent/solutions', availableFrom: 'M5' },
-      { key: 'candidates', href: '/agent/candidates', availableFrom: 'M5c' },
+      // Кандидаты в решения (веха M5c, решение 29): роли с правом черновика решения, product нет.
+      { key: 'candidates', href: '/agent/candidates', availableFrom: 'M5c', roles: ['agent_l1', 'agent_l2', 'care', 'admin'] },
       { key: 'problems', href: '/agent/problems', availableFrom: 'M5c' },
       { key: 'codeKnowledge', href: '/agent/code-knowledge', availableFrom: 'M8c' },
     ],
@@ -48,7 +49,7 @@ export const AGENT_NAV_GROUPS: readonly AgentNavGroup[] = [
 ];
 
 /** Включённые вехи. Каждая веха, которая приносит раздел рабочего места, добавляет сюда свой код. */
-export const ENABLED_MILESTONES: ReadonlySet<string> = new Set(['M0', 'M1', 'M2', 'M3', 'M5', 'M5b', 'M7', 'M8']);
+export const ENABLED_MILESTONES: ReadonlySet<string> = new Set(['M0', 'M1', 'M2', 'M3', 'M5', 'M5b', 'M5c', 'M7', 'M8']);
 
 /** Пункты группы, чьи вехи включены и которые доступны роли сотрудника. Без роли (витрина): только общие пункты. */
 export function visibleItems(group: AgentNavGroup, enabled: ReadonlySet<string>, role: StaffRole | null): readonly AgentNavItem[] {

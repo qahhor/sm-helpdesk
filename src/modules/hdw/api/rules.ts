@@ -7,6 +7,7 @@ import { IMPACTS, PRIORITIES, QUEUES, TICKET_SOURCES, TICKET_STATUSES, TICKET_TY
 import { orgFactsTx, type StaffMember, staffRoster } from '@/modules/hdu/api/automation';
 import { type DryRunResult, dryRunTx } from '../core/dry-run';
 import { missingActionRefs } from '../core/references';
+import { activeProblemOptionsTx } from '@/modules/hdp/api/links';
 import { listWebhooksTx } from '../core/webhooks';
 import { deleteRuleTx, listRuleRunsTx, listRulesTx, moveRuleTx, readRuleTx, restoreBuiltinRuleTx, type RuleRecord, rulePcodeTx, type RuleRunRecord, saveRuleTx, setRuleEnabledTx } from '../core/rules';
 import { builtinRule } from '../builtin';
@@ -201,19 +202,22 @@ export type RuleOptions = {
   webhooks: { endpointId: string; name: string; isEnabled: boolean }[];
   /** Названия организаций, запрошенных в orgIds: подписи уже выбранных в правиле организаций. */
   orgs: { orgId: string; name: string }[];
+  problems: { number: number; internalTitle: string }[];
 };
 
 /** Списки для редактора правила. locale: язык названий модулей; orgIds: организации, которым нужны названия. */
 export async function ruleOptions(ctx: StaffContext, input: unknown = {}): Promise<RuleOptions> {
   requireAdmin(ctx);
   const data = parse(optionsInput, input);
-  const [staff, tags, templates, modules, webhooks, orgs] = await Promise.all([
+  const [staff, tags, templates, modules, webhooks, orgs, problems] = await Promise.all([
     staffRoster(),
     listTags(ctx),
     listAllTemplates(ctx),
     listActiveModules(ctx.actor, data.locale),
     listWebhooksTx(ctx.actor),
     data.orgIds.length > 0 ? withActor(ctx.actor, (tx) => orgFactsTx(tx, data.orgIds)) : Promise.resolve(new Map<string, { name: string }>()),
+    // Активные известные проблемы для действия "привязать к известной проблеме" (веха M5c, решение 11).
+    withActor(ctx.actor, (tx) => activeProblemOptionsTx(tx)),
   ]);
   return {
     events: RULE_EVENTS,
@@ -233,5 +237,6 @@ export async function ruleOptions(ctx: StaffContext, input: unknown = {}): Promi
     modules,
     webhooks: webhooks.map((item) => ({ endpointId: item.endpointId, name: item.name, isEnabled: item.isEnabled })),
     orgs: [...orgs].map(([orgId, org]) => ({ orgId, name: org.name })),
+    problems,
   };
 }

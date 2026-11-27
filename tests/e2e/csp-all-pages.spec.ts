@@ -44,6 +44,7 @@ test.beforeAll(async ({}, info) => {
     clientTicket: `SUP-${await found('clientTicket', `select number as v from hdt_tickets where org_id = $1 and visibility = 'org' order by number desc`, '999999999', [acme])}`,
     ticket: `SUP-${await found('ticket', `select number as v from hdt_tickets order by number desc`, '999999999')}`,
     idea: await found('idea', `select number as v from hdi_ideas where status = 'open' and merged_into_id is null order by number desc`, '999999999'),
+    problem: await found('problem', `select number as v from hdp_problems order by number desc`, '999999999'),
     solution: await found('solution', `select number as v from hdk_articles order by number desc`, '999999999'),
     // Адрес решения с slug: без него страница перенаправляет на полный адрес.
     helpRef: await found('helpRef', `select article_number || '-' || slug as v from hdk_published where audience = 'clients' and locale = 'ru' order by article_number desc`, '999999999'),

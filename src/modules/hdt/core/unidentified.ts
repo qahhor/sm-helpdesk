@@ -46,7 +46,7 @@ export async function unidentifiedCountTx(actor: StaffActor): Promise<number> {
  * Сообщения, события, подписки и вложения переходят каскадом внешних ключей. Событие bound и запись журнала.
  * Организацию проверяет слой api (действующая организация клиента).
  */
-export async function bindTicketTx(actor: StaffActor, number: number, orgId: string): Promise<{ ticketId: string; authorId: string }> {
+export async function bindTicketTx(actor: StaffActor, number: number, orgId: string): Promise<{ ticketId: string; authorId: string; description: string; moduleId: string | null }> {
   return withActor(actor, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
     if (ticket.orgId !== SERVICE_ORG_ID || ticket.status === 'closed') throw new HdtError('transition_refused');
@@ -54,11 +54,11 @@ export async function bindTicketTx(actor: StaffActor, number: number, orgId: str
       .update(tickets)
       .set({ orgId, visibility: 'org' })
       .where(and(eq(tickets.ticketId, ticket.ticketId), eq(tickets.orgId, SERVICE_ORG_ID)))
-      .returning({ authorId: tickets.authorId });
+      .returning({ authorId: tickets.authorId, description: tickets.description, moduleId: tickets.moduleId });
     if (!row) throw new HdtError('transition_refused');
     await tx.insert(ticketEvents).values({ orgId, ticketId: ticket.ticketId, kind: 'bound', actorType: 'staff', actorId: actor.userId, payload: { orgId }, isInternal: true });
     await writeAudit(tx, { action: 'ticket.bound', objectType: 'ticket', objectId: ticket.ticketId, orgId, diff: { from: SERVICE_ORG_ID, to: orgId } });
-    return { ticketId: ticket.ticketId, authorId: row.authorId };
+    return { ticketId: ticket.ticketId, authorId: row.authorId, description: row.description, moduleId: row.moduleId };
   });
 }
 

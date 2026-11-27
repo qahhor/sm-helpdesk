@@ -2,16 +2,19 @@ import { getPlaybook, listActiveModules, listTags, listTemplates } from '@/modul
 import { DEVELOPMENT_ROLES, getAgentTicket, HDT_ERROR_CODES, loadDraft, QUEUE_KEYS, QUEUE_SORTS, TRANSFERABLE_STATUSES } from '@/modules/hdt/api';
 import { listAssignableStaff, type StaffContext } from '@/modules/hdu/api';
 import { DEV_TASK_ERROR_CODES, devTrackerMode, listRunnableMacros, readDevTaskForTicket } from '@/modules/hdw/api';
+import { HDP_ERROR_CODES } from '@/modules/hdp/api';
 
 // Данные страницы обращения у сотрудника: обращение с историей, справочники для действий, права на передачу
 // между линиями, итог прошлого действия из адреса. Вынесено из страницы (аудит 23.11.2026, находка A8): загрузка
 // данных и права отдельно от разметки.
 
 /** Коды "сделано" в адресе страницы после действия. */
-export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged', 'dev_sent', 'dev_unlinked', 'dev_status', 'triaged', 'flagged', 'translating'] as const;
+export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged', 'dev_sent', 'dev_unlinked', 'dev_status', 'triaged', 'flagged', 'translating', 'problem_linked', 'problem_unlinked'] as const;
 
 /** Отказы создания решения из обращения (план M5, задача 7): код модуля решений с приставкой solution_. */
 const SOLUTION_ERROR_CODES = ['solution_not_resolved', 'solution_forbidden', 'solution_not_found', 'solution_invalid_input'] as const;
+/** Отказы действий с известной проблемой (план M5c): код модуля проблем с приставкой problem_. */
+const PROBLEM_ERROR_CODES = HDP_ERROR_CODES.map((code) => `problem_${code}` as const);
 
 export type TicketPageSearch = { done?: string; error?: string; ch?: string; queue?: string; sort?: string; shown?: string };
 
@@ -63,7 +66,7 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
     fromQueue: QUEUE_KEYS.find((key) => key === search.queue) ?? 'mine',
     fromSort: QUEUE_SORTS.find((key) => key === search.sort) ?? 'sla',
     done: DONE.find((code) => code === search.done),
-    error: [...HDT_ERROR_CODES, ...DEV_TASK_ERROR_CODES, ...SOLUTION_ERROR_CODES].find((code) => code === search.error),
+    error: [...HDT_ERROR_CODES, ...DEV_TASK_ERROR_CODES, ...SOLUTION_ERROR_CODES, ...PROBLEM_ERROR_CODES].find((code) => code === search.error),
     // Сводка "что изменилось" для ошибки changed: три числа из адреса, ничего кроме чисел не принимается.
     changed: changedOf(search.ch),
   };

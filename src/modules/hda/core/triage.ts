@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { AI_DAY_TIME_ZONE, TRIAGE_FIELDS, TRIAGE_REVIEW_MIN, TRIAGE_REVIEW_SHARE, type TriageField, type TriageStatus } from '../pref';
+import { AI_DAY_TIME_ZONE, TRIAGE_APPLIED_FIELDS, TRIAGE_REVIEW_MIN, TRIAGE_REVIEW_SHARE, type TriageField, type TriageStatus } from '../pref';
 import { aiRuns, aiTriageFieldOffs, aiTriageSuggestions, type FoundRef } from '../schema';
 
 // Модуль hda, слой core: предложения разбора (план M5b, задача 7, решение 18; FR-TRI-01..06). Пишет система после
@@ -80,7 +80,9 @@ export async function reviewFieldsTx(tx: Tx, now: Date): Promise<TriageField[]> 
     .groupBy(aiTriageSuggestions.field);
   const off: TriageField[] = [];
   for (const row of rows) {
-    if (!TRIAGE_FIELDS.includes(row.field) || row.decided < TRIAGE_REVIEW_MIN) continue;
+    // Резюме и пометка приоритета только показываются сотруднику: их "принятие" ничего не меняет в обращении, доля
+    // принятых у них не говорит о качестве (долг M5b M7, план M5c, задача 11).
+    if (!(TRIAGE_APPLIED_FIELDS as readonly string[]).includes(row.field) || row.decided < TRIAGE_REVIEW_MIN) continue;
     const share = row.accepted / row.decided;
     if (share >= TRIAGE_REVIEW_SHARE) continue;
     const inserted = await tx

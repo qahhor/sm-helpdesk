@@ -178,6 +178,12 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
       notReady: s('review.notReady'),
       conflict: s('review.conflict'),
       failed: s('review.failed'),
+      untrusted: {
+        title: s('untrusted.title'),
+        hint: s('untrusted.hint'),
+        kinds: { phone: s('untrusted.kinds.phone'), email: s('untrusted.kinds.email'), command: s('untrusted.kinds.command'), code: s('untrusted.kinds.code') },
+        checked: s('untrusted.checked'),
+      },
       invariants: {
         title: s('translations.invariants.title'),
         hint: s('translations.invariants.hint'),

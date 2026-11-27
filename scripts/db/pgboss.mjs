@@ -21,6 +21,10 @@ export const QUEUES = {
   'ai.budget': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Ответ первой линии (план M5b, решение 5): одна ждущая и одна выполняемая на обращение, без повторов: сбой сразу
   // ведёт к передаче сотруднику. Сторожевая проверка без повторов: минутная проверка по расписанию её страхует.
+  // Кандидаты в решения (веха M5c, задача 9): повтор задания безопасен, модель второй раз не вызывается.
+  'ai.candidates_sweep': { policy: 'short', retryLimit: 0, expireInSeconds: 600, deleteAfterSeconds: 86_400 },
+  'ai.candidate': { policy: 'standard', retryLimit: 2, retryDelay: 300, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
+  'ai.candidates_embed': { policy: 'short', retryLimit: 1, retryDelay: 600, expireInSeconds: 1800 },
   'ai.first_line': { policy: 'stately', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
   'ai.watchdog': { policy: 'standard', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
   // Перевод сообщения клиента и уточнение благодарности (план M5b, решение 24): одна задача на объект, без
@@ -65,6 +69,14 @@ export const QUEUES = {
   'ideas.scan': { policy: 'exclusive', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   'ideas.index': { policy: 'stately', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
   'ideas.translate': { policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
+  // Известные проблемы (веха M5c, задача 2): машинный перевод публичного текста на язык; повтор при сбое модели.
+  // Сотрудник может перевести сам, не дожидаясь задачи: задача не перезаписывает текст сотрудника.
+  // Рассылка по известной проблеме (задача 5, решение 18): одна ждущая и одна выполняемая на рассылку (ключ одиночки),
+  // повтор с паузой при сбое; дубли держит уникальный индекс сообщений, а не порядок задач.
+  // Объявления (задача 6): машинный перевод на язык, как у проблем.
+  'announcements.translate': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
+  'problems.broadcast': { policy: 'stately', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 900, expireInSeconds: 1800 },
+  'problems.translate': { policy: 'standard', retryLimit: 3, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   // Сводка модерации идей роли product раз в день (план M7, задача 8): повтор в тот же день ничего не шлёт.
   'ideas.moderation_digest': { policy: 'short', retryLimit: 2, retryDelay: 300, expireInSeconds: 600 },
   // Отбор месяца (план M7, задача 9): 1-го числа в 09:00 по Ташкенту. Повтор безвреден: месяц уникален, снимок один.

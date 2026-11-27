@@ -1720,7 +1720,9 @@
           "hours_since_client": "Mijoz xabaridan beri soat",
           "hours_since_staff": "Xodim javobidan beri soat",
           "rating": "Baho",
-          "ai_reason": "AI topshirish sababi"
+          "ai_reason": "AI topshirish sababi",
+          "signature": "Xato signaturasi",
+          "known_problem": "Ma'lum muammo"
         },
         "ops": {
           "is": "teng",
@@ -1749,7 +1751,8 @@
           "webhook": "Vebhukni chaqirish",
           "notify_oncall_p1": "Navbatchilarga P1 haqida xabar berish (bir marta, birinchi javobgacha)",
           "notify_sla_breach": "Liniya rahbarlarini muddat o'tgani haqida xabardor qilish",
-          "notify_csat_low": "Customer Care ni past baho haqida xabardor qilish"
+          "notify_csat_low": "Customer Care ni past baho haqida xabardor qilish",
+          "link_known_problem": "Ma'lum muammoga bog'lash"
         },
         "actionValues": {
           "set_queue": "Navbat",
@@ -1762,7 +1765,8 @@
           "notify": "Kimni xabardor qilish",
           "snooze": "Necha soatga",
           "set_status": "Holat",
-          "webhook": "Vebhuk manzili"
+          "webhook": "Vebhuk manzili",
+          "link_known_problem": "Muammo"
         },
         "targets": {
           "oncall": "Navbatchilar: chat va pochta",
@@ -1868,6 +1872,16 @@
         "embedded": {
           "text": "Portalga o'rnatilgan: mijozga eslatma va avtomatik yopish («Muddatlar» bo'limida sozlanadi).",
           "link": "Eslatma va avtomatik yopish muddatlarini ochish"
+        },
+        "flags": {
+          "signature": {
+            "present": "bor",
+            "absent": "yo'q"
+          },
+          "known_problem": {
+            "linked": "bog'langan",
+            "unlinked": "bog'lanmagan"
+          }
         }
       },
       "webhooks": {
@@ -2277,14 +2291,16 @@
           "assign": "Tayinlash",
           "queue_l2": "Ikkinchi liniyaga o'tkazish",
           "queue_l1": "Birinchi liniyaga qaytarish",
-          "duplicate": "Takroriy sifatida yopish"
+          "duplicate": "Takroriy sifatida yopish",
+          "link_problem": "Ma'lum muammoga bog'lash"
         },
         "submit": "Tanlanganlarga qo'llash",
         "done": "Bajarildi: {count}",
         "refused": "{number}: {reason}",
         "invalid": "Murojaatlarni belgilang va amal maydonlarini to'ldiring.",
         "select": "{number} ni tanlash",
-        "selectColumn": "Tanlash"
+        "selectColumn": "Tanlash",
+        "problem": "Muammo raqami"
       },
       "thanks": {
         "link": "Murojaatni ochmaganlar",
@@ -2412,7 +2428,8 @@
         "unchanged": "o'zgarishsiz",
         "notify_oncall_p1": "navbatchilarga P1 haqida xabar yuborildi",
         "notify_sla_breach": "liniya rahbarlariga muddat o'tgani haqida bildirishnoma yuborildi",
-        "notify_csat_low": "Customer Care ga {to} baho haqida bildirishnoma yuborildi"
+        "notify_csat_low": "Customer Care ga {to} baho haqida bildirishnoma yuborildi",
+        "link_known_problem": "{to} ma'lum muammoga bog'landi"
       },
       "ruleActionNames": {
         "set_queue": "navbatni almashtirish",
@@ -2429,7 +2446,8 @@
         "webhook": "vebhuk",
         "notify_oncall_p1": "navbatchilarga P1 haqida xabar",
         "notify_sla_breach": "muddat o'tgani haqida bildirishnoma",
-        "notify_csat_low": "past baho haqida bildirishnoma"
+        "notify_csat_low": "past baho haqida bildirishnoma",
+        "link_known_problem": "ma'lum muammoga bog'lash"
       },
       "ruleActionFailed": "{name}: bajarilmadi",
       "dueKinds": {
@@ -2530,7 +2548,9 @@
           "dev_status": "Vazifa holati saqlandi",
           "triaged": "Saralash taklifi qabul qilindi.",
           "flagged": "Javob noto'g'ri deb belgilandi.",
-          "translating": "Tarjima tayyorlanmoqda."
+          "translating": "Tarjima tayyorlanmoqda.",
+          "problem_linked": "Murojaat ma'lum muammoga bog'landi",
+          "problem_unlinked": "Murojaat ma'lum muammodan ajratildi"
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -2800,7 +2820,11 @@
       "knownProblem": {
         "title": "Ma'lum muammo",
         "none": "Bog'lanmagan",
-        "create": "Ma'lum muammo yaratish"
+        "create": "Ma'lum muammo yaratish",
+        "link": "Muammoga bog'lash",
+        "linkHint": "KP-12 raqami yoki faol muammo nomining bir qismi",
+        "linkSubmit": "Bog'lash",
+        "unlink": "Ajratish"
       }
     },
     "playbooks": {

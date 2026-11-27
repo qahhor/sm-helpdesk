@@ -1,5 +1,6 @@
 import 'server-only';
 import * as z from 'zod';
+import { recordTicketSignature } from '@/modules/hdc/api';
 import { domainHint, findVerifiedUser, guestSenders, SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
 import { mailRecipient } from '@/modules/hdu/api/recipients';
 import { addGuestMembership } from '@/modules/hdu/api/guests';
@@ -72,7 +73,10 @@ export async function bindTicket(ctx: StaffContext, input: unknown): Promise<{ i
   const { number, orgId } = parseInput(bindInput, input);
   const org = await getOrganization(ctx, orgId);
   if (!org || org.state !== 'active') throw new HdtError('not_found');
-  const { authorId } = await bindTicketTx(ctx.actor, number, orgId);
+  const { ticketId, authorId, description, moduleId } = await bindTicketTx(ctx.actor, number, orgId);
+  // Письмо "Неопознанных" сигнатуры не получало: после привязки к организации она считается, как у письма клиента, и
+  // обращение привязывается к известной проблеме с той же сигнатурой (план M5c, решение 8).
+  await recordTicketSignature({ ticketId, orgId, authorId, description, context: null, moduleId });
   if (!(await guestSenders([authorId])).has(authorId)) return { invited: false };
   await addGuestMembership(authorId, orgId);
   return { invited: await tryInvite(ctx, authorId, orgId) };

@@ -3,6 +3,8 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { bulkAction, deleteFilter, isHdtError, parseNumber, saveFilter } from '@/modules/hdt/api';
+import { isHdpError, parseProblemRef } from '@/modules/hdp/api';
+import { bulkLinkProblem } from '@/modules/hdp/api/links';
 import { requireStaffActor } from '@/modules/hdu/api';
 
 // Сохранённые списки рабочего места (FR-AG-14, UX-A-09): сохранить текущую очередь, сортировку и поиск под
@@ -52,6 +54,16 @@ export async function bulkQueueAction(_prev: BulkState, form: FormData): Promise
   const staff = await requireStaffActor();
   const numbers = form.getAll('numbers').map(Number);
   const kind = text(form, 'action');
+  // Привязать к известной проблеме (FR-AG-20, решение 10 плана M5c): модуль проблем, та же функция, что одиночная привязка.
+  if (kind === 'link_problem') {
+    try {
+      const result = await bulkLinkProblem(staff, { numbers, problemNumber: parseProblemRef(text(form, 'problem')) ?? 0 });
+      return { status: 'done', ...result };
+    } catch (error) {
+      if (!isHdpError(error)) throw error;
+      return { status: 'error', code: `problem_${error.code}` };
+    }
+  }
   const input =
     kind === 'assign'
       ? { action: 'assign', numbers, assigneeId: text(form, 'assigneeId') || null }

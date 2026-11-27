@@ -40,7 +40,7 @@ export type ActionRowsLabels = {
 
 export const fill = (template: string, values: Record<string, string | number>) => template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''));
 /** Действия, у которых значение выбирается из списка actionValues. */
-const PICK_ACTIONS = new Set(['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'reply_template', 'set_status', 'webhook']);
+const PICK_ACTIONS = new Set(['set_queue', 'assign', 'set_priority', 'add_tag', 'remove_tag', 'reply_template', 'set_status', 'webhook', 'link_known_problem']);
 
 /** Ошибки строки или поля: объявляются программой экранного доступа сразу. fallback: текст для общего отказа поля "название". */
 export function RowIssues<K extends string = never>({ id, codes, labels, fallback }: { id: string; codes: IssueCode[]; labels: { issues: Record<IssueCode | K, string> }; fallback?: K }) {

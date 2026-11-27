@@ -42,11 +42,13 @@ const condition = z.union([
     z.strictObject({ field: z.literal('hours_since_client'), op: z.enum(['gte', 'lt']), value: hours }),
     z.strictObject({ field: z.literal('hours_since_staff'), op: z.enum(['gte', 'lt']), value: hours }),
     z.strictObject({ field: z.literal('rating'), op: z.enum(['is', 'lte', 'gte']), value: z.number().int().min(1).max(5) }),
+    // Сигнатура ошибки и известная проблема (веха M5c, решение 11; FR-AUTO-03): есть ли сигнатура, привязано ли
+    // обращение к проблеме.
+    z.strictObject({ field: z.literal('signature'), op: z.literal('is'), value: z.enum(['present', 'absent']) }),
+    z.strictObject({ field: z.literal('known_problem'), op: z.literal('is'), value: z.enum(['linked', 'unlinked']) }),
   ]),
-  // Условия ТЗ, для которых ещё нет данных (веха M5c): названы, но не принимаются.
-  z.looseObject({ field: z.enum(['signature', 'known_problem']) }).refine(() => false, { error: 'condition_not_ready' }),
 ]);
-export type Condition = Exclude<z.infer<typeof condition>, { field: 'signature' | 'known_problem' }>;
+export type Condition = z.infer<typeof condition>;
 
 const conditions = z.strictObject({ match: z.enum(['all', 'any']), items: z.array(condition).max(MAX_CONDITIONS) });
 export type Conditions = { match: 'all' | 'any'; items: Condition[] };
@@ -75,6 +77,8 @@ export const actionSchemas = {
   snooze: z.strictObject({ action: z.literal('snooze'), hours: z.number().int().min(1).max(MAX_SNOOZE_HOURS) }),
   set_status: z.strictObject({ action: z.literal('set_status'), status: z.enum(RULE_STATUS_TARGETS) }),
   webhook: z.strictObject({ action: z.literal('webhook'), endpointId: z.uuid() }),
+  // Привязать к известной проблеме (веха M5c, решение 11; FR-AUTO-04): номер проблемы KP-n, только активной.
+  link_known_problem: z.strictObject({ action: z.literal('link_known_problem'), problemNumber: z.number().int().positive().max(1_000_000_000) }),
   // Действия только предустановленных правил (FR-AUTO-12; план M8, задача 10): прежние встроенные уведомления с их
   // получателями и шаблонами. Значения у них нет. В каком правиле действие допустимо, проверяет слой api.
   notify_oncall_p1: z.strictObject({ action: z.literal('notify_oncall_p1') }),
@@ -95,6 +99,7 @@ const action = z.discriminatedUnion('action', [
   actionSchemas.snooze,
   actionSchemas.set_status,
   actionSchemas.webhook,
+  actionSchemas.link_known_problem,
   actionSchemas.notify_oncall_p1,
   actionSchemas.notify_sla_breach,
   actionSchemas.notify_csat_low,

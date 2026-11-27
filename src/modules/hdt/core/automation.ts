@@ -290,6 +290,9 @@ export type RuleTicketFacts = {
   tagIds: string[];
   /** Причина передачи помощником (условие правила "причина передачи от AI", план M5b, задача 8). */
   aiHandoffReason: string | null;
+  /** Есть ли сигнатура ошибки и известная проблема (условия правил, веха M5c). */
+  hasSignature: boolean;
+  knownProblemId: string | null;
 };
 
 /** Сколько обращений читается одним запросом. */
@@ -326,6 +329,8 @@ export async function ruleTicketFactsTx(tx: Tx, ticketIds: readonly string[], op
         rating: tickets.csatScore,
         lastClientMessageOn: tickets.lastClientMessageOn,
         aiHandoffReason: tickets.aiHandoffReason,
+        hasSignature: sql<boolean>`${tickets.errorSignature} is not null`,
+        knownProblemId: tickets.knownProblemId,
       })
       .from(tickets)
       .where(inArray(tickets.ticketId, chunk));

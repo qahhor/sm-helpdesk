@@ -46,6 +46,8 @@ export async function snapshotsTx(tx: Tx, ticketIds: readonly string[], now: Dat
       isWorkingTime: working,
       assigneeId: ticket.assigneeId,
       aiHandoffReason: ticket.aiHandoffReason,
+      hasSignature: ticket.hasSignature,
+      knownProblemId: ticket.knownProblemId,
     });
   }
   return { byId, orgNames };

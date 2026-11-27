@@ -1720,7 +1720,9 @@
           "hours_since_client": "Hours since client message",
           "hours_since_staff": "Hours since staff reply",
           "rating": "Rating",
-          "ai_reason": "AI handoff reason"
+          "ai_reason": "AI handoff reason",
+          "signature": "Error signature",
+          "known_problem": "Known problem"
         },
         "ops": {
           "is": "is",
@@ -1749,7 +1751,8 @@
           "webhook": "Call webhook",
           "notify_oncall_p1": "Message on-call about P1 (once, until the first response)",
           "notify_sla_breach": "Notify line leads about a missed deadline",
-          "notify_csat_low": "Notify Customer Care about a low rating"
+          "notify_csat_low": "Notify Customer Care about a low rating",
+          "link_known_problem": "Link to a known problem"
         },
         "actionValues": {
           "set_queue": "Queue",
@@ -1762,7 +1765,8 @@
           "notify": "Whom to notify",
           "snooze": "For how many hours",
           "set_status": "Status",
-          "webhook": "Webhook address"
+          "webhook": "Webhook address",
+          "link_known_problem": "Problem"
         },
         "targets": {
           "oncall": "On-call: chat and email",
@@ -1868,6 +1872,16 @@
         "embedded": {
           "text": "Built into the portal: client reminder and auto-close (configured in \"Timings\").",
           "link": "Open reminder and auto-close timings"
+        },
+        "flags": {
+          "signature": {
+            "present": "present",
+            "absent": "absent"
+          },
+          "known_problem": {
+            "linked": "linked",
+            "unlinked": "not linked"
+          }
         }
       },
       "webhooks": {
@@ -2277,14 +2291,16 @@
           "assign": "Assign",
           "queue_l2": "Transfer to the second line",
           "queue_l1": "Return to the first line",
-          "duplicate": "Close as duplicate"
+          "duplicate": "Close as duplicate",
+          "link_problem": "Link to a known problem"
         },
         "submit": "Apply to selected",
         "done": "Done: {count}",
         "refused": "{number}: {reason}",
         "invalid": "Select tickets and fill in the action fields.",
         "select": "Select {number}",
-        "selectColumn": "Select"
+        "selectColumn": "Select",
+        "problem": "Problem number"
       },
       "thanks": {
         "link": "Did not reopen the ticket",
@@ -2412,7 +2428,8 @@
         "unchanged": "no changes",
         "notify_oncall_p1": "P1 message sent to on-call",
         "notify_sla_breach": "missed deadline notification sent to line leads",
-        "notify_csat_low": "rating {to} notification sent to Customer Care"
+        "notify_csat_low": "rating {to} notification sent to Customer Care",
+        "link_known_problem": "linked to known problem {to}"
       },
       "ruleActionNames": {
         "set_queue": "queue change",
@@ -2429,7 +2446,8 @@
         "webhook": "webhook",
         "notify_oncall_p1": "P1 message to on-call",
         "notify_sla_breach": "missed deadline notification",
-        "notify_csat_low": "low rating notification"
+        "notify_csat_low": "low rating notification",
+        "link_known_problem": "linking to a known problem"
       },
       "ruleActionFailed": "{name}: not done",
       "dueKinds": {
@@ -2530,7 +2548,9 @@
           "dev_status": "Task status saved",
           "triaged": "Triage suggestion accepted.",
           "flagged": "The answer is marked as wrong.",
-          "translating": "The translation is being prepared."
+          "translating": "The translation is being prepared.",
+          "problem_linked": "The request is linked to the known problem",
+          "problem_unlinked": "The request is unlinked from the known problem"
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -2800,7 +2820,11 @@
       "knownProblem": {
         "title": "Known problem",
         "none": "Not linked",
-        "create": "Create known problem"
+        "create": "Create known problem",
+        "link": "Link to a problem",
+        "linkHint": "Number KP-12 or part of an active problem title",
+        "linkSubmit": "Link",
+        "unlink": "Unlink"
       }
     },
     "playbooks": {

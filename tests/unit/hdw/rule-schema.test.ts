@@ -86,13 +86,21 @@ describe('условия', () => {
     expect(withCondition(item).ok).toBe(false);
   });
 
-  test('условия без данных (сигнатура, известная проблема) отклоняются своим кодом; причина от AI принимается списком', () => {
+  test('сигнатура и известная проблема (веха M5c, решение 11): есть или нет, привязано или нет; причина от AI принимается списком', () => {
     expect(withCondition({ field: 'ai_reason', op: 'is', values: ['restricted_topic', 'p1'] }).ok).toBe(true);
     expect(withCondition({ field: 'ai_reason', op: 'is', values: ['made_up'] }).ok).toBe(false);
-    for (const field of ['signature', 'known_problem']) {
-      const result = withCondition({ field, op: 'is', value: true });
-      expect(result, field).toEqual({ ok: false, issues: [{ path: 'conditions.items.0', code: 'condition_not_ready' }] });
-    }
+    for (const value of ['present', 'absent']) expect(withCondition({ field: 'signature', op: 'is', value }).ok, value).toBe(true);
+    for (const value of ['linked', 'unlinked']) expect(withCondition({ field: 'known_problem', op: 'is', value }).ok, value).toBe(true);
+    // Значения не путаются между полями, лишнего оператора и старого вида условия нет.
+    expect(withCondition({ field: 'signature', op: 'is', value: 'linked' }).ok).toBe(false);
+    expect(withCondition({ field: 'known_problem', op: 'is_not', value: 'linked' }).ok).toBe(false);
+    expect(withCondition({ field: 'signature', op: 'is', value: true }).ok).toBe(false);
+  });
+
+  test('действие "привязать к известной проблеме" с номером проблемы', () => {
+    expect(withAction({ action: 'link_known_problem', problemNumber: 12 }).ok).toBe(true);
+    for (const problemNumber of [0, -1, 1.5, '12', null]) expect(withAction({ action: 'link_known_problem', problemNumber }).ok, String(problemNumber)).toBe(false);
+    expect(withAction({ action: 'link_known_problem' }).ok).toBe(false);
   });
 
   test('не больше 20 условий; соединение только "все" или "любое"', () => {

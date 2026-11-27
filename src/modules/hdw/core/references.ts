@@ -2,6 +2,7 @@ import 'server-only';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { tagsByIdTx, templatesByIdTx } from '@/modules/hdr/api';
 import { staffRoster } from '@/modules/hdu/api/automation';
+import { activeProblemNumbersTx } from '@/modules/hdp/api/links';
 import type { MacroAction } from '../macro-schema';
 import type { RuleAction, RuleIssue } from '../rule-schema';
 import { endpointsByIdTx } from './webhooks';
@@ -33,6 +34,12 @@ export async function missingActionRefs(actor: StaffActor, actions: readonly (Ru
     for (const ref of tagActions) if (!found.tags.has(ref.value)) missing(`actions.${ref.index}.tagId`);
     for (const ref of templateActions) if (!found.templates.has(ref.value)) missing(`actions.${ref.index}.templateId`);
     for (const ref of webhookActions) if (!found.endpoints.has(ref.value)) missing(`actions.${ref.index}.endpointId`);
+  }
+  // Известная проблема должна быть активной (решение 11): исправленная и закрытая обращения не притягивают.
+  const problemActions = actions.flatMap((item, index) => (item.action === 'link_known_problem' ? [{ index, value: item.problemNumber }] : []));
+  if (problemActions.length > 0) {
+    const active = await withActor(actor, (tx) => activeProblemNumbersTx(tx, problemActions.map((ref) => ref.value)));
+    for (const ref of problemActions) if (!active.has(ref.value)) missing(`actions.${ref.index}.problemNumber`);
   }
   if (actions.some((item) => item.action === 'assign' || (item.action === 'notify' && item.target.kind === 'user'))) {
     const roster = await staffRoster();

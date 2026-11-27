@@ -1,4 +1,5 @@
-import { registerContactDirectory, registerTezFeedback, registerTicketSignatureRecorder } from '@/modules/hdc/api';
+import { registerContactDirectory, registerKnownProblemLinker, registerTezFeedback, registerTicketSignatureRecorder } from '@/modules/hdc/api';
+import { knownProblemLinker } from '@/modules/hdp/api/links';
 import { ticketSignatureRecorder } from '@/modules/hdk/api/signatures';
 import { contactDirectory } from '@/modules/hdu/api/contacts';
 import { embedOriginsByKey } from '@/modules/hdu/api/servers';
@@ -14,6 +15,8 @@ import { registerIdeaDevTaskClosed } from '@/modules/hdw/api/idea-hook';
 registerContactDirectory(contactDirectory);
 // Сигнатуру ошибки нового обращения (план M5, задача 8) считает модуль знаний hdk: hdt знает только интерфейс в hdc.
 registerTicketSignatureRecorder(ticketSignatureRecorder);
+// Привязка нового обращения к известной проблеме по сигнатуре (план M5c, задача 3): проблемы ведёт модуль hdp.
+registerKnownProblemLinker(knownProblemLinker);
 // Адреса встраивания страниц виджета для прокси (план M6, задача 3): прокси к базе не ходит, список читает из памяти
 // процесса, а загружает его этот загрузчик. В фоновом процессе и команде консоли он не вызывается ни разу.
 registerEmbedOriginsLoader(embedOriginsByKey);

@@ -14,6 +14,8 @@ import {
   setProblemShown,
   setProblemStatus,
 } from '@/modules/hdp/api/problems';
+import { linkTicketToProblem, unlinkTicket } from '@/modules/hdp/api/links';
+import { listProblems } from '@/modules/hdp/api/problems';
 import { requireStaffActor } from '@/modules/hdu/api';
 
 // Действия карточки известной проблемы (план M5c, задача 2). Права (agent_l2, care, admin), данные и проверку текста
@@ -118,4 +120,49 @@ export async function addSignatureAction(form: FormData): Promise<void> {
 export async function removeSignatureAction(form: FormData): Promise<void> {
   const staff = await requireStaffActor();
   await run(form, (number) => removeProblemSignature(staff, { number, signature: text(form, 'signature') }), 'signature_removed');
+}
+
+/** Обращение по номеру из формы и адрес его страницы. */
+function ticketTarget(locale: string, form: FormData): { ticketNumber: number; base: string } {
+  const ticketNumber = Number(text(form, 'ticketNumber'));
+  return { ticketNumber, base: `/${locale}/agent/tickets/SUP-${Number.isSafeInteger(ticketNumber) ? ticketNumber : 0}` };
+}
+
+/**
+ * Привязать обращение к проблеме из блока обращения (FR-KP-04): номер KP-n или часть внутреннего названия; по
+ * названию привязывается только единственная найденная активная проблема.
+ */
+export async function linkTicketAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  const { ticketNumber, base } = ticketTarget(locale, form);
+  const query = text(form, 'problem').trim();
+  let target = `${base}?done=problem_linked`;
+  try {
+    let problemNumber = parseProblemRef(query);
+    if (!problemNumber && query.length >= 3) {
+      const found = await listProblems(staff, { status: 'active', q: query.slice(0, 200) });
+      problemNumber = found.length === 1 ? found[0]!.number : null;
+    }
+    if (!problemNumber) target = `${base}?error=problem_not_found`;
+    else await linkTicketToProblem(staff, { ticketNumber, problemNumber });
+  } catch (error) {
+    if (!isHdpError(error)) throw error;
+    target = `${base}?error=problem_${error.code}`;
+  }
+  redirect(target);
+}
+
+export async function unlinkTicketAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  const { ticketNumber, base } = ticketTarget(locale, form);
+  let target = `${base}?done=problem_unlinked`;
+  try {
+    await unlinkTicket(staff, { ticketNumber });
+  } catch (error) {
+    if (!isHdpError(error)) throw error;
+    target = `${base}?error=problem_${error.code}`;
+  }
+  redirect(target);
 }

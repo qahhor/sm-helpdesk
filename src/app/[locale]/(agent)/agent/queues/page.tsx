@@ -28,6 +28,7 @@ import { Select } from '@/ui/components/select';
 import { cn } from '@/ui/cn';
 import { saveFilterAction } from './actions';
 import { BULK_FORM_ID, BulkBar } from './BulkBar';
+import { HDP_ERROR_CODES } from '@/modules/hdp/api';
 import { QueueNav } from './QueueNav';
 import { QueuePreview } from './QueuePreview';
 import { QueueKeys } from './QueueKeys';
@@ -158,6 +159,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                     queue_l2: t('queues.bulk.actions.queue_l2'),
                     queue_l1: t('queues.bulk.actions.queue_l1'),
                     duplicate: t('queues.bulk.actions.duplicate'),
+                    link_problem: t('queues.bulk.actions.link_problem'),
                   },
                   assignee: t('ticket.controls.assignee'),
                   unassigned: t('queues.unassigned'),
@@ -167,10 +169,11 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                   needed: t('ticket.transfer.needed'),
                   explanation: t('ticket.return.explanation'),
                   into: t('ticket.merge.into'),
+                  problem: t('queues.bulk.problem'),
                   submit: t('queues.bulk.submit'),
                   done: t.raw('queues.bulk.done') as string,
                   refused: t.raw('queues.bulk.refused') as string,
-                  errors: Object.fromEntries([...HDT_ERROR_CODES.filter((code) => t.has(`ticket.controls.errors.${code}`)).map((code) => [code, t(`ticket.controls.errors.${code}`)]), ['invalid_input', t('queues.bulk.invalid')]]),
+                  errors: Object.fromEntries([...HDT_ERROR_CODES.filter((code) => t.has(`ticket.controls.errors.${code}`)).map((code) => [code, t(`ticket.controls.errors.${code}`)]), ['invalid_input', t('queues.bulk.invalid')], ...HDP_ERROR_CODES.map((code) => [`problem_${code}`, t(`problems.errors.${code}`, { kinds: '' })])]),
                 }}
               />
             )}

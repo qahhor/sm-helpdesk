@@ -4,7 +4,7 @@ import * as z from 'zod';
 import type { StaffActor, SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { HdkError } from '../error';
-import { kbArticles, kbArticleSources } from '../schema';
+import { kbArticles, kbArticleSources, kbPublished } from '../schema';
 
 // Модуль hdk, слой api: похожие опубликованные решения для кандидатов (план M5c, задача 9, решение 28; FR-CAND-03).
 // Сходство считается по векторам поискового индекса hdk_search_documents (только опубликованное, любой аудитории):
@@ -52,4 +52,19 @@ export async function ticketsWithSolutionSource(actor: SystemActor, ticketIds: r
   if (ids.length === 0) return new Set();
   const rows = await withActor(actor, (tx) => tx.select({ ticketId: kbArticleSources.ticketId }).from(kbArticleSources).where(inArray(kbArticleSources.ticketId, ids)));
   return new Set(rows.map((r) => r.ticketId));
+}
+
+/** Первая публикация решений (любой язык): показатель "от появления кандидата до публикации" (FR-MET-09). */
+export async function firstPublishedOn(actor: SystemActor | StaffActor, articleIds: readonly string[]): Promise<Map<string, Date>> {
+  assertInternal(actor);
+  const ids = z.array(z.uuid()).max(10_000).parse([...new Set(articleIds)]);
+  if (ids.length === 0) return new Map();
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .select({ articleId: kbPublished.articleId, on: sql<Date>`min(${kbPublished.publishedOn})` })
+      .from(kbPublished)
+      .where(inArray(kbPublished.articleId, ids))
+      .groupBy(kbPublished.articleId),
+  );
+  return new Map(rows.map((r) => [r.articleId, new Date(r.on)]));
 }

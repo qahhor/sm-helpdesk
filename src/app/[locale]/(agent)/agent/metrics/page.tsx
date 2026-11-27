@@ -20,6 +20,8 @@ import {
 import { assistantRunStats } from '@/modules/hda/api/metrics';
 import { getAssistantMetrics } from '@/modules/hdt/api/metrics';
 import { getKnowledgeMetrics, type KnowledgeMetrics } from '@/modules/hdk/api/metrics';
+import { type CandidateMetrics, candidateMetrics, canSeeCandidateMetrics } from '@/modules/hda/api/candidate-metrics';
+import { type ProblemMetrics, problemMetrics } from '@/modules/hdp/api/metrics';
 import { canSeeSuggestMisses, type MissSummary, suggestMisses } from '@/modules/hdk/api/misses';
 import { listActiveModules } from '@/modules/hdr/api';
 import { requireStaffActor } from '@/modules/hdu/api';
@@ -64,7 +66,7 @@ function Stat({ id, label, value, children }: { id: string; label: string; value
 export default async function MetricsPage({ searchParams }: PageProps<'/[locale]/agent/metrics'>) {
   const staff = await requireStaffActor();
   const query = await searchParams;
-  const input = { period: firstParam(query.period), from: firstParam(query.from), to: firstParam(query.to) };
+  const input = { period: firstParam(query.period), from: firstParam(query.from), to: firstParam(query.to), noProblems: firstParam(query.noProblems) };
   let view: MetricsView;
   let invalid = false;
   try {
@@ -75,6 +77,9 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
     view = await getMetrics(staff, {});
   }
   const knowledge: KnowledgeMetrics = await getKnowledgeMetrics(staff, { from: view.period.from, to: view.period.to });
+  // Известные проблемы и кандидаты в решения (план M5c, задача 11; FR-MET-08, 09, FR-CAND-08).
+  const problemsBlock: ProblemMetrics = await problemMetrics(staff, { from: view.period.from, to: view.period.to });
+  const candidatesBlock: CandidateMetrics | null = canSeeCandidateMetrics(staff) ? await candidateMetrics(staff, { from: view.period.from, to: view.period.to }) : null;
   // Показатели AI-помощника (план M5b, задача 10; FR-MET-06, FR-AI-18): по обращениям периода и журналу вызовов.
   const [assistant, runs] = await Promise.all([getAssistantMetrics(staff, invalid ? {} : input), assistantRunStats(staff, { from: view.period.from, to: view.period.to })]);
   // Что клиенты ищут и не находят (план W6, решение 17): администратор и роли публикации решений.
@@ -193,6 +198,10 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
           <Label htmlFor="metrics-to">{t('metrics.period.to')}</Label>
           <Input id="metrics-to" name="to" type="date" defaultValue={period.toDay} />
         </div>
+        <label className="inline-flex min-h-control items-center gap-2">
+          <input type="checkbox" name="noProblems" value="on" defaultChecked={view.withoutProblems} className="size-5 accent-primary" />
+          {t('metrics.noProblems')}
+        </label>
         <Button type="submit">{t('metrics.period.show')}</Button>
         <p id="metrics-period-hint" className="basis-full text-sm text-muted-foreground">
           {t('metrics.period.hint')}
@@ -448,6 +457,83 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
             )}
           </Card>
         </>
+      )}
+
+      {/* Известные проблемы и кандидаты (FR-MET-08, 09): активные проблемы на сейчас, остальное по периоду. */}
+      <section aria-labelledby="metrics-problems" className="flex flex-col gap-3" data-block="problems">
+        <h2 id="metrics-problems" className="text-base font-semibold">
+          {t('metrics.problems.title')}
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Card>
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <span className="text-sm text-secondary-foreground">{t('metrics.problems.active')}</span>
+              <span className="text-2xl font-semibold tabular-nums">{problemsBlock.activeCount}</span>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <span className="text-sm text-secondary-foreground">{t('metrics.problems.fixed')}</span>
+              <span className="text-2xl font-semibold tabular-nums">{problemsBlock.fixedCount}</span>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <span className="text-sm text-secondary-foreground">{t('metrics.problems.toFix')}</span>
+              <span className="text-2xl font-semibold tabular-nums">{problemsBlock.averageHoursToFix === null ? none : t('metrics.hours', { hours: number(problemsBlock.averageHoursToFix) })}</span>
+            </CardContent>
+          </Card>
+        </div>
+        {problemsBlock.active.length > 0 && (
+          <Card className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className={head}>{t('metrics.problems.problem')}</th>
+                  <th scope="col" className={head}>{t('metrics.problems.tickets')}</th>
+                  <th scope="col" className={head}>{t('metrics.problems.orgs')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {problemsBlock.active.map((row) => (
+                  <tr key={row.number} className="border-b border-border last:border-b-0">
+                    <th scope="row" className={`${cell} text-start font-medium wrap-anywhere`}>
+                      <Link href={`/agent/problems/${row.number}`} className="text-link underline-offset-2 hover:underline">
+                        KP-{row.number} {row.internalTitle}
+                      </Link>
+                    </th>
+                    <td className={`${cell} tabular-nums`}>{row.ticketCount}</td>
+                    <td className={`${cell} tabular-nums`}>{row.orgCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )}
+      </section>
+
+      {candidatesBlock && (
+        <section aria-labelledby="metrics-candidates" className="flex flex-col gap-3" data-block="candidates">
+          <h2 id="metrics-candidates" className="text-base font-semibold">
+            {t('metrics.candidates.title')}
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-5">
+            {(['created', 'accepted', 'merged', 'rejected'] as const).map((key) => (
+              <Card key={key}>
+                <CardContent className="flex flex-col gap-1 pt-6">
+                  <span className="text-sm text-secondary-foreground">{t(`metrics.candidates.${key}`)}</span>
+                  <span className="text-2xl font-semibold tabular-nums">{candidatesBlock[key]}</span>
+                </CardContent>
+              </Card>
+            ))}
+            <Card>
+              <CardContent className="flex flex-col gap-1 pt-6">
+                <span className="text-sm text-secondary-foreground">{t('metrics.candidates.toPublish')}</span>
+                <span className="text-2xl font-semibold tabular-nums">{candidatesBlock.averageHoursToPublish === null ? none : t('metrics.hours', { hours: number(candidatesBlock.averageHoursToPublish) })}</span>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
       )}
 
       {/* Пустой период: показателей помощника тоже нет, как и остальных чисел периода. */}

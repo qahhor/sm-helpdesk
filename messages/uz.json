@@ -3222,6 +3222,25 @@
         "handoffs": "Sabablar bo'yicha xodimga topshirishlar",
         "count": "Murojaatlar",
         "hint": "Davrda yaratilgan va yordamchi olib borgan murojaatlar hisoblanadi. Birinchi javob vaqti soniyalarda, kecha-kunduz: yordamchi istalgan vaqtda javob beradi. Xarajat Toshkent bo'yicha joriy kalendar oyi uchun."
+      },
+      "noProblems": "Ma'lum muammolarsiz",
+      "hours": "{hours} soat",
+      "problems": {
+        "title": "Ma'lum muammolar",
+        "active": "Hozir faol",
+        "fixed": "Davr ichida tuzatilgan",
+        "toFix": "Birinchi murojaatdan tuzatishgacha",
+        "problem": "Muammo",
+        "tickets": "Murojaatlar",
+        "orgs": "Tashkilotlar"
+      },
+      "candidates": {
+        "title": "Yechim nomzodlari",
+        "created": "Paydo bo'ldi",
+        "accepted": "Qoralama qilindi",
+        "merged": "Birlashtirildi",
+        "rejected": "Rad etildi",
+        "toPublish": "Paydo bo'lishdan chop etishgacha"
       }
     },
     "solutions": {
@@ -3249,7 +3268,8 @@
         "helped": "Yordam berdi",
         "notHelped": "Yordam bermadi",
         "updated": "O'zgartirilgan",
-        "assistant": "Yordamchi javoblari"
+        "assistant": "Yordamchi javoblari",
+        "staffUseful": "Xodimlarga foydali"
       },
       "locales": {
         "ru": "Ruscha",

@@ -227,3 +227,18 @@ test('ai.triage_review: доля принятых ниже 70% при 30 реш�
   // В этом месяце ночь поле снова не отключает.
   expect(await runTriageReview({ type: 'system', job: 'ai.triage_review' }, { now })).toEqual([]);
 });
+
+test('долг M5b M7: резюме и пометка приоритета не участвуют в правиле 70% (их принятие ничего не меняет в обращении)', async () => {
+  const run = (await pools.root.query(`insert into hda_runs (org_id, purpose, model, outcome) values ($1, 'first_line', 'stub-model', 'ok') returning run_id`, [f.orgA.orgId])).rows[0].run_id;
+  // 30 решений по резюме и пометке приоритета, ни одно не принято.
+  for (let i = 0; i < 30; i++) {
+    await pools.root.query(`delete from hdc_rate_limits`);
+    const { ticketId } = await ticket(`Обращение про резюме ${i}`);
+    await pools.root.query(
+      `insert into hda_triage_suggestions (org_id, ticket_id, run_id, field, value, status, decided_on, decided_by) values ($1, $2, $3, 'summary', 'Резюме', 'rejected', now(), $4), ($1, $2, $3, 'priority_hint', 'check', 'rejected', now(), $4)`,
+      [f.orgA.orgId, ticketId, run, f.l1.userId],
+    );
+  }
+  expect(await runTriageReview({ type: 'system', job: 'ai.triage_review' }, { now: new Date(Date.now() + 1000) })).toEqual([]);
+  expect((await pools.root.query(`select field from hda_triage_field_offs`)).rows).toEqual([]);
+});

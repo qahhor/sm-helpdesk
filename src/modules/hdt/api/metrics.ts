@@ -62,7 +62,12 @@ export function canReviewCsat(ctx: StaffContext): boolean {
   return ctx?.actor?.type === 'staff' && REVIEW_ROLES.includes(ctx.actor.staffRole);
 }
 
-const periodInput = z.object({ period: z.unknown().optional(), from: z.unknown().optional(), to: z.unknown().optional() });
+const periodInput = z.object({ period: z.unknown().optional(), from: z.unknown().optional(), to: z.unknown().optional(), noProblems: z.unknown().optional() });
+/** Фильтр "без известных проблем" (FR-KP-13): галочка формы или true. */
+const withoutProblemsOf = (input: unknown): boolean => {
+  const value = typeof input === 'object' && input !== null ? (input as { noProblems?: unknown }).noProblems : undefined;
+  return value === true || value === 'on' || value === '1' || value === 'true';
+};
 
 type Share = { total: number; ok: number; percent: number | null };
 type Timing = { count: number; averageMinutes: number | null; medianMinutes: number | null };
@@ -103,6 +108,8 @@ export type LowRating = {
 };
 export type MetricsView = {
   period: Period;
+  /** Обращения, привязанные к известным проблемам, исключены (FR-KP-13). */
+  withoutProblems: boolean;
   timeZone: string;
   overview: MetricsOverview;
   sources: { source: string; count: number; percent: number | null }[];
@@ -151,7 +158,8 @@ const overviewOf = (c: Counters, finished: number, firstResponseTime: Timing, re
 export async function getMetrics(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<MetricsView> {
   requireStaff(ctx);
   const { period, config } = await resolvePeriod(ctx, input, now);
-  const range: Range = { from: period.from, to: period.to };
+  const withoutProblems = withoutProblemsOf(input);
+  const range: Range = { from: period.from, to: period.to, withoutProblems };
   const { bySource, finished, responded, resolved, events, low } = await withActor(ctx.actor, async (tx) => {
     const resolvedRows = await resolvedRowsTx(tx, range, METRICS_ROW_CAP + 1);
     return {
@@ -195,6 +203,7 @@ export async function getMetrics(ctx: StaffContext, input: unknown, now: Date = 
   const total = counters.created;
   return {
     period,
+    withoutProblems,
     timeZone: config.calendar.timeZone,
     overview: overviewOf(
       counters,

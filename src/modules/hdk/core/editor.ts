@@ -295,6 +295,8 @@ export type ListRow = {
   shownCount: number;
   helpedCount: number;
   notHelpedCount: number;
+  /** Пригодилось сотрудникам (веха M5c, FR-CAND-03): похожие закрытые обращения без решения. */
+  staffUsefulCount: number;
   ownerId: string | null;
   updatedOn: Date;
 };
@@ -332,12 +334,13 @@ export async function listArticlesTx(tx: Tx, filters: ListFilters): Promise<List
     shown_count: number;
     helped_count: number;
     not_helped_count: number;
+    staff_useful_count: number;
     owner_id: string | null;
     updated_on: Date;
   }>(sql`
     select a.article_id, a.number, coalesce(nullif(d.title, ''), p.title, '') as title, a.module_id, a.original_locale, a.audience,
            a.status as article_status, p.version_id is not null as is_published, d.version_id is not null as has_draft,
-           ${review} as needs_review, a.shown_count, a.helped_count, a.not_helped_count, a.owner_id,
+           ${review} as needs_review, a.shown_count, a.helped_count, a.not_helped_count, a.staff_useful_count, a.owner_id,
            greatest(a.modified_on, coalesce(d.modified_on, a.modified_on), coalesce(p.modified_on, a.modified_on)) as updated_on
       from hdk_articles a
       left join hdk_article_versions d on d.article_id = a.article_id and d.locale = a.original_locale and d.state = 'draft'
@@ -358,6 +361,7 @@ export async function listArticlesTx(tx: Tx, filters: ListFilters): Promise<List
     shownCount: Number(row.shown_count),
     helpedCount: Number(row.helped_count),
     notHelpedCount: Number(row.not_helped_count),
+    staffUsefulCount: Number(row.staff_useful_count),
     ownerId: row.owner_id,
     updatedOn: new Date(row.updated_on),
   }));

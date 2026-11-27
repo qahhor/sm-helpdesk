@@ -3222,6 +3222,25 @@
         "handoffs": "Handoffs to staff by reason",
         "count": "Requests",
         "hint": "Counts requests created in the period that the assistant handled. First reply time in seconds around the clock: the assistant replies at any time. Spending for the current calendar month in Tashkent time."
+      },
+      "noProblems": "Without known problems",
+      "hours": "{hours} h",
+      "problems": {
+        "title": "Known problems",
+        "active": "Active now",
+        "fixed": "Fixed in the period",
+        "toFix": "From first request to fix",
+        "problem": "Problem",
+        "tickets": "Requests",
+        "orgs": "Organizations"
+      },
+      "candidates": {
+        "title": "Solution candidates",
+        "created": "Appeared",
+        "accepted": "Turned into drafts",
+        "merged": "Merged",
+        "rejected": "Rejected",
+        "toPublish": "From appearance to publishing"
       }
     },
     "solutions": {
@@ -3249,7 +3268,8 @@
         "helped": "Helped",
         "notHelped": "Did not help",
         "updated": "Changed",
-        "assistant": "Assistant answers"
+        "assistant": "Assistant answers",
+        "staffUseful": "Useful to staff"
       },
       "locales": {
         "ru": "Russian",

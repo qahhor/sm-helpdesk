@@ -83,6 +83,31 @@ export function signatureFromText(text: string): string | null {
   return line ? errorSignature({ errorCode: line.code, errorMessage: line.message }) : null;
 }
 
+/** Код или подпись в начале строки ошибки: снимается перед сопоставлением с шаблоном знаний из кода (веха M8c). */
+const LINE_PREFIX = new RegExp(`^\\s*(?:(?:${ERROR_CODE_PREFIXES.join('|')})-\\d{4,5}\\s*[:.-]?\\s*|(?:текст ошибки|ошибка|error|xato|хато)\\s*:\\s*)`, 'iu');
+const NEXT_CODE = new RegExp(`\\s+(?:${ERROR_CODE_PREFIXES.join('|')})-\\d{4,5}\\b.*$`, 'iu');
+/** Сколько строк описания идёт на сопоставление с шаблонами (решение 8 плана M8c). */
+const TEMPLATE_LINES_MAX = 30;
+
+/**
+ * Строки для сопоставления с утверждёнными шаблонами знаний из кода (веха M8c, задача 5; план M8c, решение 8): текст
+ * строки ошибки (и он же без хвоста стека на той же строке), затем непустые строки описания без кода и подписи в начале.
+ */
+export function templateCandidateLines(input: { errorText?: string | null; description: string }): string[] {
+  const out: string[] = [];
+  const push = (text: string) => {
+    const line = text.replace(LINE_PREFIX, '').trim().slice(0, MESSAGE_MAX);
+    if (line && !out.includes(line)) out.push(line);
+    const cut = line.replace(NEXT_CODE, '').trim();
+    if (cut && !out.includes(cut)) out.push(cut);
+  };
+  if (input.errorText?.trim()) push(input.errorText);
+  const found = findErrorLine(input.description);
+  if (found?.message) push(found.message);
+  for (const line of input.description.split(/\r?\n/).slice(0, TEMPLATE_LINES_MAX)) if (line.trim()) push(line);
+  return out.slice(0, TEMPLATE_LINES_MAX + 1);
+}
+
 /**
  * Сигнатура и её составные части. message: нормализованный текст (числа, кавычки, идентификаторы уже заменены);
  * raw: текст ошибки как есть, из него пример для сотрудников строится после очистки от данных клиента.

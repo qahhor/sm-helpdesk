@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { errorSignature, findErrorLine, groupCorpus, normalizeErrorMessage, parseCorpus, signatureFromText, staffErrorSignature, ticketErrorSignature } from '@/modules/hdk/signature';
 
 // Сигнатура ошибки (ТЗ 11.5, FR-SOL-07; план M5, задача 8, решение 7). Функции 11.5 повторены дословно, проверка на
@@ -120,4 +120,17 @@ test('сотрудник в редакторе: код и текст отдел�
   // Текст без кода и подписи берётся целиком.
   expect(staffErrorSignature({ text: 'Период 03.2026 закрыт' })?.signature).toBe(errorSignature({ errorMessage: 'Период 1 закрыт' }));
   expect(staffErrorSignature({ text: '   ' })).toBeNull();
+});
+
+describe('строки для шаблонов знаний из кода (веха M8c, решение 8)', () => {
+  test('текст ошибки без кода и без хвоста стека на той же строке, затем строки описания без подписи', async () => {
+    const { templateCandidateLines } = await import('@/modules/hdk/signature');
+    const lines = templateCandidateLines({ description: 'Добрый день.\nORA-20001: Недостаточно остатка товара X ORA-06512: at line 5\nОшибка: склад закрыт на учёт' });
+    expect(lines).toContain('Недостаточно остатка товара X');
+    expect(lines).toContain('Недостаточно остатка товара X ORA-06512: at line 5');
+    expect(lines).toContain('склад закрыт на учёт');
+    expect(lines).toContain('Добрый день.');
+    expect(templateCandidateLines({ errorText: 'ORA-20001: Нет товара', description: '' })).toEqual(['Нет товара']);
+    expect(templateCandidateLines({ description: Array.from({ length: 50 }, (_, i) => `строка ${i}`).join('\n') }).length).toBeLessThanOrEqual(31);
+  });
 });

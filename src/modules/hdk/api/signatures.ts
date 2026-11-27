@@ -11,7 +11,8 @@ import { articleByNumberTx } from '../core/editor';
 import { articleSignaturesTx, bindSignatureTx, type SignatureRow, noteSignatureTx, unbindSignatureTx } from '../core/signatures';
 import { HdkError } from '../error';
 import { ARTICLE_NUMBER_MAX, KB_WRITER_ROLES } from '../pref';
-import { normalizeErrorMessage, staffErrorSignature, type TicketSignature, ticketErrorSignature } from '../signature';
+import { normalizeErrorMessage, type TicketSignature } from '../signature';
+import { resolveErrorSignature, resolveStaffSignature } from './signature-text';
 
 // Модуль hdk, слой api: сигнатуры ошибок (план M5, задача 8; ТЗ 11.5, FR-SOL-07, 12; решения 7 и 8).
 //
@@ -38,7 +39,8 @@ function sampleOf(found: TicketSignature, known: { names?: readonly string[]; or
 /** Запись сигнатуры нового обращения: обращение, сигнатура, организация. Подключается в src/wiring.ts. */
 export const ticketSignatureRecorder: TicketSignatureRecorder = {
   async recordTicket(input: TicketSignatureInput): Promise<string | null> {
-    const found = ticketErrorSignature({ context: input.context, description: input.description });
+    // Утверждённые шаблоны знаний из кода, затем 11.5 (веха M8c, решение 8).
+    const found = await resolveErrorSignature({ text: input.description, errorCode: input.context?.errorCode, errorText: input.context?.errorText });
     if (!found) return null;
     const profile = await orgAiProfile(SYSTEM, { orgId: input.orgId, userIds: input.authorId ? [input.authorId] : [] });
     const sample = sampleOf(found, {
@@ -135,7 +137,7 @@ export async function bindSolutionSignature(ctx: StaffContext, input: unknown): 
   let target: { signatureId: string } | { signature: string; code: string; sample: string };
   if ('signatureId' in data) target = { signatureId: data.signatureId };
   else {
-    const found = staffErrorSignature({ ...(data.errorCode ? { code: data.errorCode } : {}), text: data.errorText });
+    const found = await resolveStaffSignature({ ...(data.errorCode ? { code: data.errorCode } : {}), text: data.errorText });
     if (!found) throw new HdkError('invalid_input');
     target = { signature: found.signature, code: found.code, sample: sampleOf(found) };
   }

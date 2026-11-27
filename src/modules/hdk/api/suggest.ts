@@ -19,7 +19,7 @@ import { HdkError } from '../error';
 import { type KbAudience, ORG_COUNT_MIN, QUERY_EMBED_TIMEOUT_MS, SHOWN_PER_SESSION_MAX, SUGGEST_QUERY_MAX, SUGGEST_QUERY_MIN } from '../pref';
 import { type ExactHit, rankHits, type RankedHit } from '../ranking';
 import { kbArticles, kbDeflectionEvents, kbErrorSignatures, kbPublished, kbSignatureOrgs } from '../schema';
-import { signatureFromText, ticketErrorSignature } from '../signature';
+import { resolveErrorSignature } from './signature-text';
 
 // Модуль hdk, слой api: подсказка решений и связанные решения (план M5, задача 10; ТЗ 11.6, FR-SOL-08..14, FR-AG-05,
 // решения 5, 8, 12, 13, 17).
@@ -195,7 +195,7 @@ export async function suggestForClient(ctx: Pick<ClientContext, 'actor'>, input:
   const perUser = await consumeRateLimit(rateKey('kb-suggest:user', ctx.actor.userId), RATE_RULES.kbSuggestPerUser);
   const perOrg = perUser.allowed ? await consumeRateLimit(rateKey('kb-suggest:org', ctx.actor.orgId), RATE_RULES.kbSuggestPerOrg) : perUser;
   if (!perUser.allowed || !perOrg.allowed) return { items: [], limited: true };
-  const signature = signatureFromText(text);
+  const signature = (await resolveErrorSignature({ text }))?.signature ?? null;
   const { items } = await searchSolutions(ctx.actor, { text, signature, moduleId: parsed.data.moduleId ?? null, locale: parsed.data.locale, audiences: ['clients'] });
   if (items.length > 0) await noteShown(ctx.actor, parsed.data.sessionId, { text, signature, articleIds: items.map((i) => i.articleId) });
   await noteSuggestOutcome(ctx.actor, { sessionId: parsed.data.sessionId, text, locale: parsed.data.locale, moduleId: parsed.data.moduleId ?? null, found: items.length > 0 });
@@ -224,7 +224,7 @@ export async function suggestForWidget(ctx: Pick<ClientContext, 'actor'>, input:
   if (!parsed.success) throw new HdkError('invalid_input');
   const data = parsed.data;
   const described = data.text.trim();
-  const signature = ticketErrorSignature({ context: { errorCode: data.errorCode, errorText: data.errorText }, description: described })?.signature ?? null;
+  const signature = (await resolveErrorSignature({ text: described, errorCode: data.errorCode, errorText: data.errorText }))?.signature ?? null;
   const text = (described.length >= SUGGEST_QUERY_MIN ? described : (data.errorText ?? '').trim()).slice(0, SUGGEST_QUERY_MAX);
   if (text.length < SUGGEST_QUERY_MIN && !signature) return { items: [], limited: false };
   const perUser = await consumeRateLimit(rateKey('kb-suggest:user', ctx.actor.userId), RATE_RULES.kbSuggestPerUser);

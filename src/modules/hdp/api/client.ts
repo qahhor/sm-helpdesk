@@ -93,7 +93,7 @@ const textInput = z.strictObject({
  */
 export async function publicProblemForText(actor: ClientActor, input: unknown): Promise<PublicProblemCard | null> {
   const data = parseInput(textInput, input);
-  const signature = errorSignatureOf({ text: data.text, errorCode: data.errorCode, errorText: data.errorText });
+  const signature = await errorSignatureOf({ text: data.text, errorCode: data.errorCode, errorText: data.errorText });
   if (!signature) return null;
   const found = await withActor(SYSTEM, (tx) => activeProblemBySignatureTx(tx, signature));
   if (!found) return null;

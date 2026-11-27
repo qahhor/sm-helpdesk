@@ -192,6 +192,8 @@ export async function seedEverything() {
   // Черновик проблемы с предложенным обращением (веха M8b, решение 20): клиент не видит ни черновика, ни предложений.
   const draftProblem = (await pools.root.query(`insert into hdp_problems (internal_title, status) values ('Черновик AI-сотрудника', 'draft') returning problem_id`)).rows[0].problem_id as string;
   await pools.root.query(`insert into hdp_problem_proposals (problem_id, ticket_id, org_id) values ($1, $2, $3)`, [draftProblem, f.tickets.aOrg.ticketId, f.orgA.orgId]);
+  // Всплеск сигнатуры (веха M8b, задача 8): счётчик без организаций, клиент его не видит.
+  await pools.root.query(`insert into hda_signature_spikes (signature, org_count, ticket_count, window_minutes) values (repeat('b', 32), 3, 4, 60)`);
   // Объявления (веха M5c, задача 6): действующее для всех (текст сотрудника и непринятый машинный перевод), для чужого
   // сервера и ещё не начавшееся; закрытие баннера клиентом А.
   const otherServer = (

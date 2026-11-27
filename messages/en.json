@@ -2223,7 +2223,8 @@
           "lifted": "Cut-off lifted.",
           "topics": "Mandatory topics saved.",
           "field_on": "Triage field turned on again.",
-          "candidates": "Candidate settings saved."
+          "candidates": "Candidate settings saved.",
+          "spikes": "Spike settings saved"
         },
         "errors": {
           "stale_session": "Sign in again to change settings.",
@@ -2315,6 +2316,13 @@
           "merge": "Similarity to merge candidates, %",
           "hint": "The thresholds are initial: they will be tuned on real vectors.",
           "save": "Save candidate settings"
+        },
+        "spikes": {
+          "title": "Signature spike",
+          "intro": "The portal marks a spike when one error signature arrives in requests of several organizations within a short time. Staff see spikes on the known problems page, and the AI staff receives them.",
+          "orgCount": "At least organizations",
+          "windowMinutes": "Within minutes",
+          "save": "Save"
         }
       },
       "agents": {
@@ -4131,6 +4139,15 @@
         "linkHint": "Each request is checked separately: closed and already linked ones are skipped.",
         "reject": "Reject draft",
         "reason": "Reason for rejection"
+      },
+      "spikes": {
+        "title": "Signature spikes",
+        "intro": "One error signature in requests of several organizations within a short time. Check whether a known problem is needed.",
+        "counts": "{orgs} organizations, {tickets} requests in {minutes} min, {when}",
+        "problem": "Known problem",
+        "create": "Create known problem",
+        "titleLabel": "Internal title",
+        "defaultTitle": "Error spike {signature}"
       }
     },
     "announcements": {

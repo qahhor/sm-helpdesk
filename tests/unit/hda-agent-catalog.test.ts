@@ -61,6 +61,10 @@ describe('каталог инструментов', () => {
     for (const name of AGENT_TOOLS) for (const word of FORBIDDEN_AGENT_ACTIONS) expect(name.includes(word), `${name} содержит ${word}`).toBe(false);
   });
 
+  test('у каждого имени перечня AGENT_TOOLS есть определение (каталог полон после задачи 8)', () => {
+    expect(definedAgentTools()).toEqual([...AGENT_TOOLS]);
+  });
+
   test('вид инструмента совпадает с группой чтения или записи', () => {
     for (const name of definedAgentTools()) {
       const def = AGENT_TOOL_DEFS[name]!;

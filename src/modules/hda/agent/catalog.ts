@@ -9,6 +9,7 @@ import { noteTools } from './tools/notes';
 import { problemTools } from './tools/problems';
 import { reportTools } from './tools/reports';
 import { solutionTools } from './tools/solutions';
+import { spikeTools } from './tools/spikes';
 import { ticketTools } from './tools/tickets';
 
 // Каталог инструментов сервера MCP (веха M8b, задачи 4-6; FR-AGT-03, 04, 05; план M8b, решения 9, 13, 17, 18).
@@ -17,7 +18,7 @@ import { ticketTools } from './tools/tickets';
 // Вход и выход каждого инструмента: строгие схемы Zod с пределами длин; описание JSON Schema строится из них же.
 
 export const AGENT_TOOL_DEFS: Partial<Record<AgentTool, AgentToolDef>> = Object.fromEntries(
-  [...ticketTools, ...solutionTools, ...problemTools, ...ideaTools, ...metricsTools, ...noteTools, ...draftTools, ...reportTools].map((def) => [def.name, def]),
+  [...ticketTools, ...solutionTools, ...problemTools, ...spikeTools, ...ideaTools, ...metricsTools, ...noteTools, ...draftTools, ...reportTools].map((def) => [def.name, def]),
 );
 
 /** Инструменты каталога, у которых есть выполнение, в порядке перечня AGENT_TOOLS. */

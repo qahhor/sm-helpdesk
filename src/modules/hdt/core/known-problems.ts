@@ -143,3 +143,49 @@ export async function ownProblemTicketTx(tx: Tx, input: { authorId: string; prob
     .limit(1);
   return row?.number ?? null;
 }
+
+/**
+ * Сигнатуры обращений за окно с числом разных организаций и обращений (веха M8b, всплеск сигнатуры, решение 25).
+ * Объединённые обращения и служебная организация не считаются. Только сигнатуры не меньше чем minOrgs организаций.
+ */
+export async function signatureOrgCountsTx(
+  tx: Tx,
+  input: { since: Date; until: Date; minOrgs: number; excludeOrgId: string },
+): Promise<{ signature: string; orgCount: number; ticketCount: number }[]> {
+  const rows = await tx
+    .select({
+      signature: sql<string>`${tickets.errorSignature}`,
+      orgCount: sql<number>`count(distinct ${tickets.orgId})::int`,
+      ticketCount: sql<number>`count(*)::int`,
+    })
+    .from(tickets)
+    .where(
+      and(
+        sql`${tickets.errorSignature} is not null`,
+        sql`${tickets.createdOn} > ${input.since.toISOString()}::timestamptz`,
+        sql`${tickets.createdOn} <= ${input.until.toISOString()}::timestamptz`,
+        sql`${tickets.orgId} <> ${input.excludeOrgId}::uuid`,
+        isNull(tickets.mergedIntoId),
+      ),
+    )
+    .groupBy(tickets.errorSignature)
+    .having(sql`count(distinct ${tickets.orgId}) >= ${input.minOrgs}`);
+  return rows;
+}
+
+/** Обращения с сигнатурой за окно: кнопка "Создать известную проблему" по всплеску. */
+export async function signatureTicketIdsTx(tx: Tx, input: { signature: string; since: Date; until: Date }): Promise<string[]> {
+  const rows = await tx
+    .select({ ticketId: tickets.ticketId })
+    .from(tickets)
+    .where(
+      and(
+        eq(tickets.errorSignature, input.signature),
+        sql`${tickets.createdOn} > ${input.since.toISOString()}::timestamptz`,
+        sql`${tickets.createdOn} <= ${input.until.toISOString()}::timestamptz`,
+      ),
+    )
+    .orderBy(asc(tickets.number))
+    .limit(500);
+  return rows.map((row) => row.ticketId);
+}

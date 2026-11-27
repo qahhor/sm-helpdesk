@@ -224,6 +224,20 @@ export const agentReports = pgTable('hda_agent_reports', {
   ...stampColumns,
 });
 
+/** Всплески сигнатур (веха M8b, задача 8; миграция 0114). Пишет система, проблему по всплеску ставит сотрудник. */
+export const signatureSpikes = pgTable('hda_signature_spikes', {
+  spikeId: uuid('spike_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  problemId: uuid('problem_id'),
+  signature: text('signature').notNull(),
+  orgCount: integer('org_count').notNull(),
+  ticketCount: integer('ticket_count').notNull(),
+  windowMinutes: integer('window_minutes').notNull(),
+  detectedOn: moment('detected_on').notNull().defaultNow(),
+  ...stampColumns,
+});
+
 export type AgentTokenRow = typeof agentTokens.$inferSelect;
 export type AgentToolCallRow = typeof agentToolCalls.$inferSelect;
 export type AgentReportRow = typeof agentReports.$inferSelect;

@@ -2223,7 +2223,8 @@
           "lifted": "O'chirish bekor qilindi.",
           "topics": "Majburiy mavzular saqlandi.",
           "field_on": "Saralash maydoni qayta yoqildi.",
-          "candidates": "Nomzodlar sozlamalari saqlandi."
+          "candidates": "Nomzodlar sozlamalari saqlandi.",
+          "spikes": "Keskin oshish sozlamalari saqlandi"
         },
         "errors": {
           "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
@@ -2315,6 +2316,13 @@
           "merge": "Nomzodlarni birlashtirish uchun o'xshashlik, %",
           "hint": "Chegaralar boshlang'ich: ular haqiqiy vektorlarda sozlanadi.",
           "save": "Nomzodlar sozlamalarini saqlash"
+        },
+        "spikes": {
+          "title": "Signatura keskin oshishi",
+          "intro": "Bitta xato signaturasi qisqa vaqt ichida bir nechta tashkilot murojaatlarida kelsa, portal keskin oshishni belgilaydi. Uni xodimlar ma'lum muammolar sahifasida ko'radi, AI-xodim ham oladi.",
+          "orgCount": "Kamida tashkilotlar",
+          "windowMinutes": "Daqiqa ichida",
+          "save": "Saqlash"
         }
       },
       "agents": {
@@ -4131,6 +4139,15 @@
         "linkHint": "Har bir murojaat alohida tekshiriladi: yopilgan va allaqachon bog'langanlari o'tkazib yuboriladi.",
         "reject": "Qoralamani rad etish",
         "reason": "Rad etish sababi"
+      },
+      "spikes": {
+        "title": "Signaturalarning keskin oshishi",
+        "intro": "Bitta xato signaturasi qisqa vaqt ichida bir nechta tashkilot murojaatlarida. Ma'lum muammo kerak emasligini tekshiring.",
+        "counts": "{orgs} ta tashkilot, {minutes} daqiqada {tickets} ta murojaat, {when}",
+        "problem": "Ma'lum muammo",
+        "create": "Ma'lum muammo yaratish",
+        "titleLabel": "Ichki nom",
+        "defaultTitle": "{signature} xatosining keskin oshishi"
       }
     },
     "announcements": {

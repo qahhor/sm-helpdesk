@@ -323,6 +323,8 @@ test('собранный worker.mjs запускается без каталог
   // Расписания записаны в pg-boss.
   expect((await pools.root.query(`select name, cron, timezone from pgboss.schedule order by name`)).rows).toEqual([
     // AI первой линии (веха M5b): пределы расходов раз в 10 минут, сторожевая проверка помощника раз в минуту.
+    // Всплеск сигнатуры для AI-сотрудника (веха M8b, задача 8): раз в 5 минут.
+    { name: 'agent.spikes', cron: '*/5 * * * *', timezone: 'UTC' },
     { name: 'ai.budget', cron: '*/10 * * * *', timezone: 'UTC' },
     // Кандидаты в решения (веха M5c, задача 9): досчёт векторов ночью, обход раз в 15 минут.
     { name: 'ai.candidates_embed', cron: '20 4 * * *', timezone: 'Asia/Tashkent' },

@@ -1,6 +1,7 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { AI_MODELS, AI_PURPOSES, RESTRICTED_TOPICS, TRIAGE_FIELDS } from '@/modules/hda/api/constants';
 import { aiSettingsView, candidateSettingsView } from '@/modules/hda/api/settings';
+import { spikeSettingsView } from '@/modules/hda/api/agent-jobs';
 import { triageFieldOffs } from '@/modules/hda/api/triage';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -13,13 +14,13 @@ import { Select } from '@/ui/components/select';
 import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { Textarea } from '@/ui/components/textarea';
 import { settingsNav } from '../sections';
-import { liftAiCutoffAction, liftTriageFieldOffAction, saveAiModelsAction, saveAiSettingsAction, saveCandidateSettingsAction, saveRestrictedTopicsAction } from './actions';
+import { liftAiCutoffAction, liftTriageFieldOffAction, saveAiModelsAction, saveAiSettingsAction, saveCandidateSettingsAction, saveRestrictedTopicsAction, saveSpikeSettingsAction } from './actions';
 
 // "AI-помощник" (план M5b, задача 1; FR-ADM-09, FR-AI-17, FR-TRI-04, 9.2): общий переключатель, разбор, порог
 // уверенности, пределы и расход за месяц, отключённые организации, модели по целям, отключённые поля разбора. Меняет
 // только администратор со свежим входом; каждое изменение пишется в журнал аудита.
 
-const DONE = new Set(['saved', 'models', 'models_changed', 'lifted', 'topics', 'field_on', 'candidates']);
+const DONE = new Set(['saved', 'models', 'models_changed', 'lifted', 'topics', 'field_on', 'candidates', 'spikes']);
 const LANGS = ['ru', 'uz', 'en'] as const;
 const ERRORS = new Set(['forbidden', 'invalid_input']);
 
@@ -35,6 +36,8 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
   const offs = await triageFieldOffs(staff);
   // Кандидаты в решения (план M5c, задача 9): выключатель, дневной предел и пороги склейки.
   const candidates = await candidateSettingsView(staff);
+  // Всплеск сигнатуры для AI-сотрудника (веха M8b, задача 8): порог организаций и окно.
+  const spikes = await spikeSettingsView(staff);
   const money = (usd: number) => format.number(usd, { style: 'currency', currency: 'USD' });
   const reauth = `/${locale}/staff/login?reauth=1&next=${encodeURIComponent(`/${locale}/agent/settings/ai`)}`;
   return (
@@ -187,6 +190,28 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
               <p className="text-sm text-secondary-foreground">{a('candidates.hint')}</p>
               <Button type="submit" className="self-start">
                 {a('candidates.save')}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <form action={saveSpikeSettingsAction} className="flex flex-col gap-4" data-testid="spike-settings">
+              <h2 className="text-lg font-semibold">{a('spikes.title')}</h2>
+              <p className="text-sm text-secondary-foreground">{a('spikes.intro')}</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="spike-orgs">{a('spikes.orgCount')}</Label>
+                  <Input id="spike-orgs" name="orgCount" type="number" min={2} max={100} step={1} required defaultValue={spikes.orgCount} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="spike-window">{a('spikes.windowMinutes')}</Label>
+                  <Input id="spike-window" name="windowMinutes" type="number" min={5} max={1440} step={1} required defaultValue={spikes.windowMinutes} />
+                </div>
+              </div>
+              <Button type="submit" className="self-start">
+                {a('spikes.save')}
               </Button>
             </form>
           </CardContent>

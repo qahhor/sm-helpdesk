@@ -150,3 +150,14 @@ export const agentSignaturesView = pgView('hda_agent_signatures', {
   hasSolution: boolean('has_solution').notNull(),
   createdOn: moment('created_on').notNull(),
 }).existing();
+
+export const agentSpikesView = pgView('hda_agent_spikes', {
+  spikeId: uuid('spike_id').notNull(),
+  signature: text('signature').notNull(),
+  orgCount: integer('org_count').notNull(),
+  ticketCount: integer('ticket_count').notNull(),
+  windowMinutes: integer('window_minutes').notNull(),
+  detectedOn: moment('detected_on').notNull(),
+  problemNumber: num('problem_number'),
+  ticketNumbers: num('ticket_numbers').array().notNull(),
+}).existing();

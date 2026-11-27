@@ -21,6 +21,8 @@ import { confirmBroadcast, prepareBroadcast } from '@/modules/hdp/api/broadcasts
 import { linkTicketToProblem, unlinkTicket } from '@/modules/hdp/api/links';
 import { listProblems } from '@/modules/hdp/api/problems';
 import { requireStaffActor } from '@/modules/hdu/api';
+import { createProblemFromSpike } from '@/modules/hda/api/agent-jobs';
+import { isHdaError } from '@/modules/hda/api/agent-admin';
 import { isHdwError } from '@/modules/hdw/api';
 import { devTrackerMode, linkDevTaskToProblem, setDevTaskStatus, unlinkDevTaskFromProblem } from '@/modules/hdw/api/dev-tasks';
 
@@ -267,4 +269,20 @@ export async function problemDevTaskUnlinkAction(form: FormData): Promise<void> 
 export async function problemDevTaskStatusAction(form: FormData): Promise<void> {
   const staff = await requireStaffActor();
   await runDev(form, () => setDevTaskStatus(staff, { devTaskId: text(form, 'devTaskId'), status: text(form, 'status'), ...(text(form, 'version') ? { version: text(form, 'version') } : {}) }), 'dev_status');
+}
+
+/** "Создать известную проблему" по всплеску сигнатуры (веха M8b, задача 8, решение 25). */
+export async function createFromSpikeAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  let target: string;
+  try {
+    const { number } = await createProblemFromSpike(staff, { spikeId: text(form, 'spikeId'), internalTitle: text(form, 'internalTitle') });
+    target = `/${locale}/agent/problems/${number}?status=created`;
+  } catch (error) {
+    if (isHdpError(error)) target = `/${locale}/agent/problems?status=error-${error.code}`;
+    else if (isHdaError(error)) target = `/${locale}/agent/problems?status=error-${error.code === 'not_found' ? 'not_found' : error.code === 'invalid_input' ? 'invalid_input' : 'forbidden'}`;
+    else throw error;
+  }
+  redirect(target);
 }

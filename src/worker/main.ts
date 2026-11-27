@@ -28,6 +28,7 @@ import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/m
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, type NoActivityOptions, runNoActivityRules } from '@/modules/hdw/api/engine';
 import { runCandidateJob, runCandidatesEmbed, runCandidatesSweep } from '@/modules/hda/api/candidates';
+import { runSpikeDetection } from '@/modules/hda/api/agent-jobs';
 import { syncDevTasks } from '@/modules/hdw/api/dev-task-jobs';
 import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
@@ -45,6 +46,8 @@ export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
   // Пределы расходов на AI (план M5b, решение 11): раз в 10 минут.
+  // Всплеск сигнатуры для AI-сотрудника (веха M8b, задача 8, решение 25): раз в 5 минут.
+  { name: 'agent.spikes', cron: '*/5 * * * *', tz: 'UTC' },
   { name: 'ai.budget', cron: '*/10 * * * *', tz: 'UTC' },
   // Сторожевая проверка помощника (план M5b, решение 5): раз в минуту по всем обращениям у помощника.
   { name: 'ai.watchdog', cron: '* * * * *', tz: 'UTC' },
@@ -276,6 +279,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('ai.triage_review', polling, () => timedJob('ai.triage_review', async () => {
     const off = await runTriageReview(actor('ai.triage_review'));
     if (off.length > 0) console.info(`AI: отключены предложения разбора полей ${off.join(', ')}`);
+  }));
+  await boss.work('agent.spikes', polling, () => timedJob('agent.spikes', async () => {
+    const { detected } = await runSpikeDetection(actor('agent.spikes'));
+    if (detected > 0) console.info(`AI-сотрудник: всплесков сигнатур найдено ${detected}`);
   }));
   await boss.work('ai.candidates_sweep', polling, () => timedJob('ai.candidates_sweep', async () => {
     const { queued } = await runCandidatesSweep(actor('ai.candidates_sweep'));

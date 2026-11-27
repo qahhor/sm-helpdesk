@@ -14,7 +14,9 @@ import { Label } from '@/ui/components/label';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { Select } from '@/ui/components/select';
 import { StatusLabel } from '@/ui/components/StatusLabel';
+import { listSpikes } from '@/modules/hda/api/agent-jobs';
 import { createProblemAction } from './actions';
+import { SpikesBlock } from './SpikesBlock';
 import { PROBLEM_STATUS_TONE } from './status-tone';
 
 // Известные проблемы на рабочем месте (ТЗ 7.15, FR-ADM-12, FR-KP-10; план M5c, задача 2), образец "Список": статус,
@@ -40,12 +42,27 @@ export default async function AgentProblemsPage({ searchParams }: { searchParams
   const modules = await listActiveModules(staff.actor, locale);
   const moduleName = new Map(modules.map((m) => [m.moduleId, m.name]));
   const canWrite = (PROBLEM_WRITER_ROLES as readonly string[]).includes(staff.actor.staffRole);
+  const spikes = (await listSpikes(staff)).map((row) => ({ ...row, detectedOn: row.detectedOn.toISOString(), problemRef: row.problemNumber !== null ? problemRef(row.problemNumber) : null }));
+  const when = (iso: string) => format.dateTime(new Date(iso), { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
     <>
       <PageHeader title={s('title')} breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: s('title') }]} breadcrumbsLabel={t('breadcrumbs')} />
       <div className="flex flex-col gap-4">
         {error && <Alert tone="danger">{s(`errors.${(HDP_ERROR_CODES as readonly string[]).includes(error) ? error : 'forbidden'}`, { kinds: '' })}</Alert>}
+        <SpikesBlock
+          rows={spikes}
+          canWrite={canWrite}
+          labels={{
+            title: s('spikes.title'),
+            intro: s('spikes.intro'),
+            counts: (row) => s('spikes.counts', { orgs: row.orgCount, tickets: row.ticketCount, minutes: row.windowMinutes, when: when(row.detectedOn) }),
+            problem: s('spikes.problem'),
+            create: s('spikes.create'),
+            titleLabel: s('spikes.titleLabel'),
+            defaultTitle: (row) => s('spikes.defaultTitle', { signature: row.signature.slice(0, 8) }),
+          }}
+        />
         <form method="get" className="flex flex-wrap items-end gap-3" aria-label={s('filters.label')}>
           <div className="flex flex-col gap-1">
             <Label htmlFor="problems-status">{s('filters.status')}</Label>

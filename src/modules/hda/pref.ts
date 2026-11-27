@@ -295,6 +295,11 @@ export const AGENT_ALLOWED_IPS_MAX = 50;
 /** Журнал вызовов токена на экране: страницами по столько строк (решение 28). */
 export const AGENT_CALLS_PAGE = 50;
 /** Настройки AI-сотрудника в hdc_settings: служебный чат команды для сообщений по сводкам (решение 24). */
-export const AGENT_SETTINGS = { teamChatId: 'agent.team_chat_id' } as const;
+export const AGENT_SETTINGS = { teamChatId: 'agent.team_chat_id', spikeOrgCount: 'agent.spike_org_count', spikeWindowMinutes: 'agent.spike_window_minutes' } as const;
+/** Всплеск сигнатуры (решение 25): порог разных организаций и окно в минутах, по умолчанию 3 за 60 минут. */
+export const SPIKE_DEFAULTS = { orgCount: 3, windowMinutes: 60 } as const;
+export const SPIKE_LIMITS = { orgCount: { min: 2, max: 100 }, windowMinutes: { min: 5, max: 1440 } } as const;
+/** Повтор всплеска той же сигнатуры не раньше чем через столько часов. */
+export const SPIKE_REPEAT_HOURS = 24;
 /** Идентификатор чата Telegram: число, у групп и каналов со знаком минус. */
 export const TELEGRAM_CHAT_ID = /^-?\d{5,15}$/;

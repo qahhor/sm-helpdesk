@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { noProtoKeys } from '@/lib/no-proto';
 
 // Отчёты о нарушениях CSP (проверка main, S9). Политика до вехи M9 работает в режиме отчётов,
 // браузер присылает нарушения на /api/csp-report. В журнал попадает только то, что нужно для
@@ -26,7 +27,7 @@ const reportingItem = z.object({
   type: z.string(),
   body: z.object({ documentURL: text, effectiveDirective: text, blockedURL: text }).optional(),
 });
-const reportingBatch = z.array(z.unknown()).max(100);
+const reportingBatch = noProtoKeys(z.array(z.unknown()).max(100));
 
 type Violation = { document?: string; directive?: string; blocked?: string };
 

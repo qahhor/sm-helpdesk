@@ -29,6 +29,7 @@ import { numberInput, parseInput } from '../input';
 import { PILOT_METRICS, PILOT_ORGS_MAX, PILOT_ORGS_SETTING, PILOT_TARGETS, type PilotMetricKey } from '../pref';
 import { average, channelOfSource, combineCounters, CSV_MAX_ROWS, type CsvValue, decimal, type Line, LINES, lineUsage, localMinute, median, parsePeriod, percent, type Period, TICKET_CHANNELS, type TicketChannel } from '../metrics-util';
 import { workingMinutesBetween } from '../sla';
+import { noProtoKeys } from '@/lib/no-proto';
 
 // Модуль hdt, слой api: показатели поддержки (FR-MET-01, 03, 04, 07, 10, FR-LINE-08; план M8, задача 9,
 // решения 14-16). Сотрудник из проверенной сессии, вход по схеме, права проверяются здесь, а не скрытием кнопок.
@@ -65,7 +66,7 @@ export function canReviewCsat(ctx: StaffContext): boolean {
   return ctx?.actor?.type === 'staff' && REVIEW_ROLES.includes(ctx.actor.staffRole);
 }
 
-const periodInput = z.object({ period: z.unknown().optional(), from: z.unknown().optional(), to: z.unknown().optional(), noProblems: z.unknown().optional() });
+const periodInput = z.object({ period: noProtoKeys(z.unknown()).optional(), from: noProtoKeys(z.unknown()).optional(), to: noProtoKeys(z.unknown()).optional(), noProblems: noProtoKeys(z.unknown()).optional() });
 /** Фильтр "без известных проблем" (FR-KP-13): галочка формы или true. */
 const withoutProblemsOf = (input: unknown): boolean => {
   const value = typeof input === 'object' && input !== null ? (input as { noProblems?: unknown }).noProblems : undefined;

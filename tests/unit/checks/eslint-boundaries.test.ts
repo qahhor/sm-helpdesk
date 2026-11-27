@@ -132,3 +132,19 @@ test('ключи серверов Smartup скачиваются только ч
   }
   expect(await lint('src/modules/hdu/core/context-keys.ts', "import { createLocalJWKSet, jwtVerify, SignJWT } from 'jose';")).not.toContain('no-restricted-syntax');
 }, 60_000);
+
+test('загрязнение прототипа (план M9, задача 5; ASVS V15.3.6): литерал __proto__ и смена прототипа запрещены вне тестов', async () => {
+  for (const code of [
+    "const key = '__proto__';",
+    'const p = ({} as { __proto__: unknown }).__proto__;',
+    'Object.setPrototypeOf({}, null);',
+    'Reflect.setPrototypeOf({}, null);',
+    'Object.prototype.toJSON = () => 1;',
+  ])
+    expect(await lint('src/modules/hdt/core/x.ts', code), code).toContain('no-restricted-syntax');
+  expect(await lint('scripts/x.mjs', "const key = '__proto__';")).toContain('no-restricted-syntax');
+  // В тестах ввод с такими ключами нужен: правило их не трогает.
+  expect(await lint('tests/unit/x.test.ts', "const key = '__proto__';")).not.toContain('no-restricted-syntax');
+  // Запрет jose по-прежнему действует в исходниках.
+  expect(await lint('src/modules/hdu/core/x.ts', "import { createRemoteJWKSet } from 'jose';")).toContain('no-restricted-syntax');
+}, 30_000);

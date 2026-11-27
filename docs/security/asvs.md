@@ -344,7 +344,7 @@
 | V15.3.3 | 2 | Защита от массового присвоения полей | есть | Строгие схемы на каждое действие, поля сверх схемы отклоняются; база защищает поля триггерами: `tests/integration/isolation/tickets-writes.test.ts`, `tests/unit/hdu-input.test.ts` |  |
 | V15.3.4 | 2 | Настоящий адрес посетителя из доверенного поля | есть | `docs/decisions/0020-client-ip-source.md`, `tests/unit/hdc-util.test.ts`, `tests/unit/compose-prod.test.ts` |  |
 | V15.3.5 | 2 | Строгие типы и сравнения | есть | TypeScript strict, разбор ввода схемами Zod: `tests/unit/hdt-input.test.ts` |  |
-| V15.3.6 | 2 | Защита от загрязнения прототипа | частично | Ввод разбирается схемами Zod в новые объекты, поиск по ключам ввода через `Map` и `Set` в правилах: `src/modules/hdu/password-rules.ts` | Отдельной проверки линтером нет. Поставить задачей (правило no-prototype-builtins и тест на `__proto__` в схемах) |
+| V15.3.6 | 2 | Защита от загрязнения прототипа | есть | Каждая схема точки входа отклоняет или отбрасывает ключи `__proto__`, `constructor`, `prototype` на любом уровне, открытые схемы только через `src/lib/no-proto.ts`; обход всех точек входа: `tests/unit/proto-pollution.test.ts`. Литерал `__proto__` и смена прототипа запрещены линтером: `eslint.config.mjs`, `tests/unit/checks/eslint-boundaries.test.ts` |  |
 | V15.3.7 | 2 | Защита от загрязнения параметров HTTP | есть | Параметр адреса берётся одним значением: `src/lib/search-params.ts`; поля форм по имени: `tests/unit/hdu-input.test.ts` |  |
 
 ## V16. Журналы и обработка ошибок

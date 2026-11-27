@@ -118,3 +118,21 @@ export async function timedJob<T>(job: string, run: () => Promise<T>, clock: () 
     throw error;
   }
 }
+
+/**
+ * Шаги одной фоновой задачи по очереди (независимая проверка M8c, находка I4; решение 0134): сбой шага пишется
+ * событием job.step_failed и не пропускает следующие шаги. Первая ошибка пробрасывается после всех шагов: задача
+ * помечается неудачной, как и раньше.
+ */
+export async function runJobSteps(job: string, steps: readonly { step: string; run: () => Promise<unknown> }[]): Promise<void> {
+  let first: unknown = null;
+  for (const { step, run } of steps) {
+    try {
+      await run();
+    } catch (error) {
+      logEvent('error', 'job.step_failed', { job, step, error });
+      first ??= error;
+    }
+  }
+  if (first !== null) throw first;
+}

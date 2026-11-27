@@ -148,7 +148,8 @@ async function run(c: ActionContext, tx: Tx, action: RuleAction): Promise<RuleAc
     case 'request_code_analysis': {
       const outcome = await requestCodeAnalysisBySystemTx(tx, { ticketId: ticket.ticketId, orgId: ticket.orgId, ruleId: c.rule.ruleId });
       if (outcome === 'ai_disabled') return { ok: false, detail: 'ai_disabled' };
-      return outcome === 'pending' ? { ok: true, unchanged: true } : { ok: true };
+      // Ждёт ответа или пауза правила 6 часов после прошлого анализа (решение 0134): без изменений.
+      return outcome === 'pending' || outcome === 'cooldown' ? { ok: true, unchanged: true } : { ok: true };
     }
     // Действия предустановленных правил (FR-AUTO-12): прежние встроенные уведомления модуля обращений.
     case 'notify_oncall_p1':

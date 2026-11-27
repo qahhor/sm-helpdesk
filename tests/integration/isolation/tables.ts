@@ -30,17 +30,16 @@
 //   reports     сводки: агент пишет основным токеном и не читает ни одной;
 //   reference   справочник без данных клиентов (модули, календари, сроки SLA): политика "любой актор" отдаёт его и
 //               агенту, все строки, изменить нельзя.
-//   code-catalog  знания из кода (веха M8c): выводы о коде без данных клиентов. Агент читает все строки, пишет
-//               основным токеном и не утверждает (триггеры защиты); подробности проверяет hda-code-access.test.ts.
-//   code-requests  запросы анализа по коду (веха M8c): агент видит и отмечает ответом только запросы обращений
-//               организаций, видимых ему, и не удаляет; подробности в hda-code-access.test.ts.
+//   code-catalog  знания из кода (веха M8c): выводы о коде без данных клиентов. Что агент читает и меняет каким
+//               токеном, задаёт таблица CODE_AGENT в registry.test.ts (независимая проверка, находка I5); остальное
+//               закрыто, как у none. Утвердить не может (триггеры защиты), подробности в hda-code-access.test.ts.
 //
 // app, auth: какие изменения разрешены ролям hub_app и hub_auth. Тест сверяет с правами в базе,
 // а остальные проверки берут отсюда, что должно быть закрыто (проверка main, Q2).
 
 export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience' | 'published-or-own' | 'decided-only' | 'shown-only' | 'active-audience';
 export type Write = 'insert' | 'update' | 'delete';
-export type AgentAccess = 'none' | 'via-view' | 'own-token-insert' | 'reports' | 'reference' | 'code-catalog' | 'code-requests';
+export type AgentAccess = 'none' | 'via-view' | 'own-token-insert' | 'reports' | 'reference' | 'code-catalog';
 export type DomainObject = { client: ClientAccess; agent?: AgentAccess; app?: Write[]; auth?: Write[] };
 
 const IU: Write[] = ['insert', 'update'];
@@ -101,7 +100,8 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hda_code_error_entries: { client: 'none', agent: 'code-catalog', app: IU },
   hda_code_error_templates: { client: 'none', agent: 'code-catalog', app: IUD },
   hda_code_module_notes: { client: 'none', agent: 'code-catalog', app: IU },
-  hda_code_analysis_requests: { client: 'none', agent: 'code-requests', app: IU },
+  // Запросы анализа: агент таблицу не читает и не меняет; ответ отмечает функция app.hda_code_analysis_answer().
+  hda_code_analysis_requests: { client: 'none', app: IU },
   // Первая линия: "что проверить" утверждённых записей. Клиенту, системе и агенту пусто, только чтение.
   hda_code_checks: { client: 'none' },
   // Ядро. Журнал аудита только пополняется (решение 0019).

@@ -50,6 +50,13 @@ export default async function CodeEntryPage({ params, searchParams }: { params: 
   const error = firstParam(search.error);
   const when = (date: Date) => format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' });
   const hidden = <input type="hidden" name="key" value={card.key} />;
+  // Версия, которую видит сотрудник: запись изменилась, пока страница открыта, будет conflict (находка I7).
+  const versioned = (
+    <>
+      {hidden}
+      <input type="hidden" name="version" value={card.version} />
+    </>
+  );
   const editable = card.status !== 'removed';
   return (
     <>
@@ -112,7 +119,7 @@ export default async function CodeEntryPage({ params, searchParams }: { params: 
             <details className="rounded-card border border-border bg-card p-4">
               <summary className="cursor-pointer font-semibold">{s('card.edit')}</summary>
               <form action={editEntryAction} className="mt-3 flex flex-col gap-3">
-                {hidden}
+                {versioned}
                 <p className="text-sm text-secondary-foreground">{s('card.editHint', { example: '{product}' })}</p>
                 {CODE_TEMPLATE_LOCALES.map((locale) => (
                   <div key={locale} className="flex flex-col gap-1">
@@ -158,7 +165,7 @@ export default async function CodeEntryPage({ params, searchParams }: { params: 
               <CardContent className="flex flex-col gap-3 pt-6">
                 {card.status !== 'approved' && (
                   <form action={approveEntryAction}>
-                    {hidden}
+                    {versioned}
                     <Button type="submit">{s('card.approve')}</Button>
                   </form>
                 )}

@@ -23,8 +23,7 @@ async function fromTemplates(input: { code: string | null; errorText: string | n
 /** Сигнатура обращения, подсказки и баннера: шаблоны знаний из кода, затем 11.5. Нет ошибки: null. */
 export async function resolveErrorSignature(input: SignatureInput): Promise<TicketSignature | null> {
   const context = input.errorCode?.trim() || input.errorText?.trim() ? { errorCode: input.errorCode ?? '', errorText: input.errorText ?? '' } : null;
-  const line = context ? null : findErrorLine(input.text);
-  const code = context ? context.errorCode || null : line?.code || null;
+  const code = templateMatchCode(input);
   const byTemplate = await fromTemplates({ code, errorText: context?.errorText || null, description: input.text });
   return byTemplate ?? ticketErrorSignature({ context, description: input.text });
 }
@@ -43,3 +42,12 @@ export async function errorSignatureOf(input: { text: string; errorCode?: string
 
 /** Строки для шаблонов знаний из кода: для блока "Что известно по коду" модуля hda (веха M8c). */
 export { templateCandidateLines } from '../signature';
+
+/**
+ * Код ошибки для сопоставления с шаблонами, как у сигнатуры обращения: код контекста, иначе код строки ошибки в
+ * описании (строки стека пропускаются). Для блока "Что известно по коду" (независимая проверка M8c, находка M2).
+ */
+export function templateMatchCode(input: SignatureInput): string | null {
+  if (input.errorCode?.trim() || input.errorText?.trim()) return input.errorCode?.trim() || null;
+  return findErrorLine(input.text)?.code || null;
+}

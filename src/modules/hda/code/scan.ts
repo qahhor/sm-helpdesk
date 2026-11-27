@@ -8,7 +8,7 @@ import { moduleIdsByCodesTx } from '@/modules/hdr/api';
 import { HdaAgentError } from '../error';
 import type { CodeChangeKind } from '../pref';
 import { type CodeRejectReason, codeErrorEntries, codeErrorTemplates, codeModuleNotes, codeScans } from '../schema';
-import { type CodeReportError, type CodeReportModule, type CodeScanReport, codeReportViolations, entryDigest } from './report';
+import { type CodeReportError, type CodeReportModule, type CodeScanReport, type CodeViolation, codeReportViolations, entryDigest, normalizeCodeReport } from './report';
 
 // Модуль hda, знания из кода: приём отчёта о сканировании (веха M8c, задача 3; ТЗ 7.22 FR-CODE-01, 03, 05, 12, 13,
 // 14; план M8c, решения 3, 5, 10, 11, 13, 14, 26). В транзакции инструмента code_catalog_upsert от актора agent
@@ -96,12 +96,12 @@ function moduleFields(module: CodeReportModule, report: CodeScanReport, scanId: 
 }
 
 /** Приём отчёта в транзакции инструмента. Повтор принятого отчёта того же репозитория возвращает прежний итог. */
-export async function acceptCodeScanTx(tx: Tx, actor: AgentActor, report: CodeScanReport): Promise<CodeScanOutcome> {
+export async function acceptCodeScanTx(tx: Tx, actor: AgentActor, raw: CodeScanReport): Promise<CodeScanOutcome> {
   if (actor.type !== 'agent' || actor.ticketId !== null) throw new HdaAgentError('tool_not_allowed');
   const [previous] = await tx
     .select()
     .from(codeScans)
-    .where(and(eq(codeScans.repository, report.repository), eq(codeScans.scanKey, report.scanId), eq(codeScans.status, 'accepted')))
+    .where(and(eq(codeScans.repository, raw.repository), eq(codeScans.scanKey, raw.scanId), eq(codeScans.status, 'accepted')))
     .limit(1);
   if (previous)
     return {
@@ -117,14 +117,17 @@ export async function acceptCodeScanTx(tx: Tx, actor: AgentActor, report: CodeSc
     };
 
   const scanId = randomUUID();
-  const base = { scanId, tokenId: actor.tokenId, scanKey: report.scanId, repository: report.repository, commitRef: report.commit, errorCount: report.errors.length, moduleCount: report.modules.length };
-  const violations = codeReportViolations(report);
-  if (violations.length > 0) {
+  const base = { scanId, tokenId: actor.tokenId, scanKey: raw.scanId, repository: raw.repository, commitRef: raw.commit, errorCount: raw.errors.length, moduleCount: raw.modules.length };
+  const reject = async (violations: readonly CodeViolation[]): Promise<CodeScanOutcome> => {
     const reasons = violations.slice(0, REASONS_MAX).map((v) => ({ rule: v.rule, path: v.path }));
     await tx.insert(codeScans).values({ ...base, status: 'rejected', rejectReasons: reasons });
-    await writeAudit(tx, { action: 'code.scan_rejected', objectType: 'code_scan', objectId: scanId, diff: { repository: report.repository, scan: report.scanId, rules: [...new Set(reasons.map((r) => r.rule))] }, ip: actor.ip ?? null });
-    return { status: 'rejected', scanId, scanKey: report.scanId, reasons };
-  }
+    await writeAudit(tx, { action: 'code.scan_rejected', objectType: 'code_scan', objectId: scanId, diff: { repository: raw.repository, scan: raw.scanId, rules: [...new Set(reasons.map((r) => r.rule))] }, ip: actor.ip ?? null });
+    return { status: 'rejected', scanId, scanKey: raw.scanId, reasons };
+  };
+  const violations = codeReportViolations(raw);
+  if (violations.length > 0) return reject(violations);
+  // Строки для хранения: переводы строк \n, без невидимых знаков (независимая проверка M8c, находка I1).
+  const report = normalizeCodeReport(raw);
 
   // План до записи: числа нужны строке истории, а её меняет только отметка отправки в чат.
   const entries = await existingEntriesTx(
@@ -132,6 +135,13 @@ export async function acceptCodeScanTx(tx: Tx, actor: AgentActor, report: CodeSc
     report.repository,
     report.errors.map((e) => e.key),
   );
+  // Ключ занят записью другого репозитория (находка M4): запись не переходит между репозиториями каждую неделю.
+  // Исчезнувшую запись другой репозиторий может занять.
+  const taken = report.errors.flatMap((error, i) => {
+    const found = entries.get(error.key);
+    return found && found.repository !== report.repository && found.status !== 'removed' ? [{ rule: 'key_conflict' as const, path: `errors.${i}.key` }] : [];
+  });
+  if (taken.length > 0) return reject(taken);
   const errorSteps = plan(report.errors, (e) => e.key, entryDigest, entries);
   const reported = new Set(report.errors.map((e) => e.key));
   const gone = [...entries.values()].filter((e) => e.repository === report.repository && e.status !== 'removed' && !reported.has(e.key));
@@ -202,9 +212,11 @@ export async function acceptCodeScanTx(tx: Tx, actor: AgentActor, report: CodeSc
       );
 
   // Ключи сменивших статус записей: до 100 и не больше 2500 знаков (предел описания изменения в журнале аудита).
+  // Число сменивших и признак усечения пишутся всегда (находка M1): журнал не теряет записи сверх предела.
+  const resetKeys = [...errorSteps.filter((s) => s.existing && s.change !== 'same').map((s) => s.item.key), ...gone.map((e) => e.key)];
   const reset: string[] = [];
   let length = 0;
-  for (const key of [...errorSteps.filter((s) => s.existing && s.change !== 'same').map((s) => s.item.key), ...gone.map((e) => e.key)]) {
+  for (const key of resetKeys) {
     if (reset.length >= AUDIT_KEYS_MAX || length + key.length > 2500) break;
     reset.push(key);
     length += key.length + 3;
@@ -213,7 +225,7 @@ export async function acceptCodeScanTx(tx: Tx, actor: AgentActor, report: CodeSc
     action: 'code.scan_accepted',
     objectType: 'code_scan',
     objectId: scanId,
-    diff: { repository: report.repository, scan: report.scanId, commit: report.commit, ...counts, reset },
+    diff: { repository: report.repository, scan: report.scanId, commit: report.commit, ...counts, reset, resetCount: resetKeys.length, resetTruncated: reset.length < resetKeys.length },
     ip: actor.ip ?? null,
   });
   return {

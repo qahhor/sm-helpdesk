@@ -25,8 +25,9 @@ const ACTIVE = `select app.agent_token_active() as active`;
 test('агент с действующим токеном не читает ни одной строки базовых таблиц предметной области', async () => {
   await seedEverything();
   const { actor } = await seedAgentToken();
-  // Справочники без данных клиентов (agent: 'reference') агент читает: это проверяет registry.test.ts.
-  for (const [name] of Object.entries(DOMAIN_OBJECTS).filter(([n, rule]) => !n.startsWith('hda_agent_') && rule.agent !== 'reference' && rule.agent !== 'code-catalog' && rule.agent !== 'code-requests')) {
+  // Справочники без данных клиентов (agent: 'reference') и каталог знаний из кода (agent: 'code-catalog', выводы без
+  // данных клиентов) агент читает: это проверяет registry.test.ts по таблице CODE_AGENT.
+  for (const [name] of Object.entries(DOMAIN_OBJECTS).filter(([n, rule]) => !n.startsWith('hda_agent_') && rule.agent !== 'reference' && rule.agent !== 'code-catalog')) {
     // Представления клиента отдают строки только клиенту; столбец 1, а не *: на секретные столбцы прав нет.
     expect(await rows(actor, `select 1 from ${name}`), name).toEqual([]);
   }

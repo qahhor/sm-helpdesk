@@ -1448,7 +1448,9 @@
             "entry_rejected": "Error catalog entry rejected",
             "module_approved": "Module note applied to the module list",
             "module_rejected": "Module note rejected",
-            "analysis_requested": "Code analysis of a request asked for"
+            "analysis_requested": "Code analysis of a request asked for",
+            "analysis_timed_out": "Code analysis of a request not done in time",
+            "analysis_done": "AI staff answered a code analysis request"
           }
         },
         "words": {
@@ -4453,11 +4455,12 @@
         }
       },
       "errors": {
-        "invalid_input": "Check the fields: the template is plain text without regular expressions, each field is at most 10 lines.",
+        "invalid_input": "Check the fields: the template is plain text without regular expressions and has at least 15 letters outside placeholders; each field is at most 10 lines of 300 characters, with no code and no invisible characters.",
         "forbidden": "This action is not available to you.",
         "stale_session": "Sign in again to change the module list.",
         "not_found": "The entry was not found or is gone from the code.",
-        "ai_disabled": "The organization opted out of AI processing: the request is not passed to the agent."
+        "ai_disabled": "The organization opted out of AI processing: the request is not passed to the agent.",
+        "conflict": "The entry changed while the page was open: a new scan or another staff member's edit. Nothing was saved. Reload the page, review the entry and try again."
       },
       "scans": {
         "columns": {

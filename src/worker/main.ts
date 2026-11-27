@@ -3,7 +3,7 @@ import { PgBoss } from 'pg-boss';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { getEnv, parseAiEnv } from '@/env';
-import { configureLog, logEvent, timedJob } from '@/lib/log';
+import { configureLog, logEvent, runJobSteps, timedJob } from '@/lib/log';
 import { beatWorker, bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRateLimits, createPgBossQueue, eventsState, JOB_NAMES, processEvents, setJobQueue } from '@/modules/hdc/api';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
@@ -291,16 +291,32 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const { detected } = await runSpikeDetection(actor('agent.spikes'));
     if (detected > 0) console.info(`AI-сотрудник: всплесков сигнатур найдено ${detected}`);
   }));
-  await boss.work('agent.events_dispatch', polling, () => timedJob('agent.events_dispatch', async () => {
-    const { sent, failed } = await dispatchAgentEvents(actor('agent.events_dispatch'));
-    if (sent + failed > 0) console.info(`AI-сотрудник: событий отправлено ${sent}, неудачно ${failed}`);
-    // Сообщения в чат команды по новым сводкам (задача 10, решение 24): та же минутная задача.
-    const chat = await sendTeamChatMessages(actor('agent.events_dispatch'));
-    if (chat.sent > 0) console.info(`AI-сотрудник: сообщений в чат команды ${chat.sent}`);
-    // Срок ответа на "Разобрать по коду" (веха M8c, FR-CODE-10): через 10 минут запрос "анализ не выполнен".
-    const analysis = await markAnalysisTimeouts(actor('agent.events_dispatch'));
-    if (analysis.timedOut > 0) console.info(`AI-сотрудник: анализов по коду без ответа ${analysis.timedOut}`);
-  }));
+  // Шаги минутной задачи независимы (независимая проверка M8c, находка I4): сбой отправки событий не держит срок анализа.
+  await boss.work('agent.events_dispatch', polling, () => timedJob('agent.events_dispatch', () => runJobSteps('agent.events_dispatch', [
+    {
+      step: 'events',
+      run: async () => {
+        const { sent, failed } = await dispatchAgentEvents(actor('agent.events_dispatch'));
+        if (sent + failed > 0) console.info(`AI-сотрудник: событий отправлено ${sent}, неудачно ${failed}`);
+      },
+    },
+    {
+      // Сообщения в чат команды по новым сводкам (задача 10, решение 24): та же минутная задача.
+      step: 'team_chat',
+      run: async () => {
+        const chat = await sendTeamChatMessages(actor('agent.events_dispatch'));
+        if (chat.sent > 0) console.info(`AI-сотрудник: сообщений в чат команды ${chat.sent}`);
+      },
+    },
+    {
+      // Срок ответа на "Разобрать по коду" (веха M8c, FR-CODE-10): через 10 минут запрос "анализ не выполнен".
+      step: 'analysis_timeouts',
+      run: async () => {
+        const analysis = await markAnalysisTimeouts(actor('agent.events_dispatch'));
+        if (analysis.timedOut > 0) console.info(`AI-сотрудник: анализов по коду без ответа ${analysis.timedOut}`);
+      },
+    },
+  ])));
   await boss.work('agent.cleanup', polling, () => timedJob('agent.cleanup', async () => {
     const removed = await cleanupAgentData(actor('agent.cleanup'));
     console.info(`AI-сотрудник: удалено строк журнала вызовов ${removed.calls}, событий ${removed.events}, токенов запуска ${removed.runTokens}`);

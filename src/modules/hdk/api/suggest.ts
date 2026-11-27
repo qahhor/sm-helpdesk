@@ -224,12 +224,15 @@ export async function suggestForWidget(ctx: Pick<ClientContext, 'actor'>, input:
   if (!parsed.success) throw new HdkError('invalid_input');
   const data = parsed.data;
   const described = data.text.trim();
-  const signature = (await resolveErrorSignature({ text: described, errorCode: data.errorCode, errorText: data.errorText }))?.signature ?? null;
   const text = (described.length >= SUGGEST_QUERY_MIN ? described : (data.errorText ?? '').trim()).slice(0, SUGGEST_QUERY_MAX);
-  if (text.length < SUGGEST_QUERY_MIN && !signature) return { items: [], limited: false };
+  // Без текста и без ошибки искать нечего: предел не расходуется.
+  if (text.length < SUGGEST_QUERY_MIN && !data.errorCode?.trim() && !data.errorText?.trim()) return { items: [], limited: false };
+  // Предел до сигнатуры: сопоставление с шаблонами знаний из кода идёт в базе (независимая проверка M8c, находка C1).
   const perUser = await consumeRateLimit(rateKey('kb-suggest:user', ctx.actor.userId), RATE_RULES.kbSuggestPerUser);
   const perOrg = perUser.allowed ? await consumeRateLimit(rateKey('kb-suggest:org', ctx.actor.orgId), RATE_RULES.kbSuggestPerOrg) : perUser;
   if (!perUser.allowed || !perOrg.allowed) return { items: [], limited: true };
+  const signature = (await resolveErrorSignature({ text: described, errorCode: data.errorCode, errorText: data.errorText }))?.signature ?? null;
+  if (text.length < SUGGEST_QUERY_MIN && !signature) return { items: [], limited: false };
   const { items } = await searchSolutions(ctx.actor, { text, signature, moduleId: data.moduleId ?? null, locale: data.locale, audiences: ['clients'] });
   if (items.length > 0) await noteShown(ctx.actor, data.sessionId, { text, signature, articleIds: items.map((i) => i.articleId), zone: 'widget' });
   await noteSuggestOutcome(ctx.actor, { sessionId: data.sessionId, text, locale: data.locale, moduleId: data.moduleId ?? null, found: items.length > 0 });

@@ -1,16 +1,17 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, inArray, or, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or, type SQL, sql } from 'drizzle-orm';
 import { containsText } from '@/db/contains';
 import * as z from 'zod';
+import { writeAudit } from '@/modules/hdc/api';
 import { readAllowedDomains } from '@/modules/hdk/api/publish';
 import { addAgentNoteTx } from '@/modules/hdt/api/agent-notes';
 import { HdaAgentError } from '../../error';
 import { analysisNoteText } from '../../code/note';
 import { acceptCodeScanTx } from '../../code/scan';
-import { codeEntryKey, codeLocation, codeScanReport, textLines } from '../../code/report';
+import { codeEntryKey, codeLocation, codeScanReport, textViolations } from '../../code/report';
 import { AGENT_NOTE_MAX, CODE_KINDS, CODE_MAX_LINES } from '../../pref';
-import { codeAnalysisRequests, codeErrorEntries, codeErrorTemplates } from '../../schema';
+import { codeErrorEntries, codeErrorTemplates } from '../../schema';
 import { defineTool } from '../tool';
 import { AGENT_NOTICE, cleanAgentText, notice, str, UNTRUSTED_HINT } from '../util';
 import { agentTicketsView } from '../views';
@@ -141,8 +142,16 @@ export const searchCodeCatalog = defineTool({
   },
 });
 
-/** Текст не длиннее 10 строк (FR-CODE-12): ответ агента не несёт фрагментов кода. */
-const short = (max: number) => z.string().max(max).refine((text) => textLines(text) <= CODE_MAX_LINES);
+/**
+ * Текст не длиннее 10 строк (FR-CODE-12): ответ агента не несёт фрагментов кода. Строки считаются по любому переводу
+ * строки, управляющие знаки, строка длиннее 300 знаков и текст, похожий на код, отклоняются (независимая проверка
+ * M8c, находка I1).
+ */
+const short = (max: number) =>
+  z
+    .string()
+    .max(max)
+    .refine((text) => textViolations(text).length === 0);
 
 /** Ошибка базы с именем ограничения: драйвер кладёт её в cause. */
 function constraintOf(error: unknown): string | undefined {
@@ -176,8 +185,6 @@ export const submitCodeAnalysis = defineTool({
       .where(eq(agentTicketsView.number, args.ticket_number))
       .limit(1);
     if (!ticket) throw new HdaAgentError('not_found');
-    const [request] = await tx.select().from(codeAnalysisRequests).where(eq(codeAnalysisRequests.ticketId, ticket.ticketId)).orderBy(desc(codeAnalysisRequests.createdOn)).limit(1);
-    if (!request) throw new HdaAgentError('not_found');
     const clean = (text: string) => cleanAgentText(text, domains);
     const body = analysisNoteText({
       hypothesis: clean(args.hypothesis),
@@ -197,9 +204,14 @@ export const submitCodeAnalysis = defineTool({
       if (constraintOf(error) === 'hda_agent_tokens_c9') throw new HdaAgentError('note_limit');
       throw error;
     }
-    // Ответ закрывает ожидающий или истёкший запрос (поздний ответ принимается, решение 21).
-    if (request.status !== 'done')
-      await tx.update(codeAnalysisRequests).set({ status: 'done', noteMessageId: messageId, finishedOn: new Date() }).where(eq(codeAnalysisRequests.requestId, request.requestId));
+    // Ответ закрывает последний запрос обращения, ожидающий или истёкший (поздний ответ принимается, решение 21).
+    // Таблицу запросов агент не читает: функция базы проверяет видимость и отдаёт только номер и прежний статус
+    // (независимая проверка M8c, находка I5). Нет запроса: not_found, заметка не остаётся.
+    const answered = await tx.execute<{ request_id: string; previous_status: string }>(sql`select request_id, previous_status from app.hda_code_analysis_answer(${ticket.ticketId}::uuid, ${messageId}::uuid)`);
+    const request = answered.rows[0];
+    if (!request) throw new HdaAgentError('not_found');
+    if (request.previous_status !== 'done')
+      await writeAudit(tx, { action: 'code.analysis_done', objectType: 'code_analysis', objectId: request.request_id, orgId: ticket.orgId, diff: { from: request.previous_status }, ip: actor.ip ?? null });
     return { result: { notice: AGENT_NOTICE, note: { ticket_number: args.ticket_number, kind: 'code_analysis' as const } }, objectRefs: [{ kind: 'ticket' as const, ref: args.ticket_number }] };
   },
 });

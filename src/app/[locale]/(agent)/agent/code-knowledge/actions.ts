@@ -28,7 +28,7 @@ async function run(path: string, done: string, action: () => Promise<void>): Pro
 export async function approveEntryAction(form: FormData): Promise<void> {
   const staff = await requireStaffActor();
   const key = text(form, 'key');
-  await run(`/agent/code-knowledge/${encodeURIComponent(key)}`, 'approved', () => approveCodeEntry(staff, { key }));
+  await run(`/agent/code-knowledge/${encodeURIComponent(key)}`, 'approved', () => approveCodeEntry(staff, { key, version: text(form, 'version') }));
 }
 
 export async function rejectEntryAction(form: FormData): Promise<void> {
@@ -47,7 +47,7 @@ export async function editEntryAction(form: FormData): Promise<void> {
     .map((line) => line.trim())
     .filter(Boolean);
   await run(`/agent/code-knowledge/${encodeURIComponent(key)}`, 'edited', () =>
-    editCodeEntry(staff, { key, conditions: text(form, 'conditions'), userCause: text(form, 'userCause'), whatToCheck, kind: text(form, 'kind'), templates }),
+    editCodeEntry(staff, { key, version: text(form, 'version'), conditions: text(form, 'conditions'), userCause: text(form, 'userCause'), whatToCheck, kind: text(form, 'kind'), templates }),
   );
 }
 

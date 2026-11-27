@@ -133,7 +133,7 @@ test('сотрудник второй линии утверждает от св�
   expect((await rows(f.adminStaff.actor, note, [catalog.moduleNoteId, f.adminStaff.userId])).length).toBe(1);
 });
 
-test('запрос анализа: пишет вторая линия от себя, агент видит и закрывает только запросы видимых ему обращений', async () => {
+test('запрос анализа: пишет вторая линия от себя, агент закрывает функцией базы только запросы видимых ему обращений', async () => {
   const { f, l2, token, request } = await world();
   const insert = `insert into hda_code_analysis_requests (org_id, ticket_id, requested_by, source, due_on) values ($1, $2, $3, 'staff', now() + interval '10 minutes')`;
   await fails(f.l1.actor, insert, [f.orgB.orgId, f.tickets.bOrg.ticketId, f.l1.userId]);
@@ -142,14 +142,17 @@ test('запрос анализа: пишет вторая линия от се�
   // Второй ожидающий запрос по тому же обращению не записать.
   await expect(asActor(pools.app, l2.actor, (c) => c.query(insert, [f.orgB.orgId, f.tickets.bOrg.ticketId, l2.userId]))).rejects.toThrow(/hda_code_analysis_requests_u1/);
 
-  expect((await rows(token.actor, `select 1 from hda_code_analysis_requests where request_id = $1`, [request])).length).toBe(1);
-  await pools.root.query(`update hdu_organizations set is_ai_enabled = false where org_id = $1`, [f.orgA.orgId]);
+  // Агент таблицу запросов не читает и не меняет (независимая проверка, находка I5): ответ отмечает функция базы, и
+  // только по обращению организации с AI-обработкой, видимой агенту.
   expect(await rows(token.actor, `select 1 from hda_code_analysis_requests where request_id = $1`, [request])).toEqual([]);
+  expect((await asActor(pools.app, token.actor, (c) => c.query(`update hda_code_analysis_requests set status = 'done', finished_on = now() where request_id = $1`, [request]))).rowCount).toBe(0);
+  const answer = (actor: Actor) => asActor(pools.app, actor, (c) => c.query(`select request_id, previous_status from app.hda_code_analysis_answer($1, null)`, [f.tickets.aOrg.ticketId])).then((r) => r.rows);
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = false where org_id = $1`, [f.orgA.orgId]);
+  expect(await answer(token.actor)).toEqual([]);
   await pools.root.query(`update hdu_organizations set is_ai_enabled = true where org_id = $1`, [f.orgA.orgId]);
-  // Агент меняет только статус на done, ссылку на заметку и момент окончания.
-  await fails(token.actor, `update hda_code_analysis_requests set requested_by = null where request_id = $1`, [request]);
-  const done = await asActor(pools.app, token.actor, (c) => c.query(`update hda_code_analysis_requests set status = 'done', finished_on = now() where request_id = $1`, [request]));
-  expect(done.rowCount).toBe(1);
+  for (const actor of [l2.actor, SYSTEM]) expect(await answer(actor), actor.type).toEqual([]);
+  expect(await answer(token.actor)).toEqual([{ request_id: request, previous_status: 'pending' }]);
+  expect((await pools.root.query(`select status from hda_code_analysis_requests where request_id = $1`, [request])).rows).toEqual([{ status: 'done' }]);
   // Система ставит только истечение срока ожидающему запросу.
   await fails(SYSTEM, `update hda_code_analysis_requests set status = 'pending', finished_on = null where request_id = $1`, [request]);
 });

@@ -194,6 +194,8 @@ export const agentTokens = pgTable('hda_agent_tokens', {
   notesWritten: integer('notes_written').notNull().default(0),
   isEventParent: boolean('is_event_parent').notNull().default(false),
   ...stampColumns,
+  /** Назначение токена запуска: ticket или code_analysis (миграция 0123, решение 0134). */
+  purpose: text('purpose').$type<'ticket' | 'code_analysis'>().notNull().default('ticket'),
 });
 
 /** Журнал вызовов инструментов (логическое имя agent_tool_calls). Аргументов и текста ответов нет. */
@@ -333,6 +335,11 @@ export const codeErrorTemplates = pgTable('hda_code_error_templates', {
     .notNull()
     .generatedAlwaysAs(sql`app.hda_code_pattern(template)`),
   ...stampColumns,
+  /** Слова шаблона вне подстановок строчными (миграция 0122, решение 0134): генерирует база. */
+  literals: text('literals')
+    .array()
+    .notNull()
+    .generatedAlwaysAs(sql`app.hda_code_literals(template)`),
 });
 
 /** Карта модулей и экранов из сканирования (логическое имя code_module_notes). Утверждает администратор. */

@@ -37,6 +37,9 @@ async function scanned() {
   return { f, report, client, l2, care: staffCtx(f.care), admin: staffCtx(f.adminStaff), l1: staffCtx(f.l1), product: staffCtx({ ...(await staffWithRole('product')), name: 'Продукт' }) };
 }
 
+/** Версия записи со страницы (независимая проверка M8c, находка I7): утверждение и правка её передают. */
+const version = async (ctx: Parameters<typeof codeEntryCard>[0], key: string) => (await codeEntryCard(ctx, { key })).version;
+
 const audit = async (action: string, objectId?: string) =>
   (await pools.root.query(`select actor_id, diff from hdc_audit_log where action = $1 ${objectId ? 'and object_id = $2' : ''} order by created_on`, objectId ? [action, objectId] : [action])).rows;
 
@@ -51,7 +54,7 @@ test('очередь видят agent_l2, care, admin; новые выделен
   for (const ctx of [l1, product]) {
     await expect(listCodeEntries(ctx, {})).rejects.toMatchObject({ code: 'forbidden' });
     await expect(codeEntryCard(ctx, { key: report.errors[0]!.key })).rejects.toMatchObject({ code: 'forbidden' });
-    await expect(approveCodeEntry(ctx, { key: report.errors[0]!.key })).rejects.toMatchObject({ code: 'forbidden' });
+    await expect(approveCodeEntry(ctx, { key: report.errors[0]!.key, version: '0000000000000000-1' })).rejects.toMatchObject({ code: 'forbidden' });
   }
 });
 
@@ -75,31 +78,31 @@ test('карточка: шаблоны, условия, что проверит�
 test('утверждение от имени сотрудника и отклонение с журналом аудита той же транзакцией; повтор ничего не меняет', async () => {
   const { report, l2, care } = await scanned();
   const [first, second] = [report.errors[0]!.key, report.errors[1]!.key];
-  await approveCodeEntry(l2, { key: first });
+  await approveCodeEntry(l2, { key: first, version: await version(l2, first) });
   const card = await codeEntryCard(care, { key: first });
   expect(card).toMatchObject({ status: 'approved', approvedBy: { id: l2.user.id } });
-  await approveCodeEntry(l2, { key: first });
+  await approveCodeEntry(l2, { key: first, version: card.version });
   expect((await audit('code.entry_approved')).filter((row) => row.diff.entry === first)).toEqual([{ actor_id: l2.user.id, diff: { entry: first } }]);
   await rejectCodeEntry(care, { key: second, reason: 'Неверная причина' });
   expect(await codeEntryCard(l2, { key: second })).toMatchObject({ status: 'rejected', rejectReason: 'Неверная причина', approvedBy: null });
   expect((await audit('code.entry_rejected')).filter((row) => row.diff.entry === second).length).toBe(1);
   // Отклонённую можно утвердить, утверждённую отклонить.
   await rejectCodeEntry(l2, { key: first });
-  await approveCodeEntry(l2, { key: second });
+  await approveCodeEntry(l2, { key: second, version: await version(l2, second) });
   expect((await codeEntryCard(l2, { key: second })).status).toBe('approved');
 });
 
 test('правка: шаблон с выражением отклоняется теми же правилами, выражение перестраивает база, аудит', async () => {
   const { report, l2 } = await scanned();
   const key = report.errors[0]!.key;
-  const base = { key, conditions: 'Уточнено сотрудником', userCause: 'Причина', whatToCheck: ['Остаток'], kind: 'user_error' as const };
+  const base = { key, version: await version(l2, key), conditions: 'Уточнено сотрудником', userCause: 'Причина', whatToCheck: ['Остаток'], kind: 'user_error' as const };
   await expect(editCodeEntry(l2, { ...base, templates: { ru: 'Недостаточно .* остатка {p}' } })).rejects.toMatchObject({ code: 'invalid_input' });
   await expect(editCodeEntry(l2, { ...base, conditions: Array.from({ length: 11 }, () => 'строка').join('\n'), templates: { ru: 'Нет остатка товара {p}' } })).rejects.toMatchObject({ code: 'invalid_input' });
-  await editCodeEntry(l2, { ...base, templates: { ru: 'Нет остатка товара {p} на складе', en: 'No stock of {p} left' } });
+  await editCodeEntry(l2, { ...base, templates: { ru: 'Нет остатка товара {p} на складе', en: 'No stock of {p} left in the warehouse' } });
   const card = await codeEntryCard(l2, { key });
   expect(card).toMatchObject({ conditions: 'Уточнено сотрудником', whatToCheck: ['Остаток'] });
   expect(card.templates.map((t) => [t.locale, t.template])).toEqual([
-    ['en', 'No stock of {p} left'],
+    ['en', 'No stock of {p} left in the warehouse'],
     ['ru', 'Нет остатка товара {p} на складе'],
   ]);
   const [pattern] = (await pools.root.query(`select t.pattern from hda_code_error_templates t join hda_code_error_entries e using (entry_id) where e.key = $1 and t.locale = 'ru'`, [key])).rows;

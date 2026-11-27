@@ -7,14 +7,15 @@ import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext, writeAudit } from '@/mod
 import { applyModuleProposalTx, moduleScreensByCodesTx } from '@/modules/hdr/api';
 import { createSolutionFromCodeEntryTx, solutionsFromCodeEntriesTx } from '@/modules/hdk/api/from-code';
 import type { TemplateLabels } from '@/modules/hdk/api/doc';
-import { templateCandidateLines } from '@/modules/hdk/api/signature-text';
+import { templateCandidateLines, templateMatchCode } from '@/modules/hdk/api/signature-text';
 import { KB_WRITER_ROLES } from '@/modules/hdk/pref';
 import { signatureShareTx, ticketCodeFactsTx } from '@/modules/hdt/api/solution-source';
 import { LOCALES } from '@/i18n/locales';
 import { SERVICE_ORG_ID } from '@/modules/hdu/pref';
-import { CODE_TEMPLATE_LOCALES, codeEntryKey, templateViolations, textLines } from '../code/report';
+import { CODE_TEMPLATE_LOCALES, codeEntryKey, normalizeCodeText, templateViolations, textViolations } from '../code/report';
+import { codeTemplateMatchesTx } from './code-match';
 import { HdaError } from '../error';
-import { CODE_ENTRY_STATUSES, CODE_KINDS, CODE_MAX_LINES, CODE_READER_ROLES, type CodeChangeKind, type CodeEntryStatus, type CodeKind, type CodeLocation } from '../pref';
+import { CODE_ENTRY_STATUSES, CODE_KINDS, CODE_READER_ROLES, type CodeChangeKind, type CodeEntryStatus, type CodeKind, type CodeLocation } from '../pref';
 import { codeErrorEntries, codeErrorTemplates, codeModuleNotes, codeScans } from '../schema';
 
 // Модуль hda, слой api: очередь "Знания из кода", карточка записи, история сканирований, заметки о модулях и
@@ -41,6 +42,8 @@ export type CodeEntryListItem = {
 
 export type CodeEntryCard = CodeEntryListItem & {
   entryId: string;
+  /** Версия записи для утверждения и правки: изменилась, пока страница открыта, будет conflict (находка I7). */
+  version: string;
   signature: string;
   conditions: string;
   userCause: string;
@@ -118,13 +121,25 @@ export async function listCodeEntries(ctx: StaffContext, input: unknown): Promis
   });
 }
 
+/**
+ * Версия записи, которую видел сотрудник (независимая проверка M8c, находка I7): начало отпечатка содержимого от агента
+ * и момент последнего изменения строки в микросекундах. Любое сканирование или правка меняют её.
+ */
+const versionColumn = sql<string>`left(${codeErrorEntries.scanDigest}, 16) || '-' || (extract(epoch from ${codeErrorEntries.modifiedOn}) * 1000000)::bigint::text`;
+const codeEntryVersion = z.string().regex(/^[0-9a-f]{16}-\d{1,20}$/);
+
 async function entryByKeyTx(tx: Tx, key: string, opts: { lock?: boolean } = {}) {
-  const query = tx.select().from(codeErrorEntries).where(eq(codeErrorEntries.key, key)).limit(1);
-  const [row] = opts.lock ? await query.for('update') : await query;
-  return row ?? null;
+  const query = tx
+    .select({ row: codeErrorEntries, version: versionColumn })
+    .from(codeErrorEntries)
+    .where(eq(codeErrorEntries.key, key))
+    .limit(1);
+  const [found] = opts.lock ? await query.for('update') : await query;
+  return found ? { ...found.row, version: found.version } : null;
 }
 
 const keyInput = z.strictObject({ key: codeEntryKey });
+const versionedInput = z.strictObject({ key: codeEntryKey, version: codeEntryVersion });
 
 /** Карточка записи: шаблоны, условия, что проверить, место в коде ссылкой. Кода в портале нет. */
 export async function codeEntryCard(ctx: StaffContext, input: unknown): Promise<CodeEntryCard> {
@@ -142,6 +157,7 @@ export async function codeEntryCard(ctx: StaffContext, input: unknown): Promise<
     return {
       ...listItem(row),
       entryId: row.entryId,
+      version: row.version,
       signature: row.signature,
       conditions: row.conditions,
       userCause: row.userCause,
@@ -159,17 +175,32 @@ export async function codeEntryCard(ctx: StaffContext, input: unknown): Promise<
 /** Утвердить запись от своего имени: черновик или отклонённую. Повтор ничего не меняет. */
 export async function approveCodeEntry(ctx: StaffContext, input: unknown): Promise<void> {
   requireReader(ctx);
-  const { key } = parse(keyInput, input);
+  const { key, version } = parse(versionedInput, input);
   await withActor(ctx.actor, async (tx) => {
     const row = await entryByKeyTx(tx, key, { lock: true });
     if (!row || row.status === 'removed') throw new HdaError('not_found');
     if (row.status === 'approved') return;
+    // Запись изменилась, пока страница была открыта: утверждается только то, что сотрудник видел (находка I7).
+    if (row.version !== version) throw new HdaError('conflict');
     await tx.update(codeErrorEntries).set({ status: 'approved', approvedBy: ctx.actor.userId, approvedOn: sql`now()`, rejectReason: null }).where(eq(codeErrorEntries.entryId, row.entryId));
     await writeAudit(tx, { action: 'code.entry_approved', objectType: 'code_entry', objectId: row.entryId, diff: { entry: key } });
   });
 }
 
-const rejectInput = z.strictObject({ key: codeEntryKey, reason: z.string().trim().max(500).optional() });
+const rejectInput = z.strictObject({
+  key: codeEntryKey,
+  reason: z
+    .string()
+    .transform(normalizeCodeText)
+    .pipe(
+      z
+        .string()
+        .trim()
+        .max(500)
+        .refine((text) => textViolations(text).filter((rule) => rule !== 'line_too_long' && rule !== 'code_like').length === 0),
+    )
+    .optional(),
+});
 
 /** Отклонить запись: черновик или утверждённую. Утверждённая перестаёт давать точную сигнатуру. */
 export async function rejectCodeEntry(ctx: StaffContext, input: unknown): Promise<void> {
@@ -187,23 +218,31 @@ export async function rejectCodeEntry(ctx: StaffContext, input: unknown): Promis
   });
 }
 
+// Поля правки по тем же правилам, что у отчёта (находки C2, I1): переводы строк формы \r\n как \n, без
+// невидимых знаков; управляющие знаки, больше 10 строк, строка длиннее 300 знаков и похожее на код отклоняются.
 const multiline = (max: number) =>
   z
     .string()
-    .trim()
-    .min(1)
-    .max(max)
-    .refine((text) => textLines(text) <= CODE_MAX_LINES);
+    .transform(normalizeCodeText)
+    .pipe(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(max)
+        .refine((text) => textViolations(text).length === 0),
+    );
 const templateText = z
   .string()
   .trim()
   .min(1)
   .max(500)
-  .regex(/^[^\r\n]*$/u)
-  .refine((text) => templateViolations(text).length === 0);
+  .refine((text) => templateViolations(text).length === 0)
+  .transform(normalizeCodeText);
 
 const editInput = z.strictObject({
   key: codeEntryKey,
+  version: codeEntryVersion,
   conditions: multiline(2000),
   userCause: multiline(2000),
   whatToCheck: z.array(multiline(300)).min(1).max(10),
@@ -220,6 +259,7 @@ export async function editCodeEntry(ctx: StaffContext, input: unknown): Promise<
   await withActor(ctx.actor, async (tx) => {
     const row = await entryByKeyTx(tx, data.key, { lock: true });
     if (!row || row.status === 'removed') throw new HdaError('not_found');
+    if (row.version !== data.version) throw new HdaError('conflict');
     await tx.update(codeErrorEntries).set({ conditions: data.conditions, userCause: data.userCause, whatToCheck: data.whatToCheck, kind: data.kind }).where(eq(codeErrorEntries.entryId, row.entryId));
     const templates = Object.entries(data.templates).flatMap(([locale, template]) => (typeof template === 'string' ? [{ entryId: row.entryId, locale, template }] : []));
     await tx.delete(codeErrorTemplates).where(eq(codeErrorTemplates.entryId, row.entryId));
@@ -379,27 +419,17 @@ export async function ticketCodeKnowledge(ctx: StaffContext, input: unknown): Pr
       return { view: 'checks', checks: rows.rows.map((row) => ({ key: row.key, whatToCheck: row.what_to_check })) };
     }
     const lines = templateCandidateLines({ errorText: facts.errorText, description: facts.description });
-    const code = facts.errorCode?.trim().toUpperCase() || /\b((?:ORA|PLS|TNS)-\d{4,5})\b/i.exec(facts.description)?.[1]?.toUpperCase() || null;
+    // Код и строки те же, что у сигнатуры обращения, и то же сопоставление базы (находка M2).
+    const code = templateMatchCode({ text: facts.description, errorCode: facts.errorCode, errorText: facts.errorText });
     const columns = { key: codeErrorEntries.key, code: codeErrorEntries.code, status: codeErrorEntries.status, conditions: codeErrorEntries.conditions, whatToCheck: codeErrorEntries.whatToCheck, raisedIn: codeErrorEntries.raisedIn, signature: codeErrorEntries.signature };
     const bySignature = facts.errorSignature
       ? await tx.select(columns).from(codeErrorEntries).where(and(eq(codeErrorEntries.signature, facts.errorSignature), eq(codeErrorEntries.status, 'approved'))).limit(1)
       : [];
-    const byTemplate =
-      lines.length > 0
-        ? await tx
-            .select(columns)
-            .from(codeErrorEntries)
-            .where(
-              and(
-                inArray(codeErrorEntries.status, ['draft', 'approved']),
-                sql`(${codeErrorEntries.code} is null or ${code}::text is null or ${codeErrorEntries.code} = ${code}::text)`,
-                sql`exists (select 1 from hda_code_error_templates t, unnest(array(select jsonb_array_elements_text(${JSON.stringify(lines)}::jsonb))) as l(line)
-                             where t.entry_id = ${codeErrorEntries.entryId} and left(l.line, 500) ~* t.pattern)`,
-              ),
-            )
-            .orderBy(sql`case ${codeErrorEntries.status} when 'approved' then 0 else 1 end`, asc(codeErrorEntries.key))
-            .limit(TICKET_ENTRIES_MAX)
-        : [];
+    const matched = (await codeTemplateMatchesTx(tx, { code, lines, statuses: ['draft', 'approved'] }))
+      .sort((a, b) => Number(b.status === 'approved') - Number(a.status === 'approved') || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+      .slice(0, TICKET_ENTRIES_MAX);
+    const found = matched.length > 0 ? await tx.select(columns).from(codeErrorEntries).where(inArray(codeErrorEntries.entryId, matched.map((m) => m.entryId))) : [];
+    const byTemplate = matched.flatMap((m) => found.filter((row) => row.key === m.key));
     const seen = new Set<string>();
     const entries: TicketCodeEntry[] = [];
     for (const [row, match] of [...bySignature.map((r) => [r, 'signature'] as const), ...byTemplate.map((r) => [r, 'template'] as const)]) {

@@ -1448,7 +1448,9 @@
             "entry_rejected": "Xatolar katalogi yozuvi rad etildi",
             "module_approved": "Modul haqidagi qayd ma'lumotnomaga qo'llandi",
             "module_rejected": "Modul haqidagi qayd rad etildi",
-            "analysis_requested": "Murojaatni kod bo'yicha tahlil qilish so'raldi"
+            "analysis_requested": "Murojaatni kod bo'yicha tahlil qilish so'raldi",
+            "analysis_timed_out": "Murojaatni kod bo'yicha tahlil qilish o'z vaqtida bajarilmadi",
+            "analysis_done": "AI-xodim kod bo'yicha tahlil so'roviga javob berdi"
           }
         },
         "words": {
@@ -4453,11 +4455,12 @@
         }
       },
       "errors": {
-        "invalid_input": "Maydonlarni tekshiring: shablon muntazam ifodalarsiz oddiy matn, har bir maydon 10 qatordan oshmasin.",
+        "invalid_input": "Maydonlarni tekshiring: shablon oddiy matn, muntazam ifodalarsiz va o'rinbosarlardan tashqari kamida 15 harf, har bir maydon 300 belgidan iborat 10 qatordan oshmasin, kod va ko'rinmas belgilarsiz.",
         "forbidden": "Bu amal sizga mavjud emas.",
         "stale_session": "Modullar ma'lumotnomasini o'zgartirish uchun qayta kiring.",
         "not_found": "Yozuv topilmadi yoki koddan yo'qolgan.",
-        "ai_disabled": "Tashkilot AI-ishlovdan voz kechgan: murojaat agentga berilmaydi."
+        "ai_disabled": "Tashkilot AI-ishlovdan voz kechgan: murojaat agentga berilmaydi.",
+        "conflict": "Sahifa ochiq turganda yozuv o'zgardi: yangi skanerlash yoki boshqa xodimning tahriri. Hech narsa saqlanmadi. Sahifani yangilang, yozuvni tekshiring va qaytadan urinib ko'ring."
       },
       "scans": {
         "columns": {

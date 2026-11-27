@@ -1,5 +1,5 @@
-import { expect, test } from 'vitest';
-import { formatLine, installJsonConsole, logEvent, setLogSinkForTests, timedJob } from '@/lib/log';
+import { describe, expect, test } from 'vitest';
+import { formatLine, installJsonConsole, logEvent, setLogSinkForTests, runJobSteps, timedJob } from '@/lib/log';
 
 // Журнал процесса строками JSON (аудит 23.11.2026, находки O1 и S4; ТЗ 13.8): время, уровень, событие, поля.
 // Поля с именами секретов вырезаются, текст ограничен по длине.
@@ -92,4 +92,35 @@ test('итоговая проверка W0, M1: стек ошибки пишет
   expect(() => formatLine('info', 'x', { broken }, NOW)).not.toThrow();
   // Большой объект не раздувает строку.
   expect(formatLine('info', 'x', { big: Buffer.alloc(5000) }, NOW).length).toBeLessThan(3000);
+});
+
+// Независимая проверка вехи M8c, находка I4 (решение 0134): шаги минутной задачи не зависят друг от друга.
+describe('runJobSteps', () => {
+  test('сбой шага не пропускает следующие; ошибка пишется в журнал и пробрасывается после всех шагов', async () => {
+    const events: { level: string; event: string; fields?: Record<string, unknown> }[] = [];
+    setLogSinkForTests((level, event, fields) => void events.push({ level, event, ...(fields ? { fields } : {}) }));
+    const done: string[] = [];
+    try {
+      await expect(
+        runJobSteps('agent.events_dispatch', [
+          { step: 'events', run: async () => void done.push('events') },
+          {
+            step: 'chat',
+            run: async () => {
+              throw new Error('чат недоступен');
+            },
+          },
+          { step: 'analysis_timeouts', run: async () => void done.push('analysis_timeouts') },
+        ]),
+      ).rejects.toThrow('чат недоступен');
+    } finally {
+      setLogSinkForTests(null);
+    }
+    expect(done).toEqual(['events', 'analysis_timeouts']);
+    expect(events).toEqual([{ level: 'error', event: 'job.step_failed', fields: { job: 'agent.events_dispatch', step: 'chat', error: expect.any(Error) } }]);
+  });
+
+  test('без сбоев ничего не пишет и не бросает', async () => {
+    await expect(runJobSteps('x', [{ step: 'a', run: async () => undefined }])).resolves.toBeUndefined();
+  });
 });

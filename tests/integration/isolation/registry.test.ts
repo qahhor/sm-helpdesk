@@ -139,6 +139,19 @@ test('клиент видит в каждой таблице ровно то, ч
   }
 });
 
+/**
+ * Знания из кода (веха M8c; независимая проверка, находка I5): что агент может основным токеном и токеном запуска.
+ * Основной токен читает каталог, пишет записи, шаблоны и заметки о модулях, строку сканирования только вставляет,
+ * удаляет только шаблоны. Токен запуска читает выводы, историю сканирований не читает и ничего не пишет.
+ */
+type CodeAccess = { read: boolean; update: boolean; delete: boolean };
+const CODE_AGENT: Record<string, { main: CodeAccess; run: CodeAccess }> = {
+  hda_code_scans: { main: { read: true, update: false, delete: false }, run: { read: false, update: false, delete: false } },
+  hda_code_error_entries: { main: { read: true, update: true, delete: false }, run: { read: true, update: false, delete: false } },
+  hda_code_error_templates: { main: { read: true, update: true, delete: true }, run: { read: true, update: false, delete: false } },
+  hda_code_module_notes: { main: { read: true, update: true, delete: false }, run: { read: true, update: false, delete: false } },
+};
+
 test('агент с действующим токеном не читает ни одной строки, кроме своих представлений, и ничего не меняет и не удаляет', async () => {
   const f = await seedEverything();
   // Основной токен и токен запуска по обращению организации A (веха M8b, решения 5, 15).
@@ -154,35 +167,23 @@ test('агент с действующим токеном не читает ни
     for (const actor of [main.actor, run.actor]) {
       const label = `${name} для агента${actor.ticketId ? ' (токен запуска)' : ''}`;
       const seen = await rowsOrDenied(asActor(pools.app, actor, (c) => c.query(`select 1 from ${name}`)));
-      // Знания из кода (веха M8c): агент читает выводы и пишет их сканированием, но ничего не удаляет, кроме шаблона
-      // языка основным токеном; запросы анализа видит только по организациям с AI-обработкой. Остальное проверяет
-      // hda-code-access.test.ts.
-      if (rule.agent === 'code-catalog' || rule.agent === 'code-requests') {
-        if (rule.agent === 'code-requests') {
-          const visible = await pools.root.query(
-            `select 1 from ${name} r join hdu_organizations o on o.org_id = r.org_id
-              where o.kind = 'client' and o.is_ai_enabled and o.org_id <> app.service_org_id() and ($1::uuid is null or r.ticket_id = $1)`,
-            [actor.ticketId],
-          );
-          expect(seen.length, label).toBe(visible.rowCount);
-        }
-        const removable = name === 'hda_code_error_templates' && actor.ticketId === null;
-        if (!removable) {
-          const deleted = await asActor(pools.app, actor, (c) => c.query(`delete from ${name}`)).then(
-            (r) => r.rowCount ?? 0,
-            (error) => {
-              expect(String(error), `delete from ${name} под агентом`).toMatch(/permission denied/);
-              return 0;
-            },
-          );
-          expect(deleted, `delete from ${name} под агентом`).toBe(0);
-        }
-        continue;
-      }
-      if (rule.agent === 'reference') expect(seen.length, label).toBe((await pools.root.query(`select 1 from ${name}`)).rowCount);
+      // Знания из кода (веха M8c; независимая проверка, находка I5): явная таблица ожиданий CODE_AGENT. Чтение и
+      // каждое изменение, которого нет в таблице, проверяются так же, как у остальных таблиц.
+      const code = rule.agent === 'code-catalog' ? CODE_AGENT[name] : undefined;
+      if (rule.agent === 'code-catalog') expect(code, `${name}: нет строки CODE_AGENT`).toBeDefined();
+      const may = code ? (actor.ticketId ? code.run : code.main) : null;
+      if (may) {
+        const all = (await pools.root.query(`select 1 from ${name}`)).rowCount;
+        if (may.read) expect(seen.length, label).toBe(all);
+        else expect(seen, label).toEqual([]);
+      } else if (rule.agent === 'reference') expect(seen.length, label).toBe((await pools.root.query(`select 1 from ${name}`)).rowCount);
       else expect(seen, label).toEqual([]);
       // Изменение и удаление: отказ правом или ни одной строки по политике.
-      for (const statement of [`update ${name} set ${firstColumn.get(name)} = ${firstColumn.get(name)}`, `delete from ${name}`]) {
+      for (const [write, statement] of [
+        ['update', `update ${name} set ${firstColumn.get(name)} = ${firstColumn.get(name)}`],
+        ['delete', `delete from ${name}`],
+      ] as const) {
+        if (may?.[write]) continue;
         const changed = await asActor(pools.app, actor, (c) => c.query(statement)).then(
           (r) => r.rowCount ?? 0,
           (error) => {
@@ -192,6 +193,7 @@ test('агент с действующим токеном не читает ни
         );
         expect(changed, `${statement} под агентом`).toBe(0);
       }
+      continue;
     }
   }
 });

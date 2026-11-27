@@ -7,7 +7,7 @@ import { emitEventTx, type StaffContext, wakeAutomation, writeAudit } from '@/mo
 import { ticketCodeFactsTx } from '@/modules/hdt/api/solution-source';
 import { agentEventOrgsTx } from '@/modules/hdu/api/automation';
 import { HdaError } from '../error';
-import { CODE_ANALYSIS_TIMEOUT_MINUTES, CODE_READER_ROLES, type CodeAnalysisStatus } from '../pref';
+import { CODE_ANALYSIS_RULE_COOLDOWN_HOURS, CODE_ANALYSIS_TIMEOUT_MINUTES, CODE_READER_ROLES, type CodeAnalysisStatus } from '../pref';
 import { codeAnalysisRequests } from '../schema';
 
 // Модуль hda, слой api: "Разобрать по коду" (веха M8c, задача 7; ТЗ 7.22 FR-CODE-08, 09, 10, 7.21 FR-AGT-08; план
@@ -57,10 +57,30 @@ const isUniqueViolation = (error: unknown) => (error as { code?: unknown }).code
  * Запрос в транзакции вызывающего: проверка организации, ожидающий запрос или новый с событием и аудитом. Точка
  * сохранения держит гонку двух нажатий: второй читает запрос первого.
  */
-async function requestTx(tx: Tx, input: { ticketId: string; orgId: string; requestedBy: string | null; ruleId?: string }): Promise<{ outcome: 'requested' | 'pending'; row: typeof codeAnalysisRequests.$inferSelect } | 'ai_disabled'> {
+async function requestTx(
+  tx: Tx,
+  input: { ticketId: string; orgId: string; requestedBy: string | null; ruleId?: string },
+): Promise<{ outcome: 'requested' | 'pending'; row: typeof codeAnalysisRequests.$inferSelect } | 'ai_disabled' | 'cooldown'> {
   if (!(await agentEventOrgsTx(tx, [input.orgId])).has(input.orgId)) return 'ai_disabled';
   const existing = await latestTx(tx, input.ticketId);
-  if (existing?.status === 'pending') return { outcome: 'pending', row: existing };
+  if (existing?.status === 'pending') {
+    // Срок вышел, а минутная задача ещё не прошла (или упала): запрос истекает той же транзакцией, затем новый
+    // (независимая проверка M8c, находка I4).
+    const expired = await tx
+      .update(codeAnalysisRequests)
+      .set({ status: 'timeout', finishedOn: sql`now()` })
+      .where(and(eq(codeAnalysisRequests.requestId, existing.requestId), eq(codeAnalysisRequests.status, 'pending'), lte(codeAnalysisRequests.dueOn, sql`now()`)))
+      .returning({ id: codeAnalysisRequests.requestId });
+    if (expired.length === 0) return { outcome: 'pending', row: existing };
+    await writeAudit(tx, { action: 'code.analysis_timed_out', objectType: 'code_analysis', objectId: existing.requestId, orgId: input.orgId, diff: { by: 'request' } });
+    existing.status = 'timeout';
+  }
+  // Правило не запрашивает анализ того же обращения чаще раза в 6 часов (находка M7, решение 0134): конец прошлого
+  // запроса для истёкшего его срок, для выполненного момент ответа. Кнопку сотрудника пауза не держит.
+  if (input.ruleId && existing && (existing.status === 'done' || existing.status === 'timeout')) {
+    const ended = existing.status === 'timeout' ? existing.dueOn : (existing.finishedOn ?? existing.dueOn);
+    if (Date.now() - ended.getTime() < CODE_ANALYSIS_RULE_COOLDOWN_HOURS * 3_600_000) return 'cooldown';
+  }
   try {
     const row = await tx.transaction(async (point) => {
       const [created] = await point
@@ -96,6 +116,8 @@ export async function requestCodeAnalysis(ctx: StaffContext, input: unknown): Pr
     return requestTx(tx, { ticketId: facts.ticketId, orgId: facts.orgId, requestedBy: ctx.actor.userId });
   });
   if (result === 'ai_disabled') throw new HdaError('ai_disabled');
+  // Пауза только у правила: у запроса кнопкой её нет.
+  if (result === 'cooldown') throw new HdaError('invalid_input');
   if (result.outcome === 'requested') await wakeAutomation();
   return stateOf(result.row);
 }
@@ -104,9 +126,9 @@ export async function requestCodeAnalysis(ctx: StaffContext, input: unknown): Pr
  * Запрос правилом автоматизации (FR-CODE-09) в транзакции правила от системы: те же проверки, без пользователя.
  * Итог для истории правила: запрошен, уже ждёт, организация без AI-обработки.
  */
-export async function requestCodeAnalysisBySystemTx(tx: Tx, input: { ticketId: string; orgId: string; ruleId: string }): Promise<'requested' | 'pending' | 'ai_disabled'> {
+export async function requestCodeAnalysisBySystemTx(tx: Tx, input: { ticketId: string; orgId: string; ruleId: string }): Promise<'requested' | 'pending' | 'ai_disabled' | 'cooldown'> {
   const result = await requestTx(tx, { ticketId: input.ticketId, orgId: input.orgId, requestedBy: null, ruleId: input.ruleId });
-  return result === 'ai_disabled' ? result : result.outcome;
+  return typeof result === 'string' ? result : result.outcome;
 }
 
 /** Последний запрос анализа обращения для блока "Что известно по коду". Нет запроса: null. */
@@ -134,12 +156,15 @@ export async function canRequestCodeAnalysis(ctx: StaffContext, input: unknown):
 /** Задача code.analysis_timeouts раз в минуту: ожидающие запросы, срок которых вышел, становятся timeout (FR-CODE-10). */
 export async function markAnalysisTimeouts(system: SystemActor, now: Date = new Date()): Promise<{ timedOut: number }> {
   if (system.type !== 'system') throw new HdaError('forbidden');
-  const rows = await withActor(system, (tx) =>
-    tx
+  // Каждое истечение пишет журнал аудита той же транзакцией (независимая проверка M8c, находка M1).
+  const rows = await withActor(system, async (tx) => {
+    const expired = await tx
       .update(codeAnalysisRequests)
       .set({ status: 'timeout', finishedOn: now })
       .where(and(eq(codeAnalysisRequests.status, 'pending'), lte(codeAnalysisRequests.dueOn, now)))
-      .returning({ id: codeAnalysisRequests.requestId }),
-  );
+      .returning({ id: codeAnalysisRequests.requestId, orgId: codeAnalysisRequests.orgId });
+    for (const row of expired) await writeAudit(tx, { action: 'code.analysis_timed_out', objectType: 'code_analysis', objectId: row.id, orgId: row.orgId, diff: { by: 'schedule' } });
+    return expired;
+  });
   return { timedOut: rows.length };
 }

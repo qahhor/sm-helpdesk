@@ -335,6 +335,8 @@ export const CODE_ANALYSIS_SOURCES = ['staff', 'rule'] as const;
 export type CodeAnalysisSource = (typeof CODE_ANALYSIS_SOURCES)[number];
 /** Сколько минут ждём ответа агента (FR-CODE-10). */
 export const CODE_ANALYSIS_TIMEOUT_MINUTES = 10;
+/** Пауза правила автоматизации: не чаще одного запроса анализа обращения за столько часов (решение 0134, находка M7). */
+export const CODE_ANALYSIS_RULE_COOLDOWN_HOURS = 6;
 /** Портал не принимает текста длиннее стольких строк (FR-CODE-12). */
 export const CODE_MAX_LINES = 10;
 /** Место в коде ссылкой (FR-CODE-12). */

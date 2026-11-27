@@ -12,7 +12,7 @@ import { generateTokenValue, hashToken, tokenLast4 } from './auth';
 // токена (родитель без get_ticket токена запуска не получает; независимая проверка M8b, находка I5, решение 0124), одна
 // заметка, срок 2 часа, адреса и учётная запись основного токена. Адреса и перечень родителя вход сервера проверяет
 // заново на каждом запросе: сужение родителя действует на его токены запуска сразу. Значение уходит только в теле подписанного события, в базе
-// хеш. Повторный выпуск по тому же обращению отзывает прежний токен запуска. Отзыв основного токена закрывает все его
+// хеш. Повторный выпуск по тому же обращению и назначению отзывает прежний токен запуска. Отзыв основного токена закрывает все его
 // токены запуска сразу: функция базы app.agent_token_active() проверяет и родителя.
 
 export const RUN_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
@@ -38,11 +38,13 @@ export async function issueTicketRunTokenTx(
   const catalog: readonly AgentTool[] = input.purpose === 'code_analysis' ? AGENT_CODE_RUN_TOOLS : AGENT_RUN_TOOLS;
   const tools: AgentTool[] = catalog.filter((tool) => (parent.tools as readonly string[]).includes(tool));
   if (!tools.includes('get_ticket')) return null;
-  // Прежние токены запуска того же основного токена и обращения перестают действовать.
+  // Прежние токены запуска того же основного токена, обращения и назначения перестают действовать: токен анализа по
+  // коду и токен события обращения друг друга не отзывают (независимая проверка M8c, находка I3).
+  const purpose = input.purpose ?? 'ticket';
   await tx
     .update(agentTokens)
     .set({ revokedAt: now })
-    .where(and(eq(agentTokens.parentTokenId, parent.tokenId), eq(agentTokens.ticketId, input.ticketId), isNull(agentTokens.revokedAt)));
+    .where(and(eq(agentTokens.parentTokenId, parent.tokenId), eq(agentTokens.ticketId, input.ticketId), eq(agentTokens.purpose, purpose), isNull(agentTokens.revokedAt)));
   const value = generateTokenValue();
   const tokenId = randomUUID();
   const expiresAt = new Date(now.getTime() + RUN_TOKEN_TTL_MS);
@@ -59,6 +61,7 @@ export async function issueTicketRunTokenTx(
     parentTokenId: parent.tokenId,
     ticketId: input.ticketId,
     noteLimit: RUN_NOTE_LIMIT,
+    purpose,
   });
   return { tokenId, value, expiresAt, tools };
 }

@@ -5,6 +5,7 @@ import type { Tx } from '@/db/client';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
 import { FALLBACKS, type Locale, LOCALES } from '@/i18n/locales';
 import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
+import { RATE_RULES } from '@/modules/hdc/pref';
 import { clientSolutionRefs } from '@/modules/hdk/api/refs';
 import { errorSignatureOf } from '@/modules/hdk/api/signature-text';
 import { createTicket, createWidgetTicket } from '@/modules/hdt/api';
@@ -93,6 +94,13 @@ const textInput = z.strictObject({
  */
 export async function publicProblemForText(actor: ClientActor, input: unknown): Promise<PublicProblemCard | null> {
   const data = parseInput(textInput, input);
+  if (!data.text.trim() && !data.errorCode?.trim() && !data.errorText?.trim()) return null;
+  // Предел до сигнатуры (независимая проверка M8c, находка C1): сопоставление с шаблонами знаний из кода идёт в базе.
+  // Пределы те же, что у подсказки, под своим ключом. Сверх предела баннера просто нет.
+  const perUser = await consumeRateLimit(rateKey('problem-banner:user', actor.userId), RATE_RULES.kbSuggestPerUser);
+  if (!perUser.allowed) return null;
+  const perOrg = await consumeRateLimit(rateKey('problem-banner:org', actor.orgId), RATE_RULES.kbSuggestPerOrg);
+  if (!perOrg.allowed) return null;
   const signature = await errorSignatureOf({ text: data.text, errorCode: data.errorCode, errorText: data.errorText });
   if (!signature) return null;
   const found = await withActor(SYSTEM, (tx) => activeProblemBySignatureTx(tx, signature));

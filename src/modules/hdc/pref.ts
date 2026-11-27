@@ -233,6 +233,9 @@ export const AUDIT_ACTIONS = [
   'code.module_approved',
   'code.module_rejected',
   'code.analysis_requested',
+  // Независимая проверка M8c (решение 0134, находка M1): истечение срока и ответ агента на запрос анализа.
+  'code.analysis_timed_out',
+  'code.analysis_done',
   'solution.created_from_code',
 ] as const;
 

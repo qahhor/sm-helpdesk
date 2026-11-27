@@ -17,11 +17,13 @@
 //               и комментарий на проверке другого клиента ему не видны. Что считается "своим" и "опубликованным" для
 //               каждой таблицы, задаёт PUBLISHED_OR_OWN в registry.test.ts.
 //   decided-only  отборы месяца (план M7): клиент видит только завершённые (decided, lapsed), и хотя бы один.
+//   shown-only  известные проблемы (план M5c, решение 2): клиент видит только проблемы с признаком показа, не закрытые
+//               и не исправленные больше 30 суток назад, и только тексты сотрудника и принятые переводы, и хотя бы одну.
 //
 // app, auth: какие изменения разрешены ролям hub_app и hub_auth. Тест сверяет с правами в базе,
 // а остальные проверки берут отсюда, что должно быть закрыто (проверка main, Q2).
 
-export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience' | 'published-or-own' | 'decided-only';
+export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience' | 'published-or-own' | 'decided-only' | 'shown-only';
 export type Write = 'insert' | 'update' | 'delete';
 export type DomainObject = { client: ClientAccess; app?: Write[]; auth?: Write[] };
 
@@ -98,6 +100,14 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdi_cycles: { client: 'decided-only', app: IU },
   // Изображения идеи: свои любые, чужие только чистые у опубликованной; убирает автор до публикации, модератор и система.
   hdi_attachments: { client: 'published-or-own', app: IUD },
+  // Известные проблемы (веха M5c, задача 1). Клиент не читает таблиц проблем, текстов и сигнатур ни одной строки:
+  // его вид только представление hdp_problems_public (решение 2). Пишут agent_l2, care, admin и система; первая линия
+  // при привязке обращения только пересчитывает счётчики (t_hdp_problems_guard). Удаления проблем и текстов нет:
+  // история остаётся; сигнатуру сотрудник убирает.
+  hdp_problems: { client: 'none', app: IU },
+  hdp_problem_translations: { client: 'none', app: IU },
+  hdp_problem_signatures: { client: 'none', app: IUD },
+  hdp_problems_public: { client: 'shown-only' },
   // Уведомления
   // Очередь исходящих (веха M4): ставит действие, отправляет система, клиент не видит.
   hdn_outbox: { client: 'none', app: IUD },

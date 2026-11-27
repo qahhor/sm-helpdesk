@@ -167,5 +167,23 @@ export async function seedEverything() {
     f.orgA.orgId,
     f.aUser.userId,
   ]);
+  // Известные проблемы (веха M5c, задача 1): показанная с текстом сотрудника, принятым и непринятым машинными
+  // переводами; скрытая; закрытая. Клиент через представление должен видеть только показанную и только принятые тексты.
+  const problem = async (title: string, shown: boolean) =>
+    (await pools.root.query(`insert into hdp_problems (internal_title, show_to_clients) values ($1, $2) returning problem_id`, [title, shown])).rows[0].problem_id as string;
+  const shownProblem = await problem('Накладные ACME не проводятся', true);
+  const hiddenProblem = await problem('Скрытая проблема', false);
+  const closedProblem = await problem('Закрытая проблема', true);
+  await pools.root.query(`update hdp_problems set status = 'closed' where problem_id = $1`, [closedProblem]);
+  await pools.root.query(
+    `insert into hdp_problem_translations (problem_id, locale, public_title, public_body, is_machine, accepted_by, accepted_on)
+     values ($1, 'ru', 'Не проводятся накладные', 'Исправляем', false, null, null),
+            ($1, 'en', 'Invoices are not posted', 'Fixing', true, $4, now()),
+            ($1, 'uz', 'Nakladnoylar o''tmayapti', 'Tuzatyapmiz', true, null, null),
+            ($2, 'ru', 'Скрытая', 'Текст', false, null, null),
+            ($3, 'ru', 'Закрытая', 'Текст', false, null, null)`,
+    [shownProblem, hiddenProblem, closedProblem, f.adminStaff.userId],
+  );
+  await pools.root.query(`insert into hdp_problem_signatures (problem_id, signature) values ($1, repeat('b', 32)), ($2, repeat('c', 32))`, [shownProblem, hiddenProblem]);
   return f;
 }

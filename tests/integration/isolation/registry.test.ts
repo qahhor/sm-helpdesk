@@ -52,7 +52,7 @@ test('в каждой таблице набора есть данные для �
   for (const name of Object.keys(DOMAIN_OBJECTS)) {
     // Представление само отбирает строки по актору, поэтому без актора пусто даже у суперпользователя.
     const found =
-      name === 'hdu_user_profiles'
+      name === 'hdu_user_profiles' || name === 'hdp_problems_public'
         ? await asActor(pools.app, { type: 'system', job: 'test' }, (c) => c.query(`select 1 from ${name} limit 1`))
         : await pools.root.query(`select 1 from ${name} limit 1`);
     expect(found.rowCount, name).toBe(1);
@@ -84,7 +84,7 @@ test('клиент видит в каждой таблице ровно то, ч
       const column =
         rule.client === 'published-or-own'
           ? PUBLISHED_OR_OWN[name]!.column
-          : { none: '1', all: '1', 'own-org': 'org_id', 'org-people': 'user_id', 'own-user': 'user_id', 'clients-audience': 'audience', 'decided-only': 'status' }[rule.client];
+          : { none: '1', all: '1', 'own-org': 'org_id', 'org-people': 'user_id', 'own-user': 'user_id', 'clients-audience': 'audience', 'decided-only': 'status', 'shown-only': 'number, locale' }[rule.client];
       const rows = await rowsOrDenied(asActor(pools.app, actor, (c) => c.query(`select ${column} from ${name}`)));
       seen += rows.length;
       const label = `${name} для ${actor.orgRole}`;
@@ -95,6 +95,17 @@ test('клиент видит в каждой таблице ровно то, ч
       if (rule.client === 'own-user') expect(rows.filter((row) => row.user_id !== actor.userId), label).toEqual([]);
       if (rule.client === 'clients-audience') expect(rows.filter((row) => row.audience !== 'clients'), label).toEqual([]);
       if (rule.client === 'decided-only') expect(rows.filter((row) => row.status !== 'decided' && row.status !== 'lapsed'), label).toEqual([]);
+      if (rule.client === 'shown-only') {
+        // Суперпользователь проверяет по таблицам, что каждая прочитанная строка показана законно (решение 2).
+        const bad = await pools.root.query(
+          `select p.number, t.locale from hdp_problems p join hdp_problem_translations t on t.problem_id = p.problem_id
+            where (p.number, t.locale) in (select (x ->> 'number')::bigint, x ->> 'locale' from jsonb_array_elements($1::jsonb) x)
+              and not (p.show_to_clients and p.status <> 'closed' and (p.status <> 'fixed' or p.fixed_on > now() - interval '30 days')
+                       and t.public_title <> '' and (not t.is_machine or t.accepted_by is not null))`,
+          [JSON.stringify(rows)],
+        );
+        expect(bad.rows, label).toEqual([]);
+      }
       if (rule.client === 'published-or-own') {
         const probe = PUBLISHED_OR_OWN[name];
         expect(probe, `${name}: нет проверки published-or-own`).toBeDefined();

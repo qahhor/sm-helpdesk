@@ -225,7 +225,10 @@ test.describe('пилот', () => {
     await expect(care).toHaveURL(/\/ru\/agent\/metrics\/pilot\?period=7/);
     await expect(main(care).getByRole('heading', { name: 'Сводка пилота' })).toBeVisible();
     await expect(main(care).getByText('Пилотные организации: ACME Trade')).toBeVisible();
-    await expect(main(care).locator('[data-pilot-row]')).toHaveCount(9);
+    await expect(main(care).locator('[data-pilot-row]')).toHaveCount(10);
+    // Две доли закрытых помощником: от обращений помощника и от всех обращений пилота (проверка M9, M3).
+    await expect(main(care).locator('[data-pilot-row="ai_resolved"] th')).toContainText('из обращений, которые вёл помощник');
+    await expect(main(care).locator('[data-pilot-row="ai_resolved_all"] th')).toContainText('из всех обращений пилотных клиентов');
     await expect(main(care).locator('[data-pilot-row="portal_share"]')).toContainText('не меньше 90%');
     await expect(main(care).locator('[data-pilot-row="telegram_share"] td').first()).not.toHaveText('нет данных');
     expect(await care.content()).not.toContain(`Клиент написал в чат поддержки ${stamp}`);

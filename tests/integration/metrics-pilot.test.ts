@@ -76,12 +76,14 @@ test('восемь строк таблицы 16.7 и доля Telegram совп�
   const summary = await pilotSummary(staffCtx(f.care), { period: '7' }, NOW);
   expect(summary.orgCount).toBe(1);
   expect(summary.orgs).toEqual([{ orgId: f.orgA.orgId, name: f.orgA.name }]);
-  expect(summary.rows.map((r) => r.key)).toEqual(['portal_share', 'first_response', 'resolution', 'ai_resolved', 'ai_flagged', 'csat_high', 'leaks', 'ai_cost', 'telegram_share']);
+  expect(summary.rows.map((r) => r.key)).toEqual(['portal_share', 'first_response', 'resolution', 'ai_resolved', 'ai_resolved_all', 'ai_flagged', 'csat_high', 'leaks', 'ai_cost', 'telegram_share']);
   expect(rowsOf(summary)).toEqual({
     portal_share: { value: 60, target: 90, met: false },
     first_response: { value: 75, target: 95, met: false },
     resolution: { value: 50, target: 85, met: false },
     ai_resolved: { value: 50, target: 15, met: true },
+    // Та же доля от всех обращений пилота (независимая проверка M9, M3; решение 0146): справочно, без цели.
+    ai_resolved_all: { value: 20, target: null, met: null },
     ai_flagged: { value: 33.3, target: 5, met: false },
     csat_high: { value: 66.7, target: 80, met: false },
     leaks: { value: null, target: 0, met: null },
@@ -130,7 +132,7 @@ test('выгрузка сводки тем же механизмом: тольк
   const out = await exportMetrics(staffCtx(f.care), { report: 'pilot', period: '7' }, NOW);
   expect(out.columns).toEqual(['metric', 'value', 'target', 'met']);
   expect(out.rows[0]).toEqual(['portal_share', '60', '90', 0]);
-  expect(out.rows).toHaveLength(9);
+  expect(out.rows).toHaveLength(10);
   await expect(exportMetrics(staffCtx(await staffWithRole('product')), { report: 'pilot', period: '7' }, NOW)).rejects.toMatchObject({ code: 'forbidden' });
   expect((await pools.root.query(`select diff ->> 'report' as report from hdc_audit_log where action = 'metrics.exported'`)).rows).toEqual([{ report: 'pilot' }]);
 });

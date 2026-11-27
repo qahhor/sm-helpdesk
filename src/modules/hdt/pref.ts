@@ -292,8 +292,12 @@ export const PILOT_ORGS_SETTING = 'pilot.org_ids';
 /** Пилотных организаций не больше: решение ТЗ 77 называет 3-5. */
 export const PILOT_ORGS_MAX = 20;
 
-/** Строки сводки пилота: восемь показателей таблицы ТЗ 16.7 и доля пришедших мимо портала в Telegram (решение ТЗ 83). */
-export const PILOT_METRICS = ['portal_share', 'first_response', 'resolution', 'ai_resolved', 'ai_flagged', 'csat_high', 'leaks', 'ai_cost', 'telegram_share'] as const;
+/**
+ * Строки сводки пилота: восемь показателей таблицы ТЗ 16.7 и доля пришедших мимо портала в Telegram (решение ТЗ 83).
+ * Закрытые помощником показаны двумя долями (решение 0146): ai_resolved от обращений, которые вёл помощник (с целью
+ * 16.7), и ai_resolved_all от всех обращений пилотных клиентов, справочно без цели.
+ */
+export const PILOT_METRICS = ['portal_share', 'first_response', 'resolution', 'ai_resolved', 'ai_resolved_all', 'ai_flagged', 'csat_high', 'leaks', 'ai_cost', 'telegram_share'] as const;
 export type PilotMetricKey = (typeof PILOT_METRICS)[number];
 
 /**
@@ -306,6 +310,7 @@ export const PILOT_TARGETS: Record<PilotMetricKey, { target: number | null; dire
   first_response: { target: 95, direction: 'min' },
   resolution: { target: 85, direction: 'min' },
   ai_resolved: { target: 15, direction: 'min' },
+  ai_resolved_all: { target: null, direction: null },
   ai_flagged: { target: 5, direction: 'max' },
   csat_high: { target: 80, direction: 'min' },
   leaks: { target: 0, direction: null },

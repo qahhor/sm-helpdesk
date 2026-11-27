@@ -560,6 +560,7 @@ export async function pilotSummary(ctx: StaffContext, input: unknown, now: Date 
     first_response: { value: percent(c.firstResponseOk, c.firstResponseTotal), base: c.firstResponseTotal },
     resolution: { value: percent(c.resolutionOk, c.resolutionTotal), base: c.resolutionTotal },
     ai_resolved: { value: percent(c.aiResolved, c.aiHandled), base: c.aiHandled },
+    ai_resolved_all: { value: percent(c.aiResolved, c.total), base: c.total },
     ai_flagged: { value: percent(runs.flagged, runs.answers), base: runs.answers },
     csat_high: { value: percent(c.csatHigh, c.rated), base: c.rated },
     leaks: { value: null, base: null },

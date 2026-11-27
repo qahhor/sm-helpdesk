@@ -22,6 +22,7 @@ export default async function ClientHomePage() {
   const format = await getFormatter();
   const locale = (await getLocale()) as Locale;
   const ti = await getTranslations('client.ideas');
+  const tp = await getTranslations('client.problems');
   const [recent, hints, month] = await Promise.all([listTickets(client, { scope: 'mine' }), hintsPending(client), ideaOfMonth(client, { locale })]);
   const items = recent.items.slice(0, 3);
   return (
@@ -49,6 +50,9 @@ export default async function ClientHomePage() {
           <Link href="/ideas/new">{t('home.idea')}</Link>
         </Button>
       </div>
+      <Link href="/problems" className="self-start text-sm text-link underline underline-offset-2">
+        {tp('homeLink')}
+      </Link>
       <Card>
         {items.length === 0 ? (
           <EmptyState withTez title={t('home.myTickets')} text={t('tickets.empty')} />

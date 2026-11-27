@@ -12,7 +12,8 @@ import { RadioGroup, type RadioOption } from '@/ui/components/radio-group';
 import { Textarea } from '@/ui/components/textarea';
 import { browserDrafts, browserSession, clearDraft, type Draft, draftKey, forgetSent, rememberSent, saveDraft, useDraft } from '@/ui/drafts';
 import { handoffDescription, takeBrowserHandoff, type WidgetHandoff } from '@/ui/widget/handoff';
-import { createTicketAction, type NewTicketState } from './actions';
+import { createTicketAction, type NewTicketState, reportAffectedAction, type SuggestResult } from './actions';
+import { KnownProblemBanner } from '@/ui/components/KnownProblemBanner';
 import { ModulePicker } from './ModulePicker';
 import { Select } from '@/ui/components/select';
 import { type SuggestLabels, Suggestions } from './Suggestions';
@@ -24,6 +25,9 @@ import { type SuggestLabels, Suggestions } from './Suggestions';
 // открывает форму с раскрытыми полями и описанием из черновика (FR-SOL-11).
 // Режим B виджета (план M6, задача 8): форма, открытая загрузчиком с #widget=1&hints=..., подставляет ошибку Smartup в
 // пустое описание и модуль по коду, а признак виджета и подсказки уходят телом формы, не адресом (решения 11, 12).
+// Известная проблема (план M5c, решение 13): если сигнатура текста совпала с активной показанной проблемой, над полями
+// баннер "Мы знаем об этой проблеме" с кнопкой "Меня это тоже затронуло"; форма остаётся ниже: клиент мог прийти не с
+// этой ошибкой.
 
 export type NewTicketLabels = {
   description: string;
@@ -50,6 +54,8 @@ export type NewTicketLabels = {
   errors: Record<string, string>;
   files: FilePickerLabels;
   suggest: SuggestLabels & { sendAnyway: string };
+  /** Баннер известной проблемы над формой (план M5c, решение 13). Подстановки {status}. */
+  problem: { heading: string; status: string; statuses: Record<string, string>; workaround: string; open: string; affected: string; affectedHint: string };
 };
 
 const INITIAL: NewTicketState = { error: null, field: null };
@@ -128,6 +134,7 @@ function Fields({
   const [uploading, setUploading] = useState(false);
   const [open, setOpen] = useState(initialOpen);
   const [suggested, setSuggested] = useState(false);
+  const [problem, setProblem] = useState<SuggestResult['knownProblem']>(null);
   // Поля свёрнуты, пока показана подсказка и клиент не нажал "Не помогло". Ошибка отправки поля раскрывает.
   const collapsed = suggested && !open && !state.error;
 
@@ -174,6 +181,34 @@ function Fields({
         </>
       )}
       {formError && <Alert tone="danger">{formError}</Alert>}
+      {problem && (
+        <KnownProblemBanner
+          testId="known-problem-banner"
+          heading={labels.problem.heading}
+          title={problem.publicTitle}
+          status={labels.problem.status.replace('{status}', labels.problem.statuses[problem.status] ?? '')}
+          body={problem.publicBody}
+          workaround={
+            problem.workaround
+              ? {
+                  label: labels.problem.workaround,
+                  link: (
+                    <Link href={`/help/a/${problem.workaround.number}-${problem.workaround.slug}`} className="text-link underline underline-offset-2">
+                      {problem.workaround.title}
+                    </Link>
+                  ),
+                }
+              : null
+          }
+        >
+          {/* Кнопка отправляет эту же форму другим действием: описание из поля уходит в обращение. */}
+          <input type="hidden" name="problemNumber" value={problem.number} />
+          <Button type="submit" formAction={reportAffectedAction} className="tablet:self-start">
+            {labels.problem.affected}
+          </Button>
+          <p className="text-sm">{labels.problem.affectedHint}</p>
+        </KnownProblemBanner>
+      )}
 
       <div className="flex flex-col gap-1">
         <Label htmlFor="field-description">{labels.description}</Label>
@@ -213,6 +248,7 @@ function Fields({
         labels={labels.suggest}
         onChange={setSuggested}
         onNotHelped={() => setOpen(true)}
+        onProblem={setProblem}
       />
 
       {/* Клиент уже заполняет поля: подсказка, пришедшая позже, их не сворачивает. */}

@@ -5,6 +5,7 @@ import 'server-only';
 
 export {
   lockProblemTicketTx,
+  ownProblemTicketTx,
   type ProblemLinkVia,
   problemOrgIdsTx,
   problemTicketTx,

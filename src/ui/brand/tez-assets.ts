@@ -11,6 +11,13 @@ export const TEZ_ASSETS = {
 
 export type TezAsset = keyof typeof TEZ_ASSETS;
 
+/**
+ * Позы Теза под смысл (гид бренда, раздел 8.13 ТЗ). Одна поза на оба фона: в пакете бренда у позы один файл.
+ * virazh: состояние "Внимание" (ждём ответа клиента, известная проблема по его модулю; план M5c, задача 4).
+ */
+export const TEZ_POSES = { virazh: 'pose-virazh.svg' } as const;
+export type TezPose = keyof typeof TEZ_POSES;
+
 /** Меньше этого размера Тез не ставится. */
 export const TEZ_MIN_SIZE = 16;
 /** До этого размера включительно берётся значок, выше основной Тез с перьями. */

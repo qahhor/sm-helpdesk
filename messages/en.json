@@ -313,7 +313,8 @@
           "ai_helped": "Glad it helped. The request is resolved.",
           "ai_not_helped": "I passed your request to staff.",
           "ai_need_staff": "I passed your request to staff.",
-          "ai_picked": "Here is the chosen solution."
+          "ai_picked": "Here is the chosen solution.",
+          "already_reported": "You have already reported this problem. We will post here as soon as it is fixed."
         },
         "otherOrg": {
           "text": "Request {number} belongs to {org}. Switch to it to open the request.",
@@ -681,6 +682,33 @@
         "other_user": "Does another user see the same?"
       },
       "formHint": "The AI assistant answers first. You can call staff at any time."
+    },
+    "problems": {
+      "heading": "We know about this problem",
+      "status": "Status: {status}",
+      "statuses": {
+        "investigating": "investigating",
+        "cause_found": "cause found",
+        "fixing": "fixing",
+        "fixed": "fixed"
+      },
+      "workaround": "Workaround:",
+      "openWorkaround": "Open",
+      "affected": "This affects me too",
+      "affectedHint": "We will let you know as soon as it is fixed.",
+      "other": "I have a different problem",
+      "already": "You have already reported this problem: {number}",
+      "inTicket": "This request is linked to a known problem. We will post here as soon as it is fixed.",
+      "page": {
+        "title": "Known problems",
+        "intro": "Problems we know about and are working on. Fixed ones stay here for 30 days.",
+        "empty": "There are no known problems right now",
+        "emptyText": "If something does not work, describe it in a request.",
+        "fixedOn": "Fixed on {date}",
+        "active": "In progress",
+        "fixed": "Fixed"
+      },
+      "homeLink": "Known problems"
     }
   },
   "agent": {
@@ -4356,6 +4384,25 @@
     },
     "mobile": {
       "reopen": "Open this page again from the Smartup app."
+    },
+    "problems": {
+      "heading": "We know about this problem",
+      "status": "Status: {status}",
+      "statuses": {
+        "investigating": "investigating",
+        "cause_found": "cause found",
+        "fixing": "fixing",
+        "fixed": "fixed"
+      },
+      "workaround": "Workaround:",
+      "openWorkaround": "Open",
+      "affected": "This affects me too",
+      "affectedHint": "We will let you know as soon as it is fixed.",
+      "other": "I have a different problem",
+      "sending": "Sending...",
+      "created": "Request {number} created. We will let you know as soon as it is fixed.",
+      "already": "You have already reported this problem: {number}",
+      "failed": "Could not send. Please try again."
     }
   }
 }

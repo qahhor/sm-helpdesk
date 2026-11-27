@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { LOGO_ASSETS, pickTezAsset, TEZ_ASSETS, tezClearSpace } from '@/ui/brand/tez-assets';
+import { LOGO_ASSETS, pickTezAsset, TEZ_ASSETS, TEZ_POSES, tezClearSpace } from '@/ui/brand/tez-assets';
 import { showcaseEnabled } from '@/ui/showcase';
 
 test('выбор файла Теза по размеру и фону (раздел 8.13 ТЗ)', () => {
@@ -23,12 +23,14 @@ test('файлы для веба совпадают с файлами пакет
   for (const name of Object.values(TEZ_ASSETS))
     expect(readFileSync(`public/brand/tez/${name}`)).toEqual(readFileSync(`docs/brand/tez/${name}`));
   expect(new Set(Object.values(TEZ_ASSETS)).size).toBe(4);
+  // Позы под смысл (план M5c, задача 4): те же файлы пакета бренда без изменений.
+  for (const name of Object.values(TEZ_POSES)) expect(readFileSync(`public/brand/tez/${name}`)).toEqual(readFileSync(`docs/brand/tez/${name}`));
   for (const { file } of Object.values(LOGO_ASSETS))
     expect(readFileSync(`public/brand/logo/${file}`)).toEqual(readFileSync(`docs/brand/logo/${file}`));
 });
 
 test('в public лежат только используемые файлы бренда', () => {
-  expect(readdirSync('public/brand/tez').sort()).toEqual(Object.values(TEZ_ASSETS).sort());
+  expect(readdirSync('public/brand/tez').sort()).toEqual([...Object.values(TEZ_ASSETS), ...Object.values(TEZ_POSES)].sort());
   expect(readdirSync('public/brand/logo').sort()).toEqual(
     Object.values(LOGO_ASSETS)
       .map((asset) => asset.file)

@@ -313,7 +313,8 @@
           "ai_helped": "Yordam berganidan xursandmiz. Murojaat hal qilindi.",
           "ai_not_helped": "Murojaatni xodimga o'tkazdim.",
           "ai_need_staff": "Murojaatni xodimga o'tkazdim.",
-          "ai_picked": "Tanlangan yechimni ko'rsatdim."
+          "ai_picked": "Tanlangan yechimni ko'rsatdim.",
+          "already_reported": "Siz bu muammo haqida allaqachon xabar bergansiz. Tuzatishimiz bilan shu yerda xabar beramiz."
         },
         "otherOrg": {
           "text": "{number} murojaati {org} tashkilotiga tegishli. Murojaatni ochish uchun unga o'ting.",
@@ -681,6 +682,33 @@
         "other_user": "Boshqa foydalanuvchida ham shundaymi?"
       },
       "formHint": "Birinchi bo'lib AI-yordamchi javob beradi. Xodimni istalgan vaqtda chaqirish mumkin."
+    },
+    "problems": {
+      "heading": "Biz bu muammo haqida bilamiz",
+      "status": "Holat: {status}",
+      "statuses": {
+        "investigating": "o'rganyapmiz",
+        "cause_found": "sabab topildi",
+        "fixing": "tuzatyapmiz",
+        "fixed": "tuzatildi"
+      },
+      "workaround": "Aylanma yo'l:",
+      "openWorkaround": "Ochish",
+      "affected": "Bu menga ham ta'sir qildi",
+      "affectedHint": "Tuzatishimiz bilan xabar beramiz.",
+      "other": "Menda boshqa muammo",
+      "already": "Siz bu muammo haqida allaqachon xabar bergansiz: {number}",
+      "inTicket": "Bu murojaat ma'lum muammo bilan bog'liq. Tuzatishimiz bilan shu yerda xabar beramiz.",
+      "page": {
+        "title": "Ma'lum muammolar",
+        "intro": "Biz biladigan va ustida ishlayotgan muammolar. Tuzatilganlari 30 kun ko'rsatiladi.",
+        "empty": "Hozir ma'lum muammolar yo'q",
+        "emptyText": "Agar biror narsa ishlamasa, uni murojaatda tasvirlab bering.",
+        "fixedOn": "{date} tuzatildi",
+        "active": "Ishda",
+        "fixed": "Tuzatildi"
+      },
+      "homeLink": "Ma'lum muammolar"
     }
   },
   "agent": {
@@ -4356,6 +4384,25 @@
     },
     "mobile": {
       "reopen": "Bu sahifani Smartup ilovasidan qaytadan oching."
+    },
+    "problems": {
+      "heading": "Biz bu muammo haqida bilamiz",
+      "status": "Holat: {status}",
+      "statuses": {
+        "investigating": "o'rganyapmiz",
+        "cause_found": "sabab topildi",
+        "fixing": "tuzatyapmiz",
+        "fixed": "tuzatildi"
+      },
+      "workaround": "Aylanma yo'l:",
+      "openWorkaround": "Ochish",
+      "affected": "Bu menga ham ta'sir qildi",
+      "affectedHint": "Tuzatishimiz bilan xabar beramiz.",
+      "other": "Menda boshqa muammo",
+      "sending": "Yuborilmoqda...",
+      "created": "{number} murojaati yaratildi. Tuzatishimiz bilan xabar beramiz.",
+      "already": "Siz bu muammo haqida allaqachon xabar bergansiz: {number}",
+      "failed": "Yuborib bo'lmadi. Yana urinib ko'ring."
     }
   }
 }

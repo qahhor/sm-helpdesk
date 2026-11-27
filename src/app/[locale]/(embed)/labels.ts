@@ -22,6 +22,7 @@ export async function widgetLabels(): Promise<WidgetLabels> {
   const parts: [string, string][] = [
     ['panel', 'widget.panel'],
     ['report', 'widget.report'],
+    ['problems', 'widget.problems'],
     ['solution', 'widget.solution'],
     ['tickets', 'widget.tickets'],
     ['mobile', 'widget.mobile'],

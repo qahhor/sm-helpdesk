@@ -129,3 +129,17 @@ export async function unlinkedTicketIdsTx(tx: Tx, ticketIds: readonly string[]):
   const rows = await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(and(inArray(tickets.ticketId, [...ticketIds]), isNull(tickets.knownProblemId)));
   return rows.map((r) => r.ticketId);
 }
+
+/**
+ * Своё обращение клиента по проблеме (план M5c, решение 14): второе нажатие "Меня это тоже затронуло" показывает его
+ * номер. Читается от имени клиента: чужое и невидимое обращение политика не отдаёт.
+ */
+export async function ownProblemTicketTx(tx: Tx, input: { authorId: string; problemId: string }): Promise<number | null> {
+  const [row] = await tx
+    .select({ number: tickets.number })
+    .from(tickets)
+    .where(and(eq(tickets.authorId, input.authorId), eq(tickets.knownProblemId, input.problemId)))
+    .orderBy(asc(tickets.number))
+    .limit(1);
+  return row?.number ?? null;
+}

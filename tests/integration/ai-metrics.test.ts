@@ -158,14 +158,25 @@ test('планы запросов: обращения периода по инд
   const plan = async (sql: string, params: unknown[]) => {
     const client = await pools.root.connect();
     try {
-      // Свежая статистика и запрет сортировки: на нескольких строках планировщик
-      // иначе может выбрать соседний частичный индекс с сортировкой после него.
+      // План проверяется на объёме, похожем на рабочий, внутри откатываемой транзакции:
+      // на нескольких строках оба частичных индекса стоят одинаково, и выбор планировщика
+      // зависит от статистики, оставленной другими тестами.
+      await client.query('begin');
+      await client.query(
+        `insert into hda_runs (org_id, purpose, model, outcome, decision, solution_id, created_on)
+         select $1, 'first_line', 'stub-model', 'ok', 'answer',
+                ('01900000-0000-7000-8000-' || lpad(to_hex(i % 200), 12, '0'))::uuid,
+                now() - (i || ' minutes')::interval
+           from generate_series(1, 5000) as i`,
+        [f.orgA.orgId],
+      );
       await client.query('analyze hda_runs');
       await client.query('analyze hdt_tickets');
       await client.query('set enable_seqscan = off');
       await client.query('set enable_sort = off');
       return (await client.query(`explain (costs off) ${sql}`, params)).rows.map((row) => Object.values(row)[0]).join('\n');
     } finally {
+      await client.query('rollback');
       await client.query('reset enable_seqscan');
       await client.query('reset enable_sort');
       client.release();

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { isLocale } from '@/i18n/locales';
 import { StyleNonce } from '@/security/StyleNonce';
+import { ThemeApply } from '@/ui/theme/ThemeApply';
 import { ThemeScript } from '@/ui/theme/ThemeScript';
 import '../globals.css';
 
@@ -31,6 +32,8 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
       </head>
       <body>
         <StyleNonce />
+        {/* Страница "не найдено" собирается в браузере, где скрипт темы не выполняется (план M9, решение 23). */}
+        <ThemeApply />
         {/* Тексты переводятся на сервере и приходят компонентам готовыми строками: библиотека сообщений
             и сами сообщения в браузер не отправляются. Клиентскому экрану, которому нужны переводы,
             поставщик сообщений подключается на его странице с нужной частью сообщений. */}

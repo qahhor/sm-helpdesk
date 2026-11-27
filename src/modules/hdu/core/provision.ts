@@ -2,9 +2,9 @@ import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
 import { withIdentity } from '@/db/with-identity';
 import { isLocale, type Locale } from '@/i18n/locales';
-import { writeAudit } from '@/modules/hdc/api';
+import { readSetting, writeAudit } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
-import type { ClientRole } from '../pref';
+import { AI_NEW_ORG_DEFAULT_SETTING, type ClientRole } from '../pref';
 import { memberships, organizations, servers } from '../schema';
 import { mapClientRole, syntheticEmail } from '../util';
 import { claimIssues, smartupProfile } from './claims';
@@ -91,6 +91,9 @@ export async function provisionFromSmartup(
   }
   const profile = parsed.data;
   try {
+    // AI-обработка новой организации (план M9, решение 10): только при ai.new_org_default = true. Существующую
+    // организацию вход не меняет: колонка в обновлении при конфликте не участвует.
+    const aiByDefault = (await readSetting(AI_NEW_ORG_DEFAULT_SETTING)) === true;
     return await withIdentity(SYSTEM, async (tx) => {
       const server = (
         await tx.select({ serverId: servers.serverId, roleMap: servers.roleMap }).from(servers).where(eq(servers.code, serverCode)).limit(1)
@@ -105,7 +108,7 @@ export async function provisionFromSmartup(
       const org = (
         await tx
           .insert(organizations)
-          .values({ serverId: server.serverId, externalCompanyId: profile.companyId, name: profile.companyName, inn: profile.inn ?? null })
+          .values({ serverId: server.serverId, externalCompanyId: profile.companyId, name: profile.companyName, inn: profile.inn ?? null, isAiEnabled: aiByDefault })
           .onConflictDoUpdate({
             target: [organizations.serverId, organizations.externalCompanyId],
             set: { name: profile.companyName, inn: sql`coalesce(excluded.inn, ${organizations.inn})` },

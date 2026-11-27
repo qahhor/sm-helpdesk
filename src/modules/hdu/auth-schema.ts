@@ -39,6 +39,8 @@ export const authSession = auth.table('session', {
   activeOrgId: uuid('activeOrgId'),
   secondFactorAt: moment('secondFactorAt'),
   freshAuthAt: moment('freshAuthAt'),
+  // Последнее действие человека в рабочем месте (миграция 0127, план M9, решение 8).
+  staffActiveAt: moment('staffActiveAt'),
 });
 
 export const authAccount = auth.table('account', {

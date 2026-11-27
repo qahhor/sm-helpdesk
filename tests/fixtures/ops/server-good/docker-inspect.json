@@ -1,0 +1,42 @@
+[
+  {
+    "Name": "/smartup-hub-caddy-1",
+    "Config": {
+      "Image": "caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb",
+      "User": "",
+      "Env": ["PATH=/usr/bin", "TRUSTED_PROXIES=173.245.48.0/20 103.21.244.0/22"],
+      "Labels": { "com.docker.compose.service": "caddy" }
+    },
+    "HostConfig": { "ReadonlyRootfs": false, "PortBindings": { "80/tcp": [{ "HostIp": "", "HostPort": "80" }], "443/tcp": [{ "HostIp": "", "HostPort": "443" }] } }
+  },
+  {
+    "Name": "/smartup-hub-web-1",
+    "Config": {
+      "Image": "ghcr.io/example/smartup-hub:1.0.0@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "User": "1001:1001",
+      "Env": ["DATABASE_URL_APP=postgres://hub_app:SECRET-APP-PASSWORD@postgres:5432/hub", "BETTER_AUTH_SECRET=SECRET-SESSION-KEY"],
+      "Labels": { "com.docker.compose.service": "web" }
+    },
+    "HostConfig": { "ReadonlyRootfs": true, "PortBindings": {} }
+  },
+  {
+    "Name": "/smartup-hub-worker-1",
+    "Config": {
+      "Image": "ghcr.io/example/smartup-hub:1.0.0@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "User": "1001:1001",
+      "Env": ["ANTHROPIC_API_KEY=SECRET-ANTHROPIC-KEY"],
+      "Labels": { "com.docker.compose.service": "worker" }
+    },
+    "HostConfig": { "ReadonlyRootfs": true, "PortBindings": {} }
+  },
+  {
+    "Name": "/smartup-hub-postgres-1",
+    "Config": {
+      "Image": "pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782",
+      "User": "",
+      "Env": ["POSTGRES_PASSWORD_FILE=/run/secrets/pg_superuser"],
+      "Labels": { "com.docker.compose.service": "postgres" }
+    },
+    "HostConfig": { "ReadonlyRootfs": false, "PortBindings": {} }
+  }
+]

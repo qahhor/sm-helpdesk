@@ -151,7 +151,7 @@ test('блок AI у сотрудника: предложения, найден�
 });
 
 test('ai.triage: обращение от сотрудника получает разбор без ответа (решение 6), выключенная AI-обработка ничего', async () => {
-  const created = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: 'Клиент позвонил: не печатается накладная', type: 'question', impact: 'minor', visibility: 'org', locale: 'ru' });
+  const created = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: 'Клиент позвонил: не печатается накладная', type: 'question', impact: 'minor', visibility: 'org', locale: 'ru', intakeChannel: 'phone' });
   const ticketId = (await pools.root.query(`select ticket_id from hdt_tickets where number = $1`, [created.number])).rows[0].ticket_id as string;
   expect(jobs.sent.filter((j) => j.name === 'ai.triage').map((j) => j.data)).toEqual([{ ticketId }]);
   expect(jobs.sent.some((j) => j.name === 'ai.first_line')).toBe(false);
@@ -168,7 +168,7 @@ test('ai.triage: обращение от сотрудника получает �
   expect(stub.calls).toHaveLength(1);
 
   await pools.root.query(`update hdu_organizations set is_ai_enabled = false where org_id = $1`, [f.orgA.orgId]);
-  const off = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: 'Клиент позвонил: не печатается накладная', type: 'question', impact: 'minor', visibility: 'org', locale: 'ru' });
+  const off = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: 'Клиент позвонил: не печатается накладная', type: 'question', impact: 'minor', visibility: 'org', locale: 'ru', intakeChannel: 'phone' });
   const offId = (await pools.root.query(`select ticket_id from hdt_tickets where number = $1`, [off.number])).rows[0].ticket_id as string;
   expect(jobs.sent.filter((j) => j.name === 'ai.triage' && j.data.ticketId === offId)).toHaveLength(0);
   await runTriageJob(TRIAGE, { ticketId: offId });

@@ -100,3 +100,25 @@ export async function acceptAndEnroll(page: Page, input: { token: string; email:
   await expect(page).toHaveURL(/\/ru\/agent$/);
   return secret;
 }
+
+/**
+ * Сохранённые сессии сотрудников живут весь прогон, а между тестами одной роли может пройти больше 30 минут срока
+ * бездействия (план M9, решение 8). Раз в 5 минут прогон отмечает их активными в базе, как сделала бы страница при
+ * действии человека. Трогает только сессии из файлов tests/e2e/.auth: свежие входы тестов (и тест срока бездействия)
+ * живут по настоящим правилам.
+ */
+export function keepStoredStaffSessionsActive(): void {
+  const bump = async () => {
+    const tokens: string[] = [];
+    for (const key of ['care', 'l1', 'l2', 'admin'] as const) {
+      try {
+        const state = JSON.parse(readFileSync(storageStateOf(key), 'utf8')) as { cookies?: { name: string; value: string }[] };
+        for (const cookie of state.cookies ?? []) if (cookie.name.endsWith('session_token')) tokens.push(decodeURIComponent(cookie.value).split('.')[0] ?? '');
+      } catch {
+        // Файла ещё нет: проект setup его не создал.
+      }
+    }
+    if (tokens.length > 0) await dbRows(`update auth.session set "staffActiveAt" = now() where token = any($1::text[])`, [tokens]).catch(() => undefined);
+  };
+  setInterval(() => void bump(), 5 * 60_000).unref();
+}

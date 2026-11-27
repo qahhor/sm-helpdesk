@@ -14,7 +14,7 @@ import { type ClientContext, type ClientDenial, resolveClient, switchOrganizatio
 import { listMySessions, revokeMySession, revokeOtherSessions, type SessionView } from './sessions';
 import { rememberLocale } from './telegram';
 import { readSession, type RequestInfo, type SessionData } from './request';
-import { resolveStaff, type StaffContext, type StaffDenial, staffAccess } from './session';
+import { markStaffActivity, resolveStaff, type StaffContext, type StaffDenial, staffAccess } from './session';
 
 // Вход в защищённые разделы: проверка сессии и роли на каждом запросе (ТЗ 9.4, правило 7).
 // Раскладка и страница вызывают эти функции каждая сама: одинаковые проверки в пределах одного запроса
@@ -63,6 +63,14 @@ export async function requireStaffActor(opts: { roles?: readonly StaffRole[] } =
     redirect(`/${locale}/staff/login?next=${encodeURIComponent(next)}`);
   }
   return result;
+}
+
+/**
+ * Действие человека в рабочем месте (план M9, решение 8): отметка активности сессии текущего запроса. Вызывает
+ * только компонент страницы при открытии и вводе, не фоновые запросы. Возвращает, действует ли сессия.
+ */
+export async function touchStaffActivity(): Promise<boolean> {
+  return markStaffActivity(await sessionOfRequest(), new Date());
 }
 
 /** Сотрудник текущего запроса, если он вошёл полностью. Для страниц входа: вошедшего туда не пускаем повторно. */

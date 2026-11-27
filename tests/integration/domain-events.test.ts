@@ -72,7 +72,7 @@ test('создание обращения клиентом в портале: о
 });
 
 test('обращение от имени клиента и обращение из письма: по одному ticket_created со своим источником', async () => {
-  const created = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: 'Клиент позвонил: не открывается отчёт', type: 'question', impact: 'minor', visibility: 'org', locale: 'ru', priority: 'p1' });
+  const created = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: 'Клиент позвонил: не открывается отчёт', type: 'question', impact: 'minor', visibility: 'org', locale: 'ru', intakeChannel: 'phone', priority: 'p1' });
   expect(brief(await eventsOf((await ticketIdOf(created.number)).ticket_id))).toEqual([['ticket_created', { source: 'staff', type: 'question', priority: 'p1' }]]);
   await clear();
   const { result } = await deliverTo(box, { subject: 'Не печатается накладная', text: 'После обновления накладная не печатается' });

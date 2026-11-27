@@ -74,20 +74,25 @@ test('без токена, с неверным, неизвестным, истё
   expect((await client(main.value).rpc('tools/list')).status).toBe(401);
 });
 
-test('адрес вне списка токена или вне MCP_ALLOWED_IPS: 403, отказ в журнале вызовов и событие mcp.denied', async () => {
+test('адрес вне списка токена или вне MCP_ALLOWED_IPS: тот же 401, что неверный токен (долг M8b M9); причина в журнале вызовов и событии mcp.denied', async () => {
   const main = await seedAgentToken({ allowedIps: ['10.0.3.0/24'] });
   const reply = await client(main.value, '192.168.1.5').rpc('tools/list');
-  expect(reply.status).toBe(403);
+  const wrong = await client(`hub_at_${'C'.repeat(43)}`, '10.0.3.77').rpc('tools/list');
+  // Держатель утёкшего токена по ответу не узнаёт, что токен действует: код, заголовки и тело совпадают.
+  expect(reply.status).toBe(401);
+  expect(reply.body).toEqual(wrong.body);
+  expect(reply.headers.get('www-authenticate')).toBe(wrong.headers.get('www-authenticate'));
   expect(await calls(main.tokenId)).toEqual([expect.objectContaining({ tool: 'connect', status: 'refused' })]);
   expect(events.find((e) => e.event === 'mcp.denied')?.fields).toMatchObject({ tokenId: main.tokenId, reason: 'token_ip' });
   expect((await client(main.value, '10.0.3.77').rpc('tools/list')).status).toBe(200);
 
   setAgentServerSettingsForTests({ allowedIps: ['10.0.9.0/24'] });
   const outside = await client(main.value, '10.0.3.77').rpc('tools/list');
-  expect(outside.status).toBe(403);
+  expect(outside.status).toBe(401);
+  expect(outside.body).toEqual(wrong.body);
   expect(events.filter((e) => e.event === 'mcp.denied').at(-1)?.fields).toMatchObject({ reason: 'server_ip' });
   // Без адреса запроса вход закрыт.
-  expect((await createMcpClient({ token: main.value, send: (r) => handleMcpRequest(r) }).rpc('tools/list')).status).toBe(403);
+  expect((await createMcpClient({ token: main.value, send: (r) => handleMcpRequest(r) }).rpc('tools/list')).status).toBe(401);
 });
 
 test('вызов инструмента вне перечня отклоняется tool_not_allowed, пишет журнал вызовов refused и аудит в одной транзакции', async () => {

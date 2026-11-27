@@ -10,7 +10,7 @@ Smartup Hub is the Smartup support portal. Here you report a problem, follow the
 >
 > Portal address: {portal address}. Sign in with the same Smartup account you use in Smartup Web and the mobile app: the «Sign in with Smartup» button.
 >
-> The AI assistant Tez replies first to a new request: it suggests a matching published solution or hands the request to staff and names the reply time. It writes no text of its own, only solutions from the base. You can call staff at any time with the «Need staff» button. The assistant works only if your organization agreed to AI processing of requests; you can opt out at any time by replying to this letter.
+> The AI assistant Tez replies first to a new request: it suggests a matching published solution or hands the request to staff and names the reply time. It writes no text of its own, only solutions from the base. You can call staff at any time with the «Need staff» button. The assistant works only if your organization gave written consent to AI processing of requests: the consent text is attached to this letter. Until then, staff receive the requests straight away. You can opt out at any time by replying to this letter.
 >
 > The guide is attached to this letter. If something is unclear, reply to this letter.
 >

@@ -98,6 +98,8 @@ The three preset rules (P1 message to the on-call staff, breached deadline, low 
 
 «Metrics»: first response and resolution time, the share solved on time, ratings. «Period»: «7 days», «30 days», «90 days» or «Custom period». The «CSV export» block exports slices as CSV files, every export is written to the audit log.
 
+The «Pilot» tab (Customer Care and the administrator) summarizes the pilot metrics for the pilot organizations against the pilot plan targets; the administrator marks an organization as pilot on its card, block «Pilot». A request that came outside the portal (Telegram, a call, an email to a staff member, Jira) is entered with «Ticket for a client» with «Where it came from» filled in: the form does not go without it, and the client does not see the mark.
+
 ## 10. Administrator settings
 
 Menu «All settings». Changing settings needs a sign-in within the last 15 minutes: if you signed in earlier, the portal asks you to sign in again.
@@ -118,7 +120,9 @@ The pilot reference data (modules, holidays, templates, playbooks, staff) is loa
 
 ## 11. AI assistant
 
-Tez replies first to requests from the portal, the widget and emails of identified clients, if AI processing of the organization and the assistant are on. Requests handed over by the assistant are in the «After AI» queue with the handoff reason and also in New. The queue «AI replied, client silent» shows where the client has not pressed a button under the answer yet.
+Tez replies first to requests from the portal, the widget and emails of identified clients, if AI processing of the organization and the assistant are on.
+
+Customer Care and the administrator turn on AI processing on the organization card, block «AI handling», and only after the client's written consent: fill in «Consent date» and «Basis» (letter or contract number) and press «Turn on AI processing». A new organization that signs in through Smartup for the first time works without AI until consent is recorded. If the client declines, press «Turn off AI processing»: the consent record is kept, both actions are in the audit log. Requests handed over by the assistant are in the «After AI» queue with the handoff reason and also in New. The queue «AI replied, client silent» shows where the client has not pressed a button under the answer yet.
 
 On the right of the request card is the AI assistant block: the handoff reason, the number of replies, the summary marked «AI, not verified» next to the original text, the solutions found with scores and triage suggestions. A request field changes only with «Accept» or «Accept all». Mark a wrong assistant answer with «Mark the answer as wrong» under its message: it goes to «AI answer review». A client message in another language can be translated with «Translate»: only staff see the translation, and it is not a basis for actions with rights, data or payments.
 

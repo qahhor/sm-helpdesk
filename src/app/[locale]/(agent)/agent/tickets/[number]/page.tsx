@@ -88,7 +88,8 @@ export default async function AgentTicketPage({ params, searchParams }: { params
         breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: t('queues.title'), href: '/agent/queues' }, { label }]}
         breadcrumbsLabel={t('breadcrumbs')}
       />
-      <div className="grid gap-4 lg:grid-cols-3">
+      {/* grid-cols-1: на телефоне колонка не шире окна, даже если содержимое боковой колонки длиннее (план M9, решение 24). */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <StatusLabel tone={STATUS_TONE[ticket.status] ?? 'gray'}>{statusName(ticket.status)}</StatusLabel>

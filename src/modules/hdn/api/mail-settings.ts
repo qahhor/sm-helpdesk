@@ -13,6 +13,7 @@ import { renderMail } from '../mail/render';
 import { getEmailProvider } from '../provider';
 import { blockedSenders, emailInbound } from '../schema';
 import ru from '../../../../messages/ru.json';
+import { noProtoKeys } from '@/lib/no-proto';
 
 // Модуль hdn, слой api: экран "Уведомления и почта" (FR-EM-13, FR-EM-14, FR-ADM-14; решения 8, 23, 24 вехи M4). Меняет
 // только администратор портала (решение 0019), каждое изменение в журнал аудита, токен бота в журнал не попадает.
@@ -40,7 +41,7 @@ const oncallInput = z
     botToken: BOT_TOKEN.optional(),
   })
   .strict();
-const testsValue = z.record(z.string(), z.object({ token: z.string().regex(TEST_MARK), sentOn: z.string() }));
+const testsValue = noProtoKeys(z.record(z.string(), z.object({ token: z.string().regex(TEST_MARK), sentOn: z.string() })));
 
 function requireAdmin(ctx: StaffContext): void {
   if (ctx.actor.type !== 'staff' || ctx.actor.staffRole !== 'admin') throw new HdnError('forbidden');

@@ -28,6 +28,7 @@ import { assertPublicUrl, isLocalPortal, SafeFetchError, safeFetchJson } from '.
 import { refreshEmbedOrigins } from '@/security/embed-frame';
 import { LOOPBACK_HOSTS } from '@/security/outbound';
 import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './session';
+import { noProtoKeys } from '@/lib/no-proto';
 
 // Реестр серверов Smartup (FR-ID-02, FR-ADM-01). Этот файл не тянет библиотеку входа:
 // его использует команда консоли hub.
@@ -42,7 +43,7 @@ const serverInput = z.object({
   clientId: z.string().trim().min(1).max(200),
   clientSecret: z.string().min(1).max(2000),
   isDefault: z.boolean().optional().default(false),
-  roleMap: z.record(z.string().trim().min(1).max(100), z.enum(CLIENT_ROLES)).optional(),
+  roleMap: noProtoKeys(z.record(z.string().trim().min(1).max(100), z.enum(CLIENT_ROLES))).optional(),
   endpoints: z.object({ authorization: urlText, token: urlText, userinfo: urlText, jwks: urlText }).strict().optional(),
 });
 

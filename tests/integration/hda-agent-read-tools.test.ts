@@ -118,7 +118,7 @@ test('search_tickets: фильтры и предел; лишний аргуме�
 test('similar_tickets: у другой организации тема и выдержка не длиннее 300 знаков после обезличивания (FR-AGT-15)', async () => {
   const { f, data } = await setup();
   const signature = 'd'.repeat(32);
-  await pools.root.query(`update hdu_organizations set is_ai_enabled = true where org_id = $1`, [f.orgB.orgId]);
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [f.orgB.orgId]);
   await pools.root.query(`update hdt_tickets set error_signature = $2 where ticket_id = any($1)`, [[f.tickets.aOrg.ticketId, f.tickets.bOrg.ticketId], signature]);
   await pools.root.query(`update hdt_tickets set description = $2 where ticket_id = $1`, [f.tickets.bOrg.ticketId, `Тимур из Globex пишет: ${'накладная не проводится. '.repeat(40)}`]);
   const items = (await data('similar_tickets', { number: f.tickets.aOrg.number })).items!;
@@ -184,7 +184,7 @@ test('list_known_problems без разбивки по организациям;
   const problems = (await data('list_known_problems', {})).items!;
   expect(problems.length).toBeGreaterThan(0);
   for (const p of problems) for (const key of Object.keys(p)) expect(key).not.toMatch(/org_id|orgs|author|owner/);
-  await pools.root.query(`update hdu_organizations set is_ai_enabled = true where org_id = $1`, [f.orgB.orgId]);
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [f.orgB.orgId]);
   const ideas = (await data('list_ideas', {})).items!;
   expect(ideas).toHaveLength(1);
   expect(JSON.stringify(ideas)).not.toMatch(/author|org_id|Тимур|Зарина/);
@@ -280,11 +280,24 @@ test('названия проблем, тексты идей и кандидат
   const candidates = JSON.stringify((await data('list_candidates', {})).items);
   for (const word of ['ACME', 'Алишер', 'Дильноза', 'Азиз']) expect(candidates, word).not.toContain(word);
 
-  await pools.root.query(`update hdu_organizations set is_ai_enabled = true where org_id = $1`, [f.orgB.orgId]);
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [f.orgB.orgId]);
   await pools.root.query(
     `update hdi_idea_translations set title = 'Идея Globex от Тимура', body = 'Зарина из Globex просит отчёт, Камила обещала' where idea_id in (select idea_id from hdi_ideas where status = 'open')`,
   );
   const ideas = JSON.stringify((await data('list_ideas', {})).items);
   for (const word of ['Globex', 'Тимур', 'Зарина', 'Камила']) expect(ideas, word).not.toContain(word);
   expect(ideas).not.toContain('org_id');
+});
+
+test('search_tickets ищет текст в обезличенной теме: имя человека не находится, остальные слова находятся (долг M8b M7)', async () => {
+  const { f, data } = await setup();
+  await pools.root.query(`update hdt_tickets set title = 'Алишер не может провести накладную' where ticket_id = $1`, [f.tickets.aOrg.ticketId]);
+  // По числу совпадений агент не узнаёт, встречается ли имя в обращениях.
+  expect((await data('search_tickets', { text: 'Алишер' })).items).toEqual([]);
+  expect((await data('search_tickets', { text: 'алишер' })).items).toEqual([]);
+  const found = (await data('search_tickets', { text: 'провести накладную' })).items!;
+  expect(found.map((i) => i.number)).toEqual([f.tickets.aOrg.number]);
+  expect(JSON.stringify(found)).not.toContain('Алишер');
+  // Текст ищется без учёта регистра и вместе с другими фильтрами и пределом.
+  expect((await data('search_tickets', { text: 'НАКЛАДНУЮ', limit: 1 })).items!.map((i) => i.number)).toEqual([f.tickets.aOrg.number]);
 });

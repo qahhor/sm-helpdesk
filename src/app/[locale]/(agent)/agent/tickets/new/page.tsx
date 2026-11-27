@@ -2,7 +2,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { LOCALES } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
 import { listActiveModules } from '@/modules/hdr/api';
-import { ALLOWED_FILE_EXTENSIONS, HDT_ERROR_CODES, IMPACTS, MAX_FILES_PER_MESSAGE, PRIORITIES, TICKET_TYPES, VISIBILITIES } from '@/modules/hdt/api';
+import { ALLOWED_FILE_EXTENSIONS, HDT_ERROR_CODES, IMPACTS, INTAKE_CHANNELS, MAX_FILES_PER_MESSAGE, PRIORITIES, TICKET_TYPES, VISIBILITIES } from '@/modules/hdt/api';
 import { getOrganization, listMembersForStaff, requireStaffActor, searchOrganizations } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
@@ -81,6 +81,7 @@ export default async function NewTicketForClientPage({ searchParams }: { searchP
                 <StaffTicketForm
                   orgId={org.orgId}
                   members={members.map((m) => ({ value: m.userId, label: m.email ? `${m.name} (${m.email})` : m.name }))}
+                  intakeChannels={INTAKE_CHANNELS.map((value) => ({ value, label: t(`newTicket.intakeChannels.${value}`) }))}
                   types={TICKET_TYPES.map((value) => ({ value, label: t(`ticket.types.${value}`) }))}
                   impacts={IMPACTS.map((value) => ({ value, label: tc(`impacts.${value}`) }))}
                   priorities={PRIORITIES.map((value) => ({ value, label: value.toUpperCase() }))}
@@ -92,6 +93,9 @@ export default async function NewTicketForClientPage({ searchParams }: { searchP
                   maxFiles={MAX_FILES_PER_MESSAGE}
                   labels={{
                     author: t('newTicket.author'),
+                    intake: t('newTicket.intake'),
+                    intakeChoose: t('newTicket.intakeChoose'),
+                    intakeHint: t('newTicket.intakeHint'),
                     type: t('newTicket.type'),
                     impact: t('newTicket.impact'),
                     priority: t('newTicket.priority'),

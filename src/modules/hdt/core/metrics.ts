@@ -334,3 +334,49 @@ export async function assistantStatsTx(tx: Tx, range: Range): Promise<AssistantT
     reopenedAfterHelped: totals?.reopened ?? 0,
   };
 }
+
+// --- Сводка пилота (план M9, задача 3, решение 13; ТЗ 16.7) ---
+
+export type PilotCounters = {
+  /** Обращения пилотных организаций, созданные в периоде, без дублей. */
+  total: number;
+  /** Из них заведены сотрудником с отметкой "откуда пришло" (пришли мимо портала). */
+  bypass: number;
+  telegram: number;
+  firstResponseTotal: number;
+  firstResponseOk: number;
+  resolutionTotal: number;
+  resolutionOk: number;
+  rated: number;
+  csatHigh: number;
+  /** Обращения, которые вёл помощник, и решённые им без сотрудника (FR-MET-06). */
+  aiHandled: number;
+  aiResolved: number;
+};
+
+/**
+ * Счётчики сводки пилота одним запросом по обращениям периода пилотных организаций. Определения те же, что у сводки
+ * показателей (сроки, оценки) и показателей помощника (assistantStatsTx); дубли не считаются нигде.
+ */
+export async function pilotCountersTx(tx: Tx, range: Range, orgIds: readonly string[], now: Date): Promise<PilotCounters> {
+  const all = counters(now);
+  const [row] = await tx
+    .select({
+      total: count(),
+      bypass: count(isNotNull(tickets.intakeChannel)),
+      telegram: count(eq(tickets.intakeChannel, 'telegram')),
+      firstResponseTotal: all.firstResponseTotal,
+      firstResponseOk: all.firstResponseOk,
+      resolutionTotal: all.resolutionTotal,
+      resolutionOk: all.resolutionOk,
+      rated: all.rated,
+      csatHigh: all.csatHigh,
+      aiHandled: count(sql`${tickets.aiState} <> 'none'`),
+      aiResolved: count(sql`${tickets.aiState} = 'resolved_by_ai'`),
+    })
+    .from(tickets)
+    .where(and(inPeriod(range), inArray(tickets.orgId, [...orgIds]), isNull(tickets.mergedIntoId)));
+  return (
+    row ?? { total: 0, bypass: 0, telegram: 0, firstResponseTotal: 0, firstResponseOk: 0, resolutionTotal: 0, resolutionOk: 0, rated: 0, csatHigh: 0, aiHandled: 0, aiResolved: 0 }
+  );
+}

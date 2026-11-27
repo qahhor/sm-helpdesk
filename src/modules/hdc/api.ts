@@ -57,6 +57,13 @@ export {
   type StaleBackupKind,
   WORKER_STALE_SEC,
   workerReadyResponse,
+  HOST_MARK_STALE_MIN,
+  HOST_PRESSURE_PCT,
+  type HostAlert,
+  hostAlerts,
+  type HostMark,
+  latestHostMarks,
+  markHost,
 } from './ops-status';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';

@@ -206,6 +206,8 @@ test('вход с подключённым вторым фактором: пар
 test('через 12 часов сессия сотрудника не действует и отзывается', async () => {
   const staff = await enrolledStaffFixture(await getAuth(), { role: 'care' });
   const jar = await signInWithCode(staff);
+  // Сотрудник действует весь день: без отметок через 30 минут сессию закрыл бы срок бездействия (план M9, решение 8).
+  await pools.root.query(`update auth.session set "staffActiveAt" = now() + interval '11 hours 55 minutes' where "userId" = $1`, [staff.userId]);
   const session = await readSession(jar.request);
   expect(await resolveStaff(session, new Date(Date.now() + 12 * HOUR - 60_000))).toHaveProperty('actor');
   expect(await resolveStaff(session, new Date(Date.now() + 12 * HOUR + 1000))).toEqual({ denied: 'expired' });

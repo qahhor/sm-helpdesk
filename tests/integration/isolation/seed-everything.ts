@@ -37,6 +37,7 @@ export async function seedEverything() {
   await pools.root.query(`insert into hdc_ops_alerts (code, last_sent_on) values ('outbox_failed', now())`);
   await pools.root.query(`insert into hdc_ops_backups (kind, size_bytes, finished_on) values ('dump', 1024, now())`);
   await pools.root.query(`insert into hdc_ops_heartbeats (process, beat_on) values ('worker', now()) on conflict do nothing`);
+  await pools.root.query(`insert into hdc_ops_host_marks (host, disk_pct, mem_pct, cpu_pct, marked_on) values ('hub-test', 10, 20, 30, now()) on conflict do nothing`);
   await pools.root.query(
     `insert into hdu_email_tokens (user_id, email, token_hash, expires_on)
      values ($1, 'a@acme.test', encode(sha256('t'::bytea), 'hex'), now() + interval '1 hour')`,

@@ -99,6 +99,15 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
                 <input type="checkbox" name="triageEnabled" defaultChecked={view.triageEnabled} className="size-5 accent-primary" />
                 {a('general.triageEnabled')}
               </label>
+              <div className="flex flex-col gap-1">
+                <label className="inline-flex min-h-control items-center gap-3">
+                  <input type="checkbox" name="newOrgDefault" defaultChecked={view.newOrgDefault} aria-describedby="ai-new-org-hint" className="size-5 accent-primary" />
+                  {a('general.newOrgDefault')}
+                </label>
+                <p id="ai-new-org-hint" className="text-sm text-secondary-foreground">
+                  {a('general.newOrgDefaultHint')}
+                </p>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="ai-min-score">{a('general.minScore')}</Label>

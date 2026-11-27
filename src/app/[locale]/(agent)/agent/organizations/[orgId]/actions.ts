@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { z } from 'zod';
+import { isHdtError, setPilotOrg } from '@/modules/hdt/api';
 import {
   addOrgDomain,
   changeMemberRole,
@@ -12,6 +13,7 @@ import {
   removeOrgDomain,
   revokeInvitation,
   setMemberState,
+  setOrgAiProcessing,
   type StaffContext,
   updateOrganization,
 } from '@/modules/hdu/api';
@@ -28,7 +30,7 @@ async function run(formData: FormData, action: (staff: StaffContext, orgId: stri
   try {
     await action(staff, orgId.data);
   } catch (error) {
-    if (!isHduError(error)) throw error;
+    if (!isHduError(error) && !isHdtError(error)) throw error;
     redirect(`${page}?error=${error.code}${extra}`);
   }
   redirect(`${page}?done=${done}${extra}`);
@@ -62,14 +64,27 @@ export async function revokeStaffAction(formData: FormData): Promise<void> {
   await run(formData, (staff, orgId) => revokeInvitation({ ctx: staff, orgId }, formData.get('invitationId')), 'revoked');
 }
 
-/** Категория клиента и AI-обработка (FR-ADM-02): care и admin. */
+/** Категория клиента (FR-ADM-02): care и admin. */
 export async function updateOrgSettingsAction(formData: FormData): Promise<void> {
   const category = formData.get('category');
+  await run(formData, (staff, orgId) => updateOrganization(staff, { orgId, category: category === '' ? null : category }), 'settingsSaved');
+}
+
+/** AI-обработка организации (план M9, решение 10): включение с датой и основанием согласия, выключение без них. */
+export async function setOrgAiAction(formData: FormData): Promise<void> {
+  const enabled = formData.get('enabled') === 'true';
   await run(
     formData,
-    (staff, orgId) => updateOrganization(staff, { orgId, category: category === '' ? null : category, isAiEnabled: formData.get('isAiEnabled') === 'on' }),
-    'settingsSaved',
+    (staff, orgId) =>
+      setOrgAiProcessing(staff, enabled ? { orgId, enabled, consentOn: formData.get('consentOn'), consentRef: formData.get('consentRef') } : { orgId, enabled }),
+    enabled ? 'aiEnabled' : 'aiDisabled',
   );
+}
+
+/** Пилотная организация для сводки пилота (план M9, решение 11): администратор со свежим входом. */
+export async function setPilotAction(formData: FormData): Promise<void> {
+  const pilot = formData.get('pilot') === 'true';
+  await run(formData, (staff, orgId) => setPilotOrg(staff, { orgId, pilot }), pilot ? 'pilotOn' : 'pilotOff');
 }
 
 /** Домен почты организации (FR-EM-06): только care и admin, домены общих почтовых служб не принимаются. */

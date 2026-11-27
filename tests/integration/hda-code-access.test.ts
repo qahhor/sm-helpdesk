@@ -149,7 +149,7 @@ test('запрос анализа: пишет вторая линия от се�
   const answer = (actor: Actor) => asActor(pools.app, actor, (c) => c.query(`select request_id, previous_status from app.hda_code_analysis_answer($1, null)`, [f.tickets.aOrg.ticketId])).then((r) => r.rows);
   await pools.root.query(`update hdu_organizations set is_ai_enabled = false where org_id = $1`, [f.orgA.orgId]);
   expect(await answer(token.actor)).toEqual([]);
-  await pools.root.query(`update hdu_organizations set is_ai_enabled = true where org_id = $1`, [f.orgA.orgId]);
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [f.orgA.orgId]);
   for (const actor of [l2.actor, SYSTEM]) expect(await answer(actor), actor.type).toEqual([]);
   expect(await answer(token.actor)).toEqual([{ request_id: request, previous_status: 'pending' }]);
   expect((await pools.root.query(`select status from hda_code_analysis_requests where request_id = $1`, [request])).rows).toEqual([{ status: 'done' }]);

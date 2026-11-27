@@ -22,11 +22,11 @@ export { outboxFailedSince, outboxState } from '../core/outbox';
 
 const MESSAGES = { ru, uz, en } as const;
 
-export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing', 'inbound_held', 'unidentified_flood', 'automation_dropped', 'builtin_rule_inactive', 'automation_lag', 'backup_stale', 'search_unavailable', 'search_lag', 'search_drift', 'search_isolation'] as const;
+export const OPS_ALERT_CODES = ['jobs_failed', 'outbox_failed', 'outbox_lag', 'inbound_stuck', 'staff_signin_failures', 'infected_files', 'archive_failing', 'inbound_held', 'unidentified_flood', 'automation_dropped', 'builtin_rule_inactive', 'automation_lag', 'backup_stale', 'search_unavailable', 'search_lag', 'search_drift', 'search_isolation', 'host_pressure', 'host_mark_stale'] as const;
 export type OpsAlertCode = (typeof OPS_ALERT_CODES)[number];
 /**
  * rules: коды предустановленных правил через запятую (сигнал builtin_rule_inactive). kinds: виды устаревших копий
- * dump, base, wal через запятую (сигнал backup_stale). collections: коллекции поиска через запятую (search_drift). Это идентификаторы портала, а не данные клиентов и не адреса.
+ * dump, base, wal через запятую (сигнал backup_stale), показатели ресурсов вида "disk 85%" (host_pressure). collections: коллекции поиска через запятую (search_drift). Это идентификаторы портала, а не данные клиентов и не адреса.
  */
 export type OpsAlert = { code: OpsAlertCode; count: number; minutes?: number; rules?: string; kinds?: string; collections?: string };
 

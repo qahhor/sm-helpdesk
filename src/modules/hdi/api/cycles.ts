@@ -11,6 +11,7 @@ import { HdiError } from '../error';
 import { ideaNumber, parseInput } from '../input';
 import { cleanUserText } from '@/modules/hdc/pref';
 import { type CycleStatus, EXPLANATION_MAX, IDEA_MODERATOR_ROLES, type IdeaStatus, type VoteMode } from '../pref';
+import { noProtoKeys } from '@/lib/no-proto';
 
 // Модуль hdi, слой api: отбор месяца на страницах (ТЗ FR-IDEA-10, 16; план M7, задача 9, решение 17). Сотрудники
 // видят текущую пятёрку со снимком и живыми счётчиками и архив; выбирают и пишут объяснение только product и admin.
@@ -87,7 +88,7 @@ const decideInput = z.strictObject({
  */
 export async function decideCycle(ctx: StaffContext, input: unknown): Promise<{ number: number }> {
   requireModerator(ctx);
-  const raw = z.looseObject({ explanationRu: z.unknown().optional() }).safeParse(input);
+  const raw = noProtoKeys(z.looseObject({ explanationRu: z.unknown().optional() })).safeParse(input);
   // Поле передано, но после очистки пусто: это ошибка ввода, а не "без объяснения".
   if (raw.success && typeof raw.data.explanationRu === 'string' && raw.data.explanationRu.length > 0 && cleanUserText(raw.data.explanationRu).trim() === '') throw new HdiError('invalid_input');
   const data = parseInput(decideInput, input);

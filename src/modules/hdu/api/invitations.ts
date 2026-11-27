@@ -19,6 +19,7 @@ import { hashToken } from '../tokens';
 import { setActiveOrganization } from '../core/orgs';
 import { readSession, type RequestInfo } from './request';
 import { manageScope, type OrgScope } from './scope';
+import { noProtoKeys } from '@/lib/no-proto';
 
 // Приглашения в организацию клиента (FR-ID-08, FR-ID-13, решение 0014).
 
@@ -111,7 +112,7 @@ export async function describeInvitation(token: unknown): Promise<{ orgName: str
   return found ? { orgName: found.orgName, email: found.email, needsName: !found.hasAccount } : null;
 }
 
-const acceptInput = z.object({ token: tokenInput, name: z.unknown().optional() });
+const acceptInput = z.object({ token: tokenInput, name: noProtoKeys(z.unknown()).optional() });
 
 /**
  * Принятие приглашения нажатием кнопки на странице ссылки. Новая учётная запись получает сессию: ссылка

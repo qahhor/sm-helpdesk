@@ -26,6 +26,9 @@ export const AUDIT_ACTIONS = [
   // Организации и участники
   'org.provisioned',
   'org.updated',
+  // Согласие на AI-обработку (план M9, задача 2, решение 10): отметка с датой и основанием и выключение обработки.
+  'org.ai_consent_recorded',
+  'org.ai_disabled',
   'member.joined',
   'member.role_changed',
   'member.state_changed',
@@ -37,6 +40,8 @@ export const AUDIT_ACTIONS = [
   'user.email_confirmed',
   'user.policy_acknowledged',
   'session.revoked',
+  // Завершение сессий для инцидента командой hub sessions:revoke (план M9, задача 4, решение 9): охват и число.
+  'session.revoked_bulk',
   // Каналы связи
   'telegram.linked',
   'telegram.unlinked',
@@ -212,6 +217,10 @@ export const AUDIT_ACTIONS = [
   'agent.token_changed',
   'agent.token_revoked',
   'agent.event_parent_set',
+  // Токен запуска по обращению (план M9, задача 7; долг M8b M4): выпуск системой при отправке события и отзыв (заменён
+  // новым или событие не ушло). Значения токена в журнале нет.
+  'agent.run_token_issued',
+  'agent.run_token_revoked',
   // Сервер MCP (веха M8b, задача 4, решения 13 и 14): отказ в инструменте вне перечня токена и вызов инструмента
   // записи. Аргументов и текста ответов в журнале нет: только имя инструмента и номера объектов.
   'agent.tool_refused',

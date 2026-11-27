@@ -18,6 +18,7 @@ export async function createForClientAction(form: FormData): Promise<void> {
     ({ number } = await createTicketForClient(staff, {
       orgId,
       authorId: text(form, 'authorId'),
+      intakeChannel: text(form, 'intakeChannel'),
       type: text(form, 'type'),
       impact: text(form, 'impact'),
       priority: text(form, 'priority'),

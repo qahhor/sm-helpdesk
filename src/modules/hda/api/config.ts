@@ -15,6 +15,8 @@ export type AiConfig = {
   userDailyLimit: number;
   orgDailyLimit: number;
   cutoffShare: number;
+  /** Организация, созданная входом через Smartup, сразу получает AI-обработку (план M9, решение 10). */
+  newOrgDefault: boolean;
   models: Partial<Record<AiPurpose, AiModel>>;
   triageFieldsOff: TriageField[];
   /** Обязательные темы со списками слов по языкам (решение 17). */
@@ -32,6 +34,7 @@ export const aiConfigSchemas = {
   userDailyLimit: z.number().int().min(0).max(10_000),
   orgDailyLimit: z.number().int().min(0).max(100_000),
   cutoffShare: z.number().gt(0).max(1),
+  newOrgDefault: z.boolean(),
   models: z.partialRecord(z.enum(AI_PURPOSES), z.enum(AI_MODELS)),
   triageFieldsOff: z.array(z.enum(TRIAGE_FIELDS)).max(TRIAGE_FIELDS.length),
   restrictedTopics: z.strictObject(

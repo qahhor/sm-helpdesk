@@ -71,12 +71,12 @@ test('помощник не включается: AI-обработка орга
   expect(await newQueue()).toContain(off.number);
   expect(jobs.sent.filter((j) => j.name.startsWith('ai.'))).toEqual([]);
 
-  await pools.root.query(`update hdu_organizations set is_ai_enabled = true where org_id = $1`, [f.orgA.orgId]);
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [f.orgA.orgId]);
   await pools.root.query(`update hdc_settings set value = 'false'::jsonb where code = 'ai.enabled'`);
   expect((await ticket((await portalTicket()).ticketId)).ai_state).toBe('none');
 
   await pools.root.query(`update hdc_settings set value = 'true'::jsonb where code = 'ai.enabled'`);
-  const staff = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: 'Клиент позвонил: не открывается отчёт', type: 'question', impact: 'minor', visibility: 'org', locale: 'ru' });
+  const staff = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: 'Клиент позвонил: не открывается отчёт', type: 'question', impact: 'minor', visibility: 'org', locale: 'ru', intakeChannel: 'phone' });
   expect((await ticket(await idOf(staff.number))).ai_state).toBe('none');
   expect(await newQueue()).toContain(staff.number);
 });

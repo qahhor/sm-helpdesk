@@ -3,8 +3,9 @@
 /**
  * Цели вызова модели: M5 (решение 2), перевод идей M7 (решение 11) и цели M5b: ответ и разбор первой линии одним
  * вызовом (first_line), только разбор (triage), перевод сообщения клиента (message_translation), благодарность (thanks).
+ * M5c: перевод публичного текста известной проблемы и рассылки, написанного сотрудником (problem_translation).
  */
-export const AI_PURPOSES = ['solution_draft', 'translation', 'idea_translation', 'first_line', 'triage', 'message_translation', 'thanks'] as const;
+export const AI_PURPOSES = ['solution_draft', 'translation', 'idea_translation', 'first_line', 'triage', 'message_translation', 'thanks', 'problem_translation'] as const;
 export type AiPurpose = (typeof AI_PURPOSES)[number];
 
 /**
@@ -56,6 +57,7 @@ export const PURPOSE_TIER: Readonly<Record<AiPurpose, AiTier>> = {
   triage: 'fast',
   message_translation: 'fast',
   thanks: 'fast',
+  problem_translation: 'fast',
 };
 
 /** Модель уровня, если ни настройка, ни окружение её не задали (решение 1, раздел 9.2 ТЗ). */

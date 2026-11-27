@@ -57,6 +57,16 @@ export function assembleIdeaTranslationData(input: { from: string; to: string; t
   return `Перевод с ${input.from} на ${input.to}\n<idea>\n<title>${clean(input.title)}</title>\n<body>${clip(clean(input.body), 12_000)}</body>\n</idea>`;
 }
 
+/**
+ * Вход перевода публичного текста сотрудника (план M5c, решения 17, 24): известная проблема, рассылка, объявление.
+ * Текст пишет сотрудник Smartup, данных клиентов в нём нет (его проверяет checkPublicText до сохранения); очистка
+ * та же, что у идеи: невидимые знаки, почта и телефоны, разметка тега.
+ */
+export function assemblePublicTextData(input: { from: string; to: string; title: string; body: string }): string {
+  const clean = (text: string) => escapeData(sanitizeForAi(scanText(text)));
+  return `Перевод с ${input.from} на ${input.to}\n<public_text>\n<title>${clean(input.title)}</title>\n<body>${clip(clean(input.body), 12_000)}</body>\n</public_text>`;
+}
+
 /** Пределы входа первой линии (план M5b, решение 22; FR-AI-17): знаков. */
 export const FIRST_LINE_LIMITS = { description: 5000, messages: 3000, solution: 1500, total: 8000 } as const;
 

@@ -70,6 +70,9 @@ export function defaultStubResponse(call: StubCall): unknown {
       steps: ['Откройте настройки периода.', 'Откройте период и проведите документ снова.'],
       confident: true,
     };
+  // Перевод публичного текста сотрудника (план M5c): заголовок и описание без изменений.
+  const publicText = /<public_text>\s*<title>([\s\S]*?)<\/title>\s*<body>([\s\S]*?)<\/body>/.exec(call.data);
+  if (publicText) return { title: publicText[1], body: publicText[2] };
   // Перевод идеи (план M7): заголовок и описание без изменений.
   const idea = /<idea>\s*<title>([\s\S]*?)<\/title>\s*<body>([\s\S]*?)<\/body>/.exec(call.data);
   if (idea) return { title: idea[1], body: idea[2] };

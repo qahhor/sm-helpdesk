@@ -17,6 +17,7 @@ import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
 import { runModerationDigest } from '@/modules/hdi/api/notices';
 import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
+import { runProblemTranslationJob } from '@/modules/hdp/api/translate-jobs';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { cleanupSuggestMisses } from '@/modules/hdk/api/misses';
 import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
@@ -189,6 +190,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('ideas.translate', polling, ([job]) => timedJob('ideas.translate', async () => {
     // Машинный перевод идеи (план M7, задача 4): модель вызывает только фоновый процесс, сбой повторяет pg-boss.
     await runIdeaTranslationJob(actor('ideas.translate'), job?.data);
+  }));
+  await boss.work('problems.translate', polling, ([job]) => timedJob('problems.translate', async () => {
+    // Машинный перевод публичного текста известной проблемы (план M5c, задача 2): клиенту не виден до принятия.
+    await runProblemTranslationJob(actor('problems.translate'), job?.data);
   }));
   await boss.work('ideas.moderation_digest', polling, () => timedJob('ideas.moderation_digest', async () => {
     await runModerationDigest(actor('ideas.moderation_digest'), new Date());

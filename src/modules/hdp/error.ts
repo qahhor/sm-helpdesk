@@ -25,15 +25,21 @@ export const HDP_ERROR_CODES = [
 ] as const;
 export type HdpErrorCode = (typeof HDP_ERROR_CODES)[number];
 
+/** Находка проверки публичного текста для показа сотруднику: вид и найденный кусок. */
+export type HdpFinding = { kind: string; text: string };
+
 export class HdpError extends Error {
   readonly code: HdpErrorCode;
   readonly retryAfterSec: number | undefined;
+  /** Находки проверки текста у отказа text_findings (решение 6). */
+  readonly findings: HdpFinding[];
 
-  constructor(code: HdpErrorCode, opts: { retryAfterSec?: number } = {}) {
+  constructor(code: HdpErrorCode, opts: { retryAfterSec?: number; findings?: HdpFinding[] } = {}) {
     super(`hdp: ${code}`);
     this.name = 'HdpError';
     this.code = code;
     this.retryAfterSec = opts.retryAfterSec;
+    this.findings = opts.findings ?? [];
   }
 }
 

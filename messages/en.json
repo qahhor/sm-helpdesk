@@ -1221,7 +1221,9 @@
             "ai_feedback": "The client answered the AI assistant's message",
             "triage_accepted": "AI triage suggestion accepted",
             "ai_answer_flagged": "AI assistant answer marked as wrong",
-            "ai_answer_reviewed": "AI answer review result recorded"
+            "ai_answer_reviewed": "AI answer review result recorded",
+            "problem_linked": "Request linked to a known problem",
+            "problem_unlinked": "Request unlinked from a known problem"
           },
           "attachment": {
             "infected": "Infected file found",
@@ -1338,6 +1340,15 @@
           "search": {
             "keys_created": "Search keys created",
             "reindexed": "Search index rebuilt"
+          },
+          "problem": {
+            "created": "Known problem created",
+            "updated": "Known problem changed",
+            "status_changed": "Known problem status changed",
+            "shown_changed": "Known problem visibility to clients changed",
+            "signature_added": "Signature added to problem",
+            "signature_removed": "Signature removed from problem",
+            "translation_saved": "Problem public text saved"
           }
         },
         "words": {
@@ -2153,7 +2164,8 @@
           "translation": "Solution translation",
           "idea_translation": "Idea translation",
           "message_translation": "Message translation",
-          "thanks": "Thanks check"
+          "thanks": "Thanks check",
+          "problem_translation": "Known problem translation"
         },
         "modelNames": {
           "claude-opus-5-5": "Claude Opus 5.5",
@@ -2380,7 +2392,9 @@
         "triage_accepted": "{actor}: triage suggestion accepted",
         "ai_state": "Assistant turned on",
         "ai_answer": "Assistant replied",
-        "ai_feedback": "{actor}: reaction to the assistant message"
+        "ai_feedback": "{actor}: reaction to the assistant message",
+        "problemLinked": "{actor}: linked to known problem {ref}",
+        "problemUnlinked": "{actor}: unlinked from known problem {ref}"
       },
       "ruleActions": {
         "set_queue": "queue {to}",
@@ -2782,6 +2796,11 @@
         "failed": "The translation failed.",
         "machine": "Machine translation",
         "hint": "Not a basis for actions with rights, data or payments"
+      },
+      "knownProblem": {
+        "title": "Known problem",
+        "none": "Not linked",
+        "create": "Create known problem"
       }
     },
     "playbooks": {
@@ -3601,6 +3620,145 @@
       "errors": {
         "forbidden": "Second line, care and admin write the review result.",
         "invalid_input": "Check the selected result."
+      }
+    },
+    "problems": {
+      "title": "Known problems",
+      "create": "Create problem",
+      "createTitle": "New known problem",
+      "internalTitle": "Internal title",
+      "internalTitleHint": "Visible to staff only",
+      "filters": {
+        "label": "Problem filters",
+        "status": "Status",
+        "module": "Module",
+        "q": "Number or title",
+        "any": "All",
+        "active": "Active",
+        "apply": "Show"
+      },
+      "columns": {
+        "number": "Number",
+        "title": "Title",
+        "status": "Status",
+        "module": "Module",
+        "tickets": "Requests",
+        "orgs": "Organizations",
+        "lastSeen": "Last seen"
+      },
+      "empty": "No known problems",
+      "emptyText": "Create a problem from a request or with the button above.",
+      "statuses": {
+        "investigating": "Investigating",
+        "cause_found": "Cause found",
+        "fixing": "Fixing",
+        "fixed": "Fixed",
+        "closed": "Closed"
+      },
+      "shown": "Shown to clients",
+      "hidden": "Not shown to clients",
+      "tabs": {
+        "label": "Problem sections",
+        "description": "Description",
+        "tickets": "Requests {count}",
+        "updates": "Updates {count}"
+      },
+      "info": {
+        "title": "Details",
+        "tickets": "Requests",
+        "orgs": "Organizations",
+        "categories": "Categories",
+        "categoryNone": "no category",
+        "firstSeen": "First",
+        "lastSeen": "Last",
+        "owner": "Owner",
+        "fixedOn": "Fixed",
+        "closedOn": "Closed",
+        "never": "none"
+      },
+      "fields": {
+        "module": "Module",
+        "noModule": "Not selected",
+        "workaround": "Workaround: solution number",
+        "workaroundHint": "Clients see the solution only if it is published for clients",
+        "status": "Status",
+        "showToClients": "Show to clients",
+        "showHint": "A public title and description in at least one language are required"
+      },
+      "save": "Save",
+      "changeStatus": "Change status",
+      "show": "Show to clients",
+      "hide": "Hide from clients",
+      "public": {
+        "title": "Public text {locale}",
+        "publicTitle": "Public title",
+        "publicBody": "What is happening",
+        "hint": "Clients see this. Do not write organization names, people's names or contacts.",
+        "machine": "Machine translation",
+        "accepted": "Translation accepted",
+        "notAccepted": "Hidden from clients until the translation is accepted",
+        "original": "Original language",
+        "save": "Save text",
+        "accept": "Accept translation",
+        "translate": "Translate from the original language",
+        "empty": "No text in this language"
+      },
+      "signatures": {
+        "title": "Signatures",
+        "none": "No signatures",
+        "tickets": "{count, plural, one {# request} other {# requests}}",
+        "inactive": "inactive",
+        "remove": "Remove",
+        "add": "Add signature",
+        "addHint": "From signatures of linked requests",
+        "manual": "Signature (32 characters)"
+      },
+      "tickets": {
+        "none": "No linked requests",
+        "number": "Request",
+        "title": "Subject",
+        "status": "Status",
+        "org": "Organization",
+        "created": "Created"
+      },
+      "updates": {
+        "none": "No updates yet"
+      },
+      "errors": {
+        "forbidden": "This action is available to the second line, Customer Care and administrators",
+        "invalid_input": "Check the form fields",
+        "not_found": "Problem not found",
+        "rate_limited": "Too often. Try again later",
+        "public_text_required": "Write a public title and description first",
+        "text_findings": "The text has something that must not be shown to clients: {kinds}",
+        "signature_taken": "This signature already belongs to another active problem",
+        "problem_closed": "The problem is closed and cannot be changed",
+        "already_linked": "The request is already linked to a known problem",
+        "ticket_closed": "This request cannot be linked",
+        "problem_inactive": "The problem is not active",
+        "too_many": "No more than 100 requests at a time"
+      },
+      "findings": {
+        "phone": "phone number",
+        "email": "email address",
+        "inn": "TIN",
+        "pinfl": "PINFL",
+        "digits": "long number",
+        "server": "server address",
+        "internal": "internal name",
+        "link": "link outside allowed sites",
+        "org": "organization name or TIN"
+      },
+      "done": {
+        "created": "Problem created",
+        "saved": "Saved",
+        "status": "Status changed",
+        "shown": "The problem is shown to clients",
+        "hidden": "The problem is hidden from clients",
+        "translation": "Text saved",
+        "translating": "The translation is being prepared. Refresh the page in a minute",
+        "signature_added": "Signature added",
+        "signature_removed": "Signature removed"
       }
     }
   },

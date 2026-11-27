@@ -176,6 +176,17 @@ export const AUDIT_ACTIONS = [
   'idea.status_changed',
   // Эксплуатация (план подготовки M9, задача 3): команда hub ops:backup-mark отметила удачную резервную копию.
   'ops.backup_marked',
+  // Известные проблемы (веха M5c): создание, правка, статус, признак показа, сигнатуры, публичный текст, привязка
+  // обращения и отвязка. Текста проблемы и обращения в журнале нет.
+  'problem.created',
+  'problem.updated',
+  'problem.status_changed',
+  'problem.shown_changed',
+  'problem.signature_added',
+  'problem.signature_removed',
+  'problem.translation_saved',
+  'ticket.problem_linked',
+  'ticket.problem_unlinked',
   // Поиск (план W6, решения 3 и 12): команда hub создала ключи Typesense (без значений) и построила индекс заново.
   'search.keys_created',
   'search.reindexed',

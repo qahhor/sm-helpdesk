@@ -35,6 +35,8 @@ export const JOB_NAMES = [
   'ops.heartbeat',
   'ops.watch',
   'outbox.dispatch',
+  // Известные проблемы (веха M5c): машинный перевод публичного текста.
+  'problems.translate',
   'search.reconcile',
   'search.sync',
   'tickets.minute',

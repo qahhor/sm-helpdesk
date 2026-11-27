@@ -15,7 +15,9 @@ export const problems = pgTable('hdp_problems', {
   moduleId: uuid('module_id'),
   workaroundSolutionId: uuid('workaround_solution_id'),
   ownerId: uuid('owner_id'),
-  number: bigint('number', { mode: 'number' }).notNull(),
+  number: bigint('number', { mode: 'number' })
+    .notNull()
+    .default(sql`nextval('hdp_problems_number_sq')`),
   internalTitle: text('internal_title').notNull(),
   sourceLocale: text('source_locale').$type<Locale>().notNull().default('ru'),
   showToClients: boolean('show_to_clients').notNull().default(false),

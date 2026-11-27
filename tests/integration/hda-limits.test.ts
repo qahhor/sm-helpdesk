@@ -143,7 +143,7 @@ test('настройки: только администратор со свеж�
   const audited = (await pools.root.query(`select object_id from hdc_audit_log where action = 'settings.changed' order by created_on`)).rows.map((r) => r.object_id);
   expect(audited.sort()).toEqual(['ai.cutoff_share', 'ai.enabled', 'ai.min_score', 'ai.monthly_budget_usd', 'ai.org_daily_limit', 'ai.triage_enabled', 'ai.triage_fields_off', 'ai.user_daily_limit']);
 
-  const models = { solution_draft: 'claude-haiku-5-5', translation: 'claude-haiku-5-5', idea_translation: 'claude-haiku-5-5', first_line: 'claude-opus-5-5', triage: 'claude-haiku-5-5', message_translation: 'claude-haiku-5-5', thanks: 'claude-haiku-5-5' };
+  const models = { solution_draft: 'claude-haiku-5-5', translation: 'claude-haiku-5-5', idea_translation: 'claude-haiku-5-5', first_line: 'claude-opus-5-5', triage: 'claude-haiku-5-5', message_translation: 'claude-haiku-5-5', thanks: 'claude-haiku-5-5', problem_translation: 'claude-haiku-5-5' };
   await expect(saveAiModels({ ...admin, freshAuthAt: new Date(Date.now() - 3600_000) }, models)).rejects.toMatchObject({ code: 'stale_session' });
   await expect(saveAiModels(admin, { ...models, first_line: 'gpt-5' })).rejects.toMatchObject({ code: 'invalid_input' });
   expect(await saveAiModels(admin, models)).toEqual({ changed: true });

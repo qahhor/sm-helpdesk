@@ -1221,7 +1221,9 @@
             "ai_feedback": "Mijoz AI-yordamchi xabariga javob berdi",
             "triage_accepted": "AI saralash taklifi qabul qilindi",
             "ai_answer_flagged": "AI-yordamchi javobi noto'g'ri deb belgilandi",
-            "ai_answer_reviewed": "AI javobi tahlili natijasi yozildi"
+            "ai_answer_reviewed": "AI javobi tahlili natijasi yozildi",
+            "problem_linked": "Murojaat ma'lum muammoga bog'landi",
+            "problem_unlinked": "Murojaat ma'lum muammodan ajratildi"
           },
           "attachment": {
             "infected": "Zararlangan fayl topildi",
@@ -1338,6 +1340,15 @@
           "search": {
             "keys_created": "Qidiruv kalitlari yaratildi",
             "reindexed": "Qidiruv indeksi qaytadan qurildi"
+          },
+          "problem": {
+            "created": "Ma'lum muammo yaratildi",
+            "updated": "Ma'lum muammo o'zgartirildi",
+            "status_changed": "Ma'lum muammo holati o'zgardi",
+            "shown_changed": "Ma'lum muammoni mijozlarga ko'rsatish o'zgardi",
+            "signature_added": "Muammoga signatura qo'shildi",
+            "signature_removed": "Muammodan signatura olib tashlandi",
+            "translation_saved": "Muammoning ochiq matni saqlandi"
           }
         },
         "words": {
@@ -2153,7 +2164,8 @@
           "translation": "Yechim tarjimasi",
           "idea_translation": "G'oya tarjimasi",
           "message_translation": "Xabar tarjimasi",
-          "thanks": "Minnatdorchilikni tekshirish"
+          "thanks": "Minnatdorchilikni tekshirish",
+          "problem_translation": "Ma'lum muammo tarjimasi"
         },
         "modelNames": {
           "claude-opus-5-5": "Claude Opus 5.5",
@@ -2380,7 +2392,9 @@
         "triage_accepted": "{actor}: saralash taklifi qabul qilindi",
         "ai_state": "Yordamchi yoqildi",
         "ai_answer": "Yordamchi javob berdi",
-        "ai_feedback": "{actor}: yordamchi xabariga javob"
+        "ai_feedback": "{actor}: yordamchi xabariga javob",
+        "problemLinked": "{actor}: {ref} ma'lum muammoga bog'landi",
+        "problemUnlinked": "{actor}: {ref} ma'lum muammodan ajratildi"
       },
       "ruleActions": {
         "set_queue": "navbat {to}",
@@ -2782,6 +2796,11 @@
         "failed": "Tarjima chiqmadi.",
         "machine": "Mashina tarjimasi",
         "hint": "Huquqlar, ma'lumotlar va to'lov bilan bog'liq harakatlar uchun asos emas"
+      },
+      "knownProblem": {
+        "title": "Ma'lum muammo",
+        "none": "Bog'lanmagan",
+        "create": "Ma'lum muammo yaratish"
       }
     },
     "playbooks": {
@@ -3601,6 +3620,145 @@
       "errors": {
         "forbidden": "Tahlil natijasini ikkinchi liniya, care va administrator yozadi.",
         "invalid_input": "Tanlangan natijani tekshiring."
+      }
+    },
+    "problems": {
+      "title": "Ma'lum muammolar",
+      "create": "Muammo yaratish",
+      "createTitle": "Yangi ma'lum muammo",
+      "internalTitle": "Ichki nom",
+      "internalTitleHint": "Faqat xodimlar ko'radi",
+      "filters": {
+        "label": "Muammo filtrlari",
+        "status": "Holat",
+        "module": "Modul",
+        "q": "Raqam yoki nom",
+        "any": "Hammasi",
+        "active": "Faollari",
+        "apply": "Ko'rsatish"
+      },
+      "columns": {
+        "number": "Raqam",
+        "title": "Nom",
+        "status": "Holat",
+        "module": "Modul",
+        "tickets": "Murojaatlar",
+        "orgs": "Tashkilotlar",
+        "lastSeen": "Oxirgi paydo bo'lishi"
+      },
+      "empty": "Ma'lum muammolar yo'q",
+      "emptyText": "Muammo murojaatdan yoki yuqoridagi tugma bilan yaratiladi.",
+      "statuses": {
+        "investigating": "O'rganyapmiz",
+        "cause_found": "Sabab topildi",
+        "fixing": "Tuzatyapmiz",
+        "fixed": "Tuzatildi",
+        "closed": "Yopildi"
+      },
+      "shown": "Mijozlarga ko'rsatiladi",
+      "hidden": "Mijozlarga ko'rsatilmaydi",
+      "tabs": {
+        "label": "Muammo bo'limlari",
+        "description": "Tavsif",
+        "tickets": "Murojaatlar {count}",
+        "updates": "Yangilanishlar {count}"
+      },
+      "info": {
+        "title": "Ma'lumotlar",
+        "tickets": "Murojaatlar",
+        "orgs": "Tashkilotlar",
+        "categories": "Toifalar",
+        "categoryNone": "toifasiz",
+        "firstSeen": "Birinchi",
+        "lastSeen": "Oxirgi",
+        "owner": "Mas'ul",
+        "fixedOn": "Tuzatildi",
+        "closedOn": "Yopildi",
+        "never": "yo'q"
+      },
+      "fields": {
+        "module": "Modul",
+        "noModule": "Tanlanmagan",
+        "workaround": "Aylanma yo'l: yechim raqami",
+        "workaroundHint": "Mijoz yechimni faqat mijozlar uchun e'lon qilingan bo'lsa ko'radi",
+        "status": "Holat",
+        "showToClients": "Mijozlarga ko'rsatish",
+        "showHint": "Kamida bitta tilda ochiq nom va tavsif kerak"
+      },
+      "save": "Saqlash",
+      "changeStatus": "Holatni o'zgartirish",
+      "show": "Mijozlarga ko'rsatish",
+      "hide": "Mijozlardan yashirish",
+      "public": {
+        "title": "Ochiq matn {locale}",
+        "publicTitle": "Ochiq nom",
+        "publicBody": "Nima bo'lyapti",
+        "hint": "Buni mijozlar ko'radi. Tashkilot nomlari, ismlar va kontaktlarni yozmang.",
+        "machine": "Mashina tarjimasi",
+        "accepted": "Tarjima qabul qilindi",
+        "notAccepted": "Tarjima qabul qilinmaguncha mijozga ko'rinmaydi",
+        "original": "Asl til",
+        "save": "Matnni saqlash",
+        "accept": "Tarjimani qabul qilish",
+        "translate": "Asl tildan tarjima qilish",
+        "empty": "Bu tilda matn yo'q"
+      },
+      "signatures": {
+        "title": "Signaturalar",
+        "none": "Signaturalar yo'q",
+        "tickets": "{count} ta murojaat",
+        "inactive": "faol emas",
+        "remove": "Olib tashlash",
+        "add": "Signatura qo'shish",
+        "addHint": "Bog'langan murojaatlar signaturalaridan",
+        "manual": "Signatura (32 belgi)"
+      },
+      "tickets": {
+        "none": "Bog'langan murojaatlar yo'q",
+        "number": "Murojaat",
+        "title": "Mavzu",
+        "status": "Holat",
+        "org": "Tashkilot",
+        "created": "Yaratilgan"
+      },
+      "updates": {
+        "none": "Hali yangilanishlar bo'lmagan"
+      },
+      "errors": {
+        "forbidden": "Bu amal ikkinchi liniya, Customer Care va administrator uchun",
+        "invalid_input": "Forma maydonlarini tekshiring",
+        "not_found": "Muammo topilmadi",
+        "rate_limited": "Juda tez-tez. Keyinroq urinib ko'ring",
+        "public_text_required": "Avval ochiq nom va tavsifni yozing",
+        "text_findings": "Matnda mijozlarga ko'rsatib bo'lmaydigan narsa bor: {kinds}",
+        "signature_taken": "Bu signatura boshqa faol muammoda bor",
+        "problem_closed": "Muammo yopilgan, uni o'zgartirib bo'lmaydi",
+        "already_linked": "Murojaat allaqachon ma'lum muammoga bog'langan",
+        "ticket_closed": "Bu murojaatni bog'lab bo'lmaydi",
+        "problem_inactive": "Muammo faol emas",
+        "too_many": "Bir martada 100 tadan ko'p murojaat emas"
+      },
+      "findings": {
+        "phone": "telefon raqami",
+        "email": "pochta manzili",
+        "inn": "STIR",
+        "pinfl": "JShShIR",
+        "digits": "uzun raqam",
+        "server": "server manzili",
+        "internal": "xizmat nomi",
+        "link": "ruxsat etilmagan saytga havola",
+        "org": "tashkilot nomi yoki STIR"
+      },
+      "done": {
+        "created": "Muammo yaratildi",
+        "saved": "Saqlandi",
+        "status": "Holat o'zgardi",
+        "shown": "Muammo mijozlarga ko'rsatiladi",
+        "hidden": "Muammo mijozlardan yashirildi",
+        "translation": "Matn saqlandi",
+        "translating": "Tarjima tayyorlanmoqda. Bir daqiqadan so'ng sahifani yangilang",
+        "signature_added": "Signatura qo'shildi",
+        "signature_removed": "Signatura olib tashlandi"
       }
     }
   },

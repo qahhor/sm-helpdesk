@@ -177,6 +177,22 @@ test('неверные токены с адреса не закрывают вх
   expect((await client(revoked.value, '10.0.5.9').rpc('ping')).status).toBe(429);
 });
 
+test('отказ по адресу токена расходует тот же счётчик неудач: до предела оба 401, после предела оба 429 (независимая проверка M9, I1)', async () => {
+  const main = await seedAgentToken({ allowedIps: ['10.0.3.0/24'] });
+  const bad = client(`hub_at_${'D'.repeat(43)}`, '192.168.7.7');
+  const foreign = client(main.value, '192.168.7.7');
+  // 15 + 15 попыток: каждая отвечает 401, по ответу действующий токен не отличить от неверного.
+  for (let i = 0; i < 15; i += 1) {
+    expect((await bad.rpc('ping')).status, `bad ${i}`).toBe(401);
+    expect((await foreign.rpc('ping')).status, `foreign ${i}`).toBe(401);
+  }
+  // Предел исчерпан: и неверный токен, и действующий с чужого адреса получают 429.
+  expect((await bad.rpc('ping')).status).toBe(429);
+  expect((await foreign.rpc('ping')).status).toBe(429);
+  // Со своего адреса действующий токен работает.
+  expect((await client(main.value, '10.0.3.12').rpc('ping')).status).toBe(200);
+});
+
 test('метод кроме POST: 405; тело больше 64 КБ: 413; заголовок версии протокола неизвестный: 400', async () => {
   const main = await seedAgentToken();
   const a = client(main.value);

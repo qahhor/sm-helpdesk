@@ -21,7 +21,7 @@ import { signatureOrgCountsTx, signatureTicketIdsTx } from '@/modules/hdt/api/kn
 import { SERVICE_ORG_ID } from '@/modules/hdu/pref';
 import { spikeDecision } from '../agent/spikes';
 import { HdaError } from '../error';
-import { AGENT_RUN_TOOLS, AGENT_SETTINGS, SPIKE_DEFAULTS, SPIKE_LIMITS } from '../pref';
+import { AGENT_SETTINGS, SPIKE_DEFAULTS, SPIKE_LIMITS } from '../pref';
 import { agentEvents, agentTokens, agentToolCalls, signatureSpikes } from '../schema';
 
 // Модуль hda, слой api: всплеск сигнатуры (веха M8b, задача 8; FR-AGT-11, 10.5; план M8b, решение 25). Задача
@@ -296,7 +296,7 @@ export async function dispatchAgentEvents(system: SystemActor, opts: { now?: Dat
     const claimed = await claimTx(system, now);
     if (!claimed) break;
     const body = claimed.runToken
-      ? { ...claimed.body, run_token: { value: claimed.runToken.value, tools: [...AGENT_RUN_TOOLS], expires_on: claimed.runToken.expiresAt.toISOString() } }
+      ? { ...claimed.body, run_token: { value: claimed.runToken.value, tools: [...claimed.runToken.tools], expires_on: claimed.runToken.expiresAt.toISOString() } }
       : claimed.body;
     const raw = JSON.stringify(body);
     const outcome = await settings.sender.send({ url: settings.url, body: raw, headers: agentEventHeaders({ secret: settings.secret, rawBody: raw, eventId: claimed.eventId, kind: claimed.kind, now }) });

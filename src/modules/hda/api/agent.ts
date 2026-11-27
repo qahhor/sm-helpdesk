@@ -4,6 +4,8 @@ import { problemResponse, readLimited } from '@/modules/hdc/api';
 import { normalizeCidr } from '../agent/auth';
 import { agentToolListing } from '../agent/catalog';
 import { type AgentServerSettings, authenticateAgent } from '../agent/entry';
+import { acquireMcpSlot } from '../agent/inflight';
+import { consumeProtocolLimit } from '../agent/limits';
 import { runAgentTool } from '../agent/runner';
 import { handleJsonRpc, isSupportedVersion, type McpHandler } from '../agent/server';
 import { AGENT_NOTICE } from '../agent/util';
@@ -70,7 +72,16 @@ export async function handleMcpRequest(request: Request, deps: { now?: () => Dat
     instructions: `Smartup Hub MCP server for internal AI staff. ${AGENT_NOTICE}`,
     listTools: () => agentToolListing(access.actor.tools),
     callTool: (name, args) => runAgentTool(access, name, args),
+    // Вызов инструмента занимает место предела процесса (находка I3), остальные методы считает предел протокола (I4).
+    admit: async (method) => {
+      if (method === 'tools/call') {
+        const release = acquireMcpSlot();
+        return release ? { release } : { retryAfterSec: 1 };
+      }
+      const gate = await consumeProtocolLimit(access.actor.tokenId);
+      return gate.allowed ? { release: () => undefined } : { retryAfterSec: gate.retryAfterSec };
+    },
   };
   const reply = await handleJsonRpc(text, handler);
-  return json(reply.status, reply.body);
+  return json(reply.status, reply.body, reply.retryAfterSec ? { 'Retry-After': String(reply.retryAfterSec) } : {});
 }

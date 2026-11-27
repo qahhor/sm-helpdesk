@@ -46,7 +46,9 @@ export const draftSolution = defineTool({
     revises_solution_number: ticketNumber.optional(),
   }),
   output: z.strictObject({ notice, draft: z.strictObject({ number: z.number().int() }) }),
-  async run(tx, actor, args) {
+  // Адреса для ссылок читает система до транзакции агента (находка I3).
+  prepare: () => readAllowedDomains(),
+  async run(tx, actor, args, domains) {
     const moduleId = (await moduleIdOf(tx, args.module)) ?? null;
     const sources = await visibleTickets(tx, args.source_ticket_numbers);
     let revisesArticleId: string | null = null;
@@ -55,7 +57,6 @@ export const draftSolution = defineTool({
       if (!published) throw new HdaAgentError('not_found');
       revisesArticleId = published.articleId;
     }
-    const domains = await readAllowedDomains();
     const draft = await createSolutionDraftFromAgentTx(tx, actor, {
       title: cleaned(args.title, domains).slice(0, AGENT_TITLE_MAX),
       body: cleaned(args.body, domains),
@@ -82,9 +83,10 @@ export const draftKnownProblem = defineTool({
     proposed_ticket_numbers: z.array(ticketNumber).max(100).default([]),
   }),
   output: z.strictObject({ notice, draft: z.strictObject({ number: z.number().int() }) }),
-  async run(tx, actor, args) {
+  // Адреса для ссылок читает система до транзакции агента (находка I3).
+  prepare: () => readAllowedDomains(),
+  async run(tx, actor, args, domains) {
     const proposals = await visibleTickets(tx, args.proposed_ticket_numbers);
-    const domains = await readAllowedDomains();
     const draft = await createProblemDraftFromAgentTx(tx, actor, {
       internalTitle: cleaned(args.internal_title, domains).slice(0, AGENT_TITLE_MAX),
       description: cleaned(args.description, domains, true),

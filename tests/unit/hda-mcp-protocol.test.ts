@@ -24,13 +24,22 @@ describe('согласование версии', () => {
     expect(negotiateVersion('2099-01-01')).toBe(MCP_LATEST_VERSION);
     expect(negotiateVersion('')).toBe(MCP_LATEST_VERSION);
   });
+  test('объявлены только ревизии, которые сервер исполняет: без пакетов и без SSE старых ревизий', () => {
+    expect([...MCP_PROTOCOL_VERSIONS]).toEqual(['2025-11-25', '2025-06-18']);
+  });
+  test('старые ревизии 2025-03-26 и 2024-11-05 (пакеты, SSE): сервер предлагает свою последнюю', async () => {
+    for (const old of ['2025-03-26', '2024-11-05']) {
+      expect(negotiateVersion(old)).toBe(MCP_LATEST_VERSION);
+      expect((await send(init(old))).body, old).toMatchObject({ result: { protocolVersion: MCP_LATEST_VERSION } });
+    }
+  });
   test('initialize отвечает версией, возможностями инструментов и именем сервера', async () => {
-    const reply = await send(init('2025-03-26'));
+    const reply = await send(init('2025-06-18'));
     expect(reply.status).toBe(200);
     expect(reply.body).toMatchObject({
       jsonrpc: '2.0',
       id: 1,
-      result: { protocolVersion: '2025-03-26', capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'smartup-hub' } },
+      result: { protocolVersion: '2025-06-18', capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'smartup-hub' } },
     });
     expect((await send(init('1999-01-01'))).body).toMatchObject({ result: { protocolVersion: MCP_LATEST_VERSION } });
   });

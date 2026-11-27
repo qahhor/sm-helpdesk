@@ -5,11 +5,13 @@ import * as z from 'zod';
 // и потоков SSE нет, на запрос один ответ JSON, на уведомление 202 без тела. Каждое сообщение проверяется схемой Zod.
 // Чистый модуль: проверку токена, пределы и инструменты даёт McpHandler, который строит вход сервера (api/agent.ts).
 
-/** Ревизии спецификации MCP, которые понимает сервер, новые первыми. */
-export const MCP_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'] as const;
+/**
+ * Ревизии спецификации MCP, которые сервер исполняет, новые первыми. Ревизии 2025-03-26 и 2024-11-05 не объявлены:
+ * они требуют пакетов JSON-RPC и потока SSE, которых у сервера нет (независимая проверка M8b, находка M8). Клиенту
+ * старой ревизии сервер предлагает свою последнюю.
+ */
+export const MCP_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18'] as const;
 export const MCP_LATEST_VERSION = MCP_PROTOCOL_VERSIONS[0];
-/** Версия, которую спецификация велит считать, если клиент не прислал заголовок MCP-Protocol-Version. */
-export const MCP_DEFAULT_HEADER_VERSION = '2025-03-26';
 export const MCP_SERVER_INFO = { name: 'smartup-hub', version: '1.0.0' } as const;
 
 const SUPPORTED: ReadonlySet<string> = new Set(MCP_PROTOCOL_VERSIONS);
@@ -34,16 +36,26 @@ export const JSONRPC_ERROR = {
 export type McpToolListing = { name: string; title?: string; description: string; inputSchema: Record<string, unknown>; outputSchema?: Record<string, unknown> };
 export type McpToolResult = { content: { type: 'text'; text: string }[]; structuredContent?: Record<string, unknown>; isError?: boolean };
 
+/** Допуск сообщения: место занято (освободить после ответа) или отказ с ожиданием в секундах. */
+export type McpAdmission = { release(): void } | { retryAfterSec: number };
+
 /** Что сервер умеет за протоколом: перечень инструментов токена и их вызов. */
 export interface McpHandler {
   listTools(): McpToolListing[];
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolResult>;
   /** Пояснение для агента в ответе initialize. */
   instructions?: string;
+  /**
+   * Допуск каждого запроса и уведомления до разбора параметров (находки I3, I4): пределы методов протокола и
+   * одновременных вызовов. Отказ: HTTP 429 с ошибкой JSON-RPC -32000, у уведомления без тела.
+   */
+  admit?(method: string): Promise<McpAdmission>;
 }
 
-/** Ответ для HTTP: код и тело (null у уведомления). */
-export type McpReply = { status: number; body: Record<string, unknown> | null };
+/** Ответ для HTTP: код и тело (null у уведомления); при отказе по пределу время ожидания. */
+export type McpReply = { status: number; body: Record<string, unknown> | null; retryAfterSec?: number };
+
+const TOO_MANY = { code: -32000, message: 'Too many requests' } as const;
 
 const id = z.union([z.string().max(200), z.number().int().safe()]);
 // Параметры проверяет схема метода: неверные параметры дают -32602, а не -32600.
@@ -81,13 +93,29 @@ export async function handleJsonRpc(text: string, handler: McpHandler): Promise<
 
   const asRequest = request.safeParse(message);
   if (!asRequest.success) {
-    if (notification.safeParse(message).success || clientResponse.safeParse(message).success) return { status: 202, body: null };
+    const asNotification = notification.safeParse(message);
+    if (asNotification.success) {
+      const admission = handler.admit ? await handler.admit(asNotification.data.method) : null;
+      if (admission && 'retryAfterSec' in admission) return { status: 429, body: null, retryAfterSec: admission.retryAfterSec };
+      admission?.release();
+      return { status: 202, body: null };
+    }
+    if (clientResponse.safeParse(message).success) return { status: 202, body: null };
     const raw = (message as { id?: unknown }).id;
     const known = id.safeParse(raw);
     return fail(400, known.success ? known.data : null, JSONRPC_ERROR.invalidRequest);
   }
   const { id: rid, method } = asRequest.data;
-  const rawParams = (message as { params?: unknown }).params;
+  const admission = handler.admit ? await handler.admit(method) : null;
+  if (admission && 'retryAfterSec' in admission) return { ...fail(429, rid, TOO_MANY), retryAfterSec: admission.retryAfterSec };
+  try {
+    return await dispatch(rid, method, (message as { params?: unknown }).params, handler);
+  } finally {
+    admission?.release();
+  }
+}
+
+async function dispatch(rid: Id, method: string, rawParams: unknown, handler: McpHandler): Promise<McpReply> {
   try {
     switch (method) {
       case 'initialize': {

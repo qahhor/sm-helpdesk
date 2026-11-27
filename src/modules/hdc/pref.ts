@@ -290,6 +290,13 @@ export const RATE_RULES = {
   mcpTokenFailuresPerIp: { limit: 30, windowSec: 600 },
   /** Вызовы инструментов сервера MCP на токен: 60 в минуту против зацикливания агента (решение 12). */
   agentCallsPerMinute: { limit: 60, windowSec: 60 },
+  /**
+   * Методы протокола сервера MCP (initialize, tools/list, ping, уведомления) на токен: 120 в минуту, отдельно от
+   * вызовов инструментов (независимая проверка M8b, находка I4).
+   */
+  agentProtocolPerMinute: { limit: 120, windowSec: 60 },
+  /** Строка rate_limited в журнале вызовов: одна за минуту на токен, а не на каждый отказ (находка I4). */
+  agentRateLimitedLog: { limit: 1, windowSec: 60 },
   /** Токен запуска по обращению: не больше 20 вызовов за срок 2 часа (решение 12). */
   agentRunTokenCalls: { limit: 20, windowSec: 7200 },
   /** Обмен токена контекста на токен виджета (план M6, решение 14): 30 в минуту на пользователя (раздел 14.5). */

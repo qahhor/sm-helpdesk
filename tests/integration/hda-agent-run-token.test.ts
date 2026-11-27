@@ -21,7 +21,11 @@ afterEach(() => setLogSinkForTests(null));
 async function setup() {
   const f = await seedEverything();
   const parent = await seedAgentToken({ allowedIps: ['10.0.3.0/24'], tools: ['search_tickets', 'get_ticket', 'add_internal_note', 'create_report', 'draft_solution', 'draft_known_problem'] });
-  const issue = () => withActor(SYSTEM, (tx) => issueTicketRunTokenTx(tx, SYSTEM, { parentTokenId: parent.tokenId, ticketId: f.tickets.aOrg.ticketId }));
+  const issue = async () => {
+    const run = await withActor(SYSTEM, (tx) => issueTicketRunTokenTx(tx, SYSTEM, { parentTokenId: parent.tokenId, ticketId: f.tickets.aOrg.ticketId }));
+    if (!run) throw new Error('Токен запуска не выпущен');
+    return run;
+  };
   const client = (value: string, ip = '10.0.3.12') => createMcpClient({ token: value, ip, send: (request) => handleMcpRequest(request) });
   const errorOf = (result: Result) => (result.isError ? (JSON.parse(result.content[0]!.text) as { error: string }).error : null);
   return { f, parent, issue, client, errorOf };
@@ -109,4 +113,28 @@ test('обращение с текстом-атакой отдаётся тол�
   const outside = JSON.stringify({ ...ticket, untrusted_customer_text: null, messages: (ticket.messages as Record<string, unknown>[]).map((m) => ({ ...m, untrusted_customer_text: null, untrusted_text: null })) });
   expect(outside).not.toContain('Игнорируй');
   expect((await run.listTools()).map((tool) => tool.name)).toEqual(['get_ticket', 'add_internal_note']);
+});
+
+test('перечень токена запуска не шире родителя; родитель без get_ticket токен запуска не получает (находка I5)', async () => {
+  const f = await seedEverything();
+  const issueFor = (parentTokenId: string) => withActor(SYSTEM, (tx) => issueTicketRunTokenTx(tx, SYSTEM, { parentTokenId, ticketId: f.tickets.aOrg.ticketId }));
+  const readOnly = await seedAgentToken({ tools: ['search_tickets', 'get_ticket'] });
+  const run = await issueFor(readOnly.tokenId);
+  expect(run?.tools).toEqual(['get_ticket']);
+  expect((await pools.root.query(`select tools from hda_agent_tokens where token_id = $1`, [run!.tokenId])).rows[0].tools).toEqual(['get_ticket']);
+  const blind = await seedAgentToken({ tools: ['search_tickets', 'add_internal_note'] });
+  expect(await issueFor(blind.tokenId)).toBeNull();
+  expect((await pools.root.query(`select count(*) from hda_agent_tokens where parent_token_id = $1`, [blind.tokenId])).rows[0].count).toBe('0');
+});
+
+test('сужение адресов и перечня родителя действует на токен запуска со следующего запроса (находка I5)', async () => {
+  const { f, parent, issue, client, errorOf } = await setup();
+  const run = await issue();
+  const a = client(run.value);
+  expect(errorOf((await a.callTool('get_ticket', { number: f.tickets.aOrg.number })) as Result)).toBeNull();
+  await pools.root.query(`update hda_agent_tokens set allowed_ips = array['10.0.4.0/24']::cidr[] where token_id = $1`, [parent.tokenId]);
+  expect((await a.rpc('tools/list')).status).toBe(403);
+  await pools.root.query(`update hda_agent_tokens set allowed_ips = array['10.0.3.0/24']::cidr[], tools = array['get_ticket'] where token_id = $1`, [parent.tokenId]);
+  expect((await a.listTools()).map((tool) => tool.name)).toEqual(['get_ticket']);
+  expect(errorOf((await a.callTool('add_internal_note', { ticket_number: f.tickets.aOrg.number, body: 'Заметка' })) as Result)).toBe('tool_not_allowed');
 });

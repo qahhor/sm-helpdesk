@@ -31,7 +31,9 @@ export const addInternalNote = defineTool({
     body: z.string().min(1).max(AGENT_NOTE_MAX),
   }),
   output: z.strictObject({ notice, note: z.strictObject({ ticket_number: z.number().int(), kind: z.enum(['note', 'handoff_memo']) }) }),
-  async run(tx, actor, args) {
+  // Адреса для ссылок читает система до транзакции агента (находка I3).
+  prepare: () => readAllowedDomains(),
+  async run(tx, actor, args, domains) {
     if (actor.ticketId !== null && args.body.length > AGENT_RUN_NOTE_MAX) throw new HdaAgentError('invalid_arguments');
     const [ticket] = await tx
       .select({ ticketId: agentTicketsView.ticketId, orgId: agentTicketsView.orgId })
@@ -39,7 +41,7 @@ export const addInternalNote = defineTool({
       .where(eq(agentTicketsView.number, args.ticket_number))
       .limit(1);
     if (!ticket) throw new HdaAgentError('not_found');
-    const body = cleanAgentText(args.body, await readAllowedDomains());
+    const body = cleanAgentText(args.body, domains);
     if (!body) throw new HdaAgentError('invalid_arguments');
     try {
       await addAgentNoteTx(tx, actor, { ticketId: ticket.ticketId, orgId: ticket.orgId, kind: args.kind, body });

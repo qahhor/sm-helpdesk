@@ -34,9 +34,10 @@ export const createReport = defineTool({
     chat: chat.optional(),
   }),
   output: z.strictObject({ notice, report: z.strictObject({ id: z.uuid() }) }),
-  async run(tx, actor, args) {
+  // Адреса для ссылок читает система до транзакции агента (находка I3).
+  prepare: () => readAllowedDomains(),
+  async run(tx, actor, args, domains) {
     if (args.period_from && args.period_to && args.period_from > args.period_to) throw new HdaAgentError('invalid_arguments');
-    const domains = await readAllowedDomains();
     const title = cleanAgentText(args.title, domains).slice(0, AGENT_TITLE_MAX);
     const body = cleanAgentText(args.body, domains);
     if (!title || !body) throw new HdaAgentError('invalid_arguments');

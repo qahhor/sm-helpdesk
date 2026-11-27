@@ -32,10 +32,12 @@ export const assistantMetrics = defineTool({
       reopened_after_helped: z.number().int(),
     }),
   }),
-  async run(_tx, _actor, args) {
-    const stats = await assistantMetricsForAgent(SYSTEM, args).catch(() => {
+  // Показатели считает система до транзакции агента (находка I3): вызов не держит два соединения.
+  prepare: (args) =>
+    assistantMetricsForAgent(SYSTEM, args).catch(() => {
       throw new HdaAgentError('invalid_arguments');
-    });
+    }),
+  async run(_tx, _actor, _args, stats) {
     return {
       result: {
         notice: AGENT_NOTICE,

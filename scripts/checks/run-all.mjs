@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { alertsRunbookCheck } from './alerts-runbook.mjs';
 import { frCoverageCheck } from './fr-coverage.mjs';
 import { guidesCheck } from './guides.mjs';
+import { securityDocsCheck } from './security-docs.mjs';
 import { checkContrast } from './contrast.mjs';
 import { cspPagesGaps } from './csp-pages.mjs';
 import { findDashes, isDashCheckedFile } from './dashes.mjs';
@@ -125,6 +126,11 @@ const extraChecks = [
     // перечень требований раздела 7 полон, ссылки живые (план M9, задача 1, решение 21)
     name: 'fr-coverage',
     run: () => frCoverageCheck(),
+  },
+  {
+    // перечни внешних узлов и событий безопасности docs/security/policies.md сходятся с исходниками (план M9, задача 6)
+    name: 'security-docs',
+    run: () => securityDocsCheck(),
   },
   {
     // каждый сигнал ops.watch описан в разделе 6 памятки дежурного (план подготовки M9, задача 3)

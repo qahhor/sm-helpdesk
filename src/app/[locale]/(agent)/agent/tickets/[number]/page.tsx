@@ -211,7 +211,8 @@ export default async function AgentTicketPage({ params, searchParams }: { params
             />
           )}
         </div>
-        <aside className="flex flex-col gap-4" aria-label={t('ticket.details')}>
+        {/* min-w-0 у обеих колонок: иначе на 360 колонка сетки берёт ширину содержимого правой колонки (решение 0126). */}
+        <aside className="flex min-w-0 flex-col gap-4" aria-label={t('ticket.details')}>
           <TicketControls ticket={ticket} me={staff.user.id} role={staff.actor.staffRole} staff={assignable} modules={modules} />
           <AiBlock staff={staff} ticketId={ticket.ticketId} number={ticket.number} locale={ticket.locale} canWrite={canWrite} />
           <TicketTags number={ticket.number} tags={ticket.tags} known={knownTags} canWrite={canWrite} />

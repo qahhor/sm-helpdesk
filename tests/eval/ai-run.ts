@@ -127,7 +127,7 @@ async function setupWorld() {
   await runIndexJob(INDEX, { articleId: internal.articleId });
   // Показанная известная проблема с сигнатурой ошибки KNOWN_PROBLEM_ERROR (веха M5c, задача 7).
   const { number: problemNumber } = await createProblem(publisher, { internalTitle: 'Накладные не проводятся' });
-  await addProblemSignature(publisher, { number: problemNumber, signature: errorSignatureOf({ text: KNOWN_PROBLEM_ERROR })! });
+  await addProblemSignature(publisher, { number: problemNumber, signature: (await errorSignatureOf({ text: KNOWN_PROBLEM_ERROR }))! });
   await saveProblemTranslation(publisher, { number: problemNumber, locale: 'ru', publicTitle: 'Не проводятся накладные', publicBody: 'После обновления накладные не проводятся. Исправляем.' });
   await setProblemShown(publisher, { number: problemNumber, shown: true });
   return { f, refOf, stepsOf, internalId: internal.articleId, problemNumber };

@@ -57,7 +57,7 @@ const seedEvent = (ticket: { ticketId: string }, orgId: string, kind = 'status_c
 
 test('перечень видов событий совпадает с ограничением базы', async () => {
   expect([...DOMAIN_EVENT_KINDS].sort()).toEqual(
-    ['ai_handoff', 'client_replied', 'line_transferred', 'no_activity', 'priority_changed', 'rated', 'sla_breached', 'sla_soon', 'staff_replied', 'status_changed', 'ticket_created'].sort(),
+    ['ai_handoff', 'client_replied', 'code_analysis_requested', 'line_transferred', 'no_activity', 'priority_changed', 'rated', 'sla_breached', 'sla_soon', 'staff_replied', 'status_changed', 'ticket_created'].sort(),
   );
   for (const kind of DOMAIN_EVENT_KINDS) await seedEvent(f.tickets.aOrg, f.orgA.orgId, kind);
   await expect(seedEvent(f.tickets.aOrg, f.orgA.orgId, 'made_up')).rejects.toThrow(/hdc_domain_events_c1/);

@@ -9,7 +9,9 @@ import { HDP_ERROR_CODES } from '@/modules/hdp/api';
 // данных и права отдельно от разметки.
 
 /** Коды "сделано" в адресе страницы после действия. */
-export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged', 'dev_sent', 'dev_unlinked', 'dev_status', 'triaged', 'flagged', 'translating', 'problem_linked', 'problem_unlinked'] as const;
+export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged', 'dev_sent', 'dev_unlinked', 'dev_status', 'triaged', 'flagged', 'translating', 'problem_linked', 'problem_unlinked', 'code_requested'] as const;
+/** Отказы действий знаний из кода (веха M8c): код ошибки модуля hda с приставкой code_. */
+const CODE_ERROR_CODES = ['code_not_found', 'code_forbidden', 'code_ai_disabled', 'code_invalid_input'] as const;
 
 /** Отказы создания решения из обращения (план M5, задача 7): код модуля решений с приставкой solution_. */
 const SOLUTION_ERROR_CODES = ['solution_not_resolved', 'solution_forbidden', 'solution_not_found', 'solution_invalid_input'] as const;
@@ -66,7 +68,7 @@ export async function loadTicketPage(staff: StaffContext, raw: string | null, se
     fromQueue: QUEUE_KEYS.find((key) => key === search.queue) ?? 'mine',
     fromSort: QUEUE_SORTS.find((key) => key === search.sort) ?? 'sla',
     done: DONE.find((code) => code === search.done),
-    error: [...HDT_ERROR_CODES, ...DEV_TASK_ERROR_CODES, ...SOLUTION_ERROR_CODES, ...PROBLEM_ERROR_CODES].find((code) => code === search.error),
+    error: [...HDT_ERROR_CODES, ...DEV_TASK_ERROR_CODES, ...SOLUTION_ERROR_CODES, ...PROBLEM_ERROR_CODES, ...CODE_ERROR_CODES].find((code) => code === search.error),
     // Сводка "что изменилось" для ошибки changed: три числа из адреса, ничего кроме чисел не принимается.
     changed: changedOf(search.ch),
   };

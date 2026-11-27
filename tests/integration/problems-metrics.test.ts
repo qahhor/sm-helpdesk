@@ -2,7 +2,11 @@ import { beforeEach, expect, test } from 'vitest';
 import { candidateMetrics } from '@/modules/hda/api/candidate-metrics';
 import { problemMetrics } from '@/modules/hdp/api/metrics';
 import { getMetrics } from '@/modules/hdt/api/metrics';
-import { staffCtx } from './helpers/auth';
+import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
+import { confirmBroadcast, prepareBroadcast } from '@/modules/hdp/api/broadcasts';
+import { linkTicketToProblem } from '@/modules/hdp/api/links';
+import { createProblem, setProblemStatus } from '@/modules/hdp/api/problems';
+import { staffCtx, staffWithRole } from './helpers/auth';
 import { pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
@@ -101,4 +105,24 @@ test('FR-KP-13: фильтр "без известных проблем" меня
   expect(clean.overview.firstResponse.total).toBe(all.overview.firstResponse.total - 1);
   expect(clean.overview.firstResponse.ok).toBe(all.overview.firstResponse.ok);
   expect(clean.withoutProblems).toBe(true);
+});
+
+test('закрытие прямо из "Исправляем": база ставит момент исправления, проблема считается исправленной за период', async () => {
+  setJobQueueForTests(new MemoryJobQueue());
+  try {
+    const l2 = staffCtx(await staffWithRole('agent_l2'));
+    const { number } = await createProblem(l2, { internalTitle: 'Закрыта из исправления' });
+    await linkTicketToProblem(l2, { ticketNumber: f.tickets.aOrg.number, problemNumber: number });
+    await setProblemStatus(l2, { number, status: 'fixing' });
+    const { broadcastId } = await prepareBroadcast(l2, { number, kind: 'closing', body: 'Исправлено.', locale: 'ru' });
+    await confirmBroadcast(l2, { broadcastId, translations: {}, fallbackToOriginal: true });
+    const row = (await pools.root.query(`select status, fixed_on, closed_on from hdp_problems where number = $1`, [number])).rows[0];
+    expect(row.status).toBe('closed');
+    expect(row.fixed_on).not.toBeNull();
+    const now = Date.now();
+    const m = await problemMetrics(staffCtx(f.l1), { from: new Date(now - HOUR), to: new Date(now + HOUR) });
+    expect(m.fixedCount).toBe(1);
+  } finally {
+    setJobQueueForTests(null);
+  }
 });

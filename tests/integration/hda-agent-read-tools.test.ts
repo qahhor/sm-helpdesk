@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { setLogSinkForTests } from '@/lib/log';
 import { handleMcpRequest } from '@/modules/hda/api/agent';
@@ -213,7 +214,7 @@ test('имена людей вне участников: гость из пис�
   const { f, data } = await setup();
   const signature = 'a1'.repeat(16);
   const person = async (name: string) =>
-    (await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ($1, $2, false) returning id`, [name, `i1-${name.length}-${Date.now()}@users.invalid`])).rows[0].id as string;
+    (await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ($1, $2, false) returning id`, [name, `i1-${randomUUID()}@users.invalid`])).rows[0].id as string;
   const guest = await person('Шахноза Юсупова');
   const former = await person('Бахтиёр Ахмедов');
   await pools.root.query(`insert into hdu_memberships (org_id, user_id, source, state) values ($1, $2, 'smartup', 'passive')`, [f.orgA.orgId, former]);

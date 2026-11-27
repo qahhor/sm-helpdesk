@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, jsonb, pgTable, pgView, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, jsonb, pgTable, pgView, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
 import type { ClientRole, ContextKeyMode, MembershipSource, RecordState, ServerIssue, StaffRole } from './pref';
 
@@ -77,6 +77,9 @@ export const organizations = pgTable('hdu_organizations', {
   state: text('state').$type<RecordState>().notNull().default('active'),
   ...stampColumns,
   kind: text('kind').$type<'client' | 'service'>().notNull().default('client'),
+  // Отметка согласия на AI-обработку (миграция 0124, план M9, решение 10). Клиенту не отдаётся.
+  aiConsentOn: date('ai_consent_on', { mode: 'string' }),
+  aiConsentRef: text('ai_consent_ref'),
 });
 
 /** Кто в какой организации состоит. */

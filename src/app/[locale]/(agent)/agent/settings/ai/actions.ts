@@ -29,6 +29,7 @@ export async function saveAiSettingsAction(form: FormData): Promise<void> {
     saveAiSettings(staff, {
       ...(form.get('enabled') ? { enabled: 'on' } : {}),
       ...(form.get('triageEnabled') ? { triageEnabled: 'on' } : {}),
+      ...(form.get('newOrgDefault') ? { newOrgDefault: 'on' } : {}),
       minScore: String(form.get('minScore') ?? ''),
       monthlyBudgetUsd: String(form.get('monthlyBudgetUsd') ?? ''),
       userDailyLimit: String(form.get('userDailyLimit') ?? ''),

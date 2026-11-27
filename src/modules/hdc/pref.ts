@@ -26,6 +26,9 @@ export const AUDIT_ACTIONS = [
   // Организации и участники
   'org.provisioned',
   'org.updated',
+  // Согласие на AI-обработку (план M9, задача 2, решение 10): отметка с датой и основанием и выключение обработки.
+  'org.ai_consent_recorded',
+  'org.ai_disabled',
   'member.joined',
   'member.role_changed',
   'member.state_changed',

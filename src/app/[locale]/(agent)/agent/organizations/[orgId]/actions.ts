@@ -12,6 +12,7 @@ import {
   removeOrgDomain,
   revokeInvitation,
   setMemberState,
+  setOrgAiProcessing,
   type StaffContext,
   updateOrganization,
 } from '@/modules/hdu/api';
@@ -62,13 +63,20 @@ export async function revokeStaffAction(formData: FormData): Promise<void> {
   await run(formData, (staff, orgId) => revokeInvitation({ ctx: staff, orgId }, formData.get('invitationId')), 'revoked');
 }
 
-/** Категория клиента и AI-обработка (FR-ADM-02): care и admin. */
+/** Категория клиента (FR-ADM-02): care и admin. */
 export async function updateOrgSettingsAction(formData: FormData): Promise<void> {
   const category = formData.get('category');
+  await run(formData, (staff, orgId) => updateOrganization(staff, { orgId, category: category === '' ? null : category }), 'settingsSaved');
+}
+
+/** AI-обработка организации (план M9, решение 10): включение с датой и основанием согласия, выключение без них. */
+export async function setOrgAiAction(formData: FormData): Promise<void> {
+  const enabled = formData.get('enabled') === 'true';
   await run(
     formData,
-    (staff, orgId) => updateOrganization(staff, { orgId, category: category === '' ? null : category, isAiEnabled: formData.get('isAiEnabled') === 'on' }),
-    'settingsSaved',
+    (staff, orgId) =>
+      setOrgAiProcessing(staff, enabled ? { orgId, enabled, consentOn: formData.get('consentOn'), consentRef: formData.get('consentRef') } : { orgId, enabled }),
+    enabled ? 'aiEnabled' : 'aiDisabled',
   );
 }
 

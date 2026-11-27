@@ -120,7 +120,9 @@ Pilotning boshlang'ich ma'lumotnomalari (modullar, bayramlar, shablonlar, eslatm
 
 ## 11. AI-yordamchi
 
-Tez tashkilot uchun AI bilan qayta ishlash va yordamchi yoqilgan bo'lsa, portal, vidjet va tanilgan mijozlar xatlaridagi murojaatlarga birinchi javob beradi. Yordamchi topshirgan murojaatlar topshirish sababi bilan «AI'dan keyin» navbatida va bir vaqtda «Yangi»larda turadi.
+Tez tashkilot uchun AI bilan qayta ishlash va yordamchi yoqilgan bo'lsa, portal, vidjet va tanilgan mijozlar xatlaridagi murojaatlarga birinchi javob beradi.
+
+Tashkilotni AI orqali ko'rib chiqishni Customer Care va administrator tashkilot kartasida yoqadi, faqat mijozning yozma roziligidan keyin: «Rozilik sanasi» va «Asos» (xat yoki shartnoma raqami) ni kiriting va «AI orqali ko'rib chiqishni yoqish» tugmasini bosing. Smartup orqali birinchi marta kirgan yangi tashkilot rozilik belgilanmaguncha AI'siz ishlaydi. Mijoz voz kechsa, «AI orqali ko'rib chiqishni o'chirish» tugmasini bosing: rozilik belgisi saqlanadi. Yordamchi topshirgan murojaatlar topshirish sababi bilan «AI'dan keyin» navbatida va bir vaqtda «Yangi»larda turadi.
 
 Murojaat kartasining o'ng tomonida AI-yordamchi bloki: topshirish sababi, javoblar soni, asl matn yonida «AI, tekshirilmagan» belgisi bilan qisqacha mazmun, topilgan yechimlar va saralash takliflari. Murojaat maydoni faqat «Qabul qilish» yoki «Hammasini qabul qilish» tugmasi bilan o'zgaradi. Yordamchining noto'g'ri javobini xabari ostidagi «Javobni noto'g'ri deb belgilash» havolasi bilan belgilang: u «AI javoblari tahlili»ga tushadi. Boshqa tildagi mijoz xabarini «Tarjima qilish» tugmasi bilan tarjima qilish mumkin: tarjimani faqat xodimlar ko'radi.
 

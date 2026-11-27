@@ -9,14 +9,15 @@ import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { FormField } from '@/ui/components/form-field';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { Label } from '@/ui/components/label';
-import { changeRoleAction, inviteStaffAction, revokeStaffAction, setMemberStateStaffAction, updateOrgSettingsAction } from './actions';
+import { changeRoleAction, inviteStaffAction, revokeStaffAction, setMemberStateStaffAction, setOrgAiAction, updateOrgSettingsAction } from './actions';
+import { Input } from '@/ui/components/input';
 import { firstParam } from '@/lib/search-params';
 import { Select } from '@/ui/components/select';
 
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3';
 const ERRORS = new Set(['stale_session', 'forbidden', 'not_found', 'invalid_input', 'already_member', 'rate_limited']);
-const DONE = new Set(['roleChanged', 'disabled', 'enabled', 'invited', 'revoked', 'settingsSaved']);
+const DONE = new Set(['roleChanged', 'disabled', 'enabled', 'invited', 'revoked', 'settingsSaved', 'aiEnabled', 'aiDisabled']);
 /** Итог действий с доменами почты: свои тексты в orgs.domains. */
 const DOMAIN_ERRORS = new Set(['invalid_input', 'domain_taken', 'forbidden']);
 const DOMAIN_DONE = { domainAdded: 'added', domainRemoved: 'removed' } as const;
@@ -62,6 +63,11 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         <dt className="text-secondary-foreground">{t('orgs.ai')}</dt>
         <dd>{t(org.isAiEnabled ? 'orgs.aiOn' : 'orgs.aiOff')}</dd>
       </dl>
+      <p className="text-sm text-secondary-foreground" data-testid="org-ai-consent">
+        {org.aiConsentOn && org.aiConsentRef
+          ? t('orgs.aiConsent', { date: format.dateTime(new Date(`${org.aiConsentOn}T00:00:00Z`), { dateStyle: 'medium', timeZone: 'UTC' }), ref: org.aiConsentRef })
+          : t('orgs.aiConsentNone')}
+      </p>
       {staff.actor.staffRole === 'admin' && (
         <Link href={`/agent/settings/audit?org=${org.orgId}`} className="self-start text-sm font-medium text-link underline-offset-2 hover:underline">
           {t('orgs.auditLink')}
@@ -131,25 +137,54 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   ))}
                 </Select>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="inline-flex min-h-control items-center gap-3">
-                  <input
-                    type="checkbox"
-                    name="isAiEnabled"
-                    defaultChecked={org.isAiEnabled}
-                    aria-describedby="org-ai-hint"
-                    className="size-5 shrink-0 accent-primary"
-                  />
-                  {t('orgs.aiLabel')}
-                </label>
-                <p id="org-ai-hint" className="text-sm text-muted-foreground">
-                  {t('orgs.aiHint')}
-                </p>
-              </div>
               <Button type="submit" className="self-start">
                 {t('orgs.saveSettings')}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {canManage && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-base font-semibold">{t('orgs.ai')}</h2>
+          </CardHeader>
+          <CardContent>
+            {org.isAiEnabled ? (
+              <form action={setOrgAiAction} className="flex flex-col gap-3">
+                <input type="hidden" name="orgId" value={org.orgId} />
+                <input type="hidden" name="enabled" value="false" />
+                <p id="org-ai-hint" className="text-sm text-secondary-foreground">
+                  {t('orgs.aiHint')}
+                </p>
+                <Button type="submit" variant="secondary" className="self-start" aria-describedby="org-ai-hint">
+                  {t('orgs.aiDisable')}
+                </Button>
+              </form>
+            ) : (
+              <form action={setOrgAiAction} className="flex flex-col gap-4">
+                <input type="hidden" name="orgId" value={org.orgId} />
+                <input type="hidden" name="enabled" value="true" />
+                <p className="text-sm text-secondary-foreground">{t('orgs.aiEnableHint')}</p>
+                <div className="grid max-w-xl gap-4 tablet:grid-cols-2">
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="field-consent-on">{t('orgs.aiConsentOn')}</Label>
+                    <Input id="field-consent-on" name="consentOn" type="date" required />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="field-consent-ref">{t('orgs.aiConsentRef')}</Label>
+                    <Input id="field-consent-ref" name="consentRef" required maxLength={200} aria-describedby="field-consent-ref-hint" />
+                    <p id="field-consent-ref-hint" className="text-sm text-secondary-foreground">
+                      {t('orgs.aiConsentRefHint')}
+                    </p>
+                  </div>
+                </div>
+                <Button type="submit" className="self-start">
+                  {t('orgs.aiEnable')}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       )}

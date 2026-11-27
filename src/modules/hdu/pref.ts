@@ -133,3 +133,11 @@ export const PUBLIC_MAIL_DOMAINS: ReadonlySet<string> = new Set([
   'mail.ru', 'inbox.ru', 'list.ru', 'bk.ru', 'internet.ru', 'yandex.ru', 'yandex.com', 'yandex.uz', 'ya.ru', 'rambler.ru',
   'umail.uz', 'inbox.uz', 'mail.uz', 'bk.uz',
 ]);
+
+/**
+ * Настройка hdc_settings: получает ли организация, созданная входом через Smartup, AI-обработку сразу (план M9,
+ * решение 10). Нет строки или не true: не получает, включают care и admin с отметкой согласия (решение ТЗ 88).
+ */
+export const AI_NEW_ORG_DEFAULT_SETTING = 'ai.new_org_default';
+/** Основание согласия на AI-обработку: номер письма или договора (миграция 0124). */
+export const AI_CONSENT_REF_MAX = 200;

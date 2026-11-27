@@ -855,13 +855,14 @@
         "enabled": "Member is active again.",
         "invited": "The invitation is being emailed. If the email does not arrive, invite again.",
         "revoked": "Invitation revoked.",
-        "settingsSaved": "Saved."
+        "settingsSaved": "Saved.",
+        "aiEnabled": "AI processing is on, consent recorded.",
+        "aiDisabled": "AI processing is off."
       },
       "settingsTitle": "Organization settings",
       "categoryLabel": "Client category",
       "categoryNone": "Not set",
-      "aiLabel": "Requests are handled by the AI assistant",
-      "aiHint": "Turn off if the organization has declined AI handling of requests.",
+      "aiHint": "Turn off if the organization has declined AI handling of requests. The consent record is kept.",
       "saveSettings": "Save settings",
       "ai": "AI handling",
       "aiOn": "on",
@@ -883,7 +884,15 @@
           "added": "Domain added.",
           "removed": "Domain removed."
         }
-      }
+      },
+      "aiConsent": "Consent of {date}, basis: {ref}",
+      "aiConsentNone": "No consent recorded.",
+      "aiConsentOn": "Consent date",
+      "aiConsentRef": "Basis",
+      "aiConsentRefHint": "Letter or contract number, up to 200 characters.",
+      "aiEnableHint": "The AI assistant handles the organization's requests only after its written consent. Enter the date and the basis.",
+      "aiEnable": "Turn on AI processing",
+      "aiDisable": "Turn off AI processing"
     },
     "settings": {
       "title": "Settings",
@@ -1233,7 +1242,9 @@
             "provisioned": "Organization created",
             "updated": "Organization settings changed",
             "domain_added": "Organization email domain added",
-            "domain_removed": "Organization email domain removed"
+            "domain_removed": "Organization email domain removed",
+            "ai_consent_recorded": "AI processing consent recorded",
+            "ai_disabled": "AI processing turned off for the organization"
           },
           "member": {
             "joined": "Member added",
@@ -1514,7 +1525,10 @@
           "allowedIps": "Addresses",
           "expiresAt": "Valid until",
           "dailyLimit": "Daily limit",
-          "runRevoked": "Run tokens revoked"
+          "runRevoked": "Run tokens revoked",
+          "consentOn": "Consent date",
+          "consentRef": "Consent basis",
+          "wasEnabled": "Was on"
         }
       },
       "sla": {
@@ -2268,7 +2282,9 @@
           "cutoff": "Share of the limit per organisation, %",
           "cutoffHint": "At 80% of the limit, organisations that spent more than this share are cut off.",
           "fieldsOff": "Disabled triage suggestions",
-          "fieldsOffHint": "A field turns off by itself if fewer than 70% of its suggestions were accepted in a month."
+          "fieldsOffHint": "A field turns off by itself if fewer than 70% of its suggestions were accepted in a month.",
+          "newOrgDefault": "AI processing for new organizations right away",
+          "newOrgDefaultHint": "Off: an organization that signs in through Smartup for the first time works without AI until Customer Care records its written consent."
         },
         "fields": {
           "module": "Module",

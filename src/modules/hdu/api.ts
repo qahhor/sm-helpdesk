@@ -34,6 +34,7 @@ export {
   type OrgRow,
   otherOrganizationActors,
   searchOrganizations,
+  setOrgAiProcessing,
   updateOrganization,
 } from './api/orgs';
 export type { OrgScope } from './api/scope';

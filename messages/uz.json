@@ -855,13 +855,14 @@
         "enabled": "A'zo yana faol.",
         "invited": "Taklif pochtaga yuborilmoqda. Xat kelmasa, qayta taklif qiling.",
         "revoked": "Taklif bekor qilindi.",
-        "settingsSaved": "Saqlandi."
+        "settingsSaved": "Saqlandi.",
+        "aiEnabled": "AI orqali ko'rib chiqish yoqildi, rozilik belgilandi.",
+        "aiDisabled": "AI orqali ko'rib chiqish o'chirildi."
       },
       "settingsTitle": "Tashkilot sozlamalari",
       "categoryLabel": "Mijoz toifasi",
       "categoryNone": "Belgilanmagan",
-      "aiLabel": "Murojaatlarni AI-yordamchi ko'rib chiqadi",
-      "aiHint": "Agar tashkilot murojaatlarni AI orqali ko'rib chiqishdan voz kechgan bo'lsa, o'chiring.",
+      "aiHint": "Agar tashkilot murojaatlarni AI orqali ko'rib chiqishdan voz kechgan bo'lsa, o'chiring. Rozilik belgisi saqlanadi.",
       "saveSettings": "Sozlamalarni saqlash",
       "ai": "AI orqali ko'rib chiqish",
       "aiOn": "yoqilgan",
@@ -883,7 +884,15 @@
           "added": "Domen qo'shildi.",
           "removed": "Domen olib tashlandi."
         }
-      }
+      },
+      "aiConsent": "Rozilik sanasi {date}, asos: {ref}",
+      "aiConsentNone": "Rozilik belgisi yo'q.",
+      "aiConsentOn": "Rozilik sanasi",
+      "aiConsentRef": "Asos",
+      "aiConsentRefHint": "Xat yoki shartnoma raqami, 200 belgigacha.",
+      "aiEnableHint": "AI-yordamchi tashkilot murojaatlarini faqat uning yozma roziligidan keyin ko'rib chiqadi. Sana va asosni kiriting.",
+      "aiEnable": "AI orqali ko'rib chiqishni yoqish",
+      "aiDisable": "AI orqali ko'rib chiqishni o'chirish"
     },
     "settings": {
       "title": "Sozlamalar",
@@ -1233,7 +1242,9 @@
             "provisioned": "Tashkilot yaratildi",
             "updated": "Tashkilot sozlamalari o'zgartirildi",
             "domain_added": "Tashkilot pochta domeni qo'shildi",
-            "domain_removed": "Tashkilot pochta domeni olib tashlandi"
+            "domain_removed": "Tashkilot pochta domeni olib tashlandi",
+            "ai_consent_recorded": "AI orqali ko'rib chiqishga rozilik belgilandi",
+            "ai_disabled": "Tashkilotni AI orqali ko'rib chiqish o'chirildi"
           },
           "member": {
             "joined": "Ishtirokchi qo'shildi",
@@ -1514,7 +1525,10 @@
           "allowedIps": "Manzillar",
           "expiresAt": "Amal qilish muddati",
           "dailyLimit": "Sutkalik limit",
-          "runRevoked": "Bekor qilingan ishga tushirish tokenlari"
+          "runRevoked": "Bekor qilingan ishga tushirish tokenlari",
+          "consentOn": "Rozilik sanasi",
+          "consentRef": "Rozilik asosi",
+          "wasEnabled": "Yoqilgan edi"
         }
       },
       "sla": {
@@ -2268,7 +2282,9 @@
           "cutoff": "Tashkilot ulushi, %",
           "cutoffHint": "Chegaraning 80% ida bu ulushdan ko'p sarflagan tashkilotlar o'chiriladi.",
           "fieldsOff": "O'chirilgan tahlil takliflari",
-          "fieldsOffHint": "Oy davomida takliflarning 70% dan kami qabul qilinsa, maydon o'zi o'chadi."
+          "fieldsOffHint": "Oy davomida takliflarning 70% dan kami qabul qilinsa, maydon o'zi o'chadi.",
+          "newOrgDefault": "Yangi tashkilotlarni darhol AI orqali ko'rib chiqish",
+          "newOrgDefaultHint": "O'chirilgan: Smartup orqali birinchi marta kirgan tashkilot Customer Care uning yozma roziligini belgilamaguncha AI'siz ishlaydi."
         },
         "fields": {
           "module": "Modul",

@@ -72,6 +72,7 @@ const flag = z.union([z.literal('on'), z.literal('true'), z.literal(true)]).opti
 const generalInput = z.strictObject({
   enabled: flag,
   triageEnabled: flag,
+  newOrgDefault: flag,
   minScore: z.coerce.number().pipe(aiConfigSchemas.minScore),
   monthlyBudgetUsd: z.coerce.number().pipe(aiConfigSchemas.monthlyBudgetUsd),
   userDailyLimit: z.coerce.number().pipe(aiConfigSchemas.userDailyLimit),
@@ -90,6 +91,7 @@ export async function saveAiSettings(ctx: StaffContext, input: unknown): Promise
   const next: Omit<AiConfig, 'models' | 'restrictedTopics'> = {
     enabled: d.enabled !== undefined,
     triageEnabled: d.triageEnabled !== undefined,
+    newOrgDefault: d.newOrgDefault !== undefined,
     minScore: d.minScore,
     monthlyBudgetUsd: d.monthlyBudgetUsd,
     userDailyLimit: d.userDailyLimit,

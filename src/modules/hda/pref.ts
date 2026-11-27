@@ -1,5 +1,7 @@
 // Модуль hda, слой pref: константы вызовов модели (docs/naming.md, раздел 5; план M5, задача 5, решения 2, 3, 13).
 
+import { AI_NEW_ORG_DEFAULT_SETTING } from '@/modules/hdu/pref';
+
 /**
  * Цели вызова модели: M5 (решение 2), перевод идей M7 (решение 11) и цели M5b: ответ и разбор первой линии одним
  * вызовом (first_line), только разбор (triage), перевод сообщения клиента (message_translation), благодарность (thanks).
@@ -132,6 +134,8 @@ export const AI_SETTINGS = {
   cutoffShare: 'ai.cutoff_share',
   models: 'ai.models',
   triageFieldsOff: 'ai.triage_fields_off',
+  // AI-обработка новых организаций (план M9, решение 10): код общий с модулем hdu, который его читает при входе.
+  newOrgDefault: AI_NEW_ORG_DEFAULT_SETTING,
 } as const;
 
 /** Поля предложений разбора (10.5 triage_suggestions, FR-TRI-01, 03). */
@@ -160,6 +164,7 @@ export const AI_DEFAULTS = {
   userDailyLimit: 20,
   orgDailyLimit: 150,
   cutoffShare: 0.25,
+  newOrgDefault: false,
 } as const;
 /** Доля месячного предела, после которой отключаются организации, которые его расходуют (решение 11). */
 export const AI_BUDGET_WARN_SHARE = 0.8;

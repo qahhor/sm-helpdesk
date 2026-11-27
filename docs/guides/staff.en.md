@@ -118,7 +118,9 @@ The pilot reference data (modules, holidays, templates, playbooks, staff) is loa
 
 ## 11. AI assistant
 
-Tez replies first to requests from the portal, the widget and emails of identified clients, if AI processing of the organization and the assistant are on. Requests handed over by the assistant are in the «After AI» queue with the handoff reason and also in New. The queue «AI replied, client silent» shows where the client has not pressed a button under the answer yet.
+Tez replies first to requests from the portal, the widget and emails of identified clients, if AI processing of the organization and the assistant are on.
+
+Customer Care and the administrator turn on AI processing on the organization card, block «AI handling», and only after the client's written consent: fill in «Consent date» and «Basis» (letter or contract number) and press «Turn on AI processing». A new organization that signs in through Smartup for the first time works without AI until consent is recorded. If the client declines, press «Turn off AI processing»: the consent record is kept, both actions are in the audit log. Requests handed over by the assistant are in the «After AI» queue with the handoff reason and also in New. The queue «AI replied, client silent» shows where the client has not pressed a button under the answer yet.
 
 On the right of the request card is the AI assistant block: the handoff reason, the number of replies, the summary marked «AI, not verified» next to the original text, the solutions found with scores and triage suggestions. A request field changes only with «Accept» or «Accept all». Mark a wrong assistant answer with «Mark the answer as wrong» under its message: it goes to «AI answer review». A client message in another language can be translated with «Translate»: only staff see the translation, and it is not a basis for actions with rights, data or payments.
 

@@ -1,7 +1,7 @@
 import 'server-only';
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
-import { and, asc, count, gte, inArray, isNotNull, isNull, ne } from 'drizzle-orm';
+import { and, asc, count, eq, gte, inArray, isNotNull, isNull, ne } from 'drizzle-orm';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { setErrorSignatureTx, type SolutionSource, solutionSourceOf, type TicketMissingSignature, type TicketSearchKey, ticketSearchKeyOf, ticketsMissingSignatureOf } from '../core/solution-source';
 import { HdtError } from '../error';
@@ -86,4 +86,29 @@ export async function signatureShareTx(tx: Tx, input: { since: Date; signatures:
   const [all] = await tx.select({ n: count() }).from(tickets).where(base);
   const matched = input.signatures.length > 0 ? ((await tx.select({ n: count() }).from(tickets).where(and(base, inArray(tickets.errorSignature, [...input.signatures]))))[0]?.n ?? 0) : 0;
   return { withSignature: all?.n ?? 0, matched };
+}
+
+/**
+ * Что нужно блоку "Что известно по коду" (веха M8c, FR-CODE-06): обращение по номеру, его организация, сигнатура,
+ * описание и код и текст ошибки контекста. В транзакции сотрудника: обращение видно по его политикам.
+ */
+export async function ticketCodeFactsTx(
+  tx: Tx,
+  number: number,
+): Promise<{ ticketId: string; orgId: string; errorSignature: string | null; description: string; errorCode: string | null; errorText: string | null } | null> {
+  const [row] = await tx
+    .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, errorSignature: tickets.errorSignature, description: tickets.description, context: tickets.context })
+    .from(tickets)
+    .where(eq(tickets.number, number))
+    .limit(1);
+  if (!row) return null;
+  const context = (row.context ?? {}) as { errorCode?: unknown; errorText?: unknown };
+  return {
+    ticketId: row.ticketId,
+    orgId: row.orgId,
+    errorSignature: row.errorSignature,
+    description: row.description,
+    errorCode: typeof context.errorCode === 'string' ? context.errorCode : null,
+    errorText: typeof context.errorText === 'string' ? context.errorText : null,
+  };
 }

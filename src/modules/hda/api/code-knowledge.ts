@@ -1,11 +1,16 @@
 import 'server-only';
-import { asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
 import { withActor } from '@/db/with-actor';
 import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext, writeAudit } from '@/modules/hdc/api';
 import { applyModuleProposalTx, moduleScreensByCodesTx } from '@/modules/hdr/api';
-import { signatureShareTx } from '@/modules/hdt/api/solution-source';
+import { createSolutionFromCodeEntryTx, solutionsFromCodeEntriesTx } from '@/modules/hdk/api/from-code';
+import type { TemplateLabels } from '@/modules/hdk/api/doc';
+import { templateCandidateLines } from '@/modules/hdk/api/signature-text';
+import { KB_WRITER_ROLES } from '@/modules/hdk/pref';
+import { signatureShareTx, ticketCodeFactsTx } from '@/modules/hdt/api/solution-source';
+import { LOCALES } from '@/i18n/locales';
 import { SERVICE_ORG_ID } from '@/modules/hdu/pref';
 import { CODE_TEMPLATE_LOCALES, codeEntryKey, templateViolations, textLines } from '../code/report';
 import { HdaError } from '../error';
@@ -329,7 +334,120 @@ export async function codeKnowledgeMetrics(ctx: StaffContext, input: unknown): P
   return withActor(ctx.actor, async (tx) => {
     const signatures = (await tx.select({ signature: codeErrorEntries.signature }).from(codeErrorEntries)).map((row) => row.signature);
     const share = await signatureShareTx(tx, { since, signatures, excludeOrgId: SERVICE_ORG_ID });
-    // Решения из записей каталога считает задача 6 вехи M8c (колонка hdk_articles.code_entry_id).
-    return { days, withSignature: share.withSignature, fromTemplate: share.matched, solutionsFromEntries: 0 };
+    return { days, withSignature: share.withSignature, fromTemplate: share.matched, solutionsFromEntries: await solutionsFromCodeEntriesTx(tx, since) };
+  });
+}
+
+// --- Блок "Что известно по коду" и решение из записи (задача 6; FR-CODE-06, 07, 11; решения 16, 17) ---
+
+export type TicketCodeEntry = {
+  key: string;
+  code: string | null;
+  status: 'draft' | 'approved';
+  conditions: string;
+  whatToCheck: string[];
+  raisedIn: CodeLocation[];
+  /** Как запись найдена: по сигнатуре обращения или по совпадению шаблона со строкой обращения. */
+  match: 'signature' | 'template';
+};
+
+export type TicketCodeKnowledge =
+  | { view: 'full'; entries: TicketCodeEntry[]; canCreateSolution: boolean }
+  | { view: 'checks'; checks: { key: string; whatToCheck: string[] }[] }
+  | { view: 'none' };
+
+/** Сколько записей показывает блок. */
+const TICKET_ENTRIES_MAX = 5;
+
+/**
+ * Блок "Что известно по коду" (FR-CODE-06, 11): agent_l2, care, admin видят утверждённую запись по сигнатуре обращения
+ * и записи, чьи шаблоны совпали со строками обращения (черновики с пометкой "не проверено"); первая линия только "что
+ * проверить" утверждённой записи по сигнатуре; product ничего.
+ */
+export async function ticketCodeKnowledge(ctx: StaffContext, input: unknown): Promise<TicketCodeKnowledge> {
+  const { number } = parse(z.strictObject({ number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }), input);
+  if (ctx?.actor?.type !== 'staff') throw new HdaError('forbidden');
+  const role = ctx.actor.staffRole;
+  const reader = (CODE_READER_ROLES as readonly string[]).includes(role);
+  if (!reader && role !== 'agent_l1') return { view: 'none' };
+  return withActor(ctx.actor, async (tx) => {
+    const facts = await ticketCodeFactsTx(tx, number);
+    if (!facts) throw new HdaError('not_found');
+    if (!reader) {
+      if (!facts.errorSignature) return { view: 'checks', checks: [] };
+      const rows = await tx.execute<{ key: string; what_to_check: string[] }>(sql`select key, what_to_check from hda_code_checks where signature = ${facts.errorSignature} order by key limit ${TICKET_ENTRIES_MAX}`);
+      return { view: 'checks', checks: rows.rows.map((row) => ({ key: row.key, whatToCheck: row.what_to_check })) };
+    }
+    const lines = templateCandidateLines({ errorText: facts.errorText, description: facts.description });
+    const code = facts.errorCode?.trim().toUpperCase() || /\b((?:ORA|PLS|TNS)-\d{4,5})\b/i.exec(facts.description)?.[1]?.toUpperCase() || null;
+    const columns = { key: codeErrorEntries.key, code: codeErrorEntries.code, status: codeErrorEntries.status, conditions: codeErrorEntries.conditions, whatToCheck: codeErrorEntries.whatToCheck, raisedIn: codeErrorEntries.raisedIn, signature: codeErrorEntries.signature };
+    const bySignature = facts.errorSignature
+      ? await tx.select(columns).from(codeErrorEntries).where(and(eq(codeErrorEntries.signature, facts.errorSignature), eq(codeErrorEntries.status, 'approved'))).limit(1)
+      : [];
+    const byTemplate =
+      lines.length > 0
+        ? await tx
+            .select(columns)
+            .from(codeErrorEntries)
+            .where(
+              and(
+                inArray(codeErrorEntries.status, ['draft', 'approved']),
+                sql`(${codeErrorEntries.code} is null or ${code}::text is null or ${codeErrorEntries.code} = ${code}::text)`,
+                sql`exists (select 1 from hda_code_error_templates t, unnest(array(select jsonb_array_elements_text(${JSON.stringify(lines)}::jsonb))) as l(line)
+                             where t.entry_id = ${codeErrorEntries.entryId} and left(l.line, 500) ~* t.pattern)`,
+              ),
+            )
+            .orderBy(sql`case ${codeErrorEntries.status} when 'approved' then 0 else 1 end`, asc(codeErrorEntries.key))
+            .limit(TICKET_ENTRIES_MAX)
+        : [];
+    const seen = new Set<string>();
+    const entries: TicketCodeEntry[] = [];
+    for (const [row, match] of [...bySignature.map((r) => [r, 'signature'] as const), ...byTemplate.map((r) => [r, 'template'] as const)]) {
+      if (seen.has(row.key) || entries.length >= TICKET_ENTRIES_MAX) continue;
+      seen.add(row.key);
+      entries.push({ key: row.key, code: row.code, status: row.status as 'draft' | 'approved', conditions: row.conditions, whatToCheck: row.whatToCheck, raisedIn: row.raisedIn, match });
+    }
+    return { view: 'full', entries, canCreateSolution: (KB_WRITER_ROLES as readonly string[]).includes(role) };
+  });
+}
+
+const solutionInput = z.strictObject({ key: codeEntryKey, locale: z.enum(LOCALES) });
+/** Подстановка в заголовке решения: место значения, которое у каждого клиента своё. */
+const PLACEHOLDER_TEXT = '...';
+
+/**
+ * "Создать решение из записи" (FR-CODE-07): черновик решения для клиентов из утверждённой записи. В черновик идут
+ * только заголовок из шаблона (подстановки заменены многоточием), причина у пользователя и "что проверить"; ключ,
+ * код ошибки, условия и место в коде не попадают. Сигнатура записи привязывается к решению.
+ */
+export async function createSolutionFromCodeEntry(ctx: StaffContext, input: unknown, labels: TemplateLabels, newId: () => string): Promise<{ number: number; signature: 'bound' | 'taken' }> {
+  requireReader(ctx);
+  if (!(KB_WRITER_ROLES as readonly string[]).includes(ctx.actor.staffRole)) throw new HdaError('forbidden');
+  const data = parse(solutionInput, input);
+  return withActor(ctx.actor, async (tx) => {
+    const row = await entryByKeyTx(tx, data.key, { lock: true });
+    if (!row || row.status !== 'approved') throw new HdaError('not_found');
+    const templates = await tx.select({ locale: codeErrorTemplates.locale, template: codeErrorTemplates.template }).from(codeErrorTemplates).where(eq(codeErrorTemplates.entryId, row.entryId));
+    const template = templates.find((t) => t.locale === data.locale) ?? templates.find((t) => t.locale === 'ru') ?? templates[0];
+    const title = (template?.template ?? row.userCause).replace(/\{[A-Za-z_][A-Za-z0-9_]{0,39}\}/g, PLACEHOLDER_TEXT).replace(/\s+/g, ' ').trim().slice(0, 140);
+    const outcome = await createSolutionFromCodeEntryTx(
+      tx,
+      ctx.actor,
+      {
+        locale: data.locale,
+        title,
+        problem: row.userCause,
+        steps: row.whatToCheck.slice(0, 12),
+        moduleId: row.moduleId,
+        entryId: row.entryId,
+        entryKey: row.key,
+        signature: row.signature,
+        sampleCode: row.code ?? '',
+        sample: title.slice(0, 300),
+      },
+      labels,
+      newId,
+    );
+    return { number: outcome.number, signature: outcome.signature };
   });
 }

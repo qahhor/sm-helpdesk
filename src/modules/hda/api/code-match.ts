@@ -1,6 +1,8 @@
 import 'server-only';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+import type { Tx } from '@/db/client';
 import { withActor } from '@/db/with-actor';
+import { codeErrorEntries } from '../schema';
 
 // Модуль hda, слой api: сигнатура по утверждённым шаблонам знаний из кода (веха M8c, задача 5; ТЗ 7.22 FR-CODE-04,
 // 05; план M8c, решение 8). Для модуля знаний hdk: запись сигнатуры обращения, подсказка, баннер, привязка
@@ -21,4 +23,23 @@ export async function codeTemplateSignature(input: { code: string | null; lines:
   const result = await withActor(SYSTEM, (tx) => tx.execute<{ signature: string | null }>(sql`select app.hda_code_signature(${code}::text, array(select jsonb_array_elements_text(${JSON.stringify(lines)}::jsonb))) as signature`));
   const signature = result.rows[0]?.signature ?? null;
   return typeof signature === 'string' && /^[0-9a-f]{32}$/.test(signature) ? signature : null;
+}
+
+/**
+ * Внутренние имена записи каталога для проверки перед публикацией решения из записи (веха M8c, FR-CODE-07, FR-SOL-04):
+ * ключ, объекты и их части, пути и имена файлов. В транзакции вызывающего: запись видят только читающие знания из
+ * кода, остальным список пуст (проверка тогда опирается на общие правила внутренних имён).
+ */
+export async function codeEntryTermsTx(tx: Tx, entryId: string): Promise<string[]> {
+  const [row] = await tx.select({ key: codeErrorEntries.key, raisedIn: codeErrorEntries.raisedIn }).from(codeErrorEntries).where(eq(codeErrorEntries.entryId, entryId)).limit(1);
+  if (!row) return [];
+  const terms = new Set<string>([row.key]);
+  for (const place of row.raisedIn) {
+    terms.add(place.object);
+    for (const part of place.object.split(/[.:#$]/)) if (part.length >= 4) terms.add(part);
+    terms.add(place.path);
+    const file = place.path.split('/').pop();
+    if (file) terms.add(file);
+  }
+  return [...terms];
 }

@@ -2840,7 +2840,11 @@
           "solution_not_resolved": "A solution is created only from a resolved or closed request.",
           "solution_forbidden": "Solutions are created by the first and second line, Customer Care and admins.",
           "solution_not_found": "Request not found.",
-          "solution_invalid_input": "Could not create the solution. Try again."
+          "solution_invalid_input": "Could not create the solution. Try again.",
+          "code_not_found": "The catalog entry was not found or is not approved yet.",
+          "code_forbidden": "This code knowledge action is not available to you.",
+          "code_ai_disabled": "The organization opted out of AI processing: the request is not passed to the AI staff member.",
+          "code_invalid_input": "That did not work: reload the page and try again."
         },
         "publishSolution": "Publish as a solution",
         "publishSolutionHint": "After resolving or closing, a solution draft opens: AI prepares it from the conversation, staff publish it."
@@ -3092,6 +3096,18 @@
         "linkHint": "Number KP-12 or part of an active problem title",
         "linkSubmit": "Link",
         "unlink": "Unlink"
+      },
+      "code": {
+        "title": "What the code tells",
+        "none": "No conclusions from the code for this error yet.",
+        "approved": "approved",
+        "unverified": "not verified",
+        "conditions": "When it happens:",
+        "whatToCheck": "What to check:",
+        "raisedIn": "Place in the code:",
+        "createSolution": "Create a solution from the entry",
+        "openEntry": "Open the entry",
+        "solutionTaken": "Draft created. This error is already linked to another solution: check whether a new one is needed."
       }
     },
     "playbooks": {

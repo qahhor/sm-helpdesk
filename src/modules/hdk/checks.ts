@@ -167,7 +167,9 @@ export function solutionBodyText(doc: SolutionDoc): string {
 }
 
 /** Все находки заголовка и документа. Ссылка внутрь портала (/...) всегда разрешена. */
-export function checkSolution(input: { title: string; doc: SolutionDoc }, opts: { allowedDomains: readonly string[] }): Finding[] {
+export function checkSolution(input: { title: string; doc: SolutionDoc }, opts: { allowedDomains: readonly string[]; internalTerms?: readonly string[] }): Finding[] {
+  // Внутренние имена записи каталога ошибок, из которой создано решение (веха M8c, FR-CODE-07): объекты и пути.
+  const terms = (opts.internalTerms ?? []).map((term) => term.trim()).filter((term) => term.length >= 4);
   const findings: Finding[] = [];
   const seen = new Set<string>();
   const add = (finding: Finding) => {
@@ -184,6 +186,11 @@ export function checkSolution(input: { title: string; doc: SolutionDoc }, opts: 
   const inspect = (blockId: string | null, raw: string, hrefs: readonly string[]) => {
     const text = scanText(raw);
     for (const hit of findInText(text)) add({ ...hit, blockId, blocking: false });
+    const lower = text.toLowerCase();
+    for (const term of terms) {
+      const at = lower.indexOf(term.toLowerCase());
+      if (at >= 0) add({ kind: 'internal', blockId, text: text.slice(at, at + term.length), blocking: false });
+    }
     for (const href of hrefs) {
       linkHost(blockId, href);
       const host = hostOf(href);

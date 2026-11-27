@@ -40,3 +40,6 @@ export async function resolveStaffSignature(input: { code?: string; text: string
 export async function errorSignatureOf(input: { text: string; errorCode?: string | undefined; errorText?: string | undefined }): Promise<string | null> {
   return (await resolveErrorSignature(input))?.signature ?? null;
 }
+
+/** Строки для шаблонов знаний из кода: для блока "Что известно по коду" модуля hda (веха M8c). */
+export { templateCandidateLines } from '../signature';

@@ -2840,7 +2840,11 @@
           "solution_not_resolved": "Yechim faqat hal qilingan yoki yopilgan murojaatdan yaratiladi.",
           "solution_forbidden": "Yechimlarni birinchi va ikkinchi liniya, Customer Care va administrator yaratadi.",
           "solution_not_found": "Murojaat topilmadi.",
-          "solution_invalid_input": "Yechim yaratib bo'lmadi. Qayta urinib ko'ring."
+          "solution_invalid_input": "Yechim yaratib bo'lmadi. Qayta urinib ko'ring.",
+          "code_not_found": "Katalog yozuvi topilmadi yoki hali tasdiqlanmagan.",
+          "code_forbidden": "Koddan bilimlar bilan bu amal sizga mavjud emas.",
+          "code_ai_disabled": "Tashkilot AI-ishlovdan voz kechgan: murojaat AI-xodimga berilmaydi.",
+          "code_invalid_input": "Bo'lmadi: sahifani yangilab, qayta urinib ko'ring."
         },
         "publishSolution": "Yechim sifatida e'lon qilish",
         "publishSolutionHint": "Hal qilingandan yoki yopilgandan keyin yechim qoralamasi ochiladi: AI uni yozishma bo'yicha tayyorlaydi, xodim e'lon qiladi."
@@ -3092,6 +3096,18 @@
         "linkHint": "KP-12 raqami yoki faol muammo nomining bir qismi",
         "linkSubmit": "Bog'lash",
         "unlink": "Ajratish"
+      },
+      "code": {
+        "title": "Kod bo'yicha nima ma'lum",
+        "none": "Bu xato bo'yicha koddan xulosalar hozircha yo'q.",
+        "approved": "tasdiqlangan",
+        "unverified": "tekshirilmagan",
+        "conditions": "Qachon chiqadi:",
+        "whatToCheck": "Nimani tekshirish kerak:",
+        "raisedIn": "Koddagi joy:",
+        "createSolution": "Yozuvdan yechim yaratish",
+        "openEntry": "Yozuvni ochish",
+        "solutionTaken": "Qoralama yaratildi. Bu xato boshqa yechimga bog'langan: yangisi kerakligini tekshiring."
       }
     },
     "playbooks": {

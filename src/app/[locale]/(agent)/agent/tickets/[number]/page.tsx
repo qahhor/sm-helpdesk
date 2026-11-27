@@ -23,6 +23,7 @@ import { SeenMark } from './SeenMark';
 import { ReturnDialog } from './ReturnDialog';
 import { TicketControls } from './TicketControls';
 import { KnownProblemBlock } from './KnownProblemBlock';
+import { CodeKnowledgeBlock } from './CodeKnowledgeBlock';
 import { SolutionBlock } from './SolutionBlock';
 import { RelatedSolutions } from './RelatedSolutions';
 import { loadTicketPage, type TicketPageSearch } from './loader';
@@ -216,6 +217,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
           <AiBlock staff={staff} ticketId={ticket.ticketId} number={ticket.number} locale={ticket.locale} canWrite={canWrite} />
           <TicketTags number={ticket.number} tags={ticket.tags} known={knownTags} canWrite={canWrite} />
           <KnownProblemBlock staff={staff} number={ticket.number} canLink={canWrite && ticket.status !== 'closed' && ticket.mergedInto === null} />
+          <CodeKnowledgeBlock staff={staff} number={ticket.number} />
           <DevTaskBlock number={ticket.number} devTask={devTask} canManage={canDevelop} canHandOver={canHandOver} mode={devMode} />
           <SolutionBlock staff={staff} ticketId={ticket.ticketId} number={ticket.number} status={ticket.status} />
           <RelatedSolutions staff={staff} ticketId={ticket.ticketId} locale={ticket.locale} canWrite={canWrite} />

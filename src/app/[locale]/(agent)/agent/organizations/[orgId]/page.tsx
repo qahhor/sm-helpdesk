@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { FormField } from '@/ui/components/form-field';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { Label } from '@/ui/components/label';
-import { changeRoleAction, inviteStaffAction, revokeStaffAction, setMemberStateStaffAction, setOrgAiAction, updateOrgSettingsAction } from './actions';
+import { changeRoleAction, inviteStaffAction, revokeStaffAction, setMemberStateStaffAction, setOrgAiAction, setPilotAction, updateOrgSettingsAction } from './actions';
+import { canSeePilot, isPilotOrg } from '@/modules/hdt/api';
 import { Input } from '@/ui/components/input';
 import { firstParam } from '@/lib/search-params';
 import { Select } from '@/ui/components/select';
@@ -17,7 +18,7 @@ import { Select } from '@/ui/components/select';
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3';
 const ERRORS = new Set(['stale_session', 'forbidden', 'not_found', 'invalid_input', 'already_member', 'rate_limited']);
-const DONE = new Set(['roleChanged', 'disabled', 'enabled', 'invited', 'revoked', 'settingsSaved', 'aiEnabled', 'aiDisabled']);
+const DONE = new Set(['roleChanged', 'disabled', 'enabled', 'invited', 'revoked', 'settingsSaved', 'aiEnabled', 'aiDisabled', 'pilotOn', 'pilotOff']);
 /** Итог действий с доменами почты: свои тексты в orgs.domains. */
 const DOMAIN_ERRORS = new Set(['invalid_input', 'domain_taken', 'forbidden']);
 const DOMAIN_DONE = { domainAdded: 'added', domainRemoved: 'removed' } as const;
@@ -35,6 +36,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
     canManage ? listInvitations({ ctx: staff, orgId: org.orgId }) : Promise.resolve([]),
     listOrgDomains(staff, org.orgId),
   ]);
+  // Отметка пилота (план M9, решение 11): видят care и администратор, меняет администратор.
+  const pilot = canSeePilot(staff) ? await isPilotOrg(staff, org.orgId) : null;
   const query = await searchParams;
   const error = firstParam(query.error);
   const done = firstParam(query.done);
@@ -182,6 +185,28 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 </div>
                 <Button type="submit" className="self-start">
                   {t('orgs.aiEnable')}
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {pilot !== null && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-base font-semibold">{t('orgs.pilot.title')}</h2>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <p className="text-sm text-secondary-foreground" data-testid="org-pilot">
+              {t(pilot ? 'orgs.pilot.on' : 'orgs.pilot.off')}
+            </p>
+            {staff.actor.staffRole === 'admin' && (
+              <form action={setPilotAction}>
+                <input type="hidden" name="orgId" value={org.orgId} />
+                <input type="hidden" name="pilot" value={pilot ? 'false' : 'true'} />
+                <Button type="submit" variant="secondary">
+                  {t(pilot ? 'orgs.pilot.unmark' : 'orgs.pilot.mark')}
                 </Button>
               </form>
             )}

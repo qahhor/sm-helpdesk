@@ -98,6 +98,8 @@ The three preset rules (P1 message to the on-call staff, breached deadline, low 
 
 «Metrics»: first response and resolution time, the share solved on time, ratings. «Period»: «7 days», «30 days», «90 days» or «Custom period». The «CSV export» block exports slices as CSV files, every export is written to the audit log.
 
+The «Pilot» tab (Customer Care and the administrator) summarizes the pilot metrics for the pilot organizations against the pilot plan targets; the administrator marks an organization as pilot on its card, block «Pilot». A request that came outside the portal (Telegram, a call, an email to a staff member, Jira) is entered with «Ticket for a client» with «Where it came from» filled in: the form does not go without it, and the client does not see the mark.
+
 ## 10. Administrator settings
 
 Menu «All settings». Changing settings needs a sign-in within the last 15 minutes: if you signed in earlier, the portal asks you to sign in again.

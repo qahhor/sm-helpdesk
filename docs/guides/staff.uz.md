@@ -100,6 +100,8 @@ Uchta oldindan o'rnatilgan qoidani (P1 haqida navbatchilarga xabar, buzilgan mud
 
 «Ko'rsatkichlar» bo'limi: birinchi javob va yechim vaqti, muddatida hal qilinganlar ulushi, baholar. «Davr»: «7 kun», «30 kun», «90 kun» yoki «O'z davringiz». «CSV ga eksport» bloki kesimlarni CSV fayl bilan yuklaydi, har bir yuklash audit jurnaliga yoziladi.
 
+«Pilot» yorlig'i (Customer Care va administrator) pilot tashkilotlari bo'yicha pilot ko'rsatkichlarini maqsadlar bilan jamlaydi; tashkilotni administrator uning kartasida, «Pilot» blokida pilot deb belgilaydi. Portalni chetlab kelgan murojaatni (Telegram, qo'ng'iroq, xodimga xat, Jira) «Mijoz nomidan murojaat» tugmasi bilan kiriting va «Qayerdan keldi» ni ko'rsating: belgisiz forma yuborilmaydi, mijoz belgini ko'rmaydi.
+
 ## 10. Administrator sozlamalari
 
 «Barcha sozlamalar» menyusi. Sozlamalarni o'zgartirish uchun 15 daqiqadan eski bo'lmagan kirish kerak: oldinroq kirgan bo'lsangiz, portal qaytadan kirishni so'raydi.

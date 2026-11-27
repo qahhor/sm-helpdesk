@@ -16,6 +16,9 @@ type Option = { value: string; label: string };
 
 export type StaffTicketLabels = {
   author: string;
+  intake: string;
+  intakeChoose: string;
+  intakeHint: string;
   type: string;
   impact: string;
   priority: string;
@@ -35,6 +38,7 @@ export type StaffTicketLabels = {
 type Props = {
   orgId: string;
   members: Option[];
+  intakeChannels: Option[];
   types: Option[];
   impacts: Option[];
   priorities: Option[];
@@ -67,6 +71,22 @@ export function StaffTicketForm(props: Props) {
     <form action={createForClientAction} className="flex flex-col gap-4">
       <input type="hidden" name="orgId" value={orgId} />
       {select('new-author', 'authorId', labels.author, props.members, props.members[0]?.value ?? '')}
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="new-intake">{labels.intake}</Label>
+        <Select id="new-intake" name="intakeChannel" required defaultValue="" aria-describedby="new-intake-hint">
+          <option value="" disabled>
+            {labels.intakeChoose}
+          </option>
+          {props.intakeChannels.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+        <p id="new-intake-hint" className="text-sm text-muted-foreground">
+          {labels.intakeHint}
+        </p>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {select('new-type', 'type', labels.type, props.types, 'bug')}
         {select('new-impact', 'impact', labels.impact, props.impacts, 'minor')}

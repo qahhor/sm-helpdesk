@@ -6,7 +6,7 @@ import type { Tx } from '@/db/client';
 import { type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
 import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
-import { ATTACHABLE_SCAN_STATUSES, type Impact, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
+import { ATTACHABLE_SCAN_STATUSES, type Impact, type IntakeChannel, type Priority, PRIORITY_BY_IMPACT, TICKET_PAGE_SIZE, type TicketStatus, type TicketType, type Visibility } from '../pref';
 import { attachments, type TicketContext, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { finalMainNumberTx } from './merged-into';
 import { timelineWindowTx } from './timeline';
@@ -120,7 +120,7 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
  */
 export async function createTicketForClientTx(
   actor: StaffActor,
-  input: Omit<NewTicket, 'relatedNumber'> & { orgId: string; authorId: string; priority?: Priority },
+  input: Omit<NewTicket, 'relatedNumber'> & { orgId: string; authorId: string; priority?: Priority; intakeChannel: IntakeChannel },
 ): Promise<{ ticketId: string; number: number }> {
   return withActor(actor, async (tx) => {
     const priority = input.priority ?? PRIORITY_BY_IMPACT[input.impact];
@@ -139,6 +139,7 @@ export async function createTicketForClientTx(
         locale: input.locale,
         moduleId: input.moduleId ?? null,
         source: 'staff',
+        intakeChannel: input.intakeChannel,
       })
       .returning({ ticketId: tickets.ticketId, number: tickets.number });
     if (!row) throw new Error('hdt: обращение не создано');
@@ -166,7 +167,7 @@ export async function createTicketForClientTx(
       objectType: 'ticket',
       objectId: row.ticketId,
       orgId: input.orgId,
-      diff: { type: input.type, priority, source: 'staff', authorId: input.authorId },
+      diff: { type: input.type, priority, source: 'staff', authorId: input.authorId, intakeChannel: input.intakeChannel },
     });
     await refreshSla(tx, row.ticketId, new Date());
     await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: actor.userId });
@@ -288,11 +289,11 @@ export async function ticketExists(actor: ClientActor, number: number): Promise<
 }
 
 /**
- * Колонки обращения, которые читает клиент: все, кроме заметки руководителя о разборе оценки (FR-MET-07) и сигнатуры
- * ошибки (план M5, задача 8: по сигнатуре видно, у кого ещё та же ошибка). Политики RLS закрывают строки, а не
- * колонки, поэтому внутренние колонки запрос клиента не выбирает вовсе.
+ * Колонки обращения, которые читает клиент: все, кроме заметки руководителя о разборе оценки (FR-MET-07), отметки
+ * "откуда пришло" (план M9, решение 12) и сигнатуры ошибки (план M5, задача 8: по сигнатуре видно, у кого ещё та же
+ * ошибка). Политики RLS закрывают строки, а не колонки, поэтому внутренние колонки запрос клиента не выбирает вовсе.
  */
-export const STAFF_ONLY_TICKET_COLUMNS = ['csatReviewNote', 'csatReviewedBy', 'csatReviewedOn', 'errorSignature'] as const;
+export const STAFF_ONLY_TICKET_COLUMNS = ['csatReviewNote', 'csatReviewedBy', 'csatReviewedOn', 'errorSignature', 'intakeChannel'] as const;
 type StaffOnlyColumn = (typeof STAFF_ONLY_TICKET_COLUMNS)[number];
 const allTicketColumns = getTableColumns(tickets);
 const clientTicketColumns = Object.fromEntries(

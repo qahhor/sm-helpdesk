@@ -6,6 +6,7 @@ import {
   type Breakdown,
   canReviewCsat,
   canSeeBreakdown,
+  canSeePilot,
   CSAT_REVIEW_MAX,
   getMetrics,
   getMetricsBreakdown,
@@ -31,6 +32,7 @@ import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { EmptyState } from '@/ui/components/EmptyState';
 import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
+import { MetricsTabs } from '@/ui/components/MetricsTabs';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { Select } from '@/ui/components/select';
 import { Textarea } from '@/ui/components/textarea';
@@ -173,6 +175,7 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
   return (
     <>
       <PageHeader title={t('metrics.title')} breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: t('metrics.title') }]} breadcrumbsLabel={t('breadcrumbs')} />
+      <MetricsTabs current="all" query={periodQuery} label={t('metrics.tabs.label')} allLabel={t('metrics.tabs.all')} pilotLabel={t('metrics.tabs.pilot')} showPilot={canSeePilot(staff)} />
 
       {invalid && <Alert tone="danger">{t('metrics.period.invalid')}</Alert>}
       {firstParam(query.done) === 'reviewed' && <Alert tone="success">{t('metrics.done.reviewed')}</Alert>}
@@ -369,7 +372,7 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
                 <p className="text-sm text-muted-foreground">{t('metrics.export.hint')}</p>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2">
-                {METRICS_REPORTS.map((report) => (
+                {METRICS_REPORTS.filter((report) => report !== 'pilot').map((report) => (
                   // Обычная ссылка, а не Link: предзагрузка ссылки не должна запускать выгрузку.
                   <a key={report} href={`/${locale}/agent/metrics/export?report=${report}&${periodQuery}`} download className={buttonVariants({ variant: 'secondary', size: 'small' })} data-export={report}>
                     {t(`metrics.export.${report}`)}

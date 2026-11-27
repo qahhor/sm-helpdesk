@@ -857,7 +857,9 @@
         "revoked": "Taklif bekor qilindi.",
         "settingsSaved": "Saqlandi.",
         "aiEnabled": "AI orqali ko'rib chiqish yoqildi, rozilik belgilandi.",
-        "aiDisabled": "AI orqali ko'rib chiqish o'chirildi."
+        "aiDisabled": "AI orqali ko'rib chiqish o'chirildi.",
+        "pilotOn": "Tashkilot pilot deb belgilandi.",
+        "pilotOff": "Tashkilot pilotdan olib tashlandi."
       },
       "settingsTitle": "Tashkilot sozlamalari",
       "categoryLabel": "Mijoz toifasi",
@@ -892,7 +894,14 @@
       "aiConsentRefHint": "Xat yoki shartnoma raqami, 200 belgigacha.",
       "aiEnableHint": "AI-yordamchi tashkilot murojaatlarini faqat uning yozma roziligidan keyin ko'rib chiqadi. Sana va asosni kiriting.",
       "aiEnable": "AI orqali ko'rib chiqishni yoqish",
-      "aiDisable": "AI orqali ko'rib chiqishni o'chirish"
+      "aiDisable": "AI orqali ko'rib chiqishni o'chirish",
+      "pilot": {
+        "title": "Pilot",
+        "on": "Tashkilot pilotga va pilot hisobotiga kiradi.",
+        "off": "Tashkilot pilotga kirmaydi.",
+        "mark": "Pilot deb belgilash",
+        "unmark": "Pilotdan olib tashlash"
+      }
     },
     "settings": {
       "title": "Sozlamalar",
@@ -3194,6 +3203,16 @@
         "forbidden": "Rolingiz murojaat yaratishga ruxsat bermaydi.",
         "too_many_files": "10 tadan ko'p fayl emas.",
         "file_unavailable": "Fayllardan birini endi qo'shib bo'lmaydi. Uni olib tashlab, qayta yuboring."
+      },
+      "intake": "Qayerdan keldi",
+      "intakeChoose": "Kanalni tanlang",
+      "intakeHint": "Murojaat portalni chetlab keldi. Belgi pilot hisoboti uchun kerak, mijoz uni ko'rmaydi.",
+      "intakeChannels": {
+        "telegram": "Telegram",
+        "phone": "Qo'ng'iroq",
+        "email_direct": "Xodimga xat",
+        "jira": "Jira",
+        "other": "Boshqa"
       }
     },
     "keys": {
@@ -3394,7 +3413,11 @@
           "firstResponseMinutes": "Birinchi javob, ish daqiqalari",
           "resolutionMinutes": "Yechim, ish daqiqalari",
           "firstResponseBreached": "Birinchi javob muddati buzilgan",
-          "resolutionBreached": "Yechim muddati buzilgan"
+          "resolutionBreached": "Yechim muddati buzilgan",
+          "metric": "Ko'rsatkich",
+          "value": "Qiymat",
+          "target": "Maqsad",
+          "met": "Maqsad bajarildi"
         }
       },
       "done": {
@@ -3472,6 +3495,45 @@
         "merged": "Birlashtirildi",
         "rejected": "Rad etildi",
         "toPublish": "Paydo bo'lishdan chop etishgacha"
+      },
+      "tabs": {
+        "label": "Ko'rsatkichlar bo'limlari",
+        "all": "Barcha ko'rsatkichlar",
+        "pilot": "Pilot"
+      },
+      "pilot": {
+        "title": "Pilot hisoboti",
+        "intro": "Davr uchun pilot tashkilotlari bo'yicha pilot ko'rsatkichlari, maqsadlar pilot rejasidan. Faqat raqamlar, murojaat matnlarisiz.",
+        "orgs": "Pilot tashkilotlari: {names}",
+        "emptyTitle": "Pilot tashkilotlari belgilanmagan",
+        "emptyText": "Administrator pilot tashkilotini uning kartasida, «Pilot» blokida belgilaydi.",
+        "metric": "Ko'rsatkich",
+        "value": "Qiymat",
+        "target": "Maqsad",
+        "result": "Natija",
+        "met": "bajarildi",
+        "missed": "bajarilmadi",
+        "noData": "ma'lumot yo'q",
+        "min": "kamida {value}",
+        "max": "ko'pi bilan {value}",
+        "base": "{count} tadan",
+        "usd": "{value} $",
+        "leaksValue": "Portaldan tashqarida, navbatchilar jurnalida hisoblanadi (docs/runbooks/incident.md)",
+        "leaksTarget": "nol",
+        "costHint": "Xarajat maqsadi oyiga 100 $, davr uzunligiga qayta hisoblangan.",
+        "aiReview": "Yordamchi xodimsiz yopganlar 5% dan past bo'lsa, yordamchi qayta ko'rib chiqiladi.",
+        "export": "Hisobotni CSV ga yuklash",
+        "metrics": {
+          "portal_share": "Pilot mijozlarining portalda ro'yxatdan o'tgan murojaatlari",
+          "first_response": "Birinchi javob (yechimli yordamchi yoki xodim) SLA muddatida",
+          "resolution": "Yechim SLA muddatida",
+          "ai_resolved": "Yordamchi xodimsiz yopgan murojaatlar",
+          "ai_flagged": "Xodimlar noto'g'ri deb belgilagan yordamchi javoblari",
+          "csat_high": "Mijozlar bahosi 5 dan 4-5",
+          "leaks": "Tashkilotlar orasida ma'lumotlarning sizib chiqishi",
+          "ai_cost": "AI xarajatlari",
+          "telegram_share": "Portalni chetlab Telegram'ga kelgan"
+        }
       }
     },
     "solutions": {

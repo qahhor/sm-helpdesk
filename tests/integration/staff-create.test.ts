@@ -13,6 +13,7 @@ const input = (f: Awaited<ReturnType<typeof seedTwoOrgs>>, extra: Record<string,
   impact: 'major',
   description: 'Звонок: у агентов не грузится отчёт по продажам за месяц',
   locale: 'uz',
+  intakeChannel: 'phone',
   ...extra,
 });
 const row = (number: number) =>

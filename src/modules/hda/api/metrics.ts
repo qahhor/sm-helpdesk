@@ -50,3 +50,27 @@ export async function assistantUseCounts(ctx: StaffContext, articleIds: readonly
   );
   return new Map(rows.flatMap((r) => (r.solutionId ? [[r.solutionId, r.count] as const] : [])));
 }
+
+export type PilotRunStats = { answers: number; flagged: number; costUsd: number };
+
+/**
+ * Ответы помощника, отмеченные неверными (FR-AI-16), и расход на AI (FR-MET-06) по вызовам периода пилотных
+ * организаций (план M9, задача 3, решение 13). Только числа; вызовы без организации в пилот не входят.
+ */
+export async function pilotRunStats(ctx: StaffContext, input: { from: Date; to: Date; orgIds: readonly string[] }): Promise<PilotRunStats> {
+  requireStaff(ctx);
+  const parsed = z.strictObject({ from: z.date(), to: z.date(), orgIds: z.array(z.uuid()).max(100) }).safeParse({ ...input, orgIds: [...input.orgIds] });
+  if (!parsed.success) throw new HdaError('invalid_input');
+  if (parsed.data.orgIds.length === 0) return { answers: 0, flagged: 0, costUsd: 0 };
+  const [row] = await withActor(ctx.actor, (tx) =>
+    tx
+      .select({
+        answers: sql<number>`count(*) filter (where ${aiRuns.decision} = 'answer')::int`,
+        flagged: sql<number>`count(*) filter (where ${aiRuns.decision} = 'answer' and ${aiRuns.flaggedBy} is not null)::int`,
+        costUsd: sql<string>`coalesce(sum(${aiRuns.costUsd}), 0)::text`,
+      })
+      .from(aiRuns)
+      .where(and(inArray(aiRuns.orgId, parsed.data.orgIds), gte(aiRuns.createdOn, parsed.data.from), lt(aiRuns.createdOn, parsed.data.to))),
+  );
+  return { answers: row?.answers ?? 0, flagged: row?.flagged ?? 0, costUsd: Math.round(Number(row?.costUsd ?? 0) * 1e6) / 1e6 };
+}

@@ -26,9 +26,11 @@ export async function GET(request: NextRequest, { params }: RouteContext<'/[loca
   try {
     const out = await exportMetrics(staff, { report: query.get('report') ?? undefined, period: query.get('period') ?? undefined, from: query.get('from') ?? undefined, to: query.get('to') ?? undefined, locale });
     const t = await getTranslations({ locale, namespace: 'agent.metrics' });
+    // Сводка пилота: код показателя первой колонки словами интерфейса (план M9, решение 13).
+    const rows = out.report === 'pilot' ? out.rows.map(([key, ...rest]) => [t(`pilot.metrics.${String(key)}`), ...rest]) : out.rows;
     const csv = buildCsv(
       out.columns.map((column) => t(`csv.columns.${column}`)),
-      out.rows,
+      rows,
       { notice: out.truncated ? t('export.truncated', { count: CSV_MAX_ROWS }) : undefined },
     );
     return new Response(csv, {

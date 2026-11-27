@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { z } from 'zod';
+import { isHdtError, setPilotOrg } from '@/modules/hdt/api';
 import {
   addOrgDomain,
   changeMemberRole,
@@ -29,7 +30,7 @@ async function run(formData: FormData, action: (staff: StaffContext, orgId: stri
   try {
     await action(staff, orgId.data);
   } catch (error) {
-    if (!isHduError(error)) throw error;
+    if (!isHduError(error) && !isHdtError(error)) throw error;
     redirect(`${page}?error=${error.code}${extra}`);
   }
   redirect(`${page}?done=${done}${extra}`);
@@ -78,6 +79,12 @@ export async function setOrgAiAction(formData: FormData): Promise<void> {
       setOrgAiProcessing(staff, enabled ? { orgId, enabled, consentOn: formData.get('consentOn'), consentRef: formData.get('consentRef') } : { orgId, enabled }),
     enabled ? 'aiEnabled' : 'aiDisabled',
   );
+}
+
+/** Пилотная организация для сводки пилота (план M9, решение 11): администратор со свежим входом. */
+export async function setPilotAction(formData: FormData): Promise<void> {
+  const pilot = formData.get('pilot') === 'true';
+  await run(formData, (staff, orgId) => setPilotOrg(staff, { orgId, pilot }), pilot ? 'pilotOn' : 'pilotOff');
 }
 
 /** Домен почты организации (FR-EM-06): только care и admin, домены общих почтовых служб не принимаются. */

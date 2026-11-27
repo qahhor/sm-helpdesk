@@ -1,10 +1,11 @@
 import 'server-only';
 import * as z from 'zod';
 import { type SystemActor, withActor } from '@/db/with-actor';
-import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
+import { consumeRateLimit, FRESH_SIGN_IN_SEC, isFresh, rateKey, readSetting, writeSettingTx } from '@/modules/hdc/api';
+import { pilotRunStats } from '@/modules/hda/api/metrics';
 import { cleanUserText, RATE_RULES } from '@/modules/hdc/pref';
 import { listActiveModules, moduleCodesTx, type Priority, readSlaConfig, type SlaConfig } from '@/modules/hdr/api';
-import { namesOf, type StaffContext } from '@/modules/hdu/api';
+import { getOrganization, namesOf, type StaffContext } from '@/modules/hdu/api';
 import { orgFactsTx } from '@/modules/hdu/api/automation';
 import {
   assistantStatsTx,
@@ -14,6 +15,7 @@ import {
   lineEventsTx,
   lowRatingsTx,
   finishedTx,
+  pilotCountersTx,
   type Range,
   requestRowsTx,
   resolvedRowsTx,
@@ -24,6 +26,7 @@ import {
 import { calendarFor } from '../core/sla';
 import { HdtError } from '../error';
 import { numberInput, parseInput } from '../input';
+import { PILOT_METRICS, PILOT_ORGS_MAX, PILOT_ORGS_SETTING, PILOT_TARGETS, type PilotMetricKey } from '../pref';
 import { average, channelOfSource, combineCounters, CSV_MAX_ROWS, type CsvValue, decimal, type Line, LINES, lineUsage, localMinute, median, parsePeriod, percent, type Period, TICKET_CHANNELS, type TicketChannel } from '../metrics-util';
 import { workingMinutesBetween } from '../sla';
 
@@ -41,7 +44,7 @@ const BREAKDOWN_MAX_PAGES = 40;
 /** Низких оценок на странице. */
 export const LOW_RATINGS_LIMIT = 200;
 export const CSAT_REVIEW_MAX = 2000;
-export const METRICS_REPORTS = ['orgs', 'modules', 'low_ratings', 'requests'] as const;
+export const METRICS_REPORTS = ['orgs', 'modules', 'low_ratings', 'requests', 'pilot'] as const;
 export type MetricsReport = (typeof METRICS_REPORTS)[number];
 
 const BREAKDOWN_ROLES: readonly string[] = ['care', 'product', 'admin'];
@@ -325,6 +328,8 @@ export const EXPORT_COLUMNS = {
   modules: ['module', 'created', 'resolved', 'firstResponsePercent', 'resolutionPercent', 'csatCount', 'csatAverage'],
   low_ratings: ['number', 'created', 'org', 'assignee', 'score', 'reason', 'comment', 'reviewNote', 'reviewedBy', 'reviewed'],
   requests: ['number', 'created', 'org', 'module', 'type', 'priority', 'source', 'status', 'firstResponseMinutes', 'resolutionMinutes', 'firstResponseBreached', 'resolutionBreached', 'score'],
+  // Сводка пилота (план M9, решение 13): код показателя, значение, цель, выполнена ли (1, 0 или пусто).
+  pilot: ['metric', 'value', 'target', 'met'],
 } as const satisfies Record<MetricsReport, readonly string[]>;
 
 const flag = (value: boolean): number => (value ? 1 : 0);
@@ -335,8 +340,10 @@ const flag = (value: boolean): number => (value ? 1 : 0);
  * записывается в журнал аудита. В строках обращений нет темы, описания и переписки. Строк не больше CSV_MAX_ROWS.
  */
 export async function exportMetrics(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<MetricsExport> {
-  if (!canSeeBreakdown(ctx)) throw new HdtError('forbidden');
+  if (!canSeeBreakdown(ctx) && !canSeePilot(ctx)) throw new HdtError('forbidden');
   const data = parseInput(exportInput, input ?? {});
+  // Сводку пилота выгружают только те, кто её видит: care и администратор (решение 13 плана M9).
+  if (data.report === 'pilot' ? !canSeePilot(ctx) : !canSeeBreakdown(ctx)) throw new HdtError('forbidden');
   const { period, config } = await resolvePeriod(ctx, data, now);
   const limit = await consumeRateLimit(rateKey('metrics-export:user', ctx.actor.userId), RATE_RULES.metricsExportPerUser, now);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
@@ -344,7 +351,10 @@ export async function exportMetrics(ctx: StaffContext, input: unknown, now: Date
   const zone = config.calendar.timeZone;
   let rows: CsvValue[][];
   let truncated = false;
-  if (data.report === 'orgs' || data.report === 'modules') {
+  if (data.report === 'pilot') {
+    const summary = await pilotSummary(ctx, data, now);
+    rows = summary.rows.map((row) => [row.key, decimal(row.value), decimal(row.target), row.met === null ? null : flag(row.met)]);
+  } else if (data.report === 'orgs' || data.report === 'modules') {
     const found = await breakdownItems(ctx, range, data.report === 'orgs' ? 'org' : 'module', now, CSV_MAX_ROWS, data.locale ?? 'ru');
     truncated = found.hasMore;
     rows = found.items.map((item) => [item.name ?? '', item.created, item.resolved, decimal(item.firstResponsePercent), decimal(item.resolutionPercent), item.csatCount, decimal(item.csatAverage)]);
@@ -468,4 +478,99 @@ export async function getAssistantMetrics(ctx: StaffContext, input: unknown, now
     csat: { count: stats.csatCount, average: stats.csatCount > 0 ? stats.csatSum / stats.csatCount : null },
     reopenedAfterHelped: stats.reopenedAfterHelped,
   };
+}
+
+// --- Сводка пилота (план M9, задача 3, решения 11 и 13; ТЗ 16.7) ---
+
+const PILOT_ROLES: readonly string[] = ['care', 'admin'];
+
+/** Сводку пилота видят Customer Care и администратор (решение 13). */
+export function canSeePilot(ctx: StaffContext): boolean {
+  return ctx?.actor?.type === 'staff' && PILOT_ROLES.includes(ctx.actor.staffRole);
+}
+
+const pilotIdsSchema = z.array(z.uuid()).max(PILOT_ORGS_MAX);
+
+/** Пилотные организации из настройки pilot.org_ids. Нет строки или значение неверно: пусто. */
+async function pilotOrgIds(): Promise<string[]> {
+  const parsed = pilotIdsSchema.safeParse(await readSetting(PILOT_ORGS_SETTING));
+  return parsed.success ? [...new Set(parsed.data)] : [];
+}
+
+/** Входит ли организация в пилот: карточка организации показывает отметку care и администратору. */
+export async function isPilotOrg(ctx: StaffContext, orgId: string): Promise<boolean> {
+  if (!canSeePilot(ctx)) throw new HdtError('forbidden');
+  return (await pilotOrgIds()).includes(orgId);
+}
+
+const pilotOrgInput = z.strictObject({ orgId: z.uuid(), pilot: z.boolean() });
+
+/**
+ * Отметить организацию пилотной или снять отметку (решение 11): администратор со входом не старше 15 минут, запись
+ * settings.changed со списком той же транзакцией. Организация должна существовать и быть клиентом.
+ */
+export async function setPilotOrg(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<void> {
+  if (ctx?.actor?.type !== 'staff' || ctx.actor.staffRole !== 'admin') throw new HdtError('forbidden');
+  if (!isFresh(ctx, now, FRESH_SIGN_IN_SEC)) throw new HdtError('stale_session');
+  const data = parseInput(pilotOrgInput, input);
+  if (!(await getOrganization(ctx, data.orgId))) throw new HdtError('not_found');
+  const current = await pilotOrgIds();
+  const next = data.pilot ? [...new Set([...current, data.orgId])] : current.filter((id) => id !== data.orgId);
+  if (next.length > PILOT_ORGS_MAX) throw new HdtError('invalid_input');
+  if (next.length === current.length && next.every((id, i) => id === current[i])) return;
+  await withActor(ctx.actor, (tx) => writeSettingTx(tx, PILOT_ORGS_SETTING, next));
+}
+
+export type PilotRow = {
+  key: PilotMetricKey;
+  /** Доля в процентах, расход в долларах; пусто: считать не из чего (или показатель ведётся вне портала). */
+  value: number | null;
+  target: number | null;
+  direction: 'min' | 'max' | null;
+  /** Цель выполнена; пусто: значения или цели нет. */
+  met: boolean | null;
+  /** Из скольких посчитана доля (обращений, оценок, ответов). */
+  base: number | null;
+};
+
+export type PilotSummary = { period: Period; timeZone: string; orgCount: number; orgs: { orgId: string; name: string }[]; rows: PilotRow[] };
+
+/**
+ * Сводка пилота за период (решение 13): восемь строк таблицы 16.7 и доля пришедших мимо портала в Telegram по
+ * организациям из pilot.org_ids. Только числа, без тем и текстов. Без пилотных организаций строк нет.
+ */
+export async function pilotSummary(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<PilotSummary> {
+  if (!canSeePilot(ctx)) throw new HdtError('forbidden');
+  const { period, config } = await resolvePeriod(ctx, input, now);
+  const ids = await pilotOrgIds();
+  const names = await withActor(ctx.actor, (tx) => orgFactsTx(tx, ids));
+  const orgs = ids.flatMap((orgId) => {
+    const org = names.get(orgId);
+    return org ? [{ orgId, name: org.name }] : [];
+  });
+  if (orgs.length === 0) return { period, timeZone: config.calendar.timeZone, orgCount: 0, orgs: [], rows: [] };
+  const orgIds = orgs.map((org) => org.orgId);
+  const range: Range = { from: period.from, to: period.to };
+  const c = await withActor(ctx.actor, (tx) => pilotCountersTx(tx, range, orgIds, now));
+  const runs = await pilotRunStats(ctx, { from: period.from, to: period.to, orgIds });
+  const costTarget = Math.round(((PILOT_TARGETS.ai_cost.target ?? 0) * period.days * 100) / 30) / 100;
+  const values: Record<PilotMetricKey, { value: number | null; base: number | null; target?: number }> = {
+    portal_share: { value: percent(c.total - c.bypass, c.total), base: c.total },
+    first_response: { value: percent(c.firstResponseOk, c.firstResponseTotal), base: c.firstResponseTotal },
+    resolution: { value: percent(c.resolutionOk, c.resolutionTotal), base: c.resolutionTotal },
+    ai_resolved: { value: percent(c.aiResolved, c.aiHandled), base: c.aiHandled },
+    ai_flagged: { value: percent(runs.flagged, runs.answers), base: runs.answers },
+    csat_high: { value: percent(c.csatHigh, c.rated), base: c.rated },
+    leaks: { value: null, base: null },
+    ai_cost: { value: runs.costUsd, base: null, target: costTarget },
+    telegram_share: { value: percent(c.telegram, c.total), base: c.total },
+  };
+  const rows = PILOT_METRICS.map((key): PilotRow => {
+    const { direction } = PILOT_TARGETS[key];
+    const target = values[key].target ?? PILOT_TARGETS[key].target;
+    const value = values[key].value;
+    const met = value === null || target === null || direction === null ? null : direction === 'min' ? value >= target : value <= target;
+    return { key, value, target, direction, met, base: values[key].base };
+  });
+  return { period, timeZone: config.calendar.timeZone, orgCount: orgs.length, orgs, rows };
 }

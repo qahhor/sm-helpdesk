@@ -9,6 +9,7 @@ import type {
   CsatReason,
   EventKind,
   Impact,
+  IntakeChannel,
   Priority,
   PresenceMode,
   Queue,
@@ -101,6 +102,8 @@ export const tickets = pgTable('hdt_tickets', {
   csatReviewedOn: moment('csat_reviewed_on'),
   // Миграция 0092 (веха M5b): момент передачи помощником сотрудникам, от него считается срок первого ответа (FR-SLA-10).
   aiHandoffOn: moment('ai_handoff_on'),
+  // Миграция 0125 (веха M9): откуда пришло обращение мимо портала, если его завёл сотрудник (ТЗ 16.7). Клиенту не отдаётся.
+  intakeChannel: text('intake_channel').$type<IntakeChannel>(),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {

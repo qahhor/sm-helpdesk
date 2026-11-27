@@ -26,7 +26,7 @@ test.beforeAll(async () => {
   await dbRows(`insert into hdc_settings (code, value) values ('ai.enabled', 'true'::jsonb) on conflict (code) do update set value = excluded.value`);
   // Суточный предел 20 вызовов на пользователя (решение 11) повторные прогоны одного дня исчерпали бы: на время теста выше.
   await dbRows(`insert into hdc_settings (code, value) values ('ai.user_daily_limit', '1000'::jsonb), ('ai.org_daily_limit', '10000'::jsonb) on conflict (code) do update set value = excluded.value`);
-  await dbRows(`update hdu_organizations set is_ai_enabled = true where name = 'ACME Trade'`);
+  await dbRows(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where name = 'ACME Trade'`);
 });
 test.afterAll(async () => {
   await dbRows(`delete from hdc_settings where code in ('ai.enabled', 'ai.user_daily_limit', 'ai.org_daily_limit')`);

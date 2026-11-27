@@ -33,6 +33,7 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: `${A}/ideas/[number]`, path: '/ru/agent/ideas/{idea}', who: 'admin', walk: true },
   { route: `${A}/ideas/cycles`, path: '/ru/agent/ideas/cycles', who: 'admin' },
   { route: `${A}/metrics`, path: '/ru/agent/metrics', who: 'admin', walk: true },
+  { route: `${A}/metrics/pilot`, path: '/ru/agent/metrics/pilot', who: 'admin', walk: true },
   // Известные проблемы (веха M5c): последняя проблема базы браузерных тестов, если её нет, "не найдено".
   { route: `${A}/announcements`, path: '/ru/agent/announcements', who: 'admin' },
   // Кандидаты в решения (веха M5c, задача 10): несуществующий кандидат даёт "не найдено".

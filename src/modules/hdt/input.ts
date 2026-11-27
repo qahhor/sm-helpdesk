@@ -2,7 +2,7 @@ import * as z from 'zod';
 import { LOCALES } from '@/i18n/locales';
 import { cleanUserText } from '@/modules/hdc/pref';
 import { HdtError } from './error';
-import { CSAT_REASONS, IMPACTS, MAX_SNOOZE_DAYS, PRESENCE_MODES, PRIORITIES, RESOLUTION_TYPES, TICKET_STATUSES, TICKET_TYPES, TRANSFER_REASONS, VISIBILITIES } from './pref';
+import { CSAT_REASONS, IMPACTS, INTAKE_CHANNELS, MAX_SNOOZE_DAYS, PRESENCE_MODES, PRIORITIES, RESOLUTION_TYPES, TICKET_STATUSES, TICKET_TYPES, TRANSFER_REASONS, VISIBILITIES } from './pref';
 import { QUEUE_KEYS, QUEUE_SORTS } from './core/agent-queue-keys';
 
 // Схемы входных данных модуля hdt. Каждая точка входа разбирает свой вход схемой (ТЗ 9.4, правило 7).
@@ -247,6 +247,8 @@ export const staffCreateInput = createTicketInput.omit({ relatedNumber: true, wi
   orgId: z.uuid(),
   authorId: z.uuid(),
   priority: optional(z.enum(PRIORITIES)),
+  // Откуда пришло мимо портала: обязательно (план M9, решение 12).
+  intakeChannel: z.enum(INTAKE_CHANNELS),
 });
 
 /** Страница списка благодарностей. */

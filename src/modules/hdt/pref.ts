@@ -279,3 +279,38 @@ export type AiPayload =
   | { kind: 'ack'; reason: AiHandoffReason; dueOn: string | null; startOn: string | null; locale: string }
   | { kind: 'known_problem'; problemNumber: number; locale: string }
   | { kind: 'outage'; announcementId: string; locale: string };
+
+/**
+ * Откуда пришло обращение, которое сотрудник завёл от имени клиента (план M9, задача 3, решение 12; ТЗ 16.7): Telegram,
+ * телефон, письмо сотруднику, а не на адрес поддержки, Jira, другое. Миграция 0125.
+ */
+export const INTAKE_CHANNELS = ['telegram', 'phone', 'email_direct', 'jira', 'other'] as const;
+export type IntakeChannel = (typeof INTAKE_CHANNELS)[number];
+
+/** Настройка hdc_settings со списком пилотных организаций для сводки пилота (план M9, решение 11). */
+export const PILOT_ORGS_SETTING = 'pilot.org_ids';
+/** Пилотных организаций не больше: решение ТЗ 77 называет 3-5. */
+export const PILOT_ORGS_MAX = 20;
+
+/** Строки сводки пилота: восемь показателей таблицы ТЗ 16.7 и доля пришедших мимо портала в Telegram (решение ТЗ 83). */
+export const PILOT_METRICS = ['portal_share', 'first_response', 'resolution', 'ai_resolved', 'ai_flagged', 'csat_high', 'leaks', 'ai_cost', 'telegram_share'] as const;
+export type PilotMetricKey = (typeof PILOT_METRICS)[number];
+
+/**
+ * Цели пилота из таблицы ТЗ 16.7 (их можно поменять до начала пилота). min: значение не ниже цели, max: не выше.
+ * Расходы на AI: 100 долларов в месяц, сводка пересчитывает цель на длину периода (30 дней = месяц).
+ * Инциденты утечки считаются в журнале инцидентов вне портала, у доли Telegram цели нет.
+ */
+export const PILOT_TARGETS: Record<PilotMetricKey, { target: number | null; direction: 'min' | 'max' | null }> = {
+  portal_share: { target: 90, direction: 'min' },
+  first_response: { target: 95, direction: 'min' },
+  resolution: { target: 85, direction: 'min' },
+  ai_resolved: { target: 15, direction: 'min' },
+  ai_flagged: { target: 5, direction: 'max' },
+  csat_high: { target: 80, direction: 'min' },
+  leaks: { target: 0, direction: null },
+  ai_cost: { target: 100, direction: 'max' },
+  telegram_share: { target: null, direction: null },
+};
+/** Ниже этой доли закрытых помощником без сотрудника помощник пересматривается (ТЗ 16.7). */
+export const PILOT_AI_RESOLVED_REVIEW = 5;

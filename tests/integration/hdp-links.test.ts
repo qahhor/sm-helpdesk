@@ -72,7 +72,7 @@ test('новое обращение с портала, из виджета, от
 
   const portal = await createTicket(await clientCtx(f.aUser), { description: ERROR_TEXT, type: 'bug', impact: 'minor', locale: 'ru' });
   const widget = await createWidgetTicket(await clientCtx(f.aAdmin), { description: 'Не проводится', type: 'bug', impact: 'minor', visibility: 'org', locale: 'ru', context: { errorCode: 'ORA-20001', errorText: 'Накладная №77 от 01.01.2026 не проведена' } }, { platform: 'web' });
-  const staff = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: ERROR_TEXT, type: 'bug', impact: 'minor', visibility: 'org', locale: 'ru' });
+  const staff = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: ERROR_TEXT, type: 'bug', impact: 'minor', visibility: 'org', locale: 'ru', intakeChannel: 'phone' });
   const mailed = await deliver(box, { from: 'a-user@example.uz', subject: 'Ошибка', text: ERROR_TEXT });
   const emailTicket = (await pools.root.query(`select ticket_id from hdn_email_inbound where inbound_id = $1`, [mailed.inboundId])).rows[0].ticket_id as string;
 

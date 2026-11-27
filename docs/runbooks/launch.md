@@ -400,7 +400,29 @@
 - [ ] Журнал служб в формате JSON: `hubc logs web worker`. События: `db.slow_tx` (транзакция дольше 250 мс), `job.failed`, `outbox.state`, `ops.alerts_sent`. Журнал доступа с временем ответа каждого запроса: `hubc logs caddy`.
 - [ ] Медленные запросы базы: `hubc logs postgres | grep duration` (запросы дольше 250 мс, без значений параметров). Самые тяжёлые за всё время: `hubc exec -T postgres psql -U postgres -d hub -c "select calls, round(mean_exec_time) as ms, left(query, 100) from ops.pg_stat_statements order by total_exec_time desc limit 20"`.
 - [ ] Две внешние проверки доступности раз в минуту, с сигналом в Telegram-чат дежурных и вне сервера портала: `https://<домен>/api/ready` (портал и база) и `https://<домен>/api/ready/worker` (фоновый процесс; если он упал, молчит и `ops.watch`). Пороги и действия: `docs/runbooks/incident.md`, раздел 6.
-- [ ] Сигнал при заполнении диска, памяти или процессора на 80% (агент мониторинга хостинга).
+- [ ] Сигнал при заполнении диска, памяти или процессора на 80% без агента хостинга (план M9, решение 17): таймер systemd раз в 5 минут запускает `scripts/ops/host-watch.sh`, портал шлёт дежурным `host_pressure` и, если отметок нет 15 минут, `host_mark_stale`. Скопировать сценарий в `/opt/smartup-hub/host-watch.sh`, права 700. Если тома базы лежат не в `/var/lib/docker/volumes`, задать `HOST_WATCH_PATHS` в `Environment=` службы. Файл `/etc/systemd/system/hub-host-watch.service`:
+
+  ```ini
+  [Unit]
+  Description=Smartup Hub: отметка ресурсов сервера
+  [Service]
+  Type=oneshot
+  ExecStart=/opt/smartup-hub/host-watch.sh
+  ```
+
+  Файл `/etc/systemd/system/hub-host-watch.timer`:
+
+  ```ini
+  [Unit]
+  Description=Smartup Hub: отметка ресурсов раз в 5 минут
+  [Timer]
+  OnBootSec=2min
+  OnUnitActiveSec=5min
+  [Install]
+  WantedBy=timers.target
+  ```
+
+  Затем `sudo systemctl daemon-reload && sudo systemctl enable --now hub-host-watch.timer`. Проверка: `systemctl list-timers hub-host-watch.timer` показывает следующий запуск, `journalctl -u hub-host-watch.service -n 5` без ошибок. До первой отметки сигнала `host_mark_stale` нет, поэтому таймер ставится до пилота. Если хостинг сам шлёт такие сигналы, их можно оставить вторым слоем.
 - [ ] Свободное место под журналы и копии: не меньше 30% диска.
 
 **Перечень журналов** (ASVS V16.1.1; план M9, решение 5: внешнего сервиса сбора журналов на пилоте нет):

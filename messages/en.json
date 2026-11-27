@@ -5042,7 +5042,9 @@
       "search_unavailable": "Smartup Hub: Typesense search is not responding, fallbacks to PostgreSQL in the last hour: {count}. Search works without typo tolerance and synonyms.",
       "search_lag": "Smartup Hub: the search index has not been updated for {minutes} min, items waiting: {count}.",
       "search_drift": "Smartup Hub: the search index check found {count} differences (collections: {collections}). Missing items will be written again.",
-      "search_isolation": "Smartup Hub: search returned another organization's ids to a client, the database check dropped them: {count} in the last hour. Check the search key filter."
+      "search_isolation": "Smartup Hub: search returned another organization's ids to a client, the database check dropped them: {count} in the last hour. Check the search key filter.",
+      "host_pressure": "Smartup Hub: the server is 80% or more busy: {kinds}. disk: database or backup volume, mem: memory, cpu: processor. See the on-call runbook, section 6.",
+      "host_mark_stale": "Smartup Hub: no server resource marks for over 15 minutes (servers: {count}). Check the host-watch timer on the server."
     },
     "tez": {
       "helped": "Glad it helped. The request is resolved.",

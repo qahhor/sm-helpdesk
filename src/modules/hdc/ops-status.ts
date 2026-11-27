@@ -4,7 +4,7 @@ import * as z from 'zod';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { writeAudit } from './audit';
 import type { ArchiveState } from './ops-alerts';
-import { opsBackups, opsHeartbeats } from './schema';
+import { opsBackups, opsHeartbeats, opsHostMarks } from './schema';
 
 // Модуль hdc: наблюдение без внешних сервисов (план подготовки M9, задача 3, решения 5 и 6; ТЗ 13.7, 13.8).
 // Отметка "фоновый процесс жив" для адреса /api/ready/worker и отметки удачных резервных копий для сигнала backup_stale.
@@ -109,4 +109,75 @@ export function staleBackupKinds(latest: LatestBackups, archive: ArchiveState, n
     if (older(archive.lastArchivedOn, BACKUP_STALE_HOURS.wal)) stale.push('wal');
   }
   return stale;
+}
+
+// --- Ресурсы сервера (план M9, задача 9, решение 17; ТЗ 13.8) ---
+
+/** Доля диска, памяти или процессора, с которой ops.watch шлёт сигнал host_pressure. */
+export const HOST_PRESSURE_PCT = 80;
+/** Отметки нет дольше стольких минут: таймер host-watch остановился или сервер не отвечает (host_mark_stale). */
+export const HOST_MARK_STALE_MIN = 15;
+
+const pct = z.number().int().min(0).max(100);
+const hostInput = z
+  .object({
+    host: z.string().regex(/^[a-z0-9][a-z0-9.-]{0,62}$/),
+    diskPct: pct,
+    memPct: pct,
+    cpuPct: pct,
+    at: z.date().optional(),
+  })
+  .strict();
+
+export type HostMark = { host: string; diskPct: number; memPct: number; cpuPct: number; markedOn: Date };
+
+/**
+ * Отметка ресурсов сервера: её ставит команда hub ops:host-mark из сценария host-watch.sh раз в 5 минут. Одна строка на
+ * сервер, новая заменяет прежнюю. Журнала аудита нет: это замер, а не изменение статуса или прав.
+ */
+export async function markHost(actor: SystemActor, input: { host: string; diskPct: number; memPct: number; cpuPct: number; at?: Date }): Promise<void> {
+  if (actor?.type !== 'system') throw new Error('Отметку ресурсов ставит только система');
+  const { host, diskPct, memPct, cpuPct, at } = hostInput.parse(input);
+  const markedOn = at ?? new Date();
+  await withActor(actor, (tx) =>
+    tx
+      .insert(opsHostMarks)
+      .values({ host, diskPct, memPct, cpuPct, markedOn })
+      .onConflictDoUpdate({ target: opsHostMarks.host, set: { diskPct, memPct, cpuPct, markedOn } }),
+  );
+}
+
+/** Последние отметки всех серверов. */
+export async function latestHostMarks(actor: SystemActor): Promise<HostMark[]> {
+  return withActor(actor, (tx) =>
+    tx
+      .select({ host: opsHostMarks.host, diskPct: opsHostMarks.diskPct, memPct: opsHostMarks.memPct, cpuPct: opsHostMarks.cpuPct, markedOn: opsHostMarks.markedOn })
+      .from(opsHostMarks)
+      .orderBy(opsHostMarks.host),
+  );
+}
+
+export type HostAlert = { code: 'host_pressure' | 'host_mark_stale'; count: number; kinds?: string };
+
+/**
+ * Сигналы по отметкам. Отметок нет совсем: таймер ещё не поставлен, сигнала нет (о гибели всего сервера скажет внешняя
+ * проверка доступности). Отметка старше 15 минут: host_mark_stale, её доли уже не говорят о нагрузке сейчас. Свежая
+ * отметка с долей 80% и выше: host_pressure, в тексте показатель и число, без имени сервера и путей томов.
+ */
+export function hostAlerts(marks: readonly HostMark[], now: Date): HostAlert[] {
+  const fresh = marks.filter((mark) => now.getTime() - mark.markedOn.getTime() <= HOST_MARK_STALE_MIN * 60_000);
+  const alerts: HostAlert[] = [];
+  const high = fresh.flatMap((mark) =>
+    (
+      [
+        ['disk', mark.diskPct],
+        ['mem', mark.memPct],
+        ['cpu', mark.cpuPct],
+      ] as const
+    ).flatMap(([kind, value]) => (value >= HOST_PRESSURE_PCT ? [`${kind} ${value}%`] : [])),
+  );
+  if (high.length > 0) alerts.push({ code: 'host_pressure', count: high.length, kinds: high.join(', ') });
+  const stale = marks.length - fresh.length;
+  if (stale > 0) alerts.push({ code: 'host_mark_stale', count: stale });
+  return alerts;
 }

@@ -64,6 +64,16 @@ export const opsHeartbeats = pgTable('hdc_ops_heartbeats', {
   ...stampColumns,
 });
 
+/** Отметка ресурсов сервера (миграция 0126; план M9, решение 17). Одна строка на сервер. */
+export const opsHostMarks = pgTable('hdc_ops_host_marks', {
+  host: text('host').primaryKey(),
+  diskPct: smallint('disk_pct').notNull(),
+  memPct: smallint('mem_pct').notNull(),
+  cpuPct: smallint('cpu_pct').notNull(),
+  markedOn: timestamp('marked_on', { withTimezone: true }).notNull(),
+  ...stampColumns,
+});
+
 /** Счётчики ограничения частоты. Работать через consumeRateLimit (src/modules/hdc/rate-limit.ts). */
 export const rateLimits = pgTable('hdc_rate_limits', {
   rateLimitId: uuid('rate_limit_id')

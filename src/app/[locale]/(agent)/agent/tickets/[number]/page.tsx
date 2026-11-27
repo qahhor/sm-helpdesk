@@ -283,7 +283,11 @@ export default async function AgentTicketPage({ params, searchParams }: { params
                     cancel: t('ticket.transfer.cancel'),
                     submit: t('ticket.transfer.submit'),
                     close: t('ticket.transfer.close'),
+                    memoTitle: t('aiStaff.memoTitle'),
+                    memoMark: t('aiStaff.mark'),
+                    memoHint: t('aiStaff.memoHint'),
                   }}
+                  agentMemo={ticket.agentMemo?.body ?? null}
                 />
               )}
               {canWrite && ticket.status !== 'closed' && (

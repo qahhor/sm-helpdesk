@@ -268,6 +268,16 @@ export type AgentCallStatus = (typeof AGENT_CALL_STATUSES)[number];
 /** Виды сводок (решение 23): утренняя, гигиена решений, идеи, сканирование кода (M8c). */
 export const REPORT_KINDS = ['morning', 'kb_hygiene', 'ideas', 'code_scan'] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
+/** Числа сводки для сообщения в чат команды (решение 24): только эти ключи, текст агента в чат не попадает. */
+export const REPORT_CHAT_KEYS = ['new_tickets', 'ai_resolved', 'handed_off', 'sla_risk'] as const;
+export type ReportChatKey = (typeof REPORT_CHAT_KEYS)[number];
+/** Не больше стольких номеров обращений в сообщении чата команды. */
+export const REPORT_CHAT_TICKETS_MAX = 20;
+/** Пределы текстов записей агента (решение 18). */
+export const AGENT_NOTE_MAX = 4000;
+export const AGENT_RUN_NOTE_MAX = 2000;
+export const AGENT_TITLE_MAX = 200;
+export const AGENT_BODY_MAX = 20_000;
 export const REPORT_STATUSES = ['unverified', 'reviewed'] as const;
 export type ReportStatus = (typeof REPORT_STATUSES)[number];
 

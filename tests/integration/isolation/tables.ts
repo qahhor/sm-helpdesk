@@ -143,6 +143,9 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   // при привязке обращения только пересчитывает счётчики (t_hdp_problems_guard). Удаления проблем и текстов нет:
   // история остаётся; сигнатуру сотрудник убирает.
   hdp_problems: { client: 'none', app: IU },
+  // Предложенные привязки черновика проблемы (веха M8b, решение 20): пишут AI-сотрудник к своему черновику и система,
+  // читают сотрудники, снимает роль ведения проблем; клиент не видит ни одной строки.
+  hdp_problem_proposals: { client: 'none', app: ['insert', 'delete'] },
   hdp_problem_translations: { client: 'none', app: IU },
   hdp_problem_signatures: { client: 'none', app: IUD },
   hdp_problems_public: { client: 'shown-only' },

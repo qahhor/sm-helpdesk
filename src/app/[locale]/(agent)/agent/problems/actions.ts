@@ -4,7 +4,10 @@ import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { isHdpError, parseProblemRef } from '@/modules/hdp/api';
 import {
+  acceptProblemDraft,
   addProblemSignature,
+  linkProposedTickets,
+  rejectProblemDraft,
   createProblem,
   createProblemFromTicket,
   removeProblemSignature,
@@ -86,6 +89,22 @@ export async function saveProblemAction(form: FormData): Promise<void> {
 export async function problemStatusAction(form: FormData): Promise<void> {
   const staff = await requireStaffActor();
   await run(form, (number) => setProblemStatus(staff, { number, status: text(form, 'status') }), 'status');
+}
+
+// Черновик AI-сотрудника или всплеска (веха M8b, решение 20): принять, привязать предложенные, отклонить.
+export async function acceptDraftAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await run(form, (number) => acceptProblemDraft(staff, { number }), 'draft_accepted');
+}
+
+export async function linkProposedAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await run(form, (number) => linkProposedTickets(staff, { number }), 'proposals_linked', 'tickets');
+}
+
+export async function rejectDraftAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await run(form, (number) => rejectProblemDraft(staff, { number, reason: text(form, 'reason').slice(0, 500) }), 'draft_rejected');
 }
 
 export async function problemShownAction(form: FormData): Promise<void> {

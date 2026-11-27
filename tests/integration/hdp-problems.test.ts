@@ -190,9 +190,10 @@ test('карточка: обращения, организации, катего
   expect(await problemCard(l2, 999_999)).toBeNull();
 });
 
-test('черновик проблемы для AI-сотрудника: только сигнатура и обращения, без признака показа и публичного текста', async () => {
+// Решение 20 плана M8b: черновик не привязывает обращения и не делает сигнатуру действующей (hdp-agent-draft.test.ts).
+test('черновик проблемы для AI-сотрудника: только сигнатура и предложенные обращения, без признака показа и публичного текста', async () => {
   const { number } = await createProblemDraft(system, { internalTitle: 'Всплеск сигнатуры', signature: SIG, ticketIds: [f.tickets.aOrg.ticketId, f.tickets.bOrg.ticketId] });
   const row = await problemRow(number);
-  expect(row).toMatchObject({ show_to_clients: false, status: 'investigating', ticket_count: 2 });
+  expect(row).toMatchObject({ show_to_clients: false, status: 'draft', ticket_count: 0 });
   expect(await texts(number)).toEqual([]);
 });

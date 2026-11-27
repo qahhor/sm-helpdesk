@@ -6,6 +6,7 @@ import { enqueue, type StaffContext, writeAudit } from '@/modules/hdc/api';
 import { readAllowedDomains } from '@/modules/hdk/api/publish';
 import { solutionIdByNumberTx, solutionNumbersTx } from '@/modules/hdk/api/refs';
 import { lockProblemTicketTx, problemOrgIdsTx, problemTicketTx, problemTicketSignaturesTx, problemTicketsTx, signatureTicketCountsTx } from '@/modules/hdt/api/known-problems';
+import { proposalsTx } from './agent-drafts';
 import type { TicketStatus } from '@/modules/hdt/pref';
 import { namesOf } from '@/modules/hdu/api';
 import { orgFacts } from '@/modules/hdu/api/orgs';
@@ -50,6 +51,7 @@ import { checkPublicText, pgErrorCode, type PublicTextFinding } from '../util';
 // ИНН организаций привязанных обращений (решение 6, угроза T23). Машинный перевод клиенту не виден до принятия.
 
 export { type PublicTextFinding } from '../util';
+export { acceptProblemDraft, linkProposedTickets, type ProposalOutcome, rejectProblemDraft } from './agent-drafts';
 
 function requireWriter(ctx: StaffContext): void {
   if (ctx.actor.type !== 'staff' || !(PROBLEM_WRITER_ROLES as readonly string[]).includes(ctx.actor.staffRole)) throw new HdpError('forbidden');
@@ -251,6 +253,8 @@ export type ProblemCard = Omit<ProblemHead, 'workaroundSolutionId'> & {
   /** Сигнатуры привязанных обращений, которых ещё нет у проблемы: "Добавить сигнатуру" (раздел 8.12). */
   suggestedSignatures: { signature: string; ticketCount: number }[];
   tickets: { number: number; title: string; status: TicketStatus; orgName: string; createdOn: Date }[];
+  /** Черновик AI-сотрудника или всплеска (веха M8b, решение 20): обращения, которые он предлагает привязать. */
+  proposals: { number: number; title: string; status: TicketStatus; orgName: string }[];
 };
 
 /** Карточка проблемы (раздел 8.12, FR-KP-10): сведения, тексты, сигнатуры, обращения. Нет такой: null. */
@@ -271,12 +275,13 @@ export async function problemCard(ctx: StaffContext, numberValue: unknown): Prom
       signatures: signatures.map((s) => ({ ...s, ticketCount: counts.get(s.signature) ?? 0 })),
       suggested: ticketSignatures.filter((s) => !signatures.some((own) => own.signature === s.signature)),
       tickets: await problemTicketsTx(tx, problem.problemId),
+      proposals: (await Promise.all((await proposalsTx(tx, problem.problemId)).map((p) => problemTicketTx(tx, { ticketId: p.ticketId })))).filter((t) => t !== null),
       workaround,
     };
   });
   if (!loaded) return null;
   const { problem } = loaded;
-  const facts = new Map((await orgFacts(ctx.actor, [...new Set(loaded.tickets.map((t) => t.orgId))])).map((o) => [o.orgId, o]));
+  const facts = new Map((await orgFacts(ctx.actor, [...new Set([...loaded.tickets, ...loaded.proposals].map((t) => t.orgId))])).map((o) => [o.orgId, o]));
   const categories: ProblemCard['categories'] = {};
   for (const org of facts.values()) categories[org.category ?? 'none'] = (categories[org.category ?? 'none'] ?? 0) + 1;
   const owner = problem.ownerId ? ((await namesOf(ctx.actor, [problem.ownerId])).get(problem.ownerId) ?? null) : null;
@@ -290,6 +295,7 @@ export async function problemCard(ctx: StaffContext, numberValue: unknown): Prom
     signatures: loaded.signatures,
     suggestedSignatures: loaded.suggested,
     tickets: loaded.tickets.map((t) => ({ number: t.number, title: t.title, status: t.status, orgName: facts.get(t.orgId)?.name ?? '', createdOn: t.createdOn })),
+    proposals: loaded.proposals.map((t) => ({ number: t.number, title: t.title, status: t.status, orgName: facts.get(t.orgId)?.name ?? '' })),
   };
 }
 

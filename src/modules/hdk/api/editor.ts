@@ -9,6 +9,7 @@ import { changedSinceTx, languagesTx, type LanguageRow } from '../core/translati
 import { safeParseSolutionDoc, solutionDocSchema, type SolutionDoc } from '../doc-schema';
 import { HdkError } from '../error';
 import { readAllowedDomains } from './publish';
+import { solutionNumbersTx } from './refs';
 import {
   ARTICLE_NUMBER_MAX,
   KB_AUDIENCES,
@@ -117,6 +118,8 @@ export type SolutionEditorState = {
   };
   publishedVersionId: string | null;
   versions: EditorVersion[];
+  /** Черновик AI-сотрудника (веха M8b, решение 22) и номер решения, правку которого он предлагает. */
+  agentDraft: { revisesNumber: number | null } | null;
   canWrite: boolean;
   canPublish: boolean;
   /** Находки FR-SOL-04 и панель готовности открытой версии (UX-W-07). */
@@ -149,6 +152,7 @@ export async function solutionEditorState(ctx: StaffContext, input: unknown): Pr
       audience: article.audience,
       originalLocale: article.originalLocale,
       archived: article.status === 'archived',
+      agentDraft: article.isAgentDraft ? { revisesNumber: article.revisesArticleId ? ((await solutionNumbersTx(tx, [article.revisesArticleId])).get(article.revisesArticleId) ?? null) : null } : null,
       locale: lang,
       current: {
         versionId: current.versionId,

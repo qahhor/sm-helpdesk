@@ -216,6 +216,10 @@ export const AUDIT_ACTIONS = [
   // записи. Аргументов и текста ответов в журнале нет: только имя инструмента и номера объектов.
   'agent.tool_refused',
   'agent.tool_called',
+  // Черновик известной проблемы от AI-сотрудника и всплеска (веха M8b, задача 6, решение 20).
+  'problem.draft_accepted',
+  'problem.proposals_linked',
+  'problem.draft_rejected',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

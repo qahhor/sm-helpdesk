@@ -35,6 +35,8 @@ export async function linkLockedTicketTx(
   if (ticket.knownProblemId !== null) throw new HdpError('already_linked');
   assertLinkable(ticket);
   if (problem.status === 'closed') throw new HdpError('problem_closed');
+  // К черновику обращения не привязываются: сначала сотрудник его принимает (решение 20 плана M8b).
+  if (problem.status === 'draft') throw new HdpError('problem_draft');
   if ((via === 'signature' || via === 'rule') && !isActiveProblem(problem.status)) throw new HdpError('problem_inactive');
   await setTicketProblemTx(tx, actor, ticket, { problemId: problem.problemId, problemNumber: problem.number, via });
   await recountProblemTx(tx, problem.problemId);

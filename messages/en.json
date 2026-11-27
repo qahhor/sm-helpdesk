@@ -1413,6 +1413,9 @@
             "signature_added": "Signature added to problem",
             "signature_removed": "Signature removed from problem",
             "translation_saved": "Problem public text saved",
+            "draft_accepted": "Known problem draft accepted",
+            "proposals_linked": "Proposed requests linked to the known problem",
+            "draft_rejected": "Known problem draft rejected",
             "broadcast_confirmed": "Known problem broadcast confirmed",
             "translations_outdated": "Accepted problem translations hidden: the original text changed"
           },
@@ -3947,6 +3950,7 @@
       "empty": "No known problems",
       "emptyText": "Create a problem from a request or with the button above.",
       "statuses": {
+        "draft": "AI staff draft",
         "investigating": "Investigating",
         "cause_found": "Cause found",
         "fixing": "Fixing",
@@ -4033,6 +4037,9 @@
         "problem_closed": "The problem is closed and cannot be changed",
         "already_linked": "The request is already linked to a known problem",
         "ticket_closed": "This request cannot be linked",
+        "not_draft": "This is no longer a draft",
+        "not_accepted": "Accept the draft first",
+        "problem_draft": "Requests cannot be linked to a draft: accept it first",
         "problem_inactive": "The problem is not active",
         "too_many": "No more than 100 requests at a time",
         "translation_required": "There is no text in the language of some recipients: write it or choose to send the original text",
@@ -4063,7 +4070,10 @@
         "broadcast_sent": "The broadcast is confirmed and being sent",
         "dev_linked": "Development task linked",
         "dev_unlinked": "Development task unlinked",
-        "dev_status": "Task status saved"
+        "dev_status": "Task status saved",
+        "draft_accepted": "Draft accepted",
+        "proposals_linked": "Proposed requests processed",
+        "draft_rejected": "Draft rejected"
       },
       "broadcast": {
         "title": "Write an update to everyone",
@@ -4109,6 +4119,18 @@
           "tracker_unavailable": "The task manager did not respond. Try again later",
           "other": "This action is available to the second line, Customer Care and the administrator"
         }
+      },
+      "draft": {
+        "title": "Known problem draft",
+        "hint": "Until the draft is accepted, clients do not see it, the signature is not in effect and no requests are linked.",
+        "description": "AI staff description",
+        "proposals": "Proposed requests",
+        "noProposals": "No requests proposed",
+        "accept": "Accept draft",
+        "linkProposed": "Link proposed",
+        "linkHint": "Each request is checked separately: closed and already linked ones are skipped.",
+        "reject": "Reject draft",
+        "reason": "Reason for rejection"
       }
     },
     "announcements": {
@@ -4219,6 +4241,12 @@
         "invalid_input": "Check the form fields",
         "not_found": "Solution or candidate not found"
       }
+    },
+    "aiStaff": {
+      "mark": "AI staff, not verified",
+      "memoTitle": "AI staff memo draft",
+      "memoHint": "The memo is for you only: it does not fill the transfer fields, check and write them yourself.",
+      "revises": "Proposes a change to solution {ref}"
     }
   },
   "auth": {

@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/ui/components/card';
 import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
 import { Textarea } from '@/ui/components/textarea';
+import { AgentMark } from '@/ui/components/AgentMark';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { DocView } from '@/ui/doc/DocView';
@@ -210,6 +211,12 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
       />
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2" data-testid="solution-labels">
+          {state.agentDraft && !published && <AgentMark label={t('aiStaff.mark')} />}
+          {state.agentDraft?.revisesNumber && (
+            <Link href={`/agent/solutions/${state.agentDraft.revisesNumber}`} className="text-sm text-link underline-offset-2 hover:underline">
+              {t('aiStaff.revises', { ref: s('numberLabel', { number: state.agentDraft.revisesNumber }) })}
+            </Link>
+          )}
           <StatusLabel tone={state.archived ? 'orange' : published ? 'green' : 'gray'}>
             {s(`statuses.${state.archived ? 'archived' : published ? 'published' : 'draft'}`)}
           </StatusLabel>

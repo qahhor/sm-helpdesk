@@ -65,7 +65,7 @@ test('сообщения: публичные, помощника, заметки
      values ($1, $2, 'ai', 'Попробуйте решение', false, '{"kind": "answer", "introId": "a", "articleId": "019a0000-0000-7000-8000-000000000001", "articleNumber": 17, "locale": "ru"}')`,
     [f.orgA.orgId, ticket],
   );
-  await rootWithoutTriggers(`insert into hdt_ticket_messages (org_id, ticket_id, author_id, author_type, body, is_internal) values ($1, $2, $3, 'agent', 'Заметка агента', true)`, [
+  await rootWithoutTriggers(`insert into hdt_ticket_messages (org_id, ticket_id, author_id, author_type, body, is_internal, agent_note_kind) values ($1, $2, $3, 'agent', 'Заметка агента', true, 'note')`, [
     f.orgA.orgId,
     ticket,
     main.userId,
@@ -120,7 +120,7 @@ test('решения только опубликованные обеих ауд
   const draft = (await pools.root.query(`insert into hdk_articles (audience, original_locale) values ('internal', 'ru') returning article_id`)).rows[0].article_id;
   expect(await read(main.actor, `select 1 from hda_agent_solutions where article_id = $1`, [draft])).toEqual([]);
   const problems = await read(main.actor, `select number, internal_title, signatures, org_count from hda_agent_problems order by number`);
-  expect(problems.map((r) => r.internal_title)).toEqual(['Накладные ACME не проводятся', 'Скрытая проблема', 'Закрытая проблема']);
+  expect(problems.map((r) => r.internal_title)).toEqual(['Накладные ACME не проводятся', 'Скрытая проблема', 'Закрытая проблема', 'Черновик AI-сотрудника']);
   expect(problems[0].signatures).toEqual(['b'.repeat(32)]);
 });
 

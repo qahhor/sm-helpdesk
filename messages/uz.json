@@ -1413,6 +1413,9 @@
             "signature_added": "Muammoga signatura qo'shildi",
             "signature_removed": "Muammodan signatura olib tashlandi",
             "translation_saved": "Muammoning ochiq matni saqlandi",
+            "draft_accepted": "Ma'lum muammo qoralamasi qabul qilindi",
+            "proposals_linked": "Taklif qilingan murojaatlar ma'lum muammoga bog'landi",
+            "draft_rejected": "Ma'lum muammo qoralamasi rad etildi",
             "broadcast_confirmed": "Ma'lum muammo bo'yicha tarqatma tasdiqlandi",
             "translations_outdated": "Muammoning qabul qilingan tarjimalari ko'rsatilmaydi: asl matn o'zgardi"
           },
@@ -3947,6 +3950,7 @@
       "empty": "Ma'lum muammolar yo'q",
       "emptyText": "Muammo murojaatdan yoki yuqoridagi tugma bilan yaratiladi.",
       "statuses": {
+        "draft": "AI-xodim qoralamasi",
         "investigating": "O'rganyapmiz",
         "cause_found": "Sabab topildi",
         "fixing": "Tuzatyapmiz",
@@ -4033,6 +4037,9 @@
         "problem_closed": "Muammo yopilgan, uni o'zgartirib bo'lmaydi",
         "already_linked": "Murojaat allaqachon ma'lum muammoga bog'langan",
         "ticket_closed": "Bu murojaatni bog'lab bo'lmaydi",
+        "not_draft": "Bu endi qoralama emas",
+        "not_accepted": "Avval qoralamani qabul qiling",
+        "problem_draft": "Qoralamaga murojaatlarni bog'lab bo'lmaydi: avval uni qabul qiling",
         "problem_inactive": "Muammo faol emas",
         "too_many": "Bir martada 100 tadan ko'p murojaat emas",
         "translation_required": "Oluvchilarning bir qismi tilida matn yo'q: uni yozing yoki asl matnni yuborishni belgilang",
@@ -4063,7 +4070,10 @@
         "broadcast_sent": "Tarqatma tasdiqlandi va yuborilmoqda",
         "dev_linked": "Ishlab chiqish vazifasi bog'landi",
         "dev_unlinked": "Ishlab chiqish vazifasi uzildi",
-        "dev_status": "Vazifa holati saqlandi"
+        "dev_status": "Vazifa holati saqlandi",
+        "draft_accepted": "Qoralama qabul qilindi",
+        "proposals_linked": "Taklif qilingan murojaatlar ko'rib chiqildi",
+        "draft_rejected": "Qoralama rad etildi"
       },
       "broadcast": {
         "title": "Hammaga yangilanish yozish",
@@ -4109,6 +4119,18 @@
           "tracker_unavailable": "Vazifa menejeri javob bermadi. Keyinroq urinib ko'ring",
           "other": "Bu amal ikkinchi liniya, Customer Care va administrator uchun"
         }
+      },
+      "draft": {
+        "title": "Ma'lum muammo qoralamasi",
+        "hint": "Qoralama qabul qilinmaguncha mijozlar uni ko'rmaydi, signatura ishlamaydi va murojaatlar bog'lanmaydi.",
+        "description": "AI-xodim tavsifi",
+        "proposals": "Taklif qilingan murojaatlar",
+        "noProposals": "Murojaatlar taklif qilinmagan",
+        "accept": "Qoralamani qabul qilish",
+        "linkProposed": "Taklif qilinganlarni bog'lash",
+        "linkHint": "Har bir murojaat alohida tekshiriladi: yopilgan va allaqachon bog'langanlari o'tkazib yuboriladi.",
+        "reject": "Qoralamani rad etish",
+        "reason": "Rad etish sababi"
       }
     },
     "announcements": {
@@ -4219,6 +4241,12 @@
         "invalid_input": "Forma maydonlarini tekshiring",
         "not_found": "Yechim yoki nomzod topilmadi"
       }
+    },
+    "aiStaff": {
+      "mark": "AI-xodim, tekshirilmagan",
+      "memoTitle": "AI-xodim eslatmasi qoralamasi",
+      "memoHint": "Eslatma faqat siz uchun: u uzatish maydonlarini to'ldirmaydi, ularni tekshirib o'zingiz yozing.",
+      "revises": "{ref} yechimiga tuzatish taklif qiladi"
     }
   },
   "auth": {

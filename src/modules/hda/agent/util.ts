@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import * as z from 'zod';
+import { stripInvisible } from '@/modules/hdc/pref';
 
 // Общие части инструментов сервера MCP (веха M8b, задачи 4-6; план M8b, решения 9, 14). Чистые функции без базы.
 
@@ -42,4 +43,37 @@ export function argsDigest(args: unknown): string {
 export function toolLabel(name: string): string {
   const clean = name.replace(/[^A-Za-z0-9_.:/-]/g, '?').slice(0, 64);
   return clean.length > 0 ? clean : '?';
+}
+
+const BLOCKS_WITH_CONTENT = /<(script|style|iframe|object|embed|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+const TAG = /<\/?[A-Za-z!][^>]*>/g;
+const LINK = /\bhttps?:\/\/[^\s<>"'`)\]]+/gi;
+const BIDI_AND_INVISIBLE = /[​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
+
+/** Узел ссылки входит в разрешённые домены: сам домен или его поддомен. */
+function hostAllowed(url: string, domains: readonly string[]): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Текст, который записывает агент (план M8b, решение 18): без разметки HTML (скрипты и стили вместе с содержимым),
+ * без невидимых знаков и знаков направления письма, без ссылок вне разрешённых доменов решений. Пробелы по краям
+ * строк и лишние пустые строки убираются. Длину проверяет схема инструмента до и после очистки.
+ */
+export function cleanAgentText(raw: string, allowedDomains: readonly string[]): string {
+  return stripInvisible(raw)
+    .replace(BIDI_AND_INVISIBLE, '')
+    .replace(BLOCKS_WITH_CONTENT, '')
+    .replace(TAG, '')
+    .replace(LINK, (url) => (hostAllowed(url, allowedDomains) ? url : ''))
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }

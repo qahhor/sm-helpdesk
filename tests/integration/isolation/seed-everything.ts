@@ -189,6 +189,9 @@ export async function seedEverything() {
     [shownProblem, hiddenProblem, closedProblem, f.adminStaff.userId],
   );
   await pools.root.query(`insert into hdp_problem_signatures (problem_id, signature) values ($1, repeat('b', 32)), ($2, repeat('c', 32))`, [shownProblem, hiddenProblem]);
+  // Черновик проблемы с предложенным обращением (веха M8b, решение 20): клиент не видит ни черновика, ни предложений.
+  const draftProblem = (await pools.root.query(`insert into hdp_problems (internal_title, status) values ('Черновик AI-сотрудника', 'draft') returning problem_id`)).rows[0].problem_id as string;
+  await pools.root.query(`insert into hdp_problem_proposals (problem_id, ticket_id, org_id) values ($1, $2, $3)`, [draftProblem, f.tickets.aOrg.ticketId, f.orgA.orgId]);
   // Объявления (веха M5c, задача 6): действующее для всех (текст сотрудника и непринятый машинный перевод), для чужого
   // сервера и ещё не начавшееся; закрытие баннера клиентом А.
   const otherServer = (

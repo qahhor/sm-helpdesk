@@ -2,9 +2,12 @@ import * as z from 'zod';
 import { AGENT_TOOLS, type AgentTool } from '../pref';
 import type { McpToolListing } from './server';
 import type { AgentToolDef } from './tool';
+import { draftTools } from './tools/drafts';
 import { ideaTools } from './tools/ideas';
 import { metricsTools } from './tools/metrics';
+import { noteTools } from './tools/notes';
 import { problemTools } from './tools/problems';
+import { reportTools } from './tools/reports';
 import { solutionTools } from './tools/solutions';
 import { ticketTools } from './tools/tickets';
 
@@ -14,7 +17,7 @@ import { ticketTools } from './tools/tickets';
 // Вход и выход каждого инструмента: строгие схемы Zod с пределами длин; описание JSON Schema строится из них же.
 
 export const AGENT_TOOL_DEFS: Partial<Record<AgentTool, AgentToolDef>> = Object.fromEntries(
-  [...ticketTools, ...solutionTools, ...problemTools, ...ideaTools, ...metricsTools].map((def) => [def.name, def]),
+  [...ticketTools, ...solutionTools, ...problemTools, ...ideaTools, ...metricsTools, ...noteTools, ...draftTools, ...reportTools].map((def) => [def.name, def]),
 );
 
 /** Инструменты каталога, у которых есть выполнение, в порядке перечня AGENT_TOOLS. */

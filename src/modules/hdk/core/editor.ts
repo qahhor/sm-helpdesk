@@ -35,6 +35,9 @@ export type ArticleRow = {
   ownerId: string | null;
   /** Решение из кандидата (веха M5c, решение 30). */
   isUntrusted: boolean;
+  /** Черновик AI-сотрудника (веха M8b, решение 21) и решение, правку которого он предлагает. */
+  isAgentDraft: boolean;
+  revisesArticleId: string | null;
 };
 
 const articleColumns = {
@@ -46,6 +49,8 @@ const articleColumns = {
   status: kbArticles.status,
   ownerId: kbArticles.ownerId,
   isUntrusted: kbArticles.isUntrusted,
+  isAgentDraft: kbArticles.isAgentDraft,
+  revisesArticleId: kbArticles.revisesArticleId,
 };
 
 export async function articleByNumberTx(tx: Tx, number: number, opts: { lock?: boolean } = {}): Promise<ArticleRow | null> {
@@ -299,6 +304,8 @@ export type ListRow = {
   staffUsefulCount: number;
   ownerId: string | null;
   updatedOn: Date;
+  /** Черновик AI-сотрудника (веха M8b): пометка "AI-сотрудник, не проверено" до публикации. */
+  isAgentDraft: boolean;
 };
 
 /**
@@ -337,10 +344,11 @@ export async function listArticlesTx(tx: Tx, filters: ListFilters): Promise<List
     staff_useful_count: number;
     owner_id: string | null;
     updated_on: Date;
+    is_agent_draft: boolean;
   }>(sql`
     select a.article_id, a.number, coalesce(nullif(d.title, ''), p.title, '') as title, a.module_id, a.original_locale, a.audience,
            a.status as article_status, p.version_id is not null as is_published, d.version_id is not null as has_draft,
-           ${review} as needs_review, a.shown_count, a.helped_count, a.not_helped_count, a.staff_useful_count, a.owner_id,
+           ${review} as needs_review, a.shown_count, a.helped_count, a.not_helped_count, a.staff_useful_count, a.owner_id, a.is_agent_draft,
            greatest(a.modified_on, coalesce(d.modified_on, a.modified_on), coalesce(p.modified_on, a.modified_on)) as updated_on
       from hdk_articles a
       left join hdk_article_versions d on d.article_id = a.article_id and d.locale = a.original_locale and d.state = 'draft'
@@ -364,6 +372,7 @@ export async function listArticlesTx(tx: Tx, filters: ListFilters): Promise<List
     staffUsefulCount: Number(row.staff_useful_count),
     ownerId: row.owner_id,
     updatedOn: new Date(row.updated_on),
+    isAgentDraft: row.is_agent_draft,
   }));
 }
 

@@ -28,6 +28,8 @@ export type ProblemHead = {
   lastSeenOn: Date | null;
   fixedOn: Date | null;
   closedOn: Date | null;
+  /** Внутреннее описание: у черновика AI-сотрудника его текст (веха M8b). */
+  internalDescription: string | null;
 };
 
 const head = {
@@ -46,6 +48,7 @@ const head = {
   lastSeenOn: problems.lastSeenOn,
   fixedOn: problems.fixedOn,
   closedOn: problems.closedOn,
+  internalDescription: problems.internalDescription,
 };
 
 /** Проблема по номеру или идентификатору; lock: под блокировкой строки (после блокировки обращения). */

@@ -175,6 +175,9 @@ test('массовая привязка: 101 обращение отклоняе
   const { number } = await createProblem(l2, { internalTitle: 'Массовая' });
   const many = Array.from({ length: 101 }, (_, i) => i + 1);
   await expect(bulkLinkProblem(staffCtx(f.l1), { numbers: many, problemNumber: number })).rejects.toMatchObject({ code: 'too_many' });
+  // Предел проверяет схема входа до удаления повторов: 101 одинаковый номер тоже отказ, ничего не привязано.
+  await expect(bulkLinkProblem(staffCtx(f.l1), { numbers: Array.from({ length: 101 }, () => f.tickets.aOrg.number), problemNumber: number })).rejects.toMatchObject({ code: 'too_many' });
+  expect((await ticket(f.tickets.aOrg.ticketId)).known_problem_id).toBeNull();
   const other = await createProblem(l2, { internalTitle: 'Другая' });
   await linkTicketToProblem(l2, { ticketNumber: f.tickets.bOrg.number, problemNumber: other.number });
   const result = await bulkLinkProblem(staffCtx(f.l1), { numbers: [f.tickets.aOrg.number, f.tickets.aMine.number, f.tickets.bOrg.number, 999_999], problemNumber: number });

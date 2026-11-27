@@ -27,7 +27,8 @@ const linkInput = z.strictObject({ ticketNumber, problemNumber });
 const unlinkInput = z.strictObject({ ticketNumber });
 /** Массовая привязка (решение 10): до 100 обращений; больше: отказ too_many целиком. */
 const BULK_MAX = 100;
-const bulkInput = z.strictObject({ numbers: z.array(ticketNumber).min(1), problemNumber });
+// Предел в схеме, до удаления повторов: тело запроса не может быть сколь угодно длинным списком.
+const bulkInput = z.strictObject({ numbers: z.array(ticketNumber).min(1).max(BULK_MAX), problemNumber });
 
 function requireLinker(ctx: StaffContext): void {
   if (ctx.actor.type !== 'staff' || !STAFF_WRITE_ROLES.includes(ctx.actor.staffRole)) throw new HdpError('forbidden');
@@ -58,9 +59,10 @@ export type BulkLinkResult = { done: number[]; refused: { number: number; code: 
  */
 export async function bulkLinkProblem(ctx: StaffContext, input: unknown): Promise<BulkLinkResult> {
   requireLinker(ctx);
-  const data = parseInput(bulkInput, input);
+  const parsed = bulkInput.safeParse(input);
+  if (!parsed.success) throw new HdpError(parsed.error.issues.some((issue) => issue.code === 'too_big' && issue.path.length === 1 && issue.path[0] === 'numbers') ? 'too_many' : 'invalid_input');
+  const data = parsed.data;
   const numbers = [...new Set(data.numbers)];
-  if (numbers.length > BULK_MAX) throw new HdpError('too_many');
   const result: BulkLinkResult = { done: [], refused: [] };
   for (const number of numbers) {
     try {

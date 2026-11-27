@@ -1436,7 +1436,8 @@
             "token_revoked": "AI-xodim tokeni bekor qilindi",
             "event_parent_set": "Hodisalar uchun AI-xodim tokeni tanlandi",
             "tool_refused": "Token ro'yxatidan tashqari vosita chaqiruvi rad etildi",
-            "tool_called": "AI-xodim yozish vositasini chaqirdi"
+            "tool_called": "AI-xodim yozish vositasini chaqirdi",
+            "report_reviewed": "AI-xodim hisoboti ko'rib chiqilgan deb belgilandi"
           }
         },
         "words": {
@@ -4264,6 +4265,68 @@
       "memoTitle": "AI-xodim eslatmasi qoralamasi",
       "memoHint": "Eslatma faqat siz uchun: u uzatish maydonlarini to'ldirmaydi, ularni tekshirib o'zingiz yozing.",
       "revises": "{ref} yechimiga tuzatish taklif qiladi"
+    },
+    "teamChat": {
+      "title": "AI-xodim hisoboti: {kind}",
+      "kinds": {
+        "morning": "Ertalabki hisobot",
+        "kb_hygiene": "Yechimlar gigiyenasi",
+        "ideas": "G'oyalar",
+        "code_scan": "Kodni tekshirish"
+      },
+      "numbers": {
+        "new_tickets": "Yangi murojaatlar: {count}",
+        "ai_resolved": "Yordamchi hal qildi: {count}",
+        "handed_off": "Xodimlarga uzatildi: {count}",
+        "sla_risk": "Muddati xavf ostida: {count}"
+      },
+      "tickets": "Murojaatlar:",
+      "open": "Hisobot: {url}"
+    },
+    "digests": {
+      "title": "Hisobotlar",
+      "intro": "AI-xodimning jamoa uchun hisobotlari va materiallari. Hisobotni hech kim \"Ko'rib chiqildi\" deb belgilamaguncha, unda \"AI-xodim, tekshirilmagan\" belgisi turadi.",
+      "filters": {
+        "label": "Hisobot filtrlari",
+        "kind": "Turi",
+        "status": "Belgi",
+        "any": "Hammasi",
+        "apply": "Ko'rsatish"
+      },
+      "statuses": {
+        "unverified": "Tekshirilmagan",
+        "reviewed": "Ko'rib chiqildi"
+      },
+      "columns": {
+        "date": "Sana",
+        "kind": "Turi",
+        "title": "Nomi",
+        "author": "Muallif",
+        "mark": "Belgi"
+      },
+      "author": "AI-xodim",
+      "empty": "Hozircha hisobotlar yo'q",
+      "emptyText": "AI-xodim portal bilan ishlay boshlaganda hisobotlar paydo bo'ladi.",
+      "more": "Yana ko'rsatish",
+      "done": "Hisobot ko'rib chiqilgan deb belgilandi",
+      "error": "Hisobotni belgilab bo'lmadi",
+      "createdOn": "Yozilgan: {time}",
+      "period": "Davr: {from} - {to}",
+      "tickets": "Murojaatlar",
+      "review": "Ko'rib chiqildi",
+      "reviewedOn": "Ko'rib chiqildi: {time}",
+      "kinds": {
+        "morning": "Ertalabki hisobot",
+        "kb_hygiene": "Yechimlar gigiyenasi",
+        "ideas": "G'oyalar",
+        "code_scan": "Kodni tekshirish"
+      },
+      "numbers": {
+        "new_tickets": "Yangi murojaatlar: {count}",
+        "ai_resolved": "Yordamchi hal qildi: {count}",
+        "handed_off": "Xodimlarga uzatildi: {count}",
+        "sla_risk": "Muddati xavf ostida: {count}"
+      }
     }
   },
   "auth": {

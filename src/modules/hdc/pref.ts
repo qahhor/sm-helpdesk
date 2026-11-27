@@ -220,6 +220,8 @@ export const AUDIT_ACTIONS = [
   'problem.draft_accepted',
   'problem.proposals_linked',
   'problem.draft_rejected',
+  // Сводка AI-сотрудника отмечена "Просмотрено" (веха M8b, задача 10, решение 22).
+  'agent.report_reviewed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

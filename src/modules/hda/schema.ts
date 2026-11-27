@@ -222,6 +222,8 @@ export const agentReports = pgTable('hda_agent_reports', {
   reviewedBy: uuid('reviewed_by'),
   reviewedOn: moment('reviewed_on'),
   ...stampColumns,
+  /** Когда портал отправил сообщение по сводке в чат команды (веха M8b, задача 10; миграция 0116). */
+  chatSentOn: moment('chat_sent_on'),
 });
 
 /** Всплески сигнатур (веха M8b, задача 8; миграция 0114). Пишет система, проблему по всплеску ставит сотрудник. */

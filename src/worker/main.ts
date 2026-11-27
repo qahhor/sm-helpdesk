@@ -29,6 +29,7 @@ import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, type NoActivityOptions, runNoActivityRules } from '@/modules/hdw/api/engine';
 import { runCandidateJob, runCandidatesEmbed, runCandidatesSweep } from '@/modules/hda/api/candidates';
 import { cleanupAgentData, dispatchAgentEvents, handleAgentEvent, runSpikeDetection } from '@/modules/hda/api/agent-jobs';
+import { sendTeamChatMessages } from '@/modules/hda/api/digests';
 import { syncDevTasks } from '@/modules/hdw/api/dev-task-jobs';
 import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
@@ -292,6 +293,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('agent.events_dispatch', polling, () => timedJob('agent.events_dispatch', async () => {
     const { sent, failed } = await dispatchAgentEvents(actor('agent.events_dispatch'));
     if (sent + failed > 0) console.info(`AI-сотрудник: событий отправлено ${sent}, неудачно ${failed}`);
+    // Сообщения в чат команды по новым сводкам (задача 10, решение 24): та же минутная задача.
+    const chat = await sendTeamChatMessages(actor('agent.events_dispatch'));
+    if (chat.sent > 0) console.info(`AI-сотрудник: сообщений в чат команды ${chat.sent}`);
   }));
   await boss.work('agent.cleanup', polling, () => timedJob('agent.cleanup', async () => {
     const removed = await cleanupAgentData(actor('agent.cleanup'));

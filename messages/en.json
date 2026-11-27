@@ -1436,7 +1436,8 @@
             "token_revoked": "AI staff token revoked",
             "event_parent_set": "AI staff token chosen for events",
             "tool_refused": "Tool call outside the token list refused",
-            "tool_called": "AI staff called a write tool"
+            "tool_called": "AI staff called a write tool",
+            "report_reviewed": "AI staff digest marked as reviewed"
           }
         },
         "words": {
@@ -4264,6 +4265,68 @@
       "memoTitle": "AI staff memo draft",
       "memoHint": "The memo is for you only: it does not fill the transfer fields, check and write them yourself.",
       "revises": "Proposes a change to solution {ref}"
+    },
+    "teamChat": {
+      "title": "AI staff digest: {kind}",
+      "kinds": {
+        "morning": "Morning digest",
+        "kb_hygiene": "Solution hygiene",
+        "ideas": "Ideas",
+        "code_scan": "Code scan"
+      },
+      "numbers": {
+        "new_tickets": "New requests: {count}",
+        "ai_resolved": "Resolved by the assistant: {count}",
+        "handed_off": "Handed over to staff: {count}",
+        "sla_risk": "Deadline at risk: {count}"
+      },
+      "tickets": "Requests:",
+      "open": "Digest: {url}"
+    },
+    "digests": {
+      "title": "Digests",
+      "intro": "Digests and materials from the AI staff for the team. Until someone marks a digest \"Reviewed\", it carries the \"AI staff, not verified\" mark.",
+      "filters": {
+        "label": "Digest filters",
+        "kind": "Kind",
+        "status": "Mark",
+        "any": "All",
+        "apply": "Show"
+      },
+      "statuses": {
+        "unverified": "Not verified",
+        "reviewed": "Reviewed"
+      },
+      "columns": {
+        "date": "Date",
+        "kind": "Kind",
+        "title": "Title",
+        "author": "Author",
+        "mark": "Mark"
+      },
+      "author": "AI staff",
+      "empty": "No digests yet",
+      "emptyText": "Digests appear when the AI staff starts working with the portal.",
+      "more": "Show more",
+      "done": "Digest marked as reviewed",
+      "error": "Could not mark the digest",
+      "createdOn": "Saved {time}",
+      "period": "Period: {from} - {to}",
+      "tickets": "Requests",
+      "review": "Reviewed",
+      "reviewedOn": "Reviewed {time}",
+      "kinds": {
+        "morning": "Morning digest",
+        "kb_hygiene": "Solution hygiene",
+        "ideas": "Ideas",
+        "code_scan": "Code scan"
+      },
+      "numbers": {
+        "new_tickets": "New requests: {count}",
+        "ai_resolved": "Resolved by the assistant: {count}",
+        "handed_off": "Handed over to staff: {count}",
+        "sla_risk": "Deadline at risk: {count}"
+      }
     }
   },
   "auth": {

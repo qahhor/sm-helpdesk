@@ -3,7 +3,10 @@ import { AGENT_TOOLS, type AgentTool } from '../pref';
 import type { McpToolListing } from './server';
 import type { AgentToolDef } from './tool';
 import { ideaTools } from './tools/ideas';
+import { metricsTools } from './tools/metrics';
 import { problemTools } from './tools/problems';
+import { solutionTools } from './tools/solutions';
+import { ticketTools } from './tools/tickets';
 
 // Каталог инструментов сервера MCP (веха M8b, задачи 4-6; FR-AGT-03, 04, 05; план M8b, решения 9, 13, 17, 18).
 // Инструмента, который что-либо показывает клиенту или меняет состояние обращения, в каталоге нет и быть не может
@@ -11,7 +14,7 @@ import { problemTools } from './tools/problems';
 // Вход и выход каждого инструмента: строгие схемы Zod с пределами длин; описание JSON Schema строится из них же.
 
 export const AGENT_TOOL_DEFS: Partial<Record<AgentTool, AgentToolDef>> = Object.fromEntries(
-  [...problemTools, ...ideaTools].map((def) => [def.name, def]),
+  [...ticketTools, ...solutionTools, ...problemTools, ...ideaTools, ...metricsTools].map((def) => [def.name, def]),
 );
 
 /** Инструменты каталога, у которых есть выполнение, в порядке перечня AGENT_TOOLS. */

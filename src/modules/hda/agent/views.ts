@@ -138,3 +138,15 @@ export const agentIdeasView = pgView('hda_agent_ideas', {
   title: text('title').notNull(),
   body: text('body').notNull(),
 }).existing();
+
+export const agentSignaturesView = pgView('hda_agent_signatures', {
+  signature: text('signature').notNull(),
+  moduleId: uuid('module_id'),
+  sampleCode: text('sample_code'),
+  sampleMessage: text('sample_message'),
+  orgCount: integer('org_count').notNull(),
+  occurrences: integer('occurrences').notNull(),
+  lastSeenOn: moment('last_seen_on'),
+  hasSolution: boolean('has_solution').notNull(),
+  createdOn: moment('created_on').notNull(),
+}).existing();

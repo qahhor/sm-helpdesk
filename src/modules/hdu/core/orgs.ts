@@ -177,6 +177,35 @@ export async function orgAiProfileOf(actor: SystemActor | StaffActor, orgId: str
   });
 }
 
+/** Слова для обезличивания текста агенту (веха M8b, решение 8): название и ИНН организаций, имена их участников и сотрудников. */
+export type AgentRedactionTerms = { orgs: Map<string, { orgTerms: string[]; memberNames: string[] }>; staffNames: string[] };
+
+/**
+ * Что нужно обезличиванию ответа сервера MCP (план M8b, решение 8): по организациям обращений их название, ИНН и имена
+ * участников, а также имена сотрудников портала. Ничего из этого агенту не уходит: по этим словам текст заменяется
+ * обозначениями. Только система.
+ */
+export async function agentRedactionTermsOf(actor: SystemActor, orgIds: readonly string[]): Promise<AgentRedactionTerms> {
+  const ids = [...new Set(orgIds)];
+  return withActor(actor, async (tx) => {
+    const orgs = ids.length === 0 ? [] : await tx.select({ orgId: organizations.orgId, name: organizations.name, inn: organizations.inn }).from(organizations).where(inArray(organizations.orgId, ids));
+    const members =
+      ids.length === 0
+        ? []
+        : await tx
+            .select({ orgId: memberships.orgId, name: userProfiles.name })
+            .from(memberships)
+            .innerJoin(userProfiles, eq(userProfiles.userId, memberships.userId))
+            .where(inArray(memberships.orgId, ids))
+            .limit(MEMBER_NAMES_MAX * Math.max(1, ids.length));
+    const staffRows = await tx.select({ name: userProfiles.name }).from(userProfiles).where(eq(userProfiles.isStaff, true)).limit(MEMBER_NAMES_MAX);
+    const map = new Map<string, { orgTerms: string[]; memberNames: string[] }>();
+    for (const org of orgs) map.set(org.orgId, { orgTerms: [org.name, ...(org.inn ? [org.inn] : [])], memberNames: [] });
+    for (const member of members) if (member.name) map.get(member.orgId)?.memberNames.push(member.name);
+    return { orgs: map, staffNames: staffRows.flatMap((row) => (row.name ? [row.name] : [])) };
+  });
+}
+
 export type OrgFacts = { orgId: string; name: string; inn: string | null; category: 'A' | 'B' | 'C' | 'D' | null; serverId: string | null };
 
 /** Название, ИНН, категория и сервер организаций: сведения известной проблемы и проверка её публичного текста (план M5c). */

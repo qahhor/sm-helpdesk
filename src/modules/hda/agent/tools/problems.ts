@@ -1,11 +1,12 @@
 import { and, arrayContains, desc, eq, inArray } from 'drizzle-orm';
 import * as z from 'zod';
-import { moduleCodesTx } from '@/modules/hdr/api';
+import { moduleCodesTx, moduleIdsByCodesTx } from '@/modules/hdr/api';
+import { HdaAgentError } from '../../error';
 import { PROBLEM_STATUSES } from '@/modules/hdp/pref';
 import { anonymizeForAgent } from '../anonymize';
 import { defineTool } from '../tool';
 import { iso, moment, notice, AGENT_NOTICE, str, UNTRUSTED_HINT } from '../util';
-import { agentProblemsView } from '../views';
+import { agentProblemsView, agentSignaturesView } from '../views';
 
 // Инструмент list_known_problems (веха M8b, задачи 4-5; FR-AGT-03; план M8b, решение 17): известные проблемы с
 // внутренним названием, статусом, счётчиками и действующими сигнатурами, без разбивки по организациям. Строки отбирает
@@ -69,4 +70,53 @@ export const listKnownProblems = defineTool({
   },
 });
 
-export const problemTools = [listKnownProblems];
+// --- unsolved_signatures ---
+
+const SIGNATURES_MAX = 50;
+
+export const unsolvedSignatures = defineTool({
+  name: 'unsolved_signatures',
+  kind: 'read',
+  description: `Error signatures without a bound solution, most organizations and occurrences first: signature, module code, error code, anonymized sample message and counters (counted over all organizations, no breakdown). At most ${SIGNATURES_MAX}. ${UNTRUSTED_HINT}`,
+  input: z.strictObject({ module: z.string().max(80).optional(), limit: z.number().int().min(1).max(SIGNATURES_MAX).default(SIGNATURES_MAX) }),
+  output: z.strictObject({
+    notice,
+    items: z
+      .array(
+        z.strictObject({
+          signature: str(32),
+          module: str(80).nullable(),
+          sample_code: str(80).nullable(),
+          org_count: z.number().int(),
+          occurrences: z.number().int(),
+          last_seen_on: moment.nullable(),
+          untrusted_text: z.strictObject({ sample_message: str(301).nullable() }),
+        }),
+      )
+      .max(SIGNATURES_MAX),
+  }),
+  async run(tx, _actor, args) {
+    const v = agentSignaturesView;
+    const moduleId = args.module === undefined ? undefined : ((await moduleIdsByCodesTx(tx, [args.module])).get(args.module) ?? null);
+    if (moduleId === null) throw new HdaAgentError('not_found');
+    const rows = await tx
+      .select()
+      .from(v)
+      .where(and(eq(v.hasSolution, false), moduleId ? eq(v.moduleId, moduleId) : undefined))
+      .orderBy(desc(v.orgCount), desc(v.occurrences), desc(v.signature))
+      .limit(args.limit);
+    const modules = await moduleCodesTx(tx, rows.flatMap((row) => (row.moduleId ? [row.moduleId] : [])));
+    const items = rows.map((row) => ({
+      signature: row.signature,
+      module: row.moduleId ? (modules.get(row.moduleId) ?? null) : null,
+      sample_code: row.sampleCode ? row.sampleCode.slice(0, 80) : null,
+      org_count: row.orgCount,
+      occurrences: row.occurrences,
+      last_seen_on: iso(row.lastSeenOn),
+      untrusted_text: { sample_message: row.sampleMessage ? anonymizeForAgent(row.sampleMessage, { people: [], orgTerms: [] }).text.slice(0, 300) : null },
+    }));
+    return { result: { notice: AGENT_NOTICE, items }, objectRefs: [] };
+  },
+});
+
+export const problemTools = [listKnownProblems, unsolvedSignatures];

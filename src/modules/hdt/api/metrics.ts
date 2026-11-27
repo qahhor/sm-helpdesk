@@ -1,6 +1,6 @@
 import 'server-only';
 import * as z from 'zod';
-import { withActor } from '@/db/with-actor';
+import { type SystemActor, withActor } from '@/db/with-actor';
 import { consumeRateLimit, rateKey } from '@/modules/hdc/api';
 import { cleanUserText, RATE_RULES } from '@/modules/hdc/pref';
 import { listActiveModules, moduleCodesTx, type Priority, readSlaConfig, type SlaConfig } from '@/modules/hdr/api';
@@ -427,6 +427,32 @@ export type AssistantMetrics = {
   /** Открыты заново после "Помогло". */
   reopenedAfterHelped: number;
 };
+
+/**
+ * Показатели помощника для инструмента assistant_metrics сервера MCP (веха M8b, задача 5; план M8b, решение 17): те же
+ * числа, что на /agent/metrics, за период "с даты по дату" по календарю SLA. Только числа, без текстов; только система.
+ */
+export async function assistantMetricsForAgent(
+  system: SystemActor,
+  input: { from: string; to: string },
+  now: Date = new Date(),
+): Promise<Omit<AssistantMetrics, 'period'> & { period: { from: Date; to: Date } }> {
+  if (system.type !== 'system') throw new HdtError('forbidden');
+  const config = await withActor(system, readSlaConfig);
+  const period = parsePeriod({ period: 'custom', from: input.from, to: input.to }, now, config.calendar.timeZone);
+  if (!period) throw new HdtError('invalid_input');
+  const stats = await withActor(system, (tx) => assistantStatsTx(tx, { from: period.from, to: period.to }));
+  return {
+    period: { from: period.from, to: period.to },
+    handled: stats.handled,
+    resolvedByAi: stats.resolvedByAi,
+    resolvedByAiPercent: percent(stats.resolvedByAi, stats.handled),
+    handoffs: stats.handoffs,
+    firstReply: { count: stats.firstReplySeconds.length, averageSeconds: average(stats.firstReplySeconds), medianSeconds: median(stats.firstReplySeconds) },
+    csat: { count: stats.csatCount, average: stats.csatCount > 0 ? stats.csatSum / stats.csatCount : null },
+    reopenedAfterHelped: stats.reopenedAfterHelped,
+  };
+}
 
 export async function getAssistantMetrics(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<AssistantMetrics> {
   requireStaff(ctx);

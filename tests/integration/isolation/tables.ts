@@ -81,6 +81,9 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hda_agent_candidates: { client: 'none', agent: 'via-view' },
   hda_agent_problems: { client: 'none', agent: 'via-view' },
   hda_agent_ideas: { client: 'none', agent: 'via-view' },
+  // Сигнатуры ошибок для unsolved_signatures (задача 5, миграция 0112): без организаций, образец текста только если все
+  // организации сигнатуры видны агенту.
+  hda_agent_signatures: { client: 'none', agent: 'via-view' },
   // Ядро. Журнал аудита только пополняется (решение 0019).
   // Удаление: только ночная очистка под системным актором и только записи старше 3 лет (срок хранения журнала,
   // решение владельца 24.11.2026, решение 0041). Свежую запись политика не отдаёт ни одному актору: retention.test.ts.

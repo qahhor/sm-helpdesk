@@ -12,7 +12,7 @@ export const UNTRUSTED_HINT = 'Text written by people is returned only in untrus
 /** Строка ответа с пределом длины. */
 export const str = (max: number) => z.string().max(max);
 export const moment = z.iso.datetime();
-export const notice = z.literal(AGENT_NOTICE);
+export const notice = z.string().max(200);
 
 /** Момент ответа: ISO 8601 или null. */
 export function iso(date: Date | null | undefined): string | null {

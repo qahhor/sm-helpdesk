@@ -4346,6 +4346,124 @@
         "handed_off": "Handed over to staff: {count}",
         "sla_risk": "Deadline at risk: {count}"
       }
+    },
+    "codeKnowledge": {
+      "title": "Code knowledge",
+      "intro": "Once a week the AI staff member reviews the Smartup code and sends conclusions: which errors exist, when they happen and what to check. The portal holds no code. Check the drafts: an approved entry recognizes the error in requests and tells what to check.",
+      "tabs": {
+        "label": "Code knowledge sections",
+        "queue": "Approval queue",
+        "scans": "Scan history",
+        "modules": "Module map"
+      },
+      "metrics": {
+        "title": "Value over {days} days",
+        "share": "Signature from a catalog entry: {matched} of {total} requests with an error",
+        "solutions": "Solutions created from entries: {count}"
+      },
+      "filters": {
+        "label": "Filter entries",
+        "status": "Status",
+        "all": "All",
+        "apply": "Show"
+      },
+      "statuses": {
+        "draft": "Draft",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "removed": "Gone from the code"
+      },
+      "changes": {
+        "new": "New",
+        "changed": "Changed"
+      },
+      "kinds": {
+        "user_error": "User error",
+        "setting": "Setting",
+        "data": "Data",
+        "probable_defect": "Probable defect"
+      },
+      "columns": {
+        "key": "Key",
+        "code": "Error code",
+        "module": "Module",
+        "kind": "Kind",
+        "confidence": "Confidence",
+        "status": "Status"
+      },
+      "empty": "Nothing here yet",
+      "emptyText": "Entries appear after the AI staff member scans the code.",
+      "drafts": "Drafts in the queue: {count}",
+      "more": "Next entries",
+      "card": {
+        "template": "Message template",
+        "conditions": "When it happens",
+        "userCause": "Likely cause on the user side",
+        "whatToCheck": "What to check",
+        "raisedIn": "Place in the code",
+        "raisedInHint": "A reference only: object, file and line. The portal holds no code.",
+        "location": "{object}, {path}, line {line}",
+        "locationNoLine": "{object}, {path}",
+        "scan": "Scan {scan}, version {commit}, {date}",
+        "approvedOn": "Approved on {date}",
+        "rejectReason": "Reason for rejection: {reason}",
+        "approve": "Approve",
+        "reject": "Reject",
+        "reason": "Reason for rejection, if needed",
+        "edit": "Edit",
+        "editHint": "Write the template as plain text with placeholders in curly braces: {example}. Each field is at most 10 lines.",
+        "whatToCheckHint": "One item per line",
+        "templateFor": "Template: {locale}",
+        "save": "Save",
+        "done": {
+          "approved": "Entry approved. Its template now recognizes the error in new requests.",
+          "rejected": "Entry rejected.",
+          "edited": "Changes saved."
+        }
+      },
+      "errors": {
+        "invalid_input": "Check the fields: the template is plain text without regular expressions, each field is at most 10 lines.",
+        "forbidden": "This action is not available to you.",
+        "stale_session": "Sign in again to change the module list.",
+        "not_found": "The entry was not found or is gone from the code.",
+        "ai_disabled": "The organization opted out of AI processing: the request is not passed to the agent."
+      },
+      "scans": {
+        "columns": {
+          "date": "Received",
+          "repository": "Repository",
+          "commit": "Code version",
+          "result": "Result"
+        },
+        "accepted": "Accepted: {added} new, {changed} changed, {removed} gone",
+        "rejected": "Rejected: {rules}",
+        "rules": {
+          "code_too_long": "text longer than 10 lines",
+          "regex": "regular expression in a template",
+          "bad_placeholder": "invalid placeholder",
+          "template_too_loose": "template too general"
+        },
+        "empty": "No scans yet"
+      },
+      "modules": {
+        "intro": "The module map from the scan suggests updates to the portal module list. An administrator approves: approval creates the module or changes its list of screens.",
+        "columns": {
+          "module": "Module",
+          "screens": "Screens",
+          "directory": "Module list",
+          "status": "Status"
+        },
+        "directory": {
+          "missing": "The module is not in the list",
+          "screens_differ": "Screens differ",
+          "same": "Matches"
+        },
+        "approve": "Apply to the module list",
+        "reject": "Reject",
+        "done": "The module list is updated.",
+        "doneRejected": "Module note rejected.",
+        "empty": "The module map is empty"
+      }
     }
   },
   "auth": {

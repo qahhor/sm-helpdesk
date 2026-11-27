@@ -4346,6 +4346,124 @@
         "handed_off": "Xodimlarga uzatildi: {count}",
         "sla_risk": "Muddati xavf ostida: {count}"
       }
+    },
+    "codeKnowledge": {
+      "title": "Koddan bilimlar",
+      "intro": "AI-xodim har hafta Smartup kodini tahlil qilib, xulosalar yuboradi: qanday xatolar bor, qachon chiqadi va nimani tekshirish kerak. Portalda kod yo'q. Qoralamalarni tekshiring: tasdiqlangan yozuv murojaatlardagi xatoni taniydi va nimani tekshirishni aytadi.",
+      "tabs": {
+        "label": "Koddan bilimlar bo'limlari",
+        "queue": "Tasdiqlash navbati",
+        "scans": "Skanerlashlar tarixi",
+        "modules": "Modullar xaritasi"
+      },
+      "metrics": {
+        "title": "{days} kunlik foyda",
+        "share": "Katalog yozuvidan imzo: xatoli {total} murojaatdan {matched} tasi",
+        "solutions": "Yozuvlardan yaratilgan yechimlar: {count}"
+      },
+      "filters": {
+        "label": "Yozuvlarni saralash",
+        "status": "Holat",
+        "all": "Hammasi",
+        "apply": "Ko'rsatish"
+      },
+      "statuses": {
+        "draft": "Qoralama",
+        "approved": "Tasdiqlangan",
+        "rejected": "Rad etilgan",
+        "removed": "Koddan yo'qolgan"
+      },
+      "changes": {
+        "new": "Yangi",
+        "changed": "O'zgargan"
+      },
+      "kinds": {
+        "user_error": "Foydalanuvchi xatosi",
+        "setting": "Sozlama",
+        "data": "Ma'lumotlar",
+        "probable_defect": "Ehtimoliy nuqson"
+      },
+      "columns": {
+        "key": "Kalit",
+        "code": "Xato kodi",
+        "module": "Modul",
+        "kind": "Turi",
+        "confidence": "Ishonch",
+        "status": "Holat"
+      },
+      "empty": "Hozircha bo'sh",
+      "emptyText": "Yozuvlar AI-xodim kodni skanerlagandan keyin paydo bo'ladi.",
+      "drafts": "Navbatdagi qoralamalar: {count}",
+      "more": "Keyingi yozuvlar",
+      "card": {
+        "template": "Xabar shabloni",
+        "conditions": "Qachon chiqadi",
+        "userCause": "Foydalanuvchidagi ehtimoliy sabab",
+        "whatToCheck": "Nimani tekshirish kerak",
+        "raisedIn": "Koddagi joy",
+        "raisedInHint": "Faqat havola: obyekt, fayl va qator. Portalda kod yo'q.",
+        "location": "{object}, {path}, {line}-qator",
+        "locationNoLine": "{object}, {path}",
+        "scan": "Skanerlash {scan}, versiya {commit}, {date}",
+        "approvedOn": "{date} tasdiqlangan",
+        "rejectReason": "Rad etish sababi: {reason}",
+        "approve": "Tasdiqlash",
+        "reject": "Rad etish",
+        "reason": "Kerak bo'lsa, rad etish sababi",
+        "edit": "Tahrirlash",
+        "editHint": "Shablon oddiy matn bilan yoziladi, almashtirishlar figurali qavsda: {example}. Har bir maydon 10 qatordan oshmasin.",
+        "whatToCheckHint": "Har bir band yangi qatordan",
+        "templateFor": "Shablon: {locale}",
+        "save": "Saqlash",
+        "done": {
+          "approved": "Yozuv tasdiqlandi. Uning shabloni endi yangi murojaatlardagi xatoni taniydi.",
+          "rejected": "Yozuv rad etildi.",
+          "edited": "Tahrir saqlandi."
+        }
+      },
+      "errors": {
+        "invalid_input": "Maydonlarni tekshiring: shablon muntazam ifodalarsiz oddiy matn, har bir maydon 10 qatordan oshmasin.",
+        "forbidden": "Bu amal sizga mavjud emas.",
+        "stale_session": "Modullar ma'lumotnomasini o'zgartirish uchun qayta kiring.",
+        "not_found": "Yozuv topilmadi yoki koddan yo'qolgan.",
+        "ai_disabled": "Tashkilot AI-ishlovdan voz kechgan: murojaat agentga berilmaydi."
+      },
+      "scans": {
+        "columns": {
+          "date": "Qabul qilingan",
+          "repository": "Repozitoriy",
+          "commit": "Kod versiyasi",
+          "result": "Natija"
+        },
+        "accepted": "Qabul qilindi: yangi {added}, o'zgargan {changed}, yo'qolgan {removed}",
+        "rejected": "Rad etildi: {rules}",
+        "rules": {
+          "code_too_long": "10 qatordan uzun matn",
+          "regex": "shablonda muntazam ifoda",
+          "bad_placeholder": "noto'g'ri almashtirish",
+          "template_too_loose": "juda umumiy shablon"
+        },
+        "empty": "Hozircha skanerlash bo'lmagan"
+      },
+      "modules": {
+        "intro": "Skanerlashdan olingan modullar xaritasi portal modullari ma'lumotnomasini yangilashni taklif qiladi. Administrator tasdiqlaydi: tasdiqlash modul yaratadi yoki ekranlar ro'yxatini o'zgartiradi.",
+        "columns": {
+          "module": "Modul",
+          "screens": "Ekranlar",
+          "directory": "Ma'lumotnoma",
+          "status": "Holat"
+        },
+        "directory": {
+          "missing": "Yangi modul ma'lumotnomada yo'q",
+          "screens_differ": "Ekranlar farq qiladi",
+          "same": "Mos keladi"
+        },
+        "approve": "Ma'lumotnomaga qo'llash",
+        "reject": "Rad etish",
+        "done": "Modullar ma'lumotnomasi yangilandi.",
+        "doneRejected": "Modul haqidagi qayd rad etildi.",
+        "empty": "Modullar xaritasi hozircha bo'sh"
+      }
     }
   },
   "auth": {

@@ -186,7 +186,7 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
               </div>
               <p className="text-sm text-secondary-foreground">{a('candidates.hint')}</p>
               <Button type="submit" className="self-start">
-                {a('save')}
+                {a('candidates.save')}
               </Button>
             </form>
           </CardContent>

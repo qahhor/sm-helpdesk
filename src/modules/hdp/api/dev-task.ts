@@ -9,7 +9,6 @@ import { problemRef } from '../util';
 // 25). Для модуля hdw: проверка проблемы при привязке и уведомление владельца о смене статуса задачи. Клиентам ничего
 // не уходит, статус проблемы сам не меняется: его меняет сотрудник.
 
-export { registerProblemDevTaskVersion, type ProblemDevTaskVersion } from '../dev-task-version';
 
 /** Проблема для привязки задачи по номеру; lock: строка заблокирована (привязка, отвязка). Нет проблемы: not_found. */
 export async function problemForDevTaskTx(tx: Tx, number: number, opts: { lock?: boolean } = {}): Promise<{ problemId: string; number: number; internalTitle: string }> {

@@ -17,7 +17,7 @@ test('карточка проблемы: машинный перевод при�
   const stamp = Date.now();
   const [problem] = await dbRows<{ problem_id: string; number: number }>(`insert into hdp_problems (internal_title, source_locale) values ($1, 'ru') returning problem_id, number`, [`Перевод ${stamp}`]);
   await dbRows(`insert into hdp_problem_translations (problem_id, locale, public_title, public_body) values ($1, 'ru', 'Не проводятся накладные', 'Исправляем.')`, [problem!.problem_id]);
-  await dbRows(`insert into hdp_problem_translations (problem_id, locale, public_title, public_body, is_machine) values ($1, 'uz', 'Yuk xatlari o''tkazilmaydi', 'Tuzatyapmiz.')`, [problem!.problem_id]);
+  await dbRows(`insert into hdp_problem_translations (problem_id, locale, public_title, public_body, is_machine) values ($1, 'uz', 'Yuk xatlari o''tkazilmaydi', 'Tuzatyapmiz.', true)`, [problem!.problem_id]);
   await page.goto(`/ru/agent/problems/${problem!.number}`);
   const uz = page.getByRole('main').locator('[data-locale="uz"]');
   await expect(uz.getByText('Клиенту не виден, пока перевод не принят')).toBeVisible();
@@ -31,12 +31,13 @@ test('карточка проблемы: машинный перевод при�
 test('объявления: машинный перевод принимается кнопкой', async ({ browser }) => {
   const context = await browser.newContext({ storageState: storageStateOf('care') });
   const page = await context.newPage();
-  const stamp = Date.now();
+  // Метка из букв: длинное число в тексте объявления - находка проверки текста.
+  const stamp = Array.from({ length: 7 }, () => 'bdfghjklmnprstvz'[Math.floor(Math.random() * 16)]).join('');
   const [ann] = await dbRows<{ announcement_id: string }>(
     `insert into hdp_announcements (kind, audience, starts_on, ends_on, source_locale, author_id) values ('news', 'all', now() + interval '1 day', now() + interval '2 days', 'ru', (select id from auth."user" order by "createdAt" limit 1)) returning announcement_id`,
   );
   await dbRows(`insert into hdp_announcement_translations (announcement_id, locale, title, body) values ($1, 'ru', $2, 'Текст')`, [ann!.announcement_id, `Новость ${stamp}`]);
-  await dbRows(`insert into hdp_announcement_translations (announcement_id, locale, title, body, is_machine) values ($1, 'uz', $2, 'Matn')`, [ann!.announcement_id, `Yangilik ${stamp}`]);
+  await dbRows(`insert into hdp_announcement_translations (announcement_id, locale, title, body, is_machine) values ($1, 'uz', $2, 'Matn', true)`, [ann!.announcement_id, `Yangilik ${stamp}`]);
   await page.goto('/ru/agent/announcements');
   const form = page.locator('form[lang="uz"]').filter({ has: page.locator(`input[value="${ann!.announcement_id}"]`) });
   await form.getByRole('button', { name: 'Принять перевод' }).click();

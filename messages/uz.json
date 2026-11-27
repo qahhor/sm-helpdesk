@@ -2290,7 +2290,8 @@
           "dailyLimit": "Sutkada model chaqiruvlari",
           "published": "Chop etilgan yechim bilan o'xshashlik, %",
           "merge": "Nomzodlarni birlashtirish uchun o'xshashlik, %",
-          "hint": "Chegaralar boshlang'ich: ular haqiqiy vektorlarda sozlanadi."
+          "hint": "Chegaralar boshlang'ich: ular haqiqiy vektorlarda sozlanadi.",
+          "save": "Nomzodlar sozlamalarini saqlash"
         }
       }
     },

@@ -2290,7 +2290,8 @@
           "dailyLimit": "Model calls per day",
           "published": "Similarity to a published solution, %",
           "merge": "Similarity to merge candidates, %",
-          "hint": "The thresholds are initial: they will be tuned on real vectors."
+          "hint": "The thresholds are initial: they will be tuned on real vectors.",
+          "save": "Save candidate settings"
         }
       }
     },

@@ -158,10 +158,16 @@ test('планы запросов: обращения периода по инд
   const plan = async (sql: string, params: unknown[]) => {
     const client = await pools.root.connect();
     try {
+      // Свежая статистика и запрет сортировки: на нескольких строках планировщик
+      // иначе может выбрать соседний частичный индекс с сортировкой после него.
+      await client.query('analyze hda_runs');
+      await client.query('analyze hdt_tickets');
       await client.query('set enable_seqscan = off');
+      await client.query('set enable_sort = off');
       return (await client.query(`explain (costs off) ${sql}`, params)).rows.map((row) => Object.values(row)[0]).join('\n');
     } finally {
       await client.query('reset enable_seqscan');
+      await client.query('reset enable_sort');
       client.release();
     }
   };

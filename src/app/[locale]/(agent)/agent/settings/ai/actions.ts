@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { AI_PURPOSES, RESTRICTED_TOPICS } from '@/modules/hda/api/constants';
-import { isHdaError, liftAiCutoff, saveAiModels, saveAiSettings, saveRestrictedTopics } from '@/modules/hda/api/settings';
+import { isHdaError, liftAiCutoff, saveAiModels, saveAiSettings, saveCandidateSettings, saveRestrictedTopics } from '@/modules/hda/api/settings';
 import { liftTriageFieldOff } from '@/modules/hda/api/triage';
 import { requireStaffActor } from '@/modules/hdu/api';
 
@@ -62,4 +62,17 @@ export async function saveRestrictedTopicsAction(form: FormData): Promise<void> 
 export async function liftTriageFieldOffAction(form: FormData): Promise<void> {
   const staff = await requireStaffActor({ roles: ['admin'] });
   await run('field_on', () => liftTriageFieldOff(staff, { offId: String(form.get('offId') ?? '') }));
+}
+
+/** Кандидаты в решения (план M5c, задача 9): выключатель, дневной предел, пороги склейки в процентах. */
+export async function saveCandidateSettingsAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor({ roles: ['admin'] });
+  await run('candidates', () =>
+    saveCandidateSettings(staff, {
+      ...(form.get('enabled') ? { enabled: 'on' } : {}),
+      dailyLimit: String(form.get('dailyLimit') ?? ''),
+      publishedPercent: String(form.get('publishedPercent') ?? ''),
+      mergePercent: String(form.get('mergePercent') ?? ''),
+    }),
+  );
 }

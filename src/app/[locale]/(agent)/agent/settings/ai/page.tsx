@@ -1,6 +1,6 @@
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { AI_MODELS, AI_PURPOSES, RESTRICTED_TOPICS, TRIAGE_FIELDS } from '@/modules/hda/api/constants';
-import { aiSettingsView } from '@/modules/hda/api/settings';
+import { aiSettingsView, candidateSettingsView } from '@/modules/hda/api/settings';
 import { triageFieldOffs } from '@/modules/hda/api/triage';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -13,13 +13,13 @@ import { Select } from '@/ui/components/select';
 import { SettingsLayout } from '@/ui/components/SettingsLayout';
 import { Textarea } from '@/ui/components/textarea';
 import { settingsNav } from '../sections';
-import { liftAiCutoffAction, liftTriageFieldOffAction, saveAiModelsAction, saveAiSettingsAction, saveRestrictedTopicsAction } from './actions';
+import { liftAiCutoffAction, liftTriageFieldOffAction, saveAiModelsAction, saveAiSettingsAction, saveCandidateSettingsAction, saveRestrictedTopicsAction } from './actions';
 
 // "AI-помощник" (план M5b, задача 1; FR-ADM-09, FR-AI-17, FR-TRI-04, 9.2): общий переключатель, разбор, порог
 // уверенности, пределы и расход за месяц, отключённые организации, модели по целям, отключённые поля разбора. Меняет
 // только администратор со свежим входом; каждое изменение пишется в журнал аудита.
 
-const DONE = new Set(['saved', 'models', 'models_changed', 'lifted', 'topics', 'field_on']);
+const DONE = new Set(['saved', 'models', 'models_changed', 'lifted', 'topics', 'field_on', 'candidates']);
 const LANGS = ['ru', 'uz', 'en'] as const;
 const ERRORS = new Set(['forbidden', 'invalid_input']);
 
@@ -33,6 +33,8 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
   const view = await aiSettingsView(staff);
   // Поля разбора, отключённые ночной задачей за низкую долю принятых (FR-TRI-04).
   const offs = await triageFieldOffs(staff);
+  // Кандидаты в решения (план M5c, задача 9): выключатель, дневной предел и пороги склейки.
+  const candidates = await candidateSettingsView(staff);
   const money = (usd: number) => format.number(usd, { style: 'currency', currency: 'USD' });
   const reauth = `/${locale}/staff/login?reauth=1&next=${encodeURIComponent(`/${locale}/agent/settings/ai`)}`;
   return (
@@ -156,6 +158,37 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
                 </ul>
               </section>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <form action={saveCandidateSettingsAction} className="flex flex-col gap-4" data-testid="candidate-settings">
+              <h2 className="text-lg font-semibold">{a('candidates.title')}</h2>
+              <p className="text-sm text-secondary-foreground">{a('candidates.intro')}</p>
+              <label className="inline-flex min-h-control items-center gap-3">
+                <input type="checkbox" name="enabled" defaultChecked={candidates.enabled} className="size-5 accent-primary" />
+                {a('candidates.enabled')}
+              </label>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="cand-limit">{a('candidates.dailyLimit')}</Label>
+                  <Input id="cand-limit" name="dailyLimit" type="number" min={0} max={1000} step={1} required defaultValue={candidates.dailyLimit} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="cand-published">{a('candidates.published')}</Label>
+                  <Input id="cand-published" name="publishedPercent" type="number" min={50} max={100} step="any" required defaultValue={Math.round(candidates.publishedSimilarity * 1000) / 10} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="cand-merge">{a('candidates.merge')}</Label>
+                  <Input id="cand-merge" name="mergePercent" type="number" min={50} max={100} step="any" required defaultValue={Math.round(candidates.mergeSimilarity * 1000) / 10} />
+                </div>
+              </div>
+              <p className="text-sm text-secondary-foreground">{a('candidates.hint')}</p>
+              <Button type="submit" className="self-start">
+                {a('save')}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 

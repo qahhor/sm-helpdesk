@@ -21,6 +21,10 @@ export const QUEUES = {
   'ai.budget': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Ответ первой линии (план M5b, решение 5): одна ждущая и одна выполняемая на обращение, без повторов: сбой сразу
   // ведёт к передаче сотруднику. Сторожевая проверка без повторов: минутная проверка по расписанию её страхует.
+  // Кандидаты в решения (веха M5c, задача 9): повтор задания безопасен, модель второй раз не вызывается.
+  'ai.candidates_sweep': { policy: 'short', retryLimit: 0, expireInSeconds: 600, deleteAfterSeconds: 86_400 },
+  'ai.candidate': { policy: 'standard', retryLimit: 2, retryDelay: 300, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
+  'ai.candidates_embed': { policy: 'short', retryLimit: 1, retryDelay: 600, expireInSeconds: 1800 },
   'ai.first_line': { policy: 'stately', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
   'ai.watchdog': { policy: 'standard', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
   // Перевод сообщения клиента и уточнение благодарности (план M5b, решение 24): одна задача на объект, без

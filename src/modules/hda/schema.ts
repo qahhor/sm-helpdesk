@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
-import { customType, date, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { customType, date, integer, jsonb, pgTable, text, timestamp, uuid, vector } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
-import type { AiCutoffReason, AiDecision, AiHandoffReason, AiOutcome, AiPurpose, TriageField, TriageStatus } from './pref';
+import type { AiCutoffReason, AiDecision, AiHandoffReason, AiOutcome, AiPurpose, CandidateRejectReason, CandidateStatus, TriageField, TriageStatus } from './pref';
 
 // Модуль hda: AI. Таблицы, ограничения и политики создают миграции drizzle/0072_hda_runs.sql и
 // drizzle/0091_hda_first_line.sql, drizzle/0093_hda_triage.sql, drizzle/0094_hda_review.sql,
@@ -109,5 +109,43 @@ export const aiMessageTranslations = pgTable('hda_message_translations', {
   status: text('status').$type<'pending' | 'ready' | 'failed'>().notNull().default('pending'),
   text: text('text'),
   requestedBy: uuid('requested_by').notNull(),
+  ...stampColumns,
+});
+
+/** Находка проверки текста кандидата для подсветки (FR-CAND-09): вид и найденный кусок. */
+export type CandidateFinding = { kind: string; text: string };
+
+/** Кандидаты в решения (логическое имя solution_candidates, веха M5c, задача 9). Миграция 0106. Клиент не видит. */
+export const solutionCandidates = pgTable('hda_solution_candidates', {
+  candidateId: uuid('candidate_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  moduleId: uuid('module_id'),
+  articleId: uuid('article_id'),
+  decidedBy: uuid('decided_by'),
+  locale: text('locale').notNull(),
+  title: text('title').notNull(),
+  problem: text('problem').notNull().default(''),
+  steps: jsonb('steps').$type<string[]>().notNull().default([]),
+  findings: jsonb('findings').$type<CandidateFinding[]>().notNull().default([]),
+  embedding: vector('embedding', { dimensions: 1024 }),
+  status: text('status').$type<CandidateStatus>().notNull().default('new'),
+  sourceCount: integer('source_count').notNull().default(0),
+  orgCount: integer('org_count').notNull().default(0),
+  rejectedAtSourceCount: integer('rejected_at_source_count'),
+  rejectReason: text('reject_reason').$type<CandidateRejectReason>(),
+  rejectComment: text('reject_comment'),
+  decidedOn: moment('decided_on'),
+  ...stampColumns,
+});
+
+/** Обращения-источники кандидата (логическое имя solution_candidate_sources). Одно обращение, один кандидат. */
+export const candidateSources = pgTable('hda_candidate_sources', {
+  orgId: uuid('org_id').notNull(),
+  sourceId: uuid('source_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  candidateId: uuid('candidate_id').notNull(),
+  ticketId: uuid('ticket_id').notNull(),
   ...stampColumns,
 });

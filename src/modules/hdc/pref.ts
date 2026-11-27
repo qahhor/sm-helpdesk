@@ -192,6 +192,13 @@ export const AUDIT_ACTIONS = [
   'announcement.saved',
   'announcement.ended',
   'ticket.problem_unlinked',
+  // Кандидаты в решения (веха M5c, задачи 9 и 10): возврат отклонённого в очередь, черновик решения, объединение с
+  // решением, отклонение с причиной, отметка проверенных находок недоверенного текста. Текста кандидата в журнале нет.
+  'candidate.returned',
+  'candidate.accepted',
+  'candidate.merged',
+  'candidate.rejected',
+  'solution.untrusted_confirmed',
   // Поиск (план W6, решения 3 и 12): команда hub создала ключи Typesense (без значений) и построила индекс заново.
   'search.keys_created',
   'search.reindexed',

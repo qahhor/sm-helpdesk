@@ -1368,7 +1368,8 @@
             "file_infected": "Antivirus found an infected solution image",
             "created_from_ticket": "Solution created from a request",
             "signature_bound": "Solution linked to an error signature",
-            "signature_unbound": "Solution unlinked from an error signature"
+            "signature_unbound": "Solution unlinked from an error signature",
+            "untrusted_confirmed": "Untrusted text findings marked as checked"
           },
           "client": {
             "embed_session": "Widget session inside Smartup"
@@ -1411,6 +1412,12 @@
           "announcement": {
             "saved": "Announcement saved",
             "ended": "Announcement ended early"
+          },
+          "candidate": {
+            "returned": "Solution candidate returned to the queue",
+            "accepted": "Candidate turned into a solution draft",
+            "merged": "Candidate merged with a solution",
+            "rejected": "Candidate rejected"
           }
         },
         "words": {
@@ -2191,7 +2198,8 @@
           "models_changed": "Models saved. After changing a model, run the evaluation set.",
           "lifted": "Cut-off lifted.",
           "topics": "Mandatory topics saved.",
-          "field_on": "Triage field turned on again."
+          "field_on": "Triage field turned on again.",
+          "candidates": "Candidate settings saved."
         },
         "errors": {
           "stale_session": "Sign in again to change settings.",
@@ -2242,7 +2250,8 @@
           "message_translation": "Message translation",
           "thanks": "Thanks check",
           "problem_translation": "Known problem translation",
-          "announcement_translation": "Announcement translation"
+          "announcement_translation": "Announcement translation",
+          "candidate": "Solution candidate"
         },
         "modelNames": {
           "claude-opus-5-5": "Claude Opus 5.5",
@@ -2272,6 +2281,15 @@
           "title": "Turned off by the nightly check",
           "row": "{field}: {share} of {count} suggestions accepted this month",
           "lift": "Turn on again"
+        },
+        "candidates": {
+          "title": "Solution candidates",
+          "intro": "AI prepares solution drafts from closed requests without a solution. Only staff see the draft; clients do not see it until a staff member publishes the solution.",
+          "enabled": "Prepare candidates",
+          "dailyLimit": "Model calls per day",
+          "published": "Similarity to a published solution, %",
+          "merge": "Similarity to merge candidates, %",
+          "hint": "The thresholds are initial: they will be tuned on real vectors."
         }
       }
     },
@@ -3480,6 +3498,17 @@
         "unbound": "The signature is unlinked.",
         "taken": "This signature is already linked to solution {number}. Unlink it there first.",
         "invalid": "Enter an error code or text."
+      },
+      "untrusted": {
+        "title": "Text from a candidate: check every finding",
+        "hint": "AI prepared this draft from client correspondence. You can publish once every finding is checked. Editing the text clears the checks.",
+        "kinds": {
+          "phone": "Phone",
+          "email": "Email",
+          "command": "Command",
+          "code": "Code"
+        },
+        "checked": "checked"
       }
     },
     "ideas": {

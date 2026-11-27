@@ -48,6 +48,8 @@ export const kbArticles = pgTable('hdk_articles', {
   archivedOn: timestamp('archived_on', { withTimezone: true }),
   status: text('status').$type<ArticleStatus>().notNull().default('active'),
   ...stampColumns,
+  /** Пригодилось сотрудникам (веха M5c, FR-CAND-03): похожие закрытые обращения без решения. Миграция 0106. */
+  staffUsefulCount: integer('staff_useful_count').notNull().default(0),
 });
 
 /** Версии текста по языкам: черновик, опубликованная, прежние. */

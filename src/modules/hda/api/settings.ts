@@ -6,7 +6,8 @@ import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext, writeAudit, writeSetting
 import { orgFactsTx } from '@/modules/hdu/api/automation';
 import { currentMonth, monthSpendTx } from '../core/runs';
 import { HdaError } from '../error';
-import { AI_DAILY_LIMIT_MAX, AI_DAILY_LIMIT_SETTING, AI_MODELS, AI_PURPOSES, AI_SETTINGS, type AiCutoffReason, type AiModel, type AiPurpose, TRIAGE_FIELDS } from '../pref';
+import { type CandidateConfig, candidateConfig, candidateConfigSchemas } from '../candidates/run';
+import { AI_DAILY_LIMIT_MAX, AI_DAILY_LIMIT_SETTING, AI_MODELS, AI_PURPOSES, AI_SETTINGS, CANDIDATE_SETTINGS, type AiCutoffReason, type AiModel, type AiPurpose, TRIAGE_FIELDS } from '../pref';
 import { aiOrgCutoffs } from '../schema';
 import { RESTRICTED_TOPICS } from '../topics';
 import { type AiConfig, aiConfig, aiConfigSchemas } from './config';
@@ -149,4 +150,33 @@ export async function saveRestrictedTopics(ctx: StaffContext, input: unknown): P
   const parsed = aiConfigSchemas.restrictedTopics.safeParse(lists);
   if (!parsed.success) throw new HdaError('invalid_input');
   await withActor(ctx.actor, (tx) => writeSettingTx(tx, AI_SETTINGS.restrictedTopics, parsed.data));
+}
+
+// --- Кандидаты в решения (план M5c, задача 9, решения 26, 28) ---
+
+const candidateInput = z.strictObject({
+  enabled: flag,
+  dailyLimit: z.coerce.number().pipe(candidateConfigSchemas.dailyLimit),
+  // Пороги на экране в процентах, в настройке дробью.
+  publishedPercent: z.coerce.number().min(50).max(100),
+  mergePercent: z.coerce.number().min(50).max(100),
+});
+
+/** Настройки кандидатов для экрана администратора. */
+export async function candidateSettingsView(ctx: StaffContext): Promise<CandidateConfig> {
+  requireAdmin(ctx);
+  return candidateConfig();
+}
+
+/** Выключатель, дневной предел и пороги склейки кандидатов: только администратор со свежим входом, журнал аудита. */
+export async function saveCandidateSettings(ctx: StaffContext, input: unknown): Promise<void> {
+  requireFreshAdmin(ctx);
+  const parsed = candidateInput.safeParse(input);
+  if (!parsed.success) throw new HdaError('invalid_input');
+  const d = parsed.data;
+  const next: CandidateConfig = { enabled: d.enabled !== undefined, dailyLimit: d.dailyLimit, publishedSimilarity: d.publishedPercent / 100, mergeSimilarity: d.mergePercent / 100 };
+  const current = await candidateConfig();
+  await withActor(ctx.actor, async (tx) => {
+    for (const key of Object.keys(next) as (keyof CandidateConfig)[]) if (current[key] !== next[key]) await writeSettingTx(tx, CANDIDATE_SETTINGS[key], next[key]);
+  });
 }

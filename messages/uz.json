@@ -1368,7 +1368,8 @@
             "file_infected": "Antivirus yechim rasmida virus topdi",
             "created_from_ticket": "Yechim murojaatdan yaratildi",
             "signature_bound": "Yechim xato imzosiga bog'landi",
-            "signature_unbound": "Yechim xato imzosidan uzildi"
+            "signature_unbound": "Yechim xato imzosidan uzildi",
+            "untrusted_confirmed": "Ishonchsiz matn topilmalari tekshirilgan deb belgilandi"
           },
           "client": {
             "embed_session": "Smartup ichidagi vidjet seansi"
@@ -1411,6 +1412,12 @@
           "announcement": {
             "saved": "E'lon saqlandi",
             "ended": "E'lon muddatidan oldin tugatildi"
+          },
+          "candidate": {
+            "returned": "Yechim nomzodi navbatga qaytdi",
+            "accepted": "Nomzoddan yechim qoralamasi yaratildi",
+            "merged": "Nomzod yechim bilan birlashtirildi",
+            "rejected": "Nomzod rad etildi"
           }
         },
         "words": {
@@ -2191,7 +2198,8 @@
           "models_changed": "Modellar saqlandi. Model almashgandan keyin tekshiruv to'plamini ishga tushiring.",
           "lifted": "O'chirish bekor qilindi.",
           "topics": "Majburiy mavzular saqlandi.",
-          "field_on": "Saralash maydoni qayta yoqildi."
+          "field_on": "Saralash maydoni qayta yoqildi.",
+          "candidates": "Nomzodlar sozlamalari saqlandi."
         },
         "errors": {
           "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
@@ -2242,7 +2250,8 @@
           "message_translation": "Xabar tarjimasi",
           "thanks": "Minnatdorchilikni tekshirish",
           "problem_translation": "Ma'lum muammo tarjimasi",
-          "announcement_translation": "E'lon tarjimasi"
+          "announcement_translation": "E'lon tarjimasi",
+          "candidate": "Yechim nomzodi"
         },
         "modelNames": {
           "claude-opus-5-5": "Claude Opus 5.5",
@@ -2272,6 +2281,15 @@
           "title": "Tungi tekshiruv o'chirdi",
           "row": "{field}: oy davomida {count} ta taklifdan {share} qabul qilindi",
           "lift": "Qayta yoqish"
+        },
+        "candidates": {
+          "title": "Yechim nomzodlari",
+          "intro": "AI yechimsiz yopilgan murojaatlardan yechim qoralamalarini tayyorlaydi. Qoralamani faqat xodimlar ko'radi, xodim yechimni chop etmaguncha mijozlarga ko'rsatilmaydi.",
+          "enabled": "Nomzodlarni tayyorlash",
+          "dailyLimit": "Sutkada model chaqiruvlari",
+          "published": "Chop etilgan yechim bilan o'xshashlik, %",
+          "merge": "Nomzodlarni birlashtirish uchun o'xshashlik, %",
+          "hint": "Chegaralar boshlang'ich: ular haqiqiy vektorlarda sozlanadi."
         }
       }
     },
@@ -3480,6 +3498,17 @@
         "unbound": "Imzo uzildi.",
         "taken": "Bu imzo allaqachon {number} yechimiga bog'langan. Avval uni o'sha yerda uzing.",
         "invalid": "Xato kodi yoki matnini kiriting."
+      },
+      "untrusted": {
+        "title": "Nomzoddan olingan matn: har bir topilmani tekshiring",
+        "hint": "Qoralamani AI mijoz yozishmasi bo'yicha tayyorlagan. Har bir topilma belgilanganda chop etish mumkin. Matnni tahrirlash belgilarni olib tashlaydi.",
+        "kinds": {
+          "phone": "Telefon",
+          "email": "Pochta",
+          "command": "Buyruq",
+          "code": "Kod"
+        },
+        "checked": "tekshirildi"
       }
     },
     "ideas": {

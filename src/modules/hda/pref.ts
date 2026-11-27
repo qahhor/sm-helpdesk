@@ -6,7 +6,7 @@
  * M5c: перевод публичного текста известной проблемы и рассылки (problem_translation) и объявления
  * (announcement_translation), написанного сотрудником.
  */
-export const AI_PURPOSES = ['solution_draft', 'translation', 'idea_translation', 'first_line', 'triage', 'message_translation', 'thanks', 'problem_translation', 'announcement_translation'] as const;
+export const AI_PURPOSES = ['solution_draft', 'translation', 'idea_translation', 'first_line', 'triage', 'message_translation', 'thanks', 'problem_translation', 'announcement_translation', 'candidate'] as const;
 export type AiPurpose = (typeof AI_PURPOSES)[number];
 
 /**
@@ -21,8 +21,11 @@ export type AiOutcome = (typeof AI_OUTCOMES)[number];
 export const AI_TIERS = ['fast', 'quality'] as const;
 export type AiTier = (typeof AI_TIERS)[number];
 
-/** Решение кода по вызову первой линии (колонка hda_runs.decision): ответ решением, уточняющий вопрос, передача. */
-export const AI_DECISIONS = ['answer', 'clarify', 'handoff'] as const;
+/**
+ * Решение кода по вызову (колонка hda_runs.decision): ответ решением, уточняющий вопрос, передача; у кандидата
+ * skipped (модель не уверена, кандидата нет; веха M5c, решение 27).
+ */
+export const AI_DECISIONS = ['answer', 'clarify', 'handoff', 'skipped'] as const;
 export type AiDecision = (typeof AI_DECISIONS)[number];
 
 /**
@@ -63,6 +66,8 @@ export const PURPOSE_TIER: Readonly<Record<AiPurpose, AiTier>> = {
   thanks: 'fast',
   problem_translation: 'fast',
   announcement_translation: 'fast',
+  // Кандидат в решение (веха M5c, решение 26): черновик всё равно проверяет человек.
+  candidate: 'fast',
 };
 
 /** Модель уровня, если ни настройка, ни окружение её не задали (решение 1, раздел 9.2 ТЗ). */
@@ -202,3 +207,27 @@ export type AiReviewResult = (typeof AI_REVIEW_RESULTS)[number];
 /** Выборка для просмотра первых двух недель пилота (15.6): последние ответы решением за столько дней. */
 export const AI_REVIEW_SAMPLE_DAYS = 14;
 export const AI_REVIEW_SAMPLE_SIZE = 20;
+
+// --- Кандидаты в решения (веха M5c, задачи 9 и 10, решения 26-29) ---
+
+export const CANDIDATE_STATUSES = ['new', 'accepted', 'merged', 'rejected'] as const;
+export type CandidateStatus = (typeof CANDIDATE_STATUSES)[number];
+export const CANDIDATE_REJECT_REASONS = ['duplicate', 'too_specific', 'not_a_solution', 'wrong_data', 'other'] as const;
+export type CandidateRejectReason = (typeof CANDIDATE_REJECT_REASONS)[number];
+
+/** Настройки кандидатов в hdc_settings: выключатель, дневной предел вызовов, пороги склейки (решения 26, 28). */
+export const CANDIDATE_SETTINGS = {
+  enabled: 'candidates.enabled',
+  dailyLimit: 'candidates.daily_limit',
+  publishedSimilarity: 'candidates.published_similarity',
+  mergeSimilarity: 'candidates.merge_similarity',
+} as const;
+export const CANDIDATE_DEFAULTS = { enabled: true, dailyLimit: 50, publishedSimilarity: 0.88, mergeSimilarity: 0.85 } as const;
+/** Обращения, закрытые за столько суток, обход берёт в кандидаты (решение 26). */
+export const CANDIDATE_LOOKBACK_DAYS = 7;
+/** Отклонённый кандидат возвращается в очередь, когда новых источников стало столько (FR-CAND-05). */
+export const CANDIDATE_RETURN_SOURCES = 5;
+/** Попыток получить вектор, после которых кандидат создаётся без склейки (решение 28). */
+export const CANDIDATE_VECTOR_ATTEMPTS = 3;
+/** Итоги закрытия, из которых растут кандидаты (решение 26). */
+export const CANDIDATE_RESOLUTIONS = ['solved', 'workaround'] as const;

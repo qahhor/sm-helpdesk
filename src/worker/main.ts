@@ -27,6 +27,7 @@ import { intakeEmail } from '@/modules/hdt/api/email-intake';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, type NoActivityOptions, runNoActivityRules } from '@/modules/hdw/api/engine';
+import { runCandidateJob, runCandidatesEmbed, runCandidatesSweep } from '@/modules/hda/api/candidates';
 import { syncDevTasks } from '@/modules/hdw/api/dev-task-jobs';
 import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueDeliveries, wakeWebhooks } from '@/modules/hdw/api/webhook-jobs';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
@@ -60,6 +61,9 @@ export const SCHEDULES = [
   { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
   // Доля принятых предложений разбора за месяц (план M5b, задача 7, FR-TRI-04): ночью после сверки индекса.
   { name: 'ai.triage_review', cron: '45 3 * * *', tz: 'Asia/Tashkent' },
+  // Кандидаты в решения (план M5c, решения 26, 28): обход раз в 15 минут, досчёт векторов ночью.
+  { name: 'ai.candidates_sweep', cron: '*/15 * * * *', tz: 'UTC' },
+  { name: 'ai.candidates_embed', cron: '20 4 * * *', tz: 'Asia/Tashkent' },
   // Сводка модерации идей роли product (план M7, задача 8, решение 15): раз в день в 09:30 по Ташкенту.
   { name: 'ideas.moderation_digest', cron: '30 9 * * *', tz: 'Asia/Tashkent' },
   // Отбор месяца (план M7, задача 9, решение 16): 1-го числа в 09:00 по Ташкенту.
@@ -272,6 +276,18 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   await boss.work('ai.triage_review', polling, () => timedJob('ai.triage_review', async () => {
     const off = await runTriageReview(actor('ai.triage_review'));
     if (off.length > 0) console.info(`AI: отключены предложения разбора полей ${off.join(', ')}`);
+  }));
+  await boss.work('ai.candidates_sweep', polling, () => timedJob('ai.candidates_sweep', async () => {
+    const { queued } = await runCandidatesSweep(actor('ai.candidates_sweep'));
+    if (queued > 0) console.info(`AI: кандидатов в решения поставлено ${queued}`);
+  }));
+  await boss.work('ai.candidate', polling, ([job]) => timedJob('ai.candidate', async () => {
+    // Кандидат по закрытому обращению (план M5c, задача 9): в задании только идентификатор обращения.
+    await runCandidateJob(actor('ai.candidate'), job?.data);
+  }));
+  await boss.work('ai.candidates_embed', polling, () => timedJob('ai.candidates_embed', async () => {
+    const { embedded, merged } = await runCandidatesEmbed(actor('ai.candidates_embed'));
+    if (embedded > 0) console.info(`AI: векторов кандидатов досчитано ${embedded}, склеено ${merged}`);
   }));
   await boss.work('ai.watchdog', polling, ([job]) => timedJob('ai.watchdog', async () => {
     // Через 60 секунд после создания или ответа клиента (с обращением) и раз в минуту по расписанию (без него).

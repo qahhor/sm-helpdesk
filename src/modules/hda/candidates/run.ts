@@ -268,8 +268,16 @@ export async function runCandidatesEmbed(system: SystemActor): Promise<{ embedde
   for (const row of rows) {
     const vector = await queryVector(vectorText(row));
     if (!vector) break;
-    embedded += 1;
     const joined = await withActor(system, async (tx) => {
+      // Между выборкой и склейкой сотрудник мог решить кандидата (принять, объединить, отклонить): строка блокируется и
+      // проверяется заново, решённый кандидат задача не трогает.
+      const [source] = await tx
+        .select({ id: solutionCandidates.candidateId })
+        .from(solutionCandidates)
+        .where(and(eq(solutionCandidates.candidateId, row.id), eq(solutionCandidates.status, 'new'), isNull(solutionCandidates.decidedBy)))
+        .for('update');
+      if (!source) return null;
+      embedded += 1;
       const nearest = await nearestCandidateTx(tx, vector, row.id);
       if (nearest && nearest.similarity >= config.mergeSimilarity) {
         // Источники переходят к похожему кандидату, опустевший кандидат удаляется (он ещё не решался сотрудником).

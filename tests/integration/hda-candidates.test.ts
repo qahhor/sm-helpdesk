@@ -189,3 +189,35 @@ test('настройки кандидатов: только администра
   await expect(saveCandidateSettings({ ...admin, freshAuthAt: new Date(Date.now() - 3600_000) }, { dailyLimit: '5', publishedPercent: '90', mergePercent: '80' })).rejects.toMatchObject({ code: 'stale_session' });
   await expect(saveCandidateSettings(admin, { dailyLimit: '-1', publishedPercent: '90', mergePercent: '80' })).rejects.toMatchObject({ code: 'invalid_input' });
 });
+
+test('ночная склейка: кандидат, решённый сотрудником между выборкой и склейкой, не трогается', async () => {
+  setEmbedderForTests({
+    name: 'stub',
+    dimensions: 1024,
+    async embed() {
+      throw new EmbeddingUnavailableError('unreachable');
+    },
+  });
+  expect(await runCandidateJob(SYSTEM, { ticketId: await closed(f.aUser) })).toBe('created');
+  expect(await runCandidateJob(SYSTEM, { ticketId: await closed(f.bUser) })).toBe('created');
+  const [, second] = await candidates();
+  // Вектор второго кандидата считается уже после выборки: в этот момент сотрудник отклоняет его.
+  let calls = 0;
+  const stubEmbedder = createStubEmbedder();
+  setEmbedderForTests({
+    ...stubEmbedder,
+    async embed(texts) {
+      calls++;
+      if (calls === 2)
+        await pools.root.query(`update hda_solution_candidates set status = 'rejected', reject_reason = 'too_specific', rejected_at_source_count = 1, decided_on = now(), decided_by = $2 where candidate_id = $1`, [
+          second.candidate_id,
+          f.l1.userId,
+        ]);
+      return stubEmbedder.embed(texts);
+    },
+  });
+  expect(await runCandidatesEmbed(SYSTEM)).toMatchObject({ merged: 0 });
+  const after = (await pools.root.query(`select status, source_count, decided_by from hda_solution_candidates where candidate_id = $1`, [second.candidate_id])).rows[0];
+  expect(after).toMatchObject({ status: 'rejected', source_count: 1, decided_by: f.l1.userId });
+  expect((await pools.root.query(`select count(*)::int as n from hda_candidate_sources where candidate_id = $1`, [second.candidate_id])).rows[0].n).toBe(1);
+});

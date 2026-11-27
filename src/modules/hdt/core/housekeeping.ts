@@ -21,6 +21,7 @@ import {
 import { ticketEvents, ticketMessages, ticketPresence, tickets } from '../schema';
 import { addWorkingDays } from '../sla';
 import { systemText, type SystemTextKey } from '../system-text';
+import { aiReopenedTx } from './ai';
 import { notifyTicketTx } from './notify';
 import { calendarFor, needsSlaRefreshTx, refreshSla, slaPhase, soonMoment } from './sla';
 import { logEvent } from '@/lib/log';
@@ -60,6 +61,14 @@ async function refreshStale(actor: SystemActor, now: Date): Promise<number> {
   return withActor(actor, async (tx) => {
     const ids = await needsSlaRefreshTx(tx, SWEEP_BATCH);
     for (const id of ids) await refreshSla(tx, id, now);
+    // Решённое кнопкой "Помогло" и открытое снова, где переход в "После AI" после действия клиента не прошёл (I3).
+    const reopened = await tx
+      .select({ ticketId: tickets.ticketId })
+      .from(tickets)
+      // Условие текстом без параметров совпадает с условием частичного индекса hdt_tickets_i27 (миграция 0097).
+      .where(sql`${tickets.aiState} = 'resolved_by_ai' and ${tickets.status} not in ('resolved', 'closed')`)
+      .limit(SWEEP_BATCH);
+    for (const row of reopened) await aiReopenedTx(tx, { ticketId: row.ticketId, now });
     return ids.length;
   });
 }

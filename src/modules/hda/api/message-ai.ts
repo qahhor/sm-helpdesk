@@ -10,7 +10,8 @@ import { clientMessageForAi, type ClientMessageForAi, reopenAfterAiThanks } from
 import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { assembleMessageData } from '../assemble';
 import { HdaError } from '../error';
-import { AI_FIRST_LINE_TIMEOUT_MS } from '../pref';
+import { thanksCallsTodayTx } from '../core/runs';
+import { AI_FIRST_LINE_TIMEOUT_MS, AI_THANKS_PER_TICKET_DAY } from '../pref';
 import { aiMessageTranslations } from '../schema';
 import { callAi } from './run';
 
@@ -165,6 +166,9 @@ export async function runThanksJob(system: SystemActor, data: unknown): Promise<
   if (!message?.isThanks) return 'skipped';
   const context = await redactionFor(system, message);
   if (!context?.isAiEnabled) return 'skipped';
+  // Не больше одного вопроса модели на обращение в сутки (I5): следующие "спасибо" модель не спрашивает, остаётся
+  // решение кода.
+  if ((await withActor(system, (tx) => thanksCallsTodayTx(tx, message.ticketId))) >= AI_THANKS_PER_TICKET_DAY) return 'skipped';
   try {
     const outcome = await callAi(system, {
       purpose: 'thanks',

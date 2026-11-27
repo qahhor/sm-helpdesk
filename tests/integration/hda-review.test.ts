@@ -3,7 +3,10 @@ import { processEvents } from '@/modules/hdc/api';
 import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
 import { aiReviewList, flagAiAnswer, reviewAiAnswer } from '@/modules/hda/api/review';
 import { aiHandoff, postAiMessage } from '@/modules/hdt/api/ai';
-import { createTicket, getAgentTicket, getTicket, listQueue, postStaffMessage, queueCounts } from '@/modules/hdt/api';
+import { createTicket, getAgentTicket, getTicket, listQueue, postStaffMessage, queueCounts, reopenTicket, replyToTicket } from '@/modules/hdt/api';
+import { aiFeedback } from '@/modules/hdt/api/ai-feedback';
+import { reopenAfterAiThanks } from '@/modules/hdt/api/ai-messages';
+import { ticketsMinute } from '@/modules/hdt/api/jobs';
 import { handleRuleEvent, newRuleRun } from '@/modules/hdw/api/engine';
 import { saveRule, setRuleEnabled } from '@/modules/hdw/api/rules';
 import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
@@ -138,4 +141,70 @@ test('правило на событие "AI передал обращение" 
   const queues = (await pools.root.query(`select ticket_id, queue from hdt_tickets where ticket_id = any($1)`, [[topic.ticketId, other.ticketId]])).rows;
   expect(Object.fromEntries(queues.map((r) => [r.ticket_id, r.queue]))).toEqual({ [topic.ticketId]: 'care', [other.ticketId]: 'l1' });
   expect((await pools.root.query(`select result from hdw_rule_runs where rule_id = $1`, [ruleId])).rows.map((r) => r.result)).toEqual(['applied']);
+});
+
+// --- Независимая проверка M5b, находка I3 и замечание M3 ---
+
+const aiRow = (ticketId: string) =>
+  pools.root.query(`select status, ai_state, ai_handoff_reason, queue, assignee_id, first_responded_on, ai_handoff_on from hdt_tickets where ticket_id = $1`, [ticketId]).then((r) => r.rows[0]);
+async function helped() {
+  const a = await answered();
+  const ctx = await clientCtx(f.aUser);
+  expect(await aiFeedback(ctx, { number: a.number, messageId: a.messageId, choice: 'helped' })).toBe('helped');
+  return { ...a, ctx };
+}
+async function expectAfterAi(ticketId: string, number: number) {
+  expect(await aiRow(ticketId)).toMatchObject({ status: 'in_progress', ai_state: 'handed_off', ai_handoff_reason: 'not_helped', queue: 'l1', assignee_id: null, first_responded_on: null });
+  expect((await aiRow(ticketId)).ai_handoff_on).not.toBeNull();
+  expect((await queue('after_ai')).map((r) => r.number)).toContain(number);
+  expect((await pools.root.query(`select diff from hdc_audit_log where object_id = $1 and action = 'ticket.ai_handoff'`, [ticketId])).rows).toEqual([{ diff: { reason: 'not_helped', from: 'resolved_by_ai' } }]);
+}
+
+test('находка I3: ответ клиента после "Помогло" ставит обращение в "После AI"', async () => {
+  const a = await helped();
+  await replyToTicket(a.ctx, { number: a.number, body: 'Нет, ошибка снова появилась' });
+  await expectAfterAi(a.ticketId, a.number);
+});
+
+test('находка I3: "Открыть заново" после "Помогло" ставит обращение в "После AI"', async () => {
+  const a = await helped();
+  await reopenTicket(a.ctx, { number: a.number });
+  await expectAfterAi(a.ticketId, a.number);
+});
+
+test('находка I3: "не благодарность" по ответу модели после "Помогло" ставит обращение в "После AI"', async () => {
+  const a = await helped();
+  await replyToTicket(a.ctx, { number: a.number, body: 'Спасибо' });
+  expect((await aiRow(a.ticketId)).status).toBe('resolved');
+  const thanks = (await pools.root.query(`select message_id from hdt_ticket_messages where ticket_id = $1 and is_thanks`, [a.ticketId])).rows[0].message_id as string;
+  expect(await reopenAfterAiThanks({ type: 'system', job: 'ai.thanks' }, thanks)).toBe(true);
+  await expectAfterAi(a.ticketId, a.number);
+});
+
+test('замечание M3: помощник молчит 90 секунд после ответа клиента - обращение в "После AI"', async () => {
+  const silent = await answered();
+  const fresh = await answered();
+  const ctx = await clientCtx(f.aUser);
+  await replyToTicket(ctx, { number: silent.number, body: 'Не помогло, ошибка та же' });
+  await replyToTicket(ctx, { number: fresh.number, body: 'Не помогло, ошибка та же' });
+  // Фоновый процесс остановлен: помощник не ответил и не передал. Время сдвигается мимо триггеров.
+  await pools.root.query(
+    `begin; set local session_replication_role = replica;
+     update hdt_ticket_messages set created_on = created_on - interval '120 seconds' where ticket_id = '${silent.ticketId}';
+     update hdt_tickets set last_client_message_on = now() - interval '91 seconds' where ticket_id = '${silent.ticketId}'; commit`,
+  );
+  expect(await aiRow(silent.ticketId)).toMatchObject({ status: 'in_progress', ai_state: 'active' });
+  const after = (await queue('after_ai')).map((r) => r.number);
+  expect(after).toContain(silent.number);
+  expect(after).not.toContain(fresh.number);
+});
+
+test('находка I3: переход в "После AI" не прошёл после действия клиента - его делает задача раз в минуту', async () => {
+  const a = await helped();
+  // Как будто система упала между ответом клиента и своим шагом: статус уже "В работе", состояние ещё resolved_by_ai.
+  await pools.root.query(`begin; set local session_replication_role = replica; update hdt_tickets set status = 'in_progress', resolved_on = null where ticket_id = '${a.ticketId}'; commit`);
+  // До задачи обращение уже видно в "После AI".
+  expect((await queue('after_ai')).map((r) => r.number)).toContain(a.number);
+  await ticketsMinute({ type: 'system', job: 'tickets.minute' });
+  await expectAfterAi(a.ticketId, a.number);
 });

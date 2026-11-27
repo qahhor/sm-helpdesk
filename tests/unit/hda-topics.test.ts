@@ -96,3 +96,39 @@ test('скелет: одна форма для обеих письменност
   expect(skeleton('Toʻlov')).toBe(skeleton("to'lov"));
   expect(skeleton('шартнома')).toBe(skeleton('shartnoma'));
 });
+
+// Независимая проверка M5b, находка I6: частые формы, которые списки пропускали. Повелительное и прошедшее время,
+// "менеджер", "специалист", "не бот", греческие буквы-двойники.
+test.each([
+  ['payments', 'верните деньги за подписку'],
+  ['payments', 'у нас списали оплату дважды'],
+  ['security', 'кто-то зашёл в мою учётку без спроса'],
+  ['contract', 'Вопрос по дοговοру'],
+  ['complaint', 'Это жαлοбα на поддержку'],
+])('находка I6, тема %s: %s', (expected, text) => {
+  expect(topic(text)).toBe(expected);
+});
+
+test.each([
+  ['позовите менеджера'],
+  ['Нужно поговорить с менеджером'],
+  ['Мне нужен специалист, а не бот'],
+  ['Please let me talk to your manager'],
+  ['Menejer bilan gaplashmoqchiman'],
+  ['Менежер билан гаплашмоқчиман'],
+  ['Mutaxassis kerak, bot emas'],
+  ['Мутахассис керак, бот эмас'],
+  ['Позовите οператора'],
+])('находка I6, просьба о человеке: %s', (text) => {
+  expect(asksHuman(text)).toBe(true);
+});
+
+test('находка I6: обычные вопросы про менеджеров и списание товара не передаются', () => {
+  for (const text of ['Менеджер по продажам не видит заказы клиентов', 'Списали товар со склада, а остаток не изменился', 'Manager role cannot open the price list', 'Menejer buyurtmalarni ko\'rmayapti'])
+    expect([asksHuman(text), topic(text)], text).toEqual([false, null]);
+});
+
+test('находка I6: греческие и прочие двойники сводятся к той же форме', () => {
+  expect(skeleton('дοговοр')).toBe(skeleton('договор'));
+  expect(skeleton('οperatοr')).toBe(skeleton('operator'));
+});

@@ -110,6 +110,8 @@ export async function runFirstLine(system: SystemActor, ticketId: string, opts: 
 type Handoff = (reason: AiHandoffReason, questionIds?: readonly string[], locale?: Locale) => Promise<FirstLineResult>;
 
 async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff, now: () => Date): Promise<FirstLineResult> {
+  // Помощник уже ответил, а клиент после этого не писал: лишнее задание (решение 5; независимая проверка M5b, I2).
+  if (t.hasAiMessage && t.clientMessages.length === 0) return { status: 'skipped', why: 'busy' };
   if (t.aiReplyCount >= 3) return handoff('reply_limit');
   const config = await aiConfig();
   const profile = await orgAiProfile(system, { orgId: t.orgId, userIds: [t.authorId] });
@@ -168,14 +170,28 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
     effort: 'low',
     timeoutMs,
     detectRepeat: true,
+    // Тот же текст при другом приоритете не повтор: у P1 своё правило (FR-AI-07; независимая проверка M5b, I1).
+    repeatKey: `priority:${t.priority}`,
   });
   if (outcome.status === 'unavailable') return handoff('ai_failure', [], lang);
   if (outcome.status === 'limited') return handoff('ai_limit', [], lang);
   const runId = outcome.runId;
   const record = (decision: Parameters<typeof recordDecision>[2]) => recordDecision(system, runId, decision);
 
+  // P1 (FR-AI-07): отвечается только точное совпадение сигнатуры, и передача всё равно сразу. Держится и на повторе
+  // входа (независимая проверка M5b, I1).
+  const p1 = async (questionIds: readonly string[]) => {
+    const exactSolution = exact ? known.get(exact.articleId) : undefined;
+    if (exactSolution?.invariantsOk) {
+      const posted = await answer(system, t, exactSolution, 'exact_error', null, record, now, { keepGoing: true });
+      if (posted.status === 'skipped') return posted;
+    } else await record({ decision: 'handoff', handoffReason: 'p1' });
+    return handoff('p1', questionIds, lang);
+  };
+
   // Повтор того же текста (решение 12): прошлый выбор, если решение снова среди найденных и уверенных.
   if (outcome.status === 'repeated') {
+    if (t.priority === 'p1') return p1([]);
     const prior = outcome.prior;
     const chosen = prior.decision === 'answer' && prior.solutionId ? known.get(prior.solutionId) : undefined;
     if (chosen && chosen.invariantsOk) return answer(system, t, chosen, 'likely_solution', scoreOf.get(chosen.articleId)?.score ?? null, record, now);
@@ -198,12 +214,7 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
   if (out.customerAsksHuman) return pass('customer_request');
   if (out.restrictedTopic) return pass('restricted_topic');
   const chosen = out.solutionId ? known.get(out.solutionId) : undefined;
-  if (t.priority === 'p1') {
-    // При P1 отвечается только точное совпадение, и передача всё равно сразу (FR-AI-07).
-    const exactSolution = exact ? known.get(exact.articleId) : undefined;
-    if (exactSolution?.invariantsOk) await answer(system, t, exactSolution, 'exact_error', null, record, now, { keepGoing: true });
-    return handoff('p1', out.questionIds, lang);
-  }
+  if (t.priority === 'p1') return p1(out.questionIds);
   if (out.action === 'answer' && chosen) {
     // Машинный перевод с другими ссылками, числами или шагами клиенту не показывается (FR-AI-12).
     if (!chosen.invariantsOk) return pass('low_confidence', out.questionIds);
@@ -217,6 +228,7 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
         payload: { kind: 'clarify', introId: out.introId, options: pair.map((s) => ({ articleId: s!.articleId, articleNumber: s!.number })), locale: lang },
         now: now(),
         expectReplyCount: t.aiReplyCount,
+        expectLastClientMessageId: t.lastClientMessageId,
       });
     } catch (error) {
       if (isRefused(error)) return { status: 'skipped', why: 'busy' };
@@ -254,6 +266,8 @@ async function answer(
       payload: { kind: 'answer', introId, articleId: chosen.articleId, articleNumber: chosen.number, locale: chosen.locale },
       now: now(),
       expectReplyCount: t.aiReplyCount,
+      // Клиент написал, пока модель думала: ответ на старый текст не уходит, новое задание ответит с его сообщением (I2).
+      expectLastClientMessageId: t.lastClientMessageId,
       mail: { solutionTitle: chosen.title, lines: chosen.text.split('\n') },
     });
   } catch (error) {

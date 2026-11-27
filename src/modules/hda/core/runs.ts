@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, eq, gte, inArray, isNotNull, isNull, notInArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { AI_DAY_TIME_ZONE, AI_FIRST_LINE_PURPOSES, AI_REPEAT_HOURS, type AiDecision, type AiHandoffReason, type AiOutcome, type AiPurpose } from '../pref';
+import { AI_DAY_TIME_ZONE, AI_USER_LIMIT_PURPOSES, AI_REPEAT_HOURS, type AiDecision, type AiHandoffReason, type AiOutcome, type AiPurpose } from '../pref';
 import { aiOrgCutoffs, aiRuns } from '../schema';
 
 // Модуль hda, слой core: журнал вызовов модели (план M5, задача 5, решения 2 и 13; план M5b, задача 1, решения 11, 12).
@@ -44,18 +44,27 @@ export async function callsTodayTx(tx: Tx): Promise<number> {
   const [row] = await tx
     .select({ count: sql<number>`count(*)::int` })
     .from(aiRuns)
-    .where(and(gte(aiRuns.createdOn, dayStart), notInArray(aiRuns.outcome, NOT_CALLS), notInArray(aiRuns.purpose, [...AI_FIRST_LINE_PURPOSES])));
+    .where(and(gte(aiRuns.createdOn, dayStart), notInArray(aiRuns.outcome, NOT_CALLS), notInArray(aiRuns.purpose, [...AI_USER_LIMIT_PURPOSES])));
   return row?.count ?? 0;
 }
 
-/** Вызовы первой линии и разбора за сутки по Ташкенту: у пользователя и у организации (решение 11). */
+/** Вызовы целей с пределом пользователя за сутки по Ташкенту: у пользователя и у организации (решение 11). */
 export async function firstLineCallsTodayTx(tx: Tx, who: { userId: string | null; orgId: string | null }): Promise<{ user: number; org: number }> {
-  const base = and(gte(aiRuns.createdOn, dayStart), notInArray(aiRuns.outcome, NOT_CALLS), inArray(aiRuns.purpose, [...AI_FIRST_LINE_PURPOSES]));
+  const base = and(gte(aiRuns.createdOn, dayStart), notInArray(aiRuns.outcome, NOT_CALLS), inArray(aiRuns.purpose, [...AI_USER_LIMIT_PURPOSES]));
   const count = async (where: ReturnType<typeof and>) => (await tx.select({ count: sql<number>`count(*)::int` }).from(aiRuns).where(where))[0]?.count ?? 0;
   return {
     user: who.userId ? await count(and(base, eq(aiRuns.userId, who.userId))) : 0,
     org: who.orgId ? await count(and(base, eq(aiRuns.orgId, who.orgId))) : 0,
   };
+}
+
+/** Сколько раз модель уточняла благодарность в обращении за сутки по Ташкенту (отказ по пределу не считается). */
+export async function thanksCallsTodayTx(tx: Tx, ticketId: string): Promise<number> {
+  const [row] = await tx
+    .select({ count: sql<number>`count(*)::int` })
+    .from(aiRuns)
+    .where(and(eq(aiRuns.ticketId, ticketId), eq(aiRuns.purpose, 'thanks'), gte(aiRuns.createdOn, dayStart), notInArray(aiRuns.outcome, NOT_CALLS)));
+  return row?.count ?? 0;
 }
 
 /** Расход за текущий месяц по Ташкенту: всего и по организациям (все цели вместе, решение 11). */

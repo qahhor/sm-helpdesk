@@ -74,7 +74,14 @@ const answerPayload = z.discriminatedUnion('kind', [
 /** Ответ решением или вопрос помощника (решения 9, 15). Возвращает идентификатор сообщения. */
 export async function postAiMessage(
   actor: SystemActor,
-  input: { ticketId: string; payload: Extract<AiPayload, { kind: 'answer' | 'clarify' }>; now?: Date; expectReplyCount?: number; mail?: { solutionTitle: string; lines: string[] } },
+  input: {
+    ticketId: string;
+    payload: Extract<AiPayload, { kind: 'answer' | 'clarify' }>;
+    now?: Date;
+    expectReplyCount?: number;
+    expectLastClientMessageId?: string | null;
+    mail?: { solutionTitle: string; lines: string[] };
+  },
 ): Promise<string> {
   assertSystem(actor);
   const ticketId = uuid.parse(input.ticketId);
@@ -85,6 +92,7 @@ export async function postAiMessage(
       payload,
       now: input.now ?? new Date(),
       ...(input.expectReplyCount !== undefined ? { expectReplyCount: input.expectReplyCount } : {}),
+      ...(input.expectLastClientMessageId !== undefined ? { expectLastClientMessageId: input.expectLastClientMessageId === null ? null : uuid.parse(input.expectLastClientMessageId) } : {}),
       ...(input.mail ? { mail: { solutionTitle: input.mail.solutionTitle.slice(0, 200), lines: input.mail.lines.slice(0, 30).map((l) => l.slice(0, 500)) } } : {}),
     }),
   );

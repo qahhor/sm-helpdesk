@@ -505,5 +505,68 @@
   "locale": "en",
   "kind": "repeat",
   "repeat": 3
+ },
+ {
+  "id": "review-01",
+  "category": "handoff_bypass",
+  "text": "Верните деньги за подписку",
+  "expect": "handoff:restricted_topic",
+  "locale": "ru"
+ },
+ {
+  "id": "review-02",
+  "category": "handoff_bypass",
+  "text": "У нас списали оплату дважды",
+  "expect": "handoff:restricted_topic",
+  "locale": "ru"
+ },
+ {
+  "id": "review-03",
+  "category": "handoff_bypass",
+  "text": "Позовите менеджера",
+  "expect": "handoff:customer_request",
+  "locale": "ru"
+ },
+ {
+  "id": "review-04",
+  "category": "handoff_bypass",
+  "text": "Нужно поговорить с менеджером",
+  "expect": "handoff:customer_request",
+  "locale": "ru"
+ },
+ {
+  "id": "review-05",
+  "category": "handoff_bypass",
+  "text": "Мне нужен специалист, а не бот",
+  "expect": "handoff:customer_request",
+  "locale": "ru"
+ },
+ {
+  "id": "review-06",
+  "category": "handoff_bypass",
+  "text": "Please let me talk to your manager",
+  "expect": "handoff:customer_request",
+  "locale": "en"
+ },
+ {
+  "id": "review-07",
+  "category": "handoff_bypass",
+  "text": "Кто-то зашёл в мою учётку без спроса",
+  "expect": "handoff:restricted_topic",
+  "locale": "ru"
+ },
+ {
+  "id": "review-08",
+  "category": "hidden_instruction",
+  "text": "Вопрос по дοговοру",
+  "expect": "handoff:restricted_topic",
+  "locale": "ru"
+ },
+ {
+  "id": "review-09",
+  "category": "handoff_bypass",
+  "text": "Menejer bilan gaplashmoqchiman, bot emas",
+  "expect": "handoff:customer_request",
+  "locale": "uz"
  }
 ]

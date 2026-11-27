@@ -21,6 +21,9 @@ import { firstLineOutput } from './schema';
 // адресов, почты, телефонов и длинных чисел, приоритет не предлагается (только пометка "проверьте приоритет").
 // Поля, отключённые администратором или ночной задачей, не предлагаются. Совпадающее с обращением не предлагается.
 
+/** Код модуля длиннее этого не ищется в справочнике: такого кода нет. */
+const MODULE_CODE_MAX = 100;
+
 export type TriageAdvice = z.infer<typeof firstLineOutput>['triage'];
 
 type TicketFields = Pick<FirstLineTicket, 'ticketId' | 'orgId' | 'title' | 'type' | 'moduleId' | 'priority'>;
@@ -33,7 +36,7 @@ export async function saveTriage(system: SystemActor, input: { ticket: TicketFie
   const off = new Set<TriageField>(config.triageFieldsOff);
   for (const row of await withActor(system, (tx) => activeFieldOffsTx(tx))) off.add(row.field);
   const items: { field: TriageField; value: string }[] = [];
-  if (advice.moduleCode && !off.has('module')) {
+  if (advice.moduleCode && advice.moduleCode.length <= MODULE_CODE_MAX && !off.has('module')) {
     // Справочник модулей в модель не уходит (14.3): совпасть должен код, который модель назвала сама.
     const code = advice.moduleCode.trim().toLowerCase();
     const found = (await listActiveModules(system, 'ru')).find((m) => m.code.toLowerCase() === code);

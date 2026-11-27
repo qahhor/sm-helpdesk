@@ -22,6 +22,8 @@ type Props = {
   createdOn: Date;
   /** Кнопки только у последнего сообщения помощника, пока помощник ведёт обращение и ждёт реакции клиента. */
   actionable: boolean;
+  /** "Помогло" решает обращение: кнопка только у автора и администратора клиента (решение 0096). */
+  canResolve: boolean;
   timeZone: string;
 };
 
@@ -29,11 +31,20 @@ async function solutionOf(client: Props['client'], articleNumber: number, locale
   return clientSolutionPage(client, { ref: String(articleNumber), locale });
 }
 
-function Buttons({ number, messageId, labels, extra }: { number: number; messageId: string; labels: { label: string; helped: string; notHelped: string; needStaff: string }; extra?: { choice: string; label: string; articleId?: string }[] }) {
-  const choices = extra ?? [
-    { choice: 'helped', label: labels.helped },
-    { choice: 'not_helped', label: labels.notHelped },
-  ];
+function Buttons({
+  number,
+  messageId,
+  labels,
+  extra,
+  canResolve = true,
+}: {
+  number: number;
+  messageId: string;
+  labels: { label: string; helped: string; notHelped: string; needStaff: string };
+  extra?: { choice: string; label: string; articleId?: string }[];
+  canResolve?: boolean;
+}) {
+  const choices = extra ?? [...(canResolve ? [{ choice: 'helped', label: labels.helped }] : []), { choice: 'not_helped', label: labels.notHelped }];
   return (
     <div role="group" aria-label={labels.label} className="flex flex-wrap gap-2" data-testid="tez-actions">
       {[...choices, { choice: 'need_staff', label: labels.needStaff }].map((c) => (
@@ -51,7 +62,7 @@ function Buttons({ number, messageId, labels, extra }: { number: number; message
   );
 }
 
-export async function AiMessage({ client, number, messageId, payload, createdOn, actionable, timeZone }: Props) {
+export async function AiMessage({ client, number, messageId, payload, createdOn, actionable, canResolve, timeZone }: Props) {
   const t = await getTranslations('client.tez');
   const s = await getTranslations('client.solution');
   const locale = await getLocale();
@@ -102,7 +113,7 @@ export async function AiMessage({ client, number, messageId, payload, createdOn,
           </Link>
         </>
       );
-      if (actionable) actions = <Buttons number={number} messageId={messageId} labels={buttons} />;
+      if (actionable) actions = <Buttons number={number} messageId={messageId} labels={buttons} canResolve={canResolve} />;
     }
   } else if (payload.kind === 'clarify') {
     const pages = await Promise.all(payload.options.map((o) => solutionOf(client, o.articleNumber, locale)));

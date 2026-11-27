@@ -32,6 +32,11 @@ const input = z.strictObject({
   articleId: z.uuid().optional(),
 });
 
+/** Может ли клиент нажать "Помогло" (решение 0096): автор обращения или администратор клиента. */
+export function canResolveByAi(actor: ClientActor, authorId: string): boolean {
+  return actor.userId === authorId || actor.orgRole === 'client_admin';
+}
+
 export async function aiFeedback(ctx: { actor: ClientActor }, raw: unknown): Promise<AiFeedbackResult> {
   const parsed = input.safeParse(raw);
   if (!parsed.success) throw new HdtError('invalid_input');
@@ -39,7 +44,7 @@ export async function aiFeedback(ctx: { actor: ClientActor }, raw: unknown): Pro
   const actor = ctx.actor;
   const found = await withActor(actor, async (tx) => {
     const [t] = await tx
-      .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, status: tickets.status, aiState: tickets.aiState, aiReplyCount: tickets.aiReplyCount })
+      .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, authorId: tickets.authorId, status: tickets.status, aiState: tickets.aiState, aiReplyCount: tickets.aiReplyCount })
       .from(tickets)
       .where(and(clientTicketByNumber(actor, data.number), eq(tickets.orgId, actor.orgId)))
       .limit(1);
@@ -48,6 +53,9 @@ export async function aiFeedback(ctx: { actor: ClientActor }, raw: unknown): Pro
   });
   if (!found) throw new HdtError('not_found');
   const { ticket, last } = found;
+  // "Помогло" решает обращение: только автор и администратор клиента, как "Решение подошло" (решение 0026, пункт 21;
+  // решение 0096). Коллеге остаются "Не помогло", "Нужен сотрудник" и выбор в вопросе.
+  if (data.choice === 'helped' && !canResolveByAi(actor, ticket.authorId)) throw new HdtError('forbidden');
   if (!last || last.messageId !== data.messageId || ticket.aiState !== 'active' || ticket.status !== 'waiting_customer') throw new HdtError('transition_refused');
   const kind = last.payload.kind;
   if (kind !== 'answer' && kind !== 'clarify') throw new HdtError('transition_refused');

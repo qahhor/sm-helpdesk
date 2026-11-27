@@ -7,10 +7,12 @@ import { HANDOFF_QUESTION_IDS, INTRO_TEMPLATE_IDS } from '../pref';
 
 export const firstLineOutput = z.object({
   triage: z.object({
-    moduleCode: z.string().max(100).nullable(),
+    // Длину кода, заголовка и резюме проверяет код при записи (saveTriage, safeTriageTitle): длинный заголовок не
+    // предлагается, резюме обрезается. Предел в схеме отменял бы верный ответ клиенту (независимая проверка M5b, I4).
+    moduleCode: z.string().nullable(),
     type: z.enum(['bug', 'question', 'service_request']).nullable(),
-    title: z.string().max(80),
-    summary: z.string().max(300),
+    title: z.string(),
+    summary: z.string(),
     looksMoreSevere: z.boolean(),
   }),
   action: z.enum(['answer', 'clarify', 'handoff']),

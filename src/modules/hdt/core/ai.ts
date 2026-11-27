@@ -79,6 +79,12 @@ export async function postAiMessageTx(
     payload: Extract<AiPayload, { kind: 'answer' | 'clarify' }>;
     now: Date;
     expectReplyCount?: number;
+    /**
+     * Последнее публичное сообщение клиента, которое видело задание (null: не было). Клиент написал новое, пока задание
+     * ждало модель: transition_refused, ответ на старый текст не уходит, его сообщение разберёт следующее задание
+     * (независимая проверка M5b, I2). Не задано: не проверяется (выбор клиента в вопросе помощника).
+     */
+    expectLastClientMessageId?: string | null;
     /** Заголовок и строки опубликованного решения для письма и Telegram (задача 6). */
     mail?: { solutionTitle: string; lines: string[] };
   },
@@ -87,6 +93,7 @@ export async function postAiMessageTx(
   if (t.aiState !== 'active' || t.aiReplyCount >= AI_REPLY_LIMIT) throw new HdtError('transition_refused');
   // Второе задание на то же обращение уже ответило, пока это ждало модель: второго ответа нет (решение 5).
   if (input.expectReplyCount !== undefined && t.aiReplyCount !== input.expectReplyCount) throw new HdtError('transition_refused');
+  if (input.expectLastClientMessageId !== undefined && (await lastClientMessageIdTx(tx, t.ticketId)) !== input.expectLastClientMessageId) throw new HdtError('transition_refused');
   const to: TicketStatus = 'waiting_customer';
   if (t.status !== to) await aiStatusTx(tx, t, to);
   const [message] = await tx
@@ -117,6 +124,17 @@ export async function postAiMessageTx(
       aiAnswer: { introId: input.payload.introId, solutionTitle: input.mail.solutionTitle, lines: input.mail.lines, articleNumber: input.payload.articleNumber },
     });
   return message!.messageId;
+}
+
+/** Последнее публичное сообщение клиента в обращении или null. */
+async function lastClientMessageIdTx(tx: Tx, ticketId: string): Promise<string | null> {
+  const [m] = await tx
+    .select({ messageId: ticketMessages.messageId })
+    .from(ticketMessages)
+    .where(and(eq(ticketMessages.ticketId, ticketId), eq(ticketMessages.authorType, 'client'), eq(ticketMessages.isInternal, false)))
+    .orderBy(sql`${ticketMessages.createdOn} desc`, sql`${ticketMessages.messageId} desc`)
+    .limit(1);
+  return m?.messageId ?? null;
 }
 
 /** Причины, при которых клиент получает шаблонное подтверждение без знака Теза (FR-AI-15, решение 14). */
@@ -181,6 +199,8 @@ export type FirstLineTicket = {
   clientMessages: string[];
   /** Есть ли уже сообщение помощника в обращении. */
   hasAiMessage: boolean;
+  /** Последнее публичное сообщение клиента (любое, не только после помощника) или null: проверка при ответе (I2). */
+  lastClientMessageId: string | null;
 };
 
 export async function firstLineTicketTx(tx: Tx, ticketId: string): Promise<FirstLineTicket | null> {
@@ -208,13 +228,14 @@ export async function firstLineTicketTx(tx: Tx, ticketId: string): Promise<First
     .limit(1);
   if (!t) return null;
   const rows = await tx
-    .select({ authorType: ticketMessages.authorType, body: ticketMessages.body, isInternal: ticketMessages.isInternal })
+    .select({ messageId: ticketMessages.messageId, authorType: ticketMessages.authorType, body: ticketMessages.body, isInternal: ticketMessages.isInternal })
     .from(ticketMessages)
     .where(eq(ticketMessages.ticketId, ticketId))
     .orderBy(asc(ticketMessages.createdOn), asc(ticketMessages.messageId));
   const lastAi = rows.map((r) => r.authorType).lastIndexOf('ai');
   const clientMessages = rows.slice(lastAi + 1).filter((r) => r.authorType === 'client' && !r.isInternal).map((r) => r.body);
-  return { ...t, clientMessages, hasAiMessage: lastAi >= 0 };
+  const lastClient = rows.filter((r) => r.authorType === 'client' && !r.isInternal).at(-1);
+  return { ...t, clientMessages, hasAiMessage: lastAi >= 0, lastClientMessageId: lastClient?.messageId ?? null };
 }
 
 /**
@@ -267,4 +288,22 @@ export async function aiResolveTx(tx: Tx, input: { ticketId: string; articleId: 
   await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: t.ticketId, orgId: t.orgId, diff });
   await emitEventTx(tx, { orgId: t.orgId, ticketId: t.ticketId, kind: 'status_changed', payload: diff });
   await refreshSla(tx, t.ticketId, input.now, { status: 'resolved', aiState: 'resolved_by_ai', resolvedOn: input.now, resolutionType: 'solved', solutionId: input.articleId });
+}
+
+/**
+ * Обращение, решённое кнопкой "Помогло", открыто снова (ответ клиента, "Открыть заново", письмо, "не благодарность"
+ * по ответу модели): помощник не помог (независимая проверка M5b, I3). Той же транзакцией, что смена статуса:
+ * состояние handed_off с причиной not_helped, линия l1, срок первого ответа сотрудника заново от этого момента
+ * (FR-SLA-10), внутреннее событие истории, событие для правил и журнал аудита. Так обращение стоит в "После AI", а не
+ * выпадает из всех очередей. Не решено помощником или ещё не открыто: ничего, false.
+ */
+export async function aiReopenedTx(tx: Tx, input: { ticketId: string; now: Date }): Promise<boolean> {
+  const t = await lockAi(tx, input.ticketId);
+  if (t.aiState !== 'resolved_by_ai' || t.status === 'resolved' || t.status === 'closed') return false;
+  const reason: AiHandoffReason = 'not_helped';
+  await refreshSla(tx, t.ticketId, input.now, { aiState: 'handed_off', aiHandoffReason: reason, aiHandoffOn: input.now, queue: 'l1', firstRespondedOn: null, firstResponseBreachedOn: null });
+  await tx.insert(ticketEvents).values({ orgId: t.orgId, ticketId: t.ticketId, kind: 'ai_handoff', actorType: 'system', payload: { reason }, isInternal: true });
+  await emitEventTx(tx, { orgId: t.orgId, ticketId: t.ticketId, kind: 'ai_handoff', payload: { reason, priority: t.priority } });
+  await writeAudit(tx, { action: 'ticket.ai_handoff', objectType: 'ticket', objectId: t.ticketId, orgId: t.orgId, diff: { reason, from: 'resolved_by_ai' } });
+  return true;
 }

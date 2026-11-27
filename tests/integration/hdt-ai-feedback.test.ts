@@ -95,3 +95,19 @@ test('чужая организация, коллега без доступа к
   const priv = f.tickets.aMine;
   await expect(aiFeedback(await clientCtx(f.aAdmin), { number: priv.number, messageId, choice: 'helped' })).rejects.toMatchObject({ code: 'transition_refused' });
 });
+
+// Независимая проверка M5b: "Помогло" решает обращение, поэтому его нажимают только автор и администратор клиента,
+// как "Решение подошло" (решение 0026, пункт 21). Коллеге остаются "Не помогло" и "Нужен сотрудник".
+test('"Помогло" только у автора и администратора клиента; коллега может передать сотруднику', async () => {
+  const admin = await clientCtx(f.aAdmin);
+  const { number } = await createTicket(admin, { description: 'При печати накладной выходит пустой лист', type: 'bug', impact: 'minor', locale: 'ru' });
+  const ticketId = (await pools.root.query(`update hdt_tickets set visibility = 'org' where number = $1 returning ticket_id`, [number])).rows[0].ticket_id as string;
+  const messageId = await postAiMessage(SYSTEM, { ticketId, payload: { kind: 'answer', introId: 'likely_solution', articleId: A1, articleNumber: 1042, locale: 'ru' } });
+  const colleague = await clientCtx(f.aUser);
+  await expect(aiFeedback(colleague, { number, messageId, choice: 'helped' })).rejects.toMatchObject({ code: 'forbidden' });
+  expect(await row(ticketId)).toMatchObject({ status: 'waiting_customer', ai_state: 'active' });
+  expect(await aiFeedback(colleague, { number, messageId, choice: 'need_staff' })).toBe('need_staff');
+  // Администратор клиента нажимает "Помогло" в обращении сотрудника своей организации.
+  const own = await answered();
+  expect(await aiFeedback(admin, { number: own.number, messageId: own.messageId, choice: 'helped' })).toBe('helped');
+});

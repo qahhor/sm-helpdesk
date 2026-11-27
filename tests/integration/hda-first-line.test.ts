@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import type { SystemActor } from '@/db/with-actor';
 import { runFirstLine, runWatchdog } from '@/modules/hda/first-line/run';
@@ -241,4 +242,72 @@ test('машинный перевод с другим числом шагов в
   const author = { type: 'client' as const, userId: f.aUser.userId, orgId: f.orgA.orgId, orgRole: 'client_user' as const };
   expect((await assistantSolution(author, { number: s.number, locale: 'uz' }))?.invariantsOk).toBe(false);
   expect((await assistantSolution(author, { number: s.number, locale: 'ru' }))?.invariantsOk).toBe(true);
+});
+
+// --- Независимая проверка M5b ---
+
+test('находка I1: тот же текст сначала при P2, затем при P1 - правило P1 держится и на повторе', async () => {
+  const s = await STOCK();
+  const signature = randomBytes(16).toString('hex');
+  await pools.root.query(`insert into hdk_error_signatures (signature, article_id, sample_code) values ($1, $2, 'ORA-20001')`, [signature, s.articleId]);
+  const withSignature = async (over: Record<string, unknown> = {}) => {
+    const t = await ticket(STOCK_TEXT, over);
+    await pools.root.query(`update hdt_tickets set error_signature = $2 where ticket_id = $1`, [t.ticketId, signature]);
+    return t;
+  };
+  const p2 = await withSignature();
+  expect(await runFirstLine(SYSTEM, p2.ticketId)).toEqual({ status: 'answered', articleId: s.articleId });
+  const p1 = await withSignature({ impact: 'blocker' });
+  expect((await row(p1.ticketId)).ai_state).toBe('active');
+  expect(await runFirstLine(SYSTEM, p1.ticketId)).toEqual({ status: 'handed_off', reason: 'p1' });
+  // Второе P1 с тем же текстом: повтор входа, модель не вызывается, но передача сразу.
+  const again = await withSignature({ impact: 'blocker' });
+  expect(await runFirstLine(SYSTEM, again.ticketId)).toEqual({ status: 'handed_off', reason: 'p1' });
+  expect(await row(again.ticketId)).toMatchObject({ ai_state: 'handed_off', ai_handoff_reason: 'p1' });
+});
+
+test('находка I2: ответ клиента во время вызова модели - старое задание не отвечает, новое отвечает с его текстом', async () => {
+  const s = await STOCK();
+  const { number, ticketId } = await ticket(STOCK_TEXT);
+  const inner = stub;
+  let replied = false;
+  // Клиент пишет, пока модель думает над первым заданием.
+  setAiClientForTests({
+    async complete(request) {
+      if (!replied) {
+        replied = true;
+        await replyToTicket(await clientCtx(f.aUser), { number, body: 'Остаток на складе есть, ошибка та же' });
+      }
+      return inner.complete(request);
+    },
+  });
+  expect(await runFirstLine(SYSTEM, ticketId)).toEqual({ status: 'skipped', why: 'busy' });
+  expect(await aiMessages(ticketId)).toHaveLength(0);
+  // Задание, поставленное ответом клиента, видит его сообщение и отвечает один раз.
+  expect(await runFirstLine(SYSTEM, ticketId)).toEqual({ status: 'answered', articleId: s.articleId });
+  expect(inner.calls.at(-1)!.data).toContain('Остаток на складе есть, ошибка та же');
+  // Лишнее задание без нового сообщения клиента ничего не пишет.
+  expect(await runFirstLine(SYSTEM, ticketId)).toEqual({ status: 'skipped', why: 'busy' });
+  expect(await row(ticketId)).toMatchObject({ ai_reply_count: 1 });
+  expect(await aiMessages(ticketId)).toHaveLength(1);
+});
+
+test('находка I4: слишком длинный заголовок разбора не отменяет верный ответ клиенту', async () => {
+  const s = await STOCK();
+  const { ticketId } = await ticket(STOCK_TEXT);
+  stub.respond = () => ({
+    triage: { moduleCode: 'x'.repeat(150), type: 'bug', title: 'З'.repeat(85), summary: 'С'.repeat(400), looksMoreSevere: false },
+    action: 'answer',
+    solutionId: s.articleId,
+    introId: 'likely_solution',
+    clarifyBetween: null,
+    questionIds: [],
+    restrictedTopic: false,
+    customerAsksHuman: false,
+  });
+  expect(await runFirstLine(SYSTEM, ticketId)).toEqual({ status: 'answered', articleId: s.articleId });
+  const fields = (await pools.root.query(`select field, value from hda_triage_suggestions where ticket_id = $1 order by field`, [ticketId])).rows;
+  // Заголовок длиннее 80 знаков не предлагается, резюме обрезается до 300.
+  expect(fields.map((r) => r.field)).not.toContain('title');
+  expect(fields.find((r) => r.field === 'summary')?.value).toHaveLength(300);
 });

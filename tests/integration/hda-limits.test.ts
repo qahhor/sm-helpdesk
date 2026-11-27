@@ -183,3 +183,21 @@ test('обязательные темы (план M5b, задача 2, реше�
   expect(matchRestrictedTopic('Нужен акт сверки', lists)).toBe('payments');
   expect((await pools.root.query(`select count(*)::int as n from hdc_audit_log where object_id = 'ai.restricted_topics'`)).rows[0].n).toBe(1);
 });
+
+// Независимая проверка M5b, M10: отключение помощника задачей ai.budget меняет права и пишется в журнал аудита той же
+// транзакцией: и отключение организации, и отключение для всех.
+test('ai.budget: каждое новое отключение в журнале аудита, повтор задачи записей не добавляет', async () => {
+  await setting('ai.monthly_budget_usd', 10);
+  await pools.root.query(`insert into hda_runs (org_id, purpose, model, cost_usd, outcome) values ($1, 'first_line', 'claude-sonnet-5-5', 7, 'ok'), ($2, 'first_line', 'claude-sonnet-5-5', 1, 'ok')`, [f.orgA.orgId, f.orgB.orgId]);
+  await runAiBudget({ type: 'system', job: 'ai.budget' });
+  await pools.root.query(`insert into hda_runs (org_id, purpose, model, cost_usd, outcome) values ($1, 'first_line', 'claude-sonnet-5-5', 3, 'ok')`, [f.orgB.orgId]);
+  await runAiBudget({ type: 'system', job: 'ai.budget' });
+  await runAiBudget({ type: 'system', job: 'ai.budget' });
+  const rows = (await pools.root.query(`select org_id, diff from hdc_audit_log where action = 'settings.changed' and object_id = 'ai.cutoff' order by created_on, audit_id`)).rows;
+  // Второй запуск на 100%: организация Б тоже выше доли (4 из 10) и все сразу.
+  expect(rows).toEqual([
+    { org_id: f.orgA.orgId, diff: { cut: 'budget_share' } },
+    { org_id: f.orgB.orgId, diff: { cut: 'budget_share' } },
+    { org_id: null, diff: { cut: 'budget_total' } },
+  ]);
+});

@@ -39,6 +39,7 @@ import { staffSystemText } from '../system-text';
 import { untrustedNoteText } from '../untrusted-text';
 import { fileTypeOf, maxBytesFor, quarantineKey } from '../util';
 import { reopenDays } from './actions';
+import { aiReopenedTx } from './ai';
 import { notifyTicketTx } from './notify';
 import { refreshSla } from './sla';
 import { isThanks } from './thanks';
@@ -249,6 +250,8 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
       // Отметки ответа, статус и сроки одним обновлением строки (аудит 23.11.2026, находка P8). Строка обращения
       // заблокирована выше, событие статуса уже записано: по его времени снимается пауза срока.
       await refreshSla(tx, ticket.ticketId, new Date(), reopens ? { status: 'in_progress', ...waiting } : waiting);
+      // Решённое кнопкой "Помогло" открыто письмом: в "После AI" (независимая проверка M5b, I3).
+      if (current.status === 'resolved' || current.status === 'closed') await aiReopenedTx(tx, { ticketId: ticket.ticketId, now: new Date() });
     }
     if (thanks) await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'client_replied', payload: { source: 'email', thanks: true } });
     await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'client_reply', actorUserId: client.userId });

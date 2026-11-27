@@ -4,6 +4,7 @@ import * as z from 'zod';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { emitEventTx, enqueue, wakeAutomation, writeAudit } from '@/modules/hdc/api';
 import { orgAiProfile } from '@/modules/hdu/api/orgs';
+import { aiReopenedTx } from '../core/ai';
 import { refreshSla } from '../core/sla';
 import { HdtError } from '../error';
 import { ticketEvents, ticketMessages, tickets } from '../schema';
@@ -74,6 +75,8 @@ export async function reopenAfterAiThanks(actor: SystemActor, messageId: string)
     await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff });
     await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status_changed', payload: { from: 'resolved', to: 'in_progress' } });
     await refreshSla(tx, ticket.ticketId, new Date(), { status: 'in_progress', lastClientMessageOn: sql`now()`, clientWaitingSince: sql`coalesce(${tickets.clientWaitingSince}, now())` });
+    // Решённое кнопкой "Помогло": в "После AI" (независимая проверка M5b, I3).
+    await aiReopenedTx(tx, { ticketId: ticket.ticketId, now: new Date() });
     return true;
   });
   if (done) await wakeAutomation();

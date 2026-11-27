@@ -152,6 +152,7 @@ export default async function TicketPage({
           payload={m.aiPayload}
           createdOn={m.createdOn}
           actionable={m.messageId === lastAiId && ticket.aiState === 'active' && ticket.status === 'waiting_customer'}
+          canResolve={ticket.isMine || client.actor.orgRole === 'client_admin'}
           timeZone={ticket.timeZone}
         />
       ) : (

@@ -133,6 +133,12 @@ function hidden(el: Element, rules: readonly StyleRule[]): boolean {
   if (attr(el, 'hidden') !== undefined) return true;
   const style = attr(el, 'style');
   if (style && hiddenStyle(declarations(style))) return true;
+  // Старый тег <font> (независимая проверка M5b, M2): почти белый color и самый мелкий size="1" скрыты, как в стилях.
+  if (el.tagName === 'font') {
+    const color = (attr(el, 'color') ?? '').trim().toLowerCase();
+    if (color && hiddenStyle(new Map([['color', color]]))) return true;
+    if ((attr(el, 'size') ?? '').trim() === '1') return true;
+  }
   return rules.some((rule) => rule.hides && matches(el, rule.selector));
 }
 

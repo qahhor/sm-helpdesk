@@ -52,6 +52,9 @@ const dueOn = sql<Date | null>`case when ${tickets.firstRespondedOn} is null the
 );
 /** Помощник не отвечает или молчит дольше 90 секунд (решение 5, слой в): условие считается при показе. */
 const AI_NOT_ANSWERING = sql`(${tickets.aiState} <> 'active' or ${tickets.createdOn} < now() - make_interval(secs => ${AI_SILENCE_SEC}))`;
+/** Помощник ведёт обращение, клиент написал дольше 90 секунд назад, а сообщения помощника после этого нет (M3). */
+const AI_SILENT_AFTER_CLIENT = sql`(${tickets.aiState} = 'active' and ${tickets.lastClientMessageOn} < now() - make_interval(secs => ${AI_SILENCE_SEC})
+  and ${tickets.lastClientMessageOn} > coalesce((select max(m.created_on) from hdt_ticket_messages m where m.ticket_id = ${tickets.ticketId} and m.author_type = 'ai'), '-infinity'))`;
 /** Отложенное до своего времени (решение 13 плана M3). */
 const notSnoozed = or(isNull(tickets.snoozedUntil), lt(tickets.snoozedUntil, sql`now()`)) as SQL;
 
@@ -68,8 +71,11 @@ function queueWhere(queue: QueueKey, me: string): SQL | undefined {
       return and(eq(tickets.assigneeId, me), ne(tickets.status, 'closed'));
     // "После AI" (решение 19): передано помощником, сотрудник клиенту ещё не ответил. После передачи срок первого
     // ответа начинается заново и first_responded_on пуст до ответа сотрудника (решение 15).
+    // Клиент ответил помощнику, а тот молчит дольше 90 секунд (фоновый процесс остановлен, сторож не сработал): тоже
+    // здесь, иначе обращение "В работе" без исполнителя не стоит ни в одной очереди (независимая проверка M5b, M3).
     case 'after_ai':
-      return and(eq(tickets.aiState, 'handed_off'), isNull(tickets.firstRespondedOn), OPEN, notSnoozed);
+      // Решённое кнопкой "Помогло" и открытое снова, пока система не перевела его в handed_off: тоже здесь (I3).
+      return and(or(and(eq(tickets.aiState, 'handed_off'), isNull(tickets.firstRespondedOn)), eq(tickets.aiState, 'resolved_by_ai'), AI_SILENT_AFTER_CLIENT), OPEN, notSnoozed);
     // "AI ответил, клиент молчит": помощник ведёт обращение и ждёт реакции клиента на свой ответ.
     case 'ai_waiting':
       return and(eq(tickets.aiState, 'active'), eq(tickets.status, 'waiting_customer'), notSnoozed);

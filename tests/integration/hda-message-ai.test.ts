@@ -141,3 +141,36 @@ test('благодарность: организация с выключенно
   expect(jobs.sent.filter((j) => j.name === 'ai.thanks')).toHaveLength(0);
   expect(await status()).toBe('resolved');
 });
+
+// Независимая проверка M5b, находка I5: один клиент не расходует общий суточный предел ответами "спасибо".
+test('благодарность: не больше одного вопроса модели на обращение в сутки и пределы пользователя и организации', async () => {
+  await resolvedTicket();
+  setAiClientForTests((stub = new StubAiClient(() => ({ thanks: true }))));
+  const ctx = await clientCtx(f.aUser);
+  for (const body of ['Спасибо', 'Спасибо большое', 'Рахмат']) await replyToTicket(ctx, { number: ticket().number, body });
+  const sent = jobs.sent.filter((j) => j.name === 'ai.thanks');
+  expect(sent).toHaveLength(3);
+  const results: string[] = [];
+  for (const job of sent) results.push(await runThanksJob(THANKS, job.data));
+  expect(results).toEqual(['kept', 'skipped', 'skipped']);
+  expect(stub.calls).toHaveLength(1);
+  expect(await status()).toBe('resolved');
+  // Предел пользователя на сутки исчерпан: модель не вызывается и для другого обращения, строка журнала "limited".
+  await pools.root.query(`insert into hdc_settings (code, value) values ('ai.user_daily_limit', '1'::jsonb)`);
+  const other = f.tickets.aMine;
+  await pools.root.query(`update hdt_tickets set status = 'resolved', resolved_on = now(), resolution_type = 'solved' where ticket_id = $1`, [other.ticketId]);
+  jobs.sent.length = 0;
+  await replyToTicket(ctx, { number: other.number, body: 'Спасибо' });
+  expect(await runThanksJob(THANKS, jobs.sent.find((j) => j.name === 'ai.thanks')!.data)).toBe('kept');
+  expect(stub.calls).toHaveLength(1);
+  expect((await pools.root.query(`select outcome from hda_runs where purpose = 'thanks' order by created_on`)).rows.map((r) => r.outcome)).toEqual(['ok', 'limited']);
+});
+
+test('перевод сообщения считается в пределе пользователя', async () => {
+  await pools.root.query(`insert into hdc_settings (code, value) values ('ai.user_daily_limit', '0'::jsonb)`);
+  const messageId = await clientMessage('Не печатается накладная');
+  const { translationId } = await requestMessageTranslation(staffCtx(f.l1), { messageId, locale: 'en' });
+  expect(await runMessageTranslationJob(SYSTEM, { translationId })).toBe('failed');
+  expect(stub.calls).toHaveLength(0);
+  expect((await pools.root.query(`select outcome from hda_runs where purpose = 'message_translation'`)).rows.map((r) => r.outcome)).toEqual(['limited']);
+});

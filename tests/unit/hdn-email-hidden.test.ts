@@ -25,6 +25,10 @@ test.each([
   ['почти белый цвет классом через rgb', `<style>.w{color:rgb(250, 250, 248)}</style>${VISIBLE}<span class="w">${SECRET}</span>`],
   ['почти белый цвет словом', `${VISIBLE}<span style="color:snow">${SECRET}</span>`],
   ['высота 0 классом', `<style>.c{height:0;overflow:hidden}</style>${VISIBLE}<div class="c">${SECRET}</div>`],
+  // Независимая проверка M5b, M2: старый тег <font> с атрибутами, как решение 20 для стилей.
+  ['<font color> почти белый', `${VISIBLE}<font color="#ffffff">${SECRET}</font>`],
+  ['<font color> словом', `${VISIBLE}<font color="white">${SECRET}</font>`],
+  ['<font size="1">', `${VISIBLE}<font size="1">${SECRET}</font>`],
   ['комментарий внутри стилей не мешает', `<style>/* x */ .k /* y */ {display:none}</style>${VISIBLE}<i class="k">${SECRET}</i>`],
 ])('%s: инструкции в итоговом тексте нет', (_name, html) => {
   const text = emailToText({ html, text: null }, { keepQuote: true });
@@ -37,6 +41,8 @@ test.each([
   ['светло-серый, но не белый', `<span style="color:#cccccc">Видимый серый</span>`],
   ['обычный шрифт 12px', `<span style="font-size:12px">Видимый серый</span>`],
   ['класс без скрытия', `<style>.g{color:#777;font-weight:bold}</style><span class="g">Видимый серый</span>`],
+  ['<font color> серый', `<font color="#777777">Видимый серый</font>`],
+  ['<font size="2">', `<font size="2">Видимый серый</font>`],
   ['вынос на 10px', `<span style="position:relative;left:-10px">Видимый серый</span>`],
   ['псевдокласс не считается', `<style>.h:hover{display:none}</style><span class="h">Видимый серый</span>`],
   ['другой класс', `<style>.x{display:none}</style><span class="xx">Видимый серый</span>`],

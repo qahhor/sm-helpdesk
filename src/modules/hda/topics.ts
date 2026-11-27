@@ -5,7 +5,7 @@ import { normalizeApostrophes } from './language';
 // ищет их сам, по спискам слов на языках портала; совпадение ведёт к передаче сотруднику, что бы ни ответила модель.
 //
 // Текст и слова списков приводятся к одному "скелету": NFKC (полноширинные буквы), без невидимых знаков, строчными,
-// апострофы ʻ ʼ ‘ ’ к прямому, латинские буквы-двойники внутри кириллического слова к кириллице, затем кириллица
+// апострофы ʻ ʼ ‘ ’ к прямому, буквы-двойники других письменностей (греческие и прочие) к латинице, латинские буквы-двойники внутри кириллического слова к кириллице, затем кириллица
 // (русская и узбекская) латиницей по одной таблице. Так "Тўлов" и "To'lov", "oплaтa" и "оплата" дают одно и то же.
 // Разрядка ("о п л а т а", "о.п.л.а.т.а") склеивается. Слова списков ищутся как начало слова или подстрока: списки
 // составлены из основ и сочетаний, чтобы не ловить обычные вопросы о работе программы.
@@ -19,7 +19,10 @@ export type TopicLists = Record<RestrictedTopic, TopicWords>;
 /** Начальные списки (решение 17). Узбекский латиницей: кириллица находится тем же скелетом. Правит admin в настройках AI. */
 export const RESTRICTED_TOPICS_DEFAULT: TopicLists = {
   payments: {
-    ru: ['прошла оплат', 'оплата подписк', 'оплатили', 'списали деньг', 'деньги списал', 'списание денег', 'вернуть деньг', 'возврат денег', 'счёт на оплату', 'тариф', 'стоимость лицензи', 'продление лицензи'],
+    ru: [
+      'прошла оплат', 'оплата подписк', 'оплатили', 'списали деньг', 'деньги списал', 'списание денег', 'верн деньг', 'деньги верн', 'возврат денег', 'возврат средств',
+      'списал оплат', 'списали дважды', 'дважды списал', 'счёт на оплату', 'тариф', 'стоимость лицензи', 'продление лицензи',
+    ],
     uz: ["to'lov o'tma", "obuna to'lov", 'pul yechil', 'pulni qaytar', 'pul qaytar', 'tarif', 'litsenziya narx', "litsenziya to'lov"],
     en: ['payment fail', 'charged', 'refund', 'billing', 'subscription fee', 'license fee'],
   },
@@ -44,7 +47,7 @@ export const RESTRICTED_TOPICS_DEFAULT: TopicLists = {
     en: ['admin access', 'admin rights', 'grant access', 'give me access', 'access rights', 'reset password', 'reset my password'],
   },
   security: {
-    ru: ['взлом', 'утечк', 'мошенни', 'вирус', 'фишинг', 'украли пароль'],
+    ru: ['взлом', 'утечк', 'мошенни', 'вирус', 'фишинг', 'украли пароль', 'кто-то зашёл', 'кто-то зашел', 'кто-то вошёл', 'кто-то вошел', 'кто-то залез', 'без спроса'],
     uz: ['buzishdi', 'buzib kir', 'oshkor', 'firibgar', 'virus', 'xakker'],
     en: ['hacked', 'breach', 'leak', 'phishing', 'fraud', 'stolen password'],
   },
@@ -55,11 +58,29 @@ export const RESTRICTED_TOPICS_DEFAULT: TopicLists = {
   },
 };
 
-/** Просьба позвать человека (решение 17): списком в коде, администратор его не правит. */
+/** Сочетания "глагол + к кому": каждое с каждым. */
+const pairs = (verbs: readonly string[], whom: readonly string[]) => verbs.flatMap((v) => whom.map((w) => `${v} ${w}`));
+
+/**
+ * Просьба позвать человека (решение 17): списком в коде, администратор его не правит. "Менеджер" и "специалист" только в
+ * сочетании с просьбой (позовите, поговорить с, нужен): отдельно это обычные роли в Smartup ("менеджер по продажам").
+ */
 export const ASKS_HUMAN: TopicWords = {
-  ru: ['позовите оператор', 'позовите человек', 'позовите сотрудник', 'нужен человек', 'нужен оператор', 'нужен сотрудник', 'нужен живой', 'жив человек', 'поговорить с человек', 'поговорить с сотрудник', 'поговорить с оператор', 'свяжите с оператор', 'свяжите с сотрудник', 'соедините с оператор', 'соедините с сотрудник', 'оператор'],
-  uz: ['inson bilan', 'odam kerak', 'jonli odam', 'xodim bilan', 'xodimga ulang', 'operator'],
-  en: ['human', 'real person', 'talk to a person', 'talk to someone', 'speak to a person', 'live agent', 'support agent', 'operator'],
+  ru: [
+    'позовите оператор', 'позовите человек', 'позовите сотрудник', 'нужен человек', 'нужен оператор', 'нужен сотрудник', 'нужен живой', 'жив человек', 'поговорить с человек', 'поговорить с сотрудник', 'поговорить с оператор', 'свяжите с оператор', 'свяжите с сотрудник', 'соедините с оператор', 'соедините с сотрудник', 'оператор',
+    ...pairs(['позов', 'позвать', 'поговор с', 'свяж с', 'связаться с', 'соедин с', 'переключ на', 'нужен', 'хочу к'], ['менеджер', 'специалист']),
+    'а не бот', 'не с ботом', 'а не робот',
+  ],
+  uz: [
+    'inson bilan', 'odam kerak', 'jonli odam', 'xodim bilan', 'xodimga ulang', 'operator',
+    ...pairs(['menejer', 'menedjer', 'mutaxassis'], ['bilan', 'kerak']),
+    'menejerni chaqir', 'menedjerni chaqir', 'mutaxassisni chaqir', 'menejerga ulang', 'mutaxassisga ulang', 'bot emas', 'botmas',
+  ],
+  en: [
+    'human', 'real person', 'talk to a person', 'talk to someone', 'speak to a person', 'live agent', 'support agent', 'operator',
+    ...pairs(['talk to', 'speak to', 'speak with', 'talk with', 'connect me to', 'connect me with', 'transfer me to'], ['your manager', 'a manager', 'the manager', 'manager', 'a specialist', 'specialist', 'supervisor']),
+    'not a bot', 'not the bot', 'not a robot',
+  ],
 };
 
 const TRANSLIT: Readonly<Record<string, string>> = {
@@ -69,13 +90,25 @@ const TRANSLIT: Readonly<Record<string, string>> = {
 };
 /** Латинские буквы, похожие на кириллические, но дающие другую букву скелета. */
 const LATIN_LOOKALIKE: Readonly<Record<string, string>> = { p: 'р', c: 'с', y: 'у', h: 'н', b: 'в', k: 'к', m: 'м', t: 'т', x: 'х', a: 'а', o: 'о', e: 'е' };
+/**
+ * Двойники других письменностей (находка I6 независимой проверки): греческие, армянские и редкие кириллические и
+ * латинские буквы, похожие на латинские, сводятся к латинской букве до разбора слова. Внутри кириллического слова она
+ * затем становится кириллической, как обычный латинский двойник. Таблица в коде, без внешних библиотек.
+ */
+const CONFUSABLE: Readonly<Record<string, string>> = {
+  α: 'a', β: 'b', ε: 'e', η: 'n', ι: 'i', κ: 'k', μ: 'm', ν: 'v', ο: 'o', ρ: 'p', τ: 't', υ: 'u', χ: 'x', ω: 'w', ζ: 'z', ϲ: 'c', ϳ: 'j', ς: 'c',
+  օ: 'o', ս: 'u', հ: 'h', ո: 'n', ց: 'g',
+  ѕ: 's', ј: 'j', ԁ: 'd', ԛ: 'q', ԝ: 'w', һ: 'h', ӏ: 'l',
+  ı: 'i', ɑ: 'a', ɡ: 'g', ɩ: 'i', ʏ: 'y',
+};
+const CONFUSABLE_RE = new RegExp(`[${Object.keys(CONFUSABLE).join('')}]`, 'gu');
 const SEPARATORS = '[\\s.\\-_*·•,/|]+';
 /** Разрядка: три и больше одиночных букв через разделители. */
 const SPACED = new RegExp(`(?<!\\p{L})\\p{L}(?!\\p{L})(?:${SEPARATORS}\\p{L}(?!\\p{L})){2,}`, 'gu');
 
 /** Скелет текста для поиска слов списков (см. начало файла). */
 export function skeleton(text: string): string {
-  const base = normalizeApostrophes(cleanUserText(text).normalize('NFKC').replace(/[‌‍︀-️]/gu, '')).toLowerCase();
+  const base = normalizeApostrophes(cleanUserText(text).normalize('NFKC').replace(/[‌‍︀-️]/gu, '')).toLowerCase().replace(CONFUSABLE_RE, (ch) => CONFUSABLE[ch] ?? ch);
   const joined = base.replace(SPACED, (run) => run.replace(new RegExp(SEPARATORS, 'gu'), ''));
   return joined
     .replace(/[\p{L}']+/gu, (word) => {

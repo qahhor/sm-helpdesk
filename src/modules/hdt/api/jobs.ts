@@ -2,6 +2,7 @@ import 'server-only';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { infectedSinceTx, scanAttachment as scanCore, sweepAttachments as sweepCore } from '../core/attachments';
 import { type MinuteResult, ticketsMinuteTx } from '../core/housekeeping';
+import { aiReopenedTx } from '../core/ai';
 import { needsSlaRefreshTx, refreshSla, type SlaState } from '../core/sla';
 import { attachmentIdInput, parseInput } from '../input';
 import { type ScanStatus, SWEEP_BATCH } from '../pref';
@@ -50,10 +51,17 @@ const SLA_ACTOR: SystemActor = { type: 'system', job: 'sla.after_client' };
 /**
  * Сроки после фиксации действия клиента: колонки сроков клиент менять не может (миграция 0018), поэтому их
  * пересчитывает система. Сбой не превращает действие клиента в ошибку: его досчитает задача раз в минуту.
+ * Обращение, решённое кнопкой "Помогло" и открытое клиентом снова, той же транзакцией системы переходит в "После AI"
+ * (независимая проверка M5b, I3): клиент менять состояние помощника не может, как и сроки.
  */
 export async function refreshSlaAfterClient(ticketId: string): Promise<void> {
   try {
-    await refreshTicketSla(SLA_ACTOR, ticketId);
+    const now = new Date();
+    const reopened = await withActor(SLA_ACTOR, async (tx) => {
+      await refreshSla(tx, ticketId, now);
+      return aiReopenedTx(tx, { ticketId, now });
+    });
+    if (reopened) await wakeAutomation();
   } catch (error) {
     console.error(`Сроки обращения ${ticketId} не пересчитаны после действия клиента: ${error instanceof Error ? error.message : 'ошибка'}`);
   }

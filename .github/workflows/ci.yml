@@ -51,6 +51,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # PostgreSQL 18 с pgvector поднимает Testcontainers, роли и миграции ставят те же сценарии, что на серверах.
       - run: pnpm test:integration
+      # Проверочный набор помощника и набор атак на заглушке модели, без сети (решение 0096): правила кода не ослабли.
+      - run: pnpm eval:ai
 
   e2e:
     name: Браузерные тесты, бюджет скриптов, Lighthouse

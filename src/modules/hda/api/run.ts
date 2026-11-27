@@ -8,7 +8,7 @@ import { aiEnvModels, getAiClient } from '../client';
 import { STUB_MODEL } from '../client/stub';
 import { type AiRequest, AiResponseError, AiUnavailableError } from '../client/types';
 import { activeCutoffTx, callsTodayTx, firstLineCallsTodayTx, insertRunTx, monthSpendTx, type PriorRun, priorRunTx } from '../core/runs';
-import { AI_DAILY_LIMIT_DEFAULT, AI_DAILY_LIMIT_MAX, AI_DAILY_LIMIT_SETTING, AI_FIRST_LINE_PURPOSES, AI_SETTINGS, type AiPurpose, modelForPurpose } from '../pref';
+import { AI_DAILY_LIMIT_DEFAULT, AI_DAILY_LIMIT_MAX, AI_DAILY_LIMIT_SETTING, AI_USER_LIMIT_PURPOSES, AI_SETTINGS, type AiPurpose, modelForPurpose } from '../pref';
 import { costUsd, inputHash } from '../util';
 import { aiConfig } from './config';
 
@@ -40,6 +40,8 @@ export type RunInput<T> = Omit<AiRequest<T>, 'model'> & {
   userId?: string | null;
   /** Повтор не вызывает модель (решение 12): ищется по HMAC данных запроса в организации. */
   detectRepeat?: boolean;
+  /** Что ещё, кроме данных, делает вход другим для повтора (первая линия: приоритет, независимая проверка M5b, I1). */
+  repeatKey?: string;
 };
 
 /** Суточный предел вызовов из настройки администратора; нет настройки или она неверна: 300 (решение 13). */
@@ -57,7 +59,7 @@ export async function aiModelFor(purpose: AiPurpose): Promise<string> {
 /** Какой предел исчерпан для этого вызова; null: можно вызывать (решение 11). */
 async function exhausted(system: SystemActor, input: { purpose: AiPurpose; orgId: string | null; userId: string | null }): Promise<LimitKind | null> {
   const config = await aiConfig();
-  const firstLine = AI_FIRST_LINE_PURPOSES.includes(input.purpose);
+  const firstLine = AI_USER_LIMIT_PURPOSES.includes(input.purpose);
   return withActor(system, async (tx) => {
     const cutoff = await activeCutoffTx(tx, input.orgId);
     if (cutoff === 'all' || (await monthSpendTx(tx)).total >= config.monthlyBudgetUsd) return 'budget';
@@ -93,7 +95,7 @@ export async function callAi<T>(system: SystemActor, input: RunInput<T>): Promis
     logEvent('warn', 'ai.limited', { purpose: input.purpose, limit });
     return { status: 'limited', limit };
   }
-  const hash = input.detectRepeat && input.orgId ? inputHash(input.data, env.ENCRYPTION_KEY) : null;
+  const hash = input.detectRepeat && input.orgId ? inputHash(input.repeatKey ? `${input.repeatKey}\n${input.data}` : input.data, env.ENCRYPTION_KEY) : null;
   if (hash && input.orgId) {
     const orgId = input.orgId;
     const repeated = await withActor(system, async (tx) => {

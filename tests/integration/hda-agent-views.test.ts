@@ -1,4 +1,6 @@
 import { expect, test } from 'vitest';
+import { anonymizeForAgent } from '@/modules/hda/agent/anonymize';
+import { SERVICE_ORG_ID } from '@/modules/hdu/pref';
 import { rootWithoutTriggers, type SeededToken, seedAgentToken } from './helpers/agent';
 import { asActor, pools } from './helpers/db';
 import { seedEverything } from './isolation/seed-everything';
@@ -55,7 +57,7 @@ test('обращения: только организации с AI-обрабо
   expect(await ids()).toEqual([]);
 });
 
-test('сообщения: публичные, помощника, заметки агента и поля передачи; без внутренних заметок сотрудников и вложений', async () => {
+test('сообщения: публичные, помощника, заметки агента, внутренние заметки сотрудников и поля передачи; без вложений', async () => {
   const { f, main } = await setup();
   const ticket = f.tickets.aOrg.ticketId;
   await rootWithoutTriggers(
@@ -73,12 +75,42 @@ test('сообщения: публичные, помощника, заметки
   expect(bodies).toContain('Публичное сообщение');
   expect(bodies).toContain('Попробуйте решение');
   expect(bodies).toContain('Заметка агента');
-  expect(bodies).not.toContain('Внутренняя заметка');
+  // Внутренняя заметка сотрудника видна агенту (решение владельца 27.11.2026, решение 0114): обезличивает её код.
+  expect(bodies).toContain('Внутренняя заметка');
+  expect(rows.find((r) => r.body === 'Внутренняя заметка')).toMatchObject({ author_type: 'staff', author_no: 1 });
   expect(rows.find((r) => r.author_type === 'ai')).toMatchObject({ ai_kind: 'answer', ai_solution_number: '17' });
   expect(rows.find((r) => r.author_type === 'client')).toMatchObject({ author_no: 1 });
   expect(rows.find((r) => r.item_kind === 'line_transfer')).toMatchObject({ reason_code: 'other', checked: 'Проверено', needed: 'Нужно', body: null });
   // Обращения организаций без AI-обработки не дают и сообщений.
   expect(await read(main.actor, `select 1 from hda_agent_messages where ticket_id = $1`, [f.tickets.bOrg.ticketId])).toEqual([]);
+});
+
+test('внутренняя заметка сотрудника видна агенту и обезличивается; заметок организаций без AI-обработки и "Неопознанных" нет', async () => {
+  const { f, main, unidentified } = await setup();
+  const note = (orgId: string, ticketId: string, body: string) =>
+    pools.root.query(`insert into hdt_ticket_messages (org_id, ticket_id, author_id, author_type, body, is_internal) values ($1, $2, $3, 'staff', $4, true)`, [
+      orgId,
+      ticketId,
+      f.adminStaff.userId,
+      body,
+    ]);
+  await note(f.orgA.orgId, f.tickets.aOrg.ticketId, 'Клиент просит перезвонить: +998 90 123-45-67, почта buh@acme.uz');
+  await note(f.orgB.orgId, f.tickets.bOrg.ticketId, 'Заметка организации без AI');
+  await note(SERVICE_ORG_ID, unidentified, 'Заметка по письму гостя');
+  const rows = await read(main.actor, `select ticket_id, body, is_internal, author_type from hda_agent_messages where item_kind = 'message' and is_internal and author_type = 'staff'`);
+  const contact = rows.find((r) => String(r.body).includes('перезвонить'));
+  expect(contact).toMatchObject({ ticket_id: f.tickets.aOrg.ticketId, is_internal: true });
+  const clean = anonymizeForAgent(String(contact!.body), { people: [], orgTerms: [] }).text;
+  expect(clean).not.toContain('123-45-67');
+  expect(clean).not.toContain('buh@acme.uz');
+  expect(clean).toContain('[телефон]');
+  expect(clean).toContain('[email]');
+  const bodies = rows.map((r) => r.body);
+  expect(bodies).not.toContain('Заметка организации без AI');
+  expect(bodies).not.toContain('Заметка по письму гостя');
+  // Выключение AI-обработки закрывает и внутренние заметки.
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = false where org_id = $1`, [f.orgA.orgId]);
+  expect(await read(main.actor, `select 1 from hda_agent_messages where is_internal and author_type = 'staff'`)).toEqual([]);
 });
 
 test('решения только опубликованные обеих аудиторий со статистикой; проблемы без разбивки по организациям', async () => {

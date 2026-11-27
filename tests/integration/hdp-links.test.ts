@@ -119,6 +119,9 @@ test('сбой привязчика не отменяет создание об�
     async linkBySignature() {
       throw new Error(`секрет клиента ${ERROR_TEXT}`);
     },
+    async linkAffected() {
+      return null;
+    },
   });
   const logged: string[] = [];
   const original = console.error;

@@ -9,9 +9,8 @@ import { clientSolutionRefs } from '@/modules/hdk/api/refs';
 import { errorSignatureOf } from '@/modules/hdk/api/signature-text';
 import { createTicket, createWidgetTicket } from '@/modules/hdt/api';
 import { ownProblemTicketTx, problemTicketTx } from '@/modules/hdt/api/known-problems';
-import { linkTicketTx } from '../core/links';
 import { activeProblemBySignatureTx } from '../core/problems';
-import { HdpError, isHdpError } from '../error';
+import { HdpError } from '../error';
 import { parseInput } from '../input';
 import { isActiveProblem, PROBLEM_NUMBER_MAX, type ProblemStatus } from '../pref';
 import { problemsPublic } from '../schema';
@@ -149,13 +148,11 @@ export async function reportAffected(ctx: { actor: ClientActor }, input: unknown
 
   const context = data.context ?? {};
   const description = data.description?.trim() || [context.errorCode, context.errorText].filter(Boolean).join(': ') || card.publicTitle;
+  // Без сигнатуры (или с другой) обращение привязывается явно внутри создания, до постановки помощника: задача первой
+  // линии уже видит проблему и отвечает ею. Уже привязанное по сигнатуре не трогается.
   const created = data.platform
-    ? await createWidgetTicket(ctx, { description, type: 'bug', impact: 'major', locale: data.locale, context: stripEmpty(context) }, { platform: data.platform })
-    : await createTicket(ctx, { description, title: card.publicTitle.slice(0, 200), type: 'bug', impact: 'major', locale: data.locale });
-  // Без сигнатуры (или с другой) обращение привязывается явно; уже привязанное по сигнатуре не трогается.
-  await withActor(SYSTEM, (tx) => linkTicketTx(tx, SYSTEM, { ticket: { ticketId: created.ticketId }, problem: { problemId }, via: 'affected' })).catch((error: unknown) => {
-    if (!isHdpError(error)) throw error;
-  });
+    ? await createWidgetTicket(ctx, { description, type: 'bug', impact: 'major', locale: data.locale, context: stripEmpty(context) }, { platform: data.platform, knownProblemId: problemId })
+    : await createTicket(ctx, { description, title: card.publicTitle.slice(0, 200), type: 'bug', impact: 'major', locale: data.locale }, { knownProblemId: problemId });
   return { number: created.number, created: true };
 }
 

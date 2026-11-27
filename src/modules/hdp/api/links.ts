@@ -107,6 +107,15 @@ export const knownProblemLinker: KnownProblemLinker = {
       return (await linkLockedTicketTx(tx, SYSTEM, ticket, problem, 'signature')) === 'linked' ? { problemNumber: problem.number } : null;
     });
   },
+  async linkAffected(input) {
+    try {
+      const { result, problem } = await withActor(SYSTEM, (tx) => linkTicketTx(tx, SYSTEM, { ticket: { ticketId: input.ticketId }, problem: { problemId: input.problemId }, via: 'affected' }));
+      return result === 'linked' ? { problemNumber: problem.number } : null;
+    } catch (error) {
+      if (isHdpError(error)) return null;
+      throw error;
+    }
+  },
 };
 
 // --- Для правил автоматизации (модуль hdw; решение 11) ---

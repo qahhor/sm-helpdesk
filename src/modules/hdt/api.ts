@@ -161,10 +161,16 @@ export const ALLOWED_FILE_EXTENSIONS: readonly string[] = Object.keys(ALLOWED_FI
 type ClientActorContext = Pick<ClientContext, 'actor'>;
 
 /**
+ * Параметры, которые задаёт только сервер, а не тело запроса. knownProblemId: "Меня это тоже затронуло" (FR-KP-08),
+ * привязка к проблеме пишется до постановки помощника, чтобы задача первой линии уже видела её.
+ */
+type ServerTicketOptions = { knownProblemId?: string };
+
+/**
  * Новое обращение клиента (FR-TK-01..05). Организация и автор из контекста, поля организации во входе
  * отбрасываются. Не больше 10 обращений в час на пользователя (раздел 14.5).
  */
-export async function createTicket(ctx: ClientActorContext, input: unknown): Promise<{ number: number; ticketId: string }> {
+export async function createTicket(ctx: ClientActorContext, input: unknown, opts: ServerTicketOptions = {}): Promise<{ number: number; ticketId: string }> {
   const data = parseInput(createTicketInput, input);
   if (new Set(data.attachmentIds).size > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
   if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
@@ -191,6 +197,7 @@ export async function createTicket(ctx: ClientActorContext, input: unknown): Pro
     description: data.description,
     context: hasContext ? { errorCode: context.errorCode, errorText: context.errorText } : null,
     moduleId: data.moduleId ?? null,
+    ...(opts.knownProblemId ? { knownProblemId: opts.knownProblemId } : {}),
   });
   // Помощник первой линии (план M5b, решение 4): после фиксации, от имени системы.
   await startAssistant({ ticketId, orgId: ctx.actor.orgId });
@@ -206,7 +213,7 @@ export async function createTicket(ctx: ClientActorContext, input: unknown): Pro
  * токена: web даёт widget_web, android и ios widget_mobile. Платформа в контексте тоже из токена, а не из подсказок.
  * Сигнатура считается по коду и тексту ошибки контекста (решение 0055), модуль в неё не входит (решение 10).
  */
-export async function createWidgetTicket(ctx: ClientActorContext, input: unknown, opts: { platform: 'web' | 'android' | 'ios' }): Promise<{ number: number; ticketId: string }> {
+export async function createWidgetTicket(ctx: ClientActorContext, input: unknown, opts: ServerTicketOptions & { platform: 'web' | 'android' | 'ios' }): Promise<{ number: number; ticketId: string }> {
   const data = parseInput(widgetTicketInput, input);
   if (new Set(data.attachmentIds).size > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
   if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
@@ -233,6 +240,7 @@ export async function createWidgetTicket(ctx: ClientActorContext, input: unknown
     description: data.description,
     context: { errorCode: context.errorCode, errorText: context.errorText },
     moduleId: data.moduleId ?? null,
+    ...(opts.knownProblemId ? { knownProblemId: opts.knownProblemId } : {}),
   });
   await startAssistant({ ticketId, orgId: ctx.actor.orgId });
   await wakeOutbox();

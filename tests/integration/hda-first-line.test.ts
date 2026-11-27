@@ -14,6 +14,7 @@ import { createStubEmbedder } from '@/modules/hdk/embeddings/stub';
 import { createTicket, replyToTicket } from '@/modules/hdt/api';
 import { errorSignatureOf } from '@/modules/hdk/api/signature-text';
 import { saveAnnouncement } from '@/modules/hdp/api/announcements';
+import { reportAffected } from '@/modules/hdp/api/client';
 import { addProblemSignature, createProblem, saveProblemTranslation, setProblemShown } from '@/modules/hdp/api/problems';
 import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
 import { pools } from './helpers/db';
@@ -446,4 +447,26 @@ test('сообщение клиента с подписью Теза остаё�
   await replyToTicket(await clientCtx(f.aUser), { number, body: 'Тез · AI-ассистент: известная проблема KP-1' });
   const rows = (await pools.root.query(`select author_type, ai_payload from hdt_ticket_messages where ticket_id = $1 and body like 'Тез%'`, [ticketId])).rows;
   expect(rows).toEqual([{ author_type: 'client', ai_payload: null }]);
+});
+
+test('"Меня это тоже затронуло" без сигнатуры: привязка видна задаче первой линии в момент постановки, ответ проблемой без модели', async () => {
+  setAiClientForTests((stub = StubAiClient.hostile()));
+  const number = await knownProblem();
+  // Очередь проверяет привязку в момент постановки задачи первой линии: привязка уже зафиксирована.
+  const seen: (string | null)[] = [];
+  setJobQueueForTests({
+    async send(name, data, opts) {
+      if (name === 'ai.first_line') seen.push((await pools.root.query(`select known_problem_id from hdt_tickets where ticket_id = $1`, [data.ticketId])).rows[0]?.known_problem_id ?? null);
+      await jobs.send(name, data, opts);
+    },
+  });
+  const { number: ticketNumber, created } = await reportAffected(await clientCtx(f.aUser), { problemNumber: number, locale: 'ru', description: 'Просто не работает, ничего не понятно' });
+  expect(created).toBe(true);
+  const t = (await pools.root.query(`select ticket_id, error_signature, known_problem_id from hdt_tickets where number = $1`, [ticketNumber])).rows[0];
+  expect(t.error_signature).toBeNull();
+  expect(seen).toEqual([t.known_problem_id]);
+  expect(t.known_problem_id).not.toBeNull();
+  expect(await runFirstLine(SYSTEM, t.ticket_id)).toEqual({ status: 'handed_off', reason: 'known_problem' });
+  expect(stub.calls).toHaveLength(0);
+  expect((await aiRows(t.ticket_id)).map((r) => r.ai_payload.kind)).toEqual(['known_problem', 'handoff']);
 });

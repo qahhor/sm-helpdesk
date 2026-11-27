@@ -117,7 +117,9 @@ export async function confirmBroadcast(ctx: StaffContext, input: unknown): Promi
     const problem = await requireProblemTx(tx, { problemId: row.problemId }, { lock: true });
     if (problem.status === 'closed') throw new HdpError('problem_closed');
     const list = await recipientsTx(tx, problem.problemId);
-    if (list.length === 0) throw new HdpError('no_recipients');
+    // Закрытию получатели не нужны: проблема без открытых привязанных обращений тоже закрывается, итоговый текст
+    // остаётся в истории рассылок. Обновление без получателей отправлять некому.
+    if (list.length === 0 && row.kind !== 'closing') throw new HdpError('no_recipients');
     const original = row.body[row.sourceLocale] ?? '';
     const body: Partial<Record<Locale, string>> = { [row.sourceLocale]: original };
     for (const locale of summary(list).locales) {

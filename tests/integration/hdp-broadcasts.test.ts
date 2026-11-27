@@ -159,3 +159,20 @@ test('рассылки текстом на языке оригинала одн�
   expect((await messages(broadcastId)).find((m) => m.ticket_id === f.tickets.bOrg.ticketId)?.body).toBe(UPDATE);
   for (const actor of [f.aUser.actor, f.bAdmin.actor]) expect((await asActor(pools.app, actor, (c) => c.query(`select 1 from hdp_broadcasts`))).rows).toEqual([]);
 });
+
+test('закрытие без открытых привязанных обращений закрывает проблему с журналом; обновление без получателей отклоняется', async () => {
+  const { number: empty } = await createProblem(l2, { internalTitle: 'Пустая проблема' });
+  const update = await prepareBroadcast(l2, { number: empty, kind: 'update', body: UPDATE, locale: 'ru' });
+  expect(update.recipients).toBe(0);
+  await expect(confirmBroadcast(l2, { broadcastId: update.broadcastId, translations: {}, fallbackToOriginal: false })).rejects.toMatchObject({ code: 'no_recipients' });
+  const { broadcastId } = await prepareBroadcast(l2, { number: empty, kind: 'closing', body: 'Исправлено в версии 5.12.4.', locale: 'ru' });
+  await expect(confirmBroadcast(l2, { broadcastId, translations: {}, fallbackToOriginal: false })).resolves.toEqual({ recipients: 0 });
+  const row = (await pools.root.query(`select problem_id, status, fixed_on from hdp_problems where number = $1`, [empty])).rows[0];
+  expect(row.status).toBe('closed');
+  const audit = (await pools.root.query(`select diff from hdc_audit_log where action = 'problem.status_changed' and object_id = $1`, [row.problem_id])).rows;
+  expect(audit.map((a) => a.diff.to)).toContain('closed');
+  await runBroadcastJob(system, { broadcastId });
+  expect(await messages(broadcastId)).toEqual([]);
+  const [history] = await listBroadcasts(l2, empty);
+  expect(history).toMatchObject({ broadcastId, kind: 'closing', status: 'done', recipientsCount: 0 });
+});

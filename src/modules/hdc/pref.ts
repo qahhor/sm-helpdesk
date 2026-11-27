@@ -206,6 +206,12 @@ export const AUDIT_ACTIONS = [
   // Поиск (план W6, решения 3 и 12): команда hub создала ключи Typesense (без значений) и построила индекс заново.
   'search.keys_created',
   'search.reindexed',
+  // AI-сотрудники (веха M8b, задача 3): выпуск, правка перечня, адресов, предела и срока, отзыв токена и выбор токена
+  // "для событий". Значения токена и его хеша в журнале нет.
+  'agent.token_issued',
+  'agent.token_changed',
+  'agent.token_revoked',
+  'agent.event_parent_set',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -284,3 +284,7 @@ export const AGENT_TOKEN_NAME_MAX = 80;
 export const AGENT_ALLOWED_IPS_MAX = 50;
 /** Журнал вызовов токена на экране: страницами по столько строк (решение 28). */
 export const AGENT_CALLS_PAGE = 50;
+/** Настройки AI-сотрудника в hdc_settings: служебный чат команды для сообщений по сводкам (решение 24). */
+export const AGENT_SETTINGS = { teamChatId: 'agent.team_chat_id' } as const;
+/** Идентификатор чата Telegram: число, у групп и каналов со знаком минус. */
+export const TELEGRAM_CHAT_ID = /^-?\d{5,15}$/;

@@ -55,6 +55,9 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: `${A}/settings/knowledge`, path: '/ru/agent/settings/knowledge', who: 'admin' },
   { route: `${A}/settings/search`, path: '/ru/agent/settings/search', who: 'admin' },
   { route: `${A}/settings/ai`, path: '/ru/agent/settings/ai', who: 'admin' },
+  // AI-сотрудники (веха M8b, задача 3): несуществующий токен даёт "не найдено".
+  { route: `${A}/settings/agents`, path: '/ru/agent/settings/agents', who: 'admin' },
+  { route: `${A}/settings/agents/[id]`, path: '/ru/agent/settings/agents/00000000-0000-7000-8000-000000000000', who: 'admin', status: 404 },
   { route: `${A}/settings/macros`, path: '/ru/agent/settings/macros', who: 'admin' },
   { route: `${A}/settings/macros/[macroId]`, path: '/ru/agent/settings/macros/{macro}', who: 'admin' },
   { route: `${A}/settings/macros/new`, path: '/ru/agent/settings/macros/new', who: 'admin', walk: true },

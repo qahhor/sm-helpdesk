@@ -942,6 +942,10 @@
         "ai": {
           "title": "AI assistant",
           "text": "Tez on the first line: switch, threshold, limits and spending, models."
+        },
+        "agents": {
+          "title": "AI staff",
+          "text": "Tokens of internal agents for the MCP server: tools, addresses, limit, revocation, call log."
         }
       },
       "servers": {
@@ -1198,7 +1202,8 @@
           "macro": "Macro",
           "dev_task": "Development task",
           "metrics": "Metrics",
-          "ops_backup": "Backup"
+          "ops_backup": "Backup",
+          "agent_token": "AI staff token"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -1421,6 +1426,12 @@
             "accepted": "Candidate turned into a solution draft",
             "merged": "Candidate merged with a solution",
             "rejected": "Candidate rejected"
+          },
+          "agent": {
+            "token_issued": "AI staff token issued",
+            "token_changed": "AI staff token changed",
+            "token_revoked": "AI staff token revoked",
+            "event_parent_set": "AI staff token chosen for events"
           }
         },
         "words": {
@@ -1479,7 +1490,12 @@
           "kind": "Kind",
           "sizeBytes": "Size, bytes",
           "dump": "nightly backup",
-          "base": "base backup"
+          "base": "base backup",
+          "tools": "Tools",
+          "allowedIps": "Addresses",
+          "expiresAt": "Valid until",
+          "dailyLimit": "Daily limit",
+          "runRevoked": "Run tokens revoked"
         }
       },
       "sla": {
@@ -2294,6 +2310,144 @@
           "merge": "Similarity to merge candidates, %",
           "hint": "The thresholds are initial: they will be tuned on real vectors.",
           "save": "Save candidate settings"
+        }
+      },
+      "agents": {
+        "title": "AI staff",
+        "intro": "Internal agents connect to the portal through the MCP server with a token. A token allows only the checked tools, only from the listed addresses, until its date and within the daily number of calls. Everything an agent writes is visible only to staff, marked «AI staff, not reviewed».",
+        "issueToken": "Issue token",
+        "emptyTitle": "No tokens yet",
+        "emptyText": "Issue a token for an agent. The portal shows the token value once, right after issuing.",
+        "listLabel": "AI staff tokens",
+        "columns": {
+          "name": "Name",
+          "tools": "Tools",
+          "expiresAt": "Valid until",
+          "lastUsedAt": "Last call",
+          "calls": "Calls in 24 hours",
+          "state": "State"
+        },
+        "last4": "Token ends with: {last4}",
+        "toolCounts": "read {read}, write {write}",
+        "never": "Never called",
+        "callsOf": "{calls} of {limit}",
+        "states": {
+          "active": "Active",
+          "expired": "Expired",
+          "revoked": "Revoked"
+        },
+        "revokedAt": "Revoked",
+        "reauth": "Sign in again",
+        "done": {
+          "saved": "Token saved.",
+          "revoked": "Token revoked. Requests with it are no longer accepted.",
+          "chatSaved": "Team chat saved.",
+          "eventParentSet": "Token chosen for events.",
+          "eventParentCleared": "The «for events» mark is removed."
+        },
+        "errors": {
+          "forbidden": "Only a portal administrator can do this.",
+          "stale_session": "Sign in again for this action: your sign-in is older than 15 minutes.",
+          "invalid_input": "Check the fields: tools, addresses, date and limit.",
+          "not_found": "The token is not found, revoked or expired."
+        },
+        "form": {
+          "newTitle": "New token",
+          "editTitle": "Tools, addresses, date and limit",
+          "name": "Name",
+          "nameHint": "For example, «Hermes: support». The agent signs its records with this name: «AI staff: name».",
+          "readTools": "Read",
+          "writeTools": "Write",
+          "toolsHint": "The agent sees and calls only the checked tools. No tool lets the agent reply to a client or change the status or assignee.",
+          "allowedIps": "Allowed addresses",
+          "allowedIpsHint": "One address or network per line, for example 10.0.3.12 or 10.0.3.0/24. The portal rejects requests from other addresses.",
+          "expiresAt": "Valid until",
+          "expiresAtHint": "No later than 365 days from now.",
+          "dailyLimit": "Calls per day",
+          "dailyLimitHint": "From 1 to 10,000. Calls above the limit are rejected until the next day.",
+          "issue": "Issue token",
+          "save": "Save"
+        },
+        "issued": {
+          "title": "Token issued",
+          "text": "Copy the value now: the portal shows it once and keeps only a fingerprint. A lost token can only be revoked and issued again.",
+          "label": "Token",
+          "copy": "Copy token",
+          "copied": "Copied",
+          "open": "Open the token"
+        },
+        "tools": {
+          "search_tickets": "Search requests by filters and subject",
+          "get_ticket": "A request with its messages, without contacts",
+          "similar_tickets": "Similar requests",
+          "sla_risk_tickets": "Requests at risk of missing a deadline",
+          "unsolved_signatures": "Frequent errors without a solution",
+          "signature_spikes": "Error spikes",
+          "search_solutions": "Search solutions",
+          "get_solution": "A solution with statistics",
+          "list_candidates": "Solution candidates",
+          "list_known_problems": "Known problems",
+          "list_ideas": "Client ideas",
+          "assistant_metrics": "AI assistant metrics",
+          "add_internal_note": "Internal note and memo for the second line",
+          "draft_solution": "Solution draft",
+          "draft_known_problem": "Known problem draft",
+          "create_report": "Digest in the «Digests» section"
+        },
+        "eventParent": {
+          "title": "Token for events",
+          "on": "The portal issues single-request tokens from this token when it sends the agent an event about a request.",
+          "off": "The portal issues single-request tokens in events only from the token chosen for events. There is one such token.",
+          "set": "Choose for events",
+          "clear": "Remove the mark",
+          "mark": "For events"
+        },
+        "calls": {
+          "title": "Call log",
+          "intro": "Every tool call: time, tool, result, objects and duration. The portal does not keep arguments or responses. Rows are kept for 365 days.",
+          "empty": "No calls yet.",
+          "columns": {
+            "time": "Time",
+            "tool": "Tool",
+            "status": "Result",
+            "objects": "Objects",
+            "duration": "Duration"
+          },
+          "run": "Single-request token",
+          "statuses": {
+            "ok": "Done",
+            "refused": "Refused",
+            "invalid": "Invalid data",
+            "rate_limited": "Over the limit",
+            "error": "Failure"
+          },
+          "noObjects": "None",
+          "ms": "{ms} ms",
+          "first": "To the newest",
+          "next": "50 more",
+          "refs": {
+            "ticket": "SUP-{ref}",
+            "solution": "solution #{ref}",
+            "problem": "problem #{ref}",
+            "idea": "idea #{ref}",
+            "candidate": "candidate {ref}",
+            "report": "digest {ref}"
+          }
+        },
+        "revoke": {
+          "open": "Revoke token",
+          "title": "Revoke token {name}?",
+          "text": "The token stops working from the next request, together with its single-request tokens. Revocation cannot be undone: the agent will need a new token.",
+          "confirm": "Revoke",
+          "cancel": "Cancel",
+          "close": "Close"
+        },
+        "teamChat": {
+          "title": "Team chat",
+          "text": "The portal sends a short message about an agent digest here: numbers, request numbers and links. The agent's text never goes to the chat. This is not the on-call chat.",
+          "label": "Telegram chat ID",
+          "hint": "For example, -1001234567890. Empty field: no messages, digests stay in the «Digests» section.",
+          "save": "Save chat"
         }
       }
     },

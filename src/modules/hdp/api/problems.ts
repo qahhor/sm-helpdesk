@@ -136,6 +136,8 @@ export async function setProblemStatus(ctx: StaffContext, input: unknown): Promi
   const data = parseInput(statusInput, input);
   await withActor(ctx.actor, async (tx) => {
     const problem = await requireProblemTx(tx, { number: data.number }, { lock: true });
+    // Черновик выходит из статуса draft только принятием (решение 20; находка M3 независимой проверки M8b).
+    if (problem.status === 'draft') throw new HdpError('not_accepted');
     if (problem.status === 'closed') throw new HdpError('problem_closed');
     if (problem.status === data.status) return;
     try {
@@ -155,6 +157,8 @@ export async function setProblemShown(ctx: StaffContext, input: unknown): Promis
   const data = parseInput(shownInput, input);
   await withActor(ctx.actor, async (tx) => {
     const problem = await requireProblemTx(tx, { number: data.number }, { lock: true });
+    // Черновик клиентам не показывается, признак у него не меняется (находка M3).
+    if (problem.status === 'draft') throw new HdpError('not_accepted');
     if (problem.status === 'closed') throw new HdpError('problem_closed');
     if (problem.showToClients === data.shown) return;
     if (data.shown) {

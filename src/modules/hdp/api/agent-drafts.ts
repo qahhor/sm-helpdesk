@@ -10,6 +10,7 @@ import { linkTicketTx } from '../core/links';
 import { activeProblemBySignatureTx, insertProblemTx, insertSignatureTx, requireProblemTx } from '../core/problems';
 import { HdpError, type HdpErrorCode } from '../error';
 import { parseInput, problemNumberInput } from '../input';
+import { pgErrorCode } from '../util';
 import { ACTIVE_PROBLEM_STATUSES, PROBLEM_WRITER_ROLES } from '../pref';
 import { problemProposals, problems, problemSignatures } from '../schema';
 
@@ -83,7 +84,14 @@ export async function acceptProblemDraft(ctx: StaffContext, input: unknown): Pro
   return withActor(actor, async (tx) => {
     const problem = await requireProblemTx(tx, { number }, { lock: true });
     if (problem.status !== 'draft') throw new HdpError('not_draft');
-    const signatures = await tx.select({ signature: problemSignatures.signature }).from(problemSignatures).where(eq(problemSignatures.problemId, problem.problemId));
+    const signatures = await tx
+      .select({ signature: problemSignatures.signature })
+      .from(problemSignatures)
+      .where(eq(problemSignatures.problemId, problem.problemId))
+      .orderBy(asc(problemSignatures.signature));
+    // Два одновременных принятия черновиков с одной сигнатурой (находка M2 независимой проверки): блокировка по
+    // сигнатуре до проверки занятости, по порядку сигнатур; второе принятие видит первое и снимает сигнатуру.
+    for (const { signature } of signatures) await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`hdp.signature:${signature}`}))`);
     let active = signatures.length > 0;
     for (const { signature } of signatures) {
       // Сигнатура у другой активной проблемы: снимается с черновика, иначе принятие нарушило бы её единственность.
@@ -92,7 +100,13 @@ export async function acceptProblemDraft(ctx: StaffContext, input: unknown): Pro
         active = false;
       }
     }
-    await tx.update(problems).set({ status: 'investigating' }).where(eq(problems.problemId, problem.problemId));
+    try {
+      await tx.update(problems).set({ status: 'investigating' }).where(eq(problems.problemId, problem.problemId));
+    } catch (error) {
+      // Сигнатуру заняла проблема, ставшая активной другим путём (смена статуса, новая проблема): понятный отказ.
+      if (pgErrorCode(error) === '23505') throw new HdpError('signature_taken');
+      throw error;
+    }
     await writeAudit(tx, { action: 'problem.draft_accepted', objectType: 'problem', objectId: problem.problemId, diff: { number, signatureActive: active } });
     return { signatureActive: active };
   });

@@ -88,6 +88,10 @@ export async function ruleSetQueueTx(tx: Tx, ticket: LockedTicket, queue: Queue)
   await unassign(tx, ticket);
   await tx.update(tickets).set({ queue, assigneeId: null }).where(eq(tickets.ticketId, ticket.ticketId));
   await record(tx, ticket, { kind: 'queue', payload: { was: from, to: queue }, audit: queue === 'l1' ? 'ticket.line_returned' : 'ticket.line_transferred' });
+  // Передача на вторую линию правилом: то же событие для AI-сотрудника, что у сотрудника (находка M6 независимой
+  // проверки M8b), без причины. Помечено byRule: правила администратора на него не срабатывают.
+  if (queue === 'l2')
+    await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'line_transferred', payload: { from, to: 'l2', reason: null }, byRule: true });
   ticket.queue = queue;
   return done(from, queue);
 }

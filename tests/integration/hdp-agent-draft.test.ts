@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from 'vitest';
-import { acceptProblemDraft, linkProposedTickets, problemCard, rejectProblemDraft } from '@/modules/hdp/api/problems';
+import { acceptProblemDraft, linkProposedTickets, problemCard, rejectProblemDraft, setProblemShown, setProblemStatus } from '@/modules/hdp/api/problems';
 import { createProblemDraft } from '@/modules/hdp/api/translate-jobs';
 import { staffCtx, staffWithRole } from './helpers/auth';
 import { asActor, pools, system } from './helpers/db';
@@ -93,4 +93,34 @@ test('"Отклонить черновик": статус closed без расс
   expect(row.status).toBe('closed');
   expect((await pools.root.query(`select count(*)::int as n from hdp_broadcasts`)).rows[0].n).toBe(0);
   expect((await audit('problem.draft_rejected'))[0]).toMatchObject({ object_id: row.problem_id, diff: { number, reason: 'Ложная тревога' } });
+});
+
+test('два черновика с одной сигнатурой принимаются одновременно без сбоя: сигнатура у одного (находка M2)', async () => {
+  const one = await draft();
+  const two = await draft();
+  const l2 = staffCtx(await staffWithRole('agent_l2'));
+  // Запись сигнатур задержана блокировкой таблицы: оба принятия проходят проверку занятости до записи.
+  const blocker = await pools.root.connect();
+  await blocker.query('begin');
+  await blocker.query('lock table hdp_problem_signatures in share row exclusive mode');
+  const pending = Promise.allSettled([acceptProblemDraft(l2, { number: one.number }), acceptProblemDraft(l2, { number: two.number })]);
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  await blocker.query('commit');
+  blocker.release();
+  const results = await pending;
+  expect(results.map((r) => (r.status === 'fulfilled' ? 'ok' : String((r.reason as { code?: string }).code ?? r.reason)))).toEqual(['ok', 'ok']);
+  const values = results.map((r) => (r.status === 'fulfilled' ? r.value.signatureActive : null));
+  expect(values.sort()).toEqual([false, true]);
+  expect((await problemRow(one.number)).status).toBe('investigating');
+  expect((await problemRow(two.number)).status).toBe('investigating');
+  expect((await pools.root.query(`select count(*)::int as n from hdp_problem_signatures where signature = $1 and is_active`, [SIG])).rows[0].n).toBe(1);
+});
+
+test('смена статуса и признака показа у черновика: not_accepted, черновик принимается только кнопкой (находка M3)', async () => {
+  const { number } = await draft();
+  const admin = staffCtx(f.adminStaff);
+  await expect(setProblemStatus(admin, { number, status: 'fixing' })).rejects.toMatchObject({ code: 'not_accepted' });
+  await expect(setProblemShown(admin, { number, shown: true })).rejects.toMatchObject({ code: 'not_accepted' });
+  await expect(setProblemShown(admin, { number, shown: false })).rejects.toMatchObject({ code: 'not_accepted' });
+  expect(await problemRow(number)).toMatchObject({ status: 'draft', show_to_clients: false });
 });

@@ -1408,11 +1408,13 @@
             "signature_added": "Signature added to problem",
             "signature_removed": "Signature removed from problem",
             "translation_saved": "Problem public text saved",
-            "broadcast_confirmed": "Known problem broadcast confirmed"
+            "broadcast_confirmed": "Known problem broadcast confirmed",
+            "translations_outdated": "Accepted problem translations hidden: the original text changed"
           },
           "announcement": {
             "saved": "Announcement saved",
-            "ended": "Announcement ended early"
+            "ended": "Announcement ended early",
+            "translations_outdated": "Accepted announcement translations hidden: the original text changed"
           },
           "candidate": {
             "returned": "Solution candidate returned to the queue",

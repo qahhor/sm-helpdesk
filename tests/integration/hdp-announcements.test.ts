@@ -134,3 +134,22 @@ test('машинный перевод клиенту не виден до при
   await saveAnnouncementTranslation(care, { announcementId: id, locale: 'en', title: 'Работы', body: 'Ночью портал будет недоступен 30 минут.', acceptMachine: true });
   expect(await english()).toEqual(['en']);
 });
+
+test('правка текста оригинала снимает принятие машинного перевода: клиент видит новый текст оригинала, а не старый перевод', async () => {
+  const id = await announce({ title: 'Работы' });
+  await pools.root.query(`insert into hdp_announcement_translations (announcement_id, locale, title, body, is_machine) values ($1, 'uz', 'Ishlar', 'Kechasi portal 30 daqiqa ishlamaydi.', true)`, [id]);
+  await saveAnnouncementTranslation(care, { announcementId: id, locale: 'uz', title: 'Ishlar', body: 'Kechasi portal 30 daqiqa ishlamaydi.', acceptMachine: true });
+  const uzbek = async () => (await activeAnnouncements((await clientCtx(f.aUser)).actor, { locale: 'uz', surface: 'portal' })).map((a) => `${a.locale}:${a.title}`);
+  expect(await uzbek()).toEqual(['uz:Ishlar']);
+  // Сотрудник меняет текст на языке оригинала: принятый перевод устарел.
+  await announce({ announcementId: id, title: 'Работы перенесены', body: 'Работы перенесены на час позже.' });
+  expect(await uzbek()).toEqual(['ru:Работы перенесены']);
+  const [row] = (await listStaffAnnouncements(care)).filter((a) => a.announcementId === id);
+  expect(row!.texts.find((t) => t.locale === 'uz')).toMatchObject({ isMachine: true, accepted: false });
+  // Правка через окно перевода на языке оригинала действует так же; тот же текст ничего не снимает.
+  await saveAnnouncementTranslation(care, { announcementId: id, locale: 'uz', title: 'Ishlar', body: 'Kechasi portal 30 daqiqa ishlamaydi.', acceptMachine: true });
+  await announce({ announcementId: id, title: 'Работы перенесены', body: 'Работы перенесены на час позже.' });
+  expect(await uzbek()).toEqual(['uz:Ishlar']);
+  await saveAnnouncementTranslation(care, { announcementId: id, locale: 'ru', title: 'Работы отменены', body: 'Работ не будет.' });
+  expect(await uzbek()).toEqual(['ru:Работы отменены']);
+});

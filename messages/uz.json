@@ -1408,11 +1408,13 @@
             "signature_added": "Muammoga signatura qo'shildi",
             "signature_removed": "Muammodan signatura olib tashlandi",
             "translation_saved": "Muammoning ochiq matni saqlandi",
-            "broadcast_confirmed": "Ma'lum muammo bo'yicha tarqatma tasdiqlandi"
+            "broadcast_confirmed": "Ma'lum muammo bo'yicha tarqatma tasdiqlandi",
+            "translations_outdated": "Muammoning qabul qilingan tarjimalari ko'rsatilmaydi: asl matn o'zgardi"
           },
           "announcement": {
             "saved": "E'lon saqlandi",
-            "ended": "E'lon muddatidan oldin tugatildi"
+            "ended": "E'lon muddatidan oldin tugatildi",
+            "translations_outdated": "E'lonning qabul qilingan tarjimalari ko'rsatilmaydi: asl matn o'zgardi"
           },
           "candidate": {
             "returned": "Yechim nomzodi navbatga qaytdi",

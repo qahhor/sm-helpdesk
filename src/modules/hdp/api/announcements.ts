@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq, gt, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNotNull, lte, ne, or, sql } from 'drizzle-orm';
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
 import { type ClientActor, type SystemActor, withActor } from '@/db/with-actor';
@@ -87,11 +87,18 @@ export async function saveAnnouncement(ctx: StaffContext, input: unknown): Promi
         const [row] = await tx.insert(announcements).values({ ...values, authorId: ctx.actor.userId }).returning({ id: announcements.announcementId });
         announcementId = row!.id;
       }
+      const [current] = await tx
+        .select({ title: announcementTranslations.title, body: announcementTranslations.body, isMachine: announcementTranslations.isMachine })
+        .from(announcementTranslations)
+        .where(and(eq(announcementTranslations.announcementId, announcementId), eq(announcementTranslations.locale, data.locale)))
+        .limit(1);
       const text = { title: data.title, body: data.body, isMachine: false, acceptedBy: null, acceptedOn: null };
       await tx
         .insert(announcementTranslations)
         .values({ announcementId, locale: data.locale, ...text })
         .onConflictDoUpdate({ target: [announcementTranslations.announcementId, announcementTranslations.locale], set: text });
+      // Текст оригинала изменился (или оригиналом стал другой язык): принятые переводы устарели (решение 0109).
+      if (data.announcementId && (!current || current.isMachine || current.title !== data.title || current.body !== data.body)) await outdateTranslationsTx(tx, announcementId, data.locale);
       await writeAudit(tx, { action: 'announcement.saved', objectType: 'announcement', objectId: announcementId, diff: { kind: data.kind, audience: data.audience, startsOn: data.startsOn, endsOn: data.endsOn, locale: data.locale } });
       return { announcementId };
     });
@@ -100,6 +107,26 @@ export async function saveAnnouncement(ctx: StaffContext, input: unknown): Promi
     if (['23503', '23514'].includes(pgErrorCode(error) ?? '')) throw new HdpError('invalid_input');
     throw error;
   }
+}
+
+/**
+ * Текст оригинала изменился (решение 0109): принятые машинные переводы на другие языки устарели. Принятие снимается,
+ * клиент видит текст оригинала, пока сотрудник не примет свежий перевод. Тексты сотрудника не трогаются.
+ */
+async function outdateTranslationsTx(tx: Tx, announcementId: string, sourceLocale: Locale): Promise<void> {
+  const rows = await tx
+    .update(announcementTranslations)
+    .set({ acceptedBy: null, acceptedOn: null })
+    .where(
+      and(
+        eq(announcementTranslations.announcementId, announcementId),
+        eq(announcementTranslations.isMachine, true),
+        isNotNull(announcementTranslations.acceptedBy),
+        ne(announcementTranslations.locale, sourceLocale),
+      ),
+    )
+    .returning({ locale: announcementTranslations.locale });
+  if (rows.length > 0) await writeAudit(tx, { action: 'announcement.translations_outdated', objectType: 'announcement', objectId: announcementId, diff: { locales: rows.map((r) => r.locale).sort() } });
 }
 
 const idInput = z.strictObject({ announcementId: z.uuid() });
@@ -138,7 +165,7 @@ export async function saveAnnouncementTranslation(ctx: StaffContext, input: unkn
       .from(announcementTranslations)
       .where(and(eq(announcementTranslations.announcementId, data.announcementId), eq(announcementTranslations.locale, data.locale)))
       .limit(1);
-    const [head] = await tx.select({ id: announcements.announcementId }).from(announcements).where(eq(announcements.announcementId, data.announcementId)).limit(1);
+    const [head] = await tx.select({ id: announcements.announcementId, sourceLocale: announcements.sourceLocale }).from(announcements).where(eq(announcements.announcementId, data.announcementId)).limit(1);
     if (!head) throw new HdpError('not_found');
     const accepting = data.acceptMachine === true && current?.isMachine === true && current.title === data.title && current.body === data.body;
     const text = { title: data.title, body: data.body, isMachine: accepting, acceptedBy: accepting ? ctx.actor.userId : null, acceptedOn: accepting ? new Date() : null };
@@ -146,6 +173,7 @@ export async function saveAnnouncementTranslation(ctx: StaffContext, input: unkn
       .insert(announcementTranslations)
       .values({ announcementId: data.announcementId, locale: data.locale, ...text })
       .onConflictDoUpdate({ target: [announcementTranslations.announcementId, announcementTranslations.locale], set: text });
+    if (!accepting && data.locale === head.sourceLocale && (!current || current.title !== data.title || current.body !== data.body)) await outdateTranslationsTx(tx, data.announcementId, data.locale);
     await writeAudit(tx, { action: 'announcement.saved', objectType: 'announcement', objectId: data.announcementId, diff: { locale: data.locale, accepted: accepting } });
   });
 }

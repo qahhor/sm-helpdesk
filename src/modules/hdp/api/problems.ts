@@ -21,6 +21,7 @@ import {
   requireProblemTx,
   signaturesTx,
   translationsTx,
+  unacceptMachineTranslationsTx,
   updateProblemTx,
   upsertTranslationTx,
 } from '../core/problems';
@@ -189,6 +190,12 @@ export async function saveProblemTranslation(ctx: StaffContext, input: unknown):
     // Первый язык публичного текста становится языком оригинала: с него переводятся остальные.
     if (!current && !accepting && (await translationsTx(tx, problem.problemId)).filter((t) => !t.isMachine).length === 1)
       await updateProblemTx(tx, problem.problemId, { sourceLocale: data.locale });
+    // Изменился текст оригинала: принятые машинные переводы с него устарели и клиенту больше не показываются (решение 0109).
+    const sourceEdited = !accepting && data.locale === problem.sourceLocale && current !== undefined && !current.isMachine && (current.publicTitle !== data.publicTitle || current.publicBody !== data.publicBody);
+    if (sourceEdited) {
+      const outdated = await unacceptMachineTranslationsTx(tx, problem.problemId, data.locale);
+      if (outdated.length > 0) await writeAudit(tx, { action: 'problem.translations_outdated', objectType: 'problem', objectId: problem.problemId, diff: { number: problem.number, locales: outdated } });
+    }
     // Скрыть показанную проблему, если пропал последний видимый клиенту текст: пустой баннер хуже, чем никакого.
     if (problem.showToClients && !(await translationsTx(tx, problem.problemId)).some(isPublishedText)) {
       await updateProblemTx(tx, problem.problemId, { showToClients: false });

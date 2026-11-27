@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray, or, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, ne, or, type SQL, sql } from 'drizzle-orm';
 import { containsText } from '@/db/contains';
 import type { Tx } from '@/db/client';
 import type { Locale } from '@/i18n/locales';
@@ -121,6 +121,20 @@ export async function upsertTranslationTx(
     .insert(problemTranslations)
     .values({ problemId: row.problemId, locale: row.locale, ...values })
     .onConflictDoUpdate({ target: [problemTranslations.problemId, problemTranslations.locale], set: values });
+}
+
+/**
+ * Текст оригинала изменился (решение 0109): принятые машинные переводы на другие языки устарели. Принятие снимается,
+ * текст перевода остаётся сотруднику для сверки; клиенту он больше не виден, и клиент получает текст оригинала (или
+ * свежий перевод, когда сотрудник его примет). Тексты сотрудника на других языках не трогаются. Возвращает языки.
+ */
+export async function unacceptMachineTranslationsTx(tx: Tx, problemId: string, sourceLocale: Locale): Promise<Locale[]> {
+  const rows = await tx
+    .update(problemTranslations)
+    .set({ acceptedBy: null, acceptedOn: null })
+    .where(and(eq(problemTranslations.problemId, problemId), eq(problemTranslations.isMachine, true), isNotNull(problemTranslations.acceptedBy), ne(problemTranslations.locale, sourceLocale)))
+    .returning({ locale: problemTranslations.locale });
+  return rows.map((r) => r.locale).sort();
 }
 
 /** Виден ли текст клиенту: название и описание есть, текст сотрудника или принятый перевод (как в hdp_problems_public). */

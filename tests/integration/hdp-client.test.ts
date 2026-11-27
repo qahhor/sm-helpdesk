@@ -146,3 +146,17 @@ test('"Меня это тоже затронуло" из виджета: опи�
     { payload: { action: 'linked', problemNumber: number, via: 'signature' } },
   ]);
 });
+
+test('правка публичного текста на языке оригинала снимает принятие машинного перевода: клиент на uz видит новый текст', async () => {
+  const number = await shownProblem();
+  const problemId = (await pools.root.query(`select problem_id from hdp_problems where number = $1`, [number])).rows[0].problem_id;
+  await pools.root.query(`insert into hdp_problem_translations (problem_id, locale, public_title, public_body, is_machine) values ($1, 'uz', 'Yuk xatlari o''tkazilmayapti', 'Tuzatyapmiz.', true)`, [problemId]);
+  await saveProblemTranslation(l2, { number, locale: 'uz', publicTitle: 'Yuk xatlari o\'tkazilmayapti', publicBody: 'Tuzatyapmiz.', acceptMachine: true });
+  const ctx = await clientCtx(f.aUser);
+  const uzbek = async () => (await listPublicProblems(ctx, { locale: 'uz' })).find((c) => c.number === number)?.publicTitle;
+  expect(await uzbek()).toBe("Yuk xatlari o'tkazilmayapti");
+  await saveProblemTranslation(l2, { number, locale: 'ru', publicTitle: 'Не проводятся накладные и счета', publicBody: 'Причина найдена, исправляем.' });
+  expect(await uzbek()).toBe('Не проводятся накладные и счета');
+  const uz = (await pools.root.query(`select is_machine, accepted_by from hdp_problem_translations where problem_id = $1 and locale = 'uz'`, [problemId])).rows[0];
+  expect(uz).toMatchObject({ is_machine: true, accepted_by: null });
+});

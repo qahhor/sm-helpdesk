@@ -52,6 +52,10 @@ export const kbArticles = pgTable('hdk_articles', {
   staffUsefulCount: integer('staff_useful_count').notNull().default(0),
   /** Решение из кандидата (веха M5c, решение 30): находки недоверенного текста отмечаются по одной. Миграция 0107. */
   isUntrusted: boolean('is_untrusted').notNull().default(false),
+  /** Черновик записал AI-сотрудник (веха M8b, решение 21). Миграция 0113. */
+  isAgentDraft: boolean('is_agent_draft').notNull().default(false),
+  /** Черновик AI-сотрудника предлагает правку этого решения. Миграция 0113. */
+  revisesArticleId: uuid('revises_article_id'),
 });
 
 /** Версии текста по языкам: черновик, опубликованная, прежние. */

@@ -19,6 +19,12 @@ export const QUEUES = {
   'tickets.minute': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Пределы расходов на AI (план M5b, решение 11): следующий запуск через 10 минут догонит, повторов нет.
   'ai.budget': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
+  // Всплеск сигнатуры (веха M8b, задача 8, решение 25): раз в 5 минут, без повторов, следующий обход догонит.
+  'agent.spikes': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
+  // События для AI-сотрудника (веха M8b, задача 9, решение 26): раз в минуту; повторы ведёт сама очередь событий.
+  'agent.events_dispatch': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
+  // Ночная очистка журнала вызовов, событий и токенов запуска (решения 14, 26, 15).
+  'agent.cleanup': { policy: 'short', retryLimit: 3, retryDelay: 600, expireInSeconds: 1800 },
   // Ответ первой линии (план M5b, решение 5): одна ждущая и одна выполняемая на обращение, без повторов: сбой сразу
   // ведёт к передаче сотруднику. Сторожевая проверка без повторов: минутная проверка по расписанию её страхует.
   // Кандидаты в решения (веха M5c, задача 9): повтор задания безопасен, модель второй раз не вызывается.

@@ -185,6 +185,8 @@ export type AgentTimelineEntry =
       undelivered: boolean;
       /** Вид сообщения помощника (answer, clarify, handoff, ack); у остальных null. По нему кнопка "Отметить ответ как неверный". */
       aiKind: string | null;
+      /** Запись AI-сотрудника: заметка или черновик записки второй линии (веха M8b); у остальных null. */
+      agentNoteKind: 'note' | 'handoff_memo' | null;
     }
   | { type: 'event'; id: string; kind: EventKind; payload: Record<string, unknown>; actorName: string | null; isInternal: boolean; createdOn: Date; isNew: boolean };
 
@@ -228,6 +230,8 @@ export type AgentTicketView = {
   version: string;
   /** Теги обращения в порядке постановки (FR-AUTO-13). */
   tags: Tag[];
+  /** Последняя записка второй линии AI-сотрудника (веха M8b, решение 19): в окне передачи как черновик, поля не заполняет. */
+  agentMemo: { body: string; createdOn: Date } | null;
   attachments: AgentFileView[];
   timeline: AgentTimelineEntry[];
   /** Сколько последних записей истории запрошено и есть ли записи раньше них. */
@@ -291,6 +295,7 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
         isNew: isNew(m.createdOn),
         undelivered: undelivered.has(m.messageId),
         aiKind: m.aiKind,
+        agentNoteKind: m.agentNoteKind,
       }),
     ),
     ...found.events
@@ -357,6 +362,7 @@ export async function getAgentTicket(ctx: StaffContext, numberRaw: unknown, opts
     shown,
     hasEarlier: found.window.hasEarlier,
     tags: found.tags,
+    agentMemo: found.agentMemo,
     attachments: found.attachments.filter((a) => a.messageId === null).map(fileView),
     timeline,
   };

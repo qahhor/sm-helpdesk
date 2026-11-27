@@ -23,6 +23,7 @@ import { DEV_TASK_ERROR_CODES, devTrackerMode, readDevTaskForProblem } from '@/m
 import { DEVELOPMENT_ROLES } from '@/modules/hdt/api';
 import { addSignatureAction, problemDevTaskLinkAction, problemDevTaskStatusAction, problemDevTaskUnlinkAction, prepareBroadcastAction, problemShownAction, problemStatusAction, problemTranslationAction, removeSignatureAction, requestTranslationAction, saveProblemAction } from '../actions';
 import { PROBLEM_STATUS_TONE } from '../status-tone';
+import { AgentDraftBlock } from './AgentDraftBlock';
 
 // Карточка известной проблемы (ТЗ 8.12 "Известная проблема", образец "Карточка"; FR-KP-01, 02, 10, FR-ADM-12; план M5c,
 // задача 2). Слева вкладки "Описание", "Обращения", "Обновления", справа сведения FR-KP-10 и сигнатуры. Внутреннее
@@ -31,7 +32,7 @@ import { PROBLEM_STATUS_TONE } from '../status-tone';
 
 const TABS = ['description', 'tickets', 'updates'] as const;
 type Tab = (typeof TABS)[number];
-const DONE = ['created', 'saved', 'status', 'shown', 'hidden', 'translation', 'translating', 'signature_added', 'signature_removed', 'broadcast_sent', 'dev_linked', 'dev_unlinked', 'dev_status'];
+const DONE = ['draft_accepted', 'proposals_linked', 'draft_rejected', 'created', 'saved', 'status', 'shown', 'hidden', 'translation', 'translating', 'signature_added', 'signature_removed', 'broadcast_sent', 'dev_linked', 'dev_unlinked', 'dev_status'];
 const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link', 'org'];
 const label = 'text-xs font-medium text-secondary-foreground';
 
@@ -86,6 +87,26 @@ export default async function AgentProblemPage({ params, searchParams }: { param
             {card.moduleId && <span>{moduleName.get(card.moduleId) ?? ''}</span>}
             <StatusLabel tone={card.showToClients ? 'teal' : 'gray'}>{card.showToClients ? s('shown') : s('hidden')}</StatusLabel>
           </div>
+          <AgentDraftBlock
+            number={card.number}
+            isDraft={card.status === 'draft'}
+            canWrite={canWrite}
+            description={card.internalDescription}
+            proposals={card.proposals}
+            labels={{
+              title: s('draft.title'),
+              mark: t('aiStaff.mark'),
+              hint: s('draft.hint'),
+              description: s('draft.description'),
+              proposals: s('draft.proposals'),
+              noProposals: s('draft.noProposals'),
+              accept: s('draft.accept'),
+              linkProposed: s('draft.linkProposed'),
+              linkHint: s('draft.linkHint'),
+              reject: s('draft.reject'),
+              reason: s('draft.reason'),
+            }}
+          />
           <nav aria-label={s('tabs.label')} className="flex flex-wrap gap-2">
             {TABS.map((value) => (
               <Link
@@ -136,7 +157,7 @@ export default async function AgentProblemPage({ params, searchParams }: { param
                       </p>
                     )
                   )}
-                  {canWrite && (
+                  {canWrite && card.status !== 'draft' && (
                     <div className="flex flex-wrap items-end gap-3">
                       <form action={problemStatusAction} className="flex flex-wrap items-end gap-2">
                         {hidden}

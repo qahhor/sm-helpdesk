@@ -206,6 +206,22 @@ export const AUDIT_ACTIONS = [
   // Поиск (план W6, решения 3 и 12): команда hub создала ключи Typesense (без значений) и построила индекс заново.
   'search.keys_created',
   'search.reindexed',
+  // AI-сотрудники (веха M8b, задача 3): выпуск, правка перечня, адресов, предела и срока, отзыв токена и выбор токена
+  // "для событий". Значения токена и его хеша в журнале нет.
+  'agent.token_issued',
+  'agent.token_changed',
+  'agent.token_revoked',
+  'agent.event_parent_set',
+  // Сервер MCP (веха M8b, задача 4, решения 13 и 14): отказ в инструменте вне перечня токена и вызов инструмента
+  // записи. Аргументов и текста ответов в журнале нет: только имя инструмента и номера объектов.
+  'agent.tool_refused',
+  'agent.tool_called',
+  // Черновик известной проблемы от AI-сотрудника и всплеска (веха M8b, задача 6, решение 20).
+  'problem.draft_accepted',
+  'problem.proposals_linked',
+  'problem.draft_rejected',
+  // Сводка AI-сотрудника отмечена "Просмотрено" (веха M8b, задача 10, решение 22).
+  'agent.report_reviewed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -270,6 +286,19 @@ export const RATE_RULES = {
   trackerWebhookPerIp: { limit: 600, windowSec: 60 },
   /** Выгрузка показателей в CSV (веха M8, решение 16): 20 в час на сотрудника. Каждая выгрузка читает до 50 тысяч обращений. */
   metricsExportPerUser: { limit: 20, windowSec: 3600 },
+  /** Неудачные проверки токена сервера MCP с адреса (план M8b, решение 12): 30 за 10 минут, как одноразовые ссылки. */
+  mcpTokenFailuresPerIp: { limit: 30, windowSec: 600 },
+  /** Вызовы инструментов сервера MCP на токен: 60 в минуту против зацикливания агента (решение 12). */
+  agentCallsPerMinute: { limit: 60, windowSec: 60 },
+  /**
+   * Методы протокола сервера MCP (initialize, tools/list, ping, уведомления) на токен: 120 в минуту, отдельно от
+   * вызовов инструментов (независимая проверка M8b, находка I4).
+   */
+  agentProtocolPerMinute: { limit: 120, windowSec: 60 },
+  /** Строка rate_limited в журнале вызовов: одна за минуту на токен, а не на каждый отказ (находка I4). */
+  agentRateLimitedLog: { limit: 1, windowSec: 60 },
+  /** Токен запуска по обращению: не больше 20 вызовов за срок 2 часа (решение 12). */
+  agentRunTokenCalls: { limit: 20, windowSec: 7200 },
   /** Обмен токена контекста на токен виджета (план M6, решение 14): 30 в минуту на пользователя (раздел 14.5). */
   embedSessionPerUser: { limit: 30, windowSec: 60 },
   /** Тот же обмен: 120 в минуту с адреса до проверки подписи. */
@@ -426,5 +455,7 @@ export const DOMAIN_EVENT_KINDS = [
   'sla_breached',
   'no_activity',
   'ai_handoff',
+  // Передача на вторую линию (веха M8b, задача 9): событие для AI-сотрудника.
+  'line_transferred',
 ] as const;
 export type DomainEventKind = (typeof DOMAIN_EVENT_KINDS)[number];

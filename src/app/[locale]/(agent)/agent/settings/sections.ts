@@ -16,6 +16,8 @@ const SECTIONS = [
   { key: 'knowledge', href: '/agent/settings/knowledge' },
   // AI-помощник первой линии (план M5b, задача 1).
   { key: 'ai', href: '/agent/settings/ai' },
+  // Токены AI-сотрудников для сервера MCP (план M8b, задача 3).
+  { key: 'agents', href: '/agent/settings/agents' },
   // Синонимы, словарь узбекского и курирование (план W6, ответ владельца 0070, пункт 4).
   { key: 'search', href: '/agent/settings/search' },
   { key: 'audit', href: '/agent/settings/audit' },

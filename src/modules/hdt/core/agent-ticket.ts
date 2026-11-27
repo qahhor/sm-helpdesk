@@ -15,7 +15,7 @@ import { type TimelineWindow, timelineWindowTx } from './timeline';
 const VIEW_LOG_EVERY_MIN = 60;
 
 export type AgentTicketRecord = typeof tickets.$inferSelect;
-export type AgentMessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'isInternal' | 'createdOn' | 'isAuto'> & { aiKind: string | null };
+export type AgentMessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'isInternal' | 'createdOn' | 'isAuto' | 'agentNoteKind'> & { aiKind: string | null };
 export type AgentEventRecord = Pick<typeof ticketEvents.$inferSelect, 'eventId' | 'kind' | 'actorType' | 'actorId' | 'payload' | 'isInternal' | 'createdOn'>;
 export type AgentAttachmentRecord = Pick<
   typeof attachments.$inferSelect,
@@ -37,6 +37,8 @@ export async function readAgentTicketTx(
   transfer: { toLine: string; pickupDueOn: Date | null; pickedUpOn: Date | null } | null;
   mergedIntoNumber: number | null;
   tags: Tag[];
+  /** Последняя записка второй линии AI-сотрудника (веха M8b, решение 19): показывается в окне передачи как черновик. */
+  agentMemo: { body: string; createdOn: Date } | null;
 } | null> {
   return withActor(actor, async (tx) => {
     const [ticket] = await tx.select().from(tickets).where(eq(tickets.number, number)).limit(1);
@@ -52,6 +54,7 @@ export async function readAgentTicketTx(
         isInternal: ticketMessages.isInternal,
         createdOn: ticketMessages.createdOn,
         isAuto: ticketMessages.isAuto,
+        agentNoteKind: ticketMessages.agentNoteKind,
         aiKind: sql<string | null>`${ticketMessages.aiPayload} ->> 'kind'`,
       })
       .from(ticketMessages)
@@ -109,7 +112,13 @@ export async function readAgentTicketTx(
       await writeAudit(tx, { action: 'ticket.viewed_by_staff', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: { number: ticket.number } });
     const mergedIntoNumber = await finalMainNumberTx(tx, ticket.mergedIntoId);
     const tags = (await ticketTagsTx(tx, [ticket.ticketId])).get(ticket.ticketId) ?? [];
-    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, window, transfer: transfer ?? null, mergedIntoNumber, tags };
+    const [memo] = await tx
+      .select({ body: ticketMessages.body, createdOn: ticketMessages.createdOn })
+      .from(ticketMessages)
+      .where(and(eq(ticketMessages.ticketId, ticket.ticketId), eq(ticketMessages.authorType, 'agent'), eq(ticketMessages.agentNoteKind, 'handoff_memo')))
+      .orderBy(desc(ticketMessages.createdOn))
+      .limit(1);
+    return { ticket, messages, events, attachments: files, seenOn: read?.seenOn ?? null, window, transfer: transfer ?? null, mergedIntoNumber, tags, agentMemo: memo ?? null };
   });
 }
 

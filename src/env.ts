@@ -1,4 +1,5 @@
 import 'server-only';
+import { isIP } from 'node:net';
 import { z } from 'zod';
 
 // Переменные окружения веб-приложения (ТЗ, раздел 13.5). Состав вех M0, M1 и M2.
@@ -18,6 +19,16 @@ function toUrl(value: string): URL | null {
 }
 
 const DATABASE_URL_PARAMS = new Set(['sslmode', 'sslrootcert', 'sslcert', 'sslkey', 'application_name', 'connect_timeout']);
+
+/** Адрес или сеть вида 10.0.3.0/24, 2001:db8::/64. Точную нормализацию делает сервер MCP (hda/agent/auth.ts). */
+function isCidr(value: string): boolean {
+  const [address, prefix, extra] = value.split('/');
+  if (!address || extra !== undefined) return false;
+  const version = isIP(address);
+  if (version === 0) return false;
+  if (prefix === undefined) return true;
+  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= (version === 4 ? 32 : 128);
+}
 
 const required = () => z.string({ error: 'не задана' }).trim().min(1, { error: 'не задана' });
 
@@ -262,6 +273,30 @@ const schema = z
       .regex(/^[\x21-\x7e]{16,512}$/, { error: 'ожидается от 16 до 512 знаков: латинские буквы, цифры и знаки без пробелов' })
       .optional(),
     DEV_TRACKER_WEBHOOK_SECRET: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
+    // Сервер MCP для AI-сотрудников (ТЗ 13, 7.21 FR-AGT-02; план M8b, решение 11): общий список адресов и сетей через
+    // запятую. Задан: запрос принимается, только если адрес входит и в него, и в список токена. Не задан: только список токена.
+    MCP_ALLOWED_IPS: z
+      .string()
+      .trim()
+      .refine((value) => value.split(',').every((part) => isCidr(part.trim())), { error: 'ожидаются адреса или сети IPv4 и IPv6 через запятую, например 10.0.3.0/24' })
+      .optional(),
+    // Сколько вызовов инструментов сервера MCP процесс выполняет одновременно (независимая проверка M8b, находка I3):
+    // каждый занимает соединение пула базы. Сверх предела сервер отвечает 429.
+    MCP_MAX_INFLIGHT: z.coerce.number({ error: 'ожидается целое число от 1 до 32' }).int({ error: 'ожидается целое число от 1 до 32' }).min(1, { error: 'ожидается целое число от 1 до 32' }).max(32, { error: 'ожидается целое число от 1 до 32' }).optional(),
+    // События для AI-сотрудника (ТЗ 13, FR-AGT-08; план M8b, решение 26): адрес приёма событий Hermes Agent и секрет
+    // подписи X-Hub-Signature. Задаются парой; без адреса события агенту не ставятся.
+    AGENT_WEBHOOK_URL: z
+      .string()
+      .trim()
+      .refine(
+        (value) => {
+          const url = toUrl(value);
+          return url !== null && (url.protocol === 'https:' || url.protocol === 'http:') && url.username === '' && url.password === '' && url.hash === '';
+        },
+        { error: 'ожидается адрес вида https://hermes.example.com/events без учётной записи' },
+      )
+      .optional(),
+    AGENT_WEBHOOK_SECRET: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
   })
   .superRefine((value, ctx) => {
     const host = new URL(value.HUB_URL).hostname;
@@ -350,6 +385,15 @@ const schema = z
     }
     if (value.DEV_TRACKER_WEBHOOK_SECRET && [value.BETTER_AUTH_SECRET, value.ENCRYPTION_KEY, value.DEV_TRACKER_TOKEN].includes(value.DEV_TRACKER_WEBHOOK_SECRET))
       ctx.addIssue({ code: 'custom', path: ['DEV_TRACKER_WEBHOOK_SECRET'], message: 'не должен совпадать с BETTER_AUTH_SECRET, ENCRYPTION_KEY и DEV_TRACKER_TOKEN' });
+    if (value.AGENT_WEBHOOK_URL && !value.AGENT_WEBHOOK_SECRET)
+      ctx.addIssue({ code: 'custom', path: ['AGENT_WEBHOOK_SECRET'], message: 'не задан, а AGENT_WEBHOOK_URL задан: задаются парой' });
+    if (value.AGENT_WEBHOOK_SECRET && !value.AGENT_WEBHOOK_URL)
+      ctx.addIssue({ code: 'custom', path: ['AGENT_WEBHOOK_URL'], message: 'не задан, а AGENT_WEBHOOK_SECRET задан: задаются парой' });
+    const agentHook = value.AGENT_WEBHOOK_URL ? toUrl(value.AGENT_WEBHOOK_URL) : null;
+    if (agentHook && agentHook.protocol !== 'https:' && !(LOCAL_HOSTS.has(host) && LOCAL_HOSTS.has(agentHook.hostname)))
+      ctx.addIssue({ code: 'custom', path: ['AGENT_WEBHOOK_URL'], message: 'http допускается только для localhost и только когда портал сам работает на localhost' });
+    if (value.AGENT_WEBHOOK_SECRET && [value.BETTER_AUTH_SECRET, value.ENCRYPTION_KEY].includes(value.AGENT_WEBHOOK_SECRET))
+      ctx.addIssue({ code: 'custom', path: ['AGENT_WEBHOOK_SECRET'], message: 'не должен совпадать с BETTER_AUTH_SECRET и ENCRYPTION_KEY' });
     if (value.HUB_SHOWCASE === '1' && value.NODE_ENV === 'production' && !LOCAL_HOSTS.has(host))
       ctx.addIssue({
         code: 'custom',

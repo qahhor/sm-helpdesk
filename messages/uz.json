@@ -942,6 +942,10 @@
         "ai": {
           "title": "AI-yordamchi",
           "text": "Birinchi liniya Tezi: yoqish, chegara, limitlar va xarajat, modellar."
+        },
+        "agents": {
+          "title": "AI-xodimlar",
+          "text": "MCP serveri uchun ichki agentlar tokenlari: vositalar, manzillar, limit, bekor qilish, chaqiruvlar jurnali."
         }
       },
       "servers": {
@@ -1198,7 +1202,8 @@
           "macro": "Makros",
           "dev_task": "Ishlab chiqish vazifasi",
           "metrics": "Ko'rsatkichlar",
-          "ops_backup": "Zaxira nusxa"
+          "ops_backup": "Zaxira nusxa",
+          "agent_token": "AI-xodim tokeni"
         },
         "none": "yo'q",
         "empty": "Tanlangan davr uchun yozuvlar yo'q.",
@@ -1408,6 +1413,9 @@
             "signature_added": "Muammoga signatura qo'shildi",
             "signature_removed": "Muammodan signatura olib tashlandi",
             "translation_saved": "Muammoning ochiq matni saqlandi",
+            "draft_accepted": "Ma'lum muammo qoralamasi qabul qilindi",
+            "proposals_linked": "Taklif qilingan murojaatlar ma'lum muammoga bog'landi",
+            "draft_rejected": "Ma'lum muammo qoralamasi rad etildi",
             "broadcast_confirmed": "Ma'lum muammo bo'yicha tarqatma tasdiqlandi",
             "translations_outdated": "Muammoning qabul qilingan tarjimalari ko'rsatilmaydi: asl matn o'zgardi"
           },
@@ -1421,6 +1429,15 @@
             "accepted": "Nomzoddan yechim qoralamasi yaratildi",
             "merged": "Nomzod yechim bilan birlashtirildi",
             "rejected": "Nomzod rad etildi"
+          },
+          "agent": {
+            "token_issued": "AI-xodim tokeni chiqarildi",
+            "token_changed": "AI-xodim tokeni o'zgartirildi",
+            "token_revoked": "AI-xodim tokeni bekor qilindi",
+            "event_parent_set": "Hodisalar uchun AI-xodim tokeni tanlandi",
+            "tool_refused": "Token ro'yxatidan tashqari vosita chaqiruvi rad etildi",
+            "tool_called": "AI-xodim yozish vositasini chaqirdi",
+            "report_reviewed": "AI-xodim xulosasi ko'rib chiqilgan deb belgilandi"
           }
         },
         "words": {
@@ -1479,7 +1496,12 @@
           "kind": "Turi",
           "sizeBytes": "Hajmi, bayt",
           "dump": "tungi nusxa",
-          "base": "asosiy nusxa"
+          "base": "asosiy nusxa",
+          "tools": "Vositalar",
+          "allowedIps": "Manzillar",
+          "expiresAt": "Amal qilish muddati",
+          "dailyLimit": "Sutkalik limit",
+          "runRevoked": "Bekor qilingan ishga tushirish tokenlari"
         }
       },
       "sla": {
@@ -2202,7 +2224,8 @@
           "lifted": "O'chirish bekor qilindi.",
           "topics": "Majburiy mavzular saqlandi.",
           "field_on": "Saralash maydoni qayta yoqildi.",
-          "candidates": "Nomzodlar sozlamalari saqlandi."
+          "candidates": "Nomzodlar sozlamalari saqlandi.",
+          "spikes": "Keskin oshish sozlamalari saqlandi"
         },
         "errors": {
           "stale_session": "Sozlamalarni o'zgartirish uchun qayta kiring.",
@@ -2294,6 +2317,151 @@
           "merge": "Nomzodlarni birlashtirish uchun o'xshashlik, %",
           "hint": "Chegaralar boshlang'ich: ular haqiqiy vektorlarda sozlanadi.",
           "save": "Nomzodlar sozlamalarini saqlash"
+        },
+        "spikes": {
+          "title": "Signatura keskin oshishi",
+          "intro": "Bitta xato signaturasi qisqa vaqt ichida bir nechta tashkilot murojaatlarida kelsa, portal keskin oshishni belgilaydi. Uni xodimlar ma'lum muammolar sahifasida ko'radi, AI-xodim ham oladi.",
+          "orgCount": "Kamida tashkilotlar",
+          "windowMinutes": "Daqiqa ichida",
+          "save": "Keskin oshish sozlamalarini saqlash"
+        }
+      },
+      "agents": {
+        "title": "AI-xodimlar",
+        "intro": "Ichki agentlar portalga MCP serveri orqali token bilan ulanadi. Token faqat belgilangan vositalarga, faqat ko'rsatilgan manzillardan, muddatgacha va sutkalik chaqiruvlar soni doirasida ruxsat beradi. Agent yozgan hamma narsani faqat xodimlar «AI-xodim, tekshirilmagan» belgisi bilan ko'radi.",
+        "issueToken": "Token chiqarish",
+        "emptyTitle": "Hozircha tokenlar yo'q",
+        "emptyText": "Agent uchun token chiqaring. Token qiymatini portal bir marta, chiqarilgandan so'ng darhol ko'rsatadi.",
+        "listLabel": "AI-xodimlar tokenlari",
+        "columns": {
+          "name": "Nomi",
+          "tools": "Vositalar",
+          "expiresAt": "Amal qilish muddati",
+          "lastUsedAt": "Oxirgi chaqiruv",
+          "calls": "Sutkadagi chaqiruvlar",
+          "state": "Holati"
+        },
+        "last4": "Token oxiri: {last4}",
+        "toolCounts": "o'qish {read}, yozish {write}",
+        "never": "Chaqirilmagan",
+        "callsOf": "{calls} / {limit}",
+        "states": {
+          "active": "Amal qiladi",
+          "expired": "Muddati tugagan",
+          "revoked": "Bekor qilingan"
+        },
+        "revokedAt": "Bekor qilingan",
+        "reauth": "Qayta kirish",
+        "done": {
+          "saved": "Token saqlandi.",
+          "revoked": "Token bekor qilindi. U bilan so'rovlar endi qabul qilinmaydi.",
+          "chatSaved": "Jamoa chati saqlandi.",
+          "eventParentSet": "Token hodisalar uchun tanlandi.",
+          "eventParentCleared": "«Hodisalar uchun» belgisi olib tashlandi."
+        },
+        "errors": {
+          "forbidden": "Buni faqat portal administratori qila oladi.",
+          "stale_session": "Bu amal uchun qayta kiring: kirish 15 daqiqadan eski.",
+          "invalid_input": "Maydonlarni tekshiring: vositalar, manzillar, muddat va limit.",
+          "not_found": "Token topilmadi, bekor qilingan yoki muddati tugagan."
+        },
+        "form": {
+          "newTitle": "Yangi token",
+          "editTitle": "Vositalar, manzillar, muddat va limit",
+          "name": "Nomi",
+          "nameHint": "Masalan, «Hermes: qo'llab-quvvatlash». Agent o'z yozuvlarini shu nom bilan imzolaydi: «AI-xodim: nom».",
+          "readTools": "O'qish",
+          "writeTools": "Yozish",
+          "toolsHint": "Agent faqat belgilangan vositalarni ko'radi va chaqiradi. Hech bir vosita bilan agent mijozga javob bera olmaydi, holat yoki ijrochini o'zgartira olmaydi.",
+          "allowedIps": "Ruxsat etilgan manzillar",
+          "allowedIpsHint": "Har qatorda bitta manzil yoki tarmoq, masalan 10.0.3.12 yoki 10.0.3.0/24. Boshqa manzillardan so'rovlarni portal rad etadi.",
+          "expiresAt": "Amal qilish muddati",
+          "expiresAtHint": "Hozirdan 365 kundan kech emas.",
+          "dailyLimit": "Sutkadagi chaqiruvlar",
+          "dailyLimitHint": "1 dan 10 000 gacha. Limitdan ortiq chaqiruvlar keyingi sutkagacha rad etiladi.",
+          "issue": "Token chiqarish",
+          "save": "Saqlash"
+        },
+        "issued": {
+          "title": "Token chiqarildi",
+          "text": "Qiymatni hozir nusxalab oling: portal uni bir marta ko'rsatadi va faqat izini saqlaydi. Yo'qolgan tokenni faqat bekor qilib, yangisini chiqarish mumkin.",
+          "label": "Token",
+          "copy": "Tokenni nusxalash",
+          "copied": "Nusxalandi",
+          "open": "Tokenga o'tish"
+        },
+        "tools": {
+          "search_tickets": "Murojaatlarni filtrlar va mavzu bo'yicha qidirish",
+          "get_ticket": "Yozishmalari bilan murojaat, kontaktlarsiz",
+          "similar_tickets": "O'xshash murojaatlar",
+          "sla_risk_tickets": "Muddatlar bo'yicha xavfli murojaatlar",
+          "unsolved_signatures": "Yechimsiz tez-tez uchraydigan xatolar",
+          "signature_spikes": "Xatolar keskin ko'payishi",
+          "search_solutions": "Yechimlarni qidirish",
+          "get_solution": "Statistikasi bilan yechim",
+          "list_candidates": "Yechimga nomzodlar",
+          "list_known_problems": "Ma'lum muammolar",
+          "list_ideas": "Mijozlar g'oyalari",
+          "assistant_metrics": "AI-yordamchi ko'rsatkichlari",
+          "add_internal_note": "Ichki eslatma va ikkinchi liniya uchun xat",
+          "draft_solution": "Yechim qoralamasi",
+          "draft_known_problem": "Ma'lum muammo qoralamasi",
+          "create_report": "«Xulosalar» bo'limiga xulosa"
+        },
+        "eventParent": {
+          "title": "Hodisalar uchun token",
+          "on": "Portal agentga murojaat bo'yicha hodisa yuborganda, bitta murojaat uchun tokenlarni shu tokendan chiqaradi.",
+          "off": "Hodisalarda bitta murojaat uchun tokenlarni portal faqat hodisalar uchun tanlangan tokendan chiqaradi. Bunday token bitta.",
+          "set": "Hodisalar uchun tanlash",
+          "clear": "Belgini olib tashlash",
+          "mark": "Hodisalar uchun"
+        },
+        "calls": {
+          "title": "Chaqiruvlar jurnali",
+          "intro": "Har bir vosita chaqiruvi: vaqt, vosita, natija, obyektlar va davomiylik. Argumentlar va javoblarni portal saqlamaydi. Qatorlar 365 kun saqlanadi.",
+          "empty": "Hozircha chaqiruvlar yo'q.",
+          "columns": {
+            "time": "Vaqt",
+            "tool": "Vosita",
+            "status": "Natija",
+            "objects": "Obyektlar",
+            "duration": "Davomiylik"
+          },
+          "run": "Bitta murojaat tokeni",
+          "statuses": {
+            "ok": "Bajarildi",
+            "refused": "Rad etildi",
+            "invalid": "Noto'g'ri ma'lumot",
+            "rate_limited": "Limitdan ortiq",
+            "error": "Nosozlik"
+          },
+          "noObjects": "Yo'q",
+          "ms": "{ms} ms",
+          "first": "Yangilariga",
+          "next": "Yana 50",
+          "refs": {
+            "ticket": "SUP-{ref}",
+            "solution": "yechim №{ref}",
+            "problem": "muammo №{ref}",
+            "idea": "g'oya №{ref}",
+            "candidate": "nomzod {ref}",
+            "report": "xulosa {ref}"
+          }
+        },
+        "revoke": {
+          "open": "Tokenni bekor qilish",
+          "title": "{name} tokeni bekor qilinsinmi?",
+          "text": "Token keyingi so'rovdan boshlab, bitta murojaat uchun tokenlari bilan birga amal qilmay qo'yadi. Bekor qilishni qaytarib bo'lmaydi: agent uchun yangi token chiqarish kerak bo'ladi.",
+          "confirm": "Bekor qilish",
+          "cancel": "Ortga",
+          "close": "Yopish"
+        },
+        "teamChat": {
+          "title": "Jamoa chati",
+          "text": "Portal bu yerga agent xulosasi bo'yicha qisqa xabar yuboradi: raqamlar, murojaat raqamlari va havolalar. Agent matni chatga tushmaydi. Bu navbatchilar chati emas.",
+          "label": "Telegram chat identifikatori",
+          "hint": "Masalan, -1001234567890. Bo'sh maydon: xabarlar yo'q, xulosalar «Xulosalar» bo'limida saqlanadi.",
+          "save": "Chatni saqlash"
         }
       }
     },
@@ -3791,6 +3959,7 @@
       "empty": "Ma'lum muammolar yo'q",
       "emptyText": "Muammo murojaatdan yoki yuqoridagi tugma bilan yaratiladi.",
       "statuses": {
+        "draft": "AI-xodim qoralamasi",
         "investigating": "O'rganyapmiz",
         "cause_found": "Sabab topildi",
         "fixing": "Tuzatyapmiz",
@@ -3877,6 +4046,9 @@
         "problem_closed": "Muammo yopilgan, uni o'zgartirib bo'lmaydi",
         "already_linked": "Murojaat allaqachon ma'lum muammoga bog'langan",
         "ticket_closed": "Bu murojaatni bog'lab bo'lmaydi",
+        "not_draft": "Bu endi qoralama emas",
+        "not_accepted": "Avval qoralamani qabul qiling",
+        "problem_draft": "Qoralamaga murojaatlarni bog'lab bo'lmaydi: avval uni qabul qiling",
         "problem_inactive": "Muammo faol emas",
         "too_many": "Bir martada 100 tadan ko'p murojaat emas",
         "translation_required": "Oluvchilarning bir qismi tilida matn yo'q: uni yozing yoki asl matnni yuborishni belgilang",
@@ -3907,7 +4079,10 @@
         "broadcast_sent": "Tarqatma tasdiqlandi va yuborilmoqda",
         "dev_linked": "Ishlab chiqish vazifasi bog'landi",
         "dev_unlinked": "Ishlab chiqish vazifasi uzildi",
-        "dev_status": "Vazifa holati saqlandi"
+        "dev_status": "Vazifa holati saqlandi",
+        "draft_accepted": "Qoralama qabul qilindi",
+        "proposals_linked": "Taklif qilingan murojaatlar ko'rib chiqildi",
+        "draft_rejected": "Qoralama rad etildi"
       },
       "broadcast": {
         "title": "Hammaga yangilanish yozish",
@@ -3953,6 +4128,27 @@
           "tracker_unavailable": "Vazifa menejeri javob bermadi. Keyinroq urinib ko'ring",
           "other": "Bu amal ikkinchi liniya, Customer Care va administrator uchun"
         }
+      },
+      "draft": {
+        "title": "Ma'lum muammo qoralamasi",
+        "hint": "Qoralama qabul qilinmaguncha mijozlar uni ko'rmaydi, signatura ishlamaydi va murojaatlar bog'lanmaydi.",
+        "description": "AI-xodim tavsifi",
+        "proposals": "Taklif qilingan murojaatlar",
+        "noProposals": "Murojaatlar taklif qilinmagan",
+        "accept": "Qoralamani qabul qilish",
+        "linkProposed": "Taklif qilinganlarni bog'lash",
+        "linkHint": "Har bir murojaat alohida tekshiriladi: yopilgan va allaqachon bog'langanlari o'tkazib yuboriladi.",
+        "reject": "Qoralamani rad etish",
+        "reason": "Rad etish sababi"
+      },
+      "spikes": {
+        "title": "Signaturalarning keskin oshishi",
+        "intro": "Bitta xato signaturasi qisqa vaqt ichida bir nechta tashkilot murojaatlarida. Ma'lum muammo kerak emasligini tekshiring.",
+        "counts": "{orgs} ta tashkilot, {minutes} daqiqada {tickets} ta murojaat, {when}",
+        "problem": "Ma'lum muammo",
+        "create": "Ma'lum muammo yaratish",
+        "titleLabel": "Ichki nom",
+        "defaultTitle": "{signature} xatosining keskin oshishi"
       }
     },
     "announcements": {
@@ -4062,6 +4258,74 @@
         "forbidden": "Bu amal rolingiz uchun mavjud emas",
         "invalid_input": "Forma maydonlarini tekshiring",
         "not_found": "Yechim yoki nomzod topilmadi"
+      }
+    },
+    "aiStaff": {
+      "mark": "AI-xodim, tekshirilmagan",
+      "memoTitle": "AI-xodim eslatmasi qoralamasi",
+      "memoHint": "Eslatma faqat siz uchun: u uzatish maydonlarini to'ldirmaydi, ularni tekshirib o'zingiz yozing.",
+      "revises": "{ref} yechimiga tuzatish taklif qiladi"
+    },
+    "teamChat": {
+      "title": "AI-xodim xulosasi: {kind}",
+      "kinds": {
+        "morning": "Ertalabki xulosa",
+        "kb_hygiene": "Yechimlar gigiyenasi",
+        "ideas": "G'oyalar",
+        "code_scan": "Kodni tekshirish"
+      },
+      "numbers": {
+        "new_tickets": "Yangi murojaatlar: {count}",
+        "ai_resolved": "Yordamchi hal qildi: {count}",
+        "handed_off": "Xodimlarga uzatildi: {count}",
+        "sla_risk": "Muddati xavf ostida: {count}"
+      },
+      "tickets": "Murojaatlar:",
+      "open": "Xulosa: {url}"
+    },
+    "digests": {
+      "title": "Xulosalar",
+      "intro": "AI-xodimning jamoa uchun xulosalari va materiallari. Xulosani hech kim \"Ko'rib chiqildi\" deb belgilamaguncha, unda \"AI-xodim, tekshirilmagan\" belgisi turadi.",
+      "filters": {
+        "label": "Xulosa filtrlari",
+        "kind": "Turi",
+        "status": "Belgi",
+        "any": "Hammasi",
+        "apply": "Ko'rsatish"
+      },
+      "statuses": {
+        "unverified": "Tekshirilmagan",
+        "reviewed": "Ko'rib chiqildi"
+      },
+      "columns": {
+        "date": "Sana",
+        "kind": "Turi",
+        "title": "Nomi",
+        "author": "Muallif",
+        "mark": "Belgi"
+      },
+      "author": "AI-xodim",
+      "empty": "Hozircha xulosalar yo'q",
+      "emptyText": "AI-xodim portal bilan ishlay boshlaganda xulosalar paydo bo'ladi.",
+      "more": "Yana ko'rsatish",
+      "done": "Xulosa ko'rib chiqilgan deb belgilandi",
+      "error": "Xulosani belgilab bo'lmadi",
+      "createdOn": "Yozilgan: {time}",
+      "period": "Davr: {from} - {to}",
+      "tickets": "Murojaatlar",
+      "review": "Ko'rib chiqildi",
+      "reviewedOn": "Ko'rib chiqildi: {time}",
+      "kinds": {
+        "morning": "Ertalabki xulosa",
+        "kb_hygiene": "Yechimlar gigiyenasi",
+        "ideas": "G'oyalar",
+        "code_scan": "Kodni tekshirish"
+      },
+      "numbers": {
+        "new_tickets": "Yangi murojaatlar: {count}",
+        "ai_resolved": "Yordamchi hal qildi: {count}",
+        "handed_off": "Xodimlarga uzatildi: {count}",
+        "sla_risk": "Muddati xavf ostida: {count}"
       }
     }
   },

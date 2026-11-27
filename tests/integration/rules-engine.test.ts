@@ -152,6 +152,18 @@ test('правило выполняет действия над обращени
   expect(view?.timeline.find((entry) => entry.type === 'message' && entry.body === 'Проверить оплату клиента')).toMatchObject({ isAuto: true, isInternal: true });
 });
 
+test('смена очереди правилом на вторую линию пишет событие line_transferred для AI-сотрудника (находка M6)', async () => {
+  const t = f.tickets.aOrg;
+  await rule({ actions: [{ action: 'set_queue', queue: 'l2' }] });
+  await fire(t);
+  const events = (await pools.root.query(`select kind, payload, is_by_rule from hdc_domain_events where ticket_id = $1 and kind = 'line_transferred'`, [t.ticketId])).rows;
+  expect(events).toEqual([{ kind: 'line_transferred', payload: { from: 'l1', to: 'l2', reason: null }, is_by_rule: true }]);
+  // Возврат правилом на первую линию передачей на вторую не считается.
+  await rule({ name: 'Вернуть', event: 'status_changed', actions: [{ action: 'set_queue', queue: 'l1' }] });
+  await fire(t, f.orgA.orgId, 'status_changed');
+  expect((await pools.root.query(`select 1 from hdc_domain_events where ticket_id = $1 and kind = 'line_transferred'`, [t.ticketId])).rowCount).toBe(1);
+});
+
 test('смена очереди и снятие тега; повтор ничего не меняет и записывается как "без изменений"', async () => {
   const t = f.tickets.aOrg;
   const tagId = await tag('Оплата');

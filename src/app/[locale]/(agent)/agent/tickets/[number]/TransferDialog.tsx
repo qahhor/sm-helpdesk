@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
+import { AgentMark } from '@/ui/components/AgentMark';
 import { Button } from '@/ui/components/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/ui/components/dialog';
 import { Label } from '@/ui/components/label';
@@ -27,11 +28,22 @@ export type TransferLabels = {
   cancel: string;
   submit: string;
   close: string;
+  /** Черновик записки AI-сотрудника (веха M8b, решение 19): заголовок, пометка и пояснение. */
+  memoTitle: string;
+  memoMark: string;
+  memoHint: string;
 };
 
-type Props = { number: number; reasons: { value: string; label: string }[]; items: string[]; labels: TransferLabels };
+type Props = {
+  number: number;
+  reasons: { value: string; label: string }[];
+  items: string[];
+  labels: TransferLabels;
+  /** Последняя записка второй линии AI-сотрудника: только показ, поля передачи она не заполняет. */
+  agentMemo?: string | null;
+};
 
-export function TransferDialog({ number, reasons, items, labels }: Props) {
+export function TransferDialog({ number, reasons, items, labels, agentMemo }: Props) {
   const [reason, setReason] = useState('');
   const [checked, setChecked] = useState('');
   const [needed, setNeeded] = useState('');
@@ -45,6 +57,16 @@ export function TransferDialog({ number, reasons, items, labels }: Props) {
       </DialogTrigger>
       <DialogContent closeLabel={labels.close}>
         <DialogTitle>{labels.title}</DialogTitle>
+        {agentMemo && (
+          <section className="flex flex-col gap-1 rounded-control border border-border bg-card-soft p-3 text-sm" data-agent-memo="">
+            <p className="flex flex-wrap items-center gap-2 font-medium">
+              {labels.memoTitle}
+              <AgentMark label={labels.memoMark} />
+            </p>
+            <p className="whitespace-pre-wrap break-words">{agentMemo}</p>
+            <p className="text-xs text-secondary-foreground">{labels.memoHint}</p>
+          </section>
+        )}
         <form action={transferAction} className="flex flex-col gap-4">
           <input type="hidden" name="number" value={number} />
           <div className="flex flex-col gap-1">

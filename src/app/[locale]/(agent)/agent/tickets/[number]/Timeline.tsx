@@ -5,6 +5,7 @@ import { Link } from '@/i18n/navigation';
 import { Card, CardContent } from '@/ui/components/card';
 import { Markdown } from '@/ui/components/markdown';
 import { StatusLabel } from '@/ui/components/StatusLabel';
+import { AgentMark } from '@/ui/components/AgentMark';
 import { cn } from '@/ui/cn';
 import { FlagAiAnswer } from './FlagAiAnswer';
 import { translateMessageAction } from './actions';
@@ -156,11 +157,14 @@ export async function TicketTimeline({ ticket, from, canFlag = false, translatio
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               {entry.isInternal && <StatusLabel tone="orange">{t('ticket.note')}</StatusLabel>}
               {entry.isAuto && <StatusLabel tone="gray">{t('ticket.auto')}</StatusLabel>}
+              {entry.authorType === 'agent' && <AgentMark label={t('aiStaff.mark')} />}
+              {entry.agentNoteKind === 'handoff_memo' && <StatusLabel tone="gray">{t('aiStaff.memoTitle')}</StatusLabel>}
               <span className="font-semibold text-foreground">{entry.authorName ?? t(`ticket.authors.${entry.authorType}`)}</span>, {when(entry.createdOn)}
               {entry.isNew && <StatusLabel tone="blue">{t('ticket.new')}</StatusLabel>}
               {entry.undelivered && <StatusLabel tone="danger">{t('ticket.undelivered')}</StatusLabel>}
             </p>
-            <Markdown text={entry.body} />
+            {/* Текст AI-сотрудника обычным текстом: без разметки и активных ссылок (решение 22 плана M8b). */}
+            {entry.authorType === 'agent' ? <p className="whitespace-pre-wrap break-words" data-agent-text="">{entry.body}</p> : <Markdown text={entry.body} />}
             {files(entry.attachments)}
             {entry.authorType === 'client' && !entry.isInternal && translations && (() => {
               const found = translations.byMessage.get(entry.id);

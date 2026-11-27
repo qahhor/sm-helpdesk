@@ -6,7 +6,7 @@ import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
 import { authSession, authUser } from '../auth-schema';
 import type { ClientRole } from '../pref';
-import { memberships, organizations, servers, staff, userProfiles } from '../schema';
+import { contactIdentities, invitations, memberships, organizations, servers, staff, userProfiles } from '../schema';
 import { signInMemberships } from './access';
 import { directoryOrgIds } from './directory-search';
 
@@ -174,6 +174,81 @@ export async function orgAiProfileOf(actor: SystemActor | StaffActor, orgId: str
       .where(eq(memberships.orgId, orgId))
       .limit(MEMBER_NAMES_MAX);
     return { ...org, people, memberNames: members.map((m) => m.name).filter((name): name is string => Boolean(name)) };
+  });
+}
+
+/**
+ * Слова для обезличивания текста агенту (веха M8b, решение 8): название и ИНН организаций, имена их участников и
+ * сотрудников, а также имена людей вне участников (otherNames, находка I1 независимой проверки).
+ */
+export type AgentRedactionTerms = { orgs: Map<string, { orgTerms: string[]; memberNames: string[] }>; staffNames: string[]; otherNames: string[] };
+
+/**
+ * Что нужно обезличиванию ответа сервера MCP (план M8b, решение 8; находка I1): по организациям их название, ИНН и
+ * имена участников в любом состоянии (и бывших), имена из приглашений организации и гостей этих приглашений, имена
+ * каналов связи участников; по людям обращений (userIds: автор, авторы сообщений, наблюдатели, в том числе гость из
+ * письма не из организации) их имена и имена каналов связи; имена сотрудников портала. Ничего из этого агенту не
+ * уходит: по этим словам текст заменяется обозначениями. Только система.
+ */
+export async function agentRedactionTermsOf(actor: SystemActor, input: { orgIds: readonly string[]; userIds: readonly string[] }): Promise<AgentRedactionTerms> {
+  const ids = [...new Set(input.orgIds)];
+  const people = [...new Set(input.userIds)];
+  const cap = MEMBER_NAMES_MAX * Math.max(1, ids.length);
+  // Приглашения организаций: таблица идентичности под ролью hub_auth, отдельная транзакция до основной (не вложена).
+  const invited =
+    ids.length === 0
+      ? []
+      : await withIdentity(actor, (tx) =>
+          tx.select({ orgId: invitations.orgId, name: invitations.name, guestUserId: invitations.guestUserId }).from(invitations).where(inArray(invitations.orgId, ids)).limit(cap),
+        );
+  const guestIds = [...new Set(invited.flatMap((row) => (row.guestUserId ? [row.guestUserId] : [])))];
+  return withActor(actor, async (tx) => {
+    const orgs = ids.length === 0 ? [] : await tx.select({ orgId: organizations.orgId, name: organizations.name, inn: organizations.inn }).from(organizations).where(inArray(organizations.orgId, ids));
+    const members =
+      ids.length === 0
+        ? []
+        : await tx
+            .select({ orgId: memberships.orgId, userId: memberships.userId, name: userProfiles.name })
+            .from(memberships)
+            .innerJoin(userProfiles, eq(userProfiles.userId, memberships.userId))
+            .where(inArray(memberships.orgId, ids))
+            .limit(cap);
+    // Гости приглашений: имя учётной записи гостя.
+    const guests = guestIds.length === 0 ? [] : await tx.select({ userId: userProfiles.userId, name: userProfiles.name }).from(userProfiles).where(inArray(userProfiles.userId, guestIds));
+    const guestName = new Map(guests.map((g) => [g.userId, g.name]));
+    const others = people.length === 0 ? [] : await tx.select({ userId: userProfiles.userId, name: userProfiles.name, isStaff: userProfiles.isStaff }).from(userProfiles).where(inArray(userProfiles.userId, people));
+    const channelUsers = [...new Set([...members.map((m) => m.userId), ...people])];
+    const channels =
+      channelUsers.length === 0
+        ? []
+        : await tx
+            .select({ userId: contactIdentities.userId, name: contactIdentities.displayName })
+            .from(contactIdentities)
+            .where(inArray(contactIdentities.userId, channelUsers))
+            .limit(cap);
+    const staffRows = await tx.select({ name: userProfiles.name }).from(userProfiles).where(eq(userProfiles.isStaff, true)).limit(MEMBER_NAMES_MAX);
+
+    const map = new Map<string, { orgTerms: string[]; memberNames: string[] }>();
+    for (const org of orgs) map.set(org.orgId, { orgTerms: [org.name, ...(org.inn ? [org.inn] : [])], memberNames: [] });
+    const memberOrg = new Map<string, string>();
+    for (const member of members) {
+      memberOrg.set(member.userId, member.orgId);
+      if (member.name) map.get(member.orgId)?.memberNames.push(member.name);
+    }
+    for (const row of invited)
+      for (const name of [row.name, row.guestUserId ? guestName.get(row.guestUserId) : null]) if (name && row.orgId) map.get(row.orgId)?.memberNames.push(name);
+    const otherNames: string[] = [];
+    const staffNames = staffRows.flatMap((row) => (row.name ? [row.name] : []));
+    for (const person of others) if (person.name) (person.isStaff ? staffNames : otherNames).push(person.name);
+    for (const channel of channels) {
+      if (!channel.name) continue;
+      const org = memberOrg.get(channel.userId);
+      if (org) map.get(org)?.memberNames.push(channel.name);
+      else otherNames.push(channel.name);
+    }
+    const unique = (names: string[]) => [...new Set(names.map((name) => name.trim()).filter(Boolean))];
+    for (const entry of map.values()) entry.memberNames = unique(entry.memberNames);
+    return { orgs: map, staffNames: unique(staffNames), otherNames: unique(otherNames) };
   });
 }
 

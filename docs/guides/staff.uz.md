@@ -135,3 +135,15 @@ Murojaat kartasining o'ng tomonida AI-yordamchi bloki: topshirish sababi, javobl
 **E'lonlar** (Customer Care, administrator): «Mijozlar» guruhidagi «E'lonlar»: tur, 90 kundan oshmaydigan davr (Toshkent vaqti), auditoriya (hamma, Smartup serveri, modul), matn va qabul qilingan tarjimalar, muddatidan oldin tugatish.
 
 **Yechim nomzodlari.** «Bilimlar» guruhidagi «Nomzodlar»: AI yechimsiz yopilgan murojaatlardan tayyorlagan yechim qoralamalari; o'xshashlari birlashtiriladi, murojaat va tashkilotlar ko'p bo'lganlari yuqorida. Mijozlar ularni ko'rmaydi, maslahat ularni topmaydi. Kartochkada: «Yechim qoralamasi qilish» (barcha manba murojaatlari bilan ichki yechim), raqam bo'yicha «Yechim bilan birlashtirish», sabab bilan «Rad etish». Nomzoddan olingan yechim oddiy tartibda chop etiladi, lekin har bir «Telefon», «Pochta», «Buyruq», «Kod» topilmasini «tekshirildi» deb belgilash kerak; matnni tahrirlash belgilarni olib tashlaydi. Nomzodlar sozlamalari (o'chirgich, kunlik chegara, birlashtirish chegaralari) administratorda «AI-yordamchi» sahifasida.
+
+## 13. AI-xodim
+
+AI-xodim (Hermes Agent va boshqa ichki agentlar) portal bilan faqat MCP serveri orqali, administrator «AI-xodimlar» bo'limida chiqaradigan token bilan ishlaydi. Agent AI-ishlov yoqilgan tashkilotlar murojaatlarini ismlar, pochta, telefon va tashkilot nomlarisiz o'qiydi va faqat xodimlar ko'radigan narsalarni yozadi. Mijoz uning yozuvlarini hech qachon ko'rmaydi.
+
+**Belgi.** Agentning har bir yozuvida «AI-xodim, tekshirilmagan» belgisi bor va u oddiy matn sifatida, belgilash va faol havolalarsiz ko'rsatiladi. Bu siz uchun material, tayyor yechim emas: harakat qilishdan oldin tekshiring.
+
+**Eslatmalar va ikkinchi liniya uchun eslatma.** Agent eslatmasi murojaat lentasida ichki eslatmalar orasida turadi; u holat, muddat va ijrochini o'zgartirmaydi, bildirishnoma yubormaydi. Ikkinchi liniya uchun eslatmani «Ikkinchi liniyaga o'tkazish» oynasida «AI-xodim eslatmasi qoralamasi» sifatida ko'rasiz: u uzatish maydonlarini to'ldirmaydi, ularni o'zingiz yozing.
+
+**Ma'lum muammo qoralamalari.** Muammo qoralamasi (holat «AI-xodim qoralamasi») mijozlarga ko'rinmaydi, signaturasi ishlamaydi, murojaatlar faqat taklif qilingan. Ikkinchi liniya, Customer Care va administrator «Qoralamani qabul qilish», keyin «Taklif qilinganlarni bog'lash» tugmasini bosadi; keraksiz qoralama «Qoralamani rad etish» bilan yopiladi.
+
+**Xulosalar.** «Tahlil» guruhidagi «Xulosalar» bo'limi: agentning ertalabki xulosalari va boshqa materiallari. Tekshirib bo'lgach, xulosani ochib «Ko'rib chiqildi» tugmasini bosing. Agar administrator jamoa chatini belgilagan bo'lsa, portal o'zi u yerga raqamlar va murojaat raqamlari bilan qisqa xabar yozadi; agent matni chatga tushmaydi.

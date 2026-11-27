@@ -1,7 +1,8 @@
 // Модуль hdp, слой pref: константы известных проблем, рассылок и объявлений (docs/naming.md, раздел 5; план M5c).
 
 /** Статусы известной проблемы (FR-KP-02): изучаем, причина найдена, исправляем, исправлено, закрыто. */
-export const PROBLEM_STATUSES = ['investigating', 'cause_found', 'fixing', 'fixed', 'closed'] as const;
+/** draft: черновик AI-сотрудника или всплеска сигнатуры (веха M8b, решение 20): не активный, клиенту не виден. */
+export const PROBLEM_STATUSES = ['draft', 'investigating', 'cause_found', 'fixing', 'fixed', 'closed'] as const;
 export type ProblemStatus = (typeof PROBLEM_STATUSES)[number];
 
 /**

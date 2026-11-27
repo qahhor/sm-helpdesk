@@ -25,8 +25,8 @@ test('состав групп этапа 1 и вехи, в которых пун
   });
 });
 
-test('включены вехи M0-M3, M5, M5b, M5c, M7 и M8: в группе "Работа" пункт "Очереди" виден всем сотрудникам', () => {
-  expect([...ENABLED_MILESTONES]).toEqual(['M0', 'M1', 'M2', 'M3', 'M5', 'M5b', 'M5c', 'M7', 'M8']);
+test('включены вехи M0-M3, M5, M5b, M5c, M7, M8 и M8b: в группе "Работа" пункт "Очереди" виден всем сотрудникам', () => {
+  expect([...ENABLED_MILESTONES]).toEqual(['M0', 'M1', 'M2', 'M3', 'M5', 'M5b', 'M5c', 'M7', 'M8', 'M8b']);
   const work = AGENT_NAV_GROUPS.find((g) => g.key === 'work');
   for (const role of ['agent_l1', 'agent_l2', 'care', 'product', 'admin'] as const) expect(visibleItems(work!, ENABLED_MILESTONES, role).map((i) => i.key), role).toEqual(['queues']);
 });
@@ -36,12 +36,13 @@ test('в группе "Клиенты" пункты "Организации" (M1
   for (const role of ['agent_l1', 'agent_l2', 'care', 'product', 'admin'] as const) expect(visibleItems(group!, ENABLED_MILESTONES, role).map((i) => i.key), role).toEqual(['organizations', 'ideas', 'announcements']);
 });
 
-test('веха M8 включает "Показатели", веха M5b "Разбор ответов AI" (FR-AI-16) для всех сотрудников; "Сводки" ждут M8b', () => {
-  expect([...ENABLED_MILESTONES]).toContain('M8');
+test('веха M8 включает "Показатели", M5b "Разбор ответов AI" (FR-AI-16), M8b "Сводки" для всех сотрудников', () => {
+  expect([...ENABLED_MILESTONES]).toContain('M8b');
   const analytics = AGENT_NAV_GROUPS.find((g) => g.key === 'analytics')!;
-  for (const role of ['agent_l1', 'agent_l2', 'care', 'product', 'admin'] as const) expect(visibleItems(analytics, ENABLED_MILESTONES, role).map((i) => i.href), role).toEqual(['/agent/metrics', '/agent/ai-review']);
-  // Код M8 не включает пункты вех M8b и M8c.
-  for (const group of AGENT_NAV_GROUPS) for (const item of visibleItems(group, ENABLED_MILESTONES, 'admin')) expect(['M1', 'M3', 'M5', 'M5b', 'M5c', 'M7', 'M8'], item.key).toContain(item.availableFrom);
+  for (const role of ['agent_l1', 'agent_l2', 'care', 'product', 'admin'] as const)
+    expect(visibleItems(analytics, ENABLED_MILESTONES, role).map((i) => i.href), role).toEqual(['/agent/metrics', '/agent/digests', '/agent/ai-review']);
+  // Код M8b не включает пункты вехи M8c.
+  for (const group of AGENT_NAV_GROUPS) for (const item of visibleItems(group, ENABLED_MILESTONES, 'admin')) expect(['M1', 'M3', 'M5', 'M5b', 'M5c', 'M7', 'M8', 'M8b'], item.key).toContain(item.availableFrom);
 });
 
 test('веха M5c: "Известные проблемы" всем сотрудникам, "Кандидаты" ролям с правом черновика решения (не product); знания из кода ждут M8c', () => {

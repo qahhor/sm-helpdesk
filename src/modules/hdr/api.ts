@@ -64,6 +64,14 @@ export async function moduleCodesTx(tx: Tx, moduleIds: readonly string[]): Promi
   return new Map(rows.map((row) => [row.moduleId, row.code]));
 }
 
+/** Идентификаторы модулей по кодам в транзакции вызывающего: фильтр инструмента сервера MCP по коду модуля (веха M8b). */
+export async function moduleIdsByCodesTx(tx: Tx, codes: readonly string[]): Promise<Map<string, string>> {
+  const list = [...new Set(codes)];
+  if (list.length === 0) return new Map();
+  const rows = await tx.select({ moduleId: productModules.moduleId, code: productModules.code }).from(productModules).where(inArray(productModules.code, list));
+  return new Map(rows.map((row) => [row.code, row.moduleId]));
+}
+
 // --- Сроки SLA и рабочий календарь (план M3, задача 2) ---
 
 export { readSlaConfig, type Priority, type SlaCalendar, type SlaConfig, type SlaPolicy } from './core/sla-config';

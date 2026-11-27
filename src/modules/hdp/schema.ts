@@ -29,6 +29,19 @@ export const problems = pgTable('hdp_problems', {
   orgCount: integer('org_count').notNull().default(0),
   status: text('status').$type<ProblemStatus>().notNull().default('investigating'),
   ...stampColumns,
+  /** Внутреннее описание: у черновика AI-сотрудника его текст (веха M8b, решение 20). Миграция 0113. */
+  internalDescription: text('internal_description'),
+});
+
+/** Обращения, которые черновик проблемы предлагает привязать (веха M8b, решение 20). Миграция 0113. */
+export const problemProposals = pgTable('hdp_problem_proposals', {
+  orgId: uuid('org_id').notNull(),
+  proposalId: uuid('proposal_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  problemId: uuid('problem_id').notNull(),
+  ticketId: uuid('ticket_id').notNull(),
+  ...stampColumns,
 });
 
 /** Публичные тексты проблемы по языкам. Машинный перевод клиенту не виден до принятия. */

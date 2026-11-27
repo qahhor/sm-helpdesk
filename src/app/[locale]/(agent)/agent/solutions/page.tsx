@@ -12,6 +12,7 @@ import { EmptyState } from '@/ui/components/EmptyState';
 import { Label } from '@/ui/components/label';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { Select } from '@/ui/components/select';
+import { AgentMark } from '@/ui/components/AgentMark';
 import { StatusLabel, type StatusTone } from '@/ui/components/StatusLabel';
 
 // Решения (план M5, задача 3; UX-W-10): "Мои задачи" (мои черновики и мои решения на пересмотре) и список всех
@@ -80,6 +81,7 @@ export default async function SolutionsPage({ searchParams }: { searchParams: Pr
                   {row.status === 'published' && row.hasDraft && <StatusLabel tone="blue">{s('hasChanges')}</StatusLabel>}
                   {row.audience === 'internal' && <StatusLabel tone="purple">{s('internalOnly')}</StatusLabel>}
                   {row.needsReview && <StatusLabel tone="danger">{s('needsReview')}</StatusLabel>}
+                  {row.isAgentDraft && row.status !== 'published' && <AgentMark label={t('aiStaff.mark')} />}
                 </span>
               </td>
               <td className="px-3 py-3 tabular-nums" data-column="shown">{format.number(row.shownCount)}</td>

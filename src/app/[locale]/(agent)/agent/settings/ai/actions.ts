@@ -5,6 +5,7 @@ import { getLocale } from 'next-intl/server';
 import { AI_PURPOSES, RESTRICTED_TOPICS } from '@/modules/hda/api/constants';
 import { isHdaError, liftAiCutoff, saveAiModels, saveAiSettings, saveCandidateSettings, saveRestrictedTopics } from '@/modules/hda/api/settings';
 import { liftTriageFieldOff } from '@/modules/hda/api/triage';
+import { saveSpikeSettings } from '@/modules/hda/api/agent-jobs';
 import { requireStaffActor } from '@/modules/hdu/api';
 
 // Раздел "AI-помощник" настроек (план M5b, задача 1; FR-ADM-09, FR-AI-17). Права, свежий вход и значения проверяет
@@ -75,4 +76,10 @@ export async function saveCandidateSettingsAction(form: FormData): Promise<void>
       mergePercent: String(form.get('mergePercent') ?? ''),
     }),
   );
+}
+
+/** Порог и окно всплеска сигнатуры (веха M8b, задача 8, решение 25). */
+export async function saveSpikeSettingsAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor({ roles: ['admin'] });
+  await run('spikes', () => saveSpikeSettings(staff, { orgCount: String(form.get('orgCount') ?? ''), windowMinutes: String(form.get('windowMinutes') ?? '') }));
 }

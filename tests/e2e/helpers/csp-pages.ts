@@ -38,6 +38,9 @@ export const CSP_PAGES: readonly CspPage[] = [
   // Кандидаты в решения (веха M5c, задача 10): несуществующий кандидат даёт "не найдено".
   { route: `${A}/candidates`, path: '/ru/agent/candidates', who: 'admin' },
   { route: `${A}/candidates/[id]`, path: '/ru/agent/candidates/00000000-0000-7000-8000-000000000000', who: 'admin', status: 404 },
+  // Сводки AI-сотрудника (веха M8b, задача 10).
+  { route: `${A}/digests`, path: '/ru/agent/digests', who: 'admin' },
+  { route: `${A}/digests/[id]`, path: '/ru/agent/digests/00000000-0000-7000-8000-000000000000', who: 'admin', status: 404 },
   { route: `${A}/problems`, path: '/ru/agent/problems', who: 'admin' },
   { route: `${A}/problems/[number]`, path: '/ru/agent/problems/{problem}', who: 'admin' },
   // Подтверждение рассылки: несуществующая рассылка даёт "не найдено".
@@ -55,6 +58,9 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: `${A}/settings/knowledge`, path: '/ru/agent/settings/knowledge', who: 'admin' },
   { route: `${A}/settings/search`, path: '/ru/agent/settings/search', who: 'admin' },
   { route: `${A}/settings/ai`, path: '/ru/agent/settings/ai', who: 'admin' },
+  // AI-сотрудники (веха M8b, задача 3): несуществующий токен даёт "не найдено".
+  { route: `${A}/settings/agents`, path: '/ru/agent/settings/agents', who: 'admin' },
+  { route: `${A}/settings/agents/[id]`, path: '/ru/agent/settings/agents/00000000-0000-7000-8000-000000000000', who: 'admin', status: 404 },
   { route: `${A}/settings/macros`, path: '/ru/agent/settings/macros', who: 'admin' },
   { route: `${A}/settings/macros/[macroId]`, path: '/ru/agent/settings/macros/{macro}', who: 'admin' },
   { route: `${A}/settings/macros/new`, path: '/ru/agent/settings/macros/new', who: 'admin', walk: true },
@@ -148,6 +154,8 @@ export const CSP_HANDLERS: readonly CspHandler[] = [
   { route: 'api/embed/tickets/[number]', path: '/api/embed/tickets/{clientTicket}', who: 'guest' },
   { route: 'api/health', path: '/api/health', who: 'guest' },
   { route: 'api/ideas/similar', path: '/api/ideas/similar', who: 'client' },
+  // Сервер MCP: только POST по токену AI-сотрудника, GET отвечает 405 (план M8b, решение 4).
+  { route: 'api/mcp', path: '/api/mcp', who: 'guest' },
   { route: 'api/ready', path: '/api/ready', who: 'guest' },
   { route: 'api/ready/worker', path: '/api/ready/worker', who: 'guest' },
   { route: 'api/suggest', path: '/api/suggest', who: 'client' },

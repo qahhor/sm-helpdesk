@@ -4,7 +4,10 @@ import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { isHdpError, parseProblemRef } from '@/modules/hdp/api';
 import {
+  acceptProblemDraft,
   addProblemSignature,
+  linkProposedTickets,
+  rejectProblemDraft,
   createProblem,
   createProblemFromTicket,
   removeProblemSignature,
@@ -18,6 +21,8 @@ import { confirmBroadcast, prepareBroadcast } from '@/modules/hdp/api/broadcasts
 import { linkTicketToProblem, unlinkTicket } from '@/modules/hdp/api/links';
 import { listProblems } from '@/modules/hdp/api/problems';
 import { requireStaffActor } from '@/modules/hdu/api';
+import { createProblemFromSpike } from '@/modules/hda/api/agent-jobs';
+import { isHdaError } from '@/modules/hda/api/agent-admin';
 import { isHdwError } from '@/modules/hdw/api';
 import { devTrackerMode, linkDevTaskToProblem, setDevTaskStatus, unlinkDevTaskFromProblem } from '@/modules/hdw/api/dev-tasks';
 
@@ -86,6 +91,22 @@ export async function saveProblemAction(form: FormData): Promise<void> {
 export async function problemStatusAction(form: FormData): Promise<void> {
   const staff = await requireStaffActor();
   await run(form, (number) => setProblemStatus(staff, { number, status: text(form, 'status') }), 'status');
+}
+
+// Черновик AI-сотрудника или всплеска (веха M8b, решение 20): принять, привязать предложенные, отклонить.
+export async function acceptDraftAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await run(form, (number) => acceptProblemDraft(staff, { number }), 'draft_accepted');
+}
+
+export async function linkProposedAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await run(form, (number) => linkProposedTickets(staff, { number }), 'proposals_linked', 'tickets');
+}
+
+export async function rejectDraftAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  await run(form, (number) => rejectProblemDraft(staff, { number, reason: text(form, 'reason').slice(0, 500) }), 'draft_rejected');
 }
 
 export async function problemShownAction(form: FormData): Promise<void> {
@@ -248,4 +269,20 @@ export async function problemDevTaskUnlinkAction(form: FormData): Promise<void> 
 export async function problemDevTaskStatusAction(form: FormData): Promise<void> {
   const staff = await requireStaffActor();
   await runDev(form, () => setDevTaskStatus(staff, { devTaskId: text(form, 'devTaskId'), status: text(form, 'status'), ...(text(form, 'version') ? { version: text(form, 'version') } : {}) }), 'dev_status');
+}
+
+/** "Создать известную проблему" по всплеску сигнатуры (веха M8b, задача 8, решение 25). */
+export async function createFromSpikeAction(form: FormData): Promise<void> {
+  const staff = await requireStaffActor();
+  const locale = await getLocale();
+  let target: string;
+  try {
+    const { number } = await createProblemFromSpike(staff, { spikeId: text(form, 'spikeId'), internalTitle: text(form, 'internalTitle') });
+    target = `/${locale}/agent/problems/${number}?status=created`;
+  } catch (error) {
+    if (isHdpError(error)) target = `/${locale}/agent/problems?status=error-${error.code}`;
+    else if (isHdaError(error)) target = `/${locale}/agent/problems?status=error-${error.code === 'not_found' ? 'not_found' : error.code === 'invalid_input' ? 'invalid_input' : 'forbidden'}`;
+    else throw error;
+  }
+  redirect(target);
 }

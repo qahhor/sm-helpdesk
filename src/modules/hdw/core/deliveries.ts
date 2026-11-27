@@ -119,7 +119,7 @@ export async function enqueueEventDeliveriesTx(tx: Tx, event: DomainEvent): Prom
     .select({ endpointId: webhookEndpoints.endpointId })
     .from(webhookEndpoints)
     .where(and(eq(webhookEndpoints.isEnabled, true), arrayContains(webhookEndpoints.events, [event.kind])));
-  return enqueueTx(tx, { endpointIds: subscribed.map((row) => row.endpointId), eventId: event.eventId, kind: event.kind, occurredOn: event.createdOn, ticketId: event.ticketId });
+  return enqueueTx(tx, { endpointIds: subscribed.map((row) => row.endpointId), eventId: event.eventId, kind: event.kind as DeliveryKind, occurredOn: event.createdOn, ticketId: event.ticketId });
 }
 
 /** Будит отправку после фиксации. Сбой постановки не бросает: доставки подберёт задача раз в минуту. */

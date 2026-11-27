@@ -33,13 +33,16 @@ export async function asActor<T>(pool: Pool, actor: Actor, fn: (client: PoolClie
     await client.query(
       `select set_config('app.actor_type', $1, true), set_config('app.user_id', $2, true),
               set_config('app.org_id', $3, true), set_config('app.org_role', $4, true),
-              set_config('app.staff_role', $5, true)`,
+              set_config('app.staff_role', $5, true), set_config('app.agent_token_id', $6, true),
+              set_config('app.agent_ticket_id', $7, true)`,
       [
         actor.type,
         'userId' in actor ? actor.userId : '',
         actor.type === 'client' ? actor.orgId : '',
         actor.type === 'client' ? actor.orgRole : '',
         actor.type === 'staff' ? actor.staffRole : '',
+        actor.type === 'agent' ? actor.tokenId : '',
+        actor.type === 'agent' ? (actor.ticketId ?? '') : '',
       ],
     );
     const result = await fn(client);

@@ -1,3 +1,4 @@
+import type { AgentActor } from '@/db/with-actor';
 import { pools } from '../helpers/db';
 import { SEALED, seedTwoOrgs } from './fixture';
 
@@ -188,6 +189,13 @@ export async function seedEverything() {
     [shownProblem, hiddenProblem, closedProblem, f.adminStaff.userId],
   );
   await pools.root.query(`insert into hdp_problem_signatures (problem_id, signature) values ($1, repeat('b', 32)), ($2, repeat('c', 32))`, [shownProblem, hiddenProblem]);
+  // Черновик проблемы с предложенным обращением (веха M8b, решение 20): клиент не видит ни черновика, ни предложений.
+  const draftProblem = (await pools.root.query(`insert into hdp_problems (internal_title, status) values ('Черновик AI-сотрудника', 'draft') returning problem_id`)).rows[0].problem_id as string;
+  await pools.root.query(`insert into hdp_problem_proposals (problem_id, ticket_id, org_id) values ($1, $2, $3)`, [draftProblem, f.tickets.aOrg.ticketId, f.orgA.orgId]);
+  // Всплеск сигнатуры (веха M8b, задача 8): счётчик без организаций, клиент его не видит.
+  const spike = (await pools.root.query(`insert into hda_signature_spikes (signature, org_count, ticket_count, window_minutes) values (repeat('b', 32), 3, 4, 60) returning spike_id`)).rows[0].spike_id as string;
+  // Событие для AI-сотрудника (веха M8b, задача 9): только система.
+  await pools.root.query(`insert into hda_agent_events (kind, spike_id, body) values ('signature_spike', $1, '{"kind": "signature_spike"}')`, [spike]);
   // Объявления (веха M5c, задача 6): действующее для всех (текст сотрудника и непринятый машинный перевод), для чужого
   // сервера и ещё не начавшееся; закрытие баннера клиентом А.
   const otherServer = (
@@ -211,5 +219,19 @@ export async function seedEverything() {
   await pools.root.query(`insert into hdp_announcement_dismissals (user_id, announcement_id) values ($1, $2)`, [f.aUser.userId, forAll]);
   // Рассылка по показанной проблеме (веха M5c, задача 5).
   await pools.root.query(`insert into hdp_broadcasts (problem_id, author_id, kind, source_locale, body) values ($1, $2, 'update', 'ru', '{"ru": "Исправляем"}')`, [shownProblem, f.adminStaff.userId]);
-  return f;
+  // AI-сотрудник (веха M8b, задача 1): учётная запись agent_bot, основной токен, строка журнала вызовов и сводка.
+  const bot = (await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ('AI-сотрудник: Hermes', $1, false) returning id`, [`agent-bot-seed-${Date.now()}-${Math.random()}@users.invalid`])).rows[0].id;
+  await pools.root.query(`insert into hdu_staff (user_id, role) values ($1, 'agent_bot')`, [bot]);
+  const agentToken = (
+    await pools.root.query(
+      `insert into hda_agent_tokens (name, staff_user_id, token_hash, token_last4, tools, allowed_ips, expires_at)
+       values ('Hermes: поддержка', $1, encode(sha256(gen_random_uuid()::text::bytea), 'hex'), 'abcd', '{search_tickets,create_report}', '{10.0.3.12/32}', now() + interval '30 days') returning token_id`,
+      [bot],
+    )
+  ).rows[0].token_id;
+  await pools.root.query(`insert into hda_agent_tool_calls (token_id, tool, args_digest, status, duration_ms) values ($1, 'search_tickets', repeat('a', 64), 'ok', 5)`, [agentToken]);
+  await pools.root.query(`insert into hda_agent_reports (kind, title, body, token_id) values ('morning', 'Утренняя сводка', 'Текст', $1)`, [agentToken]);
+  // Актор этого токена: представления агента (задача 2) отдают строки только ему.
+  const agent: AgentActor = { type: 'agent', tokenId: agentToken, userId: bot, tools: ['search_tickets', 'create_report'], ticketId: null };
+  return { ...f, agent };
 }

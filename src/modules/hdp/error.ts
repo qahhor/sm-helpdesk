@@ -27,6 +27,10 @@ export const HDP_ERROR_CODES = [
   // Рассылка уже подтверждена или нет получателей.
   'broadcast_closed',
   'no_recipients',
+  // Черновик проблемы (веха M8b, решение 20): действие только с черновиком, привязка только после принятия.
+  'not_draft',
+  'not_accepted',
+  'problem_draft',
 ] as const;
 export type HdpErrorCode = (typeof HDP_ERROR_CODES)[number];
 

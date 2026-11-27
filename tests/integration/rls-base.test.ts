@@ -90,8 +90,9 @@ test('каждый вид актора виден базе своими знач
   expect(await read(system)).toEqual({
     type: 'system', user_id: null, org_id: null, org_role: null, staff_role: null, internal: true,
   });
-  expect(await read({ type: 'agent', tokenId: 'tok_1', tools: [] })).toEqual({
-    type: 'agent', user_id: null, org_id: null, org_role: null, staff_role: null, internal: false,
+  // Актор agent (веха M8b, решение 5): учётная запись agent_bot токена в app.user_id, внутренним он не считается.
+  expect(await read({ type: 'agent', tokenId: '019a0000-0000-7000-8000-00000000a001', userId: 'agent-bot-1', tools: [], ticketId: null })).toEqual({
+    type: 'agent', user_id: 'agent-bot-1', org_id: null, org_role: null, staff_role: null, internal: false,
   });
 });
 

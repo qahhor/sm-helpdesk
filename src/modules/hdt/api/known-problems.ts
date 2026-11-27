@@ -14,6 +14,8 @@ export {
   problemTicketSignaturesTx,
   problemTicketsTx,
   setTicketProblemTx,
+  signatureOrgCountsTx,
   signatureTicketCountsTx,
+  signatureTicketIdsTx,
   unlinkedTicketIdsTx,
 } from '../core/known-problems';

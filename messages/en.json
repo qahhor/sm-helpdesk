@@ -942,6 +942,10 @@
         "ai": {
           "title": "AI assistant",
           "text": "Tez on the first line: switch, threshold, limits and spending, models."
+        },
+        "agents": {
+          "title": "AI staff",
+          "text": "Tokens of internal agents for the MCP server: tools, addresses, limit, revocation, call log."
         }
       },
       "servers": {
@@ -1198,7 +1202,8 @@
           "macro": "Macro",
           "dev_task": "Development task",
           "metrics": "Metrics",
-          "ops_backup": "Backup"
+          "ops_backup": "Backup",
+          "agent_token": "AI staff token"
         },
         "none": "none",
         "empty": "No entries for the selected period.",
@@ -1408,6 +1413,9 @@
             "signature_added": "Signature added to problem",
             "signature_removed": "Signature removed from problem",
             "translation_saved": "Problem public text saved",
+            "draft_accepted": "Known problem draft accepted",
+            "proposals_linked": "Proposed requests linked to the known problem",
+            "draft_rejected": "Known problem draft rejected",
             "broadcast_confirmed": "Known problem broadcast confirmed",
             "translations_outdated": "Accepted problem translations hidden: the original text changed"
           },
@@ -1421,6 +1429,15 @@
             "accepted": "Candidate turned into a solution draft",
             "merged": "Candidate merged with a solution",
             "rejected": "Candidate rejected"
+          },
+          "agent": {
+            "token_issued": "AI staff token issued",
+            "token_changed": "AI staff token changed",
+            "token_revoked": "AI staff token revoked",
+            "event_parent_set": "AI staff token chosen for events",
+            "tool_refused": "Tool call outside the token list refused",
+            "tool_called": "AI staff called a write tool",
+            "report_reviewed": "AI staff digest marked as reviewed"
           }
         },
         "words": {
@@ -1479,7 +1496,12 @@
           "kind": "Kind",
           "sizeBytes": "Size, bytes",
           "dump": "nightly backup",
-          "base": "base backup"
+          "base": "base backup",
+          "tools": "Tools",
+          "allowedIps": "Addresses",
+          "expiresAt": "Valid until",
+          "dailyLimit": "Daily limit",
+          "runRevoked": "Run tokens revoked"
         }
       },
       "sla": {
@@ -2202,7 +2224,8 @@
           "lifted": "Cut-off lifted.",
           "topics": "Mandatory topics saved.",
           "field_on": "Triage field turned on again.",
-          "candidates": "Candidate settings saved."
+          "candidates": "Candidate settings saved.",
+          "spikes": "Spike settings saved"
         },
         "errors": {
           "stale_session": "Sign in again to change settings.",
@@ -2294,6 +2317,151 @@
           "merge": "Similarity to merge candidates, %",
           "hint": "The thresholds are initial: they will be tuned on real vectors.",
           "save": "Save candidate settings"
+        },
+        "spikes": {
+          "title": "Signature spike",
+          "intro": "The portal marks a spike when one error signature arrives in requests of several organizations within a short time. Staff see spikes on the known problems page, and the AI staff receives them.",
+          "orgCount": "At least organizations",
+          "windowMinutes": "Within minutes",
+          "save": "Save spike settings"
+        }
+      },
+      "agents": {
+        "title": "AI staff",
+        "intro": "Internal agents connect to the portal through the MCP server with a token. A token allows only the checked tools, only from the listed addresses, until its date and within the daily number of calls. Everything an agent writes is visible only to staff, marked «AI staff, not reviewed».",
+        "issueToken": "Issue token",
+        "emptyTitle": "No tokens yet",
+        "emptyText": "Issue a token for an agent. The portal shows the token value once, right after issuing.",
+        "listLabel": "AI staff tokens",
+        "columns": {
+          "name": "Name",
+          "tools": "Tools",
+          "expiresAt": "Valid until",
+          "lastUsedAt": "Last call",
+          "calls": "Calls in 24 hours",
+          "state": "State"
+        },
+        "last4": "Token ends with: {last4}",
+        "toolCounts": "read {read}, write {write}",
+        "never": "Never called",
+        "callsOf": "{calls} of {limit}",
+        "states": {
+          "active": "Active",
+          "expired": "Expired",
+          "revoked": "Revoked"
+        },
+        "revokedAt": "Revoked",
+        "reauth": "Sign in again",
+        "done": {
+          "saved": "Token saved.",
+          "revoked": "Token revoked. Requests with it are no longer accepted.",
+          "chatSaved": "Team chat saved.",
+          "eventParentSet": "Token chosen for events.",
+          "eventParentCleared": "The «for events» mark is removed."
+        },
+        "errors": {
+          "forbidden": "Only a portal administrator can do this.",
+          "stale_session": "Sign in again for this action: your sign-in is older than 15 minutes.",
+          "invalid_input": "Check the fields: tools, addresses, date and limit.",
+          "not_found": "The token is not found, revoked or expired."
+        },
+        "form": {
+          "newTitle": "New token",
+          "editTitle": "Tools, addresses, date and limit",
+          "name": "Name",
+          "nameHint": "For example, «Hermes: support». The agent signs its records with this name: «AI staff: name».",
+          "readTools": "Read",
+          "writeTools": "Write",
+          "toolsHint": "The agent sees and calls only the checked tools. No tool lets the agent reply to a client or change the status or assignee.",
+          "allowedIps": "Allowed addresses",
+          "allowedIpsHint": "One address or network per line, for example 10.0.3.12 or 10.0.3.0/24. The portal rejects requests from other addresses.",
+          "expiresAt": "Valid until",
+          "expiresAtHint": "No later than 365 days from now.",
+          "dailyLimit": "Calls per day",
+          "dailyLimitHint": "From 1 to 10,000. Calls above the limit are rejected until the next day.",
+          "issue": "Issue token",
+          "save": "Save"
+        },
+        "issued": {
+          "title": "Token issued",
+          "text": "Copy the value now: the portal shows it once and keeps only a fingerprint. A lost token can only be revoked and issued again.",
+          "label": "Token",
+          "copy": "Copy token",
+          "copied": "Copied",
+          "open": "Open the token"
+        },
+        "tools": {
+          "search_tickets": "Search requests by filters and subject",
+          "get_ticket": "A request with its messages, without contacts",
+          "similar_tickets": "Similar requests",
+          "sla_risk_tickets": "Requests at risk of missing a deadline",
+          "unsolved_signatures": "Frequent errors without a solution",
+          "signature_spikes": "Error spikes",
+          "search_solutions": "Search solutions",
+          "get_solution": "A solution with statistics",
+          "list_candidates": "Solution candidates",
+          "list_known_problems": "Known problems",
+          "list_ideas": "Client ideas",
+          "assistant_metrics": "AI assistant metrics",
+          "add_internal_note": "Internal note and memo for the second line",
+          "draft_solution": "Solution draft",
+          "draft_known_problem": "Known problem draft",
+          "create_report": "Digest in the «Digests» section"
+        },
+        "eventParent": {
+          "title": "Token for events",
+          "on": "The portal issues single-request tokens from this token when it sends the agent an event about a request.",
+          "off": "The portal issues single-request tokens in events only from the token chosen for events. There is one such token.",
+          "set": "Choose for events",
+          "clear": "Remove the mark",
+          "mark": "For events"
+        },
+        "calls": {
+          "title": "Call log",
+          "intro": "Every tool call: time, tool, result, objects and duration. The portal does not keep arguments or responses. Rows are kept for 365 days.",
+          "empty": "No calls yet.",
+          "columns": {
+            "time": "Time",
+            "tool": "Tool",
+            "status": "Result",
+            "objects": "Objects",
+            "duration": "Duration"
+          },
+          "run": "Single-request token",
+          "statuses": {
+            "ok": "Done",
+            "refused": "Refused",
+            "invalid": "Invalid data",
+            "rate_limited": "Over the limit",
+            "error": "Failure"
+          },
+          "noObjects": "None",
+          "ms": "{ms} ms",
+          "first": "To the newest",
+          "next": "50 more",
+          "refs": {
+            "ticket": "SUP-{ref}",
+            "solution": "solution #{ref}",
+            "problem": "problem #{ref}",
+            "idea": "idea #{ref}",
+            "candidate": "candidate {ref}",
+            "report": "digest {ref}"
+          }
+        },
+        "revoke": {
+          "open": "Revoke token",
+          "title": "Revoke token {name}?",
+          "text": "The token stops working from the next request, together with its single-request tokens. Revocation cannot be undone: the agent will need a new token.",
+          "confirm": "Revoke",
+          "cancel": "Cancel",
+          "close": "Close"
+        },
+        "teamChat": {
+          "title": "Team chat",
+          "text": "The portal sends a short message about an agent digest here: numbers, request numbers and links. The agent's text never goes to the chat. This is not the on-call chat.",
+          "label": "Telegram chat ID",
+          "hint": "For example, -1001234567890. Empty field: no messages, digests stay in the «Digests» section.",
+          "save": "Save chat"
         }
       }
     },
@@ -3791,6 +3959,7 @@
       "empty": "No known problems",
       "emptyText": "Create a problem from a request or with the button above.",
       "statuses": {
+        "draft": "AI staff draft",
         "investigating": "Investigating",
         "cause_found": "Cause found",
         "fixing": "Fixing",
@@ -3877,6 +4046,9 @@
         "problem_closed": "The problem is closed and cannot be changed",
         "already_linked": "The request is already linked to a known problem",
         "ticket_closed": "This request cannot be linked",
+        "not_draft": "This is no longer a draft",
+        "not_accepted": "Accept the draft first",
+        "problem_draft": "Requests cannot be linked to a draft: accept it first",
         "problem_inactive": "The problem is not active",
         "too_many": "No more than 100 requests at a time",
         "translation_required": "There is no text in the language of some recipients: write it or choose to send the original text",
@@ -3907,7 +4079,10 @@
         "broadcast_sent": "The broadcast is confirmed and being sent",
         "dev_linked": "Development task linked",
         "dev_unlinked": "Development task unlinked",
-        "dev_status": "Task status saved"
+        "dev_status": "Task status saved",
+        "draft_accepted": "Draft accepted",
+        "proposals_linked": "Proposed requests processed",
+        "draft_rejected": "Draft rejected"
       },
       "broadcast": {
         "title": "Write an update to everyone",
@@ -3953,6 +4128,27 @@
           "tracker_unavailable": "The task manager did not respond. Try again later",
           "other": "This action is available to the second line, Customer Care and the administrator"
         }
+      },
+      "draft": {
+        "title": "Known problem draft",
+        "hint": "Until the draft is accepted, clients do not see it, the signature is not in effect and no requests are linked.",
+        "description": "AI staff description",
+        "proposals": "Proposed requests",
+        "noProposals": "No requests proposed",
+        "accept": "Accept draft",
+        "linkProposed": "Link proposed",
+        "linkHint": "Each request is checked separately: closed and already linked ones are skipped.",
+        "reject": "Reject draft",
+        "reason": "Reason for rejection"
+      },
+      "spikes": {
+        "title": "Signature spikes",
+        "intro": "One error signature in requests of several organizations within a short time. Check whether a known problem is needed.",
+        "counts": "{orgs} organizations, {tickets} requests in {minutes} min, {when}",
+        "problem": "Known problem",
+        "create": "Create known problem",
+        "titleLabel": "Internal title",
+        "defaultTitle": "Error spike {signature}"
       }
     },
     "announcements": {
@@ -4062,6 +4258,74 @@
         "forbidden": "This action is not available to your role",
         "invalid_input": "Check the form fields",
         "not_found": "Solution or candidate not found"
+      }
+    },
+    "aiStaff": {
+      "mark": "AI staff, not verified",
+      "memoTitle": "AI staff memo draft",
+      "memoHint": "The memo is for you only: it does not fill the transfer fields, check and write them yourself.",
+      "revises": "Proposes a change to solution {ref}"
+    },
+    "teamChat": {
+      "title": "AI staff digest: {kind}",
+      "kinds": {
+        "morning": "Morning digest",
+        "kb_hygiene": "Solution hygiene",
+        "ideas": "Ideas",
+        "code_scan": "Code scan"
+      },
+      "numbers": {
+        "new_tickets": "New requests: {count}",
+        "ai_resolved": "Resolved by the assistant: {count}",
+        "handed_off": "Handed over to staff: {count}",
+        "sla_risk": "Deadline at risk: {count}"
+      },
+      "tickets": "Requests:",
+      "open": "Digest: {url}"
+    },
+    "digests": {
+      "title": "Digests",
+      "intro": "Digests and materials from the AI staff for the team. Until someone marks a digest \"Reviewed\", it carries the \"AI staff, not verified\" mark.",
+      "filters": {
+        "label": "Digest filters",
+        "kind": "Kind",
+        "status": "Mark",
+        "any": "All",
+        "apply": "Show"
+      },
+      "statuses": {
+        "unverified": "Not verified",
+        "reviewed": "Reviewed"
+      },
+      "columns": {
+        "date": "Date",
+        "kind": "Kind",
+        "title": "Title",
+        "author": "Author",
+        "mark": "Mark"
+      },
+      "author": "AI staff",
+      "empty": "No digests yet",
+      "emptyText": "Digests appear when the AI staff starts working with the portal.",
+      "more": "Show more",
+      "done": "Digest marked as reviewed",
+      "error": "Could not mark the digest",
+      "createdOn": "Saved {time}",
+      "period": "Period: {from} - {to}",
+      "tickets": "Requests",
+      "review": "Reviewed",
+      "reviewedOn": "Reviewed {time}",
+      "kinds": {
+        "morning": "Morning digest",
+        "kb_hygiene": "Solution hygiene",
+        "ideas": "Ideas",
+        "code_scan": "Code scan"
+      },
+      "numbers": {
+        "new_tickets": "New requests: {count}",
+        "ai_resolved": "Resolved by the assistant: {count}",
+        "handed_off": "Handed over to staff: {count}",
+        "sla_risk": "Deadline at risk: {count}"
       }
     }
   },

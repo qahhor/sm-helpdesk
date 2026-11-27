@@ -126,3 +126,16 @@ export async function oncallSender(): Promise<OncallSender | null> {
   const bot = (factoryOverride ?? realBot)(config.token);
   return { send: (text: string) => bot.send(config.chatId, text) };
 }
+
+/**
+ * Отправитель в другой чат ботом сотрудников (веха M8b, решение 24: служебный чат команды AI-сотрудника). Тот же бот,
+ * что у дежурных по умолчанию (TELEGRAM_BOT_TOKEN). Без токена: null, сообщения нет.
+ */
+export function staffBotSender(chatId: string): OncallSender | null {
+  const chat = ONCALL_CHAT.safeParse(chatId);
+  if (!chat.success) return null;
+  const token = getEnv().TELEGRAM_BOT_TOKEN ?? (factoryOverride ? 'test-token' : undefined);
+  if (!token) return null;
+  const bot = (factoryOverride ?? realBot)(token);
+  return { send: (text: string) => bot.send(chat.data, text) };
+}

@@ -42,4 +42,3 @@ export const listInput = z.strictObject({
   moduleId: z.uuid().optional(),
   q: z.string().trim().max(200).optional(),
 });
-export const draftInput = z.strictObject({ internalTitle: title, signature: signatureValue, ticketIds: z.array(z.uuid()).max(500) });

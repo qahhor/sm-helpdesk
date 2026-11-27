@@ -272,7 +272,7 @@ test('токен подтверждения адреса клиент созда
 
 test('актор AI-сотрудника не видит таблицы идентичности', async () => {
   await seedTwoOrgs();
-  const agent: AgentActor = { type: 'agent', tokenId: 't1', tools: [] };
+  const agent: AgentActor = { type: 'agent', tokenId: '019a0000-0000-7000-8000-00000000a001', userId: 'agent-bot-1', tools: [], ticketId: null };
   for (const sql of [
     'select * from hdu_organizations',
     'select * from hdu_memberships',

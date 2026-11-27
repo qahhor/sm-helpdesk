@@ -2,6 +2,7 @@ import 'server-only';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
+import { emitEventTx } from '@/modules/hdc/api';
 import { readSlaConfig } from '@/modules/hdr/api';
 import { HdtError } from '../error';
 import { DEVELOPMENT_ROLES, type Queue, TRANSFERABLE_STATUSES, type TransferReason } from '../pref';
@@ -53,6 +54,8 @@ export async function transferToL2Tx(actor: StaffActor, number: number, note: Tr
       payload: { from: 'l1', to: 'l2', reason: note.reason, checked: note.checked, needed: note.needed, checklist: note.checklist },
       audit: 'ticket.line_transferred',
     });
+    // Событие для AI-сотрудника (веха M8b, решение 26): только коды, текстов "что проверено" и "что требуется" нет.
+    await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'line_transferred', payload: { from: 'l1', to: 'l2', reason: note.reason } });
     ticket.queue = 'l2';
   });
 }

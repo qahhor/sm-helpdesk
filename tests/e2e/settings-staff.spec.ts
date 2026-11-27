@@ -16,7 +16,7 @@ test('администратор приглашает сотрудника, то
   const email = uniqueEmail('e2e-l1');
   await signInStaff(page, staffAccount('admin'));
   await page.goto('/ru/agent/settings');
-  await page.getByRole('navigation', { name: 'Разделы настроек' }).getByRole('link', { name: 'Сотрудники' }).click();
+  await page.getByRole('navigation', { name: 'Разделы настроек' }).getByRole('link', { name: 'Сотрудники', exact: true }).click();
   await page.getByRole('link', { name: 'Пригласить сотрудника' }).click();
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Имя').fill('Проверочный');

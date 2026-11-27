@@ -1369,7 +1369,8 @@
             "created_from_ticket": "Solution created from a request",
             "signature_bound": "Solution linked to an error signature",
             "signature_unbound": "Solution unlinked from an error signature",
-            "untrusted_confirmed": "Untrusted text findings marked as checked"
+            "untrusted_confirmed": "Untrusted text findings marked as checked",
+            "created_from_candidate": "Solution created from a candidate"
           },
           "client": {
             "embed_session": "Widget session inside Smartup"
@@ -3967,6 +3968,77 @@
         "ended": "Announcement ended",
         "translation": "Text saved",
         "translating": "The translation is being prepared. Refresh the page in a minute"
+      }
+    },
+    "candidates": {
+      "title": "Solution candidates",
+      "card": "Candidate",
+      "intro": "Solution drafts that AI prepared from closed requests without a solution. Clients do not see them and suggestions do not find them until a solution is published.",
+      "filters": {
+        "label": "Filter candidates",
+        "status": "Status",
+        "module": "Module",
+        "any": "Any",
+        "q": "Search",
+        "apply": "Show"
+      },
+      "statuses": {
+        "new": "New",
+        "accepted": "Turned into a draft",
+        "merged": "Merged",
+        "rejected": "Rejected"
+      },
+      "columns": {
+        "title": "Title",
+        "module": "Module",
+        "sources": "Requests",
+        "orgs": "Organizations",
+        "created": "Appeared"
+      },
+      "empty": "No candidates",
+      "emptyText": "They appear after requests close without a solution from the knowledge base.",
+      "aiDraft": "AI prepared this draft. Check the text.",
+      "findings": "What to check",
+      "kinds": {
+        "phone": "Phone",
+        "email": "Email",
+        "inn": "TIN",
+        "pinfl": "PINFL",
+        "digits": "Long number",
+        "server": "Server address",
+        "internal": "Internal name",
+        "link": "Link"
+      },
+      "toDraft": "Turn into a solution draft",
+      "toDraftHint": "The solution editor opens with this text and all source requests. The solution stays internal until you change the audience.",
+      "mergeNumber": "Solution number",
+      "merge": "Merge with a solution",
+      "rejectReason": "Rejection reason",
+      "chooseReason": "Choose a reason",
+      "reasons": {
+        "duplicate": "Duplicate",
+        "too_specific": "Too specific",
+        "not_a_solution": "Not a solution",
+        "wrong_data": "Wrong data",
+        "other": "Other"
+      },
+      "rejectComment": "Comment",
+      "reject": "Reject",
+      "info": "Details",
+      "counts": "Requests: {sources}, organizations: {orgs}",
+      "createdOn": "Appeared {date}",
+      "sources": "Source requests",
+      "similar": "Similar solution",
+      "similarValue": "A published solution exists, similarity {percent}%",
+      "noSimilar": "No similar published solutions",
+      "done": {
+        "merged": "Candidate merged with the solution",
+        "rejected": "Candidate rejected"
+      },
+      "errors": {
+        "forbidden": "This action is not available to your role",
+        "invalid_input": "Check the form fields",
+        "not_found": "Solution or candidate not found"
       }
     }
   },

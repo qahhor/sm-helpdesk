@@ -33,6 +33,8 @@ export type ArticleRow = {
   originalLocale: Locale;
   status: ArticleStatus;
   ownerId: string | null;
+  /** Решение из кандидата (веха M5c, решение 30). */
+  isUntrusted: boolean;
 };
 
 const articleColumns = {
@@ -43,6 +45,7 @@ const articleColumns = {
   originalLocale: kbArticles.originalLocale,
   status: kbArticles.status,
   ownerId: kbArticles.ownerId,
+  isUntrusted: kbArticles.isUntrusted,
 };
 
 export async function articleByNumberTx(tx: Tx, number: number, opts: { lock?: boolean } = {}): Promise<ArticleRow | null> {
@@ -63,6 +66,8 @@ export type VersionRow = {
   sourceVersionId: string | null;
   createdBy: string | null;
   modifiedOn: Date;
+  /** Отметки находок недоверенного текста (веха M5c, решение 30). */
+  untrustedConfirmed: { textHash: string; fingerprints: string[] } | null;
 };
 
 const versionColumns = {
@@ -76,6 +81,7 @@ const versionColumns = {
   sourceVersionId: kbArticleVersions.sourceVersionId,
   createdBy: kbArticleVersions.createdBy,
   modifiedOn: kbArticleVersions.modifiedOn,
+  untrustedConfirmed: kbArticleVersions.untrustedConfirmed,
 };
 
 /** Все версии статьи на языке, новые сверху. */

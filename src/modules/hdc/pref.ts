@@ -199,6 +199,7 @@ export const AUDIT_ACTIONS = [
   'candidate.merged',
   'candidate.rejected',
   'solution.untrusted_confirmed',
+  'solution.created_from_candidate',
   // Поиск (план W6, решения 3 и 12): команда hub создала ключи Typesense (без значений) и построила индекс заново.
   'search.keys_created',
   'search.reindexed',

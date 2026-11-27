@@ -26,7 +26,7 @@ const hasRole = (ctx: StaffContext, roles: readonly string[]) => ctx.actor.type 
 
 const number = z.coerce.number().int().positive().max(ARTICLE_NUMBER_MAX);
 const versionRef = { number, locale: z.enum(LOCALES), versionId: z.uuid(), revision: z.string().min(1).max(REVISION_MAX) };
-const publishInput = z.strictObject({ ...versionRef, confirmFindings: z.boolean() });
+const publishInput = z.strictObject({ ...versionRef, confirmFindings: z.boolean(), untrustedConfirmed: z.array(z.string().regex(/^[0-9a-f]{32}$/)).max(200).optional() });
 
 /** Разрешённые домены ссылок решения (настройка администратора). Нет настройки: пусто, внешние ссылки не публикуются. */
 export async function readAllowedDomains(): Promise<string[]> {

@@ -1369,7 +1369,8 @@
             "created_from_ticket": "Yechim murojaatdan yaratildi",
             "signature_bound": "Yechim xato imzosiga bog'landi",
             "signature_unbound": "Yechim xato imzosidan uzildi",
-            "untrusted_confirmed": "Ishonchsiz matn topilmalari tekshirilgan deb belgilandi"
+            "untrusted_confirmed": "Ishonchsiz matn topilmalari tekshirilgan deb belgilandi",
+            "created_from_candidate": "Yechim nomzoddan yaratildi"
           },
           "client": {
             "embed_session": "Smartup ichidagi vidjet seansi"
@@ -3967,6 +3968,77 @@
         "ended": "E'lon tugatildi",
         "translation": "Matn saqlandi",
         "translating": "Tarjima tayyorlanmoqda. Bir daqiqadan so'ng sahifani yangilang"
+      }
+    },
+    "candidates": {
+      "title": "Yechim nomzodlari",
+      "card": "Nomzod",
+      "intro": "AI yechimsiz yopilgan murojaatlardan tayyorlagan yechim qoralamalari. Yechim chop etilmaguncha mijozlar ularni ko'rmaydi, maslahat ularni topmaydi.",
+      "filters": {
+        "label": "Nomzodlarni saralash",
+        "status": "Holat",
+        "module": "Modul",
+        "any": "Istalgan",
+        "q": "Qidiruv",
+        "apply": "Ko'rsatish"
+      },
+      "statuses": {
+        "new": "Yangi",
+        "accepted": "Qoralama qilingan",
+        "merged": "Birlashtirilgan",
+        "rejected": "Rad etilgan"
+      },
+      "columns": {
+        "title": "Sarlavha",
+        "module": "Modul",
+        "sources": "Murojaatlar",
+        "orgs": "Tashkilotlar",
+        "created": "Paydo bo'lgan"
+      },
+      "empty": "Nomzodlar yo'q",
+      "emptyText": "Ular bazadan yechimsiz murojaatlar yopilgandan keyin paydo bo'ladi.",
+      "aiDraft": "Qoralamani AI tayyorlagan. Matnni tekshiring.",
+      "findings": "Nimani tekshirish kerak",
+      "kinds": {
+        "phone": "Telefon",
+        "email": "Pochta",
+        "inn": "STIR",
+        "pinfl": "JShShIR",
+        "digits": "Uzun raqam",
+        "server": "Server manzili",
+        "internal": "Ichki nom",
+        "link": "Havola"
+      },
+      "toDraft": "Yechim qoralamasi qilish",
+      "toDraftHint": "Shu matn va barcha manba murojaatlari bilan yechim muharriri ochiladi. Auditoriyani o'zgartirmaguningizcha yechim ichki bo'ladi.",
+      "mergeNumber": "Yechim raqami",
+      "merge": "Yechim bilan birlashtirish",
+      "rejectReason": "Rad etish sababi",
+      "chooseReason": "Sababni tanlang",
+      "reasons": {
+        "duplicate": "Takror",
+        "too_specific": "Juda xususiy holat",
+        "not_a_solution": "Yechim emas",
+        "wrong_data": "Noto'g'ri ma'lumot",
+        "other": "Boshqa"
+      },
+      "rejectComment": "Izoh",
+      "reject": "Rad etish",
+      "info": "Ma'lumot",
+      "counts": "Murojaatlar: {sources}, tashkilotlar: {orgs}",
+      "createdOn": "Paydo bo'lgan: {date}",
+      "sources": "Manba murojaatlar",
+      "similar": "O'xshash yechim",
+      "similarValue": "Chop etilgan yechim bor, o'xshashlik {percent}%",
+      "noSimilar": "O'xshash chop etilgan yechimlar yo'q",
+      "done": {
+        "merged": "Nomzod yechim bilan birlashtirildi",
+        "rejected": "Nomzod rad etildi"
+      },
+      "errors": {
+        "forbidden": "Bu amal rolingiz uchun mavjud emas",
+        "invalid_input": "Forma maydonlarini tekshiring",
+        "not_found": "Yechim yoki nomzod topilmadi"
       }
     }
   },

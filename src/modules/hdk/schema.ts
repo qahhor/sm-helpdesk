@@ -50,6 +50,8 @@ export const kbArticles = pgTable('hdk_articles', {
   ...stampColumns,
   /** Пригодилось сотрудникам (веха M5c, FR-CAND-03): похожие закрытые обращения без решения. Миграция 0106. */
   staffUsefulCount: integer('staff_useful_count').notNull().default(0),
+  /** Решение из кандидата (веха M5c, решение 30): находки недоверенного текста отмечаются по одной. Миграция 0107. */
+  isUntrusted: boolean('is_untrusted').notNull().default(false),
 });
 
 /** Версии текста по языкам: черновик, опубликованная, прежние. */
@@ -66,6 +68,8 @@ export const kbArticleVersions = pgTable('hdk_article_versions', {
   isMachine: boolean('is_machine').notNull().default(false),
   state: text('state').$type<VersionState>().notNull().default('draft'),
   ...stampColumns,
+  /** Отметки "Проверено" находок недоверенного текста (веха M5c, решение 30). Миграция 0107. */
+  untrustedConfirmed: jsonb('untrusted_confirmed').$type<{ textHash: string; fingerprints: string[] }>(),
 });
 
 /** Языки статьи: строка на каждый язык, включая оригинал. */

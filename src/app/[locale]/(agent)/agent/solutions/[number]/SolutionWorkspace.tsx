@@ -399,8 +399,8 @@ function WorkspaceBody({
     element?.scrollIntoView({ block: 'center' });
   };
 
-  const publish = async (confirmFindings: boolean) => {
-    const response = await publishAction({ number, locale, ...version.current, confirmFindings });
+  const publish = async (confirmFindings: boolean, untrustedConfirmed: string[] = []) => {
+    const response = await publishAction({ number, locale, ...version.current, confirmFindings, ...(untrustedConfirmed.length > 0 ? { untrustedConfirmed } : {}) });
     if (!response.ok) return 'failed' as const;
     const outcome = response.outcome;
     if (outcome.status === 'published') {
@@ -416,6 +416,7 @@ function WorkspaceBody({
         filesNotClean: outcome.filesNotClean,
         invariants: outcome.invariants,
         translationsCurrent: outcome.translationsCurrent,
+        untrusted: outcome.untrusted,
       });
       return 'not_ready' as const;
     }

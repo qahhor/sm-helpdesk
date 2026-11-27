@@ -151,6 +151,8 @@ export const CSP_HANDLERS: readonly CspHandler[] = [
   { route: 'api/embed/tickets/[number]', path: '/api/embed/tickets/{clientTicket}', who: 'guest' },
   { route: 'api/health', path: '/api/health', who: 'guest' },
   { route: 'api/ideas/similar', path: '/api/ideas/similar', who: 'client' },
+  // Сервер MCP: только POST по токену AI-сотрудника, GET отвечает 405 (план M8b, решение 4).
+  { route: 'api/mcp', path: '/api/mcp', who: 'guest' },
   { route: 'api/ready', path: '/api/ready', who: 'guest' },
   { route: 'api/ready/worker', path: '/api/ready/worker', who: 'guest' },
   { route: 'api/suggest', path: '/api/suggest', who: 'client' },

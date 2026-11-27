@@ -1,4 +1,5 @@
 import 'server-only';
+import { isIP } from 'node:net';
 import { z } from 'zod';
 
 // Переменные окружения веб-приложения (ТЗ, раздел 13.5). Состав вех M0, M1 и M2.
@@ -18,6 +19,16 @@ function toUrl(value: string): URL | null {
 }
 
 const DATABASE_URL_PARAMS = new Set(['sslmode', 'sslrootcert', 'sslcert', 'sslkey', 'application_name', 'connect_timeout']);
+
+/** Адрес или сеть вида 10.0.3.0/24, 2001:db8::/64. Точную нормализацию делает сервер MCP (hda/agent/auth.ts). */
+function isCidr(value: string): boolean {
+  const [address, prefix, extra] = value.split('/');
+  if (!address || extra !== undefined) return false;
+  const version = isIP(address);
+  if (version === 0) return false;
+  if (prefix === undefined) return true;
+  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= (version === 4 ? 32 : 128);
+}
 
 const required = () => z.string({ error: 'не задана' }).trim().min(1, { error: 'не задана' });
 
@@ -262,6 +273,13 @@ const schema = z
       .regex(/^[\x21-\x7e]{16,512}$/, { error: 'ожидается от 16 до 512 знаков: латинские буквы, цифры и знаки без пробелов' })
       .optional(),
     DEV_TRACKER_WEBHOOK_SECRET: z.string().trim().min(32, { error: 'ожидается не меньше 32 знаков' }).optional(),
+    // Сервер MCP для AI-сотрудников (ТЗ 13, 7.21 FR-AGT-02; план M8b, решение 11): общий список адресов и сетей через
+    // запятую. Задан: запрос принимается, только если адрес входит и в него, и в список токена. Не задан: только список токена.
+    MCP_ALLOWED_IPS: z
+      .string()
+      .trim()
+      .refine((value) => value.split(',').every((part) => isCidr(part.trim())), { error: 'ожидаются адреса или сети IPv4 и IPv6 через запятую, например 10.0.3.0/24' })
+      .optional(),
   })
   .superRefine((value, ctx) => {
     const host = new URL(value.HUB_URL).hostname;

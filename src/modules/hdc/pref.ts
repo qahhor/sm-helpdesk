@@ -212,6 +212,10 @@ export const AUDIT_ACTIONS = [
   'agent.token_changed',
   'agent.token_revoked',
   'agent.event_parent_set',
+  // Сервер MCP (веха M8b, задача 4, решения 13 и 14): отказ в инструменте вне перечня токена и вызов инструмента
+  // записи. Аргументов и текста ответов в журнале нет: только имя инструмента и номера объектов.
+  'agent.tool_refused',
+  'agent.tool_called',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -276,6 +280,12 @@ export const RATE_RULES = {
   trackerWebhookPerIp: { limit: 600, windowSec: 60 },
   /** Выгрузка показателей в CSV (веха M8, решение 16): 20 в час на сотрудника. Каждая выгрузка читает до 50 тысяч обращений. */
   metricsExportPerUser: { limit: 20, windowSec: 3600 },
+  /** Неудачные проверки токена сервера MCP с адреса (план M8b, решение 12): 30 за 10 минут, как одноразовые ссылки. */
+  mcpTokenFailuresPerIp: { limit: 30, windowSec: 600 },
+  /** Вызовы инструментов сервера MCP на токен: 60 в минуту против зацикливания агента (решение 12). */
+  agentCallsPerMinute: { limit: 60, windowSec: 60 },
+  /** Токен запуска по обращению: не больше 20 вызовов за срок 2 часа (решение 12). */
+  agentRunTokenCalls: { limit: 20, windowSec: 7200 },
   /** Обмен токена контекста на токен виджета (план M6, решение 14): 30 в минуту на пользователя (раздел 14.5). */
   embedSessionPerUser: { limit: 30, windowSec: 60 },
   /** Тот же обмен: 120 в минуту с адреса до проверки подписи. */

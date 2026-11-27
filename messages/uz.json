@@ -1431,7 +1431,9 @@
             "token_issued": "AI-xodim tokeni chiqarildi",
             "token_changed": "AI-xodim tokeni o'zgartirildi",
             "token_revoked": "AI-xodim tokeni bekor qilindi",
-            "event_parent_set": "Hodisalar uchun AI-xodim tokeni tanlandi"
+            "event_parent_set": "Hodisalar uchun AI-xodim tokeni tanlandi",
+            "tool_refused": "Token ro'yxatidan tashqari vosita chaqiruvi rad etildi",
+            "tool_called": "AI-xodim yozish vositasini chaqirdi"
           }
         },
         "words": {

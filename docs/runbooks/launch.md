@@ -201,6 +201,7 @@
   | `REPLY_HMAC_SECRET_PREVIOUS` | Только на время замены `REPLY_HMAC_SECRET`: прежний ключ на 30 суток, пока клиенты отвечают на старые письма |
   | `LOG_FORMAT` | `json` (по умолчанию в production) или `text`. На сервере `json`: строки журнала читают как JSON |
   | `DEV_TRACKER`, `DEV_TRACKER_URL`, `DEV_TRACKER_TOKEN`, `DEV_TRACKER_WEBHOOK_SECRET` | `DEV_TRACKER=manual` (по умолчанию): передача в разработку вручную, остальные три не задаются. `DEV_TRACKER=smartup` после описания API таск-менеджера: адрес API (только https), токен портала в таск-менеджере, секрет подписи вебхука `openssl rand -hex 32`; таск-менеджер шлёт события на `https://<домен>/api/webhooks/tracker` |
+  | `MCP_ALLOWED_IPS` | Сервер MCP для AI-сотрудников (`https://<домен>/api/mcp`): адреса и сети, с которых ходит Hermes Agent, через запятую, например `10.0.3.0/24`. Запрос принимается, только если адрес входит и в этот список, и в список адресов токена. Не задана: проверяется только список токена. Токены выпускает администратор на экране "AI-сотрудники" |
   | `AI_STUB` | Никогда на сервере: только разработка на localhost |
   | `ANTHROPIC_API_KEY`, `AI_MODEL_FAST`, `AI_MODEL_QUALITY` | Только в `.env.worker`, см. пункт выше |
   | `EMBEDDINGS`, `EMBEDDINGS_URL` | `tei` и `http://tei:80`, когда веса модели скачаны (шаг 9); до этого `EMBEDDINGS=stub` |

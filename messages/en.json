@@ -1431,7 +1431,9 @@
             "token_issued": "AI staff token issued",
             "token_changed": "AI staff token changed",
             "token_revoked": "AI staff token revoked",
-            "event_parent_set": "AI staff token chosen for events"
+            "event_parent_set": "AI staff token chosen for events",
+            "tool_refused": "Tool call outside the token list refused",
+            "tool_called": "AI staff called a write tool"
           }
         },
         "words": {

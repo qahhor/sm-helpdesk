@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { alertsRunbookCheck } from './alerts-runbook.mjs';
+import { frCoverageCheck } from './fr-coverage.mjs';
 import { guidesCheck } from './guides.mjs';
 import { checkContrast } from './contrast.mjs';
 import { cspPagesGaps } from './csp-pages.mjs';
@@ -119,6 +120,11 @@ const extraChecks = [
     // инструкции docs/guides называют только то, что есть в интерфейсе (план подготовки M9, задача 7)
     name: 'guides',
     run: () => guidesCheck(),
+  },
+  {
+    // перечень требований раздела 7 полон, ссылки живые (план M9, задача 1, решение 21)
+    name: 'fr-coverage',
+    run: () => frCoverageCheck(),
   },
   {
     // каждый сигнал ops.watch описан в разделе 6 памятки дежурного (план подготовки M9, задача 3)

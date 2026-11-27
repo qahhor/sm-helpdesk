@@ -33,6 +33,8 @@ export type SessionData = {
      * Пусто у обычного входа через Smartup: он мог пройти по открытой сессии Smartup Web без пароля.
      */
     freshAuthAt: Date | null;
+    /** Последнее действие человека в рабочем месте сотрудника (план M9, решение 8). */
+    staffActiveAt?: Date | null;
     ipAddress: string | null;
     userAgent: string | null;
   };
@@ -79,6 +81,7 @@ export async function readSession(request: Pick<RequestInfo, 'headers'>): Promis
       activeOrgId: session.activeOrgId ?? null,
       secondFactorAt: session.secondFactorAt ? toDate(session.secondFactorAt) : null,
       freshAuthAt: session.freshAuthAt ? toDate(session.freshAuthAt) : null,
+      staffActiveAt: session.staffActiveAt ? toDate(session.staffActiveAt) : null,
       ipAddress: session.ipAddress ?? null,
       userAgent: session.userAgent ?? null,
     },

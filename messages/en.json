@@ -1272,7 +1272,8 @@
             "signed_in": "Client signed in"
           },
           "session": {
-            "revoked": "Session ended"
+            "revoked": "Session ended",
+            "revoked_bulk": "Sessions ended by a console command"
           },
           "telegram": {
             "linked": "Telegram linked",
@@ -1537,7 +1538,11 @@
           "runRevoked": "Run tokens revoked",
           "consentOn": "Consent date",
           "consentRef": "Consent basis",
-          "wasEnabled": "Was on"
+          "wasEnabled": "Was on",
+          "scope": "Scope",
+          "revoked": "Ended",
+          "all": "all",
+          "user": "user"
         }
       },
       "sla": {

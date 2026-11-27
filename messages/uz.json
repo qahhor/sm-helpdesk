@@ -1272,7 +1272,8 @@
             "signed_in": "Mijoz kirdi"
           },
           "session": {
-            "revoked": "Sessiya yakunlandi"
+            "revoked": "Sessiya yakunlandi",
+            "revoked_bulk": "Seanslar konsol buyrug'i bilan yakunlandi"
           },
           "telegram": {
             "linked": "Telegram bog'landi",
@@ -1537,7 +1538,11 @@
           "runRevoked": "Bekor qilingan ishga tushirish tokenlari",
           "consentOn": "Rozilik sanasi",
           "consentRef": "Rozilik asosi",
-          "wasEnabled": "Yoqilgan edi"
+          "wasEnabled": "Yoqilgan edi",
+          "scope": "Qamrov",
+          "revoked": "Yakunlandi",
+          "all": "hammasi",
+          "user": "foydalanuvchi"
         }
       },
       "sla": {

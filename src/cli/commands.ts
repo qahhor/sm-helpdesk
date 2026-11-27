@@ -5,6 +5,7 @@ import type { SystemActor } from '@/db/with-actor';
 import { addServer, checkServer, disableServer, getServer, listServers, resealServerSecrets, type ServerIssue, updateWidgetSettings } from '@/modules/hdu/api/servers';
 import { adminActorByEmail, adminContextByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { runSeedPilot } from './seed-pilot';
+import { revokeSessions } from '@/modules/hdu/api/sessions-admin';
 import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
@@ -100,6 +101,10 @@ const HELP = `Использование: hub <команда> [ключи]
       копия base-backup.sh. Сценарии вызывают команду сами после выгрузки. По возрасту отметок фоновый процесс шлёт
       дежурным сигнал backup_stale. --bytes: размер зашифрованного файла копии.
 
+  sessions:revoke --user <адрес> | --staff | --all
+      Завершить сессии при инциденте (план M9, решение 9): одного пользователя по адресу, всех сотрудников или
+      всех. Вход потребуется заново. Пишет session.revoked_bulk в журнал аудита: охват и число, без адресов.
+
   maintenance:cleanup
       Удалить просроченные служебные строки: счётчики частоты, номера событий Telegram, сессии
       и одноразовые значения входа. Запускать раз в сутки, пока нет фоновых задач (решение 0023).
@@ -157,6 +162,7 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'telegram:set-webhook': { options: {}, required: [] },
   'telegram:info': { options: {}, required: [] },
   'maintenance:cleanup': { options: {}, required: [] },
+  'sessions:revoke': { options: { user: { type: 'string' }, staff: { type: 'boolean' }, all: { type: 'boolean' } }, required: [] },
   'ops:backup-mark': { options: { kind: { type: 'string' }, bytes: { type: 'string' } }, required: ['kind'] },
   'ideas:cycle': { options: { month: { type: 'string' } }, required: ['month'] },
   'secrets:reseal': { options: {}, required: [] },
@@ -436,6 +442,15 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         if (bytes !== undefined && !(typeof bytes === 'string' && /^[1-9]\d{0,15}$/.test(bytes))) throw new UsageError('Размер копии --bytes: целое число байт больше нуля.');
         await markBackup(ACTOR, { kind: kind as BackupKind, ...(bytes !== undefined && { sizeBytes: Number(bytes) }) });
         io.out(`Отметка копии записана: ${kind}${bytes !== undefined ? `, ${bytes} байт` : ''}.`);
+        return 0;
+      }
+      case 'sessions:revoke': {
+        const user = values.user;
+        const chosen = [typeof user === 'string', values.staff === true, values.all === true].filter(Boolean).length;
+        if (chosen !== 1) throw new UsageError('Укажите ровно один охват: --user <адрес>, --staff или --all.');
+        const scope = typeof user === 'string' ? { scope: 'user' as const, email: user } : values.staff === true ? { scope: 'staff' as const } : { scope: 'all' as const };
+        const { revoked } = await revokeSessions(ACTOR, scope);
+        io.out(`Завершено сессий: ${revoked} (${{ user: 'пользователь', staff: 'сотрудники', all: 'все' }[scope.scope]}).`);
         return 0;
       }
       case 'secrets:reseal': {

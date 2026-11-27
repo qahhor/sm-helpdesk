@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import type { FullConfig } from '@playwright/test';
 import { dbRows } from './helpers/db';
+import { keepStoredStaffSessionsActive } from './helpers/staff';
 import { HOST } from './helpers/widget';
 
 // Перед браузерными тестами база должна быть готова: /api/ready проверяет её.
@@ -11,6 +12,8 @@ export default async function globalSetup(config: FullConfig) {
   // не должны блокировать этот. В CI база каждый раз новая.
   await dbRows(`delete from hdc_rate_limits`);
   await waitForEmbedOrigins(config.projects[0]?.use.baseURL ?? 'http://localhost:3100');
+  // Срок бездействия сотрудника 30 минут (план M9, решение 8): сохранённые сессии ролей живут весь прогон.
+  keepStoredStaffSessionsActive();
 }
 
 /**

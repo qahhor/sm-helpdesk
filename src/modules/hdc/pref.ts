@@ -40,6 +40,8 @@ export const AUDIT_ACTIONS = [
   'user.email_confirmed',
   'user.policy_acknowledged',
   'session.revoked',
+  // Завершение сессий для инцидента командой hub sessions:revoke (план M9, задача 4, решение 9): охват и число.
+  'session.revoked_bulk',
   // Каналы связи
   'telegram.linked',
   'telegram.unlinked',

@@ -37,6 +37,12 @@ export const AUTH_COOKIE_NAMES = ['session_token', 'session_data', 'dont_remembe
 export const SESSION_UPDATE_AGE_SEC = 24 * 3600;
 /** Сессия сотрудника: 12 часов без продления (FR-ID-10). */
 export const STAFF_SESSION_TTL_SEC = 12 * 3600;
+/**
+ * Срок бездействия сессии сотрудника (план M9, решение 8; ASVS V7.3.1): без действий человека столько секунд сессия
+ * закрывается. Отметка действия пишется в базу не чаще раза в STAFF_ACTIVITY_STEP_SEC.
+ */
+export const STAFF_IDLE_SEC = 30 * 60;
+export const STAFF_ACTIVITY_STEP_SEC = 60;
 /** Приглашение сотрудника и ссылка после сброса живут 24 часа (решение 0015): ссылка даёт права в рабочем месте. */
 export const STAFF_INVITATION_TTL_SEC = 24 * 3600;
 /** Ссылка запасного входа из бота Telegram: 10 минут (FR-ID-14, решение 94 ТЗ). */

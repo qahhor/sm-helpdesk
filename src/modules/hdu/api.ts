@@ -22,6 +22,7 @@ export {
   signedInName,
   signOut,
   switchOrganizationOfRequest,
+  touchStaffActivity,
 } from './api/actor';
 export {
   addOrgDomain,

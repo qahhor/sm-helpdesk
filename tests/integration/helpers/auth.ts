@@ -265,7 +265,7 @@ export async function newSmartupUser(opts: { roleMap?: Record<string, string> } 
 
 async function sessionDataById(sessionId: string): Promise<SessionData | null> {
   const r = await pools.root.query(
-    `select s.id, s.token, s."userId", s."createdAt", s."expiresAt", s."activeOrgId", s."secondFactorAt", s."freshAuthAt", s."ipAddress", s."userAgent",
+    `select s.id, s.token, s."userId", s."createdAt", s."expiresAt", s."activeOrgId", s."secondFactorAt", s."freshAuthAt", s."staffActiveAt", s."ipAddress", s."userAgent",
             u.name, u.email, u."emailVerified", u."twoFactorEnabled", u."claimedEmail", u."onboardedAt", u."lastOrgId",
             u.locale, u."policyVersion"
      from auth.session s join auth."user" u on u.id = s."userId" where s.id = $1 and s."expiresAt" > now()`,
@@ -283,6 +283,7 @@ async function sessionDataById(sessionId: string): Promise<SessionData | null> {
       activeOrgId: row.activeOrgId,
       secondFactorAt: row.secondFactorAt,
       freshAuthAt: row.freshAuthAt,
+      staffActiveAt: row.staffActiveAt,
       ipAddress: row.ipAddress,
       userAgent: row.userAgent,
     },

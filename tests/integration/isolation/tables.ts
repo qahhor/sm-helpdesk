@@ -23,12 +23,21 @@
 //   shown-only  известные проблемы (план M5c, решение 2): клиент видит только проблемы с признаком показа, не закрытые
 //               и не исправленные больше 30 суток назад, и только тексты сотрудника и принятые переводы, и хотя бы одну.
 //
+// agent: что видит и пишет актор agent (AI-сотрудник через сервер MCP, веха M8b) с действующим токеном.
+//   none        по умолчанию (поле не задано): ни одной строки, записи нет;
+//   via-view    представление для агента hda_agent_* (задача 2): строки только по его правилам;
+//   own-token-insert  журнал вызовов: агент пишет строку только своим токеном и не читает ни одной;
+//   reports     сводки: агент пишет основным токеном и не читает ни одной;
+//   reference   справочник без данных клиентов (модули, календари, сроки SLA): политика "любой актор" отдаёт его и
+//               агенту, все строки, изменить нельзя.
+//
 // app, auth: какие изменения разрешены ролям hub_app и hub_auth. Тест сверяет с правами в базе,
 // а остальные проверки берут отсюда, что должно быть закрыто (проверка main, Q2).
 
 export type ClientAccess = 'none' | 'own-org' | 'org-people' | 'all' | 'own-user' | 'clients-audience' | 'published-or-own' | 'decided-only' | 'shown-only' | 'active-audience';
 export type Write = 'insert' | 'update' | 'delete';
-export type DomainObject = { client: ClientAccess; app?: Write[]; auth?: Write[] };
+export type AgentAccess = 'none' | 'via-view' | 'own-token-insert' | 'reports' | 'reference';
+export type DomainObject = { client: ClientAccess; agent?: AgentAccess; app?: Write[]; auth?: Write[] };
 
 const IU: Write[] = ['insert', 'update'];
 const IUD: Write[] = ['insert', 'update', 'delete'];
@@ -55,6 +64,14 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hda_solution_candidates: { client: 'none', app: IUD },
   // Источники кандидата: добавляет и переносит при ночной склейке только система, строки не удаляются.
   hda_candidate_sources: { client: 'none', app: IU },
+  // AI-сотрудник (веха M8b, задача 1). Токены читает администратор портала и система, выпускает и меняет
+  // администратор (основной) и система (токен запуска, время вызова); истёкшие токены запуска удаляет ночная очистка.
+  hda_agent_tokens: { client: 'none', app: IUD },
+  // Журнал вызовов: пишет агент своим токеном и система, читает администратор, строки не меняются; ночная очистка
+  // удаляет строки старше 365 суток.
+  hda_agent_tool_calls: { client: 'none', agent: 'own-token-insert', app: ['insert', 'delete'] },
+  // Сводки: пишет агент основным токеном, читают сотрудники, отметку "просмотрено" ставит сотрудник. Клиент не видит.
+  hda_agent_reports: { client: 'none', agent: 'reports', app: IU },
   // Ядро. Журнал аудита только пополняется (решение 0019).
   // Удаление: только ночная очистка под системным актором и только записи старше 3 лет (срок хранения журнала,
   // решение владельца 24.11.2026, решение 0041). Свежую запись политика не отдаёт ни одному актору: retention.test.ts.
@@ -140,11 +157,12 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hdn_blocked_senders: { client: 'none', app: ['insert', 'delete'] },
   hdn_telegram_updates: { client: 'none', app: ['insert', 'delete'] },
   // Справочники
-  hdr_business_calendars: { client: 'all', app: IU },
+  // Справочники с политикой "любой актор": агент тоже читает их целиком (веха M8b, задача 1), данных клиентов в них нет.
+  hdr_business_calendars: { client: 'all', agent: 'reference', app: IU },
   hdr_l1_playbooks: { client: 'none', app: IUD },
-  hdr_product_modules: { client: 'all', app: IUD },
+  hdr_product_modules: { client: 'all', agent: 'reference', app: IUD },
   hdr_reply_templates: { client: 'none', app: IU },
-  hdr_sla_policies: { client: 'all', app: IU },
+  hdr_sla_policies: { client: 'all', agent: 'reference', app: IU },
   // Теги обращений (веха M8): создаёт сотрудник с правом записи, меняет и удаляет администратор, клиент не видит.
   hdr_tags: { client: 'none', app: IUD },
   // Идентичность: меняет только hub_auth, удаляет только отвязка контакта.

@@ -65,7 +65,7 @@ test('идеи: только опубликованные статусы, для
 
 test('без ключа области нет; AI-сотрудник и система ключа не получают', () => {
   expect(() => scopeFor(client, 'tickets', { client: '', staff: keys.staff }, now)).toThrow();
-  expect(() => scopeFor({ type: 'agent', tokenId: 't', tools: [] } as never, 'tickets', keys, now)).toThrow();
+  expect(() => scopeFor({ type: 'agent', tokenId: 't', userId: 'u', tools: [], ticketId: null } as never, 'tickets', keys, now)).toThrow();
   expect(() => scopeFor({ type: 'system', job: 'x' } as never, 'tickets', keys, now)).toThrow();
   // Строка, похожая на ключ, ключом области не считается: функция вызова её не примет.
   expect(isScopedKey({ value: 'abc', purpose: 'tickets', collections: ['tickets'] })).toBe(false);

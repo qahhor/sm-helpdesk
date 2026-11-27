@@ -211,5 +211,17 @@ export async function seedEverything() {
   await pools.root.query(`insert into hdp_announcement_dismissals (user_id, announcement_id) values ($1, $2)`, [f.aUser.userId, forAll]);
   // Рассылка по показанной проблеме (веха M5c, задача 5).
   await pools.root.query(`insert into hdp_broadcasts (problem_id, author_id, kind, source_locale, body) values ($1, $2, 'update', 'ru', '{"ru": "Исправляем"}')`, [shownProblem, f.adminStaff.userId]);
+  // AI-сотрудник (веха M8b, задача 1): учётная запись agent_bot, основной токен, строка журнала вызовов и сводка.
+  const bot = (await pools.root.query(`insert into auth."user" (name, email, "emailVerified") values ('AI-сотрудник: Hermes', $1, false) returning id`, [`agent-bot-seed-${Date.now()}-${Math.random()}@users.invalid`])).rows[0].id;
+  await pools.root.query(`insert into hdu_staff (user_id, role) values ($1, 'agent_bot')`, [bot]);
+  const agentToken = (
+    await pools.root.query(
+      `insert into hda_agent_tokens (name, staff_user_id, token_hash, token_last4, tools, allowed_ips, expires_at)
+       values ('Hermes: поддержка', $1, encode(sha256(gen_random_uuid()::text::bytea), 'hex'), 'abcd', '{search_tickets,create_report}', '{10.0.3.12/32}', now() + interval '30 days') returning token_id`,
+      [bot],
+    )
+  ).rows[0].token_id;
+  await pools.root.query(`insert into hda_agent_tool_calls (token_id, tool, args_digest, status, duration_ms) values ($1, 'search_tickets', repeat('a', 64), 'ok', 5)`, [agentToken]);
+  await pools.root.query(`insert into hda_agent_reports (kind, title, body, token_id) values ('morning', 'Утренняя сводка', 'Текст', $1)`, [agentToken]);
   return f;
 }

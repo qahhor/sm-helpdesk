@@ -231,3 +231,56 @@ export const CANDIDATE_RETURN_SOURCES = 5;
 export const CANDIDATE_VECTOR_ATTEMPTS = 3;
 /** Итоги закрытия, из которых растут кандидаты (решение 26). */
 export const CANDIDATE_RESOLUTIONS = ['solved', 'workaround'] as const;
+
+// --- AI-сотрудник и сервер MCP (веха M8b, задача 1; FR-AGT-02, 03, 04, 09; план M8b, решения 10, 14, 17, 18, 23) ---
+
+/**
+ * Инструменты чтения (FR-AGT-03, решение 17). Каталог закрытый: проверку перечня токена повторяет ограничение базы
+ * hda_agent_tokens_c3. Инструментов ответа клиенту, смены статуса, приоритета, исполнителя и других из FR-AGT-05 нет.
+ */
+export const AGENT_READ_TOOLS = [
+  'search_tickets',
+  'get_ticket',
+  'similar_tickets',
+  'sla_risk_tickets',
+  'unsolved_signatures',
+  'signature_spikes',
+  'search_solutions',
+  'get_solution',
+  'list_candidates',
+  'list_known_problems',
+  'list_ideas',
+  'assistant_metrics',
+] as const;
+/** Инструменты записи (FR-AGT-04, решение 18): только то, что видят сотрудники. code_catalog_upsert появится в M8c. */
+export const AGENT_WRITE_TOOLS = ['add_internal_note', 'draft_solution', 'draft_known_problem', 'create_report'] as const;
+export const AGENT_TOOLS = [...AGENT_READ_TOOLS, ...AGENT_WRITE_TOOLS] as const;
+export type AgentReadTool = (typeof AGENT_READ_TOOLS)[number];
+export type AgentWriteTool = (typeof AGENT_WRITE_TOOLS)[number];
+export type AgentTool = (typeof AGENT_TOOLS)[number];
+/** Перечень токена запуска по обращению (FR-AGT-12, решение 15): чтение обращения и одна заметка. */
+export const AGENT_RUN_TOOLS = ['get_ticket', 'add_internal_note'] as const satisfies readonly AgentTool[];
+
+/** Итог вызова в журнале вызовов (решение 14). */
+export const AGENT_CALL_STATUSES = ['ok', 'refused', 'invalid', 'rate_limited', 'error'] as const;
+export type AgentCallStatus = (typeof AGENT_CALL_STATUSES)[number];
+
+/** Виды сводок (решение 23): утренняя, гигиена решений, идеи, сканирование кода (M8c). */
+export const REPORT_KINDS = ['morning', 'kb_hygiene', 'ideas', 'code_scan'] as const;
+export type ReportKind = (typeof REPORT_KINDS)[number];
+export const REPORT_STATUSES = ['unverified', 'reviewed'] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+/** Значение токена: приставка и 32 случайных байта base64url (решение 10). */
+export const AGENT_TOKEN_PREFIX = 'hub_at_';
+export const AGENT_TOKEN_BYTES = 32;
+/** Срок токена обязателен и не больше 365 суток (решение 10, проверка базы в t_hda_agent_tokens_guard). */
+export const AGENT_TOKEN_MAX_DAYS = 365;
+/** Суточный предел вызовов: по умолчанию 2000, не больше 10000 (экран 8.12). */
+export const AGENT_DAILY_LIMIT_DEFAULT = 2000;
+export const AGENT_DAILY_LIMIT_MAX = 10_000;
+export const AGENT_TOKEN_NAME_MAX = 80;
+/** Не больше стольких сетей в списке адресов токена (проверка базы hda_agent_tokens_c4). */
+export const AGENT_ALLOWED_IPS_MAX = 50;
+/** Журнал вызовов токена на экране: страницами по столько строк (решение 28). */
+export const AGENT_CALLS_PAGE = 50;

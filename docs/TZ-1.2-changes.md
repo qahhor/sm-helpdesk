@@ -139,6 +139,8 @@
 | FR-AG-20 | Массовое действие "привязать к известной проблеме" отложено до M5c. | Сделано: до 100 обращений, каждое своей транзакцией, итог по каждому (веха M5c, задача 3). | `docs/decisions/0099-known-problem-links.md` |
 | FR-KP-11, FR-DEV-06 | Задача разработки у проблемы. | Колонка `hdw_dev_task_links.known_problem_id`, в строке ровно одно из обращения, идеи, проблемы; смена статуса задачи уведомляет владельца проблемы, закрытие проблемы берёт версию задачи итогом "Исправлено в версии" (веха M5c). | `docs/decisions/0104-problem-dev-task.md` |
 | FR-CAND-09, T33 | Подтверждение недоверенного текста. | Решение из кандидата (`hdk_articles.is_untrusted`) публикуется, только когда каждая находка "телефон", "почта", "команда", "код" отмечена; отметки привязаны к отпечатку текста версии и сбрасываются правкой (веха M5c). | `docs/decisions/0106-candidate-queue.md` |
+| 10.2, 10.4, `AgentActor` | `AgentActor = { type: 'agent'; tokenId; tools }`. | Добавлены `userId` (учётная запись `agent_bot` токена: автор записей агента), `ticketId` (обращение токена запуска, FR-AGT-12) и `ip`; база получает `app.agent_token_id`, `app.agent_ticket_id` и проверяет токен функцией `app.agent_token_active()` в каждой политике агента (веха M8b). | `docs/decisions/0111-agent-actor.md` |
+| 10.5 | Таблицы `agent_tokens`, `agent_tool_calls`, `agent_reports`. | Имена `hda_agent_tokens`, `hda_agent_tool_calls`, `hda_agent_reports`; у токена дополнительно `token_last4`, `parent_token_id`, `ticket_id`, `note_limit`, `notes_written`, `is_event_parent`; период сводки двумя колонками `period_from`, `period_to` (веха M8b). | `docs/decisions/0111-agent-actor.md` |
 
 ## Открытые вопросы владельцу, от которых зависит текст ТЗ
 

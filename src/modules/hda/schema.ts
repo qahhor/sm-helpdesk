@@ -1,7 +1,21 @@
 import { sql } from 'drizzle-orm';
-import { customType, date, integer, jsonb, pgTable, text, timestamp, uuid, vector } from 'drizzle-orm/pg-core';
+import { boolean, cidr, customType, date, integer, jsonb, pgTable, text, timestamp, uuid, vector } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
-import type { AiCutoffReason, AiDecision, AiHandoffReason, AiOutcome, AiPurpose, CandidateRejectReason, CandidateStatus, TriageField, TriageStatus } from './pref';
+import type {
+  AgentCallStatus,
+  AgentTool,
+  AiCutoffReason,
+  AiDecision,
+  AiHandoffReason,
+  AiOutcome,
+  AiPurpose,
+  CandidateRejectReason,
+  CandidateStatus,
+  ReportKind,
+  ReportStatus,
+  TriageField,
+  TriageStatus,
+} from './pref';
 
 // Модуль hda: AI. Таблицы, ограничения и политики создают миграции drizzle/0072_hda_runs.sql и
 // drizzle/0091_hda_first_line.sql, drizzle/0093_hda_triage.sql, drizzle/0094_hda_review.sql,
@@ -149,3 +163,67 @@ export const candidateSources = pgTable('hda_candidate_sources', {
   ticketId: uuid('ticket_id').notNull(),
   ...stampColumns,
 });
+
+// --- AI-сотрудник (веха M8b, задача 1). Миграция 0109. Клиент не видит ни одной строки ---
+
+/** Токены AI-сотрудников (логическое имя agent_tokens). Значение токена не хранится: только хеш и последние 4 знака. */
+export const agentTokens = pgTable('hda_agent_tokens', {
+  tokenId: uuid('token_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  name: text('name').notNull(),
+  staffUserId: uuid('staff_user_id').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  tokenLast4: text('token_last4').notNull(),
+  tools: text('tools').array().$type<AgentTool[]>().notNull(),
+  allowedIps: cidr('allowed_ips').array().notNull(),
+  expiresAt: moment('expires_at').notNull(),
+  revokedAt: moment('revoked_at'),
+  lastUsedAt: moment('last_used_at'),
+  dailyLimit: integer('daily_limit').notNull().default(2000),
+  parentTokenId: uuid('parent_token_id'),
+  ticketId: uuid('ticket_id'),
+  noteLimit: integer('note_limit'),
+  notesWritten: integer('notes_written').notNull().default(0),
+  isEventParent: boolean('is_event_parent').notNull().default(false),
+  ...stampColumns,
+});
+
+/** Журнал вызовов инструментов (логическое имя agent_tool_calls). Аргументов и текста ответов нет. */
+export const agentToolCalls = pgTable('hda_agent_tool_calls', {
+  callId: uuid('call_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  tokenId: uuid('token_id').notNull(),
+  tool: text('tool').notNull(),
+  argsDigest: text('args_digest'),
+  objectRefs: jsonb('object_refs').$type<AgentObjectRef[]>().notNull().default([]),
+  status: text('status').$type<AgentCallStatus>().notNull(),
+  durationMs: integer('duration_ms').notNull().default(0),
+  ...stampColumns,
+});
+
+/** Объект вызова в журнале: вид и номер (обращение, решение, проблема, идея) или идентификатор (кандидат). */
+export type AgentObjectRef = { kind: 'ticket' | 'solution' | 'problem' | 'idea' | 'candidate' | 'report'; ref: string | number };
+
+/** Сводки AI-сотрудника (логическое имя agent_reports). */
+export const agentReports = pgTable('hda_agent_reports', {
+  reportId: uuid('report_id')
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  kind: text('kind').$type<ReportKind>().notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  periodFrom: moment('period_from'),
+  periodTo: moment('period_to'),
+  chatFields: jsonb('chat_fields').$type<Record<string, unknown>>(),
+  tokenId: uuid('token_id').notNull(),
+  status: text('status').$type<ReportStatus>().notNull().default('unverified'),
+  reviewedBy: uuid('reviewed_by'),
+  reviewedOn: moment('reviewed_on'),
+  ...stampColumns,
+});
+
+export type AgentTokenRow = typeof agentTokens.$inferSelect;
+export type AgentToolCallRow = typeof agentToolCalls.$inferSelect;
+export type AgentReportRow = typeof agentReports.$inferSelect;

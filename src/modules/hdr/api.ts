@@ -72,6 +72,35 @@ export async function moduleIdsByCodesTx(tx: Tx, codes: readonly string[]): Prom
   return new Map(rows.map((row) => [row.code, row.moduleId]));
 }
 
+// --- Карта модулей из сканирования кода (веха M8c, задача 4; FR-CODE-13; план M8c, решение 14) ---
+
+export type ModuleProposal = { code: string; name: Record<string, string>; screens: { code: string; name: Record<string, string> }[] };
+
+/** Экраны модулей справочника по кодам в транзакции вызывающего: сравнение с заметками о модулях. */
+export async function moduleScreensByCodesTx(tx: Tx, codes: readonly string[]): Promise<Map<string, { code: string; name: Record<string, string | undefined> }[]>> {
+  const list = [...new Set(codes)];
+  if (list.length === 0) return new Map();
+  const rows = await tx.select({ code: productModules.code, screens: productModules.screens }).from(productModules).where(inArray(productModules.code, list));
+  return new Map(rows.map((row) => [row.code, row.screens]));
+}
+
+/**
+ * Предложение из карты модулей в справочник, в транзакции администратора (политика записи справочника): новый модуль
+ * с названием из отчёта или новый список экранов у существующего. Название существующего модуля не меняется.
+ */
+export async function applyModuleProposalTx(tx: Tx, proposal: ModuleProposal): Promise<'created' | 'updated' | 'same'> {
+  if (!('ru' in proposal.name) || !proposal.name.ru) throw new HdrError('invalid_input');
+  const [found] = await tx.select({ moduleId: productModules.moduleId, screens: productModules.screens }).from(productModules).where(eq(productModules.code, proposal.code)).limit(1);
+  const screens = proposal.screens.map((screen) => ({ code: screen.code, name: { ...screen.name, ru: screen.name.ru ?? screen.code } }));
+  if (!found) {
+    await tx.insert(productModules).values({ code: proposal.code, name: { ...proposal.name, ru: proposal.name.ru }, screens });
+    return 'created';
+  }
+  if (JSON.stringify(found.screens) === JSON.stringify(screens)) return 'same';
+  await tx.update(productModules).set({ screens }).where(eq(productModules.moduleId, found.moduleId));
+  return 'updated';
+}
+
 // --- Сроки SLA и рабочий календарь (план M3, задача 2) ---
 
 export { readSlaConfig, type Priority, type SlaCalendar, type SlaConfig, type SlaPolicy } from './core/sla-config';

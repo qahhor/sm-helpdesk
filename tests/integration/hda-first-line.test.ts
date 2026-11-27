@@ -324,7 +324,7 @@ const KP_ERROR = 'ORA-20001: Накладная №4512 от 12.03.2026 не п�
 async function knownProblem(opts: { shown?: boolean } = {}): Promise<number> {
   const l2 = staffCtx(await staffWithRole('agent_l2'));
   const { number } = await createProblem(l2, { internalTitle: 'ВНУТРЕННЕЕ: накладные ACME' });
-  await addProblemSignature(l2, { number, signature: errorSignatureOf({ text: KP_ERROR })! });
+  await addProblemSignature(l2, { number, signature: (await errorSignatureOf({ text: KP_ERROR }))! });
   await saveProblemTranslation(l2, { number, locale: 'ru', publicTitle: 'Не проводятся накладные', publicBody: 'После обновления накладные не проводятся. Исправляем.' });
   if (opts.shown !== false) await setProblemShown(l2, { number, shown: true });
   return number;

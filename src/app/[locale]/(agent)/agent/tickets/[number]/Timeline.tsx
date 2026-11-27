@@ -159,6 +159,7 @@ export async function TicketTimeline({ ticket, from, canFlag = false, translatio
               {entry.isAuto && <StatusLabel tone="gray">{t('ticket.auto')}</StatusLabel>}
               {entry.authorType === 'agent' && <AgentMark label={t('aiStaff.mark')} />}
               {entry.agentNoteKind === 'handoff_memo' && <StatusLabel tone="gray">{t('aiStaff.memoTitle')}</StatusLabel>}
+              {entry.agentNoteKind === 'code_analysis' && <StatusLabel tone="gray">{t('aiStaff.codeAnalysis')}</StatusLabel>}
               <span className="font-semibold text-foreground">{entry.authorName ?? t(`ticket.authors.${entry.authorType}`)}</span>, {when(entry.createdOn)}
               {entry.isNew && <StatusLabel tone="blue">{t('ticket.new')}</StatusLabel>}
               {entry.undelivered && <StatusLabel tone="danger">{t('ticket.undelivered')}</StatusLabel>}

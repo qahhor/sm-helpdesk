@@ -229,6 +229,7 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
         {done === 'started' && <Alert tone="success">{s('translations.started')}</Alert>}
         {done === 'requested' && <Alert tone="success">{s('translations.requested')}</Alert>}
         {done === 'from_ticket' && <Alert tone="success">{s('fromTicket.created')}</Alert>}
+        {done === 'code_signature_taken' && <Alert tone="info">{t('ticket.code.solutionTaken')}</Alert>}
         <LanguageTabs number={state.number} current={state.locale} languages={state.languages} />
         {draftAi === 'pending' && (
           <>

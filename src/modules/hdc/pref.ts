@@ -222,6 +222,21 @@ export const AUDIT_ACTIONS = [
   'problem.draft_rejected',
   // Сводка AI-сотрудника отмечена "Просмотрено" (веха M8b, задача 10, решение 22).
   'agent.report_reviewed',
+  // Знания из кода (веха M8c, решение 26 плана M8c): приём и отклонение отчёта о сканировании, утверждение, правка и
+  // отклонение записи каталога, решение по заметке о модуле, запрос анализа по коду, решение из записи. Текстов
+  // записей в журнале нет: ключи, числа и номера.
+  'code.scan_accepted',
+  'code.scan_rejected',
+  'code.entry_approved',
+  'code.entry_edited',
+  'code.entry_rejected',
+  'code.module_approved',
+  'code.module_rejected',
+  'code.analysis_requested',
+  // Независимая проверка M8c (решение 0134, находка M1): истечение срока и ответ агента на запрос анализа.
+  'code.analysis_timed_out',
+  'code.analysis_done',
+  'solution.created_from_code',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -457,5 +472,7 @@ export const DOMAIN_EVENT_KINDS = [
   'ai_handoff',
   // Передача на вторую линию (веха M8b, задача 9): событие для AI-сотрудника.
   'line_transferred',
+  // Запрошен анализ по коду (веха M8c, задача 7): событие для AI-сотрудника.
+  'code_analysis_requested',
 ] as const;
 export type DomainEventKind = (typeof DOMAIN_EVENT_KINDS)[number];

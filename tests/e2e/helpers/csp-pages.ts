@@ -41,6 +41,10 @@ export const CSP_PAGES: readonly CspPage[] = [
   // Сводки AI-сотрудника (веха M8b, задача 10).
   { route: `${A}/digests`, path: '/ru/agent/digests', who: 'admin' },
   { route: `${A}/digests/[id]`, path: '/ru/agent/digests/00000000-0000-7000-8000-000000000000', who: 'admin', status: 404 },
+  { route: `${A}/code-knowledge`, path: '/ru/agent/code-knowledge', who: 'admin' },
+  { route: `${A}/code-knowledge/[key]`, path: '/ru/agent/code-knowledge/missing.entry', who: 'admin', status: 404 },
+  { route: `${A}/code-knowledge/scans`, path: '/ru/agent/code-knowledge/scans', who: 'admin' },
+  { route: `${A}/code-knowledge/modules`, path: '/ru/agent/code-knowledge/modules', who: 'admin' },
   { route: `${A}/problems`, path: '/ru/agent/problems', who: 'admin' },
   { route: `${A}/problems/[number]`, path: '/ru/agent/problems/{problem}', who: 'admin' },
   // Подтверждение рассылки: несуществующая рассылка даёт "не найдено".

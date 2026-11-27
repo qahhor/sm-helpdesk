@@ -186,7 +186,7 @@ export type AgentTimelineEntry =
       /** Вид сообщения помощника (answer, clarify, handoff, ack); у остальных null. По нему кнопка "Отметить ответ как неверный". */
       aiKind: string | null;
       /** Запись AI-сотрудника: заметка или черновик записки второй линии (веха M8b); у остальных null. */
-      agentNoteKind: 'note' | 'handoff_memo' | null;
+      agentNoteKind: 'note' | 'handoff_memo' | 'code_analysis' | null;
     }
   | { type: 'event'; id: string; kind: EventKind; payload: Record<string, unknown>; actorName: string | null; isInternal: boolean; createdOn: Date; isNew: boolean };
 

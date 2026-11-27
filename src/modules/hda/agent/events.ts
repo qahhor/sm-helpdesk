@@ -12,6 +12,7 @@ export type AgentEventKind = (typeof AGENT_EVENT_KINDS)[number];
 export type AgentEventTicket = { id: string; number: number; priority: string; queue: string | null; module: string | null; orgId: string; orgCategory: 'A' | 'B' | 'C' | 'D' | null };
 export type AgentEventSource =
   | { eventId: string; kind: 'ai_handoff' | 'line_transferred' | 'sla_breached'; occurredOn: Date; ticket: AgentEventTicket; reason?: string | null; deadline?: string | null }
+  | { eventId: string; kind: 'code_analysis_requested'; occurredOn: Date; ticket: AgentEventTicket; analysisRequestId: string }
   | { eventId: string; kind: 'signature_spike'; occurredOn: Date; spike: { signature: string; orgCount: number; ticketCount: number; windowMinutes: number; ticketNumbers: readonly number[] } };
 
 export type AgentEventBody = {
@@ -22,11 +23,14 @@ export type AgentEventBody = {
   reason?: string;
   deadline?: string;
   spike?: { signature: string; org_count: number; ticket_count: number; window_minutes: number; ticket_numbers: number[] };
+  /** Запрос анализа по коду (веха M8c): ответ агент отдаёт инструментом submit_code_analysis. */
+  analysis_request?: { id: string };
 };
 
 const REASONS: ReadonlySet<string> = new Set<string>([...AI_HANDOFF_REASONS, ...TRANSFER_REASONS]);
 const DEADLINES: ReadonlySet<string> = new Set(['first_response', 'resolution']);
 const CODE = /^[a-z0-9_]{1,40}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function agentEventBody(source: AgentEventSource): AgentEventBody {
   const base = { id: String(source.eventId), kind: source.kind, occurred_on: source.occurredOn.toISOString() };
@@ -42,8 +46,14 @@ export function agentEventBody(source: AgentEventSource): AgentEventBody {
   return {
     ...base,
     ticket: { id: String(t.id), number: Number(t.number), priority: code(t.priority) ?? '', queue: code(t.queue), module: typeof t.module === 'string' ? t.module.slice(0, 80) : null, org: { id: String(t.orgId), category: t.orgCategory ?? null } },
-    ...(typeof source.reason === 'string' && REASONS.has(source.reason) ? { reason: source.reason } : {}),
-    ...(typeof source.deadline === 'string' && DEADLINES.has(source.deadline) ? { deadline: source.deadline } : {}),
+    ...(source.kind === 'code_analysis_requested'
+      ? UUID.test(String(source.analysisRequestId))
+        ? { analysis_request: { id: String(source.analysisRequestId) } }
+        : {}
+      : {
+          ...(typeof source.reason === 'string' && REASONS.has(source.reason) ? { reason: source.reason } : {}),
+          ...(typeof source.deadline === 'string' && DEADLINES.has(source.deadline) ? { deadline: source.deadline } : {}),
+        }),
   };
 }
 

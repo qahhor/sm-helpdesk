@@ -1375,7 +1375,8 @@
             "signature_bound": "Yechim xato imzosiga bog'landi",
             "signature_unbound": "Yechim xato imzosidan uzildi",
             "untrusted_confirmed": "Ishonchsiz matn topilmalari tekshirilgan deb belgilandi",
-            "created_from_candidate": "Yechim nomzoddan yaratildi"
+            "created_from_candidate": "Yechim nomzoddan yaratildi",
+            "created_from_code": "Yechim qoralamasi xatolar katalogi yozuvidan yaratildi"
           },
           "client": {
             "embed_session": "Smartup ichidagi vidjet seansi"
@@ -1438,6 +1439,18 @@
             "tool_refused": "Token ro'yxatidan tashqari vosita chaqiruvi rad etildi",
             "tool_called": "AI-xodim yozish vositasini chaqirdi",
             "report_reviewed": "AI-xodim xulosasi ko'rib chiqilgan deb belgilandi"
+          },
+          "code": {
+            "scan_accepted": "Kod skanerlash hisoboti qabul qilindi",
+            "scan_rejected": "Kod skanerlash hisoboti rad etildi",
+            "entry_approved": "Xatolar katalogi yozuvi tasdiqlandi",
+            "entry_edited": "Xatolar katalogi yozuvi o'zgartirildi",
+            "entry_rejected": "Xatolar katalogi yozuvi rad etildi",
+            "module_approved": "Modul haqidagi qayd ma'lumotnomaga qo'llandi",
+            "module_rejected": "Modul haqidagi qayd rad etildi",
+            "analysis_requested": "Murojaatni kod bo'yicha tahlil qilish so'raldi",
+            "analysis_timed_out": "Murojaatni kod bo'yicha tahlil qilish o'z vaqtida bajarilmadi",
+            "analysis_done": "AI-xodim kod bo'yicha tahlil so'roviga javob berdi"
           }
         },
         "words": {
@@ -1846,7 +1859,8 @@
           "notify_oncall_p1": "Navbatchilarga P1 haqida xabar berish (bir marta, birinchi javobgacha)",
           "notify_sla_breach": "Liniya rahbarlarini muddat o'tgani haqida xabardor qilish",
           "notify_csat_low": "Customer Care ni past baho haqida xabardor qilish",
-          "link_known_problem": "Ma'lum muammoga bog'lash"
+          "link_known_problem": "Ma'lum muammoga bog'lash",
+          "request_code_analysis": "Kod bo'yicha tahlil so'rash"
         },
         "actionValues": {
           "set_queue": "Navbat",
@@ -1926,7 +1940,8 @@
           "resolution_required": "yechim yakuni kerak",
           "refused": "amal rad etildi",
           "event_mismatch": "hodisada muddat yo'q",
-          "not_low_rating": "baho yo'q yoki u 2 dan yuqori"
+          "not_low_rating": "baho yo'q yoki u 2 dan yuqori",
+          "ai_disabled": "tashkilot AI-ishlovdan voz kechgan"
         },
         "runs": {
           "title": "Ishga tushishlar jurnali",
@@ -2406,7 +2421,10 @@
           "add_internal_note": "Ichki eslatma va ikkinchi liniya uchun xat",
           "draft_solution": "Yechim qoralamasi",
           "draft_known_problem": "Ma'lum muammo qoralamasi",
-          "create_report": "«Xulosalar» bo'limiga xulosa"
+          "create_report": "«Xulosalar» bo'limiga xulosa",
+          "code_catalog_upsert": "Kod skanerlash hisobotini xatolar katalogiga",
+          "search_code_catalog": "Koddan saqlangan xulosalar",
+          "submit_code_analysis": "Murojaatni kod bo'yicha tahlil qaydi"
         },
         "eventParent": {
           "title": "Hodisalar uchun token",
@@ -2682,7 +2700,8 @@
         "notify_oncall_p1": "navbatchilarga P1 haqida xabar yuborildi",
         "notify_sla_breach": "liniya rahbarlariga muddat o'tgani haqida bildirishnoma yuborildi",
         "notify_csat_low": "Customer Care ga {to} baho haqida bildirishnoma yuborildi",
-        "link_known_problem": "{to} ma'lum muammoga bog'landi"
+        "link_known_problem": "{to} ma'lum muammoga bog'landi",
+        "request_code_analysis": "kod bo'yicha tahlil so'raldi"
       },
       "ruleActionNames": {
         "set_queue": "navbatni almashtirish",
@@ -2700,7 +2719,8 @@
         "notify_oncall_p1": "navbatchilarga P1 haqida xabar",
         "notify_sla_breach": "muddat o'tgani haqida bildirishnoma",
         "notify_csat_low": "past baho haqida bildirishnoma",
-        "link_known_problem": "ma'lum muammoga bog'lash"
+        "link_known_problem": "ma'lum muammoga bog'lash",
+        "request_code_analysis": "kod bo'yicha tahlil so'rovi"
       },
       "ruleActionFailed": "{name}: bajarilmadi",
       "dueKinds": {
@@ -2803,7 +2823,8 @@
           "flagged": "Javob noto'g'ri deb belgilandi.",
           "translating": "Tarjima tayyorlanmoqda.",
           "problem_linked": "Murojaat ma'lum muammoga bog'landi",
-          "problem_unlinked": "Murojaat ma'lum muammodan ajratildi"
+          "problem_unlinked": "Murojaat ma'lum muammodan ajratildi",
+          "code_requested": "Kod bo'yicha tahlil so'raldi. Javob AI-xodimning ichki qaydi bo'lib keladi."
         },
         "errors": {
           "forbidden": "Rolingiz bu amalga ruxsat bermaydi.",
@@ -2828,7 +2849,11 @@
           "solution_not_resolved": "Yechim faqat hal qilingan yoki yopilgan murojaatdan yaratiladi.",
           "solution_forbidden": "Yechimlarni birinchi va ikkinchi liniya, Customer Care va administrator yaratadi.",
           "solution_not_found": "Murojaat topilmadi.",
-          "solution_invalid_input": "Yechim yaratib bo'lmadi. Qayta urinib ko'ring."
+          "solution_invalid_input": "Yechim yaratib bo'lmadi. Qayta urinib ko'ring.",
+          "code_not_found": "Katalog yozuvi topilmadi yoki hali tasdiqlanmagan.",
+          "code_forbidden": "Koddan bilimlar bilan bu amal sizga mavjud emas.",
+          "code_ai_disabled": "Tashkilot AI-ishlovdan voz kechgan: murojaat AI-xodimga berilmaydi.",
+          "code_invalid_input": "Bo'lmadi: sahifani yangilab, qayta urinib ko'ring."
         },
         "publishSolution": "Yechim sifatida e'lon qilish",
         "publishSolutionHint": "Hal qilingandan yoki yopilgandan keyin yechim qoralamasi ochiladi: AI uni yozishma bo'yicha tayyorlaydi, xodim e'lon qiladi."
@@ -3080,6 +3105,25 @@
         "linkHint": "KP-12 raqami yoki faol muammo nomining bir qismi",
         "linkSubmit": "Bog'lash",
         "unlink": "Ajratish"
+      },
+      "code": {
+        "title": "Kod bo'yicha nima ma'lum",
+        "none": "Bu xato bo'yicha koddan xulosalar hozircha yo'q.",
+        "approved": "tasdiqlangan",
+        "unverified": "tekshirilmagan",
+        "conditions": "Qachon chiqadi:",
+        "whatToCheck": "Nimani tekshirish kerak:",
+        "raisedIn": "Koddagi joy:",
+        "createSolution": "Yozuvdan yechim yaratish",
+        "openEntry": "Yozuvni ochish",
+        "solutionTaken": "Qoralama yaratildi. Bu xato boshqa yechimga bog'langan: yangisi kerakligini tekshiring.",
+        "analyze": "Kod bo'yicha tahlil qilish",
+        "analyzeHint": "AI-xodim murojaatni mijoz kontaktlarisiz oladi, kodni tahlil qiladi va ichki qayd qoldiradi.",
+        "aiDisabled": "Tashkilot AI-ishlovdan voz kechgan: kod bo'yicha tahlil mavjud emas.",
+        "pending": "Tahlil {time} da so'raldi, {due} gacha kutamiz",
+        "timeout": "Tahlil bajarilmadi: AI-xodim 10 daqiqada javob bermadi. Murojaat bilan odatdagidek ishlang yoki qayta so'rang.",
+        "done": "Tahlil {time} da tayyor: qayd yozishmada AI-xodim belgisi bilan.",
+        "requested": "Kod bo'yicha tahlil so'raldi. Javob ichki qayd bo'lib keladi."
       }
     },
     "playbooks": {
@@ -4264,7 +4308,8 @@
       "mark": "AI-xodim, tekshirilmagan",
       "memoTitle": "AI-xodim eslatmasi qoralamasi",
       "memoHint": "Eslatma faqat siz uchun: u uzatish maydonlarini to'ldirmaydi, ularni tekshirib o'zingiz yozing.",
-      "revises": "{ref} yechimiga tuzatish taklif qiladi"
+      "revises": "{ref} yechimiga tuzatish taklif qiladi",
+      "codeAnalysis": "Kod bo'yicha tahlil"
     },
     "teamChat": {
       "title": "AI-xodim xulosasi: {kind}",
@@ -4281,7 +4326,14 @@
         "sla_risk": "Muddati xavf ostida: {count}"
       },
       "tickets": "Murojaatlar:",
-      "open": "Xulosa: {url}"
+      "open": "Xulosa: {url}",
+      "codeScan": {
+        "title": "Kod skanerlash: {repository}, versiya {commit}",
+        "added": "Yangi xatolar: {count}",
+        "changed": "O'zgargan: {count}",
+        "removed": "Yo'qolgan: {count}",
+        "open": "Tasdiqlash navbati: {url}"
+      }
     },
     "digests": {
       "title": "Xulosalar",
@@ -4326,6 +4378,125 @@
         "ai_resolved": "Yordamchi hal qildi: {count}",
         "handed_off": "Xodimlarga uzatildi: {count}",
         "sla_risk": "Muddati xavf ostida: {count}"
+      }
+    },
+    "codeKnowledge": {
+      "title": "Koddan bilimlar",
+      "intro": "AI-xodim har hafta Smartup kodini tahlil qilib, xulosalar yuboradi: qanday xatolar bor, qachon chiqadi va nimani tekshirish kerak. Portalda kod yo'q. Qoralamalarni tekshiring: tasdiqlangan yozuv murojaatlardagi xatoni taniydi va nimani tekshirishni aytadi.",
+      "tabs": {
+        "label": "Koddan bilimlar bo'limlari",
+        "queue": "Tasdiqlash navbati",
+        "scans": "Skanerlashlar tarixi",
+        "modules": "Modullar xaritasi"
+      },
+      "metrics": {
+        "title": "{days} kunlik foyda",
+        "share": "Katalog yozuvidan imzo: xatoli {total} murojaatdan {matched} tasi",
+        "solutions": "Yozuvlardan yaratilgan yechimlar: {count}"
+      },
+      "filters": {
+        "label": "Yozuvlarni saralash",
+        "status": "Holat",
+        "all": "Hammasi",
+        "apply": "Ko'rsatish"
+      },
+      "statuses": {
+        "draft": "Qoralama",
+        "approved": "Tasdiqlangan",
+        "rejected": "Rad etilgan",
+        "removed": "Koddan yo'qolgan"
+      },
+      "changes": {
+        "new": "Yangi",
+        "changed": "O'zgargan"
+      },
+      "kinds": {
+        "user_error": "Foydalanuvchi xatosi",
+        "setting": "Sozlama",
+        "data": "Ma'lumotlar",
+        "probable_defect": "Ehtimoliy nuqson"
+      },
+      "columns": {
+        "key": "Kalit",
+        "code": "Xato kodi",
+        "module": "Modul",
+        "kind": "Turi",
+        "confidence": "Ishonch",
+        "status": "Holat"
+      },
+      "empty": "Hozircha bo'sh",
+      "emptyText": "Yozuvlar AI-xodim kodni skanerlagandan keyin paydo bo'ladi.",
+      "drafts": "Navbatdagi qoralamalar: {count}",
+      "more": "Keyingi yozuvlar",
+      "card": {
+        "template": "Xabar shabloni",
+        "conditions": "Qachon chiqadi",
+        "userCause": "Foydalanuvchidagi ehtimoliy sabab",
+        "whatToCheck": "Nimani tekshirish kerak",
+        "raisedIn": "Koddagi joy",
+        "raisedInHint": "Faqat havola: obyekt, fayl va qator. Portalda kod yo'q.",
+        "location": "{object}, {path}, {line}-qator",
+        "locationNoLine": "{object}, {path}",
+        "scan": "Skanerlash {scan}, versiya {commit}, {date}",
+        "approvedOn": "{date} tasdiqlangan",
+        "rejectReason": "Rad etish sababi: {reason}",
+        "approve": "Tasdiqlash",
+        "reject": "Rad etish",
+        "reason": "Kerak bo'lsa, rad etish sababi",
+        "edit": "Tahrirlash",
+        "editHint": "Shablon oddiy matn bilan yoziladi, almashtirishlar figurali qavsda: {example}. Har bir maydon 10 qatordan oshmasin.",
+        "whatToCheckHint": "Har bir band yangi qatordan",
+        "templateFor": "Shablon: {locale}",
+        "save": "Saqlash",
+        "done": {
+          "approved": "Yozuv tasdiqlandi. Uning shabloni endi yangi murojaatlardagi xatoni taniydi.",
+          "rejected": "Yozuv rad etildi.",
+          "edited": "Tahrir saqlandi."
+        }
+      },
+      "errors": {
+        "invalid_input": "Maydonlarni tekshiring: shablon oddiy matn, muntazam ifodalarsiz va o'rinbosarlardan tashqari kamida 15 harf, har bir maydon 300 belgidan iborat 10 qatordan oshmasin, kod va ko'rinmas belgilarsiz.",
+        "forbidden": "Bu amal sizga mavjud emas.",
+        "stale_session": "Modullar ma'lumotnomasini o'zgartirish uchun qayta kiring.",
+        "not_found": "Yozuv topilmadi yoki koddan yo'qolgan.",
+        "ai_disabled": "Tashkilot AI-ishlovdan voz kechgan: murojaat agentga berilmaydi.",
+        "conflict": "Sahifa ochiq turganda yozuv o'zgardi: yangi skanerlash yoki boshqa xodimning tahriri. Hech narsa saqlanmadi. Sahifani yangilang, yozuvni tekshiring va qaytadan urinib ko'ring."
+      },
+      "scans": {
+        "columns": {
+          "date": "Qabul qilingan",
+          "repository": "Repozitoriy",
+          "commit": "Kod versiyasi",
+          "result": "Natija"
+        },
+        "accepted": "Qabul qilindi: yangi {added}, o'zgargan {changed}, yo'qolgan {removed}",
+        "rejected": "Rad etildi: {rules}",
+        "rules": {
+          "code_too_long": "10 qatordan uzun matn",
+          "regex": "shablonda muntazam ifoda",
+          "bad_placeholder": "noto'g'ri almashtirish",
+          "template_too_loose": "juda umumiy shablon"
+        },
+        "empty": "Hozircha skanerlash bo'lmagan"
+      },
+      "modules": {
+        "intro": "Skanerlashdan olingan modullar xaritasi portal modullari ma'lumotnomasini yangilashni taklif qiladi. Administrator tasdiqlaydi: tasdiqlash modul yaratadi yoki ekranlar ro'yxatini o'zgartiradi.",
+        "columns": {
+          "module": "Modul",
+          "screens": "Ekranlar",
+          "directory": "Ma'lumotnoma",
+          "status": "Holat"
+        },
+        "directory": {
+          "missing": "Yangi modul ma'lumotnomada yo'q",
+          "screens_differ": "Ekranlar farq qiladi",
+          "same": "Mos keladi"
+        },
+        "approve": "Ma'lumotnomaga qo'llash",
+        "reject": "Rad etish",
+        "done": "Modullar ma'lumotnomasi yangilandi.",
+        "doneRejected": "Modul haqidagi qayd rad etildi.",
+        "empty": "Modullar xaritasi hozircha bo'sh"
       }
     }
   },

@@ -56,6 +56,8 @@ export const kbArticles = pgTable('hdk_articles', {
   isAgentDraft: boolean('is_agent_draft').notNull().default(false),
   /** Черновик AI-сотрудника предлагает правку этого решения. Миграция 0113. */
   revisesArticleId: uuid('revises_article_id'),
+  /** Решение из записи каталога ошибок (веха M8c, FR-CODE-07). Миграция 0120. */
+  codeEntryId: uuid('code_entry_id'),
 });
 
 /** Версии текста по языкам: черновик, опубликованная, прежние. */

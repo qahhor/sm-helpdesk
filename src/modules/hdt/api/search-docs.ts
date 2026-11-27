@@ -82,6 +82,7 @@ export async function buildTicketTextDocs(system: SystemActor, ids: readonly str
         ticketId: ticketMessages.ticketId,
         orgId: ticketMessages.orgId,
         isInternal: ticketMessages.isInternal,
+        agentNoteKind: ticketMessages.agentNoteKind,
         body: sql<string>`left(${ticketMessages.body}, ${TEXT_LIMITS.ticketText})`,
         locale: tickets.locale,
         version: micros(ticketMessages.modifiedOn),
@@ -93,6 +94,9 @@ export async function buildTicketTextDocs(system: SystemActor, ids: readonly str
   for (const row of rows) {
     const id = `${row.ticketId}_${row.messageId}`;
     if (!out.has(id)) continue;
+    // Заметка анализа по коду в поиск не идёт: поиск сотрудников не делит их по ролям знаний из кода (FR-CODE-11;
+    // независимая проверка M8c, находка I2). Пустой список удаляет строку из индекса.
+    if (row.agentNoteKind === 'code_analysis') continue;
     out.set(id, [{ id, ticket_id: row.ticketId, org_id: row.orgId, is_internal: row.isInternal, [localeField('body', row.locale)]: row.body, version: Number(row.version) }]);
   }
   return out;

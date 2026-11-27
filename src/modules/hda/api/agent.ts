@@ -17,6 +17,8 @@ import { AGENT_NOTICE } from '../agent/util';
 
 /** Предел тела запроса (решение 4). */
 const BODY_LIMIT = 64 * 1024;
+/** Предел тела для токена с инструментом отчёта о сканировании кода: отчёт приходит одним вызовом (план M8c, решение 3). */
+const SCAN_BODY_LIMIT = 2 * 1024 * 1024;
 const NO_STORE = 'private, no-store';
 
 let override: AgentServerSettings | null = null;
@@ -58,9 +60,7 @@ export async function handleMcpRequest(request: Request, deps: { now?: () => Dat
   if (version !== null && !isSupportedVersion(version)) return problemResponse(400, 'unsupported_protocol_version', { 'Cache-Control': NO_STORE });
   const type = request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
   if (type !== undefined && type !== 'application/json') return problemResponse(415, 'unsupported_media_type', { 'Cache-Control': NO_STORE });
-  const text = await readLimited(request, BODY_LIMIT);
-  if (text === null) return problemResponse(413, 'too_large', { 'Cache-Control': NO_STORE });
-
+  // Вход проверяется по заголовкам до чтения тела: большое тело без действующего токена не читается (веха M8c).
   const checked = await authenticateAgent(request, agentServerSettings(), deps.now?.() ?? new Date());
   if ('denied' in checked) {
     if (checked.denied === 'forbidden_ip') return problemResponse(403, 'forbidden', { 'Cache-Control': NO_STORE });
@@ -68,6 +68,8 @@ export async function handleMcpRequest(request: Request, deps: { now?: () => Dat
     return problemResponse(401, 'unauthorized', { 'WWW-Authenticate': 'Bearer', 'Cache-Control': NO_STORE });
   }
   const access = checked.auth;
+  const text = await readLimited(request, access.actor.tools.includes('code_catalog_upsert') ? SCAN_BODY_LIMIT : BODY_LIMIT);
+  if (text === null) return problemResponse(413, 'too_large', { 'Cache-Control': NO_STORE });
   const handler: McpHandler = {
     instructions: `Smartup Hub MCP server for internal AI staff. ${AGENT_NOTICE}`,
     listTools: () => agentToolListing(access.actor.tools),

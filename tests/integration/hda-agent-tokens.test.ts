@@ -174,7 +174,7 @@ test('схема отклоняет срок больше 365 суток, про
     { allowedIps: ['10.0.3.12/33'] },
     { tools: [] },
     { tools: ['reply_to_client'] },
-    { tools: ['search_tickets', 'code_catalog_upsert'] },
+    { tools: ['search_tickets', 'export_contacts'] },
     { dailyLimit: 0 },
     { dailyLimit: 10_001 },
     { name: '' },

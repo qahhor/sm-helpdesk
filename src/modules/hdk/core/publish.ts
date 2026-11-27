@@ -2,6 +2,7 @@ import 'server-only';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import type { Locale } from '@/i18n/locales';
+import { codeEntryTermsTx } from '@/modules/hda/api/code-match';
 import { writeAudit } from '@/modules/hdc/api';
 import { checkSolution, type Finding, readiness, type Readiness, solutionBodyText, type UntrustedFinding } from '../checks';
 import { confirmedFor, untrustedFindings, untrustedTextHash } from './untrusted';
@@ -57,7 +58,8 @@ export async function reviewTx(
   allowedDomains: readonly string[],
   original: OriginalText | null = null,
 ): Promise<Review> {
-  const findings = checkSolution(content, { allowedDomains });
+  const internalTerms = article.codeEntryId ? await codeEntryTermsTx(tx, article.codeEntryId) : [];
+  const findings = checkSolution(content, { allowedDomains, internalTerms });
   const translationsCurrent = original
     ? Boolean(content.sourceVersionId) && (await changedSinceTx(tx, article.articleId, content.sourceVersionId ?? null, original.doc)).length === 0
     : await originalTranslationsCurrentTx(tx, article);

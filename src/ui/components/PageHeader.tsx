@@ -37,7 +37,7 @@ export function PageHeader({
         </ol>
       </nav>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{title}</h1>
+        <h1 className="min-w-0 text-2xl font-bold wrap-anywhere">{title}</h1>
         {action}
       </div>
     </div>

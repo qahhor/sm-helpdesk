@@ -251,15 +251,22 @@ export const AGENT_READ_TOOLS = [
   'list_known_problems',
   'list_ideas',
   'assistant_metrics',
+  // Сохранённые выводы из кода (веха M8c, FR-CODE-08): записи каталога ошибок без выражений.
+  'search_code_catalog',
 ] as const;
-/** Инструменты записи (FR-AGT-04, решение 18): только то, что видят сотрудники. code_catalog_upsert появится в M8c. */
-export const AGENT_WRITE_TOOLS = ['add_internal_note', 'draft_solution', 'draft_known_problem', 'create_report'] as const;
+/**
+ * Инструменты записи (FR-AGT-04, решение 18): только то, что видят сотрудники. code_catalog_upsert: отчёт о
+ * сканировании кода черновиками каталога ошибок (веха M8c, решение 3 плана M8c).
+ */
+export const AGENT_WRITE_TOOLS = ['add_internal_note', 'draft_solution', 'draft_known_problem', 'create_report', 'code_catalog_upsert', 'submit_code_analysis'] as const;
 export const AGENT_TOOLS = [...AGENT_READ_TOOLS, ...AGENT_WRITE_TOOLS] as const;
 export type AgentReadTool = (typeof AGENT_READ_TOOLS)[number];
 export type AgentWriteTool = (typeof AGENT_WRITE_TOOLS)[number];
 export type AgentTool = (typeof AGENT_TOOLS)[number];
 /** Перечень токена запуска по обращению (FR-AGT-12, решение 15): чтение обращения и одна заметка. */
 export const AGENT_RUN_TOOLS = ['get_ticket', 'add_internal_note'] as const satisfies readonly AgentTool[];
+/** Перечень токена запуска анализа по коду (веха M8c, решение 19): обращение, сохранённые выводы и одна заметка анализа. */
+export const AGENT_CODE_RUN_TOOLS = ['get_ticket', 'search_code_catalog', 'submit_code_analysis'] as const satisfies readonly AgentTool[];
 
 /** Итог вызова в журнале вызовов (решение 14). */
 export const AGENT_CALL_STATUSES = ['ok', 'refused', 'invalid', 'rate_limited', 'error'] as const;
@@ -303,3 +310,34 @@ export const SPIKE_LIMITS = { orgCount: { min: 2, max: 100 }, windowMinutes: { m
 export const SPIKE_REPEAT_HOURS = 24;
 /** Идентификатор чата Telegram: число, у групп и каналов со знаком минус. */
 export const TELEGRAM_CHAT_ID = /^-?\d{5,15}$/;
+
+// --- Знания из кода (веха M8c; ТЗ 7.22 FR-CODE-01..15; план M8c, решения 1, 9, 12, 18, 21, 25) ---
+
+/** Статусы записи каталога ошибок и заметки о модуле: черновик, утверждена, отклонена, исчезла из сканирования. */
+export const CODE_ENTRY_STATUSES = ['draft', 'approved', 'rejected', 'removed'] as const;
+export type CodeEntryStatus = (typeof CODE_ENTRY_STATUSES)[number];
+/** Что с записью в последнем сканировании: появилась, изменилась, не изменилась (выделение в очереди). */
+export const CODE_CHANGE_KINDS = ['new', 'changed', 'same'] as const;
+export type CodeChangeKind = (typeof CODE_CHANGE_KINDS)[number];
+/** Предварительная оценка рода (FR-CODE-02): ошибка пользователя, настройка, данные, вероятный дефект. */
+export const CODE_KINDS = ['user_error', 'setting', 'data', 'probable_defect'] as const;
+export type CodeKind = (typeof CODE_KINDS)[number];
+/** Кто видит знания из кода (FR-CODE-11). Первая линия видит только "что проверить" утверждённых записей. */
+export const CODE_READER_ROLES = ['agent_l2', 'care', 'admin'] as const;
+export const CODE_CHECK_ROLES = ['agent_l1', 'agent_l2', 'care', 'admin'] as const;
+/** Статусы сканирования. */
+export const CODE_SCAN_STATUSES = ['accepted', 'rejected'] as const;
+export type CodeScanStatus = (typeof CODE_SCAN_STATUSES)[number];
+/** Статусы запроса анализа по коду (10.5) и откуда запрос. */
+export const CODE_ANALYSIS_STATUSES = ['pending', 'done', 'timeout'] as const;
+export type CodeAnalysisStatus = (typeof CODE_ANALYSIS_STATUSES)[number];
+export const CODE_ANALYSIS_SOURCES = ['staff', 'rule'] as const;
+export type CodeAnalysisSource = (typeof CODE_ANALYSIS_SOURCES)[number];
+/** Сколько минут ждём ответа агента (FR-CODE-10). */
+export const CODE_ANALYSIS_TIMEOUT_MINUTES = 10;
+/** Пауза правила автоматизации: не чаще одного запроса анализа обращения за столько часов (решение 0134, находка M7). */
+export const CODE_ANALYSIS_RULE_COOLDOWN_HOURS = 6;
+/** Портал не принимает текста длиннее стольких строк (FR-CODE-12). */
+export const CODE_MAX_LINES = 10;
+/** Место в коде ссылкой (FR-CODE-12). */
+export type CodeLocation = { object: string; path: string; line: number | null };

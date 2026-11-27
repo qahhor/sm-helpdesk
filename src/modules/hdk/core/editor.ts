@@ -38,6 +38,8 @@ export type ArticleRow = {
   /** Черновик AI-сотрудника (веха M8b, решение 21) и решение, правку которого он предлагает. */
   isAgentDraft: boolean;
   revisesArticleId: string | null;
+  /** Решение из записи каталога ошибок (веха M8c, решение 17): проверка ищет ещё её объекты и пути. */
+  codeEntryId: string | null;
 };
 
 const articleColumns = {
@@ -51,6 +53,7 @@ const articleColumns = {
   isUntrusted: kbArticles.isUntrusted,
   isAgentDraft: kbArticles.isAgentDraft,
   revisesArticleId: kbArticles.revisesArticleId,
+  codeEntryId: kbArticles.codeEntryId,
 };
 
 export async function articleByNumberTx(tx: Tx, number: number, opts: { lock?: boolean } = {}): Promise<ArticleRow | null> {

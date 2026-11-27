@@ -231,6 +231,26 @@ export async function seedEverything() {
   ).rows[0].token_id;
   await pools.root.query(`insert into hda_agent_tool_calls (token_id, tool, args_digest, status, duration_ms) values ($1, 'search_tickets', repeat('a', 64), 'ok', 5)`, [agentToken]);
   await pools.root.query(`insert into hda_agent_reports (kind, title, body, token_id) values ('morning', 'Утренняя сводка', 'Текст', $1)`, [agentToken]);
+  // Знания из кода (веха M8c, задача 1): сканирование, утверждённая запись с шаблоном, заметка о модуле, запрос анализа
+  // по обращению организации A. Клиент не видит ни одной строки, первая линия только "что проверить".
+  const codeSuffix = `${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+  const codeScan = (
+    await pools.root.query(`insert into hda_code_scans (token_id, scan_key, repository, commit_ref) values ($1, $2, 'smartup-core', 'abc1234') returning scan_id`, [agentToken, `seed-${codeSuffix}`])
+  ).rows[0].scan_id as string;
+  const codeEntry = (
+    await pools.root.query(
+      `insert into hda_code_error_entries (scan_id, approved_by, key, code, repository, conditions, user_cause, what_to_check, kind, confidence, status, scan_digest, approved_on)
+       values ($1, $2, $3, 'ORA-20001', 'smartup-core', 'Условия', 'Причина', '["Остаток"]', 'user_error', 0.8, 'approved', repeat('a', 64), now()) returning entry_id`,
+      [codeScan, f.adminStaff.userId, `seed.entry_${codeSuffix}`],
+    )
+  ).rows[0].entry_id as string;
+  await pools.root.query(`insert into hda_code_error_templates (entry_id, locale, template) values ($1, 'ru', $2)`, [codeEntry, `Сид ${codeSuffix}: нет товара {product}`]);
+  await pools.root.query(`insert into hda_code_module_notes (scan_id, module_code, repository, name, scan_digest) values ($1, $2, 'smartup-core', '{"ru": "Заказы"}', repeat('b', 64))`, [codeScan, `seed_${codeSuffix}`]);
+  await pools.root.query(`insert into hda_code_analysis_requests (org_id, ticket_id, requested_by, source, due_on) values ($1, $2, $3, 'staff', now() + interval '10 minutes')`, [
+    f.orgA.orgId,
+    f.tickets.aOrg.ticketId,
+    f.adminStaff.userId,
+  ]);
   // Актор этого токена: представления агента (задача 2) отдают строки только ему.
   const agent: AgentActor = { type: 'agent', tokenId: agentToken, userId: bot, tools: ['search_tickets', 'create_report'], ticketId: null };
   return { ...f, agent };

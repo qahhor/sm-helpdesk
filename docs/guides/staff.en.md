@@ -149,3 +149,17 @@ The AI staff (Hermes Agent and other internal agents) works with the portal only
 **Signature spikes.** The «Known problems» page has the «Signature spikes» block: one error in requests of several organizations within a short time. «Create known problem» works without the agent too. The administrator sets the threshold and window on the «AI assistant» page in the «Signature spike» block.
 
 **Digests.** The «Digests» section in the «Analytics» group: morning digests and other agent materials. Open a digest and press «Reviewed» once you have checked it. If the administrator set the team chat, the portal posts a short message with numbers and request numbers there; the agent's text never goes to the chat.
+
+## 14. Code knowledge
+
+Once a week the AI staff member reviews the Smartup code and sends conclusions: which errors exist, when they happen and what to check. The portal holds no code: the place in the code is only a reference (object, file, line). Clients, the AI assistant and suggestions never see these conclusions. «Code knowledge» in the «Knowledge» group is visible to the second line, Customer Care and the administrator.
+
+**Approval queue.** New and changed entries arrive as drafts and are highlighted. Open an entry, check the message template, the conditions and what to check, then press «Approve» or «Reject». «Edit» changes the texts and the template; the template is plain text with placeholders in curly braces, without regular expressions. If an entry changes in the next scan, it becomes a draft again.
+
+**Exact signature.** An approved template recognizes the error in new requests: the entry key becomes the request signature. Solutions and known problems with this signature are found automatically.
+
+**In a request.** The block «What the code tells» in the right column shows when the error happens, what to check and the place in the code. Entries not approved yet are marked «not verified». The first line sees only «What to check:» of approved entries. «Create a solution from the entry» makes a solution draft for clients without internal names; check it and publish it the usual way.
+
+**Analyze by code.** «Analyze by code» passes the request to the AI staff member without client contacts. In a few minutes an internal note appears in the conversation with the marks «AI staff, not verified» and «Code analysis»: a hypothesis of the cause, the place in the code, what to check with the client. If the agent does not answer within 10 minutes, the block says the analysis is not done: work with the request as usual. Answer the client in your own words. The first line does not see this note. The administrator can start the analysis with a rule action «Ask for a code analysis».
+
+**History and module map.** «Scan history» shows the date, the code version and the numbers of new, changed and gone errors, and the reasons for a rejected report. «Module map» suggests updates to the module list; the administrator presses «Apply to the module list».

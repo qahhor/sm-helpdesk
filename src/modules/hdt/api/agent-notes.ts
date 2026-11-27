@@ -9,11 +9,12 @@ import { ticketMessages } from '../schema';
 // правил. Это делает код сотрудника, а здесь его нет. Политика hdt_ticket_messages_agent_insert пускает строку только
 // в обращение, видное агенту; триггер базы считает заметки токена запуска.
 
-export type AgentNoteKind = 'note' | 'handoff_memo';
+export type AgentNoteKind = 'note' | 'handoff_memo' | 'code_analysis';
 
 /** Запись агента в транзакции его инструмента. Без returning: читать сообщения актору agent не дано. */
-export async function addAgentNoteTx(tx: Tx, actor: AgentActor, input: { ticketId: string; orgId: string; kind: AgentNoteKind; body: string }): Promise<void> {
+export async function addAgentNoteTx(tx: Tx, actor: AgentActor, input: { ticketId: string; orgId: string; kind: AgentNoteKind; body: string; messageId?: string }): Promise<void> {
   await tx.insert(ticketMessages).values({
+    ...(input.messageId ? { messageId: input.messageId } : {}),
     orgId: input.orgId,
     ticketId: input.ticketId,
     authorId: actor.userId,

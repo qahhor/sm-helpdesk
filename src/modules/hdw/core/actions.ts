@@ -24,6 +24,7 @@ import {
 } from '@/modules/hdt/api/automation';
 import { canTransition, type Queue, TRANSFERABLE_STATUSES } from '@/modules/hdt/pref';
 import { ruleLinkProblemTx } from '@/modules/hdp/api/links';
+import { requestCodeAnalysisBySystemTx } from '@/modules/hda/api/code-analysis';
 import type { StaffMember } from '@/modules/hdu/api/automation';
 import type { TicketSnapshot } from '../evaluate';
 import { isHdwError } from '../error';
@@ -143,6 +144,13 @@ async function run(c: ActionContext, tx: Tx, action: RuleAction): Promise<RuleAc
     // Привязка к известной проблеме (веха M5c, решение 11): общая функция привязки модуля проблем.
     case 'link_known_problem':
       return ruleLinkProblemTx(tx, { ticketId: ticket.ticketId, problemNumber: action.problemNumber });
+    // Анализ по коду (веха M8c, FR-CODE-09): запрос от системы теми же проверками, что кнопка второй линии.
+    case 'request_code_analysis': {
+      const outcome = await requestCodeAnalysisBySystemTx(tx, { ticketId: ticket.ticketId, orgId: ticket.orgId, ruleId: c.rule.ruleId });
+      if (outcome === 'ai_disabled') return { ok: false, detail: 'ai_disabled' };
+      // Ждёт ответа или пауза правила 6 часов после прошлого анализа (решение 0134): без изменений.
+      return outcome === 'pending' || outcome === 'cooldown' ? { ok: true, unchanged: true } : { ok: true };
+    }
     // Действия предустановленных правил (FR-AUTO-12): прежние встроенные уведомления модуля обращений.
     case 'notify_oncall_p1':
       return ruleOncallP1Tx(tx, ticket);
@@ -314,6 +322,9 @@ export function describeAction(action: RuleAction, snapshot: TicketSnapshot, ref
     }
     case 'link_known_problem':
       return snapshot.knownProblemId ? fail('already_linked') : { action: action.action, ok: true, from: null, to: `KP-${action.problemNumber}` };
+    // Пробный прогон запроса не создаёт: показывает, что анализ был бы запрошен.
+    case 'request_code_analysis':
+      return { action: action.action, ok: true };
     // Уведомления предустановленных правил. Однократность сообщения дежурным и то, какой срок нарушен, знает только
     // само срабатывание: прогон показывает, что уведомление было бы отправлено.
     case 'notify_oncall_p1':

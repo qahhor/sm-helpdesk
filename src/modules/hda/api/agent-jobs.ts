@@ -176,9 +176,9 @@ export function agentEventSettings(): AgentEventSettings | null {
   return { url: env.AGENT_WEBHOOK_URL, secret: env.AGENT_WEBHOOK_SECRET, sender: realSender.sender };
 }
 
-const TICKET_KINDS: ReadonlySet<string> = new Set(['ai_handoff', 'line_transferred', 'sla_breached']);
-/** Виды, которые несут токен запуска по обращению (решение 27). */
-const RUN_TOKEN_KINDS: ReadonlySet<string> = new Set(['ai_handoff', 'line_transferred']);
+const TICKET_KINDS: ReadonlySet<string> = new Set(['ai_handoff', 'line_transferred', 'sla_breached', 'code_analysis_requested']);
+/** Виды, которые несут токен запуска по обращению (решение 27; анализ по коду: веха M8c, решение 19). */
+const RUN_TOKEN_KINDS: ReadonlySet<string> = new Set(['ai_handoff', 'line_transferred', 'code_analysis_requested']);
 const RETRY_MINUTES = [1, 5, 15, 60] as const;
 const MAX_ATTEMPTS = 5;
 /** Пока событие отправляется, строка не берётся повторно столько минут. */
@@ -219,19 +219,19 @@ export async function handleAgentEvent(tx: Tx, event: DomainEvent): Promise<void
       const ticket = (await ticketSourceTx(point, [event.ticketId])).get(event.ticketId);
       // Организация без AI-обработки и "Неопознанные": события нет (решение 6).
       if (!ticket) return;
-      const payload = event.payload as { reason?: unknown; deadline?: unknown };
-      await enqueueTx(point, {
-        kind: event.kind as AgentEventKind,
-        ticketId: event.ticketId,
-        source: {
-          eventId: randomUUID(),
-          kind: event.kind as 'ai_handoff' | 'line_transferred' | 'sla_breached',
-          occurredOn: event.createdOn,
-          ticket,
-          reason: typeof payload.reason === 'string' ? payload.reason : null,
-          deadline: typeof payload.deadline === 'string' ? payload.deadline : null,
-        },
-      });
+      const payload = event.payload as { reason?: unknown; deadline?: unknown; requestId?: unknown };
+      const source: AgentEventSource =
+        event.kind === 'code_analysis_requested'
+          ? { eventId: randomUUID(), kind: 'code_analysis_requested', occurredOn: event.createdOn, ticket, analysisRequestId: String(payload.requestId ?? '') }
+          : {
+              eventId: randomUUID(),
+              kind: event.kind as 'ai_handoff' | 'line_transferred' | 'sla_breached',
+              occurredOn: event.createdOn,
+              ticket,
+              reason: typeof payload.reason === 'string' ? payload.reason : null,
+              deadline: typeof payload.deadline === 'string' ? payload.deadline : null,
+            };
+      await enqueueTx(point, { kind: event.kind as AgentEventKind, ticketId: event.ticketId, source });
     });
   } catch (error) {
     logEvent('error', 'agent.event_enqueue_failed', { eventId: event.eventId, kind: event.kind, error: error instanceof Error ? error.name : 'ошибка' });
@@ -275,7 +275,8 @@ async function claimTx(system: SystemActor, now: Date): Promise<Claimed | null> 
         .from(agentTokens)
         .where(and(eq(agentTokens.isEventParent, true), isNull(agentTokens.revokedAt), isNull(agentTokens.parentTokenId), gt(agentTokens.expiresAt, now)))
         .limit(1);
-      if (parent) runToken = await issueTicketRunTokenTx(tx, system, { parentTokenId: parent.tokenId, ticketId: row.ticketId }, now);
+      if (parent)
+        runToken = await issueTicketRunTokenTx(tx, system, { parentTokenId: parent.tokenId, ticketId: row.ticketId, ...(row.kind === 'code_analysis_requested' ? { purpose: 'code_analysis' as const } : {}) }, now);
     }
     await tx
       .update(agentEvents)

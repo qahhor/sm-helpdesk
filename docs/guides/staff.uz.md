@@ -147,3 +147,17 @@ AI-xodim (Hermes Agent va boshqa ichki agentlar) portal bilan faqat MCP serveri 
 **Ma'lum muammo qoralamalari.** Muammo qoralamasi (holat «AI-xodim qoralamasi») mijozlarga ko'rinmaydi, signaturasi ishlamaydi, murojaatlar faqat taklif qilingan. Ikkinchi liniya, Customer Care va administrator «Qoralamani qabul qilish», keyin «Taklif qilinganlarni bog'lash» tugmasini bosadi; keraksiz qoralama «Qoralamani rad etish» bilan yopiladi.
 
 **Xulosalar.** «Tahlil» guruhidagi «Xulosalar» bo'limi: agentning ertalabki xulosalari va boshqa materiallari. Tekshirib bo'lgach, xulosani ochib «Ko'rib chiqildi» tugmasini bosing. Agar administrator jamoa chatini belgilagan bo'lsa, portal o'zi u yerga raqamlar va murojaat raqamlari bilan qisqa xabar yozadi; agent matni chatga tushmaydi.
+
+## 14. Koddan bilimlar
+
+AI-xodim har hafta Smartup kodini tahlil qilib, xulosalar yuboradi: qanday xatolar bor, qachon chiqadi va nimani tekshirish kerak. Portalda kod yo'q: koddagi joy faqat havola bilan yoziladi (obyekt, fayl, qator). Mijoz, AI-yordamchi va maslahat bu xulosalarni ko'rmaydi. «Bilimlar» guruhidagi «Koddan bilimlar» bo'limini ikkinchi liniya, Customer Care va administrator ko'radi.
+
+**Tasdiqlash navbati.** Yangi va o'zgargan yozuvlar qoralama bo'lib keladi va ajratib ko'rsatiladi. Yozuvni oching, xabar shabloni, shartlar va nimani tekshirishni ko'rib chiqing, keyin «Tasdiqlash» yoki «Rad etish» tugmasini bosing. «Tahrirlash» matnlar va shablonni o'zgartiradi; shablon oddiy matn bilan, almashtirishlar figurali qavsda, muntazam ifodalarsiz yoziladi. Keyingi skanerlashda yozuv o'zgarsa, u yana qoralamaga aylanadi.
+
+**Aniq imzo.** Tasdiqlangan shablon yangi murojaatlardagi xatoni taniydi: murojaat imzosi yozuv kalitiga aylanadi. Shu imzoli yechimlar va ma'lum muammolar o'zi topiladi.
+
+**Murojaatda.** O'ng ustundagi «Kod bo'yicha nima ma'lum» bloki xato qachon chiqishi, nimani tekshirish va koddagi joyni ko'rsatadi. Tasdiqlanmagan yozuvlar «tekshirilmagan» belgisi bilan. Birinchi liniya blokda faqat tasdiqlangan yozuvlarning «Nimani tekshirish kerak:» qismini ko'radi. «Yozuvdan yechim yaratish» mijozlar uchun ichki nomlarsiz yechim qoralamasini yaratadi; uni tekshirib, odatdagidek e'lon qiling.
+
+**Kod bo'yicha tahlil.** «Kod bo'yicha tahlil qilish» tugmasi murojaatni mijoz kontaktlarisiz AI-xodimga yuboradi. Bir necha daqiqadan keyin yozishmada «AI-xodim, tekshirilmagan» va «Kod bo'yicha tahlil» belgilari bilan ichki qayd paydo bo'ladi: sabab gipotezasi, koddagi joy, mijozda nimani tekshirish kerak. Agent 10 daqiqada javob bermasa, blok tahlil bajarilmaganini yozadi: murojaat bilan odatdagidek ishlang. Mijozga o'z so'zlaringiz bilan javob bering. Birinchi liniya bu qaydni ko'rmaydi. Administrator tahlilni «Kod bo'yicha tahlil so'rash» amali bor qoida bilan ishga tushirishi mumkin.
+
+**Tarix va modullar xaritasi.** «Skanerlashlar tarixi» sanani, kod versiyasini va yangi, o'zgargan va yo'qolgan xatolar sonini, rad etilgan hisobot sabablarini ko'rsatadi. «Modullar xaritasi» modullar ma'lumotnomasini yangilashni taklif qiladi; «Ma'lumotnomaga qo'llash» tugmasini administrator bosadi.

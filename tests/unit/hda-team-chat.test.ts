@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { teamChatText } from '@/modules/hda/agent/team-chat';
+import { codeScanChatText, teamChatText } from '@/modules/hda/agent/team-chat';
 
 // Сообщение в служебный чат команды по сводке AI-сотрудника (веха M8b, задача 10; FR-AGT-13, T35; план M8b, решение
 // 24). Собирает портал по шаблону из messages/*.json: только числа по фиксированным ключам, номера обращений ссылками
@@ -26,5 +26,17 @@ describe('teamChatText', () => {
   test('на узбекском и английском свои шаблоны', () => {
     expect(teamChatText({ kind: 'morning', numbers: { new_tickets: 4 }, ticketNumbers: [] }, { ...opts, locale: 'en' })).toContain('https://hub.example/en/agent/digests/');
     expect(teamChatText({ kind: 'morning', numbers: { new_tickets: 4 }, ticketNumbers: [] }, { ...opts, locale: 'uz' })).toContain('https://hub.example/uz/agent/digests/');
+  });
+});
+
+describe('сводка о сканировании кода (веха M8c, FR-CODE-14)', () => {
+  test('репозиторий, версия, числа и ссылка на очередь утверждения; посторонние поля не попадают', () => {
+    const text = codeScanChatText({ repository: 'smartup-core', commit: 'abc1234', added: 3, changed: 1, removed: 2, conditions: 'ORDER_PKG.SAVE_ORDER' } as never, { locale: 'ru', hubUrl: 'https://hub.example/' });
+    for (const piece of ['smartup-core', 'abc1234', 'Новых ошибок: 3', 'Изменилось: 1', 'Исчезло: 2', 'https://hub.example/ru/agent/code-knowledge']) expect(text).toContain(piece);
+    expect(text).not.toContain('ORDER_PKG');
+  });
+  test('знаки вне вида репозитория и коммита вырезаются', () => {
+    const text = codeScanChatText({ repository: 'core<script>', commit: 'zz-abc1234', added: -1, changed: Number.NaN, removed: 0 }, { locale: 'en', hubUrl: 'https://hub.example' });
+    expect(text).not.toMatch(/[<>]|-1|NaN/);
   });
 });

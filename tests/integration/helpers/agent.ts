@@ -60,3 +60,22 @@ export async function seedAgentToken(input: SeedToken = {}): Promise<SeededToken
   const tokenId = r.rows[0].token_id as string;
   return { tokenId, userId, value, actor: { type: 'agent', tokenId, userId, tools, ticketId: input.ticketId ?? null } };
 }
+
+/**
+ * Запрос суперпользователя без триггеров: подготовка строк, которые триггеры защиты не дают записать без актора
+ * (сообщение помощника, заметка агента до задачи 6, сдвиг служебного времени назад).
+ */
+export async function rootWithoutTriggers(query: string, params: unknown[] = []): Promise<void> {
+  const client = await pools.root.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local session_replication_role = replica');
+    await client.query(query, params);
+    await client.query('commit');
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}

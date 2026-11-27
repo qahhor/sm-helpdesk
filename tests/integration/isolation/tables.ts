@@ -72,6 +72,15 @@ export const DOMAIN_OBJECTS: Record<string, DomainObject> = {
   hda_agent_tool_calls: { client: 'none', agent: 'own-token-insert', app: ['insert', 'delete'] },
   // Сводки: пишет агент основным токеном, читают сотрудники, отметку "просмотрено" ставит сотрудник. Клиент не видит.
   hda_agent_reports: { client: 'none', agent: 'reports', app: IU },
+  // Представления для агента (веха M8b, задача 2): строки только актору agent с действующим токеном, организации с
+  // AI-обработкой, без "Неопознанных", без внутренних заметок сотрудников; токену запуска только его обращение.
+  // Клиенту, сотруднику и системе пусто. Изменений нет: только чтение.
+  hda_agent_tickets: { client: 'none', agent: 'via-view' },
+  hda_agent_messages: { client: 'none', agent: 'via-view' },
+  hda_agent_solutions: { client: 'none', agent: 'via-view' },
+  hda_agent_candidates: { client: 'none', agent: 'via-view' },
+  hda_agent_problems: { client: 'none', agent: 'via-view' },
+  hda_agent_ideas: { client: 'none', agent: 'via-view' },
   // Ядро. Журнал аудита только пополняется (решение 0019).
   // Удаление: только ночная очистка под системным актором и только записи старше 3 лет (срок хранения журнала,
   // решение владельца 24.11.2026, решение 0041). Свежую запись политика не отдаёт ни одному актору: retention.test.ts.

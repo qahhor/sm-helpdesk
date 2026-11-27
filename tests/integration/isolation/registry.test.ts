@@ -49,13 +49,16 @@ test('у каждой таблицы и представления предме�
 });
 
 test('в каждой таблице набора есть данные для проверки', async () => {
-  await seedEverything();
-  for (const name of Object.keys(DOMAIN_OBJECTS)) {
+  const f = await seedEverything();
+  for (const [name, rule] of Object.entries(DOMAIN_OBJECTS)) {
     // Представление само отбирает строки по актору, поэтому без актора пусто даже у суперпользователя.
+    // Представления агента (веха M8b) отдают строки только актору agent с действующим токеном.
     const found =
-      name === 'hdu_user_profiles' || name === 'hdp_problems_public'
-        ? await asActor(pools.app, { type: 'system', job: 'test' }, (c) => c.query(`select 1 from ${name} limit 1`))
-        : await pools.root.query(`select 1 from ${name} limit 1`);
+      rule.agent === 'via-view'
+        ? await asActor(pools.app, f.agent, (c) => c.query(`select 1 from ${name} limit 1`))
+        : name === 'hdu_user_profiles' || name === 'hdp_problems_public'
+          ? await asActor(pools.app, { type: 'system', job: 'test' }, (c) => c.query(`select 1 from ${name} limit 1`))
+          : await pools.root.query(`select 1 from ${name} limit 1`);
     expect(found.rowCount, name).toBe(1);
   }
 });

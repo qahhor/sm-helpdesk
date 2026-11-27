@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { seedAgentBot, seedAgentToken } from './helpers/agent';
+import { rootWithoutTriggers, seedAgentBot, seedAgentToken } from './helpers/agent';
 import { asActor, pools } from './helpers/db';
 import { seedEverything } from './isolation/seed-everything';
 import { DOMAIN_OBJECTS } from './isolation/tables';
@@ -21,18 +21,6 @@ const fails = (actor: Parameters<typeof asActor>[1], query: string, params: unkn
 
 const ACTIVE = `select app.agent_token_active() as active`;
 
-/** Сдвиг служебного времени назад: триггер служебных колонок не даёт переписать created_on, поэтому он отключён. */
-async function backdate(query: string, params: unknown[]): Promise<void> {
-  const client = await pools.root.connect();
-  try {
-    await client.query('begin');
-    await client.query('set local session_replication_role = replica');
-    await client.query(query, params);
-    await client.query('commit');
-  } finally {
-    client.release();
-  }
-}
 
 test('агент с действующим токеном не читает ни одной строки базовых таблиц предметной области', async () => {
   await seedEverything();
@@ -124,7 +112,7 @@ test('журнал вызовов пишет агент только своим 
   await fails(f.adminStaff.actor, `update hda_agent_tool_calls set status = 'error'`);
   await fails({ type: 'system', job: 'test' }, `update hda_agent_tool_calls set status = 'error'`);
   expect((await asActor(pools.app, { type: 'system', job: 'test' }, (c) => c.query(`delete from hda_agent_tool_calls`))).rowCount).toBe(0);
-  await backdate(`update hda_agent_tool_calls set created_on = now() - interval '366 days' where token_id = $1`, [mine.tokenId]);
+  await rootWithoutTriggers(`update hda_agent_tool_calls set created_on = now() - interval '366 days' where token_id = $1`, [mine.tokenId]);
   expect((await pools.root.query(`select 1 from hda_agent_tool_calls where token_id = $1`, [mine.tokenId])).rowCount).toBe(1);
   expect((await asActor(pools.app, f.adminStaff.actor, (c) => c.query(`delete from hda_agent_tool_calls`).then((r) => r.rowCount, () => 0)))).toBe(0);
   expect((await asActor(pools.app, { type: 'system', job: 'test' }, (c) => c.query(`delete from hda_agent_tool_calls`))).rowCount).toBe(1);

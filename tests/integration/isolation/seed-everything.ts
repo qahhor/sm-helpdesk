@@ -1,3 +1,4 @@
+import type { AgentActor } from '@/db/with-actor';
 import { pools } from '../helpers/db';
 import { SEALED, seedTwoOrgs } from './fixture';
 
@@ -223,5 +224,7 @@ export async function seedEverything() {
   ).rows[0].token_id;
   await pools.root.query(`insert into hda_agent_tool_calls (token_id, tool, args_digest, status, duration_ms) values ($1, 'search_tickets', repeat('a', 64), 'ok', 5)`, [agentToken]);
   await pools.root.query(`insert into hda_agent_reports (kind, title, body, token_id) values ('morning', 'Утренняя сводка', 'Текст', $1)`, [agentToken]);
-  return f;
+  // Актор этого токена: представления агента (задача 2) отдают строки только ему.
+  const agent: AgentActor = { type: 'agent', tokenId: agentToken, userId: bot, tools: ['search_tickets', 'create_report'], ticketId: null };
+  return { ...f, agent };
 }

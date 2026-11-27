@@ -133,3 +133,19 @@ On the right of the request card is the AI assistant block: the handoff reason, 
 **Announcements** (Customer Care, administrator): "Announcements" in the "Clients" group: kind, period of up to 90 days (Tashkent time), audience (everyone, Smartup server, module), text and accepted translations, ending early.
 
 **Solution candidates.** "Candidates" in the "Knowledge" group: solution drafts that AI prepared from closed requests without a solution; similar ones are merged, candidates with more requests and organizations come first. Clients do not see them and suggestions do not find them. On the card: "Turn into a solution draft" (an internal solution with all source requests), "Merge with a solution" by number, "Reject" with a reason. A solution from a candidate is published the usual way, but every "phone", "email", "command" and "code" finding must be checked; editing the text clears the checks. Candidate settings (switch, daily limit, merge thresholds) are on the administrator's "AI assistant" page.
+
+## 13. AI staff
+
+The AI staff (Hermes Agent and other internal agents) works with the portal only through the MCP server with a token that the administrator issues in «AI staff». The agent reads requests of organizations with AI processing on, without names, email, phone numbers and organization names, and writes only what staff see. Clients never see its records.
+
+**Mark.** Every agent record carries the mark «AI staff, not verified» and is shown as plain text, without formatting and active links. It is material for you, not a ready answer: check it before you act.
+
+**Notes and the second line memo.** An agent note sits in the request timeline among internal notes; it does not change the status, deadlines or assignee and sends no notifications. A memo for the second line appears in the «Transfer to the second line» window as «AI staff memo draft»: it does not fill the transfer fields, write them yourself.
+
+**Solution drafts.** A solution draft from the agent is internal and has untrusted text: it is published the usual way, and each finding must be marked as checked. If the agent proposes a change to a published solution, the draft links to it; the solution itself does not change.
+
+**Known problem drafts.** A problem draft (status «AI staff draft») is not shown to clients, its signature is not in effect and requests are only proposed. The second line, Customer Care and the administrator press «Accept draft», then «Link proposed»; an unneeded draft is closed with «Reject draft».
+
+**Signature spikes.** The «Known problems» page has the «Signature spikes» block: one error in requests of several organizations within a short time. «Create known problem» works without the agent too. The administrator sets the threshold and window on the «AI assistant» page in the «Signature spike» block.
+
+**Digests.** The «Digests» section in the «Analytics» group: morning digests and other agent materials. Open a digest and press «Reviewed» once you have checked it. If the administrator set the team chat, the portal posts a short message with numbers and request numbers there; the agent's text never goes to the chat.

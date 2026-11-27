@@ -2323,7 +2323,7 @@
           "intro": "The portal marks a spike when one error signature arrives in requests of several organizations within a short time. Staff see spikes on the known problems page, and the AI staff receives them.",
           "orgCount": "At least organizations",
           "windowMinutes": "Within minutes",
-          "save": "Save"
+          "save": "Save spike settings"
         }
       },
       "agents": {

@@ -213,7 +213,7 @@ export default async function SolutionEditorPage({ params, searchParams }: { par
         <div className="flex flex-wrap items-center gap-2" data-testid="solution-labels">
           {state.agentDraft && !published && <AgentMark label={t('aiStaff.mark')} />}
           {state.agentDraft?.revisesNumber && (
-            <Link href={`/agent/solutions/${state.agentDraft.revisesNumber}`} className="text-sm text-link underline-offset-2 hover:underline">
+            <Link href={`/agent/solutions/${state.agentDraft.revisesNumber}`} className="text-sm text-link underline underline-offset-2">
               {t('aiStaff.revises', { ref: s('numberLabel', { number: state.agentDraft.revisesNumber }) })}
             </Link>
           )}

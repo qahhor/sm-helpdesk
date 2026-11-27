@@ -60,7 +60,7 @@ export function AgentDraftBlock({ number, isDraft, canWrite, description, propos
             <ul className="flex flex-col gap-1 text-sm">
               {proposals.map((ticket) => (
                 <li key={ticket.number}>
-                  <Link href={`/agent/tickets/${ticket.number}`} className="text-link underline-offset-2 hover:underline">
+                  <Link href={`/agent/tickets/${ticket.number}`} className="text-link underline underline-offset-2">
                     #{ticket.number}
                   </Link>{' '}
                   {ticket.title}, {ticket.orgName}

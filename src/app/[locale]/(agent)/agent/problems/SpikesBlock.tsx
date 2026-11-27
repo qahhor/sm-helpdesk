@@ -32,7 +32,7 @@ export function SpikesBlock({ rows, canWrite, labels }: { rows: SpikeRow[]; canW
                 <span>{labels.counts(row)}</span>
               </p>
               {row.problemNumber !== null ? (
-                <Link href={`/agent/problems/${row.problemNumber}`} className="text-link underline-offset-2 hover:underline">
+                <Link href={`/agent/problems/${row.problemNumber}`} className="text-link underline underline-offset-2">
                   {labels.problem} {row.problemRef}
                 </Link>
               ) : (

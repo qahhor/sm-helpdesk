@@ -118,10 +118,12 @@ async function lockMainTx(tx: Tx, tokenId: string) {
   return row ?? null;
 }
 
+// Колонка внешней строки названа полностью: без имени таблицы "token_id" внутри подзапроса значило бы x.token_id, и
+// счётчик складывал вызовы всех токенов (находка браузерного теста задачи 11).
 const callsToday = sql<number>`(
   select count(*)::int from hda_agent_tool_calls c
    where c.created_on > now() - interval '24 hours'
-     and c.token_id in (select x.token_id from hda_agent_tokens x where x.token_id = ${agentTokens.tokenId} or x.parent_token_id = ${agentTokens.tokenId}))`;
+     and c.token_id in (select x.token_id from hda_agent_tokens x where x.token_id = "hda_agent_tokens"."token_id" or x.parent_token_id = "hda_agent_tokens"."token_id"))`;
 
 function view(row: typeof agentTokens.$inferSelect & { callsToday: number }, now: Date): AgentTokenView {
   const tools = row.tools as AgentTool[];

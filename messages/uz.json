@@ -1437,7 +1437,7 @@
             "event_parent_set": "Hodisalar uchun AI-xodim tokeni tanlandi",
             "tool_refused": "Token ro'yxatidan tashqari vosita chaqiruvi rad etildi",
             "tool_called": "AI-xodim yozish vositasini chaqirdi",
-            "report_reviewed": "AI-xodim hisoboti ko'rib chiqilgan deb belgilandi"
+            "report_reviewed": "AI-xodim xulosasi ko'rib chiqilgan deb belgilandi"
           }
         },
         "words": {
@@ -2323,7 +2323,7 @@
           "intro": "Bitta xato signaturasi qisqa vaqt ichida bir nechta tashkilot murojaatlarida kelsa, portal keskin oshishni belgilaydi. Uni xodimlar ma'lum muammolar sahifasida ko'radi, AI-xodim ham oladi.",
           "orgCount": "Kamida tashkilotlar",
           "windowMinutes": "Daqiqa ichida",
-          "save": "Saqlash"
+          "save": "Keskin oshish sozlamalarini saqlash"
         }
       },
       "agents": {
@@ -4267,9 +4267,9 @@
       "revises": "{ref} yechimiga tuzatish taklif qiladi"
     },
     "teamChat": {
-      "title": "AI-xodim hisoboti: {kind}",
+      "title": "AI-xodim xulosasi: {kind}",
       "kinds": {
-        "morning": "Ertalabki hisobot",
+        "morning": "Ertalabki xulosa",
         "kb_hygiene": "Yechimlar gigiyenasi",
         "ideas": "G'oyalar",
         "code_scan": "Kodni tekshirish"
@@ -4281,13 +4281,13 @@
         "sla_risk": "Muddati xavf ostida: {count}"
       },
       "tickets": "Murojaatlar:",
-      "open": "Hisobot: {url}"
+      "open": "Xulosa: {url}"
     },
     "digests": {
-      "title": "Hisobotlar",
-      "intro": "AI-xodimning jamoa uchun hisobotlari va materiallari. Hisobotni hech kim \"Ko'rib chiqildi\" deb belgilamaguncha, unda \"AI-xodim, tekshirilmagan\" belgisi turadi.",
+      "title": "Xulosalar",
+      "intro": "AI-xodimning jamoa uchun xulosalari va materiallari. Xulosani hech kim \"Ko'rib chiqildi\" deb belgilamaguncha, unda \"AI-xodim, tekshirilmagan\" belgisi turadi.",
       "filters": {
-        "label": "Hisobot filtrlari",
+        "label": "Xulosa filtrlari",
         "kind": "Turi",
         "status": "Belgi",
         "any": "Hammasi",
@@ -4305,18 +4305,18 @@
         "mark": "Belgi"
       },
       "author": "AI-xodim",
-      "empty": "Hozircha hisobotlar yo'q",
-      "emptyText": "AI-xodim portal bilan ishlay boshlaganda hisobotlar paydo bo'ladi.",
+      "empty": "Hozircha xulosalar yo'q",
+      "emptyText": "AI-xodim portal bilan ishlay boshlaganda xulosalar paydo bo'ladi.",
       "more": "Yana ko'rsatish",
-      "done": "Hisobot ko'rib chiqilgan deb belgilandi",
-      "error": "Hisobotni belgilab bo'lmadi",
+      "done": "Xulosa ko'rib chiqilgan deb belgilandi",
+      "error": "Xulosani belgilab bo'lmadi",
       "createdOn": "Yozilgan: {time}",
       "period": "Davr: {from} - {to}",
       "tickets": "Murojaatlar",
       "review": "Ko'rib chiqildi",
       "reviewedOn": "Ko'rib chiqildi: {time}",
       "kinds": {
-        "morning": "Ertalabki hisobot",
+        "morning": "Ertalabki xulosa",
         "kb_hygiene": "Yechimlar gigiyenasi",
         "ideas": "G'oyalar",
         "code_scan": "Kodni tekshirish"

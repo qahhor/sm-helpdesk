@@ -27,7 +27,9 @@ test('сводка AI-сотрудника: в списке с пометкой,
 
   await signInStaff(page, staffAccount('l1'));
   await page.goto('/ru/agent');
-  await page.getByRole('navigation').getByRole('link', { name: 'Сводки' }).first().click();
+  const nav = page.getByRole('navigation', { name: 'Разделы' });
+  await nav.getByRole('button', { name: 'Аналитика' }).click();
+  await page.getByRole('menuitem', { name: 'Сводки' }).click();
   await expect(page).toHaveURL(/\/ru\/agent\/digests$/);
   const row = main(page).locator(`tr[data-digest-row="${id}"]`);
   await expect(row).toContainText(title);
@@ -45,7 +47,7 @@ test('сводка AI-сотрудника: в списке с пометкой,
   await expect(card.locator('strong')).toHaveCount(0);
   expect(await seriousAxe(page)).toEqual([]);
   await card.getByRole('button', { name: 'Просмотрено' }).click();
-  await expect(main(page).getByRole('alert')).toContainText('Сводка отмечена просмотренной');
+  await expect(main(page).getByRole('status')).toContainText('Сводка отмечена просмотренной');
   await expect(card.locator('[data-agent-mark]')).toHaveCount(0);
   const [stored] = await dbRows<{ status: string }>(`select status from hda_agent_reports where report_id = $1`, [id]);
   expect(stored?.status).toBe('reviewed');

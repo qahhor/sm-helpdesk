@@ -222,3 +222,12 @@ test('чат команды: настройка agent.team_chat_id, пустое
   await expect(saveTeamChat(admin, { chatId: 'чат команды' })).rejects.toMatchObject({ code: 'invalid_input' });
   await expect(saveTeamChat(staffCtx(f.care), { chatId: '-1001234567890' })).rejects.toMatchObject({ code: 'forbidden' });
 });
+
+test('"вызовов за сутки" считает только вызовы самого токена и его токенов запуска, не чужие', async () => {
+  const one = await issueAgentToken(admin, input());
+  const two = await issueAgentToken(admin, input({ name: 'Hermes: код' }));
+  await pools.root.query(`insert into hda_agent_tool_calls (token_id, tool, status) select $1, 'get_ticket', 'ok' from generate_series(1, 3)`, [one.tokenId]);
+  const list = await listAgentTokens(admin);
+  expect(list.find((t) => t.tokenId === one.tokenId)).toMatchObject({ callsToday: 3 });
+  expect(list.find((t) => t.tokenId === two.tokenId)).toMatchObject({ callsToday: 0 });
+});

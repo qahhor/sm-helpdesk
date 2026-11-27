@@ -42,6 +42,17 @@ const SAMPLES: { [K in MailTemplate]: Omit<Extract<MailData, { template: K }>, k
   staff_idea_moderation: { template: 'staff_idea_moderation', count: 3, url: 'https://hub.example.test/ru/agent/ideas' },
   staff_idea_cycle: { template: 'staff_idea_cycle', count: 5, url: 'https://hub.example.test/ru/agent/ideas/cycles' },
   staff_idea_dev_task_closed: { template: 'staff_idea_dev_task_closed', number: 204, title: 'Экспорт заказов в Excel', ref: 'DEV-501', url: 'https://hub.example.test/ru/agent/ideas/204' },
+  tez_answer: {
+    template: 'tez_answer',
+    ...ticket,
+    introId: 'likely_solution',
+    solutionTitle: 'Пустой лист при печати накладной',
+    lines: ['Откройте Настройки > Печать', 'Выберите шаблон "А4"'],
+    solutionUrl: 'https://hub.example.test/ru/help/a/1042',
+    helpedUrl: 'https://hub.example.test/ru/ai-answer?t=x',
+    staffUrl: 'https://hub.example.test/ru/ai-answer?t=y',
+  },
+  tez_ack: { template: 'tez_ack', ...ticket, dueOn: '2026-11-30T03:00:00.000Z', startOn: '2026-11-30T03:00:00.000Z', timeZone: 'Asia/Tashkent' },
 };
 
 const TICKET_TEMPLATES: MailTemplate[] = [

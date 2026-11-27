@@ -31,7 +31,10 @@ test('лишний индекс по сроку решения убран, ин�
   // в нём только решённые и закрытые обращения, открытое обращение в него не входит.
   expect(all.hdt_tickets_i26).toMatch(/resolved_on IS NOT NULL[^]* WHERE [^]*IS NOT NULL\)$/);
   expect(all.hdt_tickets_i26).toContain('closed_on');
-  expect(Object.keys(all)).toHaveLength(25);
+  // Плюс частичный индекс решённых кнопкой "Помогло" и открытых снова (миграция 0097, независимая проверка M5b, I3):
+  // в нём только такие обращения, обычно ни одного.
+  expect(all.hdt_tickets_i27).toMatch(/\(ticket_id\) WHERE \(\(ai_state = 'resolved_by_ai'::text\) AND/);
+  expect(Object.keys(all)).toHaveLength(26);
 });
 
 test('обычное обращение без подписи ошибки и связей входит не больше чем в 16 индексов из 25: 13 прежних, два индекса поиска по тексту и индекс даты создания для показателей (было 17 из 20)', async () => {

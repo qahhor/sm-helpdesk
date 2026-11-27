@@ -114,6 +114,15 @@ export async function seedEverything() {
   await pools.root.query(`insert into hdk_suggest_misses (session_id, locale, query_text) values (uuidv7(), 'ru', 'отчёт не открывается')`);
   // Журнал вызовов модели (веха M5, задача 5): вызов по обращению организации A, без текста.
   await pools.root.query(`insert into hda_runs (org_id, purpose, model, outcome) values ($1, 'solution_draft', 'stub-model', 'ok')`, [f.orgA.orgId]);
+  // Отключение помощника пределом расходов (веха M5b, задача 1).
+  await pools.root.query(`insert into hda_org_cutoffs (org_id, month, reason) values ($1, date_trunc('month', now())::date, 'budget_share')`, [f.orgA.orgId]);
+  // Предложение разбора по обращению организации A и отключённое поле разбора (веха M5b, задача 7).
+  const triageRun = (await pools.root.query(`insert into hda_runs (org_id, purpose, model, outcome, ticket_id) values ($1, 'first_line', 'stub-model', 'ok', $2) returning run_id`, [f.orgA.orgId, f.tickets.aOrg.ticketId])).rows[0].run_id;
+  await pools.root.query(`insert into hda_triage_suggestions (org_id, ticket_id, run_id, field, value) values ($1, $2, $3, 'summary', 'Резюме для сотрудника')`, [f.orgA.orgId, f.tickets.aOrg.ticketId, triageRun]);
+  const seedMessage = (await pools.root.query(`select message_id from hdt_ticket_messages where ticket_id = $1 order by created_on limit 1`, [f.tickets.aOrg.ticketId])).rows[0].message_id;
+  // Машинный перевод сообщения клиента для сотрудника (веха M5b, задача 9).
+  await pools.root.query(`insert into hda_message_translations (org_id, ticket_id, message_id, locale, status, text, requested_by) values ($1, $2, $3, 'ru', 'ready', 'Отчёт не открывается', $4)`, [f.orgA.orgId, f.tickets.aOrg.ticketId, seedMessage, f.l1.userId]);
+  await pools.root.query(`insert into hda_triage_field_offs (field, month, share, decisions) values ('module', date_trunc('month', now())::date, 0.5, 40)`);
   // Идеи (веха M7, задача 1): опубликованная идея организации Б, идея Б на модерации и своя идея А на модерации; голоса,
   // подписки, комментарии (опубликованный, чужой на проверке и свой на проверке), отборы (завершённый и открытый),
   // вложения (чистое и непроверенное у опубликованной идеи Б). Клиент А должен видеть опубликованное Б и своё.

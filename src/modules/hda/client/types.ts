@@ -1,5 +1,4 @@
 import type { z } from 'zod';
-import type { AiTier } from '../pref';
 
 // Модуль hda: интерфейс клиента модели (ТЗ 11.11; план M5, задача 5, решение 4). Один вызов: системный текст,
 // данные и схема ответа. У модели нет инструментов и доступа к базе: она получает текст и возвращает текст, который
@@ -8,13 +7,20 @@ import type { AiTier } from '../pref';
 export type AiUsage = { inputTokens: number; outputTokens: number };
 
 export type AiRequest<T> = {
-  tier: AiTier;
+  /** Идентификатор модели: выбирает runAi по цели (план M5b, решение 1). */
+  model: string;
   /** Правила для модели. Текст пользователей сюда не попадает никогда. */
   system: string;
   /** Данные: уже очищенный текст из перечня 14.3, внутри тегов данных. */
   data: string;
   schema: z.ZodType<T>;
   maxTokens: number;
+  /** Ответ по схеме JSON (output_config.format, план M5b, решение 3). Схема строится из schema; Zod проверяет ответ всё равно. */
+  structured?: boolean;
+  /** Глубина рассуждения (output_config.effort). */
+  effort?: 'low' | 'medium' | 'high';
+  /** Срок ответа: по умолчанию AI_TIMEOUT_MS. */
+  timeoutMs?: number;
 };
 
 export type AiResult<T> = { value: T; model: string; usage: AiUsage };
@@ -38,7 +44,7 @@ export class AiUnavailableError extends Error {
 }
 
 /**
- * Ответ пришёл, но не годится: не JSON, обрезан пределом токенов, не прошёл схему. Токены уже потрачены: они
+ * Ответ пришёл, но не годится: не JSON, обрезан пределом токенов (truncated), модель отказала (refusal), не прошёл схему. Токены уже потрачены: они
  * пишутся в журнал вызовов. Текста ответа в ошибке нет.
  */
 export class AiResponseError extends Error {

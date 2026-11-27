@@ -52,7 +52,11 @@ test.describe('первая линия', () => {
     await expect(main(page).locator('[data-stat="finished"]')).toContainText('Завершено за период');
     await expect(stat(page, 'finished')).toHaveText(/^[\d\s]+$/);
     await expect(main(page).locator('[data-block="sources"] tr[data-source="portal"]')).toBeVisible();
-    await expect(main(page).locator('[data-block="lines"] tbody tr')).toHaveCount(3);
+    // Четыре линии с вехи M5b: AI-помощник, первая, вторая, разработка (FR-LINE-08).
+    await expect(main(page).locator('[data-block="lines"] tbody tr')).toHaveCount(4);
+    // Показатели AI-помощника (FR-MET-06, план M5b, задача 10).
+    await expect(main(page).locator('[data-block="assistant"] [data-stat="ai-resolved"]')).toBeVisible();
+    await expect(main(page).locator('[data-block="assistant"] [data-stat="ai-spend"]')).toBeVisible();
     // Каналы FR-MET-10 (план M6, задача 8): портал, виджет, почта и созданные сотрудником, всегда в этом порядке.
     await expect(main(page).locator('[data-block="channels"] tbody tr')).toHaveText([/^Портал/, /^Виджет/, /^Почта/, /^Создано сотрудником/]);
     // Среза по организациям и выгрузки у первой линии нет (решение 14).

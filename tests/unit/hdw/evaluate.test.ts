@@ -34,6 +34,7 @@ const snapshot = (patch: Partial<TicketSnapshot> = {}): TicketSnapshot => ({
   rating: null,
   isWorkingTime: true,
   assigneeId: null,
+  aiHandoffReason: null,
   ...patch,
 });
 const one = (item: Condition, patch: Partial<TicketSnapshot> = {}) => evaluate({ conditions: { match: 'all', items: [item] } }, snapshot(patch), NOW);

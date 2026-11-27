@@ -1,4 +1,4 @@
-import { registerContactDirectory, registerTicketSignatureRecorder } from '@/modules/hdc/api';
+import { registerContactDirectory, registerTezFeedback, registerTicketSignatureRecorder } from '@/modules/hdc/api';
 import { ticketSignatureRecorder } from '@/modules/hdk/api/signatures';
 import { contactDirectory } from '@/modules/hdu/api/contacts';
 import { embedOriginsByKey } from '@/modules/hdu/api/servers';
@@ -17,6 +17,8 @@ registerTicketSignatureRecorder(ticketSignatureRecorder);
 // Адреса встраивания страниц виджета для прокси (план M6, задача 3): прокси к базе не ходит, список читает из памяти
 // процесса, а загружает его этот загрузчик. В фоновом процессе и команде консоли он не вызывается ни разу.
 registerEmbedOriginsLoader(embedOriginsByKey);
+// Кнопки под ответом Теза в Telegram (план M5b, задача 6): бот в hdu, нажатие обрабатывает модуль обращений hdt.
+registerTezFeedback(async (userId, data) => (await import('@/modules/hdt/api/ai-link')).aiFeedbackByTelegram(userId, data));
 // Закрытие задачи разработки идеи (план M7, задача 9): hdw не знает идей, уведомление роли product ставит модуль hdi.
 // Модуль идей загружается при первом закрытии задачи: сборка процесса не тянет его (и его зависимости) при запуске.
 registerIdeaDevTaskClosed(async (tx, ideaIds, task) => (await import('@/modules/hdi/api/dev-closed')).ideaDevTaskClosed(tx, ideaIds, task));

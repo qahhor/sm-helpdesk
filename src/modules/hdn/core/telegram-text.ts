@@ -13,7 +13,7 @@ import { noLinks, plain } from '../mail/sanitize';
 const MESSAGES = { ru, uz, en } as const;
 
 /** Шаблоны событий обращения, о которых клиенту уходит сообщение в Telegram. */
-export const TELEGRAM_TEMPLATES: ReadonlySet<MailTemplate> = new Set(['ticket_created', 'ticket_reply', 'ticket_status', 'ticket_resolved', 'waiting_reminder']);
+export const TELEGRAM_TEMPLATES: ReadonlySet<MailTemplate> = new Set(['ticket_created', 'ticket_reply', 'ticket_status', 'ticket_resolved', 'waiting_reminder', 'tez_answer']);
 
 /**
  * Telegram сам делает нажимаемыми домены в любом регистре букв, команды бота, упоминания и метки. В теме обращения
@@ -32,9 +32,10 @@ function unlinked(text: string): string {
 /** Тема в сообщении: 57 знаков и многоточие, всего не длиннее 60. */
 const TITLE_MAX = 57;
 
-export type TelegramNotice = { text: string; button: { text: string; url: string } };
+/** choices: кнопки ответа Теза с подписанными данными (план M5b, задача 6). */
+export type TelegramNotice = { text: string; button: { text: string; url: string }; choices?: { text: string; data: string }[] };
 
-type TicketPayload = Extract<MailPayload, { template: 'ticket_created' | 'ticket_reply' | 'ticket_status' | 'ticket_resolved' | 'waiting_reminder' }>;
+type TicketPayload = Extract<MailPayload, { template: 'ticket_created' | 'ticket_reply' | 'ticket_status' | 'ticket_resolved' | 'waiting_reminder' | 'tez_answer' }>;
 
 export function isTelegramPayload(payload: MailPayload): payload is TicketPayload {
   return TELEGRAM_TEMPLATES.has(payload.template);
@@ -64,10 +65,21 @@ export function telegramNoticeText(payload: TicketPayload, locale: Locale, hubUr
     case 'waiting_reminder':
       event = t('reminder', { days: payload.closeInDays });
       break;
+    case 'tez_answer':
+      // Заголовок решения обезврежен, как тема: в Telegram не становится ссылкой и командой бота. Шагов нет: они в портале.
+      event = t('tezAnswer', { solution: plain(unlinked(noLinks(payload.solutionTitle, Number.MAX_SAFE_INTEGER)), TITLE_MAX) });
+      break;
   }
   // Кнопка ведёт только в портал: адрес строится из номера, а не из данных строки.
   const url = `${hubUrl}/${locale}/tickets/SUP-${payload.number}`;
   // Ссылки обезвреживаются во всей теме, затем она обрезается: длина не зависит от того, была ли в ней ссылка.
   const title = plain(unlinked(noLinks(payload.title, Number.MAX_SAFE_INTEGER)), TITLE_MAX);
-  return { text: `SUP-${payload.number} · ${title}\n${event}`, button: { text: t('button'), url } };
+  const choices =
+    payload.template === 'tez_answer' && payload.helpedData && payload.staffData
+      ? [
+          { text: t('tezHelped'), data: payload.helpedData },
+          { text: t('tezNeedStaff'), data: payload.staffData },
+        ]
+      : undefined;
+  return { text: `SUP-${payload.number} · ${title}\n${event}`, button: { text: t('button'), url }, ...(choices ? { choices } : {}) };
 }

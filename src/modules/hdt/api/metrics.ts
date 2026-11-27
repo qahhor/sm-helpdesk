@@ -7,6 +7,7 @@ import { listActiveModules, moduleCodesTx, type Priority, readSlaConfig, type Sl
 import { namesOf, type StaffContext } from '@/modules/hdu/api';
 import { orgFactsTx } from '@/modules/hdu/api/automation';
 import {
+  assistantStatsTx,
   auditAsStaff,
   breakdownTx,
   type Counters,
@@ -399,4 +400,37 @@ async function orgNames(tx: Parameters<typeof orgFactsTx>[0], orgIds: readonly s
 /** Имя файла выгрузки: только латиница, цифры и дефис. */
 export function exportFileName(report: MetricsReport, period: Period): string {
   return `smartup-hub-${report.replace('_', '-')}-${period.fromDay}-${period.toDay}.csv`;
+}
+
+/** Показатели AI-помощника (план M5b, задача 10; FR-MET-06, FR-AI-18) по обращениям, созданным в периоде. */
+export type AssistantMetrics = {
+  period: Period;
+  /** Обращения, которые вёл помощник (ai_state не none). */
+  handled: number;
+  resolvedByAi: number;
+  /** Доля решённых без сотрудника от обращений помощника. */
+  resolvedByAiPercent: number | null;
+  handoffs: { reason: string; count: number }[];
+  /** Время первого ответа помощника в секундах (настенное время: помощник отвечает круглосуточно). */
+  firstReply: { count: number; averageSeconds: number | null; medianSeconds: number | null };
+  /** Оценки клиентов по обращениям, решённым помощником. */
+  csat: { count: number; average: number | null };
+  /** Открыты заново после "Помогло". */
+  reopenedAfterHelped: number;
+};
+
+export async function getAssistantMetrics(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<AssistantMetrics> {
+  requireStaff(ctx);
+  const { period } = await resolvePeriod(ctx, input, now);
+  const stats = await withActor(ctx.actor, (tx) => assistantStatsTx(tx, { from: period.from, to: period.to }));
+  return {
+    period,
+    handled: stats.handled,
+    resolvedByAi: stats.resolvedByAi,
+    resolvedByAiPercent: percent(stats.resolvedByAi, stats.handled),
+    handoffs: stats.handoffs,
+    firstReply: { count: stats.firstReplySeconds.length, averageSeconds: average(stats.firstReplySeconds), medianSeconds: median(stats.firstReplySeconds) },
+    csat: { count: stats.csatCount, average: stats.csatCount > 0 ? stats.csatSum / stats.csatCount : null },
+    reopenedAfterHelped: stats.reopenedAfterHelped,
+  };
 }

@@ -15,7 +15,7 @@ import { type TimelineWindow, timelineWindowTx } from './timeline';
 const VIEW_LOG_EVERY_MIN = 60;
 
 export type AgentTicketRecord = typeof tickets.$inferSelect;
-export type AgentMessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'isInternal' | 'createdOn' | 'isAuto'>;
+export type AgentMessageRecord = Pick<typeof ticketMessages.$inferSelect, 'messageId' | 'authorId' | 'authorType' | 'body' | 'isInternal' | 'createdOn' | 'isAuto'> & { aiKind: string | null };
 export type AgentEventRecord = Pick<typeof ticketEvents.$inferSelect, 'eventId' | 'kind' | 'actorType' | 'actorId' | 'payload' | 'isInternal' | 'createdOn'>;
 export type AgentAttachmentRecord = Pick<
   typeof attachments.$inferSelect,
@@ -52,6 +52,7 @@ export async function readAgentTicketTx(
         isInternal: ticketMessages.isInternal,
         createdOn: ticketMessages.createdOn,
         isAuto: ticketMessages.isAuto,
+        aiKind: sql<string | null>`${ticketMessages.aiPayload} ->> 'kind'`,
       })
       .from(ticketMessages)
       .where(inArray(ticketMessages.messageId, window.messageIds))

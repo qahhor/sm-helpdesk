@@ -1,5 +1,7 @@
+import { createHmac } from 'node:crypto';
+import { logEvent } from '@/lib/log';
 import { phoneLike, scanText } from '@/modules/hdc/pref';
-import { AI_INPUT_MAX_CHARS, AI_PRICE_PER_MTOK, type AiTier } from './pref';
+import { AI_INPUT_MAX_CHARS, AI_MODELS, AI_PRICE_PER_MTOK, type AiModel } from './pref';
 
 // Модуль hda, слой util: подготовка текста для модели без обращения к базе (ТЗ 14.3, поправка 101; план M5, задача 5).
 //
@@ -83,10 +85,31 @@ export function clip(text: string, max = AI_INPUT_MAX_CHARS): string {
   return text.length <= max ? text : text.slice(0, max);
 }
 
-/** Стоимость вызова в долларах по токенам и уровню модели (шесть знаков после запятой). */
-export function costUsd(tier: AiTier, usage: { inputTokens: number; outputTokens: number }): number {
-  const price = AI_PRICE_PER_MTOK[tier];
+/** Модель из списка по идентификатору ответа: точное совпадение или та же модель с датой версии в конце. */
+function knownModel(model: string): AiModel | null {
+  return AI_MODELS.find((m) => model === m || model.startsWith(`${m}-`)) ?? null;
+}
+
+/**
+ * Стоимость вызова в долларах по токенам и модели из ответа API (план M5b, решение 2), шесть знаков после запятой.
+ * Неизвестная модель: цена самой дорогой из списка и предупреждение в журнал работы (без текста).
+ */
+export function costUsd(model: string, usage: { inputTokens: number; outputTokens: number }): number {
+  const known = knownModel(model);
+  if (!known) logEvent('warn', 'ai.unknown_model_price', { model: model.slice(0, 100) });
+  const price = known
+    ? AI_PRICE_PER_MTOK[known]
+    : Object.values(AI_PRICE_PER_MTOK).reduce((max, p) => (p.input + p.output > max.input + max.output ? p : max));
   return Math.round(((usage.inputTokens * price.input + usage.outputTokens * price.output) / 1_000_000) * 1e6) / 1e6;
+}
+
+/**
+ * HMAC очищенного входа модели (план M5b, решение 12) с ключом, выведенным из ENCRYPTION_KEY, как query_hash подсказки.
+ * Регистр и пробелы не значимы. Текст по хешу не восстанавливается.
+ */
+export function inputHash(text: string, encryptionKeyBase64: string): string {
+  const key = createHmac('sha256', Buffer.from(encryptionKeyBase64, 'base64')).update('hda:input').digest();
+  return createHmac('sha256', key).update(text.toLowerCase().replace(/\s+/g, ' ').trim()).digest('hex');
 }
 
 /**

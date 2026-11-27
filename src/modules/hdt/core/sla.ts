@@ -81,6 +81,7 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date, set: Ticke
       firstRespondedOn: tickets.firstRespondedOn,
       firstResponseSoonOn: tickets.firstResponseSoonOn,
       resolutionSoonOn: tickets.resolutionSoonOn,
+      aiHandoffOn: tickets.aiHandoffOn,
     })
     .from(tickets)
     .where(eq(tickets.ticketId, ticketId))
@@ -102,6 +103,11 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date, set: Ticke
   }
   const settled = status === 'resolved' || status === 'closed';
   const due = dueDates(t.createdOn, priority, pausedMinutes, config);
+  // Помощник передал обращение (FR-SLA-10, план M5b, решение 15): срок первого ответа сотрудника считается заново
+  // от момента передачи. Срок решения по-прежнему от создания.
+  const handoffOn = set.aiHandoffOn instanceof Date ? set.aiHandoffOn : t.aiHandoffOn;
+  const firstFrom = handoffOn ?? t.createdOn;
+  if (handoffOn) due.firstResponseDueOn = dueDates(handoffOn, priority, 0, config).firstResponseDueOn;
   const next = {
     firstResponseDueOn: settled && t.firstResponseDueOn ? t.firstResponseDueOn : due.firstResponseDueOn,
     resolutionDueOn: settled && t.resolutionDueOn ? t.resolutionDueOn : due.resolutionDueOn,
@@ -112,10 +118,10 @@ export async function refreshSla(tx: Tx, ticketId: string, now: Date, set: Ticke
   // Момент "срок скоро" (событие sla_soon, FR-AUTO-02) взводится заново, когда срок сдвинулся, и снимается у
   // решённого, закрытого и после первого ответа. Срок не менялся: момент остаётся как есть (уже записанное событие
   // повторно не придёт). Пауза момент не трогает: на паузе задача его не берёт, а выход из паузы сдвигает срок.
-  const responded = t.firstRespondedOn !== null || set.firstRespondedOn !== undefined;
+  const responded = set.firstRespondedOn !== undefined ? set.firstRespondedOn !== null : t.firstRespondedOn !== null;
   const soon = {
     firstResponseSoonOn:
-      settled || responded ? null : same(next.firstResponseDueOn, t.firstResponseDueOn) ? t.firstResponseSoonOn : soonMoment(t.createdOn, next.firstResponseDueOn, cal),
+      settled || responded ? null : same(next.firstResponseDueOn, t.firstResponseDueOn) ? t.firstResponseSoonOn : soonMoment(firstFrom, next.firstResponseDueOn, cal),
     resolutionSoonOn: settled ? null : same(next.resolutionDueOn, t.resolutionDueOn) ? t.resolutionSoonOn : soonMoment(t.createdOn, next.resolutionDueOn, cal),
   };
   const soonChanged = !same(soon.firstResponseSoonOn, t.firstResponseSoonOn) || !same(soon.resolutionSoonOn, t.resolutionSoonOn);

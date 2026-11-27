@@ -56,3 +56,45 @@ export function assembleIdeaTranslationData(input: { from: string; to: string; t
   const clean = (text: string) => escapeData(sanitizeForAi(redactTerms(scanText(text), terms)));
   return `Перевод с ${input.from} на ${input.to}\n<idea>\n<title>${clean(input.title)}</title>\n<body>${clip(clean(input.body), 12_000)}</body>\n</idea>`;
 }
+
+/** Пределы входа первой линии (план M5b, решение 22; FR-AI-17): знаков. */
+export const FIRST_LINE_LIMITS = { description: 5000, messages: 3000, solution: 1500, total: 8000 } as const;
+
+export type FirstLineSolution = { id: string; title: string; text: string };
+
+/** Последние знаки текста: длинная переписка теряет начало, а не последнее сообщение клиента. */
+const tail = (text: string, max: number) => (text.length <= max ? text : text.slice(text.length - max));
+
+/**
+ * Вход модели первой линии и разбора (ТЗ 14.3, 11.12; план M5b, решение 22). В типе только разрешённое: тема,
+ * описание и ответы клиента после ответа помощника (сообщений сотрудников, заметок и вложений нет вовсе) и до трёх
+ * найденных опубликованных решений. Текст клиента очищен, как у черновика, и лежит внутри <ticket>; решения внутри
+ * <solution id="...">, каждое до 1500 знаков. Описание до 5000 знаков, ответы клиента до 3000 (последние), всё
+ * обращение до 8000.
+ */
+export function assembleFirstLineData(input: { title: string; description: string; clientMessages: readonly string[]; solutions: readonly FirstLineSolution[]; redaction: Redaction }): string {
+  const L = FIRST_LINE_LIMITS;
+  // Имя вырезается целиком и по словам: "Алишер Каримов" ловит и "Алишер".
+  const split = (names: readonly string[]) => [...new Set(names.flatMap((n) => [n, ...n.split(/\s+/)]))];
+  const redaction: Redaction = { ...input.redaction, clientNames: split(input.redaction.clientNames), staffNames: split(input.redaction.staffNames) };
+  const messages = tail(input.clientMessages.map((m) => cleanText(m, redaction)).join('\n'), L.messages);
+  const lines = [
+    `Тема: ${cleanText(input.title, redaction)}`,
+    `Описание: ${clip(cleanText(input.description, redaction), L.description)}`,
+    ...(messages ? [`Ответ клиента: ${messages}`] : []),
+  ];
+  const solutions = input.solutions.map((s) => `<solution id="${s.id}">\nЗаголовок: ${escapeData(sanitizeForAi(s.title))}\n${clip(escapeData(sanitizeForAi(s.text)), L.solution)}\n</solution>`);
+  return `<ticket>\n${clip(lines.join('\n'), L.total)}\n</ticket>\n<solutions>\n${solutions.map((s) => `${s}\n`).join('')}</solutions>`;
+}
+
+/**
+ * Одно сообщение клиента для перевода по кнопке "Перевести" (FR-AG-11) или определения благодарности (FR-TK-14):
+ * только текст этого сообщения после очистки (перечень 14.3), до 3000 знаков. Тег message у перевода, reply у
+ * благодарности.
+ */
+export function assembleMessageData(input: { tag: 'message' | 'reply'; to?: string; text: string; redaction: Redaction }): string {
+  const split = (names: readonly string[]) => [...new Set(names.flatMap((n) => [n, ...n.split(/\s+/)]))];
+  const redaction: Redaction = { ...input.redaction, clientNames: split(input.redaction.clientNames), staffNames: split(input.redaction.staffNames) };
+  const body = clip(cleanText(input.text, redaction), 3000);
+  return `${input.to ? `Язык перевода: ${input.to}\n` : ''}<${input.tag}>\n${body}\n</${input.tag}>`;
+}

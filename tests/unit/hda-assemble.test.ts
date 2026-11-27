@@ -56,9 +56,9 @@ test('перевод: куски с идентификаторами внутр�
   expect(data).toBe('Перевод с русский на английский\n<solution>\n<segment id="b1.0">Откройте &lt;b&gt;раздел&lt;/b&gt;</segment>\n</solution>');
 });
 
-test('стоимость по токенам и уровню, JSON из текста ответа', () => {
-  expect(costUsd('fast', { inputTokens: 1_000_000, outputTokens: 200_000 })).toBe(2);
-  expect(costUsd('quality', { inputTokens: 1000, outputTokens: 1000 })).toBe(0.018);
+test('стоимость по токенам и модели (план M5b, решение 2), JSON из текста ответа', () => {
+  expect(costUsd('claude-haiku-5-5', { inputTokens: 1_000_000, outputTokens: 200_000 })).toBe(0.2);
+  expect(costUsd('claude-sonnet-5-5', { inputTokens: 1000, outputTokens: 1000 })).toBe(0.012);
   expect(extractJson('текст {"a": 1} хвост')).toEqual({ a: 1 });
   expect(extractJson('нет')).toBeNull();
 });

@@ -123,6 +123,36 @@ test('время на линиях и возвраты по событиям о�
   });
 });
 
+test('линия AI-помощника (FR-LINE-08, 10.5): ai_state = active на момент решения; время до передачи на линии помощника', () => {
+  const at = (hhmm: string) => new Date(`2026-11-02T${hhmm}:00Z`);
+  expect(lineOf('l1', 'waiting_customer', 'active')).toBe('assistant');
+  expect(lineOf('l1', 'in_progress', 'handed_off')).toBe('first');
+  // "Помогло": решено, пока помощник вёл обращение.
+  expect(
+    lineUsage(
+      { createdOn: at('04:00'), resolvedOn: at('04:30'), queue: 'l1' },
+      [
+        { kind: 'ai', from: null, to: 'active', at: at('04:00') },
+        { kind: 'status', from: 'new', to: 'waiting_customer', at: at('04:01') },
+        { kind: 'status', from: 'waiting_customer', to: 'resolved', at: at('04:30') },
+      ],
+      '24x7',
+    ),
+  ).toEqual({ resolvedLine: 'assistant', minutes: { assistant: 30 }, returns: 0 });
+  // Передано сотруднику через 10 минут, решено первой линией.
+  expect(
+    lineUsage(
+      { createdOn: at('04:00'), resolvedOn: at('05:00'), queue: 'l1' },
+      [
+        { kind: 'ai', from: null, to: 'active', at: at('04:00') },
+        { kind: 'ai', from: 'active', to: 'handed_off', at: at('04:10') },
+        { kind: 'status', from: 'in_progress', to: 'resolved', at: at('05:00') },
+      ],
+      '24x7',
+    ),
+  ).toEqual({ resolvedLine: 'first', minutes: { assistant: 10, first: 50 }, returns: 0 });
+});
+
 // Сводка, источники и каналы считаются одним просмотром обращений периода по источникам (замер подготовки M9,
 // задача 4): сводка и каналы складываются из строк источников здесь.
 test('канал источника: оба источника виджета дают канал widget, остальные совпадают с источником', () => {

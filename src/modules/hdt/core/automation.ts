@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import type { DomainEventKind } from '@/modules/hdc/pref';
@@ -288,6 +288,8 @@ export type RuleTicketFacts = {
   lastClientMessageOn: Date | null;
   lastStaffMessageOn: Date | null;
   tagIds: string[];
+  /** Причина передачи помощником (условие правила "причина передачи от AI", план M5b, задача 8). */
+  aiHandoffReason: string | null;
 };
 
 /** Сколько обращений читается одним запросом. */
@@ -323,6 +325,7 @@ export async function ruleTicketFactsTx(tx: Tx, ticketIds: readonly string[], op
         assigneeId: tickets.assigneeId,
         rating: tickets.csatScore,
         lastClientMessageOn: tickets.lastClientMessageOn,
+        aiHandoffReason: tickets.aiHandoffReason,
       })
       .from(tickets)
       .where(inArray(tickets.ticketId, chunk));
@@ -416,10 +419,15 @@ const CHANGE_KINDS = { status_changed: 'status', priority_changed: 'priority', r
  * подошедшим, если момент "скоро" (soonMoment) уже наступил, а срок в этот момент ещё ждали: первого ответа не было,
  * обращение не было решено. Для такого события это приближение: момент мог пройти, пока процесс не работал.
  */
-export async function ticketsWithEventTx(tx: Tx, ticketIds: readonly string[], kind: Exclude<DomainEventKind, 'no_activity' | 'ai_handoff'>, now: Date): Promise<Set<string>> {
+export async function ticketsWithEventTx(tx: Tx, ticketIds: readonly string[], kind: Exclude<DomainEventKind, 'no_activity'>, now: Date): Promise<Set<string>> {
   const ids = [...new Set(ticketIds)];
   if (ids.length === 0) return new Set();
   if (kind === 'ticket_created') return new Set(ids);
+  // Передача помощником (план M5b, задача 8): у обращения есть момент передачи.
+  if (kind === 'ai_handoff') {
+    const rows = await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(and(inArray(tickets.ticketId, ids), isNotNull(tickets.aiHandoffOn)));
+    return new Set(rows.map((row) => row.ticketId));
+  }
   if (kind === 'client_replied' || kind === 'staff_replied') {
     const rows = await tx
       .selectDistinct({ ticketId: ticketMessages.ticketId })

@@ -2,7 +2,7 @@ import 'server-only';
 import { getTranslations } from 'next-intl/server';
 import type { SettingsSection } from '@/ui/components/SettingsLayout';
 
-// Разделы "Настроек". Сроки и рабочее время с вехи M3, уведомления и почта с вехи M4, правила автоматизации, макросы и вебхуки с вехи M8, решения (разрешённые домены ссылок) с вехи M5, AI-помощник появится со своей вехой.
+// Разделы "Настроек". Сроки и рабочее время с вехи M3, уведомления и почта с вехи M4, правила автоматизации, макросы и вебхуки с вехи M8, решения (разрешённые домены ссылок) с вехи M5, AI-помощник с вехи M5b.
 const SECTIONS = [
   { key: 'servers', href: '/agent/settings/servers' },
   { key: 'staff', href: '/agent/settings/staff' },
@@ -14,6 +14,8 @@ const SECTIONS = [
   { key: 'webhooks', href: '/agent/settings/webhooks' },
   { key: 'mail', href: '/agent/settings/mail' },
   { key: 'knowledge', href: '/agent/settings/knowledge' },
+  // AI-помощник первой линии (план M5b, задача 1).
+  { key: 'ai', href: '/agent/settings/ai' },
   // Синонимы, словарь узбекского и курирование (план W6, ответ владельца 0070, пункт 4).
   { key: 'search', href: '/agent/settings/search' },
   { key: 'audit', href: '/agent/settings/audit' },

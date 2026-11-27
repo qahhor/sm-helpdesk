@@ -4,7 +4,7 @@ import { containsText } from '@/db/contains';
 import type { Tx } from '@/db/client';
 import { type StaffActor, withActor } from '@/db/with-actor';
 import { HdtError } from '../error';
-import type { Priority, Queue, TicketStatus } from '../pref';
+import { type AiHandoffReason, AI_SILENCE_SEC, type Priority, type Queue, type TicketStatus } from '../pref';
 import { savedFilters, type SavedQuery, ticketMessages, tickets } from '../schema';
 import { SERVICE_ORG_ID } from '@/modules/hdu/api/guests';
 import type { Tag } from '@/modules/hdr/api';
@@ -39,6 +39,8 @@ export type QueueRecord = {
   /** Время изменения с точностью базы (микросекунды): ключ листания по последнему изменению. */
   modifiedKey: string;
   clientWaitingSince: Date | null;
+  /** Причина передачи помощником (очередь "После AI", FR-AG-19). */
+  aiHandoffReason: AiHandoffReason | null;
   /** Теги обращения (FR-AUTO-13): читаются той же транзакцией, только если список их просил. */
   tags: Tag[];
 };
@@ -48,6 +50,11 @@ const OPEN = notInArray(tickets.status, ['resolved', 'closed']);
 const dueOn = sql<Date | null>`case when ${tickets.firstRespondedOn} is null then ${tickets.firstResponseDueOn} else ${tickets.resolutionDueOn} end`.mapWith(
   tickets.firstResponseDueOn,
 );
+/** Помощник не отвечает или молчит дольше 90 секунд (решение 5, слой в): условие считается при показе. */
+const AI_NOT_ANSWERING = sql`(${tickets.aiState} <> 'active' or ${tickets.createdOn} < now() - make_interval(secs => ${AI_SILENCE_SEC}))`;
+/** Помощник ведёт обращение, клиент написал дольше 90 секунд назад, а сообщения помощника после этого нет (M3). */
+const AI_SILENT_AFTER_CLIENT = sql`(${tickets.aiState} = 'active' and ${tickets.lastClientMessageOn} < now() - make_interval(secs => ${AI_SILENCE_SEC})
+  and ${tickets.lastClientMessageOn} > coalesce((select max(m.created_on) from hdt_ticket_messages m where m.ticket_id = ${tickets.ticketId} and m.author_type = 'ai'), '-infinity'))`;
 /** Отложенное до своего времени (решение 13 плана M3). */
 const notSnoozed = or(isNull(tickets.snoozedUntil), lt(tickets.snoozedUntil, sql`now()`)) as SQL;
 
@@ -56,10 +63,22 @@ function queueWhere(queue: QueueKey, me: string): SQL | undefined {
   switch (queue) {
     // Новые первой линии: переданное на вторую ждёт её в своей очереди (решение 0031, пункт 15). Письма с неизвестных
     // адресов ждут привязки в "Неопознанных" (решение 12 вехи M4) и в "Новые" не попадают.
+    // Обращение у помощника первой линии в "Новые" не попадает, пока помощник может ответить: 90 секунд с создания
+    // (план M5b, решение 5, слой в). Молчит дольше: стоит в "Новых", даже если фоновый процесс остановлен совсем.
     case 'new':
-      return and(eq(tickets.status, 'new'), eq(tickets.queue, 'l1'), ne(tickets.orgId, SERVICE_ORG_ID), notSnoozed);
+      return and(eq(tickets.status, 'new'), eq(tickets.queue, 'l1'), ne(tickets.orgId, SERVICE_ORG_ID), notSnoozed, AI_NOT_ANSWERING);
     case 'mine':
       return and(eq(tickets.assigneeId, me), ne(tickets.status, 'closed'));
+    // "После AI" (решение 19): передано помощником, сотрудник клиенту ещё не ответил. После передачи срок первого
+    // ответа начинается заново и first_responded_on пуст до ответа сотрудника (решение 15).
+    // Клиент ответил помощнику, а тот молчит дольше 90 секунд (фоновый процесс остановлен, сторож не сработал): тоже
+    // здесь, иначе обращение "В работе" без исполнителя не стоит ни в одной очереди (независимая проверка M5b, M3).
+    case 'after_ai':
+      // Решённое кнопкой "Помогло" и открытое снова, пока система не перевела его в handed_off: тоже здесь (I3).
+      return and(or(and(eq(tickets.aiState, 'handed_off'), isNull(tickets.firstRespondedOn)), eq(tickets.aiState, 'resolved_by_ai'), AI_SILENT_AFTER_CLIENT), OPEN, notSnoozed);
+    // "AI ответил, клиент молчит": помощник ведёт обращение и ждёт реакции клиента на свой ответ.
+    case 'ai_waiting':
+      return and(eq(tickets.aiState, 'active'), eq(tickets.status, 'waiting_customer'), notSnoozed);
     case 'l2':
       return and(eq(tickets.queue, 'l2'), OPEN, notSnoozed);
     case 'waiting':
@@ -141,6 +160,7 @@ export async function queueRowsTx(
         snoozeReturnedOn: tickets.snoozeReturnedOn,
         modifiedKey: sql<string>`to_char(${tickets.modifiedOn} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         clientWaitingSince: tickets.clientWaitingSince,
+        aiHandoffReason: tickets.aiHandoffReason,
       })
       .from(tickets)
       .where(and(queueWhere(input.queue, actor.userId), searchWhere(input.search), tagWhere(input.tagId), afterKey(input.after)))
@@ -154,7 +174,7 @@ export async function queueRowsTx(
   });
 }
 
-const OPEN_QUEUES = ['new', 'l2', 'waiting', 'development', 'breached'] as const;
+const OPEN_QUEUES = ['new', 'after_ai', 'l2', 'waiting', 'development', 'breached'] as const;
 
 /**
  * Счётчики очередей (аудит 23.11.2026, находка P2). Считаются только открытые обращения (по частичному индексу) и
@@ -181,7 +201,8 @@ async function queueCountsIn(tx: Tx, actor: StaffActor): Promise<Record<QueueKey
       .select({ n: sql<number>`count(*)::int` })
       .from(tickets)
       .where(queueWhere('mine', actor.userId));
-    return { new: open?.new ?? 0, l2: open?.l2 ?? 0, waiting: open?.waiting ?? 0, development: open?.development ?? 0, breached: open?.breached ?? 0, mine: mine?.n ?? 0, all: null };
+    // "AI ответил, клиент молчит" без счётчика (решение 19): это не работа сотрудника.
+    return { new: open?.new ?? 0, after_ai: open?.after_ai ?? 0, ai_waiting: null, l2: open?.l2 ?? 0, waiting: open?.waiting ?? 0, development: open?.development ?? 0, breached: open?.breached ?? 0, mine: mine?.n ?? 0, all: null };
   }
 }
 
@@ -241,7 +262,13 @@ export async function thanksRowsTx(actor: StaffActor, page: number): Promise<{ n
       .select({ number: tickets.number, orgId: tickets.orgId, body: ticketMessages.body, createdOn: ticketMessages.createdOn })
       .from(ticketMessages)
       .innerJoin(tickets, eq(tickets.ticketId, ticketMessages.ticketId))
-      .where(eq(ticketMessages.isThanks, true))
+      // Благодарность, которую модель не подтвердила и обращение открыто заново (план M5b, задача 9), в списке нет.
+      .where(
+        and(
+          eq(ticketMessages.isThanks, true),
+          sql`not exists (select 1 from hdt_ticket_events e where e.ticket_id = ${ticketMessages.ticketId} and e.kind = 'status' and e.payload ->> 'reason' = 'ai_thanks' and e.payload ->> 'messageId' = ${ticketMessages.messageId}::text)`,
+        ),
+      )
       .orderBy(desc(ticketMessages.createdOn))
       .limit(THANKS_PAGE_SIZE + 1)
       .offset((page - 1) * THANKS_PAGE_SIZE),

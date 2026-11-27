@@ -1,5 +1,6 @@
 import 'server-only';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { AI_HANDOFF_REASONS } from '@/modules/hdt/api/ai';
 import type { StaffContext } from '@/modules/hdu/api';
 import { builtinRule, type RuleRecord, ruleOptions } from '@/modules/hdw/api';
 import type { RuleEditorLabels, RuleEditorOptions } from './RuleEditor';
@@ -8,9 +9,6 @@ import { ACTION_KINDS, CONDITION_FIELDS, FIELD_OPS, NO_MODULE } from './rule-dra
 // Списки и подписи редактора правила на языке страницы (FR-AUTO-01, 03, 04). Значения условий и действий берутся
 // из справочников модуля правил: очереди, сотрудники, теги, шаблоны, модули. Клиентский редактор получает готовые
 // строки свойствами: каталог сообщений в браузер не уходит.
-
-/** Событие "AI передал обращение" редактор не предлагает: данных нет до вехи M5b. */
-const HIDDEN_EVENTS = new Set(['ai_handoff']);
 
 export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | null): Promise<{ options: RuleEditorOptions; labels: RuleEditorLabels; eventLock: string | null }> {
   const t = await getTranslations('agent');
@@ -23,7 +21,7 @@ export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | nu
   const shipped = builtinRule(rule?.pcode ?? null);
 
   const options: RuleEditorOptions = {
-    events: lists.events.filter((event) => !HIDDEN_EVENTS.has(event)).map((value) => ({ value, label: r(`events.${value}`) })),
+    events: lists.events.map((value) => ({ value, label: r(`events.${value}`) })),
     fields: CONDITION_FIELDS.map((value) => ({ value, label: r(`fields.${value}`) })),
     actions: [...ACTION_KINDS, ...(shipped ? [shipped.action] : [])].map((value) => ({ value, label: r(`actions.${value}`) })),
     values: {
@@ -38,6 +36,8 @@ export async function ruleEditorProps(staff: StaffContext, rule: RuleRecord | nu
       org_category: lists.categories.map((value) => ({ value, label: value === 'none' ? r('categoryNone') : value })),
       org: lists.orgs.map((org) => ({ value: org.orgId, label: org.name })),
       tags: lists.tags.map((tag) => ({ value: tag.tagId, label: tag.name })),
+      // Причина передачи от AI (план M5b, задача 8): перечень FR-AI-14.
+      ai_reason: AI_HANDOFF_REASONS.map((value) => ({ value, label: t(`ticket.aiReasons.${value}`) })),
     },
     workTime: (['working', 'off'] as const).map((value) => ({ value, label: r(`workTime.${value}`) })),
     actionValues: {

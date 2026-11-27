@@ -98,7 +98,7 @@ function errorCode(error: unknown): string {
 /** Ссылки вида "/tickets/1042" получают адрес портала и язык получателя. */
 function absolute(payload: Record<string, unknown>, hubUrl: string, locale: Locale): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(payload)) out[key] = (key === 'url' || key === 'rateUrl') && typeof value === 'string' && value.startsWith('/') ? `${hubUrl}/${locale}${value}` : value;
+  for (const [key, value] of Object.entries(payload)) out[key] = (key === 'url' || key.endsWith('Url')) && typeof value === 'string' && value.startsWith('/') ? `${hubUrl}/${locale}${value}` : value;
   return out;
 }
 
@@ -115,7 +115,7 @@ async function deliverTelegram(row: Row, run: RunMemo): Promise<Outcome> {
   if (!chat) return { kind: 'skipped' };
   const notice = telegramNoticeText(payload, chat.locale ?? row.locale ?? 'ru', getEnv().HUB_URL);
   try {
-    await bot.sendMessage(chat.chatId, notice.text, { linkButton: notice.button });
+    await bot.sendMessage(chat.chatId, notice.text, { linkButton: notice.button, ...(notice.choices ? { choices: notice.choices } : {}) });
   } catch (error) {
     if (!(error instanceof TelegramError) || error.status !== 403) throw error;
     await contacts().markTelegramBlocked(chat.chatId);

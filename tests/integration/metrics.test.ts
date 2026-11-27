@@ -391,7 +391,8 @@ test('период без обращений: нули и пустые спис�
   });
   expect(view.sources).toEqual([]);
   expect(view.lines).toMatchObject({ resolved: 0, returns: 0 });
-  expect(view.lines.rows.map((row) => [row.resolved, row.percent, row.averageMinutes])).toEqual([[0, null, null], [0, null, null], [0, null, null]]);
+  // Четыре линии с вехи M5b: AI-помощник, первая, вторая, разработка.
+  expect(view.lines.rows.map((row) => [row.resolved, row.percent, row.averageMinutes])).toEqual([[0, null, null], [0, null, null], [0, null, null], [0, null, null]]);
   expect(view.lowRatings.items).toEqual([]);
   expect((await getMetricsBreakdown(staffCtx(f.care), { period: 'custom', from: '2020-01-01', to: '2020-01-07', by: 'org' }, NOW)).items).toEqual([]);
 });

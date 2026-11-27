@@ -98,7 +98,8 @@
         "idea_official_reply": "Smartup replied on idea I-{idea}",
         "idea_cycle": "The idea of the month shortlist is ready",
         "idea_moderation_due": "Ideas waiting for review over two working days: {count}",
-        "idea_dev_task_closed": "The development task of idea I-{idea} is closed"
+        "idea_dev_task_closed": "The development task of idea I-{idea} is closed",
+        "ai_budget": "{percent, select, 100 {AI spending limit reached: the assistant is off until the end of the month} other {AI spending at 80% of the limit: organisations cut off {orgs}}}"
       },
       "settings": {
         "title": "Emails",
@@ -308,7 +309,11 @@
           "rated": "Thank you for the rating",
           "visibility": "Visibility changed",
           "watched": "You are following the request",
-          "unwatched": "You no longer follow the request"
+          "unwatched": "You no longer follow the request",
+          "ai_helped": "Glad it helped. The request is resolved.",
+          "ai_not_helped": "I passed your request to staff.",
+          "ai_need_staff": "I passed your request to staff.",
+          "ai_picked": "Here is the chosen solution."
         },
         "otherOrg": {
           "text": "Request {number} belongs to {org}. Switch to it to open the request.",
@@ -348,7 +353,8 @@
         "upload": "The file did not upload. Try again",
         "reason": "Choose what went wrong",
         "file_unavailable": "One of the files is no longer available or failed the check. Remove it and attach it again",
-        "merged": "This request was merged with another one: we will continue in the main request."
+        "merged": "This request was merged with another one: we will continue in the main request.",
+        "ai_feedback": "This action is no longer available. Refresh the page."
       },
       "system": {
         "autoCloseResolved": "We closed this request: the solution was not confirmed for {days, plural, one {# working day} other {# working days}}. If the issue returns, reopen the request.",
@@ -630,6 +636,51 @@
         "sorry": "Sorry about that. Create a request and we will sort it out together.",
         "failed": "Could not send your answer. Try later."
       }
+    },
+    "tez": {
+      "signature": "Tez · AI assistant",
+      "caption": "Answer prepared by AI from the solution base",
+      "thinking": "Tez is looking for a solution",
+      "thinkingHint": "Usually under a minute. The page refreshes by itself.",
+      "intro": {
+        "likely_solution": "This solution will likely help.",
+        "exact_error": "This is the same error. Here is how to fix it.",
+        "similar_case": "A similar case was solved before.",
+        "known_steps": "Try these steps."
+      },
+      "clarify": "Which is closer to your case: «{a}» or «{b}»?",
+      "pick": "Choose: {title}",
+      "openFull": "Open the full solution",
+      "updated": "The solution was updated. The current text is shown.",
+      "withdrawn": "This solution is no longer valid. Press \"Need staff\".",
+      "machine": "Machine translation of the solution.",
+      "notTranslated": "The solution is not in your language yet, another language is shown.",
+      "actions": {
+        "label": "Did the answer help",
+        "helped": "Helped",
+        "notHelped": "Did not help",
+        "needStaff": "Need staff"
+      },
+      "handoff": {
+        "title": "I passed your request to staff.",
+        "dueStart": "Staff will answer {day} after {time}.",
+        "due": "Staff will answer by {when}.",
+        "questions": "To speed up the answer, please write:"
+      },
+      "ack": {
+        "title": "Your request is passed to staff.",
+        "dueStart": "We will answer {day} after {time}.",
+        "due": "We will answer by {when}."
+      },
+      "questions": {
+        "version": "Which version of Smartup do you use?",
+        "steps": "What did you do before the error?",
+        "since_when": "Since when does this happen?",
+        "screenshot": "Attach a screenshot of the error.",
+        "period_filters": "Which period and filters did you choose?",
+        "other_user": "Does another user see the same?"
+      },
+      "formHint": "The AI assistant answers first. You can call staff at any time."
     }
   },
   "agent": {
@@ -830,6 +881,10 @@
         "search": {
           "title": "Search",
           "text": "Synonyms, the Uzbek dictionary and pinned solutions in suggestions."
+        },
+        "ai": {
+          "title": "AI assistant",
+          "text": "Tez on the first line: switch, threshold, limits and spending, models."
         }
       },
       "servers": {
@@ -1161,7 +1216,12 @@
             "viewed_by_staff": "Ticket opened by staff",
             "tag_added": "Tag added to a ticket",
             "tag_removed": "Tag removed from a ticket",
-            "csat_reviewed": "Rating review note written"
+            "csat_reviewed": "Rating review note written",
+            "ai_handoff": "The AI assistant handed the request to staff",
+            "ai_feedback": "The client answered the AI assistant's message",
+            "triage_accepted": "AI triage suggestion accepted",
+            "ai_answer_flagged": "AI assistant answer marked as wrong",
+            "ai_answer_reviewed": "AI answer review result recorded"
           },
           "attachment": {
             "infected": "Infected file found",
@@ -1648,7 +1708,8 @@
           "work_time": "Time",
           "hours_since_client": "Hours since client message",
           "hours_since_staff": "Hours since staff reply",
-          "rating": "Rating"
+          "rating": "Rating",
+          "ai_reason": "AI handoff reason"
         },
         "ops": {
           "is": "is",
@@ -2031,6 +2092,98 @@
           "save": "Save rules",
           "saved": "Pinning rules saved."
         }
+      },
+      "ai": {
+        "title": "AI assistant",
+        "intro": "Tez answers new requests first, using published solutions. Changes are written to the audit log.",
+        "reauth": "Sign in again",
+        "save": "Save",
+        "done": {
+          "saved": "AI settings saved.",
+          "models": "Models saved.",
+          "models_changed": "Models saved. After changing a model, run the evaluation set.",
+          "lifted": "Cut-off lifted.",
+          "topics": "Mandatory topics saved.",
+          "field_on": "Triage field turned on again."
+        },
+        "errors": {
+          "stale_session": "Sign in again to change settings.",
+          "forbidden": "Only an administrator changes this setting.",
+          "invalid_input": "Check the values: nothing was saved."
+        },
+        "spend": {
+          "title": "Spending this month",
+          "text": "Spent {spent} of {budget}.",
+          "noCutoffs": "No organisations are cut off.",
+          "cutOrg": "Cut off until the end of the month: {name}",
+          "cutAll": "Assistant off for everyone until the end of the month",
+          "lift": "Lift"
+        },
+        "general": {
+          "title": "Assistant",
+          "enabled": "Assistant answers first",
+          "enabledHint": "Off: new requests go straight to staff. Organisations with AI processing off never get the assistant.",
+          "triageEnabled": "Triage suggestions: module, type, title",
+          "minScore": "Confidence threshold",
+          "minScoreHint": "A solution below the threshold is not used in an answer.",
+          "budget": "Monthly limit, USD",
+          "userLimit": "Calls per day per user",
+          "orgLimit": "Calls per day per organisation",
+          "cutoff": "Share of the limit per organisation, %",
+          "cutoffHint": "At 80% of the limit, organisations that spent more than this share are cut off.",
+          "fieldsOff": "Disabled triage suggestions",
+          "fieldsOffHint": "A field turns off by itself if fewer than 70% of its suggestions were accepted in a month."
+        },
+        "fields": {
+          "module": "Module",
+          "type": "Type",
+          "title": "Title",
+          "summary": "Summary",
+          "priority_hint": "Priority hint"
+        },
+        "models": {
+          "title": "Models",
+          "intro": "The model for each task. After changing a model, run the evaluation set.",
+          "save": "Save models"
+        },
+        "purposes": {
+          "first_line": "First-line answer",
+          "triage": "Triage without an answer",
+          "solution_draft": "Solution draft",
+          "translation": "Solution translation",
+          "idea_translation": "Idea translation",
+          "message_translation": "Message translation",
+          "thanks": "Thanks check"
+        },
+        "modelNames": {
+          "claude-opus-5-5": "Claude Opus 5.5",
+          "claude-sonnet-5-5": "Claude Sonnet 5.5",
+          "claude-haiku-5-5": "Claude Haiku 5.5"
+        },
+        "topics": {
+          "title": "Mandatory topics",
+          "intro": "A request with these words goes straight to staff. One word or phrase per line. Uzbek in Latin or Cyrillic script: both are found.",
+          "save": "Save topics",
+          "langs": {
+            "ru": "Russian",
+            "uz": "Uzbek",
+            "en": "English"
+          },
+          "names": {
+            "payments": "Billing and payment",
+            "contract": "Contract",
+            "complaint": "Complaint",
+            "data_change": "Deleting or mass-changing data",
+            "access": "Access and rights",
+            "security": "Security",
+            "legal": "Legal questions"
+          }
+        },
+        "autoOff": {
+          "title": "Turned off by the nightly check",
+          "row": "{field}: {share} of {count} suggestions accepted this month",
+          "lift": "Turn on again"
+        }
       }
     },
     "queues": {
@@ -2047,7 +2200,9 @@
         "waiting": "Waiting for client",
         "development": "In development",
         "breached": "Overdue",
-        "all": "All"
+        "all": "All",
+        "after_ai": "After AI",
+        "ai_waiting": "AI replied, client silent"
       },
       "search": "Search",
       "searchHint": "Number, text, organization, TIN, author",
@@ -2172,7 +2327,8 @@
       "tag": "Tag",
       "anyTag": "All tags",
       "byTag": "Show tickets tagged {name}",
-      "searchTruncated": "Showing the best matches. Refine the search to find the rest."
+      "searchTruncated": "Showing the best matches. Refine the search to find the rest.",
+      "aiReason": "Handed over: {reason}"
     },
     "ticket": {
       "files": "Files",
@@ -2219,7 +2375,12 @@
         "devTaskLinked": "{actor}: handed over to development, task {ref}",
         "devTaskUnlinked": "{actor}: development task {ref} unlinked",
         "devTaskClosed": "Development task {ref} closed ({status}). The assignee was reminded to check and tell the client",
-        "csat_review": "{actor}: wrote a rating review note"
+        "csat_review": "{actor}: wrote a rating review note",
+        "ai_handoff": "Handed to staff: {reason}",
+        "triage_accepted": "{actor}: triage suggestion accepted",
+        "ai_state": "Assistant turned on",
+        "ai_answer": "Assistant replied",
+        "ai_feedback": "{actor}: reaction to the assistant message"
       },
       "ruleActions": {
         "set_queue": "queue {to}",
@@ -2352,7 +2513,10 @@
           "untagged": "Tag removed",
           "dev_sent": "Ticket handed over to development",
           "dev_unlinked": "Development task unlinked",
-          "dev_status": "Task status saved"
+          "dev_status": "Task status saved",
+          "triaged": "Triage suggestion accepted.",
+          "flagged": "The answer is marked as wrong.",
+          "translating": "The translation is being prepared."
         },
         "errors": {
           "forbidden": "Your role does not allow this action.",
@@ -2554,6 +2718,70 @@
         "platform": "Platform: {value}",
         "errorCode": "Error code: {value}",
         "errorText": "Error text: {value}"
+      },
+      "ai": {
+        "title": "AI assistant",
+        "states": {
+          "none": "The assistant did not reply",
+          "active": "The assistant is handling the request",
+          "handed_off": "Handed to staff",
+          "resolved_by_ai": "Resolved by the assistant"
+        },
+        "handedOff": "Handed over: {reason}",
+        "replies": "Assistant replies: {count}",
+        "summary": "Summary",
+        "unverified": "AI, not verified",
+        "unverifiedHint": "Not a basis for actions with rights, data or payments. Check against the original text.",
+        "original": "Original request text",
+        "found": "Solutions found",
+        "triage": "Triage suggestions",
+        "fields": {
+          "module": "Module",
+          "type": "Type",
+          "title": "Title",
+          "summary": "Summary"
+        },
+        "accept": "Accept",
+        "acceptField": "Accept: {field}",
+        "acceptAll": "Accept all",
+        "accepted": "Accepted",
+        "checkPriority": "Check the priority: the problem looks more serious than the client said"
+      },
+      "aiReasons": {
+        "customer_request": "the client asked for staff",
+        "not_helped": "did not help",
+        "no_solution": "no matching solution",
+        "restricted_topic": "staff-only topic",
+        "p1": "priority P1",
+        "low_confidence": "the assistant is not sure",
+        "reply_limit": "three assistant replies",
+        "ai_failure": "AI failure",
+        "ai_disabled": "the assistant is off",
+        "ai_limit": "AI spending limit",
+        "no_text": "request without text",
+        "language": "language not supported"
+      },
+      "flag": {
+        "open": "Mark the answer as wrong",
+        "reason": "Reason",
+        "comment": "Comment",
+        "commentHint": "Optional, up to 500 characters",
+        "submit": "Mark",
+        "done": "The answer is marked as wrong.",
+        "reasons": {
+          "wrong_solution": "Wrong solution",
+          "outdated_solution": "Outdated solution",
+          "should_handoff": "Should have been handed to staff",
+          "wrong_language": "Wrong language",
+          "other": "Other"
+        }
+      },
+      "translate": {
+        "button": "Translate",
+        "pending": "The translation is being prepared. Refresh the page in a few seconds.",
+        "failed": "The translation failed.",
+        "machine": "Machine translation",
+        "hint": "Not a basis for actions with rights, data or payments"
       }
     },
     "playbooks": {
@@ -2724,11 +2952,12 @@
         "shareOf": "Share of resolved: {name}",
         "averageTime": "Average time on the line",
         "returns": "Returns from the second line to the first: {count}",
-        "hint": "Resolved requests of the period are counted. A request is resolved on the line where it was right before it became \"Resolved\": the status \"In development\" means development, the first line queue means the first line, the second line and Customer Care queues mean the second line. Time on a line: working hours from creation to resolution, including waiting for the client; the average is over the requests that were on the line. The line is rebuilt from the request history, so a move made by an automation rule is counted too.",
+        "hint": "Resolved requests of the period are counted. A request is resolved on the line where it was right before it became \"Resolved\": the status \"In development\" means development, the first line queue means the first line, the second line and Customer Care queues mean the second line. Time on a line: working hours from creation to resolution, including waiting for the client; the average is over the requests that were on the line. The line is rebuilt from the request history, so a move made by an automation rule is counted too. AI assistant line: the request was resolved while the assistant handled it (the \"Helped\" button).",
         "names": {
           "first": "First line",
           "second": "Second line",
-          "development": "Development"
+          "development": "Development",
+          "assistant": "AI assistant"
         }
       },
       "breakdown": {
@@ -2849,6 +3078,23 @@
         "missesCount": "Queries",
         "missesNoModule": "No module selected",
         "missesRecent": "Recent queries"
+      },
+      "assistant": {
+        "title": "AI assistant",
+        "resolved": "Resolved without staff",
+        "resolvedOf": "{resolved} of {handled} assistant requests",
+        "firstReply": "Assistant first reply",
+        "seconds": "{value} s",
+        "median": "Median {value} s",
+        "csat": "Rating of requests resolved by the assistant",
+        "csatCount": "Ratings: {count}",
+        "reopened": "Reopened after \"Helped\"",
+        "flagged": "Marked as wrong",
+        "flaggedOf": "{flagged} of {answers} solution answers",
+        "spend": "AI spending this month",
+        "handoffs": "Handoffs to staff by reason",
+        "count": "Requests",
+        "hint": "Counts requests created in the period that the assistant handled. First reply time in seconds around the clock: the assistant replies at any time. Spending for the current calendar month in Tashkent time."
       }
     },
     "solutions": {
@@ -2875,7 +3121,8 @@
         "shown": "Views",
         "helped": "Helped",
         "notHelped": "Did not help",
-        "updated": "Changed"
+        "updated": "Changed",
+        "assistant": "Assistant answers"
       },
       "locales": {
         "ru": "Russian",
@@ -3325,6 +3572,36 @@
         "weak_password": "This password is too common: it is among the first to be guessed. Choose another one, for example a phrase of several words of your own.",
         "password_mismatch": "The passwords do not match."
       }
+    },
+    "aiReview": {
+      "title": "AI answer review",
+      "intro": "Assistant answers worth checking: marked by staff, in requests rated below 4, and the latest answers for reviewing the first two weeks of the pilot.",
+      "flagged": "Marked as wrong",
+      "lowRated": "Client rating below 4",
+      "sample": "Latest answers in two weeks",
+      "empty": "Nothing yet.",
+      "columns": {
+        "ticket": "Request",
+        "solution": "Assistant solution",
+        "reason": "Mark reason",
+        "rating": "Rating",
+        "result": "Review result"
+      },
+      "noSolution": "Question, no solution",
+      "noReason": "Not marked",
+      "noResult": "Not reviewed",
+      "save": "Save result",
+      "resultLabel": "Review result for {ticket}",
+      "results": {
+        "solution_fixed": "Solution fixed",
+        "threshold_raised": "Threshold raised",
+        "no_change": "No change"
+      },
+      "done": "Review result saved.",
+      "errors": {
+        "forbidden": "Second line, care and admin write the review result.",
+        "invalid_input": "Check the selected result."
+      }
     }
   },
   "auth": {
@@ -3510,7 +3787,25 @@
       "submit": "Sign in",
       "invalid": "This link no longer works. A link from the bot works once and for 10 minutes. Request a new one in the bot."
     },
-    "tooOften": "Too many attempts from your address. Wait 10 minutes and press the button again."
+    "tooOften": "Too many attempts from your address. Wait 10 minutes and press the button again.",
+    "aiAnswer": {
+      "title": "Request SUP-{number}",
+      "helped": "Confirm that the solution helped.",
+      "needStaff": "Confirm that you need staff.",
+      "confirmHelped": "Helped",
+      "confirmStaff": "Need staff",
+      "open": "Open the portal",
+      "done": {
+        "helped": "Thank you. The request is resolved.",
+        "need_staff": "We passed your request to staff."
+      },
+      "errors": {
+        "link_invalid": "The link is not valid.",
+        "expired": "The link has expired. Open the request in the portal.",
+        "already_done": "Already counted.",
+        "rate_limited": "Too many attempts. Try again later."
+      }
+    }
   },
   "mail": {
     "loginLink": {
@@ -3652,6 +3947,26 @@
     },
     "staffIdeaDevTaskClosed": {
       "text": "Development task {ref} is closed: check it and, once released, set idea {idea} “{title}” to Released."
+    },
+    "tezAnswer": {
+      "heading": "Tez answered request SUP-{number}",
+      "signature": "Tez · AI assistant",
+      "caption": "Answer prepared by AI from the solution base",
+      "open": "Open the full solution",
+      "helped": "Helped",
+      "needStaff": "Need staff",
+      "intro": {
+        "likely_solution": "This solution will likely help.",
+        "exact_error": "This is the same error. Here is how to fix it.",
+        "similar_case": "A similar case was solved before.",
+        "known_steps": "Try these steps."
+      }
+    },
+    "tezAck": {
+      "heading": "Request SUP-{number} is passed to staff",
+      "text": "Your request is passed to staff.",
+      "dueStart": "We will answer {day} after {time}.",
+      "due": "We will answer by {when}."
     }
   },
   "bot": {
@@ -3682,7 +3997,10 @@
       "autoClosed": "The request is closed: we did not get a reply.",
       "merged": "Merged into SUP-{into}. The conversation continues there.",
       "resolved": "The request is resolved. Rate the answer or reopen the request.",
-      "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}."
+      "reminder": "We are waiting for your reply. Without a reply the request will be closed in {days, plural, one {# working day} other {# working days}}.",
+      "tezAnswer": "Tez suggested a solution: {solution}",
+      "tezHelped": "Helped",
+      "tezNeedStaff": "Need staff"
     },
     "oncallP1": "P1: new urgent request SUP-{number}",
     "oncallP1Org": "P1: new urgent request SUP-{number}, {org}",
@@ -3705,6 +4023,12 @@
       "search_lag": "Smartup Hub: the search index has not been updated for {minutes} min, items waiting: {count}.",
       "search_drift": "Smartup Hub: the search index check found {count} differences (collections: {collections}). Missing items will be written again.",
       "search_isolation": "Smartup Hub: search returned another organization's ids to a client, the database check dropped them: {count} in the last hour. Check the search key filter."
+    },
+    "tez": {
+      "helped": "Glad it helped. The request is resolved.",
+      "needStaff": "I passed your request to staff.",
+      "already": "Already counted.",
+      "invalid": "This button no longer works. Open the request in the portal."
     }
   },
   "dev": {

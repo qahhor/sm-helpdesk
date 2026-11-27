@@ -34,7 +34,6 @@ export async function requestTranslation(
     purpose: 'translation',
     orgId: null,
     refId: input.articleId,
-    tier: 'fast',
     system: TRANSLATION_SYSTEM,
     data,
     schema: translationSchema,
@@ -79,7 +78,6 @@ export async function requestIdeaTranslation(
     purpose: 'idea_translation',
     orgId: input.orgId,
     refId: input.ideaId,
-    tier: 'fast',
     system: IDEA_TRANSLATION_SYSTEM,
     data,
     schema: ideaTranslationSchema,
@@ -102,7 +100,7 @@ export async function requestExplanationDraft(system: SystemActor, input: { from
     body: input.text,
     redaction: { names: [], orgTerms: [] },
   });
-  const outcome = await runAi(system, { purpose: 'idea_translation', orgId: null, refId: null, tier: 'fast', system: IDEA_TRANSLATION_SYSTEM, data, schema: ideaTranslationSchema, maxTokens: 2000 });
+  const outcome = await runAi(system, { purpose: 'idea_translation', orgId: null, refId: null, system: IDEA_TRANSLATION_SYSTEM, data, schema: ideaTranslationSchema, maxTokens: 2000 });
   if (outcome.status !== 'ok') return outcome;
   return { status: 'ok', value: outcome.value.body };
 }

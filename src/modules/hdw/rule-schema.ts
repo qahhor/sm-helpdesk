@@ -1,6 +1,6 @@
 import * as z from 'zod';
 import { cleanUserText } from '@/modules/hdc/pref';
-import { IMPACTS, PRIORITIES, QUEUES, TICKET_SOURCES, TICKET_STATUSES, TICKET_TYPES } from '@/modules/hdt/pref';
+import { AI_HANDOFF_REASONS, IMPACTS, PRIORITIES, QUEUES, TICKET_SOURCES, TICKET_STATUSES, TICKET_TYPES } from '@/modules/hdt/pref';
 import { BUILTIN_ACTIONS, type BuiltinAction, MAX_ACTIONS, MAX_CONDITIONS, MAX_HOURS, MAX_SNOOZE_HOURS, NOTIFY_ROLES, ORG_CATEGORIES, RULE_EVENT_KINDS, RULE_NAME_MAX, RULE_NOTE_MAX, RULE_STATUS_TARGETS } from './pref';
 
 // Модуль hdw: схема правила автоматизации (FR-AUTO-01, 03, 04, 05; план M8, задача 3). Правило это данные: событие,
@@ -34,6 +34,8 @@ const condition = z.union([
     listCondition('locale', z.enum(['ru', 'uz', 'en'])),
     listCondition('org_category', z.enum(ORG_CATEGORIES)),
     listCondition('org', z.uuid()),
+    // Причина передачи от AI (план M5b, задача 8): перечень FR-AI-14 и уточнения no_text, language.
+    listCondition('ai_reason', z.enum(AI_HANDOFF_REASONS)),
     z.strictObject({ field: z.literal('tags'), op: z.enum(['has_any', 'has_all', 'has_none']), values: values(z.uuid()) }),
     z.strictObject({ field: z.literal('text'), op: z.enum(['contains_any', 'contains_none']), words: z.array(word).min(1).max(10) }),
     z.strictObject({ field: z.literal('work_time'), op: z.literal('is'), value: z.enum(['working', 'off']) }),
@@ -41,10 +43,10 @@ const condition = z.union([
     z.strictObject({ field: z.literal('hours_since_staff'), op: z.enum(['gte', 'lt']), value: hours }),
     z.strictObject({ field: z.literal('rating'), op: z.enum(['is', 'lte', 'gte']), value: z.number().int().min(1).max(5) }),
   ]),
-  // Условия ТЗ, для которых ещё нет данных (вехи M5b и M5c): названы, но не принимаются.
-  z.looseObject({ field: z.enum(['signature', 'known_problem', 'ai_reason']) }).refine(() => false, { error: 'condition_not_ready' }),
+  // Условия ТЗ, для которых ещё нет данных (веха M5c): названы, но не принимаются.
+  z.looseObject({ field: z.enum(['signature', 'known_problem']) }).refine(() => false, { error: 'condition_not_ready' }),
 ]);
-export type Condition = Exclude<z.infer<typeof condition>, { field: 'signature' | 'known_problem' | 'ai_reason' }>;
+export type Condition = Exclude<z.infer<typeof condition>, { field: 'signature' | 'known_problem' }>;
 
 const conditions = z.strictObject({ match: z.enum(['all', 'any']), items: z.array(condition).max(MAX_CONDITIONS) });
 export type Conditions = { match: 'all' | 'any'; items: Condition[] };
@@ -113,7 +115,7 @@ export const ruleInput = z
   .strictObject({
     ruleId: z.uuid().optional(),
     name: z.string().overwrite(cleanUserText).trim().min(1).max(RULE_NAME_MAX),
-    event: z.enum(RULE_EVENT_KINDS).refine((kind) => kind !== 'ai_handoff', { error: 'event_not_ready' }),
+    event: z.enum(RULE_EVENT_KINDS),
     /** Только для события "нет активности": через сколько часов молчания срабатывает правило. */
     hours: z.number().int().min(1).max(MAX_HOURS).nullable().optional(),
     conditions,
@@ -129,7 +131,7 @@ export const ruleInput = z
 export type RuleDefinition = {
   ruleId?: string;
   name: string;
-  event: Exclude<(typeof RULE_EVENT_KINDS)[number], 'ai_handoff'>;
+  event: (typeof RULE_EVENT_KINDS)[number];
   hours: number | null;
   conditions: Conditions;
   actions: RuleAction[];

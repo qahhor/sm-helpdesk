@@ -4,11 +4,17 @@ import { consumeRateLimit, rateKey, recordTicketSignature, wakeAutomation } from
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { isActiveModule, loadSlaConfig } from '@/modules/hdr/api';
 import { refreshSlaAfterClient } from './api/jobs';
+import { assistantOnClientReply, startAssistant } from './api/ai';
+import { thanksOnClientReply } from './api/ai-messages';
 import { confirmTx, rateTx, reopenDays, reopenTx, replyTx, unwatchTx, visibilityTx, watchTx } from './core/actions';
 import { createTicketTx, listTicketRows, readTicket, ticketExists } from './core/tickets';
 import { HdtError } from './error';
 import { createTicketInput, listTicketsInput, modeBContext, numberInput, parseInput, rateInput, reopenInput, replyInput, visibilityInput, widgetTicketInput } from './input';
 import type { TicketContext } from './schema';
+import type { AiPayload, AiState } from './pref';
+
+/** Страница обращения показывает "Думает" не дольше 70 секунд (план M5b, решение 23). */
+const AI_THINKING_MS = 70_000;
 import {
   ALLOWED_FILES,
   type AuthorType,
@@ -144,7 +150,7 @@ export {
   TRANSFERABLE_STATUSES,
   VISIBILITIES,
 } from './pref';
-export type { CsatReason, Impact, Priority, ResolutionType, ScanStatus, TicketStatus, TicketType, Visibility } from './pref';
+export type { AiPayload, AiState, CsatReason, Impact, Priority, ResolutionType, ScanStatus, TicketStatus, TicketType, Visibility } from './pref';
 /** Расширения разрешённых файлов (FR-TK-13) для поля выбора файла. */
 export const ALLOWED_FILE_EXTENSIONS: readonly string[] = Object.keys(ALLOWED_FILES);
 
@@ -186,6 +192,8 @@ export async function createTicket(ctx: ClientActorContext, input: unknown): Pro
     context: hasContext ? { errorCode: context.errorCode, errorText: context.errorText } : null,
     moduleId: data.moduleId ?? null,
   });
+  // Помощник первой линии (план M5b, решение 4): после фиксации, от имени системы.
+  await startAssistant({ ticketId, orgId: ctx.actor.orgId });
   // Письмо с номером уже в очереди (FR-NT-09): отправка будится после фиксации. Событие для правил тоже записано.
   await wakeOutbox();
   await wakeAutomation();
@@ -226,6 +234,7 @@ export async function createWidgetTicket(ctx: ClientActorContext, input: unknown
     context: { errorCode: context.errorCode, errorText: context.errorText },
     moduleId: data.moduleId ?? null,
   });
+  await startAssistant({ ticketId, orgId: ctx.actor.orgId });
   await wakeOutbox();
   await wakeAutomation();
   return { number, ticketId };
@@ -312,7 +321,18 @@ export type AttachmentView = {
   isMine: boolean;
 };
 /** isAuto: автоматический ответ правила автоматизации (FR-AUTO-11): страница помечает его подписью. */
-export type MessageView = { messageId: string; authorType: AuthorType; authorName: string | null; isMine: boolean; isAuto: boolean; body: string; createdOn: Date; attachments: AttachmentView[] };
+export type MessageView = {
+  messageId: string;
+  authorType: AuthorType;
+  authorName: string | null;
+  isMine: boolean;
+  isAuto: boolean;
+  body: string;
+  createdOn: Date;
+  attachments: AttachmentView[];
+  /** Ссылки сообщения AI-помощника (план M5b, решение 9): есть только у author_type = ai. */
+  aiPayload: AiPayload | null;
+};
 export type EventView = { kind: EventKind; actorType: AuthorType; payload: Record<string, unknown>; createdOn: Date };
 export type TicketActions = { reply: boolean; confirm: boolean; reopen: boolean; rate: boolean; changeVisibility: boolean; watch: boolean };
 export type TicketView = {
@@ -346,6 +366,12 @@ export type TicketView = {
   /** Срок, который поддержка обещает клиенту сейчас (FR-SLA-08): первый ответ или решение. На ходу клиента пусто. */
   nextReply: { kind: 'first_response' | 'resolution'; at: Date; timeZone: string } | null;
   can: TicketActions;
+  /** Помощник ведёт обращение (план M5b): active, handed_off, resolved_by_ai или none. */
+  aiState: AiState;
+  /** Тез готовит первый ответ (решение 23): помощник включён, ответа ещё нет, с создания меньше 70 секунд. */
+  aiThinking: boolean;
+  /** Часовой пояс календаря поддержки: срок в сообщении о передаче показывается в нём. */
+  timeZone: string;
 };
 
 /** Срок следующего ответа для клиента: до первого ответа сам первый ответ, после него срок решения. */
@@ -408,6 +434,7 @@ export async function getTicket(ctx: ClientActorContext, numberRaw: unknown, opt
   });
   const isMine = ticket.authorId === me;
   const days = await reopenDays();
+  const timeZone = (await loadSlaConfig(ctx.actor)).calendar.timeZone;
   return {
     number: ticket.number,
     title: ticket.title,
@@ -437,13 +464,17 @@ export async function getTicket(ctx: ClientActorContext, numberRaw: unknown, opt
       body: m.body,
       createdOn: m.createdOn,
       attachments: found.attachments.filter((a) => a.messageId === m.messageId).map(fileView),
+      aiPayload: m.authorType === 'ai' ? m.aiPayload : null,
     })),
     events: found.events.map((e) => ({ kind: e.kind, actorType: e.actorType, payload: e.payload, createdOn: e.createdOn })),
     shown,
     hasEarlier: found.hasEarlier,
     turn: turnOf(ticket.status),
     // Часовой пояс календаря поддержки: срок показывается в нём, а не в поясе сервера.
-    nextReply: turnOf(ticket.status) === 'support' ? nextReplyOf(ticket, (await loadSlaConfig(ctx.actor)).calendar.timeZone) : null,
+    nextReply: turnOf(ticket.status) === 'support' ? nextReplyOf(ticket, timeZone) : null,
+    aiState: ticket.aiState,
+    aiThinking: ticket.aiState === 'active' && ticket.status === 'new' && !found.messages.some((m) => m.authorType === 'ai') && Date.now() - ticket.createdOn.getTime() < AI_THINKING_MS,
+    timeZone,
     can: {
       reply: ticket.status !== 'closed',
       // Решение 0026, пункт 21: подтверждают автор и администратор клиента, открыть снова может любой, кто видит,
@@ -466,7 +497,12 @@ export async function replyToTicket(ctx: ClientActorContext, input: unknown): Pr
   if (ids.length > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
   const limit = await consumeRateLimit(rateKey('ticket-reply:user', ctx.actor.userId), RATE_RULES.ticketReplyPerUser);
   if (!limit.allowed) throw new HdtError('rate_limited', { retryAfterSec: limit.retryAfterSec });
-  await refreshSlaAfterClient(await replyTx(ctx.actor, data.number, data.body, ids));
+  const ticketId = await replyTx(ctx.actor, data.number, data.body, ids);
+  await refreshSlaAfterClient(ticketId);
+  // Помощник включён: отвечает снова, не больше трёх ответов на обращение (план M5b, задача 4; FR-AI-09).
+  await assistantOnClientReply(ticketId);
+  // Благодарность на решённое уточняется у модели, если AI-обработка организации включена (FR-TK-14, решение 24).
+  await thanksOnClientReply(ticketId);
   await wakeAutomation();
 }
 

@@ -1,10 +1,12 @@
 // Модуль hdw (автоматизация), слой pref: константы и коды правил (docs/naming.md, раздел 5; ТЗ 7.17; план M8, задача 3).
 
-/** События, на которые можно повесить правило (FR-AUTO-02). */
-export const RULE_EVENTS = ['ticket_created', 'client_replied', 'staff_replied', 'status_changed', 'priority_changed', 'rated', 'sla_soon', 'sla_breached', 'no_activity'] as const;
+/**
+ * События, на которые можно повесить правило (FR-AUTO-02). "AI передал обращение" (ai_handoff) принимается с вехи M5b
+ * (задача 8): событие пишет передача помощника (src/modules/hdt/core/ai.ts).
+ */
+export const RULE_EVENTS = ['ticket_created', 'client_replied', 'staff_replied', 'status_changed', 'priority_changed', 'rated', 'sla_soon', 'sla_breached', 'no_activity', 'ai_handoff'] as const;
 export type RuleEvent = (typeof RULE_EVENTS)[number];
-/** Событие "AI передал обращение" названо в типе, но правило на него пока не сохраняется: данных нет до вехи M5b. */
-export const RULE_EVENT_KINDS = [...RULE_EVENTS, 'ai_handoff'] as const;
+export const RULE_EVENT_KINDS = RULE_EVENTS;
 export type RuleEventKind = (typeof RULE_EVENT_KINDS)[number];
 
 /** Итог срабатывания (ограничение hdw_rule_runs_c1). */

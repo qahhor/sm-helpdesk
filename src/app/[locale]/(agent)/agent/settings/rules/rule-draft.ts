@@ -31,6 +31,7 @@ export const FIELD_KINDS = {
   locale: 'list',
   org_category: 'list',
   org: 'list',
+  ai_reason: 'list',
   tags: 'tags',
   text: 'words',
   work_time: 'work',

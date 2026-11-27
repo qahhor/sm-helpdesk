@@ -14,6 +14,7 @@ import {
   unwatchTicket,
   watchTicket,
 } from '@/modules/hdt/api';
+import { aiFeedback } from '@/modules/hdt/api/ai-feedback';
 import { isHduError, requireClientActor, switchOrganizationOfRequest } from '@/modules/hdu/api';
 
 // Действия на странице обращения (FR-TK-08 - FR-TK-12). Номер из формы проверяет модуль обращений:
@@ -107,4 +108,30 @@ export async function switchToTicketAction(formData: FormData): Promise<void> {
   // Название организации живёт в шапке раскладки: её нужно перерисовать.
   refresh();
   redirect(number === null ? `/${locale}/tickets` : `/${locale}/tickets/SUP-${number}`);
+}
+
+/**
+ * Кнопки под сообщением Теза (план M5b, задача 5; FR-AI-08, FR-TK-18): "Помогло", "Не помогло", "Нужен сотрудник",
+ * выбор решения в вопросе. Право на обращение, сообщение и переход проверяет модуль обращений.
+ */
+export async function aiFeedbackAction(formData: FormData): Promise<void> {
+  const client = await requireClientActor();
+  const locale = await getLocale();
+  const number = numberOf(formData);
+  if (number === null) redirect(`/${locale}/tickets`);
+  const page = `/${locale}/tickets/SUP-${number}`;
+  let done: string;
+  try {
+    done = await aiFeedback(client, {
+      number,
+      messageId: String(formData.get('messageId') ?? ''),
+      choice: String(formData.get('choice') ?? ''),
+      ...(formData.get('articleId') ? { articleId: String(formData.get('articleId')) } : {}),
+    });
+  } catch (error) {
+    if (!isHdtError(error)) throw error;
+    if (error.code === 'not_found') redirect(`/${locale}/tickets`);
+    redirect(`${page}?error=ai_feedback`);
+  }
+  redirect(`${page}?done=ai_${done}`);
 }

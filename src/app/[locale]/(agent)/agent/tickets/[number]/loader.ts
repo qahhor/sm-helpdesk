@@ -8,7 +8,7 @@ import { DEV_TASK_ERROR_CODES, devTrackerMode, listRunnableMacros, readDevTaskFo
 // данных и права отдельно от разметки.
 
 /** Коды "сделано" в адресе страницы после действия. */
-export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged', 'dev_sent', 'dev_unlinked', 'dev_status'] as const;
+export const DONE = ['taken', 'assigned', 'status', 'priority', 'type', 'module', 'snoozed', 'sent', 'noted', 'transferred', 'returned', 'merged', 'created', 'invited', 'tagged', 'untagged', 'dev_sent', 'dev_unlinked', 'dev_status', 'triaged', 'flagged', 'translating'] as const;
 
 /** Отказы создания решения из обращения (план M5, задача 7): код модуля решений с приставкой solution_. */
 const SOLUTION_ERROR_CODES = ['solution_not_resolved', 'solution_forbidden', 'solution_not_found', 'solution_invalid_input'] as const;

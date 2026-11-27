@@ -8,6 +8,10 @@ import { beatWorker, bossOptions, cleanupAudit, cleanupDomainEvents, cleanupRate
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates } from '@/modules/hdn/api/maintenance';
 import { cleanupNotifications } from '@/modules/hdn/api/notifications';
 import { requeueStaleInbound } from '@/modules/hdn/api/inbound';
+import { runAiBudget } from '@/modules/hda/api/budget';
+import { runFirstLineJob, runWatchdogJob } from '@/modules/hda/api/first-line';
+import { runTriageJob, runTriageReview } from '@/modules/hda/api/triage-jobs';
+import { cleanupMessageTranslations, runMessageTranslationJob, runThanksJob } from '@/modules/hda/api/message-ai';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
 import { scanSolutionFile } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
@@ -37,6 +41,10 @@ import { searchReconcile, searchSyncTick } from './search-jobs';
 export const SCHEDULES = [
   { name: 'attachment.sweep', cron: '* * * * *', tz: 'UTC' },
   { name: 'tickets.minute', cron: '* * * * *', tz: 'UTC' },
+  // Пределы расходов на AI (план M5b, решение 11): раз в 10 минут.
+  { name: 'ai.budget', cron: '*/10 * * * *', tz: 'UTC' },
+  // Сторожевая проверка помощника (план M5b, решение 5): раз в минуту по всем обращениям у помощника.
+  { name: 'ai.watchdog', cron: '* * * * *', tz: 'UTC' },
   { name: 'outbox.dispatch', cron: '* * * * *', tz: 'UTC' },
   { name: 'automation.process', cron: '* * * * *', tz: 'UTC' },
   { name: 'webhooks.dispatch', cron: '* * * * *', tz: 'UTC' },
@@ -48,6 +56,8 @@ export const SCHEDULES = [
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
   // Сверка поискового индекса подсказки (план M5, задача 9): после ночной очистки.
   { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
+  // Доля принятых предложений разбора за месяц (план M5b, задача 7, FR-TRI-04): ночью после сверки индекса.
+  { name: 'ai.triage_review', cron: '45 3 * * *', tz: 'Asia/Tashkent' },
   // Сводка модерации идей роли product (план M7, задача 8, решение 15): раз в день в 09:30 по Ташкенту.
   { name: 'ideas.moderation_digest', cron: '30 9 * * *', tz: 'Asia/Tashkent' },
   // Отбор месяца (план M7, задача 9, решение 16): 1-го числа в 09:00 по Ташкенту.
@@ -218,6 +228,38 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const { requeued, removed, failed } = await sweepAttachments(actor('attachment.sweep'));
     if (requeued > 0 || removed > 0 || failed > 0)
       console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}, проверка не прошла за сутки ${failed}`);
+  }));
+  await boss.work('ai.budget', polling, () => timedJob('ai.budget', async () => {
+    const result = await runAiBudget(actor('ai.budget'));
+    // Машинные переводы сообщений живут 24 часа (план M5b, решение 24): удаляются тем же заданием раз в 10 минут.
+    const removed = await cleanupMessageTranslations(actor('ai.budget'));
+    if (removed > 0) console.info(`AI: удалено переводов сообщений старше суток ${removed}`);
+    if (result.orgsCut > 0 || result.allCut) console.info(`AI: расход ${result.spentUsd} из ${result.budgetUsd} долларов, отключено организаций ${result.orgsCut}${result.allCut ? ', помощник отключён для всех' : ''}`);
+  }));
+  await boss.work('ai.first_line', { ...polling, localConcurrency: 2 }, ([job]) => timedJob('ai.first_line', async () => {
+    // Ответ первой линии (план M5b, задача 4): в задании только идентификатор обращения. Сбой внутри ведёт к передаче.
+    await runFirstLineJob(actor('ai.first_line'), job?.data);
+  }));
+  await boss.work('ai.message_translation', polling, ([job]) => timedJob('ai.message_translation', async () => {
+    // Перевод сообщения клиента для сотрудника (план M5b, задача 9): в задании только идентификатор строки перевода.
+    await runMessageTranslationJob(actor('ai.message_translation'), job?.data);
+  }));
+  await boss.work('ai.thanks', polling, ([job]) => timedJob('ai.thanks', async () => {
+    // Уточнение благодарности (FR-TK-14, решение 24): модель может только открыть обращение заново.
+    await runThanksJob(actor('ai.thanks'), job?.data);
+  }));
+  await boss.work('ai.triage', polling, ([job]) => timedJob('ai.triage', async () => {
+    // Разбор без ответа помощника (план M5b, решение 6): в задании только идентификатор обращения.
+    await runTriageJob(actor('ai.triage'), job?.data);
+  }));
+  await boss.work('ai.triage_review', polling, () => timedJob('ai.triage_review', async () => {
+    const off = await runTriageReview(actor('ai.triage_review'));
+    if (off.length > 0) console.info(`AI: отключены предложения разбора полей ${off.join(', ')}`);
+  }));
+  await boss.work('ai.watchdog', polling, ([job]) => timedJob('ai.watchdog', async () => {
+    // Через 60 секунд после создания или ответа клиента (с обращением) и раз в минуту по расписанию (без него).
+    const handed = await runWatchdogJob(actor('ai.watchdog'), job?.data);
+    if (handed > 0) console.info(`AI: сторож передал сотрудникам обращений ${handed}`);
   }));
   await boss.work('tickets.minute', polling, () => timedJob('tickets.minute', async () => {
     const { breached, unsnoozed, closed, refreshed, presenceRemoved, reminded } = await ticketsMinute(actor('tickets.minute'));

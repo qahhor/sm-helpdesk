@@ -23,6 +23,8 @@ import { Markdown } from '@/ui/components/markdown';
 import { StatusLabel } from '@/ui/components/StatusLabel';
 import { acceptOf, STATUS_TONE } from '../status';
 import { switchToTicketAction } from './actions';
+import { AiMessage } from './AiMessage';
+import { AiThinking } from './AiThinking';
 import { ReplyForm } from './ReplyForm';
 import { StatusLine } from './StatusLine';
 import { TicketActions } from './TicketActions';
@@ -62,6 +64,7 @@ export default async function TicketPage({
   const query = await searchParams;
   const ticket = await getTicket(client, raw, { shown: query.shown });
   const t = await getTranslations('client.tickets');
+  const tt = await getTranslations('client.tez');
   if (!ticket) {
     // Обращение другой своей организации: подсказка и переход вместо "не найдено" (UX-C-06).
     const elsewhere = await findTicketInOtherOrganizations(client, raw);
@@ -119,6 +122,7 @@ export default async function TicketPage({
     );
 
   type Entry = { at: Date; key: string; node: ReactNode };
+  const lastAiId = ticket.messages.filter((m) => m.authorType === 'ai').at(-1)?.messageId ?? null;
   const authorOf = (m: { isMine: boolean; authorType: string; authorName: string | null }) =>
     m.isMine ? t('page.you') : m.authorType === 'client' ? (m.authorName ?? t('page.colleague')) : t('page.support');
   const entries: Entry[] = [
@@ -138,7 +142,20 @@ export default async function TicketPage({
     ...ticket.messages.map((m) => ({
       at: m.createdOn,
       key: m.messageId,
-      node: (
+      // Вид Теза только у сообщения с типом автора ai (FR-AI-08, пункт 9 проверки на AI-инъекции): подпись, знак и
+      // кнопки рисуются из ссылок сообщения, а не из текста. Текст клиента такого вида не получает никогда.
+      node: m.authorType === 'ai' && m.aiPayload ? (
+        <AiMessage
+          client={client}
+          number={ticket.number}
+          messageId={m.messageId}
+          payload={m.aiPayload}
+          createdOn={m.createdOn}
+          actionable={m.messageId === lastAiId && ticket.aiState === 'active' && ticket.status === 'waiting_customer'}
+          canResolve={ticket.isMine || client.actor.orgRole === 'client_admin'}
+          timeZone={ticket.timeZone}
+        />
+      ) : (
         <article className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">{authorOf(m)}</span>, {when(m.createdOn)}
@@ -254,6 +271,7 @@ export default async function TicketPage({
           {entries.map((entry) => (
             <div key={entry.key}>{entry.node}</div>
           ))}
+          {ticket.aiThinking && <AiThinking createdOn={ticket.createdOn.toISOString()} labels={{ title: tt('thinking'), hint: tt('thinkingHint') }} />}
         </CardContent>
       </Card>
 

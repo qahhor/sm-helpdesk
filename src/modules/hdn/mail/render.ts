@@ -39,6 +39,10 @@ export const MAIL_TEMPLATES = [
   'staff_idea_moderation',
   'staff_idea_cycle',
   'staff_idea_dev_task_closed',
+  // Ответ Теза (веха M5b, FR-NT-11, FR-EM-12): решение из hdk_published и ссылки "Помогло", "Нужен сотрудник".
+  'tez_answer',
+  // Подтверждение без Теза при передаче ai_disabled и ai_limit (FR-AI-15).
+  'tez_ack',
 ] as const;
 export type MailTemplate = (typeof MAIL_TEMPLATES)[number];
 
@@ -78,7 +82,21 @@ export type MailPayload =
   | { template: 'idea_status'; event: IdeaMailEvent; ideaId: string; number: number; title: string; titles: Partial<Record<Locale, string>>; url: string; into?: number }
   | { template: 'staff_idea_moderation'; count: number; url: string }
   | { template: 'staff_idea_cycle'; count: number; url: string }
-  | { template: 'staff_idea_dev_task_closed'; ref: string; number: number; title: string; url: string };
+  | { template: 'staff_idea_dev_task_closed'; ref: string; number: number; title: string; url: string }
+  // Ответ Теза (UX-B-10): вступление по идентификатору, заголовок и шаги опубликованного решения, ссылки с подписью
+  // получателя. Ни одного слова модели. callback*: данные кнопок Telegram с той же подписью.
+  | ({
+      template: 'tez_answer';
+      introId: string;
+      solutionTitle: string;
+      lines: string[];
+      solutionUrl: string;
+      helpedUrl?: string;
+      staffUrl?: string;
+      helpedData?: string;
+      staffData?: string;
+    } & TicketRef)
+  | ({ template: 'tez_ack'; dueOn: string | null; startOn: string | null; timeZone: string } & TicketRef);
 
 export type MailData = MailPayload & MailCommon;
 
@@ -102,6 +120,9 @@ export function ideaSubject(number: number, title: string): string {
   const chars = Array.from(noLinks(title, Number.MAX_SAFE_INTEGER));
   return `[I-${number}] ${chars.length > SUBJECT_TITLE_MAX ? `${chars.slice(0, SUBJECT_TITLE_MAX - 3).join('')}...` : chars.join('')}`;
 }
+
+/** Вступления Теза: тот же закрытый список, что INTRO_TEMPLATE_IDS модуля hda. */
+const INTRO_KEYS = ['likely_solution', 'exact_error', 'similar_case', 'known_steps'] as const;
 
 const translatorOf = (locale: Locale) => createTranslator({ locale, messages: MESSAGES[locale], namespace: 'mail' });
 
@@ -294,6 +315,44 @@ function body(payload: MailPayload, t: ReturnType<typeof translatorOf>, locale: 
         text: t(`ideaStatus.${payload.event}`, { ref: `I-${payload.number}`, title, into: payload.into ? `I-${payload.into}` : '' }),
         button: { label: t('ideaStatus.button'), url: payload.url },
         reply: false,
+        signature: false,
+      };
+    }
+    case 'tez_answer': {
+      const lines = payload.lines.map((line) => noLinks(line, 500)).filter(Boolean);
+      const introKey = (INTRO_KEYS as readonly string[]).includes(payload.introId) ? (payload.introId as (typeof INTRO_KEYS)[number]) : 'likely_solution';
+      const intro = t(`tezAnswer.intro.${introKey}`);
+      const links = [payload.helpedUrl ? `${t('tezAnswer.helped')}: ${payload.helpedUrl}` : null, payload.staffUrl ? `${t('tezAnswer.needStaff')}: ${payload.staffUrl}` : null].filter(Boolean);
+      const text = [t('tezAnswer.signature'), intro, noLinks(payload.solutionTitle, TITLE_MAX), lines.map((line, i) => `${i + 1}. ${line}`).join('\n'), `${t('tezAnswer.open')}: ${payload.solutionUrl}`, links.join('\n'), t('tezAnswer.caption')]
+        .filter(Boolean)
+        .join('\n\n');
+      const html = [
+        `<p style="${PARAGRAPH}"><strong>${esc(t('tezAnswer.signature'))}</strong></p>`,
+        `<p style="${PARAGRAPH}">${esc(intro)}</p>`,
+        `<p style="${PARAGRAPH}"><strong>${esc(noLinks(payload.solutionTitle, TITLE_MAX))}</strong></p>`,
+        `<ol style="${PARAGRAPH}">${lines.map((line) => `<li>${esc(line)}</li>`).join('')}</ol>`,
+        `<p style="${PARAGRAPH}">${link(payload.solutionUrl, t('tezAnswer.open'), LINK_COLOR)}</p>`,
+        payload.helpedUrl && payload.staffUrl
+          ? `<p style="${PARAGRAPH}">${link(payload.helpedUrl, t('tezAnswer.helped'), LINK_COLOR)} &nbsp; ${link(payload.staffUrl, t('tezAnswer.needStaff'), LINK_COLOR)}</p>`
+          : '',
+        `<p style="${PARAGRAPH}">${esc(t('tezAnswer.caption'))}</p>`,
+      ].join('');
+      return { subject: ticketSubject(payload.number, payload.title), heading: t('tezAnswer.heading', { number: payload.number }), text, html, button: open(payload.url), reply: false, signature: true };
+    }
+    case 'tez_ack': {
+      const tz = payload.timeZone;
+      const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale, { timeZone: tz, ...opts }).format(new Date(iso));
+      const due = payload.startOn
+        ? t('tezAck.dueStart', { day: fmt(payload.startOn, { weekday: 'long' }), time: fmt(payload.startOn, { hour: '2-digit', minute: '2-digit' }) })
+        : payload.dueOn
+          ? t('tezAck.due', { when: fmt(payload.dueOn, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) })
+          : '';
+      return {
+        subject: ticketSubject(payload.number, payload.title),
+        heading: t('tezAck.heading', { number: payload.number }),
+        text: [t('tezAck.text'), due].filter(Boolean).join('\n\n'),
+        button: open(payload.url),
+        reply: true,
         signature: false,
       };
     }

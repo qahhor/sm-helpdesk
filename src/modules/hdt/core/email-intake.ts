@@ -39,10 +39,13 @@ import { staffSystemText } from '../system-text';
 import { untrustedNoteText } from '../untrusted-text';
 import { fileTypeOf, maxBytesFor, quarantineKey } from '../util';
 import { reopenDays } from './actions';
+import { aiReopenedTx } from './ai';
 import { notifyTicketTx } from './notify';
 import { refreshSla } from './sla';
 import { isThanks } from './thanks';
 import { createEmailTicketTx, ticketExists } from './tickets';
+import { startAssistant } from '../api/ai';
+import { thanksOnClientReply } from '../api/ai-messages';
 
 // Модуль hdt, слой core: разбор входящего письма (FR-EM-02, FR-NT-05..08, раздел 11.8, решения 16, 17, 20 вехи M4).
 // Порядок: список отклонённых, автоответ и недоставка, затем обращение по подписанному адресу ответа, по In-Reply-To
@@ -247,6 +250,8 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
       // Отметки ответа, статус и сроки одним обновлением строки (аудит 23.11.2026, находка P8). Строка обращения
       // заблокирована выше, событие статуса уже записано: по его времени снимается пауза срока.
       await refreshSla(tx, ticket.ticketId, new Date(), reopens ? { status: 'in_progress', ...waiting } : waiting);
+      // Решённое кнопкой "Помогло" открыто письмом: в "После AI" (независимая проверка M5b, I3).
+      if (current.status === 'resolved' || current.status === 'closed') await aiReopenedTx(tx, { ticketId: ticket.ticketId, now: new Date() });
     }
     if (thanks) await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'client_replied', payload: { source: 'email', thanks: true } });
     await notifyTicketTx(tx, { ticketId: ticket.ticketId, kind: 'client_reply', actorUserId: client.userId });
@@ -256,6 +261,8 @@ async function publishReply(actor: SystemActor, letter: Letter, ticket: Ticket, 
   });
   // Итог "reply" мог прийти и от другого процесса, который разобрал письмо раньше: тогда наши загрузки лишние.
   await afterCommit(attached ? queued : []);
+  // Благодарность на решённое уточняется у модели (FR-TK-14, план M5b, решение 24), как у ответа в портале.
+  if (result === 'reply') await thanksOnClientReply(ticket.ticketId);
   return result;
 }
 
@@ -406,6 +413,9 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
   // прибавляет: письмо с её домена ещё не значит, что ошибка встретилась у неё (0057, M7m).
   if (result === 'new' && fresh && sender.orgId !== SERVICE_ORG_ID)
     await recordTicketSignature({ ticketId: fresh.ticketId, orgId: sender.orgId, authorId: sender.userId, description: fresh.body, context: null, moduleId: null, countOrg: !sender.senderUnconfirmed });
+  // Помощник первой линии только у письма опознанного пользователя с DMARC (план M5b, решение 4; проверка на
+  // AI-инъекции, пункт 2): гость с домена организации и "Неопознанные" его не получают.
+  if (result === 'new' && fresh && sender.identified) await startAssistant({ ticketId: fresh.ticketId, orgId: sender.orgId });
   await afterCommit(attached ? queued : []);
   return result;
 }

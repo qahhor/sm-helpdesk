@@ -17,6 +17,8 @@ import {
   type MetricsView,
   splitMinutes,
 } from '@/modules/hdt/api';
+import { assistantRunStats } from '@/modules/hda/api/metrics';
+import { getAssistantMetrics } from '@/modules/hdt/api/metrics';
 import { getKnowledgeMetrics, type KnowledgeMetrics } from '@/modules/hdk/api/metrics';
 import { canSeeSuggestMisses, type MissSummary, suggestMisses } from '@/modules/hdk/api/misses';
 import { listActiveModules } from '@/modules/hdr/api';
@@ -73,6 +75,8 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
     view = await getMetrics(staff, {});
   }
   const knowledge: KnowledgeMetrics = await getKnowledgeMetrics(staff, { from: view.period.from, to: view.period.to });
+  // Показатели AI-помощника (план M5b, задача 10; FR-MET-06, FR-AI-18): по обращениям периода и журналу вызовов.
+  const [assistant, runs] = await Promise.all([getAssistantMetrics(staff, invalid ? {} : input), assistantRunStats(staff, { from: view.period.from, to: view.period.to })]);
   // Что клиенты ищут и не находят (план W6, решение 17): администратор и роли публикации решений.
   const misses: MissSummary | null = canSeeSuggestMisses(staff) ? await suggestMisses(staff) : null;
   const t = await getTranslations('agent');
@@ -444,6 +448,65 @@ export default async function MetricsPage({ searchParams }: PageProps<'/[locale]
             )}
           </Card>
         </>
+      )}
+
+      {/* Пустой период: показателей помощника тоже нет, как и остальных чисел периода. */}
+      {!empty && (
+        <section aria-labelledby="metrics-assistant" className="flex flex-col gap-3" data-block="assistant">
+          <h2 id="metrics-assistant" className="text-base font-semibold">
+            {t('metrics.assistant.title')}
+          </h2>
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat id="ai-resolved" label={t('metrics.assistant.resolved')} value={share(assistant.resolvedByAiPercent)}>
+              {t('metrics.assistant.resolvedOf', { resolved: assistant.resolvedByAi, handled: assistant.handled })}
+            </Stat>
+            <Stat
+              id="ai-first-reply"
+              label={t('metrics.assistant.firstReply')}
+              value={assistant.firstReply.averageSeconds === null ? none : t('metrics.assistant.seconds', { value: Math.round(assistant.firstReply.averageSeconds) })}
+            >
+              {assistant.firstReply.medianSeconds !== null && t('metrics.assistant.median', { value: Math.round(assistant.firstReply.medianSeconds) })}
+            </Stat>
+            <Stat id="ai-csat" label={t('metrics.assistant.csat')} value={number(assistant.csat.average)}>
+              {t('metrics.assistant.csatCount', { count: assistant.csat.count })}
+            </Stat>
+            <Stat id="ai-reopened" label={t('metrics.assistant.reopened')} value={format.number(assistant.reopenedAfterHelped)} />
+            <Stat id="ai-flagged" label={t('metrics.assistant.flagged')} value={share(runs.flaggedPercent)}>
+              {t('metrics.assistant.flaggedOf', { flagged: runs.flagged, answers: runs.answers })}
+            </Stat>
+            <Stat id="ai-spend" label={t('metrics.assistant.spend')} value={format.number(runs.spentMonthUsd, { style: 'currency', currency: 'USD' })} />
+          </dl>
+          <Card className="overflow-x-auto" data-block="handoffs">
+            <table className="w-full text-sm">
+              <caption className="sr-only">{t('metrics.assistant.handoffs')}</caption>
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className={head}>{t('metrics.assistant.handoffs')}</th>
+                  <th scope="col" className={head}>{t('metrics.assistant.count')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assistant.handoffs.length === 0 ? (
+                  <tr>
+                    <td className={cell} colSpan={2}>
+                      {none}
+                    </td>
+                  </tr>
+                ) : (
+                  assistant.handoffs.map((row) => (
+                    <tr key={row.reason} className="border-b border-border last:border-b-0" data-handoff={row.reason}>
+                      <th scope="row" className={`${cell} text-start font-medium`}>
+                        {t.has(`ticket.aiReasons.${row.reason}`) ? t(`ticket.aiReasons.${row.reason}`) : row.reason}
+                      </th>
+                      <td className={numeric}>{format.number(row.count)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </Card>
+          <p className="text-sm text-muted-foreground">{t('metrics.assistant.hint')}</p>
+        </section>
       )}
 
       <section aria-labelledby="metrics-deflection" className="flex flex-col gap-3" data-block="deflection">

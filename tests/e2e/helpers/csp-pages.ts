@@ -33,6 +33,7 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: `${A}/ideas/[number]`, path: '/ru/agent/ideas/{idea}', who: 'admin', walk: true },
   { route: `${A}/ideas/cycles`, path: '/ru/agent/ideas/cycles', who: 'admin' },
   { route: `${A}/metrics`, path: '/ru/agent/metrics', who: 'admin', walk: true },
+  { route: `${A}/ai-review`, path: '/ru/agent/ai-review', who: 'admin', walk: true },
   { route: `${A}/notifications`, path: '/ru/agent/notifications', who: 'admin' },
   { route: `${A}/organizations`, path: '/ru/agent/organizations', who: 'admin' },
   { route: `${A}/organizations/[orgId]`, path: '/ru/agent/organizations/{org}', who: 'admin' },
@@ -44,6 +45,7 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: `${A}/settings/audit`, path: '/ru/agent/settings/audit', who: 'admin' },
   { route: `${A}/settings/knowledge`, path: '/ru/agent/settings/knowledge', who: 'admin' },
   { route: `${A}/settings/search`, path: '/ru/agent/settings/search', who: 'admin' },
+  { route: `${A}/settings/ai`, path: '/ru/agent/settings/ai', who: 'admin' },
   { route: `${A}/settings/macros`, path: '/ru/agent/settings/macros', who: 'admin' },
   { route: `${A}/settings/macros/[macroId]`, path: '/ru/agent/settings/macros/{macro}', who: 'admin' },
   { route: `${A}/settings/macros/new`, path: '/ru/agent/settings/macros/new', who: 'admin', walk: true },
@@ -74,6 +76,7 @@ export const CSP_PAGES: readonly CspPage[] = [
   { route: '[locale]/(auth)/login/link', path: '/ru/login/link', who: 'guest' },
   { route: '[locale]/(auth)/login/tg', path: '/ru/login/tg', who: 'guest' },
   { route: '[locale]/(auth)/rate', path: '/ru/rate', who: 'guest' },
+  { route: '[locale]/(auth)/ai-answer', path: '/ru/ai-answer', who: 'guest' },
   { route: '[locale]/(auth)/staff/login', path: '/ru/staff/login', who: 'guest', walk: true },
   { route: '[locale]/(auth)/staff/setup', path: '/ru/staff/setup', who: 'guest' },
   // Витрина и пробный редактор (только при HUB_SHOWCASE=1).

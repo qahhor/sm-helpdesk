@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { assistantAnswersFirst } from '@/modules/hda/api/eligibility';
 import { listActiveModules } from '@/modules/hdr/api';
 import { ALLOWED_FILE_EXTENSIONS, IMPACTS, MAX_FILES_PER_MESSAGE, parseNumber, TICKET_TYPES, VISIBILITIES } from '@/modules/hdt/api';
 import { requireClientActor } from '@/modules/hdu/api';
@@ -20,12 +21,20 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
   const related = parseNumber(String(search.related ?? ''));
   const sessionId = search.s && UUID.test(search.s) ? search.s.toLowerCase() : randomUUID();
   const modules = await listActiveModules(client.actor, locale);
+  const tez = await getTranslations('client.tez');
+  // Подпись помощника (FR-AI-19): только если помощник действительно ответит первым.
+  const aiFirst = await assistantAnswersFirst(client);
   return (
     <>
       <Link href="/tickets" className="self-start text-sm text-link underline-offset-2 hover:underline">
         {t('new.back')}
       </Link>
       <h1 className="text-2xl font-bold">{t('new.title')}</h1>
+      {aiFirst && (
+        <p className="text-sm text-secondary-foreground" data-testid="tez-form-hint">
+          {tez('formHint')}
+        </p>
+      )}
       <NewTicketForm
         userId={client.actor.userId}
         sessionId={sessionId}

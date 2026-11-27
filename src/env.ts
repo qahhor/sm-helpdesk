@@ -383,7 +383,8 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
 // Ключ Anthropic задаётся только контейнеру worker (compose.prod.yaml, файл .env.worker). Схема портала выше его не
 // содержит: веб-процесс ключа не требует и не читает, даже если переменная попала в его окружение. Разбирает эту схему
 // только фабрика клиента модели (src/modules/hda/client/index.ts), её вызывают задачи фонового процесса.
-// Имён моделей в коде нет: они задаются переменными (решение 4), рекомендованные значения в .env.example.
+// Модели по целям: закрытый список и значения по умолчанию в src/modules/hda/pref.ts, выбор в настройке ai.models (план
+// M5b, решение 1). Переменные AI_MODEL_FAST и AI_MODEL_QUALITY необязательны и задают модели уровней по умолчанию.
 
 const aiSchema = z
   .object({
@@ -399,9 +400,6 @@ const aiSchema = z
     AI_STUB: z.enum(['0', '1'], { error: 'ожидается 0 или 1' }).default('0'),
   })
   .superRefine((value, ctx) => {
-    if (value.ANTHROPIC_API_KEY)
-      for (const name of ['AI_MODEL_FAST', 'AI_MODEL_QUALITY'] as const)
-        if (!value[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'не задана, а ANTHROPIC_API_KEY задан' });
     if (value.AI_STUB === '1' && !LOCAL_HOSTS.has(new URL(value.HUB_URL).hostname))
       ctx.addIssue({ code: 'custom', path: ['AI_STUB'], message: 'заглушка модели допускается только для localhost и 127.0.0.1' });
     else if (value.AI_STUB === '1' && value.ANTHROPIC_API_KEY)
@@ -409,7 +407,7 @@ const aiSchema = z
   });
 
 /** Как фоновый процесс вызывает модель: без AI, заглушкой (localhost) или настоящим API. */
-export type AiEnv = { mode: 'none' } | { mode: 'stub' } | { mode: 'anthropic'; apiKey: string; models: { fast: string; quality: string } };
+export type AiEnv = { mode: 'none' } | { mode: 'stub' } | { mode: 'anthropic'; apiKey: string; models: { fast?: string; quality?: string } };
 
 export function parseAiEnv(source: Record<string, string | undefined>): AiEnv {
   const result = aiSchema.safeParse(source);
@@ -417,8 +415,10 @@ export function parseAiEnv(source: Record<string, string | undefined>): AiEnv {
     throw new EnvError(result.error.issues.map((issue) => ({ name: String(issue.path[0] ?? 'окружение'), reason: issue.message })));
   const value = result.data;
   if (value.AI_STUB === '1') return { mode: 'stub' };
-  if (!value.ANTHROPIC_API_KEY || !value.AI_MODEL_FAST || !value.AI_MODEL_QUALITY) return { mode: 'none' };
-  return { mode: 'anthropic', apiKey: value.ANTHROPIC_API_KEY, models: { fast: value.AI_MODEL_FAST, quality: value.AI_MODEL_QUALITY } };
+  if (!value.ANTHROPIC_API_KEY) return { mode: 'none' };
+  // Модели необязательны (план M5b, решение 1): заданные задают модели уровней по умолчанию, настройка ai.models сильнее.
+  const models = { ...(value.AI_MODEL_FAST ? { fast: value.AI_MODEL_FAST } : {}), ...(value.AI_MODEL_QUALITY ? { quality: value.AI_MODEL_QUALITY } : {}) };
+  return { mode: 'anthropic', apiKey: value.ANTHROPIC_API_KEY, models };
 }
 
 // --- Запись в индекс поиска: только фоновый процесс и команда hub (план W6, решение 3) ---

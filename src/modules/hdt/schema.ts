@@ -2,6 +2,9 @@ import { sql } from 'drizzle-orm';
 import { bigint, boolean, integer, jsonb, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { stampColumns } from '@/db/columns';
 import type {
+  AiHandoffReason,
+  AiPayload,
+  AiState,
   AuthorType,
   CsatReason,
   EventKind,
@@ -61,9 +64,9 @@ export const tickets = pgTable('hdt_tickets', {
   knownProblemId: uuid('known_problem_id'),
   relatedTicketId: uuid('related_ticket_id'),
   snoozedUntil: moment('snoozed_until'),
-  aiState: text('ai_state').notNull().default('none'),
+  aiState: text('ai_state').$type<AiState>().notNull().default('none'),
   aiReplyCount: smallint('ai_reply_count').notNull().default(0),
-  aiHandoffReason: text('ai_handoff_reason'),
+  aiHandoffReason: text('ai_handoff_reason').$type<AiHandoffReason>(),
   lastClientMessageOn: moment('last_client_message_on'),
   csatScore: smallint('csat_score'),
   csatReason: text('csat_reason').$type<CsatReason>(),
@@ -96,6 +99,8 @@ export const tickets = pgTable('hdt_tickets', {
   csatReviewNote: text('csat_review_note'),
   csatReviewedBy: uuid('csat_reviewed_by'),
   csatReviewedOn: moment('csat_reviewed_on'),
+  // Миграция 0092 (веха M5b): момент передачи помощником сотрудникам, от него считается срок первого ответа (FR-SLA-10).
+  aiHandoffOn: moment('ai_handoff_on'),
 });
 
 export const ticketMessages = pgTable('hdt_ticket_messages', {
@@ -116,6 +121,8 @@ export const ticketMessages = pgTable('hdt_ticket_messages', {
   // Миграция 0058 (веха M8): сообщение написано правилом автоматизации (FR-AUTO-11).
   /** Автоматический ответ по шаблону или заметка правила. Автор такого сообщения всегда система. */
   isAuto: boolean('is_auto').notNull().default(false),
+  // Миграция 0092 (веха M5b): ссылки сообщения помощника вместо текста (решение 9). Есть только у author_type = ai.
+  aiPayload: jsonb('ai_payload').$type<AiPayload>(),
 });
 
 export const ticketEvents = pgTable('hdt_ticket_events', {

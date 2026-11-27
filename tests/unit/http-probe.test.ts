@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { assertStagingTarget, percentile, probe } from '../../scripts/ops/http-probe.mjs';
+import { assertStagingTarget, percentile, probe, resolveProbeUrl } from '../../scripts/ops/http-probe.mjs';
 
 // Замер по HTTP (план M9, задача 10, решение 14): scripts/ops/http-probe.mjs без новых зависимостей, прогрев и
 // 40 запросов, p50 и p95 против порога. Работает только с ключом --target staging и не с адресом production
@@ -63,6 +63,25 @@ test('без --target staging и с адресом production: отказ', () =
   expect(() => assertStagingTarget({ target: 'staging', base: 'https://staging.example.org' }, { HUB_PRODUCTION_URL: 'https://hub.example.org' })).not.toThrow();
 });
 
+test('имя production с конечной точкой тоже отклоняется (независимая проверка M9, I2)', () => {
+  expect(() => assertStagingTarget({ target: 'staging', base: 'https://hub.smartup24.com.' }, {})).toThrow(/production/);
+  expect(() => assertStagingTarget({ target: 'staging', base: 'https://hub.example.org./ru' }, { HUB_PRODUCTION_URL: 'https://hub.example.org' })).toThrow(/production/);
+  expect(() => assertStagingTarget({ target: 'staging', base: 'https://hub.example.org' }, { HUB_PRODUCTION_URL: 'https://hub.example.org.' })).toThrow(/production/);
+});
+
+test('путь только относительно --base: полный адрес, "//узел" и обратная косая черта отклоняются (I2)', () => {
+  const at = 'https://staging.example.org';
+  expect(resolveProbeUrl('/ru/tickets?x=1', at)).toBe('https://staging.example.org/ru/tickets?x=1');
+  for (const path of ['https://hub.smartup24.com/ru/tickets', '//hub.smartup24.com/ru', '/\\hub.smartup24.com/ru', '\\\\evil.example/x', 'ru/tickets', 'http://staging.example.org/ru', ''])
+    expect(() => resolveProbeUrl(path, at), path).toThrow(/путь/i);
+});
+
+test('замер с чужим путём не делает ни одного запроса и не отдаёт куки (I2)', async () => {
+  seen.length = 0;
+  await expect(probe([{ path: '/fast', target: 500 }, { path: `//127.0.0.1:1/steal`, target: 500 }], { base, cookie: 'hub.session_token=SECRET-COOKIE', warmup: 0, count: 1 })).rejects.toThrow(/путь/i);
+  expect(seen).toHaveLength(0);
+});
+
 test('запуск: куки из переменной окружения в вывод не попадают; без --target код 2', async () => {
   const run = (args: string[]) =>
     new Promise<{ code: number | null; out: string }>((resolve) => {
@@ -78,4 +97,9 @@ test('запуск: куки из переменной окружения в в�
   expect(ok.code, ok.out).toBe(0);
   expect(ok.out).toMatch(/\/fast .*p50 \d+ мс, p95 \d+ мс/);
   expect(ok.out).not.toContain('SECRET-COOKIE');
+  // Полный адрес в --paths: код 2, запроса нет (I2).
+  seen.length = 0;
+  const foreign = await run(['--target', 'staging', '--base', base, '--paths', `/fast,${base}/x`, '--count', '1', '--warmup', '0']);
+  expect(foreign.code, foreign.out).toBe(2);
+  expect(seen).toHaveLength(0);
 });

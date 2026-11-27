@@ -46,10 +46,30 @@ export function percentile(values, p) {
  */
 export function assertStagingTarget(args, env) {
   if (args.target !== 'staging') throw new Error('Замер только против staging: укажите --target staging');
-  const url = new URL(args.base);
-  const host = url.hostname.toLowerCase();
-  const production = env.HUB_PRODUCTION_URL ? new URL(env.HUB_PRODUCTION_URL) : null;
-  if (PRODUCTION_HOSTS.has(host) || (production && production.hostname.toLowerCase() === host)) throw new Error('Адрес production: замер на нём запрещён, данные production не трогаются');
+  const host = hostKey(new URL(args.base));
+  const production = env.HUB_PRODUCTION_URL ? hostKey(new URL(env.HUB_PRODUCTION_URL)) : null;
+  if (PRODUCTION_HOSTS.has(host) || (production !== null && production === host)) throw new Error('Адрес production: замер на нём запрещён, данные production не трогаются');
+}
+
+/**
+ * Имя узла для сравнения: нижний регистр, без конечной точки ("hub.smartup24.com." тот же узел; проверка M9, I2).
+ * @param {URL} url
+ */
+function hostKey(url) {
+  return url.hostname.toLowerCase().replace(/\.+$/, '');
+}
+
+/**
+ * Адрес замера только внутри --base: путь начинается с одной косой черты (не "//" и не обратной косой), и источник
+ * построенного адреса совпадает с источником base. Иначе куки и Authorization ушли бы на посторонний узел (I2).
+ * @param {string} path @param {string} base
+ */
+export function resolveProbeUrl(path, base) {
+  if (typeof path !== 'string' || !/^\/(?![\/\\])/.test(path) || path.includes('\\')) throw new Error(`Недопустимый путь замера: нужен путь от корня --base, получено ${JSON.stringify(path)}`);
+  const origin = new URL(base).origin;
+  const url = new URL(path, base);
+  if (url.origin !== origin) throw new Error(`Недопустимый путь замера: адрес вне --base (${JSON.stringify(path)})`);
+  return url.toString();
 }
 
 /**
@@ -62,8 +82,10 @@ export async function probe(items, opts) {
   const count = opts.count ?? 40;
   /** @type {ProbeResult[]} */
   const results = [];
-  for (const item of items) {
-    const url = new URL(item.path, opts.base).toString();
+  // Все пути проверяются до первого запроса: при ошибке в списке ни один запрос не уходит.
+  const urls = items.map((item) => resolveProbeUrl(item.path, opts.base));
+  for (const [index, item] of items.entries()) {
+    const url = urls[index];
     /** @type {Record<string, string>} */
     const headers = { 'User-Agent': 'smartup-hub-probe' };
     if (opts.cookie) headers.Cookie = opts.cookie;
@@ -110,6 +132,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const paths = arg('paths');
   /** @type {ProbeItem[]} */
   const items = list ? JSON.parse(readFileSync(list, 'utf8')) : paths ? paths.split(',').map((path) => ({ path, target: 300 })) : DEFAULT_PATHS;
+  try {
+    for (const item of items) resolveProbeUrl(item.path, base);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(2);
+  }
   const results = await probe(items, {
     base,
     cookie: process.env.HUB_PROBE_COOKIE,

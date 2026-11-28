@@ -89,8 +89,8 @@ export default async function AgentTicketPage({ params, searchParams }: { params
         breadcrumbsLabel={t('breadcrumbs')}
       />
       {/* grid-cols-1: на телефоне колонка не шире окна, даже если содержимое боковой колонки длиннее (план M9, решение 24). */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-4 laptop:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-4 laptop:col-span-2">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <StatusLabel tone={STATUS_TONE[ticket.status] ?? 'gray'}>{statusName(ticket.status)}</StatusLabel>
             <span>{t(`ticket.types.${ticket.type}`)}</span>

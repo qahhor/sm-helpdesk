@@ -103,7 +103,7 @@ export function BulkBar({ staff, reasons, labels }: { staff: Option[]; reasons: 
         </Button>
       </div>
       {kind === 'queue_l2' && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 tablet:grid-cols-2">
           <div className="flex flex-col gap-1">
             <Label htmlFor="bulk-checked">{labels.checked}</Label>
             <Textarea id="bulk-checked" name="checked" required maxLength={2000} />

@@ -77,7 +77,7 @@ export function AgentDraftBlock({ number, isDraft, canWrite, description, propos
                   {hidden}
                   <Button type="submit">{labels.accept}</Button>
                 </form>
-                <form action={rejectDraftAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <form action={rejectDraftAction} className="flex flex-col gap-2 tablet:flex-row tablet:items-end">
                   {hidden}
                   <div className="flex flex-1 flex-col gap-1">
                     <Label htmlFor="draft-reason">{labels.reason}</Label>

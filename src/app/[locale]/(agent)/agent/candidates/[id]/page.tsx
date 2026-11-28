@@ -68,8 +68,8 @@ export default async function AgentCandidatePage({ params, searchParams }: { par
         breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: s('title'), href: '/agent/candidates' }, { label: s('card') }]}
         breadcrumbsLabel={t('breadcrumbs')}
       />
-      <div className="grid gap-4 lg:grid-cols-3" data-testid="agent-candidate">
-        <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
+      <div className="grid gap-4 laptop:grid-cols-3" data-testid="agent-candidate">
+        <div className="flex min-w-0 flex-col gap-4 laptop:col-span-2">
           {done && DONE.has(done) && <Alert tone="success">{s(`done.${done}`)}</Alert>}
           {error && <Alert tone="danger">{s(`errors.${ERRORS.has(error) ? error : 'forbidden'}`)}</Alert>}
           <Card>

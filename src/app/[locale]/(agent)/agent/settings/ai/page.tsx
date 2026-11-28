@@ -108,7 +108,7 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
                   {a('general.newOrgDefaultHint')}
                 </p>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 tablet:grid-cols-2">
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="ai-min-score">{a('general.minScore')}</Label>
                   <Input id="ai-min-score" name="minScore" type="number" min={0} max={10} step="any" required defaultValue={view.minScore} aria-describedby="ai-min-score-hint" />
@@ -182,7 +182,7 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
                 <input type="checkbox" name="enabled" defaultChecked={candidates.enabled} className="size-5 accent-primary" />
                 {a('candidates.enabled')}
               </label>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 tablet:grid-cols-3">
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="cand-limit">{a('candidates.dailyLimit')}</Label>
                   <Input id="cand-limit" name="dailyLimit" type="number" min={0} max={1000} step={1} required defaultValue={candidates.dailyLimit} />
@@ -209,7 +209,7 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
             <form action={saveSpikeSettingsAction} className="flex flex-col gap-4" data-testid="spike-settings">
               <h2 className="text-lg font-semibold">{a('spikes.title')}</h2>
               <p className="text-sm text-secondary-foreground">{a('spikes.intro')}</p>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 tablet:grid-cols-2">
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="spike-orgs">{a('spikes.orgCount')}</Label>
                   <Input id="spike-orgs" name="orgCount" type="number" min={2} max={100} step={1} required defaultValue={spikes.orgCount} />
@@ -234,7 +234,7 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
               {RESTRICTED_TOPICS.map((topic) => (
                 <fieldset key={topic} className="flex flex-col gap-2">
                   <legend className="mb-1 font-semibold">{a(`topics.names.${topic}`)}</legend>
-                  <div className="grid gap-2 md:grid-cols-3">
+                  <div className="grid gap-2 tablet:grid-cols-3">
                     {LANGS.map((lang) => (
                       <div key={lang} className="flex flex-col gap-1">
                         <Label htmlFor={`topic-${topic}-${lang}`}>{a(`topics.langs.${lang}`)}</Label>
@@ -256,7 +256,7 @@ export default async function AiSettingsPage({ searchParams }: { searchParams: P
             <form action={saveAiModelsAction} className="flex flex-col gap-4">
               <h2 className="text-lg font-semibold">{a('models.title')}</h2>
               <p className="text-sm text-secondary-foreground">{a('models.intro')}</p>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 tablet:grid-cols-2">
                 {AI_PURPOSES.map((purpose) => (
                   <div key={purpose} className="flex flex-col gap-1">
                     <Label htmlFor={`ai-model-${purpose}`}>{a(`purposes.${purpose}`)}</Label>

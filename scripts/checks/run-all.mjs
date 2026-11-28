@@ -7,6 +7,7 @@ import { alertsRunbookCheck } from './alerts-runbook.mjs';
 import { frCoverageCheck } from './fr-coverage.mjs';
 import { guidesCheck } from './guides.mjs';
 import { securityDocsCheck } from './security-docs.mjs';
+import { definedBreakpoints, findDeadBreakpoints } from './breakpoints.mjs';
 import { checkContrast } from './contrast.mjs';
 import { cspPagesGaps } from './csp-pages.mjs';
 import { findDashes, isDashCheckedFile } from './dashes.mjs';
@@ -45,6 +46,8 @@ function readText(path) {
 
 /** @type {{ path: string; line: number; rule: string }[]} */
 const violations = [];
+// Точки перелома, которые действительно заданы в токенах: остальные префиксы не дают CSS (проверка интерфейса, U1).
+const breakpoints = definedBreakpoints(readFileSync(resolve(root, 'src/ui/tokens.css'), 'utf8'));
 
 for (const path of listFiles()) {
   const text = readText(path);
@@ -52,8 +55,10 @@ for (const path of listFiles()) {
   if (isDashCheckedFile(path))
     for (const v of findDashes(text)) violations.push({ path, line: v.line, rule: `dash ${v.char}` });
   if (path.startsWith('src/')) {
-    if (/\.(?:ts|tsx)$/.test(path))
+    if (/\.(?:ts|tsx)$/.test(path)) {
       for (const v of findForbiddenApis(path, text)) violations.push({ path, line: v.line, rule: v.rule });
+      for (const v of findDeadBreakpoints(text, breakpoints)) violations.push({ path, line: v.line, rule: v.rule });
+    }
     for (const v of findUiRuleViolations(path, text)) violations.push({ path, line: v.line, rule: v.rule });
     if (findMissingServerOnly(path, text)) violations.push({ path, line: 1, rule: 'server-only' });
   }

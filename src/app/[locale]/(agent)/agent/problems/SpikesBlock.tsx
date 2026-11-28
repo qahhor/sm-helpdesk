@@ -37,7 +37,7 @@ export function SpikesBlock({ rows, canWrite, labels }: { rows: SpikeRow[]; canW
                 </Link>
               ) : (
                 canWrite && (
-                  <form action={createFromSpikeAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <form action={createFromSpikeAction} className="flex flex-col gap-2 tablet:flex-row tablet:items-end">
                     <input type="hidden" name="spikeId" value={row.spikeId} />
                     <div className="flex flex-1 flex-col gap-1">
                       <Label htmlFor={`spike-title-${row.spikeId}`}>{labels.titleLabel}</Label>

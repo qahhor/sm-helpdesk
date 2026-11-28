@@ -16,7 +16,7 @@ export async function TemplateForm({ template, modules }: { template: ReplyTempl
   return (
     <form action={saveTemplateAction} className="flex flex-col gap-3">
       {template && <input type="hidden" name="templateId" value={template.templateId} />}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 tablet:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor={`tpl-${id}-shortcut`}>{t('shortcut')}</Label>
           <Input id={`tpl-${id}-shortcut`} name="shortcut" required maxLength={40} defaultValue={template?.shortcut ?? ''} aria-describedby={`tpl-${id}-hint`} />

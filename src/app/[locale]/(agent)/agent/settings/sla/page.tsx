@@ -75,9 +75,9 @@ export default async function SlaSettingsPage({ searchParams }: { searchParams: 
             return (
               <Card key={priority}>
                 <CardContent className="pt-6">
-                  <form action={saveSlaPolicyAction} className="grid gap-3 sm:grid-cols-5 sm:items-end">
+                  <form action={saveSlaPolicyAction} className="grid gap-3 tablet:grid-cols-5 tablet:items-end">
                     <input type="hidden" name="priority" value={priority} />
-                    <p className="font-semibold sm:self-center">{priority.toUpperCase()}</p>
+                    <p className="font-semibold tablet:self-center">{priority.toUpperCase()}</p>
                     <div className="flex flex-col gap-1">
                       <Label htmlFor={`fr-${priority}`}>{t('settings.sla.firstResponse')}</Label>
                       <Input id={`fr-${priority}`} name="firstResponseMinutes" type="number" min={1} required defaultValue={policy.firstResponseMinutes} />
@@ -175,7 +175,7 @@ export default async function SlaSettingsPage({ searchParams }: { searchParams: 
           <Card>
             <CardContent className="pt-6">
               <form action={savePickupAction} className="flex flex-col gap-3">
-                <div className="grid gap-3 sm:grid-cols-4">
+                <div className="grid gap-3 tablet:grid-cols-4">
                   {PRIORITIES.map((priority) => (
                     <div key={priority} className="flex flex-col gap-1">
                       <Label htmlFor={`pickup-${priority}`}>{t('settings.sla.pickup.field', { priority: priority.toUpperCase() })}</Label>

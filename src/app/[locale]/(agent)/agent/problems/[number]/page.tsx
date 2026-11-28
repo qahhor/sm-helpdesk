@@ -77,8 +77,8 @@ export default async function AgentProblemPage({ params, searchParams }: { param
         breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: s('title'), href: '/agent/problems' }, { label: problemRef(card.number) }]}
         breadcrumbsLabel={t('breadcrumbs')}
       />
-      <div className="grid gap-4 lg:grid-cols-3" data-testid="agent-problem">
-        <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
+      <div className="grid gap-4 laptop:grid-cols-3" data-testid="agent-problem">
+        <div className="flex min-w-0 flex-col gap-4 laptop:col-span-2">
           {devCode && <Alert tone="danger">{s(`devTask.errors.${(DEV_TASK_ERROR_CODES as readonly string[]).includes(devCode) ? devCode : 'other'}`)}</Alert>}
           {code && <Alert tone="danger">{s(`errors.${(HDP_ERROR_CODES as readonly string[]).includes(code) ? code : 'forbidden'}`, { kinds })}</Alert>}
           {DONE.includes(status) && <Alert tone="success">{s(`done.${status}`)}</Alert>}

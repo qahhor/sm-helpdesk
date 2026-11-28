@@ -9,6 +9,7 @@ import { collectOpsAlerts } from '@/worker/ops-watch';
 import { staffCtx, staffWithRole } from './helpers/auth';
 import { memoryBotPerTest } from './helpers/telegram';
 import { asActor, pools, system } from './helpers/db';
+import { countTx } from './helpers/tx';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
 // Рассылка обновления и закрытие известной проблемы (ТЗ FR-KP-06, 07, 11.14, FR-NT-12, 14, T23; строка M5c 16.2
@@ -141,6 +142,44 @@ test('обход: подтверждённая рассылка без зада�
   await runBroadcastJob(system, { broadcastId });
   expect(await sweepBroadcasts(system, later(31))).toEqual({ requeued: 0 });
   expect(await stuckBroadcastCount(system, later(31))).toBe(0);
+});
+
+test('получатель падает постоянно: повтор не трогает уже доставленных, обход ставит рассылку всё реже (проверка, B8)', async () => {
+  const broadcastId = await confirmed();
+  const bad = [f.tickets.aOrg.ticketId, f.tickets.aMine.ticketId, f.tickets.bOrg.ticketId].sort()[1]!;
+  // Одно обращение падает всегда: его строку база отклоняет (ошибка в данных).
+  await pools.root.query(`alter table hdt_ticket_messages add constraint b8_block check (broadcast_id is null or ticket_id <> '${bad}') not valid`);
+  try {
+    await expect(runBroadcastJob(system, { broadcastId })).rejects.toThrow();
+    expect(await messages(broadcastId)).toHaveLength(2);
+    // Повтор: до доставки доходит только упавшее обращение, снимки получателей доставленных не читаются.
+    let attempts = 0;
+    setBroadcastHookForTests(() => {
+      attempts += 1;
+    });
+    const again = await countTx(() => runBroadcastJob(system, { broadcastId }).catch(() => 'failed'));
+    expect(again.result).toBe('failed');
+    expect(attempts).toBe(1);
+    // Снимок одного обращения: роли, привязки Telegram и название организации.
+    expect(again.auth).toBe(3);
+    expect(await messages(broadcastId)).toHaveLength(2);
+  } finally {
+    await pools.root.query(`alter table hdt_ticket_messages drop constraint b8_block`);
+  }
+  // Обход: первый час после подтверждения каждую минуту, до суток раз в 10 минут, дальше раз в час.
+  const confirmedOn = new Date((await pools.root.query(`select confirmed_on from hdp_broadcasts where broadcast_id = $1`, [broadcastId])).rows[0].confirmed_on as string);
+  const requeues = async (fromMin: number, minutes: number) => {
+    let n = 0;
+    for (let i = 0; i < minutes; i++) n += (await sweepBroadcasts(system, new Date(confirmedOn.getTime() + (fromMin + i) * 60_000 + 5_000))).requeued;
+    return n;
+  };
+  expect(await requeues(20, 10)).toBe(10);
+  expect(await requeues(3 * 60, 30)).toBe(3);
+  expect(await requeues(3 * 24 * 60, 120)).toBe(2);
+  // Причина устранена: очередной запуск доставляет оставшемуся и завершает рассылку.
+  setBroadcastHookForTests(null);
+  await runBroadcastJob(system, { broadcastId });
+  expect((await pools.root.query(`select status, delivered_count from hdp_broadcasts where broadcast_id = $1`, [broadcastId])).rows[0]).toEqual({ status: 'done', delivered_count: 3 });
 });
 
 test('сообщение рассылки останавливает срок первого ответа и снимает "клиент ждёт", исполнитель и статус прежние', async () => {

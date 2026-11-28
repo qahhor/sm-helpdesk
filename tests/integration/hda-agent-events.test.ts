@@ -132,3 +132,81 @@ test('неудачная отправка с токеном запуска от�
   expect(runs[0].revoked_at).not.toBeNull();
   expect((await asActor(pools.app, f.aUser.actor, (c) => c.query(`select 1 from hda_agent_events`))).rowCount).toBe(0);
 });
+
+// --- Бюджет отправки и остановка на неответившем адресе (проверка качества, Q4) ---
+
+const threeEvents = async () => {
+  for (const deadline of ['first_response', 'resolution', 'first_response']) await domainEvent(f.tickets.aOrg.ticketId, f.orgA.orgId, 'sla_breached', { deadline });
+  await drain();
+};
+
+test('адрес не ответил: отправка останавливается на первом событии, остальные ждут без потраченной попытки', async () => {
+  await threeEvents();
+  const calls: string[] = [];
+  setAgentEventsForTests({
+    url: 'https://hermes.example/events',
+    secret: SECRET,
+    sender: {
+      async send(input) {
+        calls.push(input.body);
+        // Нет ответа: тайм-аут или обрыв сети. Адрес один на все события, следующие ждали бы столько же.
+        return { ok: false, status: null };
+      },
+    },
+  });
+  expect(await dispatchAgentEvents(SYSTEM)).toEqual({ sent: 0, failed: 1 });
+  expect(calls).toHaveLength(1);
+  expect((await queue()).map((r) => [r.status, r.attempts])).toEqual([['queued', 1], ['queued', 0], ['queued', 0]]);
+});
+
+test('ответ с кодом ошибки отправку не останавливает: адрес отвечает, остальные события идут', async () => {
+  await threeEvents();
+  sender.fail = true;
+  expect(await dispatchAgentEvents(SYSTEM)).toEqual({ sent: 0, failed: 3 });
+});
+
+test('бюджет времени запуска: события сверх 50 секунд остаются следующему запуску', async () => {
+  await threeEvents();
+  let clock = 1_000_000;
+  setAgentEventsForTests({
+    url: 'https://hermes.example/events',
+    secret: SECRET,
+    sender: {
+      async send() {
+        // Медленный приёмник: каждое событие занимает 30 секунд.
+        clock += 30_000;
+        return { ok: true, status: 202 };
+      },
+    },
+  });
+  expect(await dispatchAgentEvents(SYSTEM, { clock: () => clock })).toEqual({ sent: 2, failed: 0 });
+  expect((await queue()).map((r) => r.status)).toEqual(['sent', 'sent', 'queued']);
+});
+
+test('повторный захват события после обрыва отзывает токен запуска прежней попытки', async () => {
+  await seedAgentToken({ isEventParent: true });
+  await domainEvent(f.tickets.aOrg.ticketId, f.orgA.orgId, 'ai_handoff', { reason: 'not_helped' });
+  await drain();
+  // Процесс оборвался после захвата: токен выпущен, отправка не дошла, итог не записан.
+  setAgentEventsForTests({
+    url: 'https://hermes.example/events',
+    secret: SECRET,
+    sender: {
+      async send() {
+        throw new Error('процесс остановлен');
+      },
+    },
+  });
+  await expect(dispatchAgentEvents(SYSTEM)).rejects.toThrow('процесс остановлен');
+  const first = (await pools.root.query(`select run_token_id from hda_agent_events`)).rows[0].run_token_id as string;
+  expect((await pools.root.query(`select revoked_at from hda_agent_tokens where token_id = $1`, [first])).rows[0].revoked_at).toBeNull();
+  // Срок захвата вышел: строку берёт следующий запуск и выпускает новый токен.
+  await rootWithoutTriggers(`update hda_agent_events set next_attempt_on = now() - interval '1 second'`);
+  setAgentEventsForTests({ url: 'https://hermes.example/events', secret: SECRET, sender });
+  expect(await dispatchAgentEvents(SYSTEM)).toEqual({ sent: 1, failed: 0 });
+  const second = (await pools.root.query(`select run_token_id from hda_agent_events`)).rows[0].run_token_id as string;
+  expect(second).not.toBe(first);
+  // Токен прежней попытки больше не действует: агент его не получил, а жить он мог до своего срока.
+  expect((await pools.root.query(`select revoked_at from hda_agent_tokens where token_id = $1`, [first])).rows[0].revoked_at).not.toBeNull();
+  expect((await pools.root.query(`select revoked_at from hda_agent_tokens where token_id = $1`, [second])).rows[0].revoked_at).toBeNull();
+});

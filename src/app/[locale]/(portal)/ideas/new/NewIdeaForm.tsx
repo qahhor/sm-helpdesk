@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useMemo, useState } from 'react';
+import { submitKept } from '@/ui/submit-kept';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
 import { FilePicker, type FilePickerLabels } from '@/ui/components/file-picker';
@@ -86,7 +87,17 @@ function Fields({ locale, modules, accept, maxFiles, titleMax, bodyMax, labels, 
   const formError = state.error ? (labels.errors[state.error] ?? labels.errors.invalid_input) : null;
 
   return (
-    <form action={action} onSubmit={() => rememberSent(browserSession(), key, current)} className="flex flex-col gap-5" noValidate data-ready={hydrated ? '' : undefined}>
+    <form
+      action={action}
+      onSubmit={(event) => {
+        rememberSent(browserSession(), key, current);
+        // Без сброса формы после ответа сервера: выбранный модуль и флажок остаются (проверка интерфейса, U5).
+        submitKept(event, action);
+      }}
+      className="flex flex-col gap-5"
+      noValidate
+      data-ready={hydrated ? '' : undefined}
+    >
       <Alert>{labels.moderation}</Alert>
       {formError && <Alert tone="danger">{formError}</Alert>}
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { firstParam } from '@/lib/search-params';
@@ -37,6 +37,7 @@ import { PageHeader } from '@/ui/components/PageHeader';
 import { Select } from '@/ui/components/select';
 import { Textarea } from '@/ui/components/textarea';
 import { saveCsatReviewAction } from './actions';
+import { MetricsSkeleton } from './MetricsSkeleton';
 
 // "Показатели" (FR-MET-01, 03, 04, 07, 10, FR-LINE-08; план M8, задача 9, решения 14-16). Страницу видят все
 // сотрудники; срез по организациям и модулям и выгрузку видят Customer Care, продукт, администратор и руководители
@@ -65,7 +66,17 @@ function Stat({ id, label, value, children }: { id: string; label: string; value
   );
 }
 
-export default async function MetricsPage({ searchParams }: PageProps<'/[locale]/agent/metrics'>) {
+/** Право проверяется до начала потока; расчёт показателей идёт под заготовками (проверка интерфейса, U6). */
+export default async function MetricsPage(props: PageProps<'/[locale]/agent/metrics'>) {
+  await requireStaffActor();
+  return (
+    <Suspense fallback={<MetricsSkeleton />}>
+      <MetricsContent {...props} />
+    </Suspense>
+  );
+}
+
+async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metrics'>) {
   const staff = await requireStaffActor();
   const query = await searchParams;
   const input = { period: firstParam(query.period), from: firstParam(query.from), to: firstParam(query.to), noProblems: firstParam(query.noProblems) };

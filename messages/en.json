@@ -8,7 +8,8 @@
     "notFound": {
       "title": "Page not found",
       "text": "Check the address or go back to the home page.",
-      "home": "Go to home"
+      "home": "Go to home",
+      "agentHome": "To workspace"
     },
     "theme": {
       "label": "Theme",
@@ -132,7 +133,15 @@
           "save": "Apply to idea emails"
         }
       }
-    }
+    },
+    "error": {
+      "title": "Could not open the page",
+      "text": "Try again. If that does not help, go back to the home page.",
+      "retry": "Retry",
+      "home": "Home",
+      "agentHome": "To workspace"
+    },
+    "loading": "Loading"
   },
   "client": {
     "home": {

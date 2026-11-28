@@ -11,18 +11,21 @@ export function EmptyState({
   text,
   action,
   withTez = false,
+  heading: Heading = 'h2',
   className,
 }: {
   title: string;
   text: string;
   action?: ReactNode;
   withTez?: boolean;
+  /** Уровень заголовка: h1, когда пустой экран и есть вся страница (не найдено). */
+  heading?: 'h1' | 'h2';
   className?: string;
 }) {
   return (
     <div className={cn('flex flex-col items-center gap-3 px-4 py-8 text-center', className)}>
       {withTez && <TezMark size={96} />}
-      <h2 className="text-lg font-semibold">{title}</h2>
+      <Heading className="text-lg font-semibold">{title}</Heading>
       <p className="max-w-prose text-secondary-foreground">{text}</p>
       {action}
     </div>

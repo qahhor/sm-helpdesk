@@ -1,7 +1,8 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { signOutStaffAction, staffActivityAction } from '@/app/[locale]/session-actions';
 import { unreadCount } from '@/modules/hdn/api/notifications';
 import { requireStaffActor } from '@/modules/hdu/api';
+import { ErrorTextsProvider } from '@/ui/errors/ErrorScreen';
 import { AgentShell } from '@/ui/shell/agent/AgentShell';
 import { StaffActivity } from '@/ui/shell/agent/StaffActivity';
 import { NotificationBell } from '@/ui/shell/NotificationBell';
@@ -15,6 +16,8 @@ import { staffUnreadAction } from './notifications/actions';
 export default async function AgentLayout({ children }: LayoutProps<'/[locale]/agent'>) {
   const staff = await requireStaffActor();
   const t = await getTranslations('common.userMenu');
+  const e = await getTranslations('common.error');
+  const locale = await getLocale();
   return (
     <AgentShell
       role={staff.actor.staffRole}
@@ -31,7 +34,8 @@ export default async function AgentLayout({ children }: LayoutProps<'/[locale]/a
     >
       {/* Срок бездействия 30 минут: отметку шлют только действия человека (план M9, решение 8). */}
       <StaffActivity touch={staffActivityAction} />
-      {children}
+      {/* Экран ошибки рабочего места ведёт сотрудника в рабочее место, а не в кабинет клиента (проверка интерфейса, U6). */}
+      <ErrorTextsProvider value={{ title: e('title'), text: e('text'), retry: e('retry'), home: e('agentHome'), homeHref: `/${locale}/agent` }}>{children}</ErrorTextsProvider>
     </AgentShell>
   );
 }

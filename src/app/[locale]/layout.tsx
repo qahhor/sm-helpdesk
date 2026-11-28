@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { isLocale } from '@/i18n/locales';
 import { StyleNonce } from '@/security/StyleNonce';
+import { ErrorTextsProvider } from '@/ui/errors/ErrorScreen';
 import { ThemeApply } from '@/ui/theme/ThemeApply';
 import { ThemeScript } from '@/ui/theme/ThemeScript';
 import '../globals.css';
@@ -23,6 +24,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
   setRequestLocale(locale);
   // Одноразовый код запроса для политики CSP. Его ставит src/proxy.ts.
   const nonce = (await headers()).get('x-nonce') ?? undefined;
+  const t = await getTranslations('common.error');
 
   return (
     // Класс dark ставит скрипт темы до отрисовки, поэтому разметка сервера и браузера здесь различается.
@@ -37,7 +39,8 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
         {/* Тексты переводятся на сервере и приходят компонентам готовыми строками: библиотека сообщений
             и сами сообщения в браузер не отправляются. Клиентскому экрану, которому нужны переводы,
             поставщик сообщений подключается на его странице с нужной частью сообщений. */}
-        {children}
+        {/* Строки экрана ошибки страницы (error.tsx): граница ошибок работает в браузере и берёт их из контекста. */}
+        <ErrorTextsProvider value={{ title: t('title'), text: t('text'), retry: t('retry'), home: t('home'), homeHref: `/${locale}` }}>{children}</ErrorTextsProvider>
       </body>
     </html>
   );

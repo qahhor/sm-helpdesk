@@ -8,7 +8,8 @@
     "notFound": {
       "title": "Sahifa topilmadi",
       "text": "Manzilni tekshiring yoki bosh sahifaga qayting.",
-      "home": "Bosh sahifaga"
+      "home": "Bosh sahifaga",
+      "agentHome": "Ish joyiga"
     },
     "theme": {
       "label": "Mavzu",
@@ -132,7 +133,15 @@
           "save": "G'oyalar haqidagi xatlarga qo'llash"
         }
       }
-    }
+    },
+    "error": {
+      "title": "Sahifani ochib bo'lmadi",
+      "text": "Qayta urinib ko'ring. Yordam bermasa, bosh sahifaga qayting.",
+      "retry": "Takrorlash",
+      "home": "Bosh sahifaga",
+      "agentHome": "Ish joyiga"
+    },
+    "loading": "Yuklanmoqda"
   },
   "client": {
     "home": {

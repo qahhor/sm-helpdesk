@@ -1,15 +1,14 @@
 import { getTranslations } from 'next-intl/server';
-import { Link } from '@/i18n/navigation';
+import { NotFoundScreen } from '@/ui/errors/NotFoundScreen';
+import { AuthShell } from '@/ui/shell/AuthShell';
 
+// Неизвестный адрес вне кабинета и рабочего места (проверка интерфейса, U7): оболочка страниц без входа, Тез и
+// кнопка на главную. Сессию страница не читает: её видит и посетитель без входа (решение 0164).
 export default async function NotFound() {
   const t = await getTranslations('common.notFound');
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-      <h1 className="text-2xl font-bold">{t('title')}</h1>
-      <p>{t('text')}</p>
-      <Link href="/" className="font-semibold underline">
-        {t('home')}
-      </Link>
-    </main>
+    <AuthShell wide>
+      <NotFoundScreen title={t('title')} text={t('text')} href="/" label={t('home')} />
+    </AuthShell>
   );
 }

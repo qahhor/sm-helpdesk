@@ -6,6 +6,7 @@ import { titleFromDescription } from '@/lib/subject';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
 import { FilePicker, type FilePickerLabels } from '@/ui/components/file-picker';
+import { FormError, revealError } from '@/ui/components/FormError';
 import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
 import { RadioGroup, type RadioOption } from '@/ui/components/radio-group';
@@ -168,13 +169,9 @@ function Fields({
   const [answered, setAnswered] = useState<NewTicketState | null>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const formErrorRef = useRef<HTMLDivElement>(null);
-  // После ответа сервера с ошибкой (U3; UX-C-10) фокус встаёт на поле с ошибкой или на общее сообщение, и оно
-  // прокручивается в видимую часть экрана.
+  // После ответа сервера с ошибкой (U3; UX-C-10) фокус встаёт на поле с ошибкой или на общее сообщение.
   useEffect(() => {
-    if (!state.error) return;
-    const target = state.field === 'description' ? descriptionRef.current : formErrorRef.current;
-    target?.focus({ preventScroll: true });
-    target?.scrollIntoView({ block: 'center' });
+    if (state.error) revealError(state.field === 'description' ? descriptionRef.current : formErrorRef.current);
   }, [state]);
 
   const subject = titleEdited ? title : titleFromDescription(description);
@@ -207,11 +204,7 @@ function Fields({
           <input type="hidden" name="context" value={JSON.stringify(contextOf(handoff))} />
         </>
       )}
-      {formError && (
-        <div ref={formErrorRef} tabIndex={-1} className="rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Alert tone="danger">{formError}</Alert>
-        </div>
-      )}
+      {formError && <FormError ref={formErrorRef}>{formError}</FormError>}
       {announcements
         .filter((a) => moduleId !== '' && a.moduleId === moduleId)
         .map((a) => (

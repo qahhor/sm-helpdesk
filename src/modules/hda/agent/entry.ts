@@ -15,14 +15,16 @@ import { hashToken, ipAllowed, parseBearer } from './auth';
 // ли он по функции базы app.agent_token_active() (не отозван, не истёк, учётная запись agent_bot активна, у токена
 // запуска действует родитель), адрес из списка токена, а у токена запуска ещё и из текущего списка родителя; перечень
 // токена запуска сужается до текущего перечня родителя. Предел неудачных проверок с адреса действует только на неверные
-// токены: чужие попытки с того же адреса не закрывают вход действующему агенту (M10). Адрес берётся из заголовка
+// токены и на отказ по адресу токена (проверка M9, I1): чужие попытки с того же адреса не закрывают вход действующему
+// агенту со своего адреса (M10). Адрес берётся из заголовка
 // доверенного прокси CLIENT_IP_HEADER: источник портала принимает соединения только от этого прокси (решение 0125).
 // Токен в памяти процесса не хранится: отзыв действует со следующего запроса. Причина отказа идёт только в журнал
-// работы, агенту одинаковые 401 и 403.
+// работы; агенту отказ по адресу и неверный токен отвечаются одинаковым 401 (долг M8b M9, план M9, решение 22).
 
 const SYSTEM = { type: 'system', job: 'mcp.entry' } as const;
 
-export type AgentAuth = { actor: AgentActor; dailyLimit: number; isRun: boolean };
+/** dailyTokenId: чей суточный счётчик расходует вызов; у токена запуска это родитель (долг M8b M1). */
+export type AgentAuth = { actor: AgentActor; dailyLimit: number; isRun: boolean; dailyTokenId: string };
 export type AgentDenied = { denied: 'unauthorized' | 'forbidden_ip' | 'rate_limited'; retryAfterSec?: number };
 export type AgentServerSettings = { allowedIps: readonly string[] | null };
 
@@ -65,6 +67,7 @@ export async function authenticateAgent(request: Request, settings: AgentServerS
         ticketId: agentTokens.ticketId,
         dailyLimit: agentTokens.dailyLimit,
         lastUsedAt: agentTokens.lastUsedAt,
+        parentTokenId: agentTokens.parentTokenId,
         parentDailyLimit: parent.dailyLimit,
         parentTools: parent.tools,
         parentAllowedIps: parent.allowedIps,
@@ -87,6 +90,10 @@ export async function authenticateAgent(request: Request, settings: AgentServerS
   if (!active) return unauthorized('inactive_token');
 
   if (!ipAllowed(ip, row.allowedIps) || (row.parentAllowedIps !== null && !ipAllowed(ip, row.parentAllowedIps))) {
+    // Тот же счётчик неудач, что у неверного токена: по появлению 429 действующий токен не отличить (проверка M9, I1).
+    const gate = await peekRateLimit(failKey, RATE_RULES.mcpTokenFailuresPerIp, now);
+    if (!gate.allowed) return { denied: 'rate_limited', retryAfterSec: gate.retryAfterSec };
+    await consumeRateLimit(failKey, RATE_RULES.mcpTokenFailuresPerIp, now);
     await withActor(SYSTEM, (tx) => tx.insert(agentToolCalls).values({ tokenId: row.tokenId, tool: 'connect', status: 'refused' }));
     logEvent('warn', 'mcp.denied', { tokenId: row.tokenId, reason: 'token_ip' });
     return { denied: 'forbidden_ip' };
@@ -102,5 +109,7 @@ export async function authenticateAgent(request: Request, settings: AgentServerS
     );
 
   const isRun = row.ticketId !== null;
-  return { auth: { actor, dailyLimit: isRun ? (row.parentDailyLimit ?? row.dailyLimit) : row.dailyLimit, isRun } };
+  return {
+    auth: { actor, dailyLimit: isRun ? (row.parentDailyLimit ?? row.dailyLimit) : row.dailyLimit, isRun, dailyTokenId: row.parentTokenId ?? row.tokenId },
+  };
 }

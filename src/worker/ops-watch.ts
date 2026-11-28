@@ -1,6 +1,6 @@
 import type { SystemActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
-import { archiveFailing, archiveState, claimOpsAlert, droppedEventsSince, eventsState, failedJobsSince, failedStaffSignIns, getSearchWriter, latestBackups, searchCounters, searchQueueState, type SearchIndexWriter, staleBackupKinds } from '@/modules/hdc/api';
+import { archiveFailing, archiveState, claimOpsAlert, droppedEventsSince, eventsState, failedJobsSince, failedStaffSignIns, getSearchWriter, hostAlerts, latestBackups, latestHostMarks, searchCounters, searchQueueState, type SearchIndexWriter, staleBackupKinds } from '@/modules/hdc/api';
 import { heldInboundCount, type OpsAlert, type OpsAlertCode, outboxFailedSince, outboxState, sendOpsAlert, staleInboundCount } from '@/modules/hdn/api/ops';
 import { infectedSince, unidentifiedSince } from '@/modules/hdt/api/jobs';
 import { inactiveBuiltinRules } from '@/modules/hdw/api/engine';
@@ -53,7 +53,7 @@ async function searchAlerts(actor: SystemActor, now: Date, writer: SearchIndexWr
 
 export async function collectOpsAlerts(actor: SystemActor, now: Date, deps: Pick<Deps, 'searchWriter'> = {}): Promise<OpsAlert[]> {
   const hourAgo = new Date(now.getTime() - 60 * MINUTE);
-  const [jobs, failed, state, stuck, signIns, infected, archive, held, unidentified, dropped, events, inactive, backups] = await Promise.all([
+  const [jobs, failed, state, stuck, signIns, infected, archive, held, unidentified, dropped, events, inactive, backups, hosts] = await Promise.all([
     failedJobsSince(actor, hourAgo),
     outboxFailedSince(actor, hourAgo),
     outboxState(actor, now),
@@ -67,6 +67,7 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date, deps: Pick
     eventsState(actor, now),
     inactiveBuiltinRules(actor),
     latestBackups(actor),
+    latestHostMarks(actor),
   ]);
   const alerts: OpsAlert[] = [];
   if (jobs > 0) alerts.push({ code: 'jobs_failed', count: jobs });
@@ -94,6 +95,8 @@ export async function collectOpsAlerts(actor: SystemActor, now: Date, deps: Pick
   // только виды копий, без адресов бакета и имён файлов.
   const stale = staleBackupKinds(backups, archive, now);
   if (stale.length > 0) alerts.push({ code: 'backup_stale', count: stale.length, kinds: stale.join(', ') });
+  // Ресурсы сервера по отметкам host-watch (план M9, решение 17): 80% и выше, отметок нет 15 минут.
+  alerts.push(...hostAlerts(hosts, now));
   alerts.push(...(await searchAlerts(actor, now, deps.searchWriter !== undefined ? deps.searchWriter : getSearchWriter())));
   return alerts;
 }

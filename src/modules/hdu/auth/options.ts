@@ -95,6 +95,8 @@ export function buildAuthOptions(deps: AuthDeps) {
         activeOrgId: { type: 'string', required: false, input: false },
         secondFactorAt: { type: 'date', required: false, input: false },
         freshAuthAt: { type: 'date', required: false, input: false },
+        // Последнее действие человека в рабочем месте ставит только отметка активности портала (план M9, решение 8).
+        staffActiveAt: { type: 'date', required: false, input: false },
       },
     },
     // Учётные записи по совпадению email не объединяются (решение 93 ТЗ).

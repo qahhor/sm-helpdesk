@@ -19,6 +19,16 @@ export async function revokeUserSessions(tx: Tx, userId: string): Promise<number
   return removed.length;
 }
 
+/** Отметка последнего действия человека в сессии сотрудника (план M9, решение 8). Время не уходит назад. */
+export async function markSessionActive(sessionId: string, at: Date): Promise<void> {
+  await withIdentity(SYSTEM, (tx) =>
+    tx
+      .update(authSession)
+      .set({ staffActiveAt: at })
+      .where(and(eq(authSession.id, sessionId), sql`(${authSession.staffActiveAt} is null or ${authSession.staffActiveAt} < ${at.toISOString()}::timestamptz)`)),
+  );
+}
+
 /** Завершает одну сессию по идентификатору строки. */
 export async function revokeSessionById(sessionId: string): Promise<void> {
   await withIdentity(SYSTEM, (tx) => tx.delete(authSession).where(eq(authSession.id, sessionId)));

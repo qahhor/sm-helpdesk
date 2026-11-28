@@ -13,6 +13,7 @@ import { HdiError, type HdiErrorCode } from '../error';
 import { ideaNumber, parseInput } from '../input';
 import { IDEA_MODERATOR_ROLES, ideaRef, RELEASE_VERSION_MAX } from '../pref';
 import { ideas } from '../schema';
+import { noProtoKeys } from '@/lib/no-proto';
 
 // Модуль hdi, слой api: статусы после выбора (ТЗ FR-IDEA-12, FR-DEV-06; план M7, задача 9, решение 18).
 // "Передать в разработку" (selected -> in_development): задача тем же адаптером hdw, что и обращения (ручной режим или
@@ -49,7 +50,7 @@ async function lockIdeaTx(tx: Tx, number: number) {
  */
 export async function sendIdeaToDevelopment(ctx: StaffContext, input: unknown): Promise<{ devTaskId: string; created: boolean }> {
   requireModerator(ctx);
-  const { number, ...task } = parseInput(z.looseObject({ number: ideaNumber }), input);
+  const { number, ...task } = parseInput(noProtoKeys(z.looseObject({ number: ideaNumber })), input);
   const source = await withActor(ctx.actor, async (tx) => {
     const [idea] = await tx.select().from(ideas).where(eq(ideas.number, number)).limit(1);
     if (!idea) throw new HdiError('not_found');

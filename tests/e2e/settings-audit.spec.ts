@@ -19,7 +19,8 @@ async function newCompany(page: Page): Promise<string> {
   return company;
 }
 
-test('care меняет категорию и отключает AI-обработку, администратор видит это в журнале текстом', async ({ page, browser }) => {
+// AI-обработку с M9 включают отметкой согласия: tests/e2e/org-ai-consent.spec.ts.
+test('care меняет категорию, администратор видит это в журнале текстом', async ({ page, browser }) => {
   const clientContext = await browser.newContext();
   const company = await newCompany(await clientContext.newPage());
   await clientContext.close();
@@ -30,10 +31,9 @@ test('care меняет категорию и отключает AI-обрабо
   await page.getByRole('button', { name: 'Найти' }).click();
   await page.getByRole('link', { name: company }).click();
   await page.getByLabel('Категория клиента').selectOption('B');
-  await page.getByLabel('Обращения обрабатывает AI-помощник').uncheck();
   await page.getByRole('button', { name: 'Сохранить настройки' }).click();
   await expect(main(page).getByRole('status')).toContainText('Сохранено');
-  await expect(page.getByLabel('Обращения обрабатывает AI-помощник')).not.toBeChecked();
+  await expect(page.getByLabel('Категория клиента')).toHaveValue('B');
 
   await dropSession(page);
   await signInStaff(page, staffAccount('admin'));

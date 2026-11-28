@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import * as z from 'zod';
 import { type Env, getEnv } from '@/env';
 import { verifySvix } from './svix';
+import { noProtoKeys } from '@/lib/no-proto';
 
 // Модуль hdn: почтовый сервис вехи M4 (раздел 11.11 ТЗ). Интерфейс, настоящая реализация (resend.ts) и заглушка
 // (testing.ts). Вебхук Resend несёт только сведения о письме: текст, заголовки и вложения забираются отдельными
@@ -94,7 +95,7 @@ const deliveryData = z.object({
   failed: z.object({ reason: z.string().nullish() }).partial().nullish(),
 });
 
-const envelope = z.object({ type: z.string().min(1), created_at: z.string().optional(), data: z.unknown() });
+const envelope = z.object({ type: z.string().min(1), created_at: z.string().optional(), data: noProtoKeys(z.unknown()) });
 
 const DELIVERY_TYPES: Record<string, DeliveryStatus> = {
   'email.sent': 'sent',

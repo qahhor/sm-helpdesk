@@ -1,9 +1,9 @@
 import 'server-only';
 import { FRESH_SIGN_IN_SEC, type StaffContext } from '@/modules/hdc/api';
-import { revokeSessionById } from '../core/sessions';
+import { markSessionActive, revokeSessionById } from '../core/sessions';
 import { findStaff } from '../core/staff';
 import { logEvent } from '@/lib/log';
-import { STAFF_SESSION_TTL_SEC, type StaffRole } from '../pref';
+import { STAFF_ACTIVITY_STEP_SEC, STAFF_IDLE_SEC, STAFF_SESSION_TTL_SEC, type StaffRole } from '../pref';
 import type { SessionData } from './request';
 
 // Кто перед нами: построение актора из проверенной сессии (ТЗ 11.1).
@@ -21,7 +21,7 @@ export function isRecentSignIn(freshAuthAt: Date | null, now: Date): boolean {
   return freshAuthAt !== null && now.getTime() - freshAuthAt.getTime() <= FRESH_SIGN_IN_SEC * 1000;
 }
 
-export type StaffDenial = { denied: 'no_session' | 'not_staff' | 'no_second_factor' | 'expired' };
+export type StaffDenial = { denied: 'no_session' | 'not_staff' | 'no_second_factor' | 'expired' | 'idle' };
 
 /**
  * Допуск к рабочему месту по результату resolveStaff: ok, страница входа или 404. Отказ не сотруднику и сотруднику без
@@ -41,9 +41,14 @@ export function staffAccess(result: StaffContext | StaffDenial, roles?: readonly
   return 'ok';
 }
 
+/** Последнее действие человека в сессии сотрудника: отметка активности, иначе вход с кодом второго фактора. */
+const lastActiveOf = (session: SessionData): Date => session.session.staffActiveAt ?? session.session.secondFactorAt ?? session.session.createdAt;
+
 /**
  * Актор сотрудника по сессии. Допуск получает только действующий сотрудник с подключённым
- * вторым фактором, вошедший не более 12 часов назад (FR-ID-09, FR-ID-10).
+ * вторым фактором, вошедший не более 12 часов назад (FR-ID-09, FR-ID-10) и действовавший не позже 30 минут назад
+ * (план M9, решение 8). Проверка срока сама срок не продлевает: продлевает только markStaffActivity. Истёкшая и
+ * простоявшая сессия завершается, вход ведёт обратно на ту же страницу.
  */
 export async function resolveStaff(session: SessionData | null, now: Date): Promise<StaffContext | StaffDenial> {
   if (!session) return { denied: 'no_session' };
@@ -56,6 +61,10 @@ export async function resolveStaff(session: SessionData | null, now: Date): Prom
     await revokeSessionById(session.session.id);
     return { denied: 'expired' };
   }
+  if (now.getTime() - lastActiveOf(session).getTime() > STAFF_IDLE_SEC * 1000) {
+    await revokeSessionById(session.session.id);
+    return { denied: 'idle' };
+  }
   return {
     actor: { type: 'staff', userId: session.user.id, staffRole: staff.role },
     user: { id: session.user.id, name: session.user.name, email: session.user.email },
@@ -65,3 +74,16 @@ export async function resolveStaff(session: SessionData | null, now: Date): Prom
 }
 
 
+
+/**
+ * Отметка действия человека в рабочем месте (план M9, решение 8): её шлёт страница при открытии и при вводе, не
+ * фоновые запросы. Только для действующей сессии сотрудника, не простоявшей 30 минут: простоявшую отметка не
+ * возвращает. В базу пишется не чаще раза в минуту. Возвращает, действует ли сессия.
+ */
+export async function markStaffActivity(session: SessionData | null, now: Date): Promise<boolean> {
+  if (!session) return false;
+  const result = await resolveStaff(session, now);
+  if ('denied' in result) return false;
+  if (now.getTime() - lastActiveOf(session).getTime() >= STAFF_ACTIVITY_STEP_SEC * 1000) await markSessionActive(session.session.id, now);
+  return true;
+}

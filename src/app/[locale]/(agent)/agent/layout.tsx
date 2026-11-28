@@ -1,8 +1,9 @@
 import { getTranslations } from 'next-intl/server';
-import { signOutStaffAction } from '@/app/[locale]/session-actions';
+import { signOutStaffAction, staffActivityAction } from '@/app/[locale]/session-actions';
 import { unreadCount } from '@/modules/hdn/api/notifications';
 import { requireStaffActor } from '@/modules/hdu/api';
 import { AgentShell } from '@/ui/shell/agent/AgentShell';
+import { StaffActivity } from '@/ui/shell/agent/StaffActivity';
 import { NotificationBell } from '@/ui/shell/NotificationBell';
 import { UserMenu } from '@/ui/shell/UserMenu';
 import { bellLabels } from '../../notifications-view';
@@ -28,6 +29,8 @@ export default async function AgentLayout({ children }: LayoutProps<'/[locale]/a
         />
       }
     >
+      {/* Срок бездействия 30 минут: отметку шлют только действия человека (план M9, решение 8). */}
+      <StaffActivity touch={staffActivityAction} />
       {children}
     </AgentShell>
   );

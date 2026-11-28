@@ -12,7 +12,7 @@ Smartup Hub - Smartup qo'llab-quvvatlash portali. Bu yerda muammo haqida xabar b
 >
 > Portal manzili: {portal manzili}. Smartup Web va mobil ilovadagi Smartup hisobingiz bilan kiring: «Smartup orqali kirish» tugmasi.
 >
-> Yangi murojaatga birinchi bo'lib Tez AI-yordamchisi javob beradi: u mos chop etilgan yechimni taklif qiladi yoki murojaatni xodimga topshiradi va javob muddatini aytadi. U o'z matnini yozmaydi, faqat bazadagi yechimlarni ko'rsatadi. Xodimni istalgan vaqtda «Xodim kerak» tugmasi bilan chaqirish mumkin. Yordamchi faqat tashkilotingiz murojaatlarni AI bilan qayta ishlashga rozi bo'lsa ishlaydi; istalgan vaqtda shu xatga javob yozib, rad etish mumkin.
+> Yangi murojaatga birinchi bo'lib Tez AI-yordamchisi javob beradi: u mos chop etilgan yechimni taklif qiladi yoki murojaatni xodimga topshiradi va javob muddatini aytadi. U o'z matnini yozmaydi, faqat bazadagi yechimlarni ko'rsatadi. Xodimni istalgan vaqtda «Xodim kerak» tugmasi bilan chaqirish mumkin. Yordamchi faqat tashkilotingiz murojaatlarni AI bilan qayta ishlashga yozma rozilik bergan bo'lsa ishlaydi: rozilik matni xatga ilova qilingan. Rozilik bo'lmaguncha murojaatlarni darhol xodimlar oladi. Istalgan vaqtda shu xatga javob yozib, rad etish mumkin.
 >
 > Qo'llanma xatga ilova qilingan. Tushunarsiz narsa bo'lsa, shu xatga javob yozing.
 >

@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
+import type { Tx } from '@/db/client';
 import { containsText } from '@/db/contains';
 import { type StaffActor, type SystemActor, withActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
@@ -62,7 +63,12 @@ export type OrgRow = {
   category: 'A' | 'B' | 'C' | 'D' | null;
   /** Обращения организации обрабатывает AI-помощник (FR-ADM-02). */
   isAiEnabled: boolean;
+  /** Отметка согласия на AI-обработку (план M9, решение 10): дата ГГГГ-ММ-ДД и основание. Только сотрудникам. */
+  aiConsentOn: string | null;
+  aiConsentRef: string | null;
   state: 'active' | 'passive';
+  /** Вид: client или служебная service (миграция 0035). */
+  kind: 'client' | 'service';
   /** Действующих участников. */
   memberCount: number;
 };
@@ -74,6 +80,9 @@ const orgColumns = {
   serverName: servers.name,
   category: organizations.category,
   isAiEnabled: organizations.isAiEnabled,
+  kind: organizations.kind,
+  aiConsentOn: organizations.aiConsentOn,
+  aiConsentRef: organizations.aiConsentRef,
   state: organizations.state,
   memberCount: sql<number>`(select count(*)::int from hdu_memberships m where m.org_id = ${organizations.orgId} and m.state = 'active')`,
 };
@@ -111,39 +120,69 @@ export async function getOrgRow(actor: StaffActor, orgId: string): Promise<OrgRo
   return rows[0] ?? null;
 }
 
-export type OrgSettings = { category?: 'A' | 'B' | 'C' | 'D' | null; isAiEnabled?: boolean };
+export type OrgSettings = { category?: 'A' | 'B' | 'C' | 'D' | null };
 
 /**
- * Категория клиента и признак AI-обработки (FR-ADM-02) от имени care или admin под ролью hub_auth.
- * Другие колонки сотруднику не даёт изменить триггер t_hdu_organizations_guard (миграция 0007).
- * В журнал org.updated идут прежние и новые значения изменённых полей. Ничего не изменилось: ни записи, ни журнала.
+ * Категория клиента (FR-ADM-02) от имени care или admin под ролью hub_auth. Признак AI-обработки меняет только
+ * setOrgAiProcessingTx: включение требует отметки согласия (план M9, решение 10). Другие колонки сотруднику не даёт
+ * изменить триггер t_hdu_organizations_guard (миграция 0007). Ничего не изменилось: ни записи, ни журнала.
  */
 export async function updateOrgSettings(actor: StaffActor, orgId: string, settings: OrgSettings): Promise<boolean> {
   return withIdentity(actor, async (tx) => {
-    const current = (
-      await tx
-        .select({ category: organizations.category, isAiEnabled: organizations.isAiEnabled })
-        .from(organizations)
-        .where(eq(organizations.orgId, orgId))
-        .limit(1)
-        .for('update')
-    )[0];
+    const current = (await tx.select({ category: organizations.category }).from(organizations).where(eq(organizations.orgId, orgId)).limit(1).for('update'))[0];
     if (!current) return false;
-    const diff: Record<string, { from: unknown; to: unknown }> = {};
-    if (settings.category !== undefined && settings.category !== current.category) diff.category = { from: current.category, to: settings.category };
-    if (settings.isAiEnabled !== undefined && settings.isAiEnabled !== current.isAiEnabled)
-      diff.isAiEnabled = { from: current.isAiEnabled, to: settings.isAiEnabled };
-    if (Object.keys(diff).length === 0) return true;
-    await tx
-      .update(organizations)
-      .set({
-        ...(diff.category && { category: settings.category }),
-        ...(diff.isAiEnabled && { isAiEnabled: settings.isAiEnabled }),
-      })
-      .where(eq(organizations.orgId, orgId));
-    await writeAudit(tx, { action: 'org.updated', objectType: 'organization', objectId: orgId, orgId, diff });
+    if (settings.category === undefined || settings.category === current.category) return true;
+    await tx.update(organizations).set({ category: settings.category }).where(eq(organizations.orgId, orgId));
+    await writeAudit(tx, { action: 'org.updated', objectType: 'organization', objectId: orgId, orgId, diff: { category: { from: current.category, to: settings.category } } });
     return true;
   });
+}
+
+export type OrgAiProcessingInput = { orgId: string; enabled: true; consentOn: string; consentRef: string } | { orgId: string; enabled: false };
+
+/**
+ * AI-обработка организации (план M9, задача 2, решение 10) в транзакции вызывающего под ролью hub_auth. Включение
+ * записывает отметку согласия и журнал org.ai_consent_recorded; повторная отметка по включённой организации тоже
+ * записывается. Выключение пишет org.ai_disabled и прежнюю отметку не стирает; выключенную не трогает.
+ * Нет организации: false.
+ */
+export async function setOrgAiProcessingTx(tx: Tx, actor: StaffActor, input: OrgAiProcessingInput): Promise<boolean> {
+  void actor;
+  const current = (
+    await tx
+      .select({ isAiEnabled: organizations.isAiEnabled, kind: organizations.kind })
+      .from(organizations)
+      .where(eq(organizations.orgId, input.orgId))
+      .limit(1)
+      .for('update')
+  )[0];
+  if (!current || current.kind !== 'client') return false;
+  if (!input.enabled) {
+    if (!current.isAiEnabled) return true;
+    await tx.update(organizations).set({ isAiEnabled: false }).where(eq(organizations.orgId, input.orgId));
+    await writeAudit(tx, { action: 'org.ai_disabled', objectType: 'organization', objectId: input.orgId, orgId: input.orgId });
+    return true;
+  }
+  // База включает выключенную организацию только с отметкой, поставленной в том же UPDATE (миграция 0129): прежняя
+  // отметка сначала снимается, тогда и та же дата с тем же основанием ставятся заново (проверка M9, M5).
+  if (!current.isAiEnabled) await tx.update(organizations).set({ aiConsentOn: null, aiConsentRef: null }).where(eq(organizations.orgId, input.orgId));
+  await tx
+    .update(organizations)
+    .set({ isAiEnabled: true, aiConsentOn: input.consentOn, aiConsentRef: input.consentRef })
+    .where(eq(organizations.orgId, input.orgId));
+  await writeAudit(tx, {
+    action: 'org.ai_consent_recorded',
+    objectType: 'organization',
+    objectId: input.orgId,
+    orgId: input.orgId,
+    diff: { consentOn: input.consentOn, consentRef: input.consentRef, wasEnabled: current.isAiEnabled },
+  });
+  return true;
+}
+
+/** То же своей транзакцией от имени сотрудника. */
+export async function setOrgAiProcessingOf(actor: StaffActor, input: OrgAiProcessingInput): Promise<boolean> {
+  return withIdentity(actor, (tx) => setOrgAiProcessingTx(tx, actor, input));
 }
 
 /** memberNames: имена всех участников организации, и тех, кто в переписке не писал (0057, I3s). */

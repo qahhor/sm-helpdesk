@@ -5,11 +5,12 @@ import type { SystemActor } from '@/db/with-actor';
 import { addServer, checkServer, disableServer, getServer, listServers, resealServerSecrets, type ServerIssue, updateWidgetSettings } from '@/modules/hdu/api/servers';
 import { adminActorByEmail, adminContextByEmail, inviteStaff, resetStaff } from '@/modules/hdu/api/staff-admin';
 import { runSeedPilot } from './seed-pilot';
+import { revokeSessions } from '@/modules/hdu/api/sessions-admin';
 import { isHduError } from '@/modules/hdu/api/errors';
 import { setTelegramWebhook, telegramInfo } from '@/modules/hdn/api/telegram-admin';
 import { cleanupInbound, cleanupOutbox, cleanupTelegramUpdates, resealChannelSecrets } from '@/modules/hdn/api/maintenance';
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
-import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, getSearchWriter, issueSearchKeys, markBackup, prepareSearchIndex, reindexCollection, SEARCH_COLLECTIONS, type SearchCollection, searchQueueState, SearchWriteError } from '@/modules/hdc/api';
+import { BACKUP_KINDS, type BackupKind, cleanupRateLimits, markHost, getSearchWriter, issueSearchKeys, markBackup, prepareSearchIndex, reindexCollection, SEARCH_COLLECTIONS, type SearchCollection, searchQueueState, SearchWriteError } from '@/modules/hdc/api';
 import { registerSearch } from '@/worker/search';
 import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
@@ -100,6 +101,16 @@ const HELP = `Использование: hub <команда> [ключи]
       копия base-backup.sh. Сценарии вызывают команду сами после выгрузки. По возрасту отметок фоновый процесс шлёт
       дежурным сигнал backup_stale. --bytes: размер зашифрованного файла копии.
 
+  sessions:revoke --user <адрес> | --staff | --all
+      Завершить сессии при инциденте (план M9, решение 9): одного пользователя по адресу, всех сотрудников или
+      всех. Вход потребуется заново. Пишет session.revoked_bulk в журнал аудита: охват и число, без адресов.
+
+  ops:host-mark --host <имя> --disk <п> --mem <п> --cpu <п>
+      Отметить ресурсы сервера (план M9, решение 17): доли занятого диска томов базы и копий, памяти и процессора,
+      целые от 0 до 100. Вызывает сценарий scripts/ops/host-watch.sh по таймеру раз в 5 минут. По отметкам фоновый
+      процесс шлёт дежурным сигналы host_pressure (80% и выше) и host_mark_stale (отметок нет 15 минут).
+      --host: имя сервера, обязательно: имя машины внутри контейнера меняется при каждом пересоздании.
+
   maintenance:cleanup
       Удалить просроченные служебные строки: счётчики частоты, номера событий Telegram, сессии
       и одноразовые значения входа. Запускать раз в сутки, пока нет фоновых задач (решение 0023).
@@ -157,7 +168,9 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'telegram:set-webhook': { options: {}, required: [] },
   'telegram:info': { options: {}, required: [] },
   'maintenance:cleanup': { options: {}, required: [] },
+  'sessions:revoke': { options: { user: { type: 'string' }, staff: { type: 'boolean' }, all: { type: 'boolean' } }, required: [] },
   'ops:backup-mark': { options: { kind: { type: 'string' }, bytes: { type: 'string' } }, required: ['kind'] },
+  'ops:host-mark': { options: { disk: { type: 'string' }, mem: { type: 'string' }, cpu: { type: 'string' }, host: { type: 'string' } }, required: ['host', 'disk', 'mem', 'cpu'] },
   'ideas:cycle': { options: { month: { type: 'string' } }, required: ['month'] },
   'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
@@ -436,6 +449,30 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         if (bytes !== undefined && !(typeof bytes === 'string' && /^[1-9]\d{0,15}$/.test(bytes))) throw new UsageError('Размер копии --bytes: целое число байт больше нуля.');
         await markBackup(ACTOR, { kind: kind as BackupKind, ...(bytes !== undefined && { sizeBytes: Number(bytes) }) });
         io.out(`Отметка копии записана: ${kind}${bytes !== undefined ? `, ${bytes} байт` : ''}.`);
+        return 0;
+      }
+      case 'ops:host-mark': {
+        const share = (name: string) => {
+          const value = text(name);
+          if (!/^(100|[1-9]?\d)$/.test(value)) throw new UsageError(`Доля --${name}: целое число от 0 до 100.`);
+          return Number(value);
+        };
+        // Имя сервера только из --host (независимая проверка M9, M2): hostname() контейнера меняется при пересоздании
+        // и оставлял бы строки, по которым ops.watch слал host_mark_stale без конца.
+        const host = text('host').toLowerCase();
+        if (!/^[a-z0-9][a-z0-9.-]{0,62}$/.test(host)) throw new UsageError('Имя сервера --host: латинские буквы, цифры, точка и дефис, до 63 знаков.');
+        const [diskPct, memPct, cpuPct] = [share('disk'), share('mem'), share('cpu')];
+        await markHost(ACTOR, { host, diskPct, memPct, cpuPct });
+        io.out(`Отметка ресурсов записана: диск ${diskPct}%, память ${memPct}%, процессор ${cpuPct}%.`);
+        return 0;
+      }
+      case 'sessions:revoke': {
+        const user = values.user;
+        const chosen = [typeof user === 'string', values.staff === true, values.all === true].filter(Boolean).length;
+        if (chosen !== 1) throw new UsageError('Укажите ровно один охват: --user <адрес>, --staff или --all.');
+        const scope = typeof user === 'string' ? { scope: 'user' as const, email: user } : values.staff === true ? { scope: 'staff' as const } : { scope: 'all' as const };
+        const { revoked } = await revokeSessions(ACTOR, scope);
+        io.out(`Завершено сессий: ${revoked} (${{ user: 'пользователь', staff: 'сотрудники', all: 'все' }[scope.scope]}).`);
         return 0;
       }
       case 'secrets:reseal': {

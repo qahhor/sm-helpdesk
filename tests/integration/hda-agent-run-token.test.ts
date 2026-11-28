@@ -43,8 +43,8 @@ test('выпуск: перечень ровно get_ticket и add_internal_note,
   expect(JSON.stringify((await pools.root.query(`select * from hda_agent_tokens`)).rows)).not.toContain(run.value);
   expect(run.expiresAt.getTime()).toBe(new Date(row.expires_at).getTime());
   expect((await client(run.value).listTools()).map((tool) => tool.name)).toEqual(['get_ticket', 'add_internal_note']);
-  // Адрес вне списка родителя: 403.
-  expect((await client(run.value, '192.168.1.5').rpc('tools/list')).status).toBe(403);
+  // Адрес вне списка родителя: 401, как неверный токен (долг M8b M9).
+  expect((await client(run.value, '192.168.1.5').rpc('tools/list')).status).toBe(401);
 });
 
 test('читает только своё обращение; поиск, сводка и черновики: tool_not_allowed', async () => {
@@ -133,8 +133,62 @@ test('сужение адресов и перечня родителя дейс�
   const a = client(run.value);
   expect(errorOf((await a.callTool('get_ticket', { number: f.tickets.aOrg.number })) as Result)).toBeNull();
   await pools.root.query(`update hda_agent_tokens set allowed_ips = array['10.0.4.0/24']::cidr[] where token_id = $1`, [parent.tokenId]);
-  expect((await a.rpc('tools/list')).status).toBe(403);
+  expect((await a.rpc('tools/list')).status).toBe(401);
   await pools.root.query(`update hda_agent_tokens set allowed_ips = array['10.0.3.0/24']::cidr[], tools = array['get_ticket'] where token_id = $1`, [parent.tokenId]);
   expect((await a.listTools()).map((tool) => tool.name)).toEqual(['get_ticket']);
   expect(errorOf((await a.callTool('add_internal_note', { ticket_number: f.tickets.aOrg.number, body: 'Заметка' })) as Result)).toBe('tool_not_allowed');
+});
+
+test('выпуск и отзыв токена запуска пишут журнал аудита той же транзакцией (долг M8b M4)', async () => {
+  const { f, parent, issue } = await setup();
+  const audit = async () =>
+    (await pools.root.query(`select action, actor_type, object_type, object_id, diff from hdc_audit_log where action like 'agent.run_token_%' order by created_on, action`)).rows;
+  const first = await issue();
+  expect(await audit()).toEqual([
+    {
+      action: 'agent.run_token_issued',
+      actor_type: 'system',
+      object_type: 'agent_token',
+      object_id: first.tokenId,
+      // Без события (выпуск напрямую) eventId нет; учётная запись AI-сотрудника названа всегда (проверка M9, M7).
+      diff: { parentId: parent.tokenId, ticketId: f.tickets.aOrg.ticketId, purpose: 'ticket', tools: ['get_ticket', 'add_internal_note'], staffUserId: parent.userId },
+    },
+  ]);
+  // Повторный выпуск по тому же обращению отзывает прежний: запись об отзыве с причиной.
+  const second = await issue();
+  const rows = await audit();
+  expect(rows.filter((r) => r.action === 'agent.run_token_revoked')).toEqual([
+    { action: 'agent.run_token_revoked', actor_type: 'system', object_type: 'agent_token', object_id: first.tokenId, diff: { parentId: parent.tokenId, reason: 'replaced' } },
+  ]);
+  await withActor(SYSTEM, (tx) => revokeTicketRunTokenTx(tx, SYSTEM, { tokenId: second.tokenId }));
+  expect((await audit()).filter((r) => r.action === 'agent.run_token_revoked').map((r) => [r.object_id, r.diff.reason])).toEqual([
+    [first.tokenId, 'replaced'],
+    [second.tokenId, 'not_sent'],
+  ]);
+  // Откат транзакции отправки не оставляет ни токена, ни записи.
+  await expect(
+    withActor(SYSTEM, async (tx) => {
+      await issueTicketRunTokenTx(tx, SYSTEM, { parentTokenId: parent.tokenId, ticketId: f.tickets.aMine.ticketId });
+      throw new Error('откат');
+    }),
+  ).rejects.toThrow('откат');
+  expect((await pools.root.query(`select count(*)::int as n from hda_agent_tokens where ticket_id = $1`, [f.tickets.aMine.ticketId])).rows[0].n).toBe(0);
+  expect((await audit()).filter((r) => r.diff.ticketId === f.tickets.aMine.ticketId)).toEqual([]);
+  expect(JSON.stringify(await audit())).not.toContain(first.value);
+});
+
+test('вызовы токена запуска расходуют суточный предел родителя; исчерпанный родитель отказывает и токену запуска (долг M8b M1)', async () => {
+  const { f, parent, issue, client, errorOf } = await setup();
+  await pools.root.query(`update hda_agent_tokens set daily_limit = 3 where token_id = $1`, [parent.tokenId]);
+  const run = client((await issue()).value);
+  expect(errorOf((await run.callTool('get_ticket', { number: f.tickets.aOrg.number })) as Result)).toBeNull();
+  expect(errorOf((await run.callTool('get_ticket', { number: f.tickets.aOrg.number })) as Result)).toBeNull();
+  const main = client(parent.value);
+  expect(errorOf((await main.callTool('search_tickets', {})) as Result)).toBeNull();
+  // Три вызова за сутки у родителя и его токенов запуска вместе: четвёртый отклоняется у обоих.
+  const over = (await main.callTool('search_tickets', {})) as Result;
+  expect(over.isError).toBe(true);
+  expect(JSON.parse(over.content[0]!.text)).toMatchObject({ error: 'rate_limited' });
+  const runOver = (await run.callTool('get_ticket', { number: f.tickets.aOrg.number })) as Result;
+  expect(JSON.parse(runOver.content[0]!.text)).toMatchObject({ error: 'rate_limited' });
 });

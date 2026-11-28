@@ -276,7 +276,7 @@ async function claimTx(system: SystemActor, now: Date): Promise<Claimed | null> 
         .where(and(eq(agentTokens.isEventParent, true), isNull(agentTokens.revokedAt), isNull(agentTokens.parentTokenId), gt(agentTokens.expiresAt, now)))
         .limit(1);
       if (parent)
-        runToken = await issueTicketRunTokenTx(tx, system, { parentTokenId: parent.tokenId, ticketId: row.ticketId, ...(row.kind === 'code_analysis_requested' ? { purpose: 'code_analysis' as const } : {}) }, now);
+        runToken = await issueTicketRunTokenTx(tx, system, { parentTokenId: parent.tokenId, ticketId: row.ticketId, eventId: row.eventId, ...(row.kind === 'code_analysis_requested' ? { purpose: 'code_analysis' as const } : {}) }, now);
     }
     await tx
       .update(agentEvents)

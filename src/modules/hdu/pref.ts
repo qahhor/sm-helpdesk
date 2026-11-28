@@ -37,6 +37,12 @@ export const AUTH_COOKIE_NAMES = ['session_token', 'session_data', 'dont_remembe
 export const SESSION_UPDATE_AGE_SEC = 24 * 3600;
 /** Сессия сотрудника: 12 часов без продления (FR-ID-10). */
 export const STAFF_SESSION_TTL_SEC = 12 * 3600;
+/**
+ * Срок бездействия сессии сотрудника (план M9, решение 8; ASVS V7.3.1): без действий человека столько секунд сессия
+ * закрывается. Отметка действия пишется в базу не чаще раза в STAFF_ACTIVITY_STEP_SEC.
+ */
+export const STAFF_IDLE_SEC = 30 * 60;
+export const STAFF_ACTIVITY_STEP_SEC = 60;
 /** Приглашение сотрудника и ссылка после сброса живут 24 часа (решение 0015): ссылка даёт права в рабочем месте. */
 export const STAFF_INVITATION_TTL_SEC = 24 * 3600;
 /** Ссылка запасного входа из бота Telegram: 10 минут (FR-ID-14, решение 94 ТЗ). */
@@ -133,3 +139,11 @@ export const PUBLIC_MAIL_DOMAINS: ReadonlySet<string> = new Set([
   'mail.ru', 'inbox.ru', 'list.ru', 'bk.ru', 'internet.ru', 'yandex.ru', 'yandex.com', 'yandex.uz', 'ya.ru', 'rambler.ru',
   'umail.uz', 'inbox.uz', 'mail.uz', 'bk.uz',
 ]);
+
+/**
+ * Настройка hdc_settings: получает ли организация, созданная входом через Smartup, AI-обработку сразу (план M9,
+ * решение 10). Нет строки или не true: не получает, включают care и admin с отметкой согласия (решение ТЗ 88).
+ */
+export const AI_NEW_ORG_DEFAULT_SETTING = 'ai.new_org_default';
+/** Основание согласия на AI-обработку: номер письма или договора (миграция 0124). */
+export const AI_CONSENT_REF_MAX = 200;

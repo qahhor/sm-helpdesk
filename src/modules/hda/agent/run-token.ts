@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import type { SystemActor } from '@/db/with-actor';
+import { writeAudit } from '@/modules/hdc/api';
 import { AGENT_CODE_RUN_TOOLS, AGENT_RUN_TOOLS, type AgentTool } from '../pref';
 import { agentTokens } from '../schema';
 import { generateTokenValue, hashToken, tokenLast4 } from './auth';
@@ -24,7 +25,7 @@ export type RunToken = { tokenId: string; value: string; expiresAt: Date; tools:
 export async function issueTicketRunTokenTx(
   tx: Tx,
   system: SystemActor,
-  input: { parentTokenId: string; ticketId: string; purpose?: 'ticket' | 'code_analysis' },
+  input: { parentTokenId: string; ticketId: string; purpose?: 'ticket' | 'code_analysis'; eventId?: string },
   now: Date = new Date(),
 ): Promise<RunToken | null> {
   if (system.type !== 'system') throw new Error('Токен запуска выпускает только система');
@@ -41,10 +42,15 @@ export async function issueTicketRunTokenTx(
   // Прежние токены запуска того же основного токена, обращения и назначения перестают действовать: токен анализа по
   // коду и токен события обращения друг друга не отзывают (независимая проверка M8c, находка I3).
   const purpose = input.purpose ?? 'ticket';
-  await tx
+  const replaced = await tx
     .update(agentTokens)
     .set({ revokedAt: now })
-    .where(and(eq(agentTokens.parentTokenId, parent.tokenId), eq(agentTokens.ticketId, input.ticketId), eq(agentTokens.purpose, purpose), isNull(agentTokens.revokedAt)));
+    .where(and(eq(agentTokens.parentTokenId, parent.tokenId), eq(agentTokens.ticketId, input.ticketId), eq(agentTokens.purpose, purpose), isNull(agentTokens.revokedAt)))
+    .returning({ tokenId: agentTokens.tokenId });
+  // Выпуск и отзыв токена запуска это изменение прав: запись в журнал аудита той же транзакцией (долг M8b M4). Действует
+  // система (политика журнала пишет актора транзакции), объект записи токен, родитель назван в описании.
+  for (const old of replaced)
+    await writeAudit(tx, { action: 'agent.run_token_revoked', objectType: 'agent_token', objectId: old.tokenId, diff: { parentId: parent.tokenId, reason: 'replaced' } });
   const value = generateTokenValue();
   const tokenId = randomUUID();
   const expiresAt = new Date(now.getTime() + RUN_TOKEN_TTL_MS);
@@ -63,14 +69,23 @@ export async function issueTicketRunTokenTx(
     noteLimit: RUN_NOTE_LIMIT,
     purpose,
   });
+  // В описании событие, ради которого выпущен токен, и учётная запись AI-сотрудника (независимая проверка M9, M7).
+  await writeAudit(tx, {
+    action: 'agent.run_token_issued',
+    objectType: 'agent_token',
+    objectId: tokenId,
+    diff: { parentId: parent.tokenId, ticketId: input.ticketId, purpose, tools, staffUserId: parent.userId, ...(input.eventId !== undefined && { eventId: input.eventId }) },
+  });
   return { tokenId, value, expiresAt, tools };
 }
 
 /** Отозвать токен запуска (например, если событие с ним не ушло). Основной токен так не отзывается. */
 export async function revokeTicketRunTokenTx(tx: Tx, system: SystemActor, input: { tokenId: string }, now: Date = new Date()): Promise<void> {
   if (system.type !== 'system') throw new Error('Токен запуска отзывает только система');
-  await tx
+  const [revoked] = await tx
     .update(agentTokens)
     .set({ revokedAt: now })
-    .where(and(eq(agentTokens.tokenId, input.tokenId), isNotNull(agentTokens.parentTokenId), isNull(agentTokens.revokedAt)));
+    .where(and(eq(agentTokens.tokenId, input.tokenId), isNotNull(agentTokens.parentTokenId), isNull(agentTokens.revokedAt)))
+    .returning({ tokenId: agentTokens.tokenId, parentId: agentTokens.parentTokenId });
+  if (revoked) await writeAudit(tx, { action: 'agent.run_token_revoked', objectType: 'agent_token', objectId: revoked.tokenId, diff: { parentId: revoked.parentId, reason: 'not_sent' } });
 }

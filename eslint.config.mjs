@@ -63,6 +63,24 @@ const EDITOR_UI = { group: ['@/ui/doc/editor', '@/ui/doc/editor/*', '**/ui/doc/e
 const JOSE_REMOTE =
   'Открытые ключи скачиваются только через src/security/outbound.ts (src/modules/hdu/core/context-keys.ts), createRemoteJWKSet ходит в сеть мимо него (план M6, решение 3)';
 const JOSE_REMOTE_NAMES = '/^(createRemoteJWKSet|customFetch|jwksCache)$/';
+const JOSE_SELECTORS = [
+  { selector: `ImportDeclaration[source.value='jose'] ImportSpecifier[imported.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
+  { selector: `ExportNamedDeclaration[source.value='jose'] ExportSpecifier[local.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
+  { selector: `MemberExpression[property.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
+  { selector: "ImportDeclaration[source.value=/^jose\\/.+/]", message: JOSE_REMOTE },
+];
+
+// Загрязнение прототипа (план M9, задача 5; ASVS V15.3.6): ключ __proto__, смена прототипа и запись в
+// Object.prototype. Ввод с опасными ключами очищает одна функция src/lib/no-proto.ts.
+const PROTO =
+  'Прототип не меняют и ключ __proto__ не называют: ввод с опасными ключами очищает src/lib/no-proto.ts (план M9, задача 5; ASVS V15.3.6)';
+const PROTO_SELECTORS = [
+  { selector: "Literal[value='__proto__']", message: PROTO },
+  { selector: "Identifier[name='__proto__']", message: PROTO },
+  { selector: "CallExpression[callee.object.name=/^(Object|Reflect)$/][callee.property.name='setPrototypeOf']", message: PROTO },
+  { selector: "AssignmentExpression[left.object.object.name='Object'][left.object.property.name='prototype']", message: PROTO },
+  { selector: "AssignmentExpression[left.object.name='Object'][left.property.name='prototype']", message: PROTO },
+];
 
 const PUBLIC_BOUNDARY = 'Открытые страницы (public) не читают сессию и не берут актора, кроме public (CLAUDE.md)';
 const EMBED_BOUNDARY = 'Страницы виджета (embed) не читают сессию портала: актор только из токена виджета в API (план M6, решение 1)';
@@ -146,13 +164,15 @@ const eslintConfig = defineConfig([
     // Во всём репозитории: исходники, сценарии, тесты.
     files: ['**/*.{ts,tsx,js,mjs,cjs}'],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        { selector: `ImportDeclaration[source.value='jose'] ImportSpecifier[imported.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
-        { selector: `ExportNamedDeclaration[source.value='jose'] ExportSpecifier[local.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
-        { selector: `MemberExpression[property.name=${JOSE_REMOTE_NAMES}]`, message: JOSE_REMOTE },
-        { selector: "ImportDeclaration[source.value=/^jose\\/.+/]", message: JOSE_REMOTE },
-      ],
+      'no-restricted-syntax': ['error', ...JOSE_SELECTORS],
+    },
+  },
+  {
+    // Исходники и сценарии, кроме тестов: загрязнение прототипа (план M9, задача 5; ASVS V15.3.6). Правило заменяет
+    // общее для этих файлов, поэтому запрет jose повторён. Опасные ключи называет только src/lib/no-proto.ts.
+    files: ['src/**/*.{ts,tsx,js,mjs}', 'scripts/**/*.{js,mjs,ts}'],
+    rules: {
+      'no-restricted-syntax': ['error', ...JOSE_SELECTORS, ...PROTO_SELECTORS],
     },
   },
   // Модули: только api и pref других модулей (проверка main, Q6). Кроме hdu, модули работают с базой

@@ -326,6 +326,7 @@ test('обращение за клиента: организация, участ
   await main(page).getByRole('link', { name: 'ACME Trade' }).click();
   const author = main(page).getByLabel('От чьего имени');
   await author.selectOption((await author.locator('option', { hasText: 'Алишер' }).first().getAttribute('value')) ?? '');
+  await main(page).getByLabel('Откуда пришло').selectOption('phone');
   await main(page).getByLabel('Что случилось').fill(description);
   await main(page).getByLabel('Приоритет').selectOption('p2');
   await main(page).getByRole('button', { name: 'Создать обращение' }).click();

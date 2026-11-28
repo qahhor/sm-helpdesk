@@ -63,7 +63,8 @@ export async function handleMcpRequest(request: Request, deps: { now?: () => Dat
   // Вход проверяется по заголовкам до чтения тела: большое тело без действующего токена не читается (веха M8c).
   const checked = await authenticateAgent(request, agentServerSettings(), deps.now?.() ?? new Date());
   if ('denied' in checked) {
-    if (checked.denied === 'forbidden_ip') return problemResponse(403, 'forbidden', { 'Cache-Control': NO_STORE });
+    // Отказ по адресу отвечается так же, как неверный токен (долг M8b M9): держатель утёкшего токена не узнаёт по
+    // ответу, что токен действует. Причину различают журнал вызовов и событие mcp.denied.
     if (checked.denied === 'rate_limited') return problemResponse(429, 'rate_limited', { 'Retry-After': String(checked.retryAfterSec ?? 60), 'Cache-Control': NO_STORE });
     return problemResponse(401, 'unauthorized', { 'WWW-Authenticate': 'Bearer', 'Cache-Control': NO_STORE });
   }

@@ -855,13 +855,16 @@
         "enabled": "Member is active again.",
         "invited": "The invitation is being emailed. If the email does not arrive, invite again.",
         "revoked": "Invitation revoked.",
-        "settingsSaved": "Saved."
+        "settingsSaved": "Saved.",
+        "aiEnabled": "AI processing is on, consent recorded.",
+        "aiDisabled": "AI processing is off.",
+        "pilotOn": "The organization is marked as pilot.",
+        "pilotOff": "The organization is removed from the pilot."
       },
       "settingsTitle": "Organization settings",
       "categoryLabel": "Client category",
       "categoryNone": "Not set",
-      "aiLabel": "Requests are handled by the AI assistant",
-      "aiHint": "Turn off if the organization has declined AI handling of requests.",
+      "aiHint": "Turn off if the organization has declined AI handling of requests. The consent record is kept.",
       "saveSettings": "Save settings",
       "ai": "AI handling",
       "aiOn": "on",
@@ -883,6 +886,21 @@
           "added": "Domain added.",
           "removed": "Domain removed."
         }
+      },
+      "aiConsent": "Consent of {date}, basis: {ref}",
+      "aiConsentNone": "No consent recorded.",
+      "aiConsentOn": "Consent date",
+      "aiConsentRef": "Basis",
+      "aiConsentRefHint": "Letter or contract number, up to 200 characters.",
+      "aiEnableHint": "The AI assistant handles the organization's requests only after its written consent. Enter the date and the basis.",
+      "aiEnable": "Turn on AI processing",
+      "aiDisable": "Turn off AI processing",
+      "pilot": {
+        "title": "Pilot",
+        "on": "The organization is in the pilot and in the pilot summary.",
+        "off": "The organization is not in the pilot.",
+        "mark": "Mark as pilot",
+        "unmark": "Remove from pilot"
       }
     },
     "settings": {
@@ -1233,7 +1251,9 @@
             "provisioned": "Organization created",
             "updated": "Organization settings changed",
             "domain_added": "Organization email domain added",
-            "domain_removed": "Organization email domain removed"
+            "domain_removed": "Organization email domain removed",
+            "ai_consent_recorded": "AI processing consent recorded",
+            "ai_disabled": "AI processing turned off for the organization"
           },
           "member": {
             "joined": "Member added",
@@ -1252,7 +1272,8 @@
             "signed_in": "Client signed in"
           },
           "session": {
-            "revoked": "Session ended"
+            "revoked": "Session ended",
+            "revoked_bulk": "Sessions ended by a console command"
           },
           "telegram": {
             "linked": "Telegram linked",
@@ -1438,7 +1459,9 @@
             "event_parent_set": "AI staff token chosen for events",
             "tool_refused": "Tool call outside the token list refused",
             "tool_called": "AI staff called a write tool",
-            "report_reviewed": "AI staff digest marked as reviewed"
+            "report_reviewed": "AI staff digest marked as reviewed",
+            "run_token_issued": "AI staff run token issued",
+            "run_token_revoked": "AI staff run token revoked"
           },
           "code": {
             "scan_accepted": "Code scan report accepted",
@@ -1514,7 +1537,19 @@
           "allowedIps": "Addresses",
           "expiresAt": "Valid until",
           "dailyLimit": "Daily limit",
-          "runRevoked": "Run tokens revoked"
+          "runRevoked": "Run tokens revoked",
+          "consentOn": "Consent date",
+          "consentRef": "Consent basis",
+          "wasEnabled": "Was on",
+          "scope": "Scope",
+          "revoked": "Ended",
+          "all": "all",
+          "user": "user",
+          "parentId": "Main token",
+          "purpose": "Purpose",
+          "reason": "Reason",
+          "replaced": "replaced",
+          "not_sent": "event not sent"
         }
       },
       "sla": {
@@ -2268,7 +2303,9 @@
           "cutoff": "Share of the limit per organisation, %",
           "cutoffHint": "At 80% of the limit, organisations that spent more than this share are cut off.",
           "fieldsOff": "Disabled triage suggestions",
-          "fieldsOffHint": "A field turns off by itself if fewer than 70% of its suggestions were accepted in a month."
+          "fieldsOffHint": "A field turns off by itself if fewer than 70% of its suggestions were accepted in a month.",
+          "newOrgDefault": "AI processing for new organizations right away",
+          "newOrgDefaultHint": "Off: an organization that signs in through Smartup for the first time works without AI until Customer Care records its written consent."
         },
         "fields": {
           "module": "Module",
@@ -3178,6 +3215,16 @@
         "forbidden": "Your role does not allow creating tickets.",
         "too_many_files": "No more than 10 files.",
         "file_unavailable": "One of the files can no longer be attached. Remove it and send again."
+      },
+      "intake": "Where it came from",
+      "intakeChoose": "Choose a channel",
+      "intakeHint": "The request came outside the portal. The mark is needed for the pilot summary; the client does not see it.",
+      "intakeChannels": {
+        "telegram": "Telegram",
+        "phone": "Phone call",
+        "email_direct": "Email to a staff member",
+        "jira": "Jira",
+        "other": "Other"
       }
     },
     "keys": {
@@ -3378,7 +3425,11 @@
           "firstResponseMinutes": "First response, working minutes",
           "resolutionMinutes": "Resolution, working minutes",
           "firstResponseBreached": "First response deadline missed",
-          "resolutionBreached": "Resolution deadline missed"
+          "resolutionBreached": "Resolution deadline missed",
+          "metric": "Metric",
+          "value": "Value",
+          "target": "Target",
+          "met": "Target met"
         }
       },
       "done": {
@@ -3456,6 +3507,46 @@
         "merged": "Merged",
         "rejected": "Rejected",
         "toPublish": "From appearance to publishing"
+      },
+      "tabs": {
+        "label": "Metrics sections",
+        "all": "All metrics",
+        "pilot": "Pilot"
+      },
+      "pilot": {
+        "title": "Pilot summary",
+        "intro": "Pilot metrics for the period across the pilot organizations, targets from the pilot plan. Numbers only, no request texts.",
+        "orgs": "Pilot organizations: {names}",
+        "emptyTitle": "No pilot organizations marked",
+        "emptyText": "The administrator marks a pilot organization on its card, in the «Pilot» block.",
+        "metric": "Metric",
+        "value": "Value",
+        "target": "Target",
+        "result": "Result",
+        "met": "met",
+        "missed": "missed",
+        "noData": "no data",
+        "min": "at least {value}",
+        "max": "at most {value}",
+        "base": "of {count}",
+        "usd": "${value}",
+        "leaksValue": "Counted outside the portal, in the on-call log (docs/runbooks/incident.md)",
+        "leaksTarget": "zero",
+        "costHint": "The spending target of $100 a month is scaled to the period length.",
+        "aiReview": "Below 5% closed by the assistant without staff, the assistant is reviewed.",
+        "export": "Export summary to CSV",
+        "metrics": {
+          "portal_share": "Pilot client requests registered in the portal",
+          "first_response": "First response (assistant with a solution or staff) within SLA",
+          "resolution": "Resolution within SLA",
+          "ai_resolved": "Requests closed by the assistant without staff, of requests the assistant handled",
+          "ai_resolved_all": "Requests closed by the assistant without staff, of all pilot client requests",
+          "ai_flagged": "Assistant answers marked as wrong by staff",
+          "csat_high": "Client rating 4-5 out of 5",
+          "leaks": "Data leaks between organizations",
+          "ai_cost": "AI spending",
+          "telegram_share": "Came outside the portal via Telegram"
+        }
       }
     },
     "solutions": {
@@ -4952,7 +5043,9 @@
       "search_unavailable": "Smartup Hub: Typesense search is not responding, fallbacks to PostgreSQL in the last hour: {count}. Search works without typo tolerance and synonyms.",
       "search_lag": "Smartup Hub: the search index has not been updated for {minutes} min, items waiting: {count}.",
       "search_drift": "Smartup Hub: the search index check found {count} differences (collections: {collections}). Missing items will be written again.",
-      "search_isolation": "Smartup Hub: search returned another organization's ids to a client, the database check dropped them: {count} in the last hour. Check the search key filter."
+      "search_isolation": "Smartup Hub: search returned another organization's ids to a client, the database check dropped them: {count} in the last hour. Check the search key filter.",
+      "host_pressure": "Smartup Hub: the server is 80% or more busy: {kinds}. disk: database or backup volume, mem: memory, cpu: processor. See the on-call runbook, section 6.",
+      "host_mark_stale": "Smartup Hub: no server resource marks for over 15 minutes (servers: {count}). Check the host-watch timer on the server."
     },
     "tez": {
       "helped": "Glad it helped. The request is resolved.",

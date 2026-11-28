@@ -163,23 +163,22 @@ test('AI-сотрудник организации и участников не 
 
 // --- Карточка организации: категория и AI-обработка (задача 20, FR-ADM-02) ---
 
-test('care меняет категорию клиента и отключает AI-обработку, остальное в организации изменить нельзя', async () => {
+// Признак AI-обработки с M9 меняет только setOrgAiProcessing с отметкой согласия: tests/integration/hdu-ai-consent.test.ts.
+test('care меняет категорию клиента, остальное в организации изменить нельзя', async () => {
   const f = await seedTwoOrgs();
   const ctx = staffCtx(f.care);
-  await updateOrganization(ctx, { orgId: f.orgA.orgId, category: 'A', isAiEnabled: false });
+  await updateOrganization(ctx, { orgId: f.orgA.orgId, category: 'A' });
   expect((await pools.root.query(`select category, is_ai_enabled from hdu_organizations where org_id = $1`, [f.orgA.orgId])).rows).toEqual([
-    { category: 'A', is_ai_enabled: false },
+    { category: 'A', is_ai_enabled: true },
   ]);
   const audit = (await pools.root.query(`select actor_id, org_id, object_id, diff from hdc_audit_log where action = 'org.updated'`)).rows;
-  expect(audit).toEqual([
-    { actor_id: f.care.userId, org_id: f.orgA.orgId, object_id: f.orgA.orgId, diff: { category: { from: null, to: 'A' }, isAiEnabled: { from: true, to: false } } },
-  ]);
-  expect(await getOrganization(ctx, f.orgA.orgId)).toMatchObject({ category: 'A', isAiEnabled: false });
+  expect(audit).toEqual([{ actor_id: f.care.userId, org_id: f.orgA.orgId, object_id: f.orgA.orgId, diff: { category: { from: null, to: 'A' } } }]);
+  expect(await getOrganization(ctx, f.orgA.orgId)).toMatchObject({ category: 'A', isAiEnabled: true });
   // Повтор тех же значений журнал не пишет; категорию можно снять.
-  await updateOrganization(ctx, { orgId: f.orgA.orgId, category: 'A', isAiEnabled: false });
+  await updateOrganization(ctx, { orgId: f.orgA.orgId, category: 'A' });
   await updateOrganization(staffCtx(f.adminStaff), { orgId: f.orgA.orgId, category: null });
   expect((await pools.root.query(`select diff from hdc_audit_log where action = 'org.updated' order by created_on`)).rows.map((r) => r.diff)).toEqual([
-    { category: { from: null, to: 'A' }, isAiEnabled: { from: true, to: false } },
+    { category: { from: null, to: 'A' } },
     { category: { from: 'A', to: null } },
   ]);
   await expect(updateOrganization(staffCtx(f.l1), { orgId: f.orgA.orgId, category: 'B' })).rejects.toMatchObject({ code: 'forbidden' });

@@ -8,7 +8,8 @@ import { RATE_RULES } from '@/modules/hdc/pref';
 // токена запуска 20 вызовов за срок (эти два только у инструментов из перечня); методы протокола отдельным пределом
 // 120 в минуту. Отказ отдаётся агенту ошибкой инструмента rate_limited или ответом 429 с ожиданием.
 
-export type CallLimitInput = { tokenId: string; dailyLimit: number; isRun: boolean };
+/** dailyTokenId: чей суточный счётчик; у токена запуска родитель, вызовы запуска расходуют его предел (долг M8b M1). */
+export type CallLimitInput = { tokenId: string; dailyLimit: number; isRun: boolean; dailyTokenId?: string };
 export type LimitResult = { allowed: true } | { allowed: false; retryAfterSec: number };
 
 async function consumeAll(checks: { key: string; rule: { limit: number; windowSec: number } }[], now: Date): Promise<LimitResult> {
@@ -28,7 +29,7 @@ export async function consumeMinuteLimit(tokenId: string, now: Date = new Date()
 export async function consumeCallLimits(input: CallLimitInput, now: Date = new Date()): Promise<LimitResult> {
   return consumeAll(
     [
-      { key: `agent:${input.tokenId}:d`, rule: { limit: input.dailyLimit, windowSec: 86_400 } },
+      { key: `agent:${input.dailyTokenId ?? input.tokenId}:d`, rule: { limit: input.dailyLimit, windowSec: 86_400 } },
       ...(input.isRun ? [{ key: `agent:${input.tokenId}:run`, rule: RATE_RULES.agentRunTokenCalls }] : []),
     ],
     now,

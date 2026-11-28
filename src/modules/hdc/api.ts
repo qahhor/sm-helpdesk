@@ -22,7 +22,7 @@ export { type AntivirusScanner, getScanner } from './antivirus';
 export { type DetectedType, SNIFF_BYTES, sniffFileType } from './filetype';
 export { type QuarantineResult, scanQuarantinedImage } from './scan';
 // Настройки портала (hdc_settings).
-export { readSetting, writeSettingTx } from './settings';
+export { lockSettingTx, readSetting, writeSettingTx } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';
 // События предметной области (FR-AUTO-02; план M8, задача 2): запись в транзакции действия, разбор фоновой задачей.
 export {
@@ -57,6 +57,15 @@ export {
   type StaleBackupKind,
   WORKER_STALE_SEC,
   workerReadyResponse,
+  cleanupHostMarks,
+  HOST_MARK_KEEP_DAYS,
+  HOST_MARK_STALE_MIN,
+  HOST_PRESSURE_PCT,
+  type HostAlert,
+  hostAlerts,
+  type HostMark,
+  latestHostMarks,
+  markHost,
 } from './ops-status';
 // Политика обработки данных из файлов content/legal/ (раздел 14.6 ТЗ).
 export { getPolicy, getPolicyVersion, type Policy, type PolicyBlock } from './legal';

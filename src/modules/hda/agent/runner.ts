@@ -90,7 +90,7 @@ export async function runAgentTool(access: AgentAuth, name: string, args: Record
     await recordBySystem(access, { tool, status: 'refused', digest, startedAt });
     return errorResult('tool_not_allowed');
   }
-  const limit = await consumeCallLimits({ tokenId: access.actor.tokenId, dailyLimit: access.dailyLimit, isRun: access.isRun });
+  const limit = await consumeCallLimits({ tokenId: access.actor.tokenId, dailyLimit: access.dailyLimit, isRun: access.isRun, dailyTokenId: access.dailyTokenId });
   if (!limit.allowed) return rateLimited(access, { tool, status: 'rate_limited', digest, startedAt }, limit.retryAfterSec);
   const parsed = def.input.safeParse(args);
   if (!parsed.success) {

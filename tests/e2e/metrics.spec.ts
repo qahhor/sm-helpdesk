@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { CLIENT_STATE } from './helpers/client';
 import { dbRows } from './helpers/db';
-import { storageStateOf } from './helpers/staff';
+import { signInStaff, staffAccount, storageStateOf } from './helpers/staff';
 
 // Показатели (FR-MET-01, 03, 04, 07, 10; план M8, задача 9, решения 14-16): сотрудник открывает страницу и меняет
 // период, Customer Care скачивает срез по организациям и пишет заметку о разборе низкой оценки, первая линия
@@ -177,5 +177,67 @@ test.describe('Customer Care', () => {
     expect(await client.content()).not.toContain('Разобрали с клиентом');
     expect(await client.content()).not.toContain('разборе');
     await clientContext.close();
+  });
+});
+
+// Сводка пилота и отметка "откуда пришло" (план M9, задача 3, решения 11-13).
+test.describe('пилот', () => {
+  test.afterAll(async () => {
+    await dbRows(`delete from hdc_settings where code = 'pilot.org_ids'`);
+  });
+
+  test('первая линия заводит обращение с отметкой Telegram; администратор отмечает пилот; care видит сводку', async ({ browser }) => {
+    const [org] = await dbRows<{ org_id: string }>(`select org_id from hdu_organizations where name = 'ACME Trade' limit 1`);
+    const stamp = Date.now().toString(36);
+    await resetLimits();
+
+    const l1Context = await browser.newContext({ storageState: storageStateOf('l1') });
+    const l1 = await l1Context.newPage();
+    await l1.goto(`/ru/agent/tickets/new?org=${org!.org_id}`);
+    await l1.getByLabel('Что случилось').fill(`Клиент написал в чат поддержки ${stamp}`);
+    // Без отметки форма не уходит: поле обязательное.
+    await l1.getByRole('button', { name: 'Создать обращение' }).click();
+    await expect(l1.getByLabel('Откуда пришло')).toHaveJSProperty('validity.valueMissing', true);
+    await l1.getByLabel('Откуда пришло').selectOption('telegram');
+    await l1.getByRole('button', { name: 'Создать обращение' }).click();
+    await expect(l1).toHaveURL(/\/ru\/agent\/tickets\/SUP-\d+/);
+    const number = Number(/SUP-(\d+)/.exec(l1.url())?.[1]);
+    expect((await dbRows<{ intake_channel: string }>(`select intake_channel from hdt_tickets where number = $1`, [number]))[0]?.intake_channel).toBe('telegram');
+    // Первой линии вкладка пилота не видна и не открывается.
+    await l1.goto('/ru/agent/metrics');
+    await expect(main(l1).getByRole('link', { name: 'Пилот' })).toHaveCount(0);
+    expect((await l1.goto('/ru/agent/metrics/pilot'))!.status()).toBe(404);
+    await l1Context.close();
+
+    const adminContext = await browser.newContext();
+    const admin = await adminContext.newPage();
+    await signInStaff(admin, staffAccount('admin'));
+    await admin.goto(`/ru/agent/organizations/${org!.org_id}`);
+    await admin.getByRole('button', { name: 'Отметить пилотной' }).click();
+    await expect(main(admin).getByRole('status')).toContainText('Организация отмечена пилотной.');
+    await expect(admin.getByTestId('org-pilot')).toHaveText('Организация входит в пилот и в сводку пилота.');
+    await adminContext.close();
+
+    const careContext = await browser.newContext({ storageState: storageStateOf('care') });
+    const care = await careContext.newPage();
+    await care.goto('/ru/agent/metrics?period=7');
+    await main(care).getByRole('navigation', { name: 'Разделы показателей' }).getByRole('link', { name: 'Пилот' }).click();
+    await expect(care).toHaveURL(/\/ru\/agent\/metrics\/pilot\?period=7/);
+    await expect(main(care).getByRole('heading', { name: 'Сводка пилота' })).toBeVisible();
+    await expect(main(care).getByText('Пилотные организации: ACME Trade')).toBeVisible();
+    await expect(main(care).locator('[data-pilot-row]')).toHaveCount(10);
+    // Две доли закрытых помощником: от обращений помощника и от всех обращений пилота (проверка M9, M3).
+    await expect(main(care).locator('[data-pilot-row="ai_resolved"] th')).toContainText('из обращений, которые вёл помощник');
+    await expect(main(care).locator('[data-pilot-row="ai_resolved_all"] th')).toContainText('из всех обращений пилотных клиентов');
+    await expect(main(care).locator('[data-pilot-row="portal_share"]')).toContainText('не меньше 90%');
+    await expect(main(care).locator('[data-pilot-row="telegram_share"] td').first()).not.toHaveText('нет данных');
+    expect(await care.content()).not.toContain(`Клиент написал в чат поддержки ${stamp}`);
+    const axe = await new AxeBuilder({ page: care }).analyze();
+    expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+    for (const width of [360, 768]) {
+      await care.setViewportSize({ width, height: 800 });
+      expect(await fits(care)).toBe(true);
+    }
+    await careContext.close();
   });
 });

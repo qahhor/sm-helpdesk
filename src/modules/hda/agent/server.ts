@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { noProtoKeys } from '@/lib/no-proto';
 
 // Разбор протокола MCP (веха M8b, задача 4; решение владельца 0110, решения 4 и 30 плана M8b). Свой обработчик
 // JSON-RPC 2.0 без пакетов: initialize, notifications/initialized, tools/list, tools/call, ping. Без состояния: сессий
@@ -59,21 +60,21 @@ const TOO_MANY = { code: -32000, message: 'Too many requests' } as const;
 
 const id = z.union([z.string().max(200), z.number().int().safe()]);
 // Параметры проверяет схема метода: неверные параметры дают -32602, а не -32600.
-const params = z.unknown().optional();
+const params = noProtoKeys(z.unknown()).optional();
 const request = z.object({ jsonrpc: z.literal('2.0'), id, method: z.string().min(1).max(200), params });
-const notification = z.looseObject({ jsonrpc: z.literal('2.0'), method: z.string().min(1).max(200), params }).refine((value) => !('id' in value));
+const notification = noProtoKeys(z.looseObject({ jsonrpc: z.literal('2.0'), method: z.string().min(1).max(200), params })).refine((value) => !('id' in value));
 /** Ответ клиента на запрос сервера: сервер запросов не шлёт, такой ответ просто принимается. */
-const clientResponse = z.looseObject({ jsonrpc: z.literal('2.0'), id: id.nullable() }).refine((value) => 'result' in value || 'error' in value);
+const clientResponse = noProtoKeys(z.looseObject({ jsonrpc: z.literal('2.0'), id: id.nullable() })).refine((value) => 'result' in value || 'error' in value);
 
 const initializeParams = z.object({
   protocolVersion: z.string().max(40),
-  capabilities: z.record(z.string(), z.unknown()),
+  capabilities: noProtoKeys(z.record(z.string(), z.unknown())),
   clientInfo: z.object({ name: z.string().max(200), version: z.string().max(100) }),
 });
 const listParams = z.object({ cursor: z.string().max(200).optional() }).optional();
 const callParams = z.object({
   name: z.string().min(1).max(200),
-  arguments: z.record(z.string(), z.unknown()).optional(),
+  arguments: noProtoKeys(z.record(z.string(), z.unknown())).optional(),
 });
 
 type Id = z.infer<typeof id>;

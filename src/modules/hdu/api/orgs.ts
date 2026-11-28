@@ -16,11 +16,12 @@ import {
   type OrgRow,
   searchOrgs,
   setActiveOrganization,
+  setOrgAiProcessingOf,
   updateOrgSettings,
 } from '../core/orgs';
 import { addOrgDomainTx, listOrgDomainsTx, removeOrgDomainTx } from '../core/domains';
 import { HduError } from '../error';
-import { PUBLIC_MAIL_DOMAINS } from '../pref';
+import { AI_CONSENT_REF_MAX, PUBLIC_MAIL_DOMAINS } from '../pref';
 import { parseInput, uuidInput } from '../input';
 import { requireHumanStaff } from './scope';
 import { isSyntheticEmail } from '../util';
@@ -147,18 +148,49 @@ const settingsInput = z
   .object({
     orgId: uuidInput,
     category: z.enum(['A', 'B', 'C', 'D']).nullable().optional(),
-    isAiEnabled: z.boolean().optional(),
   })
   .strict();
 
-/** Категория клиента и отключение AI-обработки (FR-ADM-02): care и admin. Запись org.updated в той же транзакции. */
-export async function updateOrganization(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<void> {
+function requireOrgManager(ctx: StaffContext, now: Date): StaffActor {
   const actor = ctx?.actor;
   if (actor?.type !== 'staff' || (actor.staffRole !== 'care' && actor.staffRole !== 'admin')) throw new HduError('forbidden');
   // Категория и AI-обработка меняют, что уходит в AI и как обслуживается клиент: свежий вход (проверка main, Q18).
   if (!isFresh(ctx, now, FRESH_SIGN_IN_SEC)) throw new HduError('stale_session');
+  return actor;
+}
+
+/** Категория клиента (FR-ADM-02): care и admin. Запись org.updated в той же транзакции. */
+export async function updateOrganization(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<void> {
+  const actor = requireOrgManager(ctx, now);
   const { orgId, ...settings } = parseInput(settingsInput, input);
   if (!(await updateOrgSettings(actor, orgId, settings))) throw new HduError('not_found');
+}
+
+/** Сегодняшняя дата по Ташкенту, ГГГГ-ММ-ДД: позже неё отметка согласия не ставится. */
+function todayInTashkent(now: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+
+const aiProcessingInput = (now: Date) =>
+  z.discriminatedUnion('enabled', [
+    z.strictObject({
+      orgId: uuidInput,
+      enabled: z.literal(true),
+      consentOn: z.iso.date().refine((day) => day >= '2020-01-01' && day <= todayInTashkent(now)),
+      consentRef: z.string().trim().min(1).max(AI_CONSENT_REF_MAX),
+    }),
+    z.strictObject({ orgId: uuidInput, enabled: z.literal(false) }),
+  ]);
+
+/**
+ * AI-обработка организации (план M9, задача 2, решение 10; решение ТЗ 88): care и admin со свежим входом. Включение
+ * только с отметкой согласия: дата не позже сегодняшней и основание до 200 знаков; отметка и журнал
+ * org.ai_consent_recorded одной транзакцией. Выключение пишет org.ai_disabled.
+ */
+export async function setOrgAiProcessing(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<void> {
+  const actor = requireOrgManager(ctx, now);
+  const parsed = parseInput(aiProcessingInput(now), input);
+  if (!(await setOrgAiProcessingOf(actor, parsed))) throw new HduError('not_found');
 }
 
 /**

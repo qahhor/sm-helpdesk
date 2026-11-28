@@ -137,3 +137,29 @@ test('слова названия организации вырезаются п
   expect(data).toContain('не проводится');
   expect(data).toContain('ombori');
 });
+
+// Проверка на AI-инъекции (волна 7, S-M5): контакты, записанные в обход правил почты и телефона.
+const CONTACT_BYPASSES: [string, RegExp, string][] = [
+  ['пишите ivan (at) mail.ru', /ivan|mail\.ru/, '[email]'],
+  ['пишите ivan[at]mail.ru', /ivan|mail\.ru/, '[email]'],
+  ['пишите ivan собака mail.ru', /ivan|mail\.ru/, '[email]'],
+  ['пишите ivan (собака) mail точка ru', /ivan|точка/, '[email]'],
+  ['yozing ivan kuchukcha mail nuqta uz', /ivan|nuqta/, '[email]'],
+  ['write ivan (at) mail (dot) com', /ivan|dot/, '[email]'],
+  ['тел 9 0 1 2 3 4 5 6 7', /\p{Nd} \p{Nd}/u, '[phone]'],
+  ['тел +9 9 8 9 0 1 2 3 4 5 6 7', /\p{Nd} \p{Nd}/u, '[phone]'],
+  ['тел 90 1 23 4 5 67', /\p{Nd} \p{Nd}/u, '[phone]'],
+  ['телеграм t.me/ivan_petrov', /ivan_petrov/, '[contact]'],
+  ['телеграм https://t.me/ivan_petrov', /ivan_petrov/, '[contact]'],
+  ['пишите в телеграм @ivan_petrov', /ivan_petrov/, '[contact]'],
+  ['whatsapp wa.me/998901234567', /wa\.me|998901234567/, '[contact]'],
+];
+test.each(CONTACT_BYPASSES)('контакт в обход правил вырезан: %s', (input, forbidden, label) => {
+  const out = sanitizeForAi(input);
+  expect(out).toContain(label);
+  expect(out).not.toMatch(forbidden);
+});
+
+test.each(['Смотрите на smartup.uz раздел 5', 'Цена 3 шт по 2 сум', 'Шаги 1 2 3', 'Курс @ 12500', 'look at the report', 'Код A-17 и 5 строк'])('обычный текст контактом не считается: %s', (input) => {
+  expect(sanitizeForAi(input)).toBe(input);
+});

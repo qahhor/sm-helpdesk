@@ -1,6 +1,6 @@
 import { scanText } from '@/modules/hdc/pref';
 import { findInText } from '@/modules/hdk/api/text-checks';
-import { orgNameTerms } from '../util';
+import { maskObfuscatedContacts, orgNameTerms } from '../util';
 
 // Обезличивание текста для AI-сотрудника (веха M8b, задача 2; FR-AGT-06, FR-AGT-15, T27; план M8b, решение 8).
 // Чистые функции без базы и сети. Текст клиентов и сотрудников уходит агенту только после этой функции: почта,
@@ -14,6 +14,7 @@ export const AGENT_LABELS = {
   email: '[email]',
   phone: '[телефон]',
   number: '[номер]',
+  contact: '[контакт]',
   server: '[сервер]',
   org: '[организация]',
   client: 'Клиент',
@@ -73,6 +74,9 @@ export function anonymizeForAgent(raw: string, known: AgentKnown, aliases: Alias
   let text = scanText(raw);
   const digitTerms = known.orgTerms.map((term) => term.trim()).filter((term) => /^\p{Nd}+$/u.test(term) && term.length >= 5);
   for (const term of digitTerms) text = text.replace(termPattern(term, false), AGENT_LABELS.org);
+
+  // Контакты в обход правил (волна 7, S-M5): почта словами, имена и ссылки мессенджеров, цифры через пробел.
+  text = maskObfuscatedContacts(text, AGENT_LABELS);
 
   const hits = findInText(text)
     .filter((hit): hit is typeof hit & { kind: keyof typeof HIT_LABEL } => hit.kind in HIT_LABEL)

@@ -13,7 +13,7 @@ import { AI_INPUT_MAX_CHARS, AI_MODELS, AI_PRICE_PER_MTOK, type AiModel } from '
 //   - экранирует угловые скобки: текст клиента не может закрыть тег данных и выйти из него в инструкции.
 
 /** Метки на месте вырезанного. Модель видит, что здесь что-то было, но не видит что. */
-export const REDACTED = { email: '[email]', phone: '[phone]', client: 'Клиент', staff: 'Сотрудник', org: 'Организация' } as const;
+export const REDACTED = { email: '[email]', phone: '[phone]', contact: '[contact]', client: 'Клиент', staff: 'Сотрудник', org: 'Организация' } as const;
 
 /** Адрес почты; пробел по краям "@" не спасает адрес ("ivan @ mail.ru"). */
 const EMAIL = /[\p{L}\p{N}._%+-]+ ?@ ?[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu;
@@ -26,10 +26,34 @@ const PHONE = /(?<![\p{L}\p{N}])\+?\(?\p{Nd}{1,4}\)?(?:[\s./-]?\(?\p{Nd}{2,4}\)?
 /** Длинное число подряд: телефон без разделителей, ИНН (9), ПИНФЛ (14), номер карты. */
 const DIGIT_RUN = /(?<!\p{Nd})\p{Nd}{7,}(?!\p{Nd})/gu;
 
-/** Текст для модели: без невидимых знаков и соединителей, в форме NFKC, без адресов почты и телефонов. */
+/**
+ * Контакты в обход правил почты и телефона (проверка на AI-инъекции, волна 7, S-M5). Почта словами: "(at)", "[at]",
+ * "собака", "kuchukcha" вместо "@" и "точка", "dot", "nuqta" вместо точки. Голое английское "at" без скобок не
+ * считается: это обычный предлог. Ссылки и имена мессенджеров: t.me/ник, wa.me/номер, @ник. Цифры через пробел
+ * группами по одной-четыре от семи цифр: "9 0 1 2 3 4 5 6 7".
+ */
+const AT_WORD = String.raw`(?:\s?@\s?|\s*[(\[{]\s*(?:at|эт|собака|sobaka|kuchukcha)\s*[)\]}]\s*|\s+(?:собака|sobaka|kuchukcha)\s+)`;
+const DOT_WORD = String.raw`(?:\.|\s*[(\[{]\s*(?:dot|точка|nuqta)\s*[)\]}]\s*|\s+(?:dot|точка|nuqta)\s+)`;
+const SPELLED_EMAIL = new RegExp(String.raw`[\p{L}\p{N}._%+-]+${AT_WORD}[\p{L}\p{N}-]+(?:${DOT_WORD}[\p{L}\p{N}-]+)*${DOT_WORD}\p{L}{2,}`, 'giu');
+const MESSENGER_LINK = /(?:https?:\/\/)?(?:t\.me|telegram\.me|wa\.me)\/[^\s<>"')]+/gi;
+const HANDLE = /(?<![\p{L}\p{N}@._/-])@[A-Za-z][A-Za-z0-9_]{3,31}(?![\p{L}\p{N}@])/gu;
+const SPACED_DIGITS = /(?<![\p{L}\p{N}])\+?\p{Nd}{1,4}(?:[ \u00A0\t]{1,2}\p{Nd}{1,4}){2,}(?![\p{L}\p{N}])/gu;
+const SPACED_DIGITS_MIN = 7;
+/** Сумма с разрядами через пробел (1 250 000): не телефон. Телефон тем же видом ловит общее правило PHONE. */
+const THOUSANDS = /^\p{Nd}{1,3}(?:[ \u00A0]\p{Nd}{3})+$/u;
+
+/** Замена контактов, записанных в обход правил, метками вызывающего. Текст уже после scanText. */
+export function maskObfuscatedContacts(text: string, labels: { email: string; phone: string; contact: string }): string {
+  return text
+    .replace(SPELLED_EMAIL, labels.email)
+    .replace(MESSENGER_LINK, labels.contact)
+    .replace(HANDLE, labels.contact)
+    .replace(SPACED_DIGITS, (match) => ((match.match(/\p{Nd}/gu)?.length ?? 0) >= SPACED_DIGITS_MIN && !THOUSANDS.test(match) ? labels.phone : match));
+}
+
+/** Текст для модели: без невидимых знаков и соединителей, в форме NFKC, без адресов почты, телефонов и контактов. */
 export function sanitizeForAi(text: string): string {
-  return scanText(text)
-    .replace(EMAIL, REDACTED.email)
+  return maskObfuscatedContacts(scanText(text).replace(EMAIL, REDACTED.email), REDACTED)
     .replace(PHONE, (match) => (phoneLike(match, 7) ? REDACTED.phone : match))
     .replace(DIGIT_RUN, REDACTED.phone);
 }

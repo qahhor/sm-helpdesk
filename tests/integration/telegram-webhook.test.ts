@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { setLogSinkForTests } from '@/lib/log';
 import { createTelegramBot, handleTelegramWebhook } from '@/modules/hdn/api';
 import { MemoryTelegramBot, setTelegramBotForTests } from '@/modules/hdn/testing';
 import { handleTelegramUpdate } from '@/modules/hdu/api/telegram';
@@ -112,4 +113,30 @@ test('то же событие, пришедшее второй раз во вр
   expect((await second).status).toBe(200);
   expect(calls).toBe(1);
   expect(tg.bot.sent).toHaveLength(1);
+});
+
+test('обработка прошла, а номер события не записался: ответ 200 и запись в журнале работы, Telegram событие не повторяет (проверка, B3)', async () => {
+  const update = tgUpdate({ from: 555, text: 'привет', updateId: 9020 });
+  const events: { event: string; fields: unknown }[] = [];
+  setLogSinkForTests((_level, event, fields) => void events.push({ event, fields }));
+  let calls = 0;
+  const counting = async (incoming: Parameters<typeof handleTelegramUpdate>[0]) => {
+    calls += 1;
+    await handleTelegramUpdate(incoming);
+  };
+  // Вставка номера падает: база отклоняет строку.
+  await pools.root.query(`alter table hdn_telegram_updates add constraint b3_block check (update_id <> 9020) not valid`);
+  try {
+    expect((await post(update, undefined, 'POST', counting)).status).toBe(200);
+  } finally {
+    await pools.root.query(`alter table hdn_telegram_updates drop constraint b3_block`);
+    setLogSinkForTests(null);
+  }
+  expect(calls).toBe(1);
+  expect(tg.bot.sent).toHaveLength(1);
+  expect((await pools.root.query(`select update_id from hdn_telegram_updates`)).rows).toEqual([]);
+  const failed = events.filter((item) => item.event === 'telegram.update_record_failed');
+  expect(failed).toHaveLength(1);
+  expect(failed[0]!.fields).toMatchObject({ updateId: 9020 });
+  expect(JSON.stringify(failed[0]!.fields, (_key, value: unknown) => (value instanceof Error ? value.name : value))).not.toContain('привет');
 });

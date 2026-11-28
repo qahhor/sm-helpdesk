@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'vitest';
 import type { SystemActor } from '@/db/with-actor';
 import { candidateConfig, runCandidateJob, runCandidatesEmbed, runCandidatesSweep } from '@/modules/hda/api/candidates';
 import { saveCandidateSettings } from '@/modules/hda/api/settings';
+import { stripForeignLinks } from '@/modules/hda/candidates/run';
 import { setAiClientForTests, StubAiClient } from '@/modules/hda/testing';
 import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
 import { type EmbeddingProvider, EmbeddingUnavailableError, setEmbedderForTests } from '@/modules/hdk/embeddings';
@@ -110,6 +111,30 @@ test('ссылка вне разрешённых доменов вырезана
   expect(c.problem).toContain('https://smartup.uz/help');
   expect(c.steps[0]).toContain('+998 90 111 22 33');
   expect(c.findings).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'phone' })]));
+});
+
+// Проверка на AI-инъекции (волна 7, S-I2): адрес без схемы, с другой схемой и в разметке Markdown тоже ссылка.
+test('stripForeignLinks: чужие адреса в любом виде вырезаны, разрешённые и обычный текст остаются', () => {
+  const allowed = ['smartup.uz'];
+  const cut: [string, string][] = [
+    ['Откройте [инструкцию](evil.example/login) и войдите', 'Откройте инструкцию и войдите'],
+    ['Откройте [инструкцию](https://evil.example/a "подпись") и войдите', 'Откройте инструкцию и войдите'],
+    ['Скачайте //evil.example/setup.exe сейчас', 'Скачайте сейчас'],
+    ['Архив ftp://evil.example/pub/a.zip тут', 'Архив тут'],
+    ['Напишите tg://resolve?domain=evil_bot нам', 'Напишите нам'],
+    ['Войдите на evil.example/login и введите пароль', 'Войдите на и введите пароль'],
+    ['Сайт www.evil.example тут', 'Сайт тут'],
+    ['Слитноwww.evil.example тут', 'Слитно тут'],
+    ['Нажмите [тут](javascript:alert(1))', 'Нажмите тут'],
+  ];
+  for (const [input, expected] of cut) expect(stripForeignLinks(input, allowed), input).toBe(expected);
+  const kept = [
+    'Раздел https://help.smartup.uz/orders открыт',
+    'Раздел [справка](https://help.smartup.uz/orders) открыт',
+    'Адрес help.smartup.uz/orders открыт',
+    'Срок 25.11.2026, версия 5.12.3, и/или 1/2, файл report.xlsx, ошибка ORA-20001: a//b',
+  ];
+  for (const input of kept) expect(stripForeignLinks(input, allowed), input).toBe(input);
 });
 
 test('похоже на опубликованное решение: кандидата нет, решению "пригодилось сотрудникам" (FR-CAND-03)', async () => {

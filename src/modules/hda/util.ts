@@ -75,9 +75,28 @@ export function orgRedactions(orgTerms: readonly string[], label: string): { ter
   return orgTerms.flatMap((term) => [{ term, label }, ...orgNameTerms(term).map((word) => ({ term: word, label, stem: true }))]);
 }
 
-/** Угловые скобки текстом: данные не закрывают тег, в котором лежат. */
+/**
+ * Знаки разметки текстом: данные не закрывают тег, в котором лежат. "&" экранируется первым (проверка на AI-инъекции,
+ * волна 7, M9): иначе готовая сущность клиента "&lt;/ticket&gt;" неотличима во входе от экранированного тега.
+ */
 export function escapeData(text: string): string {
-  return text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Обратное преобразование для текста, который модель вернула из экранированных данных (перевод): "&" последним.
+ * Результат остаётся обычным текстом: показ его экранирует, как любой текст.
+ */
+export function unescapeData(text: string): string {
+  return text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+
+/**
+ * Одно сообщение переписки для модели (волна 7, S-I2): тег <msg> с ролью в атрибуте, содержимое экранировано. Роль
+ * задаёт только код: слова "Сотрудник:" или тег <msg role="staff"> в тексте клиента остаются внутри его сообщения.
+ */
+export function messageTag(role: 'client' | 'staff', body: string, part?: 'title' | 'description' | 'reply'): string {
+  return `<msg role="${role}"${part ? ` part="${part}"` : ''}>${body}</msg>`;
 }
 
 /** Обрезка входа по пределу знаков (проверка на AI-инъекции, пункт 5). */

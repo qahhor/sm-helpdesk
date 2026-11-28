@@ -171,6 +171,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
                   into: t('ticket.merge.into'),
                   problem: t('queues.bulk.problem'),
                   submit: t('queues.bulk.submit'),
+                  selected: t.raw('queues.bulk.selected') as string,
                   done: t.raw('queues.bulk.done') as string,
                   refused: t.raw('queues.bulk.refused') as string,
                   errors: Object.fromEntries([...HDT_ERROR_CODES.filter((code) => t.has(`ticket.controls.errors.${code}`)).map((code) => [code, t(`ticket.controls.errors.${code}`)]), ['invalid_input', t('queues.bulk.invalid')], ...HDP_ERROR_CODES.map((code) => [`problem_${code}`, t(`problems.errors.${code}`, { kinds: '' })])]),

@@ -1,6 +1,7 @@
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
+import { TAP_BOX } from '@/ui/tap';
 
 // Каналы уведомлений клиента (FR-NT-04, FR-NT-14; решения 3 и 4 вехи M4b): строки "О своих обращениях" и
 // "Об обращениях коллег", столбцы "Почта" и "Telegram". Портал всегда. Имя галочки складывается из строки и
@@ -81,28 +82,35 @@ export function ClientChannelsForm({
                     {/* Бот портала выключен: о своих обращениях остаётся только почта, выключить её нельзя. */}
                     {!telegram && row.key === 'own' ? (
                       <>
-                        <input type="checkbox" checked disabled aria-labelledby={`channel-row-${row.key} channel-email`} className="size-5 accent-primary" />
+                        <label className={TAP_BOX}>
+                          <input type="checkbox" checked disabled aria-labelledby={`channel-row-${row.key} channel-email`} className="size-5 accent-primary" />
+                        </label>
                         <input type="hidden" name={`${row.key}Email`} value="on" />
                       </>
                     ) : (
-                      <input
-                        type="checkbox"
-                        name={`${row.key}Email`}
-                        defaultChecked={row.email}
-                        aria-labelledby={`channel-row-${row.key} channel-email`}
-                        className="size-5 accent-primary"
-                      />
+                      // Флажок без видимой подписи: область нажатия 44 px задаёт обёртка (проверка интерфейса, U11).
+                      <label className={TAP_BOX}>
+                        <input
+                          type="checkbox"
+                          name={`${row.key}Email`}
+                          defaultChecked={row.email}
+                          aria-labelledby={`channel-row-${row.key} channel-email`}
+                          className="size-5 accent-primary"
+                        />
+                      </label>
                     )}
                   </td>
                   {telegram && (
                     <td className={cell}>
-                      <input
-                        type="checkbox"
-                        name={`${row.key}Telegram`}
-                        defaultChecked={row.telegram}
-                        aria-labelledby={`channel-row-${row.key} channel-telegram`}
-                        className="size-5 accent-primary"
-                      />
+                      <label className={TAP_BOX}>
+                        <input
+                          type="checkbox"
+                          name={`${row.key}Telegram`}
+                          defaultChecked={row.telegram}
+                          aria-labelledby={`channel-row-${row.key} channel-telegram`}
+                          className="size-5 accent-primary"
+                        />
+                      </label>
                     </td>
                   )}
                 </tr>

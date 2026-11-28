@@ -34,6 +34,7 @@ import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
 import { MetricsTabs } from '@/ui/components/MetricsTabs';
 import { PageHeader } from '@/ui/components/PageHeader';
+import { RowsLimit } from '@/ui/components/RowsLimit';
 import { Select } from '@/ui/components/select';
 import { Textarea } from '@/ui/components/textarea';
 import { saveCsatReviewAction } from './actions';
@@ -55,6 +56,16 @@ const pagesOf = (value: string | undefined): number => {
   const pages = Number(value);
   return Number.isInteger(pages) && pages >= 1 && pages <= MAX_PAGES ? pages : 1;
 };
+
+/** Пояснение к разделу раскрывающимся блоком (проверка интерфейса, U10): текст рядом, но страницу не удлиняет. */
+function Explain({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <details className="text-sm text-muted-foreground" data-explain>
+      <summary className="cursor-pointer font-medium text-secondary-foreground">{label}</summary>
+      <p className="pt-1">{children}</p>
+    </details>
+  );
+}
 
 function Stat({ id, label, value, children }: { id: string; label: string; value: string; children?: ReactNode }) {
   return (
@@ -129,12 +140,32 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
   const bar = (value: number | null, label: string) => <progress value={value ?? 0} max={100} aria-label={label} className="h-2 w-24 shrink-0 accent-primary" />;
   const sourceName = (source: string) => (t.has(`metrics.sources.names.${source}`) ? t(`metrics.sources.names.${source}`) : source);
   const error = firstParam(query.error);
+  // Разделы страницы для якорного меню: те же условия показа, что у самих блоков ниже.
+  const sections: { id: string; label: string }[] = [
+    ...(empty
+      ? []
+      : [
+          { id: 'metrics-overview', label: t('metrics.overview.title') },
+          { id: 'metrics-sources', label: t('metrics.sources.title') },
+          { id: 'metrics-lines', label: t('metrics.lines.title') },
+          { id: 'metrics-channels', label: t('metrics.channels.title') },
+          ...(orgs ? [{ id: 'metrics-org', label: t('metrics.breakdown.orgsTitle') }] : []),
+          ...(modules ? [{ id: 'metrics-module', label: t('metrics.breakdown.modulesTitle') }] : []),
+          { id: 'low-ratings', label: t('metrics.low.title') },
+        ]),
+    { id: 'metrics-problems', label: t('metrics.problems.title') },
+    ...(candidatesBlock ? [{ id: 'metrics-candidates', label: t('metrics.candidates.title') }] : []),
+    ...(empty ? [] : [{ id: 'metrics-assistant', label: t('metrics.assistant.title') }]),
+    { id: 'metrics-deflection', label: t('metrics.knowledge.title') },
+    { id: 'metrics-unsolved', label: t('metrics.knowledge.unsolvedTitle') },
+    ...(misses ? [{ id: 'metrics-misses', label: t('metrics.knowledge.missesTitle') }] : []),
+  ];
 
   const breakdownTable = (data: Breakdown, kind: 'org' | 'module', pages: number) => (
-    <Card className="overflow-x-auto" data-breakdown={kind}>
+    <Card className="overflow-x-auto" id={`metrics-${kind}`} data-breakdown={kind}>
       <CardHeader>
         <h2 className="text-base font-semibold">{t(kind === 'org' ? 'metrics.breakdown.orgsTitle' : 'metrics.breakdown.modulesTitle')}</h2>
-        <p className="text-sm text-muted-foreground">{t('metrics.breakdown.hint')}</p>
+        <Explain label={t('metrics.explain')}>{t('metrics.breakdown.hint')}</Explain>
       </CardHeader>
       <table className="w-full text-sm">
         <thead>
@@ -148,7 +179,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
             <th scope="col" className={head}>{t('metrics.breakdown.csatAverage')}</th>
           </tr>
         </thead>
-        <tbody>
+        <RowsLimit showAll={t('metrics.showAllRows', { count: data.items.length })}>
           {data.items.map((item) => (
             <tr key={item.key ?? 'none'} className="border-b border-border last:border-b-0">
               <th scope="row" className={`${cell} text-start font-medium wrap-anywhere`}>
@@ -168,7 +199,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
               <td className={numeric}>{number(item.csatAverage, 2)}</td>
             </tr>
           ))}
-        </tbody>
+        </RowsLimit>
       </table>
       {data.hasMore && pages < MAX_PAGES && (
         <CardContent className="pt-4">
@@ -226,6 +257,19 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
         {t('metrics.period.line', { from: day(period.from), to: day(new Date(period.to.getTime() - 1)), days: period.days, zone: view.timeZone })} {t('metrics.definition')}
       </p>
 
+      {/* Якорное меню разделов (проверка интерфейса, U10): страница длинная, к нужному разделу ведёт одна ссылка. */}
+      <nav aria-label={t('metrics.sectionsNav')} data-testid="metrics-sections">
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {sections.map((section) => (
+            <li key={section.id}>
+              <a href={`#${section.id}`} className="font-medium text-link underline-offset-2 hover:underline">
+                {section.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
       {empty ? (
         <Card>
           <EmptyState title={t('metrics.empty.title')} text={t('metrics.empty.text')} />
@@ -261,13 +305,13 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                 {t('metrics.overview.median')}: {duration(overview.resolutionTime.medianMinutes)}, {t('metrics.overview.basedOn', { count: overview.resolutionTime.count })}
               </Stat>
             </dl>
-            <p className="text-sm text-muted-foreground">
+            <Explain label={t('metrics.explain')}>
               {t('metrics.overview.slaHint')} {t('metrics.overview.timeHint')}
-            </p>
+            </Explain>
           </section>
 
           <div className="grid grid-cols-1 gap-4 laptop:grid-cols-2">
-            <Card className="overflow-x-auto" data-block="sources">
+            <Card className="overflow-x-auto" id="metrics-sources" data-block="sources">
               <CardHeader>
                 <h2 className="text-base font-semibold">{t('metrics.sources.title')}</h2>
               </CardHeader>
@@ -279,7 +323,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                     <th scope="col" className={head}>{t('metrics.sources.share')}</th>
                   </tr>
                 </thead>
-                <tbody>
+                <RowsLimit showAll={t('metrics.showAllRows', { count: view.sources.length })}>
                   {view.sources.map((row) => (
                     <tr key={row.source} className="border-b border-border last:border-b-0" data-source={row.source}>
                       <th scope="row" className={`${cell} text-start font-medium`}>{sourceName(row.source)}</th>
@@ -292,11 +336,11 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </RowsLimit>
               </table>
             </Card>
 
-            <Card className="overflow-x-auto" data-block="lines">
+            <Card className="overflow-x-auto" id="metrics-lines" data-block="lines">
               <CardHeader>
                 <h2 className="text-base font-semibold">{t('metrics.lines.title')}</h2>
               </CardHeader>
@@ -309,7 +353,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                     <th scope="col" className={head}>{t('metrics.lines.averageTime')}</th>
                   </tr>
                 </thead>
-                <tbody>
+                <RowsLimit showAll={t('metrics.showAllRows', { count: view.lines.rows.length })}>
                   {view.lines.rows.map((row) => (
                     <tr key={row.line} className="border-b border-border last:border-b-0" data-line={row.line}>
                       <th scope="row" className={`${cell} text-start font-medium`}>{t(`metrics.lines.names.${row.line}`)}</th>
@@ -323,22 +367,22 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                       <td className={numeric}>{duration(row.averageMinutes)}</td>
                     </tr>
                   ))}
-                </tbody>
+                </RowsLimit>
               </table>
               <CardContent className="flex flex-col gap-2 pt-4">
                 <p className="text-sm font-medium" data-returns={view.lines.returns}>
                   {t('metrics.lines.returns', { count: view.lines.returns })}
                 </p>
-                <p className="text-sm text-muted-foreground">{t('metrics.lines.hint')}</p>
+                <Explain label={t('metrics.explain')}>{t('metrics.lines.hint')}</Explain>
               </CardContent>
             </Card>
           </div>
 
           {/* Каналы (FR-MET-10; план M6, задача 8): портал, виджет (Web и приложение вместе), почта, сотрудник. */}
-          <Card className="overflow-x-auto" data-block="channels">
+          <Card className="overflow-x-auto" id="metrics-channels" data-block="channels">
             <CardHeader>
               <h2 className="text-base font-semibold">{t('metrics.channels.title')}</h2>
-              <p className="text-sm text-muted-foreground">{t('metrics.channels.hint')}</p>
+              <Explain label={t('metrics.explain')}>{t('metrics.channels.hint')}</Explain>
             </CardHeader>
             <table className="w-full text-sm">
               <thead>
@@ -352,7 +396,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                   <th scope="col" className={head}>{t('metrics.breakdown.csatAverage')}</th>
                 </tr>
               </thead>
-              <tbody>
+              <RowsLimit showAll={t('metrics.showAllRows', { count: view.channels.length })}>
                 {view.channels.map((row) => (
                   <tr key={row.channel} className="border-b border-border last:border-b-0" data-channel={row.channel}>
                     <th scope="row" className={`${cell} text-start font-medium`}>{t(`metrics.channels.names.${row.channel}`)}</th>
@@ -369,7 +413,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                     <td className={numeric}>{number(row.csatAverage)}</td>
                   </tr>
                 ))}
-              </tbody>
+              </RowsLimit>
             </table>
           </Card>
 
@@ -396,7 +440,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
           <Card className="overflow-x-auto" id="low-ratings" data-block="low-ratings">
             <CardHeader>
               <h2 className="text-base font-semibold">{t('metrics.low.title')}</h2>
-              <p className="text-sm text-muted-foreground">{t('metrics.low.hint')}</p>
+              <Explain label={t('metrics.explain')}>{t('metrics.low.hint')}</Explain>
             </CardHeader>
             {view.lowRatings.items.length === 0 ? (
               <CardContent>
@@ -414,7 +458,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                     <th scope="col" className={head}>{t('metrics.low.note')}</th>
                   </tr>
                 </thead>
-                <tbody>
+                <RowsLimit showAll={t('metrics.showAllRows', { count: view.lowRatings.items.length })}>
                   {view.lowRatings.items.map((item) => (
                     <tr key={item.number} className="border-b border-border last:border-b-0" data-low={item.number}>
                       <th scope="row" className={`${cell} text-start font-medium whitespace-nowrap`}>
@@ -461,7 +505,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </RowsLimit>
               </table>
             )}
             {view.lowRatings.capped && (
@@ -508,7 +552,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                   <th scope="col" className={head}>{t('metrics.problems.orgs')}</th>
                 </tr>
               </thead>
-              <tbody>
+              <RowsLimit showAll={t('metrics.showAllRows', { count: problemsBlock.active.length })}>
                 {problemsBlock.active.map((row) => (
                   <tr key={row.number} className="border-b border-border last:border-b-0">
                     <th scope="row" className={`${cell} text-start font-medium wrap-anywhere`}>
@@ -520,7 +564,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                     <td className={`${cell} tabular-nums`}>{row.orgCount}</td>
                   </tr>
                 ))}
-              </tbody>
+              </RowsLimit>
             </table>
           </Card>
         )}
@@ -605,7 +649,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
               </tbody>
             </table>
           </Card>
-          <p className="text-sm text-muted-foreground">{t('metrics.assistant.hint')}</p>
+          <Explain label={t('metrics.explain')}>{t('metrics.assistant.hint')}</Explain>
         </section>
       )}
 
@@ -631,7 +675,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
             <Stat id="deflection-left" label={t('metrics.knowledge.left')} value={format.number(knowledge.deflection.left)} />
           </dl>
         )}
-        <p className="text-sm text-muted-foreground">{t('metrics.knowledge.hint')}</p>
+        <Explain label={t('metrics.explain')}>{t('metrics.knowledge.hint')}</Explain>
         {knowledge.byOrg && knowledge.byOrg.length > 0 && (
           <Card className="overflow-x-auto" data-breakdown="deflection-org">
             <CardHeader>
@@ -648,7 +692,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                   <th scope="col" className={head}>{t('metrics.knowledge.selfService')}</th>
                 </tr>
               </thead>
-              <tbody>
+              <RowsLimit showAll={t('metrics.showAllRows', { count: knowledge.byOrg.length })}>
                 {knowledge.byOrg.map((row) => (
                   <tr key={row.orgId} className="border-b border-border last:border-b-0">
                     <th scope="row" className={`${cell} text-start font-medium wrap-anywhere`}>
@@ -663,16 +707,16 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                     <td className={numeric}>{share(row.selfServicePercent)}</td>
                   </tr>
                 ))}
-              </tbody>
+              </RowsLimit>
             </table>
           </Card>
         )}
       </section>
 
-      <Card className="overflow-x-auto" data-block="unsolved">
+      <Card className="overflow-x-auto" id="metrics-unsolved" data-block="unsolved">
         <CardHeader>
           <h2 className="text-base font-semibold">{t('metrics.knowledge.unsolvedTitle')}</h2>
-          <p className="text-sm text-muted-foreground">{t('metrics.knowledge.unsolvedHint')}</p>
+          <Explain label={t('metrics.explain')}>{t('metrics.knowledge.unsolvedHint')}</Explain>
         </CardHeader>
         {knowledge.unsolved.length === 0 ? (
           <CardContent>
@@ -689,7 +733,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                 {knowledge.canCreate && <th scope="col" className={head} />}
               </tr>
             </thead>
-            <tbody>
+            <RowsLimit showAll={t('metrics.showAllRows', { count: knowledge.unsolved.length })}>
               {knowledge.unsolved.map((row) => (
                 <tr key={row.signatureId} className="border-b border-border last:border-b-0" data-unsolved={row.signatureId}>
                   <td className={`${cell} font-mono whitespace-nowrap`}>{row.sampleCode ?? t('metrics.knowledge.noCode')}</td>
@@ -705,16 +749,16 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                   )}
                 </tr>
               ))}
-            </tbody>
+            </RowsLimit>
           </table>
         )}
       </Card>
 
       {misses && (
-        <Card className="overflow-x-auto" data-block="suggest-misses">
+        <Card className="overflow-x-auto" id="metrics-misses" data-block="suggest-misses">
           <CardHeader>
             <h2 className="text-base font-semibold">{t('metrics.knowledge.missesTitle')}</h2>
-            <p className="text-sm text-muted-foreground">{t('metrics.knowledge.missesHint')}</p>
+            <Explain label={t('metrics.explain')}>{t('metrics.knowledge.missesHint')}</Explain>
           </CardHeader>
           {misses.recent.length === 0 ? (
             <CardContent>
@@ -731,7 +775,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                     <th scope="col" className={head}>{t('metrics.knowledge.missesCount')}</th>
                   </tr>
                 </thead>
-                <tbody>
+                <RowsLimit showAll={t('metrics.showAllRows', { count: misses.byModule.length })}>
                   {misses.byModule.map((row) => (
                     <tr key={`${row.moduleId ?? 'none'}-${row.locale}`} className="border-b border-border last:border-b-0">
                       <th scope="row" className={`${cell} text-start font-medium`}>
@@ -741,7 +785,7 @@ async function MetricsContent({ searchParams }: PageProps<'/[locale]/agent/metri
                       <td className={numeric}>{format.number(row.count)}</td>
                     </tr>
                   ))}
-                </tbody>
+                </RowsLimit>
               </table>
               <CardContent className="pt-4">
                 <h3 className="text-sm font-semibold">{t('metrics.knowledge.missesRecent')}</h3>

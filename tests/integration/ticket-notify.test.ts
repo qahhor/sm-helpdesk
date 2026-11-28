@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'vitest';
 import { savePrefs } from '@/modules/hdn/api/notifications';
-import { createTicket, getAgentTicket, mergeTicket, postStaffMessage, replyToTicket, setStatus, ticketsMinute } from '@/modules/hdt/api';
+import { createTicket, createTicketForClient, getAgentTicket, mergeTicket, postStaffMessage, replyToTicket, setStatus, ticketsMinute } from '@/modules/hdt/api';
 import { clientCtx, staffCtx } from './helpers/auth';
 import { pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
@@ -43,6 +43,17 @@ test('клиент создал обращение: автору письмо с
     },
   ]);
   expect(await notices(ticketId)).toEqual([{ user_id: f.aUser.userId, kind: 'ticket_created' }]);
+  // Уведомление в портале о собственном действии уже прочитано (проверка интерфейса, U16; решение 0165): запись в
+  // списке есть (FR-NT-03), но колокольчик о своём же обращении не зажигается.
+  const own = await pools.root.query(`select read_on from hdn_notifications where ticket_id = $1 and kind = 'ticket_created'`, [ticketId]);
+  expect(own.rows[0].read_on).not.toBeNull();
+});
+
+test('сотрудник создал обращение за клиента: уведомление автору непрочитанное', async () => {
+  const { number } = await createTicketForClient(staffCtx(f.l1), { orgId: f.orgA.orgId, authorId: f.aUser.userId, description: 'Клиент позвонил: не открывается отчёт', type: 'question', impact: 'minor', visibility: 'org', locale: 'ru', intakeChannel: 'phone' });
+  const ticketId = await ticketIdOf(number);
+  const rows = await pools.root.query(`select user_id, read_on from hdn_notifications where ticket_id = $1 and kind = 'ticket_created'`, [ticketId]);
+  expect(rows.rows).toEqual([{ user_id: f.aUser.userId, read_on: null }]);
 });
 
 test('ответ сотрудника с "Ждём ответа клиента": одно письмо, а не два', async () => {

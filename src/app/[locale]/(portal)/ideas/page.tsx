@@ -95,7 +95,7 @@ export default async function ClientIdeasPage({ searchParams }: { searchParams: 
       </form>
       <p className="flex flex-wrap justify-between gap-2 rounded-card border border-border bg-card-soft px-4 py-3 text-sm" data-testid="cycle-countdown">
         <span>{t('board.countdown', { month: format.dateTime(countdown.month, { month: 'long', timeZone: 'UTC' }), days: countdown.daysLeft })}</span>
-        <Link href="/ideas/cycles" className="text-link underline underline-offset-2">
+        <Link href="/ideas/cycles" className="inline-flex min-h-11 items-center text-link underline underline-offset-2">
           {t('cycles.link')}
         </Link>
       </p>
@@ -110,7 +110,7 @@ export default async function ClientIdeasPage({ searchParams }: { searchParams: 
             <li key={item.number} data-idea={item.number} className="flex gap-3 rounded-card border border-border bg-card p-3">
               <VoteButton number={item.number} voted={item.voted} count={item.score} disabled={item.status !== 'open' && item.status !== 'shortlisted'} labels={voteLabels} />
               <div className="flex min-w-0 flex-col gap-1">
-                <Link href={`/ideas/${item.number}`} className="break-words font-semibold text-link underline-offset-2 hover:underline">
+                <Link href={`/ideas/${item.number}`} className="inline-flex min-h-11 items-center break-words font-semibold text-link underline-offset-2 hover:underline">
                   {item.title}
                 </Link>
                 <p className="text-sm text-secondary-foreground">
@@ -135,7 +135,7 @@ export default async function ClientIdeasPage({ searchParams }: { searchParams: 
         </ul>
       )}
       {page.next !== null && (
-        <Link href={`/ideas${query({ after: String(page.next) })}`} className="self-center text-link underline-offset-2 hover:underline">
+        <Link href={`/ideas${query({ after: String(page.next) })}`} className="inline-flex min-h-11 items-center self-center text-link underline-offset-2 hover:underline">
           {t('board.more')}
         </Link>
       )}

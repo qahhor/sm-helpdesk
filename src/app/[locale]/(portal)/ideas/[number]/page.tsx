@@ -43,7 +43,7 @@ export default async function ClientIdeaPage({ params, searchParams }: { params:
 
   return (
     <>
-      <Link href="/ideas" className="self-start text-sm text-link underline-offset-2 hover:underline">
+      <Link href="/ideas" className="inline-flex min-h-11 items-center self-start text-sm text-link underline-offset-2 hover:underline">
         {t('new.back')}
       </Link>
       {errorCode && <Alert tone="danger">{t(`errors.${known.includes(errorCode) ? errorCode : 'forbidden'}`)}</Alert>}

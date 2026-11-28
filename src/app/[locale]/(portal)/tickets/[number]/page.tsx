@@ -207,7 +207,7 @@ export default async function TicketPage({
 
   return (
     <>
-      <Link href="/tickets" className="self-start text-sm text-link underline-offset-2 hover:underline">
+      <Link href="/tickets" className="inline-flex min-h-11 items-center self-start text-sm text-link underline-offset-2 hover:underline">
         {t('new.back')}
       </Link>
       <div className="flex flex-col gap-2">
@@ -272,7 +272,7 @@ export default async function TicketPage({
         <CardContent className="flex flex-col gap-5 pt-4">
           <h2 className="sr-only">{t('page.history')}</h2>
           {earlierLink(ticket.shown, ticket.hasEarlier) === 'link' && (
-            <Link href={`/tickets/SUP-${ticket.number}?shown=${ticket.shown + TIMELINE_PAGE}`} className="self-start text-sm text-link underline-offset-2 hover:underline">
+            <Link href={`/tickets/SUP-${ticket.number}?shown=${ticket.shown + TIMELINE_PAGE}`} className="inline-flex min-h-11 items-center self-start text-sm text-link underline-offset-2 hover:underline">
               {t('page.showEarlier')}
             </Link>
           )}

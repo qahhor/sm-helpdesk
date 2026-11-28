@@ -33,7 +33,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
   const aiFirst = await assistantAnswersFirst(client);
   return (
     <>
-      <Link href="/tickets" className="self-start text-sm text-link underline-offset-2 hover:underline">
+      <Link href="/tickets" className="inline-flex min-h-11 items-center self-start text-sm text-link underline-offset-2 hover:underline">
         {t('new.back')}
       </Link>
       <h1 className="text-2xl font-bold">{t('new.title')}</h1>

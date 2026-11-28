@@ -23,6 +23,8 @@ export async function notificationItems(rows: NotificationRow[]): Promise<Notifi
       status: String(row.payload.status ?? ''),
       count: Number(row.payload.count ?? 0),
     }),
+    // Тема обращения из уведомления: её записала транзакция события вместе с номером.
+    detail: row.ticketNumber !== null && typeof row.payload.title === 'string' && row.payload.title ? row.payload.title : null,
     time: format.dateTime(row.createdOn, { dateStyle: 'medium', timeStyle: 'short' }),
     unread: row.readOn === null,
   }));

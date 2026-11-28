@@ -106,7 +106,8 @@ export async function createTicketTx(actor: ClientActor, input: NewTicket): Prom
       orgId: actor.orgId,
       diff: { type: input.type, priority, ...(input.source && input.source !== 'portal' ? { source: input.source } : {}) },
     });
-    await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: null });
+    // Автор создал обращение сам: уведомление в портале сразу прочитано (проверка интерфейса, U16; решение 0165).
+    await notifyTicketTx(tx, { ticketId: row.ticketId, kind: 'created', actorUserId: null, ownAction: true });
     // Сообщение дежурным о P1 (FR-SLA-07) ставит предустановленное правило по событию ticket_created (план M8,
     // задача 10): слой api будит разбор событий сразу после фиксации.
     return row;

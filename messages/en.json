@@ -236,7 +236,8 @@
         "nothing": "Nothing found. Change the search conditions.",
         "tooShort": "Enter at least 3 characters: one or two are not enough to search. A request number can be entered in full.",
         "limited": "Too many searches in a row. Wait a minute and try again. Search by request number is not limited.",
-        "private": "Private"
+        "private": "Private",
+        "filters": "Filters"
       },
       "page": {
         "copy": "Copy number {number}",
@@ -557,7 +558,12 @@
         "confirmTitle": "Disable member {name}?",
         "confirmText": "The member loses access to the organization portal on their next action. You can enable them again.",
         "confirm": "Disable member",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "search": "Find a member",
+        "searchSubmit": "Find",
+        "next": "Show next",
+        "first": "Back to start",
+        "empty": "No members with this name."
       },
       "invitations": {
         "title": "Invitations",
@@ -787,7 +793,8 @@
       "emptyTitle": "Start with the queues",
       "emptyText": "Client tickets are gathered in queues by reply deadline.",
       "openQueues": "Open queues",
-      "openPlaybooks": "First-line playbooks"
+      "openPlaybooks": "First-line playbooks",
+      "countersTitle": "What is waiting now"
     },
     "orgs": {
       "title": "Organizations",
@@ -934,7 +941,12 @@
         "confirmTitle": "Anonymize the account: {name}?",
         "confirmText": "The name and email address are replaced with anonymized values, sign-in is closed, and channel links are removed. Request texts stay with the organization. This cannot be undone.",
         "confirm": "Anonymize the account"
-      }
+      },
+      "memberSearch": "Find a member",
+      "memberSearchSubmit": "Find",
+      "membersNext": "Show next",
+      "membersFirst": "Back to start",
+      "membersEmpty": "No members with this name."
     },
     "settings": {
       "title": "Settings",
@@ -2646,7 +2658,8 @@
         "invalid": "Select tickets and fill in the action fields.",
         "select": "Select {number}",
         "selectColumn": "Select",
-        "problem": "Problem number"
+        "problem": "Problem number",
+        "selected": "Requests selected: {count}"
       },
       "thanks": {
         "link": "Did not reopen the ticket",
@@ -2661,7 +2674,6 @@
         "open": "Open in full"
       },
       "unidentified": {
-        "link": "Unidentified ({count})",
         "title": "Unidentified",
         "intro": "Emails from addresses the portal does not recognize. Link an email to a client organization, and the sender gets an invitation. Until then the sender received only the request number.",
         "listLabel": "Emails without an organization",
@@ -3589,7 +3601,10 @@
           "ai_cost": "AI spending",
           "telegram_share": "Came outside the portal via Telegram"
         }
-      }
+      },
+      "sectionsNav": "Metrics sections",
+      "explain": "How it is counted",
+      "showAllRows": "Show all rows: {count}"
     },
     "solutions": {
       "title": "Solutions",

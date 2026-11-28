@@ -45,7 +45,7 @@ export async function ClientShell({
         {t('common.skipToContent')}
       </a>
       <header className="sticky top-0 z-40 flex h-header shrink-0 items-center gap-2 bg-header px-4 text-header-foreground">
-        <Link href="/" className="inline-flex items-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href="/" className="inline-flex min-h-11 min-w-11 items-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {/* С организацией в шапке на телефоне не хватает места: название продукта читает программа экранного доступа. */}
           <Logo onDark withProductName className={org ? 'max-tablet:[&>span]:sr-only' : undefined} />
         </Link>

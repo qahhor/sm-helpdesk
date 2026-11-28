@@ -236,7 +236,8 @@
         "nothing": "Hech narsa topilmadi. Qidiruv shartlarini o'zgartiring.",
         "tooShort": "Kamida 3 ta belgi kiriting: bir-ikki belgi bo'yicha qidiruv ishlamaydi. Murojaat raqamini to'liq kiritish mumkin.",
         "limited": "Ketma-ket juda ko'p qidiruv. Bir daqiqa kuting va qayta urinib ko'ring. Murojaat raqami bo'yicha qidiruv cheklanmagan.",
-        "private": "Shaxsiy"
+        "private": "Shaxsiy",
+        "filters": "Filtrlar"
       },
       "page": {
         "copy": "{number} raqamini nusxalash",
@@ -557,7 +558,12 @@
         "confirmTitle": "{name} a'zoni o'chirasizmi?",
         "confirmText": "A'zo keyingi amalda tashkilot kabinetiga kira olmaydi. Uni qayta yoqish mumkin.",
         "confirm": "A'zoni o'chirish",
-        "cancel": "Bekor qilish"
+        "cancel": "Bekor qilish",
+        "search": "Ishtirokchini qidirish",
+        "searchSubmit": "Topish",
+        "next": "Keyingilarini ko'rsatish",
+        "first": "Ro'yxat boshiga",
+        "empty": "Bunday ismli ishtirokchi yo'q."
       },
       "invitations": {
         "title": "Takliflar",
@@ -787,7 +793,8 @@
       "emptyTitle": "Navbatlardan boshlang",
       "emptyText": "Mijozlar murojaatlari javob muddati bo'yicha navbatlarga yig'ilgan.",
       "openQueues": "Navbatlarni ochish",
-      "openPlaybooks": "Birinchi liniya eslatmalari"
+      "openPlaybooks": "Birinchi liniya eslatmalari",
+      "countersTitle": "Hozir nima kutmoqda"
     },
     "orgs": {
       "title": "Tashkilotlar",
@@ -934,7 +941,12 @@
         "confirmTitle": "Hisob shaxssizlantirilsinmi: {name}?",
         "confirmText": "Ism va pochta manzili shaxssiz qiymatlar bilan almashtiriladi, kirish yopiladi, kanal bog'lanishlari o'chiriladi. Murojaat matnlari tashkilotda qoladi. Buni bekor qilib bo'lmaydi.",
         "confirm": "Hisobni shaxssizlantirish"
-      }
+      },
+      "memberSearch": "Ishtirokchini qidirish",
+      "memberSearchSubmit": "Topish",
+      "membersNext": "Keyingilarini ko'rsatish",
+      "membersFirst": "Ro'yxat boshiga",
+      "membersEmpty": "Bunday ismli ishtirokchi yo'q."
     },
     "settings": {
       "title": "Sozlamalar",
@@ -2646,7 +2658,8 @@
         "invalid": "Murojaatlarni belgilang va amal maydonlarini to'ldiring.",
         "select": "{number} ni tanlash",
         "selectColumn": "Tanlash",
-        "problem": "Muammo raqami"
+        "problem": "Muammo raqami",
+        "selected": "Tanlangan murojaatlar: {count}"
       },
       "thanks": {
         "link": "Murojaatni ochmaganlar",
@@ -2661,7 +2674,6 @@
         "open": "To'liq ochish"
       },
       "unidentified": {
-        "link": "Aniqlanmaganlar ({count})",
         "title": "Aniqlanmaganlar",
         "intro": "Portal tanimagan manzillardan kelgan xatlar. Xatni mijoz tashkilotiga bog'lang, yuboruvchi taklif oladi. Bog'lashdan oldin u faqat murojaat raqamini olgan.",
         "listLabel": "Tashkilotsiz xatlar",
@@ -3589,7 +3601,10 @@
           "ai_cost": "AI xarajatlari",
           "telegram_share": "Portalni chetlab Telegram'ga kelgan"
         }
-      }
+      },
+      "sectionsNav": "Ko'rsatkichlar bo'limlari",
+      "explain": "Qanday hisoblanadi",
+      "showAllRows": "Barcha qatorlarni ko'rsatish: {count}"
     },
     "solutions": {
       "title": "Yechimlar",

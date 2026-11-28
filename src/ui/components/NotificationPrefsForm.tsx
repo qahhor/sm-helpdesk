@@ -33,8 +33,8 @@ export function NotificationPrefsForm({
         {saved && <Alert tone="success">{savedLabel}</Alert>}
         <form action={save} className="flex flex-col gap-3">
           {options.map((option) => (
-            <label key={option.name} className="flex items-start gap-3">
-              <input type="checkbox" name={option.name} defaultChecked={option.checked} className="mt-1 size-5 accent-primary" />
+            <label key={option.name} className="flex min-h-11 items-center gap-3">
+              <input type="checkbox" name={option.name} defaultChecked={option.checked} className="size-5 shrink-0 accent-primary" />
               <span>{option.label}</span>
             </label>
           ))}

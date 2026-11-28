@@ -136,9 +136,12 @@ function Fields({ locale, modules, accept, maxFiles, titleMax, bodyMax, labels, 
       <FilePicker accept={accept} maxFiles={maxFiles} labels={labels.files} onBusyChange={setUploading} presignExtra={UPLOAD_EXTRA} />
 
       <div className="flex items-start gap-2">
-        <input id="idea-show-org" type="checkbox" name="showOrg" className="mt-1 size-4 accent-primary" aria-describedby="idea-show-org-hint" />
+        {/* Флажок и подпись вместе дают цель нажатия 44 px (проверка интерфейса, U11). */}
+        <input id="idea-show-org" type="checkbox" name="showOrg" className="mt-3 size-5 shrink-0 accent-primary" aria-describedby="idea-show-org-hint" />
         <div className="flex flex-col gap-1">
-          <Label htmlFor="idea-show-org">{labels.showOrg}</Label>
+          <Label htmlFor="idea-show-org" className="flex min-h-11 items-center">
+            {labels.showOrg}
+          </Label>
           <p id="idea-show-org-hint" className="text-sm text-muted-foreground">
             {labels.showOrgHint}
           </p>

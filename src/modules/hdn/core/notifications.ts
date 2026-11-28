@@ -34,13 +34,15 @@ export type NotificationRow = {
  */
 export async function notifyTx(
   tx: Tx,
-  n: { userId: string; kind: NotificationKind; payload: Record<string, string | number> } & ({ ticketId: string; orgId: string } | { ticketId?: undefined; orgId?: undefined }),
+  n: { userId: string; kind: NotificationKind; payload: Record<string, string | number>; /** Сразу прочитано: запись о собственном действии. */ read?: boolean } & ({ ticketId: string; orgId: string } | { ticketId?: undefined; orgId?: undefined }),
 ): Promise<void> {
   // Организацию обращения передаёт вызывающий: таблица обращений принадлежит другому модулю, и читать её отсюда
   // нельзя (аудит 23.11.2026, находка A2). Подделать организацию нельзя: политика вставки сверяет её с обращением.
-  await tx
-    .insert(notifications)
-    .values({ notificationId: randomUUID(), userId: n.userId, kind: n.kind, ticketId: n.ticketId ?? null, orgId: n.ticketId ? n.orgId : null, payload: n.payload });
+  const notificationId = randomUUID();
+  await tx.insert(notifications).values({ notificationId, userId: n.userId, kind: n.kind, ticketId: n.ticketId ?? null, orgId: n.ticketId ? n.orgId : null, payload: n.payload });
+  // Запись о собственном действии сразу прочитана (решение 0165). Политика вставки прочитанных строк не принимает,
+  // а отметку прочтения по политике ставит только адресат: здесь адресат и есть актор транзакции.
+  if (n.read) await tx.update(notifications).set({ readOn: new Date() }).where(eq(notifications.notificationId, notificationId));
 }
 
 /** Отправлено ли уже напоминание о праздниках этого года: его ставит ежемесячная проверка календаря (FR-SLA-12). */

@@ -42,8 +42,12 @@ export async function QueueNav({ location, counts, filters, unidentified }: Prop
           </li>
         ))}
         <li>
-          <Link href="/agent/queues/unidentified" className="flex rounded-control px-3 py-2 text-sm text-secondary-foreground hover:bg-card-soft">
-            {t('queues.unidentified.link', { count: unidentified })}
+          {/* Счётчик в том же виде, что у очередей выше: число справа, без скобок (проверка интерфейса, U28). */}
+          <Link href="/agent/queues/unidentified" className="flex items-center justify-between gap-3 rounded-control px-3 py-2 text-sm text-secondary-foreground hover:bg-card-soft">
+            <span>{t('queues.unidentified.title')}</span>
+            <span className="tabular-nums" data-testid="unidentified-count">
+              {unidentified}
+            </span>
           </Link>
         </li>
         <li>

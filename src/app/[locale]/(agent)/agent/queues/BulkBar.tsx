@@ -31,6 +31,8 @@ export type BulkLabels = {
   into: string;
   problem: string;
   submit: string;
+  /** "Выбрано обращений: {count}". */
+  selected: string;
   done: string;
   refused: string;
   errors: Record<string, string>;
@@ -46,10 +48,30 @@ export function BulkBar({ staff, reasons, labels }: { staff: Option[]; reasons: 
     if (state.status === 'done' && state.done.length > 0) router.refresh();
   }, [state, router]);
   const errorText = (code: string) => labels.errors[code] ?? labels.errors.other ?? code;
+  // Панель появляется после выбора первой строки (проверка интерфейса, U13): до этого она занимала место над таблицей
+  // и предлагала действие, которое не к чему применить. Флажки строк принадлежат форме по атрибуту form, поэтому
+  // сама форма остаётся в разметке и только скрывается. Итог прошлого действия виден и без выбранных строк.
+  const [selected, setSelected] = useState(0);
+  useEffect(() => {
+    const count = () => setSelected(document.querySelectorAll(`input[type="checkbox"][form="${BULK_FORM_ID}"]:checked`).length);
+    count();
+    document.addEventListener('change', count);
+    return () => document.removeEventListener('change', count);
+  }, [state]);
+  const idle = selected === 0;
 
   return (
-    <form id={BULK_FORM_ID} action={action} className="flex flex-col gap-3 rounded-control border border-border bg-card p-3" aria-label={labels.title}>
-      <div className="flex flex-wrap items-end gap-3">
+    <form
+      id={BULK_FORM_ID}
+      action={action}
+      className={idle && state.status === 'idle' ? 'hidden' : 'flex flex-col gap-3 rounded-control border border-border bg-card p-3'}
+      aria-label={labels.title}
+      data-selected={selected}
+    >
+      <p className="text-sm font-medium" aria-live="polite" hidden={idle}>
+        {labels.selected.replace('{count}', String(selected))}
+      </p>
+      <div className={idle ? 'hidden' : 'flex flex-wrap items-end gap-3'}>
         <div className="flex flex-col gap-1">
           <Label htmlFor="bulk-action">{labels.action}</Label>
           <Select id="bulk-action" name="action" value={kind} onChange={(event) => setKind(event.target.value as keyof BulkLabels['actions'])}>
@@ -102,7 +124,7 @@ export function BulkBar({ staff, reasons, labels }: { staff: Option[]; reasons: 
           {labels.submit}
         </Button>
       </div>
-      {kind === 'queue_l2' && (
+      {!idle && kind === 'queue_l2' && (
         <div className="grid gap-3 tablet:grid-cols-2">
           <div className="flex flex-col gap-1">
             <Label htmlFor="bulk-checked">{labels.checked}</Label>
@@ -114,7 +136,7 @@ export function BulkBar({ staff, reasons, labels }: { staff: Option[]; reasons: 
           </div>
         </div>
       )}
-      {kind === 'queue_l1' && (
+      {!idle && kind === 'queue_l1' && (
         <div className="flex flex-col gap-1">
           <Label htmlFor="bulk-explanation">{labels.explanation}</Label>
           <Textarea id="bulk-explanation" name="explanation" required maxLength={2000} />

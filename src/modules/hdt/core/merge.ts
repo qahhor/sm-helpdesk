@@ -1,13 +1,14 @@
 import 'server-only';
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { type StaffActor, withActor } from '@/db/with-actor';
+import { type StaffActor } from '@/db/with-actor';
 import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { HdtError } from '../error';
 import { ticketEvents, tickets } from '../schema';
 import { assertCanWrite } from './agent-actions';
 import { refreshSla } from './sla';
 import { notifyTicketTx } from './notify';
+import { withActorForTicket } from './notice-identity';
 
 // Модуль hdt, слой core: объединение дублей (FR-AG-07; план M3, задача 11, решение 4). Дубль закрывается из любого
 // открытого статуса: единственное исключение из таблицы 7.2. Объединение только внутри одной организации и к конечному
@@ -40,7 +41,7 @@ async function lockById(tx: Tx, ticketId: string): Promise<Node | undefined> {
 /** Объединить дубль с основным. Возвращает номер конечного основного обращения. */
 export async function mergeTx(actor: StaffActor, number: number, intoNumber: number): Promise<number> {
   assertCanWrite(actor);
-  return withActor(actor, async (tx) => {
+  return withActorForTicket(actor, { number }, async (tx) => {
     const locked = await lockByNumbers(tx, [number, intoNumber]);
     const dup = locked.find((t) => t.number === number);
     let main = locked.find((t) => t.number === intoNumber);

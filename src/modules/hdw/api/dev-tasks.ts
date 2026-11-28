@@ -6,7 +6,7 @@ import { logEvent } from '@/lib/log';
 import { type StaffContext, wakeAutomation, writeAudit } from '@/modules/hdc/api';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 import type { Tx } from '@/db/client';
-import { problemForDevTaskTx } from '@/modules/hdp/api/dev-task';
+import { findProblemForDevTaskTx, problemForDevTaskTx } from '@/modules/hdp/api/dev-task';
 import { devHandOverSourceTx, devHandOverTx, devLockTicketTx, devTaskHistoryTx, devTicketRefTx } from '@/modules/hdt/api/dev-tasks';
 import { DEVELOPMENT_ROLES } from '@/modules/hdt/pref';
 import { LOOPBACK_HOSTS } from '@/security/outbound';
@@ -15,6 +15,7 @@ import { applyDevTaskStatusTx, type DevTask, devTaskByRefTx, devTaskOfProblemTx,
 import { devTrackerMode, getDevTracker } from '../dev-tracker';
 import { HdwError } from '../error';
 import { DEV_TASK_REF_MAX, DEV_TASK_STATUSES, DEV_TASK_TITLE_MAX, DEV_TASK_VERSION_MAX } from '../pref';
+import { withActorForTicket } from '@/modules/hdt/api/notice-identity';
 
 // Модуль hdw, слой api: передача обращения в разработку (ТЗ 7.9, FR-DEV-01, 02, 05, 06, сценарий S4; план M8,
 // задача 7, решение 12).
@@ -86,7 +87,8 @@ const localPortal = (): boolean => LOOPBACK_HOSTS.has(new URL(getEnv().HUB_URL).
  * отказе не остаётся ничего.
  */
 async function linkAndHandOver(ctx: StaffContext, number: number, link: LinkInput): Promise<{ devTaskId: string; created: boolean }> {
-  const result = await withActor(ctx.actor, async (tx) => {
+  // Получатели письма о статусе "В разработке" читаются до транзакции (проверка качества, Q2).
+  const result = await withActorForTicket(ctx.actor, { number }, async (tx) => {
     const ticket = await devLockTicketTx(tx, ctx.actor, number);
     const { task, created } = await linkTicketTx(tx, ticket, link);
     await devHandOverTx(tx, ctx.actor, ticket);
@@ -328,7 +330,7 @@ export async function readDevTaskForProblem(ctx: StaffContext, number: unknown):
   const parsed = problemNumber.safeParse(number);
   if (!parsed.success) return null;
   return withActor(ctx.actor, async (tx) => {
-    const problem = await problemForDevTaskTx(tx, parsed.data).catch(() => null);
+    const problem = await findProblemForDevTaskTx(tx, parsed.data);
     if (!problem) return null;
     const found = await devTaskOfProblemTx(tx, problem.problemId);
     if (!found) return null;

@@ -10,6 +10,7 @@ import { findMentions } from '../util';
 import { assertCanWrite, changeAssigneeTx, changeStatusTx, flushTicketTx, lockAgentTicket, markPickedUpTx, stageTicket } from './agent-actions';
 import { type ChangeSummary, changesSinceTx, hasChanges } from './changes';
 import { notifyTicketTx } from './notify';
+import { withActorForTicket } from './notice-identity';
 
 // Модуль hdt, слой core: ответ клиенту и внутренняя заметка сотрудника, черновик, присутствие
 // (FR-AG-03, FR-AG-12, FR-AG-21, FR-SLA-04, UX-A-05..07; план M3, задача 8, решения 6 и 10).
@@ -51,7 +52,8 @@ export async function postStaffMessageTx(
   people: { myName: string; mentionable: readonly { userId: string; name: string }[] },
 ): Promise<PostResult> {
   assertCanWrite(actor);
-  return withActor(actor, async (tx) => {
+  // Получатели письма об ответе читаются до транзакции (проверка качества, Q2).
+  return withActorForTicket(actor, { number: input.number }, async (tx) => {
     const ticket = await lockAgentTicket(tx, input.number);
     // В объединённом клиенту не отвечают: он продолжает в основном (решение 4). Заметка остаётся можно.
     if (ticket.mergedIntoId && !input.internal) throw new HdtError('merged');

@@ -18,6 +18,7 @@ import { lineTransfers, ticketEvents, tickets } from '../schema';
 import { assertUnchangedTx } from './changes';
 import { refreshSla, type TicketPatch } from './sla';
 import { notifyTicketTx } from './notify';
+import { withActorForTicket } from './notice-identity';
 
 // Модуль hdt, слой core: действия сотрудника с обращением (FR-AG-02, 04, 09, 13, FR-SLA-03, раздел 7.2;
 // план M3, задача 7). Каждое действие одной транзакцией: строка обращения блокируется, меняется фиксированный
@@ -202,7 +203,7 @@ export async function setStatusTx(
   opts: { resolution?: ResolutionType; version?: string; seen?: Date; byRule?: boolean },
 ): Promise<void> {
   assertCanWrite(actor);
-  await withActor(actor, async (tx) => {
+  await withActorForTicket(actor, { number }, async (tx) => {
     const ticket = await lockAgentTicket(tx, number);
     await assertUnchangedTx(tx, ticket.ticketId, opts.seen, actor.userId);
     await changeStatusTx(tx, actor, ticket, to, opts);

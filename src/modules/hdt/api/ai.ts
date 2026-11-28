@@ -11,6 +11,7 @@ import type { AiNoticeMail } from '../core/notify';
 import { HdtError } from '../error';
 import { AI_HANDOFF_REASONS, type AiHandoffReason, type AiPayload } from '../pref';
 import { tickets } from '../schema';
+import { withActorForTicket } from '../core/notice-identity';
 
 // Модуль hdt, слой api: помощник первой линии в обращении (план M5b, задача 3). Узкий файл для фонового процесса и
 // модуля hda: включение при создании, ответ и вопрос помощника, передача сотруднику. Только актор system: решения
@@ -90,7 +91,7 @@ export async function postAiMessage(
   const ticketId = uuid.parse(input.ticketId);
   const payload = answerPayload.parse(input.payload) as Extract<AiPayload, { kind: 'answer' | 'clarify' }>;
   const thenHandoff = input.thenHandoff ? thenHandoffInput.parse({ ...input.thenHandoff, questionIds: [...input.thenHandoff.questionIds] }) : undefined;
-  const messageId = await withActor(actor, (tx) =>
+  const messageId = await withActorForTicket(actor, { ticketId }, (tx) =>
     postAiMessageTx(tx, {
       ticketId,
       payload,
@@ -147,7 +148,7 @@ export async function postAiNotice(
   const payload = noticePayload.parse(input.payload) as Extract<AiPayload, { kind: 'known_problem' | 'outage' }>;
   const handoff = thenHandoffInput.parse({ ...input.handoff, questionIds: [...input.handoff.questionIds] });
   const mail = input.mail ? noticeMail.parse(input.mail) : undefined;
-  const messageId = await withActor(actor, (tx) =>
+  const messageId = await withActorForTicket(actor, { ticketId }, (tx) =>
     postAiNoticeTx(tx, {
       ticketId,
       payload,
@@ -180,7 +181,7 @@ const handoffInput = z.strictObject({
 export async function aiHandoff(actor: SystemActor, input: { ticketId: string; reason: AiHandoffReason; questionIds: readonly string[]; now?: Date; locale?: string }): Promise<boolean> {
   assertSystem(actor);
   const data = handoffInput.parse({ ...input, questionIds: [...input.questionIds] });
-  const done = await withActor(actor, async (tx) => {
+  const done = await withActorForTicket(actor, { ticketId: data.ticketId }, async (tx) => {
     const [row] = await tx.select({ locale: tickets.locale }).from(tickets).where(eq(tickets.ticketId, data.ticketId)).limit(1);
     if (!row) throw new HdtError('not_found');
     return handoffTx(tx, { ticketId: data.ticketId, reason: data.reason, questionIds: data.questionIds, now: data.now ?? new Date(), locale: data.locale ?? row.locale });

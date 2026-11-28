@@ -36,6 +36,31 @@ export async function mailRecipientTx(userId: string): Promise<MailRecipient | n
 }
 
 /**
+ * Адреса для писем сразу нескольких пользователей (проверка качества, Q21): то же правило, что у mailRecipientTx,
+ * одной транзакцией. Подтверждённый адрес; у гостя заявленный. Кого в ответе нет, тому писать некуда.
+ */
+export async function mailAddressesTx(userIds: string[]): Promise<Map<string, string>> {
+  if (userIds.length === 0) return new Map();
+  return withIdentity(SYSTEM, async (tx) => {
+    const users = await tx
+      .select({ id: authUser.id, email: authUser.email, emailVerified: authUser.emailVerified, claimedEmail: authUser.claimedEmail })
+      .from(authUser)
+      .where(inArray(authUser.id, userIds));
+    const claimed = users.filter((user) => !user.emailVerified && user.claimedEmail);
+    const guests =
+      claimed.length > 0
+        ? new Set((await tx.select({ userId: memberships.userId }).from(memberships).where(and(inArray(memberships.userId, claimed.map((user) => user.id)), eq(memberships.source, 'guest')))).map((row) => row.userId))
+        : new Set<string>();
+    const addresses = new Map<string, string>();
+    for (const user of users) {
+      if (user.emailVerified) addresses.set(user.id, user.email);
+      else if (user.claimedEmail && guests.has(user.id)) addresses.set(user.id, user.claimedEmail);
+    }
+    return addresses;
+  });
+}
+
+/**
  * Руководители линии (FR-SLA-06, решение 7 вехи M4): признак is_lead у действующего сотрудника линии.
  * Первая линия: agent_l1. Вторая линия: agent_l2 и care (раздел 7.19).
  */

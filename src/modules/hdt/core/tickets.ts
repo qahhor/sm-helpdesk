@@ -12,6 +12,7 @@ import { finalMainNumberTx } from './merged-into';
 import { timelineWindowTx } from './timeline';
 import { refreshSla } from './sla';
 import { notifyTicketTx } from './notify';
+import { withActorForAuthor } from './notice-identity';
 
 // Модуль hdt, слой core: обращения. Операции с данными внутри withActor под ролью hub_app.
 // Организация и автор берутся из актора; политики RLS и триггер t_hdt_tickets_client_guard страхуют.
@@ -52,7 +53,8 @@ export type NewTicket = {
  * проверку загрузка (file_unavailable) и невидимое связанное обращение (invalid_input).
  */
 export async function createTicketTx(actor: ClientActor, input: NewTicket): Promise<{ ticketId: string; number: number }> {
-  return withActor(actor, async (tx) => {
+  // Роль автора и привязка Telegram читаются до транзакции (проверка качества, Q2).
+  return withActorForAuthor(actor, { orgId: actor.orgId, userId: actor.userId }, async (tx) => {
     let relatedTicketId: string | null = null;
     if (input.relatedNumber !== undefined) {
       const related = await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(clientTicketByNumber(actor, input.relatedNumber)).limit(1);
@@ -123,7 +125,7 @@ export async function createTicketForClientTx(
   actor: StaffActor,
   input: Omit<NewTicket, 'relatedNumber'> & { orgId: string; authorId: string; priority?: Priority; intakeChannel: IntakeChannel },
 ): Promise<{ ticketId: string; number: number }> {
-  return withActor(actor, async (tx) => {
+  return withActorForAuthor(actor, { orgId: input.orgId, userId: input.authorId }, async (tx) => {
     const priority = input.priority ?? PRIORITY_BY_IMPACT[input.impact];
     const [row] = await tx
       .insert(tickets)

@@ -14,6 +14,7 @@ import { problemDevTaskVersionTx } from '../dev-task-version';
 import { requireProblemTx } from '../core/problems';
 import { broadcasts } from '../schema';
 import { problemRef } from '../util';
+import { withActorForTicket } from '@/modules/hdt/api/notice-identity';
 
 // Модуль hdp, слой api: задачи фонового процесса рассылки (ТЗ 11.14; план M5c, задача 5, решения 17, 18, 20). Узкий
 // файл без страниц и Next.js.
@@ -63,7 +64,8 @@ export async function runBroadcastJob(system: SystemActor, data: unknown): Promi
       hooks.__hubBroadcastHook?.();
       const locale = locales.get(ticketId) ?? SOURCE_FALLBACK;
       const body = (isLocale(locale) ? row.body[locale] : undefined) ?? original;
-      const result = await withActor(system, (tx) =>
+      // Получатели письма читаются до транзакции обращения (проверка качества, Q2).
+      const result = await withActorForTicket(system, { ticketId }, (tx) =>
         postProblemMessageTx(tx, {
           ticketId,
           problemId: row.problemId,

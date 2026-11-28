@@ -25,6 +25,7 @@ import { aiReopenedTx } from './ai';
 import { notifyTicketTx } from './notify';
 import { calendarFor, needsSlaRefreshTx, refreshSla, slaPhase, soonMoment } from './sla';
 import { logEvent } from '@/lib/log';
+import { withTicketsPeople } from './notice-identity';
 
 // Модуль hdt, слой core: задача раз в минуту (решения 2, 8, 13, 14 плана M3; FR-TK-10, FR-TK-15, 10.5). Каждый шаг
 // своей транзакцией системного актора, пачками по 200 строк с FOR UPDATE SKIP LOCKED: два экземпляра задачи не берут
@@ -216,25 +217,32 @@ async function closeBySystem(
 async function autoClose(actor: SystemActor, now: Date): Promise<number> {
   const resolvedDays = await daySetting(AUTOCLOSE_RESOLVED_SETTING);
   const waitingDays = await daySetting(AUTOCLOSE_WAITING_SETTING);
-  return withActor(actor, async (tx) => {
+  const resolvedDue = and(eq(tickets.status, 'resolved'), lte(tickets.resolvedOn, new Date(now.getTime() - resolvedDays * DAY_MS)));
+  const waitingDue = and(
+    eq(tickets.status, 'waiting_customer'),
+    lte(tickets.slaPausedOn, new Date(now.getTime() - waitingDays * DAY_MS)),
+    or(isNull(tickets.lastClientMessageOn), lte(tickets.lastClientMessageOn, tickets.slaPausedOn)),
+  );
+  // Кандидаты читаются без блокировки, чтобы получатели писем о закрытии были прочитаны до транзакции (проверка
+  // качества, Q2). Блокирует и перепроверяет строки сама транзакция.
+  const candidates = await withActor(actor, async (tx) => [
+    ...(await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(resolvedDue).orderBy(asc(tickets.resolvedOn)).limit(SWEEP_BATCH)),
+    ...(await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(waitingDue).orderBy(asc(tickets.slaPausedOn)).limit(SWEEP_BATCH)),
+  ]);
+  if (candidates.length === 0) return 0;
+  return withTicketsPeople(actor, candidates.map((t) => t.ticketId), () => withActor(actor, async (tx) => {
     const calendar = (await readSlaConfig(tx)).calendar;
     const resolved = await tx
       .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, locale: tickets.locale, since: tickets.resolvedOn })
       .from(tickets)
-      .where(and(eq(tickets.status, 'resolved'), lte(tickets.resolvedOn, new Date(now.getTime() - resolvedDays * DAY_MS))))
+      .where(resolvedDue)
       .orderBy(asc(tickets.resolvedOn))
       .limit(SWEEP_BATCH)
       .for('update', { skipLocked: true });
     const waiting = await tx
       .select({ ticketId: tickets.ticketId, orgId: tickets.orgId, locale: tickets.locale, since: tickets.slaPausedOn })
       .from(tickets)
-      .where(
-        and(
-          eq(tickets.status, 'waiting_customer'),
-          lte(tickets.slaPausedOn, new Date(now.getTime() - waitingDays * DAY_MS)),
-          or(isNull(tickets.lastClientMessageOn), lte(tickets.lastClientMessageOn, tickets.slaPausedOn)),
-        ),
-      )
+      .where(waitingDue)
       .orderBy(asc(tickets.slaPausedOn))
       .limit(SWEEP_BATCH)
       .for('update', { skipLocked: true });
@@ -250,7 +258,7 @@ async function autoClose(actor: SystemActor, now: Date): Promise<number> {
         closed++;
       }
     return closed;
-  });
+  }));
 }
 
 /**
@@ -261,19 +269,21 @@ async function remindWaiting(actor: SystemActor, now: Date): Promise<number> {
   const reminderDays = await daySetting(WAITING_REMINDER_SETTING);
   const waitingDays = await daySetting(AUTOCLOSE_WAITING_SETTING);
   if (reminderDays >= waitingDays) return 0;
-  return withActor(actor, async (tx) => {
+  const remindDue = and(
+    eq(tickets.status, 'waiting_customer'),
+    lte(tickets.slaPausedOn, new Date(now.getTime() - reminderDays * DAY_MS)),
+    or(isNull(tickets.waitingRemindedOn), lt(tickets.waitingRemindedOn, tickets.slaPausedOn)),
+    or(isNull(tickets.lastClientMessageOn), lte(tickets.lastClientMessageOn, tickets.slaPausedOn)),
+  );
+  // Кандидаты без блокировки: получатели напоминания читаются до транзакции (проверка качества, Q2).
+  const candidates = await withActor(actor, (tx) => tx.select({ ticketId: tickets.ticketId }).from(tickets).where(remindDue).orderBy(asc(tickets.slaPausedOn)).limit(SWEEP_BATCH));
+  if (candidates.length === 0) return 0;
+  return withTicketsPeople(actor, candidates.map((t) => t.ticketId), () => withActor(actor, async (tx) => {
     const calendar = (await readSlaConfig(tx)).calendar;
     const due = await tx
       .select({ ticketId: tickets.ticketId, since: tickets.slaPausedOn })
       .from(tickets)
-      .where(
-        and(
-          eq(tickets.status, 'waiting_customer'),
-          lte(tickets.slaPausedOn, new Date(now.getTime() - reminderDays * DAY_MS)),
-          or(isNull(tickets.waitingRemindedOn), lt(tickets.waitingRemindedOn, tickets.slaPausedOn)),
-          or(isNull(tickets.lastClientMessageOn), lte(tickets.lastClientMessageOn, tickets.slaPausedOn)),
-        ),
-      )
+      .where(remindDue)
       .orderBy(asc(tickets.slaPausedOn))
       .limit(SWEEP_BATCH)
       .for('update', { skipLocked: true });
@@ -286,7 +296,7 @@ async function remindWaiting(actor: SystemActor, now: Date): Promise<number> {
       reminded++;
     }
     return reminded;
-  });
+  }));
 }
 
 /**

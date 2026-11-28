@@ -29,6 +29,8 @@ export const AUDIT_ACTIONS = [
   // Согласие на AI-обработку (план M9, задача 2, решение 10): отметка с датой и основанием и выключение обработки.
   'org.ai_consent_recorded',
   'org.ai_disabled',
+  // Дата окончания договора в карточке организации (ТЗ 14.6; волна 7, T2).
+  'org.contract_end_set',
   'member.joined',
   'member.role_changed',
   'member.state_changed',
@@ -38,6 +40,10 @@ export const AUDIT_ACTIONS = [
   'invitation.accepted',
   // Учётная запись и сессии
   'user.email_confirmed',
+  // Обезличивание учётной записи по запросу (ТЗ 14.6; волна 7, T2).
+  'user.anonymized',
+  // Удаление файлов вложений по сроку хранения ночной задачей (ТЗ 14.6; волна 7, T2).
+  'retention.attachments_expired',
   'user.policy_acknowledged',
   'session.revoked',
   // Завершение сессий для инцидента командой hub sessions:revoke (план M9, задача 4, решение 9): охват и число.
@@ -363,8 +369,8 @@ export const RATE_RULES = {
   kbFeedbackOnce: { limit: 1, windowSec: 86_400 },
   /** Те же кнопки: 30 нажатий в час на пользователя по всем решениям. */
   kbFeedbackPerUser: { limit: 30, windowSec: 3600 },
-  /** Подсказка решений на форме обращения (план M5, решение 13): 60 запросов в минуту на пользователя. */
-  kbSuggestPerUser: { limit: 60, windowSec: 60 },
+  /** Подсказка решений на форме обращения: 30 запросов в минуту на пользователя (ТЗ 14.5; волна 7, T6, решение 0159). */
+  kbSuggestPerUser: { limit: 30, windowSec: 60 },
   /** Та же подсказка: 600 в час на организацию, чтобы предел не обходился числом пользователей. */
   kbSuggestPerOrg: { limit: 600, windowSec: 3600 },
   /** Создание идеи: 5 в сутки на пользователя (раздел 14.5). */
@@ -406,9 +412,16 @@ export function cleanUserText(value: string): string {
 /** Соединители и селекторы вариантов: законны в эмодзи, но внутри числа или адреса прячут его от поиска. */
 const JOINERS = /[\u200C\u200D\uFE00-\uFE0F]/gu;
 
+/**
+ * Пустые знаки, которые Юникод считает буквой или символом (проверка на AI-инъекции, волна 7, S-M4): корейские
+ * заполнители U+3164, U+115F, U+1160, U+FFA0, пустой знак Брайля U+2800 и соединитель графем U+034F. На экране
+ * их нет, а слово они разрывают: список слов и правило телефона его не находят.
+ */
+export const BLANK_FILLERS = /[\u3164\u115F\u1160\uFFA0\u2800\u034F]/gu;
+
 /** Текст без невидимых знаков и без соединителей: для текста модели, который ложится в документ (M5, 0057). */
 export function stripInvisible(value: string): string {
-  return cleanUserText(value).replace(JOINERS, '');
+  return cleanUserText(value).replace(JOINERS, '').replace(BLANK_FILLERS, '');
 }
 
 /**

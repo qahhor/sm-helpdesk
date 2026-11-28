@@ -41,6 +41,8 @@ export const JOB_NAMES = [
   'kb.scan',
   'kb.translate',
   'maintenance.cleanup',
+  // Сроки хранения данных клиентов (ТЗ 14.6; волна 7, T2): выключена настройкой, без неё только считает.
+  'retention.client_data',
   'ops.heartbeat',
   'ops.watch',
   'outbox.dispatch',

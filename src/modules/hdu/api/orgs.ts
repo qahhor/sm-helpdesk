@@ -17,6 +17,8 @@ import {
   searchOrgs,
   setActiveOrganization,
   setOrgAiProcessingOf,
+  setOrgContractEndOf,
+  orgsWithContractEndedBefore,
   updateOrgSettings,
 } from '../core/orgs';
 import { addOrgDomainTx, listOrgDomainsTx, removeOrgDomainTx } from '../core/domains';
@@ -272,4 +274,28 @@ export async function agentRedactionTerms(actor: SystemActor, input: { orgIds: r
 export async function orgFacts(actor: SystemActor | StaffActor, orgIds: readonly string[]): Promise<OrgFacts[]> {
   if (actor.type !== 'system' && actor.type !== 'staff') throw new HduError('forbidden');
   return orgFactsOf(actor, z.array(z.uuid()).max(10_000).parse(orgIds));
+}
+
+const contractEndInput = z.strictObject({
+  orgId: uuidInput,
+  // Дата ГГГГ-ММ-ДД не раньше 2000 года или пусто: снять дату.
+  contractEndsOn: z.iso.date().refine((day) => day >= '2000-01-01' && day <= '2100-12-31').nullable(),
+});
+
+/**
+ * Дата окончания договора в карточке организации (ТЗ 14.6; волна 7, T2; решение 0162): только администратор портала
+ * со свежим входом. От даты считается срок хранения обращений. Запись org.contract_end_set в той же транзакции.
+ */
+export async function setOrgContractEnd(ctx: StaffContext, input: unknown, now: Date = new Date()): Promise<void> {
+  const actor = ctx?.actor;
+  if (actor?.type !== 'staff' || actor.staffRole !== 'admin') throw new HduError('forbidden');
+  if (!isFresh(ctx, now, FRESH_SIGN_IN_SEC)) throw new HduError('stale_session');
+  const data = parseInput(contractEndInput, input);
+  if (!(await setOrgContractEndOf(actor, data.orgId, data.contractEndsOn))) throw new HduError('not_found');
+}
+
+/** Организации, договор с которыми кончился раньше дня before: читает система для задачи сроков хранения. */
+export async function contractEndedOrgIds(actor: SystemActor, before: string): Promise<string[]> {
+  if (actor.type !== 'system') throw new HduError('forbidden');
+  return orgsWithContractEndedBefore(actor, z.iso.date().parse(before));
 }

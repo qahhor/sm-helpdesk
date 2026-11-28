@@ -23,7 +23,7 @@ import { announcementTranslationAction, endAnnouncementAction, requestAnnounceme
 // принятием и досрочное окончание. Пишут care и admin; остальные сотрудники видят список. Время полей: Ташкент.
 
 const DONE = ['saved', 'ended', 'translation', 'translating'];
-const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link', 'org'];
+const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link', 'org', 'ai_phrase'];
 const STATE_TONE: Record<string, StatusTone> = { scheduled: 'blue', active: 'green', ended: 'gray' };
 /** Значение поля datetime-local во времени Ташкента. */
 const local = (date: Date) => new Date(date.getTime() + 5 * 3_600_000).toISOString().slice(0, 16);

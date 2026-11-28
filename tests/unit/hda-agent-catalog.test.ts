@@ -95,6 +95,60 @@ describe('каталог инструментов', () => {
     }
   });
 
+  // Проверка на AI-инъекции (волна 7, S-M2; решение 0152): свободная строка из базы лежит только под ключом
+  // untrusted_*. Вне его допустимы значения закрытых перечней и идентификаторы строгого вида; их имена перечислены
+  // здесь с причиной, новое поле со свободной строкой вне untrusted_* роняет тест.
+  const TRUSTED_STRING_FIELDS: Record<string, string> = {
+    notice: 'постоянный текст портала',
+    // Закрытые перечни (проверка CHECK в базе или перечень в коде).
+    status: 'перечень',
+    priority: 'перечень',
+    queue: 'перечень',
+    type: 'перечень',
+    impact: 'перечень',
+    locale: 'перечень языков',
+    source: 'перечень',
+    audience: 'перечень',
+    ai_state: 'перечень',
+    ai_handoff_reason: 'перечень',
+    ai_kind: 'перечень',
+    resolution_type: 'перечень',
+    from_line: 'перечень',
+    to_line: 'перечень',
+    reason_code: 'перечень',
+    reason: 'перечень причин передачи',
+    rule: 'перечень правил отклонения отчёта',
+    // Идентификаторы строгого вида, которые строит портал или проверяет схема при записи.
+    author: 'обозначение "client:1", "staff:2" строит портал',
+    signature: 'хеш из 32 шестнадцатеричных знаков',
+    signatures: 'хеши',
+    module: 'код модуля из справочника, который ведёт администратор (решение 0152)',
+    modules: 'коды модулей',
+    code: 'код ошибки каталога: вид [A-Z]{2,5}-цифры проверен схемой отчёта при записи',
+    scan_key: 'ключ сканирования строгого вида, прислан самим агентом',
+    path: 'путь поля отчёта, присланного самим агентом',
+  };
+
+  function freeStrings(schema: Schema, path: string, name: string, under: boolean, out: string[]) {
+    const types = Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : [];
+    if (types.includes('string') && !schema.enum && schema.const === undefined && !schema.format && !schema.pattern && !under && !(name in TRUSTED_STRING_FIELDS)) out.push(path);
+    for (const [key, value] of Object.entries(schema.properties ?? {})) freeStrings(value, `${path}.${key}`, key, under || key.startsWith('untrusted_'), out);
+    if (schema.items) freeStrings(schema.items, `${path}[]`, name, under, out);
+    for (const option of schema.anyOf ?? []) freeStrings(option, path, name, under, out);
+  }
+
+  test('каждая свободная строка в ответе любого инструмента лежит под ключом untrusted_*', () => {
+    const out: string[] = [];
+    for (const tool of listing) freeStrings(tool.outputSchema as Schema, tool.name, '', false, out);
+    expect(out).toEqual([]);
+  });
+
+  test('search_code_catalog: ключ, место в коде и шаблоны только под untrusted_*', () => {
+    const entry = ((listing.find((tool) => tool.name === 'search_code_catalog')!.outputSchema as Schema).properties!.entries!.items as Schema).properties!;
+    expect(Object.keys(entry)).toEqual(expect.arrayContaining(['untrusted_key', 'untrusted_raised_in', 'untrusted_templates']));
+    for (const key of ['key', 'raised_in', 'templates']) expect(Object.keys(entry)).not.toContain(key);
+  });
+
   test('перечень токена ограничивает листинг: чужих инструментов нет', () => {
     const defined = definedAgentTools();
     const one = defined[0]!;

@@ -1,6 +1,7 @@
 import 'server-only';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool, type PoolClient } from 'pg';
+import { stripNulFromParams } from './no-nul';
 import { env } from '@/env';
 import { poolMaxOf } from './pool-size';
 
@@ -30,7 +31,7 @@ function createAppPool(): Pool {
   });
   // Обрыв простаивающего соединения не должен останавливать процесс.
   pool.on('error', (error) => console.error(`Соединение с базой закрыто с ошибкой: ${error.message}`));
-  return pool;
+  return stripNulFromParams(pool);
 }
 
 /** Пул соединений роли hub_app. Создаётся при первом обращении: сборке приложения база не нужна. */

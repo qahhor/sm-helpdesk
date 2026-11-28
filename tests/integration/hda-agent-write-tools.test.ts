@@ -100,6 +100,33 @@ test('HTML, скрипт, ссылка вне разрешённых домен�
   expect(await errorOf('add_internal_note', { ticket_number: t.number, kind: 'note', body: '<p></p>' })).toBe('invalid_arguments');
 });
 
+// Проверка на AI-инъекции (волна 7, S-I4; FR-CODE-12): агент с доступом к коду не переносит исходный код в портал.
+test('S-I4: текст, похожий на исходный код, отклоняется во всех инструментах записи и ничего не записывает', async () => {
+  const { f, token, errorOf, ok } = await setup();
+  const t = f.tickets.aOrg;
+  const plsql = 'Причина в процедуре:\nv_total := v_total + r.amount;\nif v_total > 0 then raise_application_error(-20001, x); end if;';
+  const query = 'Запрос: select doc_id from trade_documents where status = 1 and filial_id = 5';
+  const minified = `Код: ${'a=b;'.repeat(30)}`;
+  const longLine = `Строка ${'слово '.repeat(60)}`;
+  const count = async () => (await pools.root.query(`select (select count(*) from hdt_ticket_messages where author_type = 'agent')::int + (select count(*) from hdk_articles where is_untrusted)::int + (select count(*) from hdp_problems)::int + (select count(*) from hda_agent_reports)::int as n`)).rows[0].n as number;
+  const before = await count();
+  for (const code of [plsql, query, minified, longLine]) {
+    expect(await errorOf('add_internal_note', { ticket_number: t.number, kind: 'note', body: code }), code).toBe('invalid_arguments');
+    expect(await errorOf('draft_solution', { title: 'Заголовок', body: code }), code).toBe('invalid_arguments');
+    expect(await errorOf('draft_known_problem', { internal_title: 'Проблема', description: code }), code).toBe('invalid_arguments');
+    expect(await errorOf('create_report', { kind: 'morning', title: 'Сводка', body: code }), code).toBe('invalid_arguments');
+  }
+  expect(await errorOf('draft_solution', { title: 'v_x := 1; begin null; end;', body: 'Текст' })).toBe('invalid_arguments');
+  expect(await count()).toBe(before);
+  // Обычный текст в несколько строк, с длинной разрешённой ссылкой и точкой с запятой проходит.
+  await ok('add_internal_note', {
+    ticket_number: t.number,
+    kind: 'note',
+    body: `Клиент выбрал закрытый период; документ не проводится.\nПроверить: настройки периода; права роли.\nСправка: https://docs.smartup.uz/${'a'.repeat(120)}\n${Array.from({ length: 14 }, (_, i) => `Шаг ${i + 1}: проверить настройку`).join('\n')}`,
+  });
+  expect(token.value).toBeTruthy();
+});
+
 test('обращение вне видимости агента: not_found, ничего не записано', async () => {
   const { f, token, errorOf } = await setup();
   expect(await errorOf('add_internal_note', { ticket_number: f.tickets.bOrg.number, kind: 'note', body: 'Заметка' })).toBe('not_found');

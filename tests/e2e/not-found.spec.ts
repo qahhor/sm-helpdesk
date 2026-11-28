@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { CLIENT_STATE } from './helpers/client';
+import { storageStateOf } from './helpers/staff';
 
 // Страница "не найдено" для неизвестного адреса внутри языка (план M9, задача 8, решение 23; решение 0066, пункт 3):
 // Next.js собирает её в браузере из документа ошибки, тему применяет ThemeApply. В тёмной теме системы она тёмная,
@@ -23,7 +25,7 @@ for (const [locale, title] of Object.entries(TEXTS))
       await expect(page.locator('html')).toHaveClass(/dark/);
       await expect(page.locator('html')).toHaveAttribute('lang', locale);
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
-      await expect(page.getByRole('link').first()).toHaveAttribute('href', `/${locale}`);
+      await expect(page.getByTestId('not-found').getByRole('link')).toHaveAttribute('href', `/${locale}`);
       // Фон страницы из токена тёмной темы, а не белый по умолчанию.
       const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
       expect(background).not.toBe('rgb(255, 255, 255)');
@@ -39,5 +41,41 @@ test.describe('выбранная светлая тема', () => {
     await context.addCookies([{ name: 'hub_theme', value: 'light', url: baseURL! }]);
     await page.goto(`/ru/net-takoy-stranitsy-${Date.now()}`);
     await expect(page.locator('html')).not.toHaveClass(/dark/);
+  });
+});
+
+// Оболочка и Тез на странице "не найдено" (проверка интерфейса, U7): клиент и сотрудник не теряют меню, сотрудника
+// кнопка ведёт в рабочее место, цель нажатия не меньше 44 px.
+
+test('404 без входа: оболочка с логотипом, Тез и кнопка на главную 44 px', async ({ page }) => {
+  await page.goto(`/ru/net-takoy-stranitsy-${Date.now()}`);
+  await expect(page.getByRole('banner')).toBeVisible();
+  await expect(page.locator('[data-testid="not-found"] [data-tez="main"]')).toBeVisible();
+  const home = page.getByRole('link', { name: 'На главную' });
+  expect((await home.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+});
+
+test.describe('клиент', () => {
+  test.use({ storageState: CLIENT_STATE });
+
+  test('несуществующее обращение: "не найдено" внутри оболочки кабинета', async ({ page }) => {
+    const response = await page.goto('/ru/tickets/SUP-99999999');
+    expect(response?.status()).toBe(404);
+    await expect(page.locator('[data-testid="not-found"]')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Страница не найдена');
+    // Оболочка кабинета на месте: колокольчик уведомлений есть только в ней.
+    await expect(page.getByRole('banner').getByRole('link', { name: /Уведомления/ })).toBeVisible();
+  });
+});
+
+test.describe('сотрудник', () => {
+  test.use({ storageState: storageStateOf('admin') });
+
+  test('неизвестный адрес рабочего места: "не найдено" в оболочке, кнопка ведёт в рабочее место', async ({ page }) => {
+    const response = await page.goto(`/ru/agent/net-takoy-stranitsy-${Date.now()}`);
+    expect(response?.status()).toBe(404);
+    await expect(page.locator('[data-testid="not-found"]')).toBeVisible();
+    await expect(page.getByRole('banner').getByRole('link', { name: /Уведомления/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'К рабочему месту' })).toHaveAttribute('href', '/ru/agent');
   });
 });

@@ -81,7 +81,7 @@ export const searchCodeCatalog = defineTool({
     entries: z
       .array(
         z.strictObject({
-          key: str(120),
+          untrusted_key: str(120),
           signature: str(32),
           code: str(40).nullable(),
           status: z.enum(['draft', 'approved']),
@@ -89,8 +89,8 @@ export const searchCodeCatalog = defineTool({
           kind: z.enum(CODE_KINDS),
           confidence: z.number().min(0).max(1),
           untrusted_text: z.strictObject({ conditions: str(2000), user_cause: str(2000), what_to_check: z.array(str(300)).max(10) }),
-          raised_in: z.array(z.strictObject({ object: str(200), path: str(300), line: z.number().int().nullable() })).max(10),
-          templates: z.array(z.strictObject({ locale: str(2), template: str(500) })).max(10),
+          untrusted_raised_in: z.array(z.strictObject({ object: str(200), path: str(300), line: z.number().int().nullable() })).max(10),
+          untrusted_templates: z.array(z.strictObject({ locale: str(2), template: str(500) })).max(10),
         }),
       )
       .max(SEARCH_MAX),
@@ -125,7 +125,8 @@ export const searchCodeCatalog = defineTool({
       result: {
         notice: AGENT_NOTICE,
         entries: rows.map((row) => ({
-          key: row.key,
+          // Ключ, место в коде и шаблоны пришли из отчёта агента о коде: только под untrusted_* (волна 7, S-M2).
+          untrusted_key: row.key,
           signature: row.signature,
           code: row.code,
           status: row.status as 'draft' | 'approved',
@@ -133,8 +134,8 @@ export const searchCodeCatalog = defineTool({
           kind: row.kind,
           confidence: Number(row.confidence),
           untrusted_text: { conditions: row.conditions, user_cause: row.userCause, what_to_check: row.whatToCheck },
-          raised_in: row.raisedIn.map((place) => ({ object: place.object, path: place.path, line: place.line ?? null })),
-          templates: templates.filter((t) => t.entryId === row.entryId).map((t) => ({ locale: t.locale, template: t.template })),
+          untrusted_raised_in: row.raisedIn.map((place) => ({ object: place.object, path: place.path, line: place.line ?? null })),
+          untrusted_templates: templates.filter((t) => t.entryId === row.entryId).map((t) => ({ locale: t.locale, template: t.template })),
         })),
       },
       objectRefs: rows.map((row) => ({ kind: 'code_entry' as const, ref: row.key })),

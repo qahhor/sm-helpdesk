@@ -2,6 +2,7 @@ import 'server-only';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { assembleIdeaTranslationData, assemblePublicTextData, assembleTranslationData, type TranslationSegment } from '../assemble';
+import { unescapeData } from '../util';
 import { type RunOutcome, runAi } from './run';
 
 // Модуль hda, слой api: машинный перевод решения (ТЗ FR-SOL-06, 14.3, поправка 101; план M5, задача 6, решение 9).
@@ -41,7 +42,8 @@ export async function requestTranslation(
     maxTokens: 8000,
   });
   if (outcome.status !== 'ok') return outcome;
-  return { status: 'ok', value: new Map(outcome.value.segments.map((s) => [s.id, s.text])) };
+  // Вход экранирован (escapeData): в переводе сущности возвращаются знаками, текст остаётся текстом.
+  return { status: 'ok', value: new Map(outcome.value.segments.map((s) => [s.id, unescapeData(s.text)])) };
 }
 
 // --- Перевод идеи (план M7, задача 4, решения 11, 12) ---
@@ -74,7 +76,7 @@ export async function requestIdeaTranslation(
     body: input.body,
     redaction: input.redaction,
   });
-  return runAi(system, {
+  const outcome = await runAi(system, {
     purpose: 'idea_translation',
     orgId: input.orgId,
     refId: input.ideaId,
@@ -83,6 +85,7 @@ export async function requestIdeaTranslation(
     schema: ideaTranslationSchema,
     maxTokens: 4000,
   });
+  return outcome.status === 'ok' ? { ...outcome, value: { title: unescapeData(outcome.value.title), body: unescapeData(outcome.value.body) } } : outcome;
 }
 
 // --- Объяснение выбора идеи месяца (план M7, задача 9, решение 17) ---
@@ -102,7 +105,7 @@ export async function requestExplanationDraft(system: SystemActor, input: { from
   });
   const outcome = await runAi(system, { purpose: 'idea_translation', orgId: null, refId: null, system: IDEA_TRANSLATION_SYSTEM, data, schema: ideaTranslationSchema, maxTokens: 2000 });
   if (outcome.status !== 'ok') return outcome;
-  return { status: 'ok', value: outcome.value.body };
+  return { status: 'ok', value: unescapeData(outcome.value.body) };
 }
 
 // --- Перевод публичного текста сотрудника (план M5c, решения 17, 24) ---
@@ -127,5 +130,6 @@ export async function requestPublicTextTranslation(
   input: { purpose: 'problem_translation' | 'announcement_translation'; refId: string; from: string; to: string; title: string; body: string },
 ): Promise<RunOutcome<{ title: string; body: string }>> {
   const data = assemblePublicTextData({ from: LOCALE_NAMES[input.from] ?? input.from, to: LOCALE_NAMES[input.to] ?? input.to, title: input.title, body: input.body });
-  return runAi(system, { purpose: input.purpose, orgId: null, refId: input.refId, system: PUBLIC_TEXT_TRANSLATION_SYSTEM, data, schema: publicTextTranslationSchema, maxTokens: 4000 });
+  const outcome = await runAi(system, { purpose: input.purpose, orgId: null, refId: input.refId, system: PUBLIC_TEXT_TRANSLATION_SYSTEM, data, schema: publicTextTranslationSchema, maxTokens: 4000 });
+  return outcome.status === 'ok' ? { ...outcome, value: { title: unescapeData(outcome.value.title), body: unescapeData(outcome.value.body) } } : outcome;
 }

@@ -87,7 +87,7 @@ export function StaffTicketForm(props: Props) {
           {labels.intakeHint}
         </p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 tablet:grid-cols-2">
         {select('new-type', 'type', labels.type, props.types, 'bug')}
         {select('new-impact', 'impact', labels.impact, props.impacts, 'minor')}
         {select('new-priority', 'priority', labels.priority, [{ value: '', label: labels.priorityByImpact }, ...props.priorities], '', false)}

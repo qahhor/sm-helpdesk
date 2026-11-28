@@ -1,5 +1,5 @@
 import { scanText } from '@/modules/hdc/pref';
-import { type FindingKind, findInText, isAllowedDomain } from '@/modules/hdk/api/text-checks';
+import { type FindingKind, findAiPhrases, findInText, isAllowedDomain } from '@/modules/hdk/api/text-checks';
 
 // Модуль hdp, слой util: чистые функции без обращения к базе (docs/naming.md, раздел 5).
 
@@ -52,6 +52,8 @@ export function checkPublicText(raw: string, opts: { orgTerms: readonly string[]
     const host = hostOf(match[0].replace(/[.,;:!?)\]]+$/, ''));
     if (!host || !isAllowedDomain(host, opts.allowedDomains)) findings.push({ kind: 'link', text: host ?? match[0] });
   }
+  // Фраза, обращённая к модели (волна 7, S-M10): публичный текст переводит модель.
+  for (const phrase of findAiPhrases(text)) findings.push({ kind: 'ai_phrase', text: phrase });
   const seen = new Set<string>();
   return findings.filter((f) => {
     const key = `${f.kind}|${f.text}`;

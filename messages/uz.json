@@ -8,7 +8,8 @@
     "notFound": {
       "title": "Sahifa topilmadi",
       "text": "Manzilni tekshiring yoki bosh sahifaga qayting.",
-      "home": "Bosh sahifaga"
+      "home": "Bosh sahifaga",
+      "agentHome": "Ish joyiga"
     },
     "theme": {
       "label": "Mavzu",
@@ -132,7 +133,15 @@
           "save": "G'oyalar haqidagi xatlarga qo'llash"
         }
       }
-    }
+    },
+    "error": {
+      "title": "Sahifani ochib bo'lmadi",
+      "text": "Qayta urinib ko'ring. Yordam bermasa, bosh sahifaga qayting.",
+      "retry": "Takrorlash",
+      "home": "Bosh sahifaga",
+      "agentHome": "Ish joyiga"
+    },
+    "loading": "Yuklanmoqda"
   },
   "client": {
     "home": {
@@ -268,7 +277,8 @@
           "infected": "viruslarga tekshiruvdan o'tmadi",
           "rejected": "qabul qilinmadi: mazmuni kengaytmaga mos emas yoki faylni tekshirib bo'lmadi, uni qaytadan yoki boshqa formatda qo'shing",
           "encrypted": "qabul qilinmadi: fayl parol bilan himoyalangan, uni parolsiz qo'shing",
-          "limits": "qabul qilinmadi: arxiv tekshirish uchun juda katta, fayllarni alohida qo'shing"
+          "limits": "qabul qilinmadi: arxiv tekshirish uchun juda katta, fayllarni alohida qo'shing",
+          "expired": "saqlash muddati tugagani uchun o'chirilgan"
         },
         "reply": "Javob",
         "replyPlaceholder": "Javob yozing",
@@ -574,6 +584,11 @@
         "rate_limited": "Takliflar juda ko'p. Bir soatdan keyin urinib ko'ring.",
         "forbidden": "Bu amal sizga mavjud emas.",
         "not_found": "Yozuv topilmadi. Sahifani yangilang."
+      },
+      "summary": {
+        "title": "Tashkilot murojaatlari",
+        "total": "Jami: {total}. Ochiq: {open}.",
+        "open": "Tashkilot murojaatlarini ochish"
       }
     },
     "settings": {
@@ -859,7 +874,10 @@
         "aiEnabled": "AI orqali ko'rib chiqish yoqildi, rozilik belgilandi.",
         "aiDisabled": "AI orqali ko'rib chiqish o'chirildi.",
         "pilotOn": "Tashkilot pilot deb belgilandi.",
-        "pilotOff": "Tashkilot pilotdan olib tashlandi."
+        "pilotOff": "Tashkilot pilotdan olib tashlandi.",
+        "contractSaved": "Shartnoma tugash sanasi saqlandi.",
+        "contractCleared": "Shartnoma tugash sanasi olib tashlandi.",
+        "anonymized": "Hisob shaxssizlantirildi."
       },
       "settingsTitle": "Tashkilot sozlamalari",
       "categoryLabel": "Mijoz toifasi",
@@ -901,6 +919,21 @@
         "off": "Tashkilot pilotga kirmaydi.",
         "mark": "Pilot deb belgilash",
         "unmark": "Pilotdan olib tashlash"
+      },
+      "contract": {
+        "title": "Shartnoma va saqlash muddati",
+        "endsOn": "Shartnoma {date} da tugagan.",
+        "none": "Shartnoma tugash sanasi kiritilmagan.",
+        "hint": "Murojaatlarni saqlash muddati shu sanadan hisoblanadi: shartnoma tugaganidan keyin 3 yil.",
+        "label": "Shartnoma tugash sanasi",
+        "save": "Sanani saqlash",
+        "clear": "Sanani olib tashlash"
+      },
+      "anonymize": {
+        "button": "Shaxssizlantirish",
+        "confirmTitle": "Hisob shaxssizlantirilsinmi: {name}?",
+        "confirmText": "Ism va pochta manzili shaxssiz qiymatlar bilan almashtiriladi, kirish yopiladi, kanal bog'lanishlari o'chiriladi. Murojaat matnlari tashkilotda qoladi. Buni bekor qilib bo'lmaydi.",
+        "confirm": "Hisobni shaxssizlantirish"
       }
     },
     "settings": {
@@ -1253,7 +1286,8 @@
             "domain_added": "Tashkilot pochta domeni qo'shildi",
             "domain_removed": "Tashkilot pochta domeni olib tashlandi",
             "ai_consent_recorded": "AI orqali ko'rib chiqishga rozilik belgilandi",
-            "ai_disabled": "Tashkilotni AI orqali ko'rib chiqish o'chirildi"
+            "ai_disabled": "Tashkilotni AI orqali ko'rib chiqish o'chirildi",
+            "contract_end_set": "Shartnoma tugash sanasi o'zgartirildi"
           },
           "member": {
             "joined": "Ishtirokchi qo'shildi",
@@ -1269,7 +1303,8 @@
             "email_confirmed": "Manzil tasdiqlandi",
             "policy_acknowledged": "Siyosat tahriri qabul qilindi",
             "signed_in_telegram": "Telegram boti orqali kirish",
-            "signed_in": "Mijoz kirdi"
+            "signed_in": "Mijoz kirdi",
+            "anonymized": "Hisob shaxssizlantirildi"
           },
           "session": {
             "revoked": "Sessiya yakunlandi",
@@ -1474,6 +1509,9 @@
             "analysis_requested": "Murojaatni kod bo'yicha tahlil qilish so'raldi",
             "analysis_timed_out": "Murojaatni kod bo'yicha tahlil qilish o'z vaqtida bajarilmadi",
             "analysis_done": "AI-xodim kod bo'yicha tahlil so'roviga javob berdi"
+          },
+          "retention": {
+            "attachments_expired": "Fayllar saqlash muddati bo'yicha o'chirildi"
           }
         },
         "words": {
@@ -2678,7 +2716,8 @@
       "scan": {
         "pending": "tekshirilmoqda",
         "infected": "viruslarga tekshiruvdan o'tmadi",
-        "rejected": "qabul qilinmadi"
+        "rejected": "qabul qilinmadi",
+        "expired": "saqlash muddati tugagani uchun o'chirilgan"
       },
       "authors": {
         "client": "Mijoz",
@@ -3094,7 +3133,10 @@
         "acceptField": "Qabul qilish: {field}",
         "acceptAll": "Hammasini qabul qilish",
         "accepted": "Qabul qilindi",
-        "checkPriority": "Ustuvorlikni tekshiring: muammo mijoz ko'rsatganidan jiddiyroqqa o'xshaydi"
+        "checkPriority": "Ustuvorlikni tekshiring: muammo mijoz ko'rsatganidan jiddiyroqqa o'xshaydi",
+        "titleNow": "Hozir",
+        "titleProposed": "Taklif",
+        "acceptAllHint": "Sarlavha alohida qabul qilinadi: uni mijoz ko'radi."
       },
       "aiReasons": {
         "customer_request": "mijoz xodimni so'radi",
@@ -3718,7 +3760,8 @@
           "digits": "Uzun raqam",
           "server": "Server manzili",
           "internal": "Ichki nom",
-          "link": "Ro'yxatdan tashqari havola"
+          "link": "Ro'yxatdan tashqari havola",
+          "ai_phrase": "AI ga qaratilgan ibora"
         },
         "inTitle": "sarlavhada",
         "show": "Ko'rsatish",
@@ -4199,7 +4242,8 @@
         "server": "server manzili",
         "internal": "xizmat nomi",
         "link": "ruxsat etilmagan saytga havola",
-        "org": "tashkilot nomi yoki STIR"
+        "org": "tashkilot nomi yoki STIR",
+        "ai_phrase": "AI ga qaratilgan ibora"
       },
       "done": {
         "created": "Muammo yaratildi",
@@ -5045,7 +5089,8 @@
       "search_drift": "Smartup Hub: qidiruv indeksini solishtirish farqlarni topdi: {count} (to'plamlar: {collections}). Yetishmayotganlari qaytadan yoziladi.",
       "search_isolation": "Smartup Hub: qidiruv mijozga boshqa tashkilot identifikatorlarini qaytardi, ularni baza tekshiruvi tashlab yubordi: bir soatda {count}. Qidiruv kaliti filtrini tekshiring.",
       "host_pressure": "Smartup Hub: server 80% va undan ko'p band: {kinds}. disk: baza yoki nusxalar tomi, mem: xotira, cpu: protsessor. Navbatchi eslatmasining 6-bo'limiga qarang.",
-      "host_mark_stale": "Smartup Hub: server resurslari belgisi 15 daqiqadan ortiq yo'q (serverlar: {count}). Serverdagi host-watch taymerini tekshiring."
+      "host_mark_stale": "Smartup Hub: server resurslari belgisi 15 daqiqadan ortiq yo'q (serverlar: {count}). Serverdagi host-watch taymerini tekshiring.",
+      "broadcast_stuck": "Smartup Hub: 30 daqiqa ichida barcha oluvchilarga yetib bormagan ma'lum muammolar bo'yicha xabarnomalar: {count}."
     },
     "tez": {
       "helped": "Yordam berganidan xursandmiz. Murojaat hal qilindi.",

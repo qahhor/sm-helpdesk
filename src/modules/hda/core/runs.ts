@@ -49,11 +49,14 @@ export async function callsTodayTx(tx: Tx): Promise<number> {
 }
 
 /** Вызовы целей с пределом пользователя за сутки по Ташкенту: у пользователя и у организации (решение 11). */
-export async function firstLineCallsTodayTx(tx: Tx, who: { userId: string | null; orgId: string | null }): Promise<{ user: number; org: number }> {
-  const base = and(gte(aiRuns.createdOn, dayStart), notInArray(aiRuns.outcome, NOT_CALLS), inArray(aiRuns.purpose, [...AI_USER_LIMIT_PURPOSES]));
+export async function firstLineCallsTodayTx(tx: Tx, who: { userId: string | null; orgId: string | null }): Promise<{ user: number; userHour: number; org: number }> {
+  const calls = and(notInArray(aiRuns.outcome, NOT_CALLS), inArray(aiRuns.purpose, [...AI_USER_LIMIT_PURPOSES]));
+  const base = and(gte(aiRuns.createdOn, dayStart), calls);
   const count = async (where: ReturnType<typeof and>) => (await tx.select({ count: sql<number>`count(*)::int` }).from(aiRuns).where(where))[0]?.count ?? 0;
   return {
     user: who.userId ? await count(and(base, eq(aiRuns.userId, who.userId))) : 0,
+    // Скользящий час (ТЗ 14.5: 20 в час на пользователя).
+    userHour: who.userId ? await count(and(calls, gte(aiRuns.createdOn, sql`now() - interval '1 hour'`), eq(aiRuns.userId, who.userId))) : 0,
     org: who.orgId ? await count(and(base, eq(aiRuns.orgId, who.orgId))) : 0,
   };
 }

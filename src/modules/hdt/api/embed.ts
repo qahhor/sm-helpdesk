@@ -1,11 +1,13 @@
 import 'server-only';
 import * as z from 'zod';
-import { LOCALES } from '@/i18n/locales';
+import { type Locale, LOCALES } from '@/i18n/locales';
 import { problemResponse } from '@/modules/hdc/api';
 import { listActiveModules } from '@/modules/hdr/api';
 import { type EmbedContext, withEmbedRequest } from '@/modules/hdu/api/embed';
 import { confirmResolution, createWidgetTicket, getTicket, listTickets, replyToTicket, type TicketView } from '../api';
 import { isHdtError } from '../error';
+import { AI_FEEDBACK_CHOICES, aiFeedback } from './ai-feedback';
+import { embedAiView, type EmbedAiView } from './embed-ai';
 
 // Обращения в виджете (план M6, задачи 5 и 6; FR-WG-06; решения 12, 13 и 14). Обработчики /api/embed/form,
 // /api/embed/tickets и /api/embed/tickets/{номер}. Токен виджета в заголовке Authorization (withEmbedRequest),
@@ -81,15 +83,54 @@ export type EmbedTicketView = {
   isMine: boolean;
   merged: boolean;
   attachments: EmbedAttachment[];
-  messages: { messageId: string; authorType: 'client' | 'support'; authorName: string | null; isMine: boolean; isAuto: boolean; body: string; createdOn: string; attachments: EmbedAttachment[] }[];
+  messages: EmbedMessage[];
   can: { reply: boolean; confirm: boolean };
+  /** Часовой пояс сроков (календарь SLA): виджет показывает в нём срок ответа сотрудника. */
+  timeZone: string;
+};
+/**
+ * Сообщение в виджете. Автор ai только у сообщения помощника (волна 7, T1): виджет рисует его видом Теза по данным
+ * ai, а не по тексту. actionable: кнопки действуют; canResolve: "Помогло" доступно автору и администратору клиента.
+ */
+export type EmbedMessage = {
+  messageId: string;
+  authorType: 'client' | 'support' | 'ai';
+  authorName: string | null;
+  isMine: boolean;
+  isAuto: boolean;
+  body: string;
+  createdOn: string;
+  attachments: EmbedAttachment[];
+  ai?: EmbedAiView & { actionable: boolean; canResolve: boolean };
 };
 type EmbedAttachment = { attachmentId: string; fileName: string; size: number; scanStatus: string; isImage: boolean };
 
 const attachmentOf = (a: TicketView['attachments'][number]): EmbedAttachment => ({ attachmentId: a.attachmentId, fileName: a.fileName, size: a.size, scanStatus: a.scanStatus, isImage: a.isImage });
 
-/** Клиентская проекция страницы обращения для виджета. Ответ сотрудника подписан поддержкой, без имени (FR-LINE-07). */
-export function embedTicketView(view: TicketView): EmbedTicketView {
+/**
+ * Клиентская проекция страницы обращения для виджета. Ответ сотрудника подписан поддержкой, без имени (FR-LINE-07).
+ * Ответ AI-помощника несёт автора ai и данные ответа (волна 7, T1; FR-AI-08): клиент видит, что ответил AI.
+ */
+export async function embedTicketView(ctx: Pick<EmbedContext, 'actor'>, view: TicketView, locale: Locale): Promise<EmbedTicketView> {
+  const lastAiId = view.messages.filter((m) => m.authorType === 'ai').at(-1)?.messageId ?? null;
+  const canResolve = view.isMine || ctx.actor.orgRole === 'client_admin';
+  const messages: EmbedMessage[] = [];
+  for (const m of view.messages) {
+    const base = {
+      messageId: m.messageId,
+      authorName: m.authorType === 'client' ? m.authorName : null,
+      isMine: m.isMine,
+      isAuto: m.isAuto,
+      createdOn: m.createdOn.toISOString(),
+      attachments: m.attachments.map(attachmentOf),
+    };
+    if (m.authorType === 'ai' && m.aiPayload) {
+      const ai = await embedAiView(ctx, { payload: m.aiPayload, ticketNumber: view.number, createdOn: m.createdOn, locale });
+      const actionable = m.messageId === lastAiId && view.aiState === 'active' && view.status === 'waiting_customer' && (ai.kind === 'answer' || ai.kind === 'clarify');
+      // Текст сообщения помощника в проекцию не уходит: вид собирается из данных ai.
+      messages.push({ ...base, authorType: 'ai', body: '', ai: { ...ai, actionable, canResolve } });
+    } else messages.push({ ...base, authorType: m.authorType === 'client' ? 'client' : 'support', body: m.body });
+  }
   return {
     number: view.number,
     title: view.title,
@@ -100,44 +141,43 @@ export function embedTicketView(view: TicketView): EmbedTicketView {
     isMine: view.isMine,
     merged: view.merged,
     attachments: view.attachments.map(attachmentOf),
-    messages: view.messages.map((m) => ({
-      messageId: m.messageId,
-      authorType: m.authorType === 'client' ? 'client' : 'support',
-      authorName: m.authorType === 'client' ? m.authorName : null,
-      isMine: m.isMine,
-      isAuto: m.isAuto,
-      body: m.body,
-      createdOn: m.createdOn.toISOString(),
-      attachments: m.attachments.map(attachmentOf),
-    })),
+    messages,
     can: { reply: view.can.reply, confirm: view.can.confirm },
+    timeZone: view.timeZone,
   };
 }
 
 const actionInput = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('reply'), body: z.string(), attachmentIds: z.array(z.string()).max(100).default([]) }),
   z.strictObject({ action: z.literal('confirm') }),
+  // Кнопки под ответом AI-помощника (волна 7, T1; FR-AI-08): та же операция модуля, что у портала и письма.
+  z.strictObject({ action: z.literal('ai_feedback'), messageId: z.uuid(), choice: z.enum(AI_FEEDBACK_CHOICES), articleId: z.uuid().optional() }),
 ]);
 
 /**
  * GET /api/embed/tickets/{номер}: чужое, невидимое и несуществующее неразличимы: 404 (строка 15.2 ТЗ).
- * POST: ответ с файлами или подтверждение решения общими операциями модуля.
+ * POST: ответ с файлами, подтверждение решения или кнопка под ответом AI-помощника общими операциями модуля.
  */
 export function handleEmbedTicket(request: Request, numberRaw: string): Promise<Response> {
   return withEmbedRequest(request, async (ctx, body) => {
     try {
+      const locale = localeOf(request);
       if (request.method === 'GET') {
         const view = await getTicket(ctx, numberRaw);
         if (!view) return problemResponse(404, 'not_found');
-        return Response.json(embedTicketView(view));
+        return Response.json(await embedTicketView(ctx, view, locale));
       }
       const parsed = actionInput.safeParse(body);
       if (!parsed.success) return problemResponse(400, 'invalid_input');
-      if (parsed.data.action === 'reply') await replyToTicket(ctx, { number: numberRaw.replace(/^SUP-/i, ''), body: parsed.data.body, attachmentIds: parsed.data.attachmentIds });
-      else await confirmResolution(ctx, numberRaw.replace(/^SUP-/i, ''));
+      const number = numberRaw.replace(/^SUP-/i, '');
+      if (parsed.data.action === 'reply') await replyToTicket(ctx, { number, body: parsed.data.body, attachmentIds: parsed.data.attachmentIds });
+      else if (parsed.data.action === 'ai_feedback') {
+        const { messageId, choice, articleId } = parsed.data;
+        await aiFeedback(ctx, { number, messageId, choice, ...(articleId ? { articleId } : {}) });
+      } else await confirmResolution(ctx, number);
       const view = await getTicket(ctx, numberRaw);
       if (!view) return problemResponse(404, 'not_found');
-      return Response.json(embedTicketView(view));
+      return Response.json(await embedTicketView(ctx, view, locale));
     } catch (error) {
       return hdtProblem(error);
     }

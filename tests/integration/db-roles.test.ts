@@ -54,3 +54,30 @@ test('изменённый файл применённой миграции ос
     expect((await migrate()).applied).toBeGreaterThanOrEqual(3);
   }
 });
+
+// Проверка на инъекции (волна 7, S-A2; миграция 0131): функция SECURITY DEFINER без pg_temp в конце search_path ищет
+// таблицы сначала во временной схеме вызывающего. Временных таблиц роли приложения создать не могут.
+test('у каждой функции SECURITY DEFINER search_path задан и оканчивается на pg_temp', async () => {
+  const { rows } = await pools.root.query<{ name: string; path: string | null }>(
+    `select n.nspname || '.' || p.proname as name,
+            (select substring(c from 13) from unnest(p.proconfig) c where c like 'search_path=%') as path
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where p.prosecdef and n.nspname not in ('pg_catalog', 'information_schema')
+        and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+      order by 1`,
+  );
+  expect(rows.length).toBeGreaterThan(0);
+  const wrong = rows.filter((row) => !row.path || !/(?:^|,\s*)pg_temp$/.test(row.path) || /(?:^|,\s*)pg_temp\s*,/.test(row.path));
+  expect(wrong).toEqual([]);
+});
+
+test('hub_app и hub_auth не имеют права TEMP и не создают временных таблиц', async () => {
+  const { rows } = await pools.root.query(`select r as role, has_database_privilege(r, current_database(), 'TEMP') as temp from unnest(array['hub_app', 'hub_auth', 'public']) r order by 1`);
+  expect(rows).toEqual([
+    { role: 'hub_app', temp: false },
+    { role: 'hub_auth', temp: false },
+    { role: 'public', temp: false },
+  ]);
+  await expect(pools.app.query('create temp table t_probe (id int)')).rejects.toThrow(/permission denied/);
+  await expect(pools.auth.query('create temp table t_probe (id int)')).rejects.toThrow(/permission denied/);
+});

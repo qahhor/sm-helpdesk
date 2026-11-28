@@ -18,12 +18,13 @@ import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/mo
 import { runModerationDigest } from '@/modules/hdi/api/notices';
 import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
 import { runAnnouncementTranslationJob, runProblemTranslationJob } from '@/modules/hdp/api/translate-jobs';
-import { runBroadcastJob, runBroadcastTranslationJob } from '@/modules/hdp/api/broadcast-jobs';
+import { runBroadcastJob, runBroadcastTranslationJob, sweepBroadcasts } from '@/modules/hdp/api/broadcast-jobs';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { cleanupSuggestMisses } from '@/modules/hdk/api/misses';
 import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
 import { dispatchOutbox, outboxState, wakeOutbox } from '@/modules/hdn/api/outbox';
 import { intakeEmail } from '@/modules/hdt/api/email-intake';
+import { runClientDataRetention } from '@/modules/hdt/api/retention';
 import { isHdtError, scanAttachment, sweepAttachments, ticketsMinute } from '@/modules/hdt/api/jobs';
 import { closeConnections } from '@/modules/hdu/api/connections';
 import { cleanupRuleRuns, handleRuleEvent, newRuleRun, type NoActivityOptions, runNoActivityRules } from '@/modules/hdw/api/engine';
@@ -65,6 +66,9 @@ export const SCHEDULES = [
   // Отметка "фоновый процесс жив" для /api/ready/worker (план подготовки M9, решение 5).
   { name: 'ops.heartbeat', cron: '* * * * *', tz: 'UTC' },
   { name: 'maintenance.cleanup', cron: '0 3 * * *', tz: 'Asia/Tashkent' },
+  // Сроки хранения данных клиентов (ТЗ 14.6; волна 7, T2): ночью после очистки. Выключена настройкой
+  // retention.client_data_enabled: без неё задача только считает (пробный прогон).
+  { name: 'retention.client_data', cron: '15 3 * * *', tz: 'Asia/Tashkent' },
   // Сверка поискового индекса подсказки (план M5, задача 9): после ночной очистки.
   { name: 'kb.reconcile', cron: '30 3 * * *', tz: 'Asia/Tashkent' },
   // Доля принятых предложений разбора за месяц (план M5b, задача 7, FR-TRI-04): ночью после сверки индекса.
@@ -234,6 +238,10 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // записаны, задача бросает ошибку, pg-boss повторяет её; пропущенное найдёт ночная сверка kb.reconcile.
     await runIndexJob(actor('kb.index'), job?.data);
   }));
+  await boss.work('retention.client_data', polling, () => timedJob('retention.client_data', async () => {
+    const report = await runClientDataRetention(actor('retention.client_data'));
+    console.info(`Сроки хранения (${report.mode === 'delete' ? 'удаление' : 'пробный прогон'}): файлов к удалению ${report.attachmentsDue}, удалено ${report.attachmentsExpired}; организаций с истёкшим сроком ${report.orgsDue}, их обращений ${report.ticketsDue}`);
+  }));
   await boss.work('kb.reconcile', polling, () => timedJob('kb.reconcile', async () => {
     const { articles, failed, deflections } = await reconcileSearchIndex(actor('kb.reconcile'));
     if (articles + deflections > 0) console.info(`Сверка индекса решений: переиндексировано ${articles}, без вектора осталось ${failed}, исходов подсказки старше 13 месяцев удалено ${deflections}`);
@@ -348,6 +356,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Письма, разбор которых не встал в очередь или исчерпал повторы, ставятся снова (итоговая проверка M4).
     const requeued = await requeueStaleInbound(actor('email.sweep'));
     if (requeued > 0) console.info(`Входящие письма: снова на разборе ${requeued}`);
+    // Рассылки по известным проблемам, которые не дошли до конца за 10 минут, ставятся снова (проверка качества, Q1).
+    const broadcasts = await sweepBroadcasts(actor('problems.broadcast'));
+    if (broadcasts.requeued > 0) console.info(`Известные проблемы: рассылок снова на отправке ${broadcasts.requeued}`);
   }));
   await boss.work('outbox.dispatch', polling, () => timedJob('outbox.dispatch', async () => {
     // При остановке процесса запуск прекращает работу между письмами: захваченные строки не ждут 5 минут.

@@ -48,7 +48,7 @@ export default async function UnidentifiedPage({ searchParams }: { searchParams:
             <EmptyState title={t('queues.unidentified.emptyTitle')} text={t('queues.unidentified.emptyText')} />
           </Card>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 laptop:grid-cols-2">
             <Card>
               <CardContent className="pt-6">
                 <ul className="flex flex-col divide-y divide-border" aria-label={t('queues.unidentified.listLabel')}>

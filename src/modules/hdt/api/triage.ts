@@ -14,7 +14,8 @@ import { ticketEvents, tickets } from '../schema';
 // Модуль hdt, слой api: принятие предложений разбора (план M5b, задача 7, решение 18; FR-TRI-02). Поле обращения
 // меняется только по нажатию сотрудника, который ведёт обращения (product только читает): строка обращения
 // блокируется, поля меняются, предложения отмечаются принятыми, событие истории triage_accepted (внутреннее) и запись
-// журнала аудита пишутся той же транзакцией. "Принять всё" одной транзакцией. Резюме и пометка "проверьте приоритет"
+// журнала аудита пишутся той же транзакцией. "Принять всё" одной транзакцией, кроме заголовка (волна 7, S-M6): его
+// видит клиент, поэтому он принимается только отдельным нажатием, где старый и новый заголовок стоят рядом. Резюме и пометка "проверьте приоритет"
 // ничего в обращении не меняют: принятие только отмечает, что сотрудник их видел.
 
 const FIELDS = ['module', 'type', 'title', 'summary', 'priority_hint'] as const;
@@ -27,7 +28,8 @@ export async function acceptTriage(ctx: StaffContext, input: unknown): Promise<{
   assertCanWrite(ctx.actor);
   const parsed = acceptInput.safeParse(input);
   if (!parsed.success) throw new HdtError('invalid_input');
-  const { number, fields } = parsed.data;
+  const { number } = parsed.data;
+  const fields = parsed.data.fields === 'all' ? FIELDS.filter((field) => field !== 'title') : parsed.data.fields;
   // Модуль из предложения проверяется до транзакции: справочник читает модуль hdr своим запросом.
   const preview = await withActor(ctx.actor, async (tx) => {
     const [row] = await tx.select({ ticketId: tickets.ticketId }).from(tickets).where(eq(tickets.number, number)).limit(1);
@@ -72,14 +74,14 @@ export async function acceptTriage(ctx: StaffContext, input: unknown): Promise<{
 }
 
 /** Состояние помощника в обращении для блока AI сотрудника (FR-AI-13): состояние, причина и момент передачи, число ответов. */
-export type TicketAiState = { aiState: string; aiReplyCount: number; aiHandoffReason: AiHandoffReason | null; aiHandoffOn: Date | null; description: string };
+export type TicketAiState = { aiState: string; aiReplyCount: number; aiHandoffReason: AiHandoffReason | null; aiHandoffOn: Date | null; title: string; description: string };
 
 export async function ticketAiState(ctx: StaffContext, ticketId: string): Promise<TicketAiState | null> {
   if (ctx.actor.type !== 'staff') throw new HdtError('forbidden');
   const id = z.uuid().parse(ticketId);
   const [row] = await withActor(ctx.actor, (tx) =>
     tx
-      .select({ aiState: tickets.aiState, aiReplyCount: tickets.aiReplyCount, aiHandoffReason: tickets.aiHandoffReason, aiHandoffOn: tickets.aiHandoffOn, description: tickets.description })
+      .select({ aiState: tickets.aiState, aiReplyCount: tickets.aiReplyCount, aiHandoffReason: tickets.aiHandoffReason, aiHandoffOn: tickets.aiHandoffOn, title: tickets.title, description: tickets.description })
       .from(tickets)
       .where(eq(tickets.ticketId, id))
       .limit(1),

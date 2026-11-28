@@ -65,8 +65,8 @@ export default async function CodeEntryPage({ params, searchParams }: { params: 
         breadcrumbs={[{ label: t('home.title'), href: '/agent' }, { label: s('title'), href: '/agent/code-knowledge' }, { label: card.key }]}
         breadcrumbsLabel={t('breadcrumbs')}
       />
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
+      <div className="grid gap-4 laptop:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-4 laptop:col-span-2">
           {done && (DONE as readonly string[]).includes(done) && <Alert tone="success">{s(`card.done.${done}`)}</Alert>}
           {error && <Alert tone="danger">{s.has(`errors.${error}`) ? s(`errors.${error}`) : s('errors.not_found')}</Alert>}
           <Card>

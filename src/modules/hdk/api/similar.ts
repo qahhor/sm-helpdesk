@@ -33,7 +33,7 @@ export async function nearestPublished(actor: SystemActor | StaffActor, input: {
   return row ? { articleId: row.ref_id, similarity: Number(row.similarity) } : null;
 }
 
-/** "Пригодилось сотрудникам" (FR-CAND-03, 04): счётчик решения растёт на by. */
+/** "Пригодилось сотрудникам" (FR-CAND-04): счётчик решения растёт на by только от действия сотрудника. */
 export async function bumpStaffUseful(actor: SystemActor | StaffActor, input: { articleId: string; by?: number }): Promise<void> {
   assertInternal(actor);
   const data = z.strictObject({ articleId: z.uuid(), by: z.int().positive().max(10_000).default(1) }).parse(input);
@@ -41,6 +41,22 @@ export async function bumpStaffUseful(actor: SystemActor | StaffActor, input: { 
     tx
       .update(kbArticles)
       .set({ staffUsefulCount: sql`${kbArticles.staffUsefulCount} + ${data.by}` })
+      .where(eq(kbArticles.articleId, data.articleId)),
+  );
+}
+
+/**
+ * Совпадение черновика модели с опубликованным решением без человека (FR-CAND-03; волна 7, S-M8; решение 0154):
+ * отдельный счётчик. "Пригодилось сотрудникам" от него не растёт: текст обращения клиента через черновик модели не
+ * должен менять число, которое сотрудники читают как оценку решения.
+ */
+export async function bumpMachineMatch(actor: SystemActor, input: { articleId: string }): Promise<void> {
+  assertInternal(actor);
+  const data = z.strictObject({ articleId: z.uuid() }).parse(input);
+  await withActor(actor, (tx) =>
+    tx
+      .update(kbArticles)
+      .set({ machineMatchCount: sql`${kbArticles.machineMatchCount} + 1` })
       .where(eq(kbArticles.articleId, data.articleId)),
   );
 }

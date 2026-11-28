@@ -13,4 +13,4 @@ import { createWithActor, type WithActor } from './with-actor';
 /** То же, что createWithActor: для подключения роли hub_auth. */
 export const createWithIdentity = createWithActor;
 
-export const withIdentity: WithActor = (actor, fn) => createWithActor(getAuthDb())(actor, fn);
+export const withIdentity: WithActor = (actor, fn) => createWithActor(getAuthDb(), 'auth')(actor, fn);

@@ -79,3 +79,31 @@ test('неизвестное состояние: bad_state', () => {
 test('настоящий перечень docs/plans/M9-requirements.md сходится с ТЗ', () => {
   expect(frCoverageCheck()).toEqual([]);
 });
+
+// Волна 7, T3: код с цифрой в имени раздела (FR-I18N-01) раньше не находился ни в ТЗ, ни в перечне.
+test('код с цифрой в имени раздела (FR-I18N-01) считается кодом требования', () => {
+  const tz = `${TZ.replace('## 8. Как это должно выглядеть', '### 7.11 Языки\n| FR-I18N-01 | Языки. |\n| FR-I18N-10 | Скрипт. |\n## 8. Как это должно выглядеть')}`;
+  expect(frCodes(tz)).toEqual(['FR-ID-01', 'FR-ID-02', 'FR-TK-01', 'FR-I18N-01', 'FR-I18N-10']);
+  // В перечне их нет: обе строки названы недостающими.
+  expect(coverageViolations(tz, LIST, exists)).toEqual([
+    { rule: 'missing', code: 'FR-I18N-01' },
+    { rule: 'missing', code: 'FR-I18N-10' },
+  ]);
+  // Строка перечня с таким кодом разбирается как строка требования.
+  const list = `${LIST}\n| FR-I18N-01 | сделано | \`tests/e2e/tickets.spec.ts\` | |\n| FR-I18N-10 | сделано | \`src/x.ts\` | |`;
+  expect(coverageViolations(tz, list, exists)).toEqual([
+    { rule: 'no_evidence', code: 'FR-I18N-10' },
+    { rule: 'dead_link', code: 'FR-I18N-10', path: 'src/x.ts' },
+  ]);
+});
+
+test('настоящий перечень: раздел 7.11 называет все десять требований FR-I18N', async () => {
+  const { readFileSync } = await import('node:fs');
+  const list = readFileSync('docs/plans/M9-requirements.md', 'utf8');
+  const tz = readFileSync('docs/TZ.md', 'utf8');
+  const codes = frCodes(tz).filter((code) => code.startsWith('FR-I18N-'));
+  expect(codes).toHaveLength(10);
+  for (const code of codes) expect(list, code).toContain(`| ${code} |`);
+  // Итог перечня совпадает с числом кодов раздела 7.
+  expect(list).toContain(`Итог: ${frCodes(tz).length} код`);
+});

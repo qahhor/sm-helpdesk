@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { access, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { SystemActor } from '@/db/with-actor';
@@ -16,6 +16,7 @@ import { resealWebhookSecrets } from '@/modules/hdw/api/webhook-jobs';
 import { importModules } from '@/modules/hdr/api/import';
 import { type CorpusEntry, groupCorpus, parseCorpus } from '@/modules/hdk/api/signatures';
 import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
+import { type MessageTree, parseGlossary, pretranslateMessages, uiTranslationClient } from '@/modules/hda/api/ui-translate';
 
 // Команда hub для консоли сервера (FR-ID-12, решение 0015): первый администратор, сброс доступа
 // сотрудника, реестр серверов Smartup, проверка правил сигнатур ошибок на корпусе (план M5, задача 8). Работает от актора system, каждое изменение пишется в журнал аудита.
@@ -84,6 +85,14 @@ const HELP = `Использование: hub <команда> [ключи]
       Данных клиентов файл не принимает, решения не публикуются. --dry-run: показать изменения, ничего не записывая.
       Весь файл проверяется до первой записи: ошибка проверки ничего не меняет, команда называет раздел и запись.
       Если модуль портала отказал посреди записи, уже записанное остаётся: повторный запуск допишет остальное.
+
+  i18n:pretranslate --to <код> [--name <название языка>] [--from <код>] [--out <файл>] [--glossary <файл>] [--force]
+      Предварительный перевод файла нового языка интерфейса (FR-I18N-10): строки messages/<from>.json (по умолчанию
+      ru) переводит модель по глоссарию терминов glossary.csv, черновик пишется в messages/<код>.draft.json. В модель
+      уходят только строки интерфейса и глоссарий; база не нужна. Нужен ключ ANTHROPIC_API_KEY (или AI_STUB=1 для
+      проверки). Строки, где модель потеряла подстановку или разметку, остаются на исходном языке: команда их
+      называет. Черновик вычитывает человек, затем файл переименовывают и добавляют язык в src/i18n/locales.ts.
+      Существующий файл не перезаписывается без --force.
 
   signatures:test [--dir <каталог>]
       Проверить правила сигнатур ошибок (ТЗ 11.5) на корпусе текстов: файлы *.txt каталога, записи через пустую
@@ -175,6 +184,10 @@ const COMMANDS: Record<string, { options: Options; required: string[] }> = {
   'secrets:reseal': { options: {}, required: [] },
   'modules:import': { options: { file: { type: 'string' }, admin: { type: 'string' } }, required: ['file', 'admin'] },
   'signatures:test': { options: { dir: { type: 'string' } }, required: [] },
+  'i18n:pretranslate': {
+    options: { to: { type: 'string' }, name: { type: 'string' }, from: { type: 'string' }, out: { type: 'string' }, glossary: { type: 'string' }, force: { type: 'boolean' } },
+    required: ['to'],
+  },
   'search:keys': { options: { rotate: { type: 'boolean' } }, required: [] },
   'search:reindex': { options: { collection: { type: 'string' } }, required: [] },
   'search:status': { options: {}, required: [] },
@@ -539,6 +552,38 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
         for (const line of result.report.lines) io.out(line);
         for (const warning of result.report.warnings) io.out(`Внимание: ${warning}`);
         if (result.report.changes === 0) io.out('Изменений нет: база уже совпадает с файлом.');
+        return 0;
+      }
+      case 'i18n:pretranslate': {
+        const code = /^[a-z]{2,3}(?:-[A-Za-z]{2,4})?$/;
+        const to = text('to');
+        const from = typeof values.from === 'string' && values.from !== '' ? values.from : 'ru';
+        if (!code.test(to) || !code.test(from) || to === from) throw new UsageError('Код языка: две или три строчные буквы, например kk или uz-Cyrl; целевой язык отличается от исходного.');
+        const out = typeof values.out === 'string' && values.out !== '' ? values.out : join('messages', `${to}.draft.json`);
+        if (values.force !== true && (await access(out).then(() => true, () => false))) {
+          io.err(`Файл уже есть: ${out}. Перезапись только с ключом --force.`);
+          return 1;
+        }
+        let source: MessageTree;
+        let glossaryText: string;
+        try {
+          source = JSON.parse(await readFile(join('messages', `${from}.json`), 'utf8')) as MessageTree;
+          glossaryText = await readFile(typeof values.glossary === 'string' && values.glossary !== '' ? values.glossary : 'glossary.csv', 'utf8');
+        } catch {
+          io.err(`Файл messages/${from}.json или глоссарий не прочитан.`);
+          return 1;
+        }
+        const ai = uiTranslationClient();
+        if (!ai) {
+          io.err('Модель не настроена: задайте ANTHROPIC_API_KEY (или AI_STUB=1 для проверки без модели).');
+          return 1;
+        }
+        const result = await pretranslateMessages({ source, from, to, toName: typeof values.name === 'string' && values.name !== '' ? values.name : to, glossary: parseGlossary(glossaryText), ...ai });
+        await writeFile(out, `${JSON.stringify(result.messages, null, 2)}\n`, 'utf8');
+        io.out(`Черновик языка ${to}: ${out}. Строк ${result.total}, переведено ${result.translated}, оставлено на исходном языке ${result.kept.length}.`);
+        for (const key of result.kept.slice(0, 50)) io.out(`  не переведено: ${key}`);
+        if (result.kept.length > 50) io.out(`  и ещё ${result.kept.length - 50}`);
+        io.out('Черновик вычитывает человек. Затем: переименовать файл, добавить язык в src/i18n/locales.ts, запустить pnpm check.');
         return 0;
       }
       case 'signatures:test':

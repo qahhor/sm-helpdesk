@@ -1,23 +1,53 @@
 import ReactMarkdown, { type Components } from 'react-markdown';
 import { cn } from '@/ui/cn';
 
-// Текст переписки как Markdown без HTML (раздел 14.3): разметка из текста пропускается, картинки не загружаются
-// (остаётся подпись), ссылки только http, https и mailto, открываются в новой вкладке без передачи адреса страницы.
-// Компонент серверный: на странице обращения он не добавляет скриптов.
+// Текст переписки как Markdown без HTML (раздел 14.3): разметка HTML из текста не исполняется, а показывается текстом,
+// картинки не загружаются (остаётся подпись), ссылки только http, https и mailto, открываются в новой вкладке без
+// передачи адреса страницы. Компонент серверный: на странице обращения он не добавляет скриптов.
+//
+// Человек видит всё, что видит модель (проверка на AI-инъекции, волна 7, S-I1; решение 0148): комментарий HTML, блок
+// <div>, определение сноски `[1]: адрес "текст"` и подпись ссылки в кавычках уходят модели и агенту как текст, поэтому
+// на экране они тоже текст, а не пропуск.
 
 const SAFE_URL = /^(?:https?:|mailto:)/i;
 
+type MdNode = { type: string; children?: MdNode[]; value?: string; label?: string | null; identifier?: string; url?: string; title?: string | null };
+
+/**
+ * Определения сносок показываются абзацем текста сразу после себя. Само определение остаётся в дереве: ссылки вида
+ * [текст][1] по-прежнему находят адрес. Без этого определение, на которое никто не ссылается, на экране исчезает.
+ */
+function showDefinitions() {
+  const walk = (node: MdNode) => {
+    if (!node.children) return;
+    const out: MdNode[] = [];
+    for (const child of node.children) {
+      out.push(child);
+      if (child.type === 'definition') {
+        const title = child.title ? ` "${child.title}"` : '';
+        out.push({ type: 'paragraph', children: [{ type: 'text', value: `[${child.label ?? child.identifier ?? ''}]: ${child.url ?? ''}${title}` }] });
+      } else walk(child);
+    }
+    node.children = out;
+  };
+  return (tree: MdNode) => walk(tree);
+}
+
 const COMPONENTS: Components = {
-  a: ({ href, children }) =>
-    href ? (
-      <a href={href} target="_blank" rel="noopener noreferrer nofollow">
-        {children}
-      </a>
-    ) : (
-      <span>{children}</span>
-    ),
+  a: ({ href, title, children }) => (
+    <>
+      {href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer nofollow">
+          {children}
+        </a>
+      ) : (
+        <span>{children}</span>
+      )}
+      {title ? <span> ({title})</span> : null}
+    </>
+  ),
   // Картинка из текста могла бы следить за читателем: вместо неё подпись.
-  img: ({ alt }) => <span>{alt}</span>,
+  img: ({ alt, title }) => <span>{[alt, title].filter(Boolean).join(' ')}</span>,
 };
 
 export function Markdown({ text, className }: { text: string; className?: string }) {
@@ -29,7 +59,7 @@ export function Markdown({ text, className }: { text: string; className?: string
         className,
       )}
     >
-      <ReactMarkdown skipHtml urlTransform={(url) => (SAFE_URL.test(url.trim()) ? url : '')} components={COMPONENTS}>
+      <ReactMarkdown remarkPlugins={[showDefinitions]} urlTransform={(url) => (SAFE_URL.test(url.trim()) ? url : '')} components={COMPONENTS}>
         {text}
       </ReactMarkdown>
     </div>

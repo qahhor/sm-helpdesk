@@ -52,6 +52,7 @@ export { attachmentRedirect, attachmentResponse, DOWNLOAD_LINK_TTL_SEC, handleAt
 export { applyGuestMerges, type MinuteResult, needsSlaRefresh, refreshTicketSla, scanAttachment, sweepAttachments, ticketsMinute } from './api/jobs';
 // Теги на обращении (план M8, задача 1).
 export { addTicketTag, removeTicketTag, tagUsage } from './api/tags';
+export { type OrgTicketSummary, orgTicketSummary } from './api/org-summary';
 export {
   BREAKDOWN_PAGE,
   type Breakdown,

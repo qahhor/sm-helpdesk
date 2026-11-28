@@ -3,9 +3,11 @@
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { z } from 'zod';
+import { anonymizeIdeaAuthor } from '@/modules/hdi/api/anonymize';
 import { isHdtError, setPilotOrg } from '@/modules/hdt/api';
 import {
   addOrgDomain,
+  anonymizeAccount,
   changeMemberRole,
   inviteMember,
   isHduError,
@@ -14,6 +16,7 @@ import {
   revokeInvitation,
   setMemberState,
   setOrgAiProcessing,
+  setOrgContractEnd,
   type StaffContext,
   updateOrganization,
 } from '@/modules/hdu/api';
@@ -78,6 +81,27 @@ export async function setOrgAiAction(formData: FormData): Promise<void> {
     (staff, orgId) =>
       setOrgAiProcessing(staff, enabled ? { orgId, enabled, consentOn: formData.get('consentOn'), consentRef: formData.get('consentRef') } : { orgId, enabled }),
     enabled ? 'aiEnabled' : 'aiDisabled',
+  );
+}
+
+/** Дата окончания договора (ТЗ 14.6; волна 7, T2): администратор со свежим входом. Пустое поле снимает дату. */
+export async function setContractEndAction(formData: FormData): Promise<void> {
+  const day = formData.get('contractEndsOn');
+  const cleared = formData.get('clear') === '1' || day === '';
+  await run(formData, (staff, orgId) => setOrgContractEnd(staff, { orgId, contractEndsOn: cleared ? null : day }), cleared ? 'contractCleared' : 'contractSaved');
+}
+
+/** Обезличить учётную запись участника по запросу (ТЗ 14.6; волна 7, T2): администратор со свежим входом. */
+export async function anonymizeMemberAction(formData: FormData): Promise<void> {
+  await run(
+    formData,
+    async (staff) => {
+      const userId = formData.get('userId');
+      const { name } = await anonymizeAccount(staff, { userId });
+      // Снимок имени автора в идеях получает то же обезличенное имя (повтор действия доделывает этот шаг).
+      await anonymizeIdeaAuthor(staff, { userId, name });
+    },
+    'anonymized',
   );
 }
 

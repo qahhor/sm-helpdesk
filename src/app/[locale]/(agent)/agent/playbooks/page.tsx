@@ -65,7 +65,7 @@ export default async function PlaybooksPage({ searchParams }: { searchParams: Pr
               <form action={savePlaybookAction} className="flex flex-col gap-3">
                 <h2 className="text-lg font-semibold">{t('playbooks.editTitle')}</h2>
                 <p className="text-sm text-secondary-foreground">{t('playbooks.editHint')}</p>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 tablet:grid-cols-2">
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="playbook-module">{t('playbooks.module')}</Label>
                     <Select id="playbook-module" name="moduleId" defaultValue="">

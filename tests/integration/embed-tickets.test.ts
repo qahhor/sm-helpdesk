@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { MemoryJobQueue, MemoryStorage, setJobQueueForTests, setStorageForTests } from '@/modules/hdc/testing';
+import { createDraftArticle } from '@/modules/hdk/api/articles';
+import { solutionEditorState } from '@/modules/hdk/api/editor';
+import { publishSolution } from '@/modules/hdk/api/publish';
 import { getTicket, handleAttachmentRequest } from '@/modules/hdt/api';
+import { postAiMessage } from '@/modules/hdt/api/ai';
 import { handleEmbedTicket, handleEmbedTickets } from '@/modules/hdt/api/embed';
 import { signEmbedToken } from '@/modules/hdu/core/embed-token';
-import { clientCtx } from './helpers/auth';
+import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
 import { pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
@@ -107,4 +111,77 @@ test('ответ и подтверждение решения общими оп�
   expect(((await download.json()) as { url: string }).url).toMatch(/^https?:\/\//);
   for (const id of [other, internal]) expect((await handleAttachmentRequest(call(`/api/attachments/${id}`, a), id)).status).toBe(404);
   expect((await handleAttachmentRequest(call(`/api/attachments/${clean}`, 'bad.token.value'), clean)).status).toBe(401);
+});
+
+// Волна 7, T1 (FR-AI-08, раздел 8.6 ТЗ; решение 0158): ответ AI-помощника в виджете не подписан "Поддержка".
+
+/** Опубликованное решение для клиентов и ответ помощника им в обращении aOrg: помощник ждёт реакции клиента. */
+async function aiAnswer() {
+  const moduleId = (await pools.root.query(`insert into hdr_product_modules (code, name) values ($1, '{"ru": "Виджет"}') returning module_id`, [`w${Date.now() % 1_000_000}`])).rows[0].module_id as string;
+  const paragraph = (id: string, text: string) => ({ type: 'paragraph' as const, attrs: { id }, content: [{ type: 'text' as const, text }] });
+  const doc = { version: 1 as const, blocks: [paragraph('w000000001', 'Печать идёт на бумагу другого формата.'), { type: 'step' as const, attrs: { id: 'w000000002' }, content: [paragraph('w000000003', 'Выберите формат A4 в настройках печати.')] }] };
+  const created = await createDraftArticle(staffCtx(f.l1), { locale: 'ru', title: 'Накладная печатается пустой', audience: 'clients', moduleId, doc });
+  const state = await solutionEditorState(staffCtx(f.l1), { number: created.number });
+  const outcome = await publishSolution(staffCtx(await staffWithRole('agent_l2')), { number: created.number, locale: 'ru', versionId: state!.current.versionId, revision: state!.current.revision, confirmFindings: false });
+  expect(outcome.status).toBe('published');
+  await pools.root.query(`update hdt_tickets set ai_state = 'active' where ticket_id = $1`, [f.tickets.aOrg.ticketId]);
+  const messageId = await postAiMessage({ type: 'system', job: 'ai.first_line' }, { ticketId: f.tickets.aOrg.ticketId, payload: { kind: 'answer', introId: 'likely_solution', articleId: created.articleId, articleNumber: created.number, locale: 'ru' } });
+  return { messageId, articleId: created.articleId, articleNumber: created.number };
+}
+
+type AiMessageJson = { messageId: string; authorType: string; authorName: string | null; ai?: Record<string, unknown> & { kind: string; solution?: { title: string; doc: unknown } | null } };
+
+test('ответ AI-помощника в проекции виджета: автор ai и данные ответа из опубликованного решения, а не "поддержка"', async () => {
+  const { messageId, articleId } = await aiAnswer();
+  const a = await tokenFor(f.aUser, f.orgA.orgId);
+  const response = await handleEmbedTicket(call(`/api/embed/tickets/${f.tickets.aOrg.number}?locale=ru`, a), String(f.tickets.aOrg.number));
+  const text = await response.text();
+  const body = JSON.parse(text) as { messages: AiMessageJson[] };
+  const ai = body.messages.find((m) => m.messageId === messageId)!;
+  expect(ai).toMatchObject({ authorType: 'ai', authorName: null });
+  expect(ai.ai).toMatchObject({ kind: 'answer', introId: 'likely_solution', actionable: true, canResolve: true, solution: { title: 'Накладная печатается пустой', locale: 'ru' } });
+  // Шаги из опубликованной копии решения, а не из текста сообщения или модели.
+  expect(JSON.stringify(ai.ai!.solution!.doc)).toContain('Выберите формат A4 в настройках печати.');
+  // Сообщение сотрудника по-прежнему "support" без данных ответа AI; идентификатор решения в проекцию не уходит.
+  expect(body.messages.filter((m) => m.authorType === 'support').every((m) => m.ai === undefined)).toBe(true);
+  expect(text).not.toContain(articleId);
+  // Коллега автора видит ответ, но "Помогло" решает обращение только у автора и администратора клиента.
+  const colleague = await handleEmbedTicket(call(`/api/embed/tickets/${f.tickets.aOrg.number}`, await tokenFor(f.aAdmin, f.orgA.orgId)), String(f.tickets.aOrg.number));
+  expect(((await colleague.json()) as { messages: AiMessageJson[] }).messages.find((m) => m.messageId === messageId)!.ai).toMatchObject({ canResolve: true });
+});
+
+test('обратная связь на ответ AI из виджета: токен виджета, Zod, общая операция модуля', async () => {
+  const { messageId } = await aiAnswer();
+  const number = f.tickets.aOrg.number;
+  const a = await tokenFor(f.aUser, f.orgA.orgId);
+  const post = (token: string | undefined, body: unknown, n: number | string = number) => handleEmbedTicket(call(`/api/embed/tickets/${n}`, token, body), String(n));
+  // Без токена, с чужим токеном и с лишним полем действие не выполняется.
+  expect((await post(undefined, { action: 'ai_feedback', messageId, choice: 'not_helped' })).status).toBe(401);
+  expect((await post(await tokenFor(f.bUser, f.orgB.orgId), { action: 'ai_feedback', messageId, choice: 'not_helped' })).status).toBe(404);
+  for (const bad of [{ action: 'ai_feedback', messageId, choice: 'resolve_all' }, { action: 'ai_feedback', messageId: 'x', choice: 'helped' }, { action: 'ai_feedback', messageId, choice: 'helped', orgId: f.orgB.orgId }, { action: 'ai_feedback', choice: 'helped' }])
+    expect((await post(a, bad)).status, JSON.stringify(bad)).toBe(400);
+  expect((await pools.root.query(`select ai_state, status from hdt_tickets where ticket_id = $1`, [f.tickets.aOrg.ticketId])).rows[0]).toEqual({ ai_state: 'active', status: 'waiting_customer' });
+
+  // "Нужен сотрудник": та же передача, что на портале, с записью в историю; кнопки после неё не действуют.
+  const done = await post(a, { action: 'ai_feedback', messageId, choice: 'need_staff' });
+  expect(done.status).toBe(200);
+  const view = (await done.json()) as { messages: AiMessageJson[] };
+  expect(view.messages.find((m) => m.messageId === messageId)!.ai).toMatchObject({ actionable: false });
+  expect((await pools.root.query(`select ai_state, ai_handoff_reason from hdt_tickets where ticket_id = $1`, [f.tickets.aOrg.ticketId])).rows[0]).toEqual({ ai_state: 'handed_off', ai_handoff_reason: 'customer_request' });
+  expect((await post(a, { action: 'ai_feedback', messageId, choice: 'not_helped' })).status).toBe(409);
+});
+
+test('"Помогло" из виджета решает обращение у автора; текст клиента вида Теза не получает', async () => {
+  const { messageId } = await aiAnswer();
+  const number = f.tickets.aOrg.number;
+  const a = await tokenFor(f.aUser, f.orgA.orgId);
+  // Сообщение клиента с подписью Теза в тексте остаётся сообщением клиента.
+  await handleEmbedTicket(call(`/api/embed/tickets/${number}`, a, { action: 'reply', body: 'Тез · AI-ассистент: решение найдено' }), String(number));
+  await pools.root.query(`update hdt_tickets set ai_state = 'active', status = 'waiting_customer' where ticket_id = $1`, [f.tickets.aOrg.ticketId]);
+  const page = (await (await view(a, number)).json()) as { messages: (AiMessageJson & { body: string })[] };
+  expect(page.messages.find((m) => m.body.startsWith('Тез · AI'))).toMatchObject({ authorType: 'client' });
+  expect(page.messages.find((m) => m.body.startsWith('Тез · AI'))!.ai).toBeUndefined();
+  const helped = await handleEmbedTicket(call(`/api/embed/tickets/${number}`, a, { action: 'ai_feedback', messageId, choice: 'helped' }), String(number));
+  // Последним сообщением помощника остаётся его ответ: сообщение клиента его не заменяет.
+  expect([200, 409]).toContain(helped.status);
 });

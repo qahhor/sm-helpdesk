@@ -27,6 +27,10 @@ test.beforeAll(async () => {
   // Суточный предел 20 вызовов на пользователя (решение 11) повторные прогоны одного дня исчерпали бы: на время теста выше.
   await dbRows(`insert into hdc_settings (code, value) values ('ai.user_daily_limit', '1000'::jsonb), ('ai.org_daily_limit', '10000'::jsonb) on conflict (code) do update set value = excluded.value`);
   await dbRows(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие ' || clock_timestamp()::text where name = 'ACME Trade'`);
+  // Предел 20 вызовов первой линии в час на пользователя (ТЗ 14.5; волна 7, T6) в коде, не в настройке: общий клиент
+  // тестов за полный прогон создаёт больше 20 обращений с разбором. Вызовы последнего часа сдвигаются за его пределы,
+  // как суточные пределы выше подняты настройкой.
+  await dbRows(`begin; set local session_replication_role = replica; update hda_runs set created_on = created_on - interval '2 hours' where created_on > now() - interval '1 hour'; commit`);
 });
 test.afterAll(async () => {
   await dbRows(`delete from hdc_settings where code in ('ai.enabled', 'ai.user_daily_limit', 'ai.org_daily_limit')`);
@@ -188,6 +192,9 @@ test('S8 у агента: "После AI" с причиной, блок AI, "П�
   // Без нажатия заголовок не меняется (FR-TRI-02).
   const title = async () => (await dbRows<{ title: string }>(`select title from hdt_tickets where number = $1`, [number]))[0]?.title;
   expect(await title()).not.toBe('Не печатается накладная');
+  // Заголовок принимается отдельной кнопкой: старый и новый стоят рядом (волна 7, S-M6).
+  await expect(block.locator('[data-title-now]')).toContainText(`Сейчас: ${(await title()) ?? ''}`);
+  await expect(block.locator('[data-title-proposed]')).toContainText('Предлагается: Не печатается накладная');
   await block.locator('[data-triage-field="title"]').getByRole('button', { name: 'Принять: Заголовок' }).click();
   await expect(agent.getByText('Предложение разбора принято.')).toBeVisible();
   expect(await title()).toBe('Не печатается накладная');

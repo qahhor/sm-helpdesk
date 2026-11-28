@@ -149,10 +149,11 @@ test('пункт 6: сервис векторов не отвечает или �
   expect(performance.now() - started).toBeLessThan(1500);
 });
 
-test('предел частоты: 60 запросов в минуту на пользователя, сверх предела блок не показывается', async () => {
+// ТЗ 14.5: подсказка решений 30 в минуту на пользователя (волна 7, T6).
+test('предел частоты: 30 запросов в минуту на пользователя, сверх предела блок не показывается', async () => {
   await ORDER_STOCK();
   const ctx = await clientCtx(f.aUser);
-  for (let i = 0; i < 60; i++) expect((await suggestForClient(ctx, { text: `нет остатка ${i}`, sessionId: randomUUID(), locale: 'ru' })).limited).toBe(false);
+  for (let i = 0; i < 30; i++) expect((await suggestForClient(ctx, { text: `нет остатка ${i}`, sessionId: randomUUID(), locale: 'ru' })).limited).toBe(false);
   expect(await suggestForClient(ctx, { text: 'нет остатка на складе при сохранении заказа', sessionId: randomUUID(), locale: 'ru' })).toEqual({ items: [], limited: true });
   // Другой пользователь той же организации не задет (предел организации 600 в час).
   expect((await ask('при сохранении заказа ошибка: нет остатка на складе', randomUUID(), f.aAdmin)).items).toHaveLength(1);

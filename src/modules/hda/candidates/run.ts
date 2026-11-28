@@ -7,12 +7,13 @@ import { logEvent } from '@/lib/log';
 import { enqueue, readSetting, writeAudit } from '@/modules/hdc/api';
 import { stripQuote } from '@/modules/hdn/api/inbound';
 import { readAllowedDomains } from '@/modules/hdk/api/publish';
-import { bumpStaffUseful, nearestPublished, ticketsWithSolutionSource } from '@/modules/hdk/api/similar';
+import { bumpMachineMatch, nearestPublished, ticketsWithSolutionSource } from '@/modules/hdk/api/similar';
 import { queryVector } from '@/modules/hdk/api/suggest';
-import { findInText, isAllowedDomain } from '@/modules/hdk/api/text-checks';
+import { findInText } from '@/modules/hdk/api/text-checks';
 import { resolvedWithoutSolution, ticketSolutionSource } from '@/modules/hdt/api/solution-source';
 import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { assembleDraftData } from '../assemble';
+import { stripForeignLinks, URL_IN_TEXT } from '../links';
 import { DRAFT_SYSTEM, draftSchema, type SolutionDraft } from '../api/draft';
 import { callAi } from '../api/run';
 import { recordDecisionTx } from '../core/runs';
@@ -99,22 +100,7 @@ async function callsTodayTx(tx: Tx): Promise<number> {
   return row?.count ?? 0;
 }
 
-const URL_IN_TEXT = /\b(?:https?:\/\/|www\.)[^\s<>"'«»]+/gi;
-
-/** Ссылки вне разрешённых доменов вырезаются до записи (FR-CAND-09, решение 27). */
-export function stripForeignLinks(text: string, allowedDomains: readonly string[]): string {
-  return text
-    .replace(URL_IN_TEXT, (url) => {
-      try {
-        const host = new URL(url.startsWith('www.') ? `https://${url}` : url).hostname;
-        return isAllowedDomain(host, allowedDomains) ? url : '';
-      } catch {
-        return '';
-      }
-    })
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
+export { stripForeignLinks };
 
 /** Черновик после очистки: ссылки вырезаны, находки собраны для подсветки (телефоны, почта, ИНН и другие). */
 function cleanDraft(draft: SolutionDraft, allowedDomains: readonly string[]): { title: string; problem: string; steps: string[]; findings: CandidateFinding[] } {
@@ -216,7 +202,8 @@ export async function runCandidateJob(system: SystemActor, data: unknown): Promi
     const nearest = await withActor(system, (tx) => nearestCandidateTx(tx, vector));
     const decision = candidateMergeDecision({ publishedBest: published, candidateBest: nearest, thresholds: { published: config.publishedSimilarity, merge: config.mergeSimilarity } });
     if (decision.kind === 'useful') {
-      await bumpStaffUseful(system, { articleId: decision.articleId });
+      // Совпадение без человека считается отдельно от "пригодилось сотрудникам" (волна 7, S-M8; решение 0154).
+      await bumpMachineMatch(system, { articleId: decision.articleId });
       return 'useful';
     }
     if (decision.kind === 'merge') {

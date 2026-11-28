@@ -34,6 +34,9 @@ export async function widgetLabels(): Promise<WidgetLabels> {
     ['feedback', 'client.solution.feedback'],
     ['view', 'client.solution.view'],
     ['languages', 'client.solution.languages'],
+    // Ответ AI-помощника в обращении (волна 7, T1): те же тексты, что у сообщения Теза на портале.
+    ['tez', 'client.tez'],
+    ['problemStatuses', 'client.problems.statuses'],
   ];
   for (const [prefix, namespace] of parts) flatten(t.raw(namespace) as Tree, prefix, labels);
   labels['solution.notTranslated'] = t.raw('client.solution.notTranslated') as string;

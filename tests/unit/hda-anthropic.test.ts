@@ -151,3 +151,26 @@ test('блоки рассуждения и переключения модели
   const result = await ai.complete({ model: 'claude-sonnet-5-5', system: 's', data: 'd', schema: firstLineSchema, maxTokens: 10, structured: true });
   expect(result.value).toEqual({ action: 'answer', title: 'Т' });
 });
+
+// Проверка на AI-инъекции (волна 7, S-T; CLAUDE.md: помощнику нельзя давать инструменты и доступ к базе): ни один
+// вид запроса не несёт инструментов, выбора инструмента и серверов MCP.
+test('тело запроса к Anthropic не содержит tools, tool_choice и mcp_servers ни в одном режиме', async () => {
+  const { readFileSync } = await import('node:fs');
+  const requests = [
+    { model: 'm', system: 's', data: 'd', schema, maxTokens: 10 },
+    { model: 'm', system: 's', data: 'd', schema, maxTokens: 10, structured: true },
+    { model: 'm', system: 's', data: 'd', schema, maxTokens: 10, structured: true, effort: 'low' as const },
+    { model: 'm', system: 's', data: 'd', schema, maxTokens: 10, timeoutMs: 5000 },
+  ];
+  for (const request of requests) {
+    const { sent, ai } = client({ status: 200, body: message('{"title":"Т","confident":true}') });
+    await ai.complete(request);
+    const body = JSON.parse(sent[0]!.opts.body) as Record<string, unknown>;
+    for (const key of ['tools', 'tool_choice', 'mcp_servers', 'container', 'betas']) expect(Object.keys(body), key).not.toContain(key);
+    expect(sent[0]!.opts.body).not.toMatch(/"tools"|"tool_choice"|"mcp_servers"|"tool_use"/);
+    expect((sent[0]!.opts.headers as Record<string, string>)['anthropic-beta']).toBeUndefined();
+  }
+  // И в исходном тексте клиента этих полей нет: добавить инструменты можно только правкой, которую увидит тест.
+  const source = readFileSync('src/modules/hda/client/anthropic.ts', 'utf8');
+  expect(source).not.toMatch(/\btools\s*:|tool_choice|mcp_servers/);
+});

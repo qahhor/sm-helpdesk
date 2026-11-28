@@ -6,16 +6,18 @@ import type { SolutionDoc } from './doc-schema';
 // проверяются ещё раз при публикации. Находки: телефоны, email, ИНН (9 цифр) и ПИНФЛ (14 цифр), длинные числа, адреса
 // серверов с кодом клиента, внутренние имена (пакеты, таблицы, пути) и ссылки вне списка разрешённых доменов. Ссылка
 // вне списка блокирует публикацию; остальные находки публикуются только после явного подтверждения сотрудником.
+// Фраза, обращённая к модели (волна 7, S-M10), тоже находка с подтверждением: опубликованное решение читает модель
+// первой линии, а публичный текст переводит модель.
 //
 // Правила намеренно с запасом: лишняя находка стоит сотруднику одного подтверждения, пропущенный телефон клиента
 // уходит всем клиентам портала.
 
-export const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link'] as const;
+export const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link', 'ai_phrase'] as const;
 export type FindingKind = (typeof FINDING_KINDS)[number];
 /** blockId: блок документа с находкой; null: заголовок решения. blocking: публикация невозможна (ссылка вне списка). */
 export type Finding = { kind: FindingKind; blockId: string | null; text: string; blocking: boolean };
 
-type Hit = { kind: Exclude<FindingKind, 'link'>; text: string; start: number };
+type Hit = { kind: Exclude<FindingKind, 'link' | 'ai_phrase'>; text: string; start: number };
 
 /** Адрес почты; пробел по краям "@" не спасает адрес. */
 const EMAIL = /[\p{L}\p{N}._%+-]+ ?@ ?[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu;
@@ -42,7 +44,7 @@ const DIGIT_RUN = /(?<!\p{Nd})\p{Nd}{7,}(?!\p{Nd})/gu;
 const TRAILING = /[.,;:!?)\]]+$/;
 
 /** Находки в одном куске текста, по порядку появления. Ссылки здесь не проверяются: это делает checkSolution. */
-export function findInText(raw: string): { kind: Exclude<FindingKind, 'link'>; text: string }[] {
+export function findInText(raw: string): { kind: Exclude<FindingKind, 'link' | 'ai_phrase'>; text: string }[] {
   // Полноширинные и другие цифры, "＠", невидимые знаки и соединители внутри числа не прячут находку (0057).
   const text = scanText(raw);
   const hits: Hit[] = [];
@@ -101,6 +103,51 @@ export function findInText(raw: string): { kind: Exclude<FindingKind, 'link'>; t
   });
   scan(DIGIT_RUN, (m) => ({ kind: m[0].length === 14 ? 'pinfl' : m[0].length === 9 ? 'inn' : 'digits', text: m[0] }));
   return hits.sort((a, b) => a.start - b.start).map(({ kind, text: value }) => ({ kind, text: value }));
+}
+
+/**
+ * Фразы, обращённые к модели, на трёх языках портала (проверка на AI-инъекции, волна 7, S-M10; решение 0155).
+ * Список в коде: это признаки попытки управлять моделью через текст, который она прочтёт ("игнорируй инструкции",
+ * "системная инструкция", "ты теперь", обращение "помощник, ..."). Находка не запрещает публикацию: сотрудник
+ * подтверждает её, как телефон в тексте. Обычные слова ("проигнорируйте предупреждение", "Помощник настройки") не
+ * совпадают: нужна форма обращения или сочетание.
+ */
+const AI_PHRASES: readonly RegExp[] = [
+  /(?<!\p{L})игнорируй(?:те)?(?!\p{L})[^.\n]{0,40}?(?:инструкц|правил|указани|предыдущ|выше)\p{L}*/giu,
+  /(?<!\p{L})забудь(?:те)?\s+(?:вс[её]\s+)?(?:правила|инструкции|указания|предыдущ\p{L}*|что\s+выше)/giu,
+  /(?<!\p{L})(?:предыдущие|прежние)\s+(?:инструкции|указания|правила)/giu,
+  /(?<!\p{L})системн(?:ая|ое|ые|ый|ую|ого|ой)\s+(?:инструкци|подсказк|сообщени|промпт|указани|правил)\p{L}*/giu,
+  /(?<!\p{L})ты\s+(?:теперь|больше\s+не)(?!\p{L})/giu,
+  /(?<!\p{L})(?:помощник|ассистент|модель|нейросеть|чат-бот)\s*[,:](?=\s)/giu,
+  /(?<!\p{L})как\s+(?:языковая\s+модель|искусственный\s+интеллект|ии(?!\p{L}))/giu,
+  /(?<!\p{L})промпт\p{L}*/giu,
+  /\b(?:ignore|disregard|forget)\s+(?:(?:all|any|the|your|these|those)\s+)*(?:(?:previous|prior|above|earlier|preceding)\s+)?(?:instructions|rules|prompts?|directions)\b/gi,
+  /\bsystem\s+(?:prompt|message|instruction)s?\b/gi,
+  /\byou\s+are\s+now\b/gi,
+  /\bas\s+an?\s+(?:ai|language\s+model|assistant)\b/gi,
+  /\bnew\s+instructions?\s*:/gi,
+  /\b(?:assistant|chatbot|ai\s+model)\s*[,:](?=\s)/gi,
+  /\bdo\s+not\s+(?:tell|inform)\s+the\s+(?:user|customer|client)\b/gi,
+  /\bjailbreak\w*/gi,
+  /\be'tiborsiz\s+qoldir\w*/gi,
+  /\b(?:oldingi|avvalgi)\s+ko'rsatma\w*/gi,
+  /\btizim\s+ko'rsatma\w*/gi,
+  /\bsen\s+endi\b/gi,
+  /\bqoidalarni\s+unut\w*/gi,
+  /\b(?:yordamchi|assistent)\s*[,:](?=\s)/gi,
+  /\bsun'iy\s+intellekt\s+sifatida\b/gi,
+];
+
+/** Фразы текста, обращённые к модели, по порядку появления (текст находки до 80 знаков). */
+export function findAiPhrases(raw: string): string[] {
+  const text = scanText(raw).replace(/[\u02BB\u02BC\u2018\u2019`]/g, "'");
+  const hits: { start: number; text: string }[] = [];
+  for (const pattern of AI_PHRASES) for (const match of text.matchAll(pattern)) hits.push({ start: match.index ?? 0, text: match[0].trim().slice(0, 80) });
+  hits.sort((a, b) => a.start - b.start);
+  // Совпадения, вложенные в более раннее, не повторяются.
+  const out: { start: number; text: string }[] = [];
+  for (const hit of hits) if (!out.some((o) => hit.start < o.start + o.text.length)) out.push(hit);
+  return out.map((hit) => hit.text);
 }
 
 /** Узел адреса ссылки без учётной записи, в нижнем регистре, с портом, если он есть. Не адрес: null. */
@@ -186,6 +233,7 @@ export function checkSolution(input: { title: string; doc: SolutionDoc }, opts: 
   const inspect = (blockId: string | null, raw: string, hrefs: readonly string[]) => {
     const text = scanText(raw);
     for (const hit of findInText(text)) add({ ...hit, blockId, blocking: false });
+    for (const phrase of findAiPhrases(text)) add({ kind: 'ai_phrase', blockId, text: phrase, blocking: false });
     const lower = text.toLowerCase();
     for (const term of terms) {
       const at = lower.indexOf(term.toLowerCase());

@@ -95,7 +95,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
           ) : undefined
         }
       />
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-4 laptop:flex-row laptop:items-start">
         <QueueNav location={{ queue, sort, sortChosen, q, tag }} counts={counts} filters={filters} unidentified={unidentified} />
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">

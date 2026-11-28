@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useMemo, useState } from 'react';
+import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { titleFromDescription } from '@/lib/subject';
 import { Alert } from '@/ui/components/alert';
@@ -11,6 +11,7 @@ import { Label } from '@/ui/components/label';
 import { RadioGroup, type RadioOption } from '@/ui/components/radio-group';
 import { Textarea } from '@/ui/components/textarea';
 import { browserDrafts, browserSession, clearDraft, type Draft, draftKey, forgetSent, rememberSent, saveDraft, useDraft } from '@/ui/drafts';
+import { submitKept } from '@/ui/submit-kept';
 import { handoffDescription, takeBrowserHandoff, type WidgetHandoff } from '@/ui/widget/handoff';
 import { createTicketAction, type NewTicketState, reportAffectedAction, type SuggestResult } from './actions';
 import { KnownProblemBanner } from '@/ui/components/KnownProblemBanner';
@@ -160,8 +161,22 @@ function Fields({
     if (state.error) forgetSent(browserSession(), key);
   }, [state, key]);
 
+  // Ошибка поля снимается, как только клиент начал её исправлять (проверка интерфейса, U4): запоминается ответ
+  // сервера, который клиент уже увидел и правит.
+  const [answered, setAnswered] = useState<NewTicketState | null>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const formErrorRef = useRef<HTMLDivElement>(null);
+  // После ответа сервера с ошибкой (U3; UX-C-10) фокус встаёт на поле с ошибкой или на общее сообщение, и оно
+  // прокручивается в видимую часть экрана.
+  useEffect(() => {
+    if (!state.error) return;
+    const target = state.field === 'description' ? descriptionRef.current : formErrorRef.current;
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'center' });
+  }, [state]);
+
   const subject = titleEdited ? title : titleFromDescription(description);
-  const descriptionError = state.field === 'description' ? labels.errors.description : undefined;
+  const descriptionError = state.field === 'description' && answered !== state ? labels.errors.description : undefined;
   const formError = state.error && state.field === null ? (labels.errors[state.error] ?? labels.errors.invalid_input) : null;
 
   return (
@@ -169,7 +184,11 @@ function Fields({
       action={action}
       // Черновик удаляет страница обращения после успешной отправки, и только если ушёл именно он: обрыв сети
       // его не теряет, правка во время отправки сохраняется.
-      onSubmit={() => rememberSent(browserSession(), key, current)}
+      onSubmit={(event) => {
+        rememberSent(browserSession(), key, current);
+        // Без сброса формы после ответа сервера: выбранные влияние, тип и видимость остаются (проверка интерфейса, U5).
+        submitKept(event, action);
+      }}
       className="flex flex-col gap-5"
       noValidate
       // Форма готова, когда черновик уже подставлен: до этого введённое поле пересоздаст с черновиком.
@@ -186,7 +205,11 @@ function Fields({
           <input type="hidden" name="context" value={JSON.stringify(contextOf(handoff))} />
         </>
       )}
-      {formError && <Alert tone="danger">{formError}</Alert>}
+      {formError && (
+        <div ref={formErrorRef} tabIndex={-1} className="rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Alert tone="danger">{formError}</Alert>
+        </div>
+      )}
       {announcements
         .filter((a) => moduleId !== '' && a.moduleId === moduleId)
         .map((a) => (
@@ -214,7 +237,7 @@ function Fields({
         >
           {/* Кнопка отправляет эту же форму другим действием: описание из поля уходит в обращение. */}
           <input type="hidden" name="problemNumber" value={problem.number} />
-          <Button type="submit" formAction={reportAffectedAction} className="tablet:self-start">
+          <Button type="submit" formAction={reportAffectedAction} data-own-action className="tablet:self-start">
             {labels.problem.affected}
           </Button>
           <p className="text-sm">{labels.problem.affectedHint}</p>
@@ -228,8 +251,12 @@ function Fields({
           name="description"
           required
           maxLength={20000}
+          ref={descriptionRef}
           value={description}
-          onChange={(event) => setDescription(event.target.value)}
+          onChange={(event) => {
+            setDescription(event.target.value);
+            if (state.field === 'description') setAnswered(state);
+          }}
           aria-invalid={descriptionError ? true : undefined}
           aria-describedby={descriptionError ? 'field-description-hint field-description-error' : 'field-description-hint'}
         />

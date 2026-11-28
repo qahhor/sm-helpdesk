@@ -15,6 +15,8 @@ export const QUEUES = {
   'attachment.scan': { policy: 'exclusive', retryLimit: 5, retryDelay: 30, retryBackoff: true, retryDelayMax: 600, expireInSeconds: 300 },
   'attachment.sweep': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   'maintenance.cleanup': { policy: 'short', retryLimit: 3, retryDelay: 600, expireInSeconds: 1800 },
+  // Сроки хранения данных клиентов (ТЗ 14.6; волна 7, T2): выключена настройкой, без неё только считает.
+  'retention.client_data': { policy: 'short', retryLimit: 3, retryDelay: 600, expireInSeconds: 1800 },
   // Задача раз в минуту (план M3, задача 13): не больше одной ждущей, без повторов, следующая минута догонит.
   'tickets.minute': { policy: 'short', retryLimit: 0, expireInSeconds: 300, deleteAfterSeconds: 86_400 },
   // Пределы расходов на AI (план M5b, решение 11): следующий запуск через 10 минут догонит, повторов нет.

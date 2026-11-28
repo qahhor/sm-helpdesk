@@ -3,6 +3,7 @@ import { inArray } from 'drizzle-orm';
 import * as z from 'zod';
 import type { Tx } from '@/db/client';
 import { withActor } from '@/db/with-actor';
+import { signatureOrgIdsTx } from '@/modules/hdk/api/signatures';
 import { moduleCodesTx, moduleIdsByCodesTx } from '@/modules/hdr/api';
 import { agentProblemOrgsTx, agentTicketPeopleTx } from '@/modules/hdt/api/agent-events';
 import { agentRedactionTerms } from '@/modules/hdu/api/orgs';
@@ -33,7 +34,8 @@ export async function redactorFor(scope: RedactScope): Promise<Redactor> {
     const problemOrgs = await agentProblemOrgsTx(tx, scope.problemIds ?? []);
     const ticketIds = [...new Set([...(scope.ticketIds ?? []), ...sources.map((s) => s.ticketId)])];
     const userIds = await agentTicketPeopleTx(tx, ticketIds);
-    return { orgIds: [...(scope.orgIds ?? []), ...sources.map((s) => s.orgId), ...problemOrgs], userIds };
+    const signatureOrgs = await signatureOrgIdsTx(tx, scope.signatures ?? []);
+    return { orgIds: [...(scope.orgIds ?? []), ...sources.map((s) => s.orgId), ...problemOrgs, ...signatureOrgs], userIds };
   });
   const terms = await agentRedactionTerms(SYSTEM, { orgIds: [...new Set(facts.orgIds)].slice(0, ORGS_MAX), userIds: facts.userIds.slice(0, PEOPLE_MAX) });
   const staff: AgentPerson[] = terms.staffNames.map((name) => ({ id: `staff:${name}`, name, kind: 'staff' }));

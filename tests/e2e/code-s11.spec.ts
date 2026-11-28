@@ -42,6 +42,9 @@ async function clientTicket(browser: Browser, description: string): Promise<numb
 test('сценарий S11: отчёт о сканировании, утверждение, точная сигнатура, "Разобрать по коду", заметка агента, решение из записи для следующего клиента', async ({ page, browser }) => {
   test.setTimeout(360_000);
   const word = `W${Date.now().toString(36)}`;
+  // Анализ по коду доступен только организациям с включённой AI-обработкой; новые организации создаются без неё
+  // (план M9, задача 2). На свежей базе тест включает её сам, а не ждёт, что это сделал другой тест (волна 7).
+  await dbRows(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие ' || clock_timestamp()::text where name = 'ACME Trade' and not is_ai_enabled`);
   const agent = await seedAgentForE2e(['code_catalog_upsert', 'search_code_catalog', 'submit_code_analysis']);
   const mcp = e2eMcpClient(agent.value);
   const report = uniqueReport();
@@ -99,7 +102,7 @@ test('сценарий S11: отчёт о сканировании, утверж
   expect(await seriousAxe(page)).toEqual([]);
 
   // AI-сотрудник (вместо Hermes) читает сохранённые выводы и пишет внутреннюю заметку анализа.
-  expect(await callOk(mcp, 'search_code_catalog', { key })).toMatchObject({ entries: [{ key, status: 'approved' }] });
+  expect(await callOk(mcp, 'search_code_catalog', { key })).toMatchObject({ entries: [{ untrusted_key: key, status: 'approved' }] });
   await callOk(mcp, 'submit_code_analysis', {
     ticket_number: number,
     hypothesis: `Заказ на складе Основной больше остатка, контроль остатков включён (${word}).`,

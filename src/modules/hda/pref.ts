@@ -161,11 +161,15 @@ export const AI_DEFAULTS = {
   triageEnabled: true,
   minScore: 0,
   monthlyBudgetUsd: 100,
-  userDailyLimit: 20,
+  // Суточный предел дополнительный (его нет в ТЗ 14.5, решение 11 плана M5b): по умолчанию выше часового предела
+  // ТЗ, чтобы действовал он (волна 7, T6, решение 0159). Администратор может его снизить.
+  userDailyLimit: 100,
   orgDailyLimit: 150,
   cutoffShare: 0.25,
   newOrgDefault: false,
 } as const;
+/** Ответы AI-помощника: 20 вызовов первой линии в час на пользователя (ТЗ 14.5). В коде: предел ТЗ не настройка. */
+export const AI_USER_HOURLY_LIMIT = 20;
 /** Доля месячного предела, после которой отключаются организации, которые его расходуют (решение 11). */
 export const AI_BUDGET_WARN_SHARE = 0.8;
 /**

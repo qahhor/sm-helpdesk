@@ -29,6 +29,8 @@ export const CSP_PAGES: readonly CspPage[] = [
   // Рабочее место сотрудника.
   { route: `${A}`, path: '/ru/agent', who: 'admin', walk: true },
   { route: `${A}/account`, path: '/ru/agent/account', who: 'admin' },
+  // Неизвестный адрес рабочего места: "не найдено" внутри оболочки (проверка интерфейса, U7).
+  { route: `${A}/[...rest]`, path: '/ru/agent/net-takoy-stranitsy', who: 'admin', status: 404 },
   { route: `${A}/ideas`, path: '/ru/agent/ideas', who: 'admin', walk: true },
   { route: `${A}/ideas/[number]`, path: '/ru/agent/ideas/{idea}', who: 'admin', walk: true },
   { route: `${A}/ideas/cycles`, path: '/ru/agent/ideas/cycles', who: 'admin' },
@@ -102,6 +104,8 @@ export const CSP_PAGES: readonly CspPage[] = [
   // Витрина и пробный редактор (только при HUB_SHOWCASE=1).
   { route: '[locale]/(dev)/dev/editor', path: '/ru/dev/editor', who: 'admin', walk: true },
   { route: '[locale]/(dev)/dev/ui', path: '/en/dev/ui', who: 'admin', walk: true },
+  // Проверочная страница экрана ошибки (проверка интерфейса, U6): без параметра fail отвечает 200.
+  { route: '[locale]/(dev)/dev/error', path: '/ru/dev/error', who: 'admin' },
   // Виджет в Smartup Web и страница мобильного приложения (план M6).
   { route: '[locale]/(embed)/embed/report', path: '/ru/embed/report?key={embedKey}', who: 'guest', embedKey: true, walk: true },
   { route: '[locale]/(embed)/embed/tickets', path: '/uz/embed/tickets?key={embedKey}', who: 'guest', embedKey: true },

@@ -13,7 +13,7 @@ import { AI_INPUT_MAX_CHARS, AI_MODELS, AI_PRICE_PER_MTOK, type AiModel } from '
 //   - экранирует угловые скобки: текст клиента не может закрыть тег данных и выйти из него в инструкции.
 
 /** Метки на месте вырезанного. Модель видит, что здесь что-то было, но не видит что. */
-export const REDACTED = { email: '[email]', phone: '[phone]', client: 'Клиент', staff: 'Сотрудник', org: 'Организация' } as const;
+export const REDACTED = { email: '[email]', phone: '[phone]', contact: '[contact]', client: 'Клиент', staff: 'Сотрудник', org: 'Организация' } as const;
 
 /** Адрес почты; пробел по краям "@" не спасает адрес ("ivan @ mail.ru"). */
 const EMAIL = /[\p{L}\p{N}._%+-]+ ?@ ?[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu;
@@ -26,10 +26,34 @@ const PHONE = /(?<![\p{L}\p{N}])\+?\(?\p{Nd}{1,4}\)?(?:[\s./-]?\(?\p{Nd}{2,4}\)?
 /** Длинное число подряд: телефон без разделителей, ИНН (9), ПИНФЛ (14), номер карты. */
 const DIGIT_RUN = /(?<!\p{Nd})\p{Nd}{7,}(?!\p{Nd})/gu;
 
-/** Текст для модели: без невидимых знаков и соединителей, в форме NFKC, без адресов почты и телефонов. */
+/**
+ * Контакты в обход правил почты и телефона (проверка на AI-инъекции, волна 7, S-M5). Почта словами: "(at)", "[at]",
+ * "собака", "kuchukcha" вместо "@" и "точка", "dot", "nuqta" вместо точки. Голое английское "at" без скобок не
+ * считается: это обычный предлог. Ссылки и имена мессенджеров: t.me/ник, wa.me/номер, @ник. Цифры через пробел
+ * группами по одной-четыре от семи цифр: "9 0 1 2 3 4 5 6 7".
+ */
+const AT_WORD = String.raw`(?:\s?@\s?|\s*[(\[{]\s*(?:at|эт|собака|sobaka|kuchukcha)\s*[)\]}]\s*|\s+(?:собака|sobaka|kuchukcha)\s+)`;
+const DOT_WORD = String.raw`(?:\.|\s*[(\[{]\s*(?:dot|точка|nuqta)\s*[)\]}]\s*|\s+(?:dot|точка|nuqta)\s+)`;
+const SPELLED_EMAIL = new RegExp(String.raw`[\p{L}\p{N}._%+-]+${AT_WORD}[\p{L}\p{N}-]+(?:${DOT_WORD}[\p{L}\p{N}-]+)*${DOT_WORD}\p{L}{2,}`, 'giu');
+const MESSENGER_LINK = /(?:https?:\/\/)?(?:t\.me|telegram\.me|wa\.me)\/[^\s<>"')]+/gi;
+const HANDLE = /(?<![\p{L}\p{N}@._/-])@[A-Za-z][A-Za-z0-9_]{3,31}(?![\p{L}\p{N}@])/gu;
+const SPACED_DIGITS = /(?<![\p{L}\p{N}])\+?\p{Nd}{1,4}(?:[ \u00A0\t]{1,2}\p{Nd}{1,4}){2,}(?![\p{L}\p{N}])/gu;
+const SPACED_DIGITS_MIN = 7;
+/** Сумма с разрядами через пробел (1 250 000): не телефон. Телефон тем же видом ловит общее правило PHONE. */
+const THOUSANDS = /^\p{Nd}{1,3}(?:[ \u00A0]\p{Nd}{3})+$/u;
+
+/** Замена контактов, записанных в обход правил, метками вызывающего. Текст уже после scanText. */
+export function maskObfuscatedContacts(text: string, labels: { email: string; phone: string; contact: string }): string {
+  return text
+    .replace(SPELLED_EMAIL, labels.email)
+    .replace(MESSENGER_LINK, labels.contact)
+    .replace(HANDLE, labels.contact)
+    .replace(SPACED_DIGITS, (match) => ((match.match(/\p{Nd}/gu)?.length ?? 0) >= SPACED_DIGITS_MIN && !THOUSANDS.test(match) ? labels.phone : match));
+}
+
+/** Текст для модели: без невидимых знаков и соединителей, в форме NFKC, без адресов почты, телефонов и контактов. */
 export function sanitizeForAi(text: string): string {
-  return scanText(text)
-    .replace(EMAIL, REDACTED.email)
+  return maskObfuscatedContacts(scanText(text).replace(EMAIL, REDACTED.email), REDACTED)
     .replace(PHONE, (match) => (phoneLike(match, 7) ? REDACTED.phone : match))
     .replace(DIGIT_RUN, REDACTED.phone);
 }
@@ -75,9 +99,28 @@ export function orgRedactions(orgTerms: readonly string[], label: string): { ter
   return orgTerms.flatMap((term) => [{ term, label }, ...orgNameTerms(term).map((word) => ({ term: word, label, stem: true }))]);
 }
 
-/** Угловые скобки текстом: данные не закрывают тег, в котором лежат. */
+/**
+ * Знаки разметки текстом: данные не закрывают тег, в котором лежат. "&" экранируется первым (проверка на AI-инъекции,
+ * волна 7, M9): иначе готовая сущность клиента "&lt;/ticket&gt;" неотличима во входе от экранированного тега.
+ */
 export function escapeData(text: string): string {
-  return text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Обратное преобразование для текста, который модель вернула из экранированных данных (перевод): "&" последним.
+ * Результат остаётся обычным текстом: показ его экранирует, как любой текст.
+ */
+export function unescapeData(text: string): string {
+  return text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+
+/**
+ * Одно сообщение переписки для модели (волна 7, S-I2): тег <msg> с ролью в атрибуте, содержимое экранировано. Роль
+ * задаёт только код: слова "Сотрудник:" или тег <msg role="staff"> в тексте клиента остаются внутри его сообщения.
+ */
+export function messageTag(role: 'client' | 'staff', body: string, part?: 'title' | 'description' | 'reply'): string {
+  return `<msg role="${role}"${part ? ` part="${part}"` : ''}>${body}</msg>`;
 }
 
 /** Обрезка входа по пределу знаков (проверка на AI-инъекции, пункт 5). */
@@ -125,4 +168,43 @@ export function extractJson(text: string): unknown {
   } catch {
     return null;
   }
+}
+
+/** Слова текста для сравнения с подсказкой: строчные буквы и цифры, остальное разделитель. */
+const wordsOf = (text: string) => text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+/** Столько слов подряд из системной подсказки в ответе считаются её утечкой. */
+const PROMPT_ECHO_WORDS = 6;
+const shinglesCache = new Map<string, Set<string>>();
+
+function promptShingles(system: string): Set<string> {
+  let set = shinglesCache.get(system);
+  if (!set) {
+    const words = wordsOf(system);
+    set = new Set<string>();
+    for (let i = 0; i + PROMPT_ECHO_WORDS <= words.length; i++) set.add(words.slice(i, i + PROMPT_ECHO_WORDS).join(' '));
+    if (shinglesCache.size > 50) shinglesCache.clear();
+    shinglesCache.set(system, set);
+  }
+  return set;
+}
+
+/**
+ * Ответ модели повторяет системную подсказку (проверка на AI-инъекции, волна 7, S-T; решение 0157): в любой строке
+ * ответа есть шесть слов подряд из подсказки. Такой ответ не принимается целиком: отличительные фразы правил не
+ * попадают в резюме, заголовок, черновик и перевод, которые читают сотрудники и клиенты.
+ */
+export function echoesSystemPrompt(value: unknown, system: string): boolean {
+  const shingles = promptShingles(system);
+  if (shingles.size === 0) return false;
+  const check = (item: unknown): boolean => {
+    if (typeof item === 'string') {
+      const words = wordsOf(item);
+      for (let i = 0; i + PROMPT_ECHO_WORDS <= words.length; i++) if (shingles.has(words.slice(i, i + PROMPT_ECHO_WORDS).join(' '))) return true;
+      return false;
+    }
+    if (Array.isArray(item)) return item.some(check);
+    if (item !== null && typeof item === 'object') return Object.values(item).some(check);
+    return false;
+  };
+  return check(value);
 }

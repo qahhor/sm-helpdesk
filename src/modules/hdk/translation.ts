@@ -165,6 +165,33 @@ export function comparePlainInvariants(original: { title: string; body: string }
   return diffSummaries(summarize(lines(original), [], [], 0), summarize(lines(translation), [], [], 0));
 }
 
+/** Адрес словами: "узел точка com", "узел (dot) com", "uzel nuqta uz". Домена в тексте нет, сверка ссылок его не видит. */
+const SPELLED_ADDRESS = /[\p{L}\p{N}_-]{2,}[\s([{]+(?:точка|тчк|dot|nuqta)[\s)\]}]+(?:com|net|org|ru|uz|io|info|biz|xyz|kz|su|рф|ком|ру|уз|орг)(?![\p{L}\p{N}])/giu;
+/** Слова, с которых начинается адрес или контакт вне портала. */
+const ADDRESS_WORDS = /(?<![\p{L}\p{N}])(?:https?|www|ftp|telegram\p{L}*|телеграм\p{L}*|whatsapp\p{L}*|ватсап\p{L}*|viber\p{L}*|вайбер\p{L}*)(?![\p{L}\p{N}])/giu;
+const count = (text: string, pattern: RegExp) => text.match(pattern)?.length ?? 0;
+
+export type ClientTextIssue = { kind: InvariantKind | 'length' | 'spelled_address' | 'address_words' };
+
+/**
+ * Сверка перевода текста клиента, который увидят другие организации без проверки человеком (идея; проверка на
+ * AI-инъекции, волна 7, S-I3; решение 0150). К сверке простого текста добавлено:
+ *   - длина перевода от половины до двух длин оригинала (у короткого текста запас 40 знаков): дописанное моделью
+ *     указание или выброшенный текст не проходят;
+ *   - в переводе не больше адресов словами ("точка", "dot", "nuqta" перед зоной домена), чем в оригинале;
+ *   - в переводе не больше слов адреса (http, www, названия мессенджеров), чем в оригинале.
+ * Расхождение: перевод получает rejected, клиенты видят оригинал.
+ */
+export function compareClientTextInvariants(original: { title: string; body: string }, translation: { title: string; body: string }): ClientTextIssue[] {
+  const issues: ClientTextIssue[] = comparePlainInvariants(original, translation).map((issue) => ({ kind: issue.kind }));
+  const text = (content: { title: string; body: string }) => `${content.title.trim()}\n${content.body.trim()}`;
+  const [a, b] = [text(original), text(translation)];
+  if (b.length > Math.max(a.length * 2, a.length + 40) || (a.length >= 40 && b.length < a.length / 2)) issues.push({ kind: 'length' });
+  if (count(b, SPELLED_ADDRESS) > count(a, SPELLED_ADDRESS)) issues.push({ kind: 'spelled_address' });
+  if (count(b, ADDRESS_WORDS) > count(a, ADDRESS_WORDS)) issues.push({ kind: 'address_words' });
+  return issues;
+}
+
 function diffSummaries(a: Summary, b: Summary): InvariantIssue[] {
   const issues: InvariantIssue[] = [];
   if (!same(a.links, b.links)) issues.push({ kind: 'links', original: a.links, translation: b.links });

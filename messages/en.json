@@ -8,7 +8,8 @@
     "notFound": {
       "title": "Page not found",
       "text": "Check the address or go back to the home page.",
-      "home": "Go to home"
+      "home": "Go to home",
+      "agentHome": "To workspace"
     },
     "theme": {
       "label": "Theme",
@@ -132,7 +133,15 @@
           "save": "Apply to idea emails"
         }
       }
-    }
+    },
+    "error": {
+      "title": "Could not open the page",
+      "text": "Try again. If that does not help, go back to the home page.",
+      "retry": "Retry",
+      "home": "Home",
+      "agentHome": "To workspace"
+    },
+    "loading": "Loading"
   },
   "client": {
     "home": {
@@ -268,7 +277,8 @@
           "infected": "failed the virus check",
           "rejected": "not accepted: the content does not match the extension or the file could not be checked, attach it again or in another format",
           "encrypted": "not accepted: the file is password-protected, attach it without a password",
-          "limits": "not accepted: the archive is too large to check, attach the files separately"
+          "limits": "not accepted: the archive is too large to check, attach the files separately",
+          "expired": "removed after the retention period"
         },
         "reply": "Reply",
         "replyPlaceholder": "Write a reply",
@@ -574,6 +584,11 @@
         "rate_limited": "Too many invitations. Try again in an hour.",
         "forbidden": "This action is not available to you.",
         "not_found": "Record not found. Refresh the page."
+      },
+      "summary": {
+        "title": "Organization requests",
+        "total": "Total: {total}. Open: {open}.",
+        "open": "Open organization requests"
       }
     },
     "settings": {
@@ -859,7 +874,10 @@
         "aiEnabled": "AI processing is on, consent recorded.",
         "aiDisabled": "AI processing is off.",
         "pilotOn": "The organization is marked as pilot.",
-        "pilotOff": "The organization is removed from the pilot."
+        "pilotOff": "The organization is removed from the pilot.",
+        "contractSaved": "The contract end date is saved.",
+        "contractCleared": "The contract end date is cleared.",
+        "anonymized": "The account is anonymized."
       },
       "settingsTitle": "Organization settings",
       "categoryLabel": "Client category",
@@ -901,6 +919,21 @@
         "off": "The organization is not in the pilot.",
         "mark": "Mark as pilot",
         "unmark": "Remove from pilot"
+      },
+      "contract": {
+        "title": "Contract and retention",
+        "endsOn": "The contract ended on {date}.",
+        "none": "No contract end date is set.",
+        "hint": "The retention period for requests is counted from this date: 3 years after the contract ends.",
+        "label": "Contract end date",
+        "save": "Save date",
+        "clear": "Clear date"
+      },
+      "anonymize": {
+        "button": "Anonymize",
+        "confirmTitle": "Anonymize the account: {name}?",
+        "confirmText": "The name and email address are replaced with anonymized values, sign-in is closed, and channel links are removed. Request texts stay with the organization. This cannot be undone.",
+        "confirm": "Anonymize the account"
       }
     },
     "settings": {
@@ -1253,7 +1286,8 @@
             "domain_added": "Organization email domain added",
             "domain_removed": "Organization email domain removed",
             "ai_consent_recorded": "AI processing consent recorded",
-            "ai_disabled": "AI processing turned off for the organization"
+            "ai_disabled": "AI processing turned off for the organization",
+            "contract_end_set": "Contract end date changed"
           },
           "member": {
             "joined": "Member added",
@@ -1269,7 +1303,8 @@
             "email_confirmed": "Address confirmed",
             "policy_acknowledged": "Policy version acknowledged",
             "signed_in_telegram": "Sign-in through the Telegram bot",
-            "signed_in": "Client signed in"
+            "signed_in": "Client signed in",
+            "anonymized": "Account anonymized"
           },
           "session": {
             "revoked": "Session ended",
@@ -1474,6 +1509,9 @@
             "analysis_requested": "Code analysis of a request asked for",
             "analysis_timed_out": "Code analysis of a request not done in time",
             "analysis_done": "AI staff answered a code analysis request"
+          },
+          "retention": {
+            "attachments_expired": "Files removed after the retention period"
           }
         },
         "words": {
@@ -2678,7 +2716,8 @@
       "scan": {
         "pending": "being checked",
         "infected": "failed the virus check",
-        "rejected": "not accepted"
+        "rejected": "not accepted",
+        "expired": "removed after the retention period"
       },
       "authors": {
         "client": "Client",
@@ -3094,7 +3133,10 @@
         "acceptField": "Accept: {field}",
         "acceptAll": "Accept all",
         "accepted": "Accepted",
-        "checkPriority": "Check the priority: the problem looks more serious than the client said"
+        "checkPriority": "Check the priority: the problem looks more serious than the client said",
+        "titleNow": "Now",
+        "titleProposed": "Proposed",
+        "acceptAllHint": "The title is accepted separately: the client will see it."
       },
       "aiReasons": {
         "customer_request": "the client asked for staff",
@@ -3718,7 +3760,8 @@
           "digits": "Long number",
           "server": "Server address",
           "internal": "Internal name",
-          "link": "Link outside the list"
+          "link": "Link outside the list",
+          "ai_phrase": "Phrase addressed to AI"
         },
         "inTitle": "in the title",
         "show": "Show",
@@ -4199,7 +4242,8 @@
         "server": "server address",
         "internal": "internal name",
         "link": "link outside allowed sites",
-        "org": "organization name or TIN"
+        "org": "organization name or TIN",
+        "ai_phrase": "phrase addressed to AI"
       },
       "done": {
         "created": "Problem created",
@@ -5045,7 +5089,8 @@
       "search_drift": "Smartup Hub: the search index check found {count} differences (collections: {collections}). Missing items will be written again.",
       "search_isolation": "Smartup Hub: search returned another organization's ids to a client, the database check dropped them: {count} in the last hour. Check the search key filter.",
       "host_pressure": "Smartup Hub: the server is 80% or more busy: {kinds}. disk: database or backup volume, mem: memory, cpu: processor. See the on-call runbook, section 6.",
-      "host_mark_stale": "Smartup Hub: no server resource marks for over 15 minutes (servers: {count}). Check the host-watch timer on the server."
+      "host_mark_stale": "Smartup Hub: no server resource marks for over 15 minutes (servers: {count}). Check the host-watch timer on the server.",
+      "broadcast_stuck": "Smartup Hub: known problem updates not delivered to every recipient within 30 minutes: {count}."
     },
     "tez": {
       "helped": "Glad it helped. The request is resolved.",

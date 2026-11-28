@@ -8,7 +8,7 @@ import { createProblemDraftFromAgentTx } from '@/modules/hdp/api/agent-drafts';
 import { HdaAgentError } from '../../error';
 import { AGENT_BODY_MAX, AGENT_TITLE_MAX } from '../../pref';
 import { defineTool } from '../tool';
-import { AGENT_NOTICE, cleanAgentText, notice, UNTRUSTED_HINT } from '../util';
+import { AGENT_NOTICE, agentTextLooksLikeCode, cleanAgentText, notice, UNTRUSTED_HINT } from '../util';
 import { agentSolutionsView, agentTicketsView } from '../views';
 import { moduleCode, moduleIdOf, signature } from './common';
 
@@ -29,14 +29,15 @@ async function visibleTickets(tx: Parameters<typeof moduleIdOf>[0], numbers: rea
 
 function cleaned(text: string, domains: readonly string[], allowEmpty = false): string {
   const value = cleanAgentText(text, domains);
-  if (!value && !allowEmpty) throw new HdaAgentError('invalid_arguments');
+  // Исходный код в портал не переносится (S-I4): текст с признаками кода отклоняется целиком.
+  if ((!value && !allowEmpty) || agentTextLooksLikeCode(value)) throw new HdaAgentError('invalid_arguments');
   return value;
 }
 
 export const draftSolution = defineTool({
   name: 'draft_solution',
   kind: 'write',
-  description: `Create a solution draft for staff review: audience internal, marked "AI staff, not verified", untrusted text that staff must confirm before publishing. Plain text, one paragraph per line. To propose a change to a published solution, pass revises_solution_number: the published solution itself is not changed. Source tickets must be visible to you. ${UNTRUSTED_HINT}`,
+  description: `Create a solution draft for staff review: audience internal, marked "AI staff, not verified", untrusted text that staff must confirm before publishing. Plain text, one paragraph per line. Text that looks like source code is rejected: describe in words. To propose a change to a published solution, pass revises_solution_number: the published solution itself is not changed. Source tickets must be visible to you. ${UNTRUSTED_HINT}`,
   input: z.strictObject({
     title: z.string().min(1).max(AGENT_TITLE_MAX),
     body: z.string().min(1).max(AGENT_BODY_MAX),
@@ -75,7 +76,7 @@ export const draftSolution = defineTool({
 export const draftKnownProblem = defineTool({
   name: 'draft_known_problem',
   kind: 'write',
-  description: `Create a known problem draft for staff review: not active, never shown to clients, the error signature stays inactive and the tickets are only proposed for linking. Staff accept, link and reject drafts. Proposed tickets must be visible to you. ${UNTRUSTED_HINT}`,
+  description: `Create a known problem draft for staff review: not active, never shown to clients, the error signature stays inactive and the tickets are only proposed for linking. Staff accept, link and reject drafts. Text that looks like source code is rejected. Proposed tickets must be visible to you. ${UNTRUSTED_HINT}`,
   input: z.strictObject({
     internal_title: z.string().min(1).max(AGENT_TITLE_MAX),
     description: z.string().max(4000).default(''),

@@ -1,11 +1,13 @@
 import { scanText } from '@/modules/hdc/pref';
-import { clip, escapeData, orgRedactions, REDACTED, redactTerms, sanitizeForAi } from './util';
+import { clip, escapeData, messageTag, orgRedactions, REDACTED, redactTerms, sanitizeForAi } from './util';
+import { AI_INPUT_MAX_CHARS } from './pref';
 
 // Модуль hda: сборка данных для модели из разрешённых полей (ТЗ 14.3, 11.10, поправка 101; план M5, задача 5).
 // Функции принимают только то, что разрешено отправлять: публичные сообщения закрытого обращения (черновик) и
 // тексты решения (перевод). Внутренних заметок, вложений, адресов и названий в типах нет вовсе: их нельзя передать
 // по ошибке. Имена участников и название организации приходят отдельно и только затем, чтобы их вырезать.
-// Данные лежат внутри тегов и экранированы: модель получает их как данные, а не как инструкции.
+// Данные лежат внутри тегов и экранированы: модель получает их как данные, а не как инструкции. Переписка передаётся
+// структурой (волна 7, S-I2; решение 0149): каждое сообщение в своём теге <msg role="...">, роль ставит код.
 
 export type DraftMessage = { role: 'client' | 'staff'; body: string };
 /** Что вырезать: имена людей (меткой роли) и название, ИНН организации. */
@@ -23,16 +25,23 @@ function cleanText(text: string, redaction: Redaction): string {
 }
 
 /**
- * Переписка закрытого обращения для черновика (ТЗ 11.10): язык ответа и текст внутри <ticket>. Автор каждого
- * сообщения назван ролью "Клиент" или "Сотрудник", а не именем (решение 15).
+ * Переписка закрытого обращения для черновика (ТЗ 11.10): язык ответа и сообщения внутри <ticket>. Автор каждого
+ * сообщения назван ролью в атрибуте тега, а не именем (решение 15) и не строкой "Клиент: ..." (S-I2): такую строку
+ * клиент мог написать сам. Предел знаков считается по тексту сообщений: тег не обрезается посередине.
  */
 export function assembleDraftData(input: { locale: string; title: string; description: string; messages: readonly DraftMessage[]; redaction: Redaction }): string {
-  const lines = [
-    `${REDACTED.client}: ${cleanText(input.title, input.redaction)}`,
-    `${REDACTED.client}: ${cleanText(input.description, input.redaction)}`,
-    ...input.messages.map((m) => `${m.role === 'client' ? REDACTED.client : REDACTED.staff}: ${cleanText(m.body, input.redaction)}`),
-  ];
-  return `Язык ответа: ${input.locale}\n<ticket>\n${clip(lines.join('\n\n'))}\n</ticket>`;
+  let budget = AI_INPUT_MAX_CHARS;
+  const take = (text: string) => {
+    const out = clip(cleanText(text, input.redaction), budget);
+    budget -= out.length;
+    return out;
+  };
+  const lines = [messageTag('client', take(input.title), 'title'), messageTag('client', take(input.description), 'description')];
+  for (const m of input.messages) {
+    if (budget <= 0) break;
+    lines.push(messageTag(m.role, take(m.body)));
+  }
+  return `Язык ответа: ${input.locale}\n<ticket>\n${lines.join('\n')}\n</ticket>`;
 }
 
 export type TranslationSegment = { id: string; text: string };
@@ -78,7 +87,8 @@ const tail = (text: string, max: number) => (text.length <= max ? text : text.sl
 /**
  * Вход модели первой линии и разбора (ТЗ 14.3, 11.12; план M5b, решение 22). В типе только разрешённое: тема,
  * описание и ответы клиента после ответа помощника (сообщений сотрудников, заметок и вложений нет вовсе) и до трёх
- * найденных опубликованных решений. Текст клиента очищен, как у черновика, и лежит внутри <ticket>; решения внутри
+ * найденных опубликованных решений. Текст клиента очищен, как у черновика, и лежит внутри <ticket> по одному тегу
+ * <msg role="client" part="title|description|reply"> на тему, описание и каждый ответ (S-I2); решения внутри
  * <solution id="...">, каждое до 1500 знаков. Описание до 5000 знаков, ответы клиента до 3000 (последние), всё
  * обращение до 8000.
  */
@@ -87,14 +97,21 @@ export function assembleFirstLineData(input: { title: string; description: strin
   // Имя вырезается целиком и по словам: "Алишер Каримов" ловит и "Алишер".
   const split = (names: readonly string[]) => [...new Set(names.flatMap((n) => [n, ...n.split(/\s+/)]))];
   const redaction: Redaction = { ...input.redaction, clientNames: split(input.redaction.clientNames), staffNames: split(input.redaction.staffNames) };
-  const messages = tail(input.clientMessages.map((m) => cleanText(m, redaction)).join('\n'), L.messages);
-  const lines = [
-    `Тема: ${cleanText(input.title, redaction)}`,
-    `Описание: ${clip(cleanText(input.description, redaction), L.description)}`,
-    ...(messages ? [`Ответ клиента: ${messages}`] : []),
-  ];
+  // Пределы считаются по тексту клиента, теги сообщений в них не входят и посередине не обрезаются.
+  const title = clip(cleanText(input.title, redaction), L.total);
+  const description = clip(cleanText(input.description, redaction), Math.min(L.description, L.total - title.length));
+  // Ответы клиента: последние в пределах 3000 знаков, каждый в своём теге; у самого старого из вошедших остаётся конец.
+  let left = Math.max(0, Math.min(L.messages, L.total - title.length - description.length));
+  const replies: string[] = [];
+  for (const m of [...input.clientMessages].reverse()) {
+    if (left <= 0) break;
+    const text = tail(cleanText(m, redaction), left);
+    left -= text.length + 1;
+    replies.unshift(messageTag('client', text, 'reply'));
+  }
+  const lines = [messageTag('client', title, 'title'), messageTag('client', description, 'description'), ...replies];
   const solutions = input.solutions.map((s) => `<solution id="${s.id}">\nЗаголовок: ${escapeData(sanitizeForAi(s.title))}\n${clip(escapeData(sanitizeForAi(s.text)), L.solution)}\n</solution>`);
-  return `<ticket>\n${clip(lines.join('\n'), L.total)}\n</ticket>\n<solutions>\n${solutions.map((s) => `${s}\n`).join('')}</solutions>`;
+  return `<ticket>\n${lines.join('\n')}\n</ticket>\n<solutions>\n${solutions.map((s) => `${s}\n`).join('')}</solutions>`;
 }
 
 /**

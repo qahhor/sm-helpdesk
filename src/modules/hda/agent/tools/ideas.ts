@@ -29,7 +29,7 @@ const item = z.strictObject({
   org_count: z.number().int(),
   comment_count: z.number().int(),
   published_on: moment.nullable(),
-  released_in: str(60).nullable(),
+  untrusted_released_in: str(60).nullable(),
   locale: str(5),
   untrusted_customer_text: z.strictObject({ title: str(TITLE_MAX + 1), body: str(BODY_MAX + 1) }),
 });
@@ -62,7 +62,7 @@ export const listIdeas = defineTool({
       org_count: row.orgCount,
       comment_count: row.commentCount,
       published_on: iso(row.publishedOn),
-      released_in: row.releasedIn ? row.releasedIn.slice(0, 60) : null,
+      untrusted_released_in: row.releasedIn ? row.releasedIn.slice(0, 60) : null,
       locale: row.originalLocale,
       untrusted_customer_text: { title: agentExcerpt(clean(row.orgId, row.title), TITLE_MAX), body: agentExcerpt(clean(row.orgId, row.body), BODY_MAX) },
     }));

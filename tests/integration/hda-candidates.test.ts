@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'vitest';
 import type { SystemActor } from '@/db/with-actor';
 import { candidateConfig, runCandidateJob, runCandidatesEmbed, runCandidatesSweep } from '@/modules/hda/api/candidates';
 import { saveCandidateSettings } from '@/modules/hda/api/settings';
+import { stripForeignLinks } from '@/modules/hda/candidates/run';
 import { setAiClientForTests, StubAiClient } from '@/modules/hda/testing';
 import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
 import { type EmbeddingProvider, EmbeddingUnavailableError, setEmbedderForTests } from '@/modules/hdk/embeddings';
@@ -112,7 +113,33 @@ test('ссылка вне разрешённых доменов вырезана
   expect(c.findings).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'phone' })]));
 });
 
-test('похоже на опубликованное решение: кандидата нет, решению "пригодилось сотрудникам" (FR-CAND-03)', async () => {
+// Проверка на AI-инъекции (волна 7, S-I2): адрес без схемы, с другой схемой и в разметке Markdown тоже ссылка.
+test('stripForeignLinks: чужие адреса в любом виде вырезаны, разрешённые и обычный текст остаются', () => {
+  const allowed = ['smartup.uz'];
+  const cut: [string, string][] = [
+    ['Откройте [инструкцию](evil.example/login) и войдите', 'Откройте инструкцию и войдите'],
+    ['Откройте [инструкцию](https://evil.example/a "подпись") и войдите', 'Откройте инструкцию и войдите'],
+    ['Скачайте //evil.example/setup.exe сейчас', 'Скачайте сейчас'],
+    ['Архив ftp://evil.example/pub/a.zip тут', 'Архив тут'],
+    ['Напишите tg://resolve?domain=evil_bot нам', 'Напишите нам'],
+    ['Войдите на evil.example/login и введите пароль', 'Войдите на и введите пароль'],
+    ['Сайт www.evil.example тут', 'Сайт тут'],
+    ['Слитноwww.evil.example тут', 'Слитно тут'],
+    ['Нажмите [тут](javascript:alert(1))', 'Нажмите тут'],
+  ];
+  for (const [input, expected] of cut) expect(stripForeignLinks(input, allowed), input).toBe(expected);
+  const kept = [
+    'Раздел https://help.smartup.uz/orders открыт',
+    'Раздел [справка](https://help.smartup.uz/orders) открыт',
+    'Адрес help.smartup.uz/orders открыт',
+    'Срок 25.11.2026, версия 5.12.3, и/или 1/2, файл report.xlsx, ошибка ORA-20001: a//b',
+  ];
+  for (const input of kept) expect(stripForeignLinks(input, allowed), input).toBe(input);
+});
+
+// Волна 7, S-M8 (решение 0154): совпадение черновика модели считается отдельно. "Пригодилось сотрудникам" растёт
+// только от действия человека (объединение кандидата с решением).
+test('похоже на опубликованное решение: кандидата нет, растёт счётчик совпадений без человека, а не "пригодилось сотрудникам" (FR-CAND-03)', async () => {
   // Опубликованное внутреннее решение того же содержания в поисковом индексе: сходство по любой аудитории.
   const a = (await pools.root.query(`insert into hdk_articles (audience, original_locale) values ('internal', 'ru') returning article_id, number`)).rows[0];
   const article = a.article_id as string;
@@ -128,7 +155,7 @@ test('похоже на опубликованное решение: канди�
   ]);
   expect(await runCandidateJob(SYSTEM, { ticketId: await closed(f.aUser) })).toBe('useful');
   expect(await candidates()).toEqual([]);
-  expect((await pools.root.query(`select staff_useful_count from hdk_articles where article_id = $1`, [article])).rows[0].staff_useful_count).toBe(1);
+  expect((await pools.root.query(`select staff_useful_count, machine_match_count from hdk_articles where article_id = $1`, [article])).rows[0]).toEqual({ staff_useful_count: 0, machine_match_count: 1 });
 });
 
 test('второй похожий черновик склеивается: источники и организации пересчитаны; отклонённый возвращается на пятом источнике', async () => {

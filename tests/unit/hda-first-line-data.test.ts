@@ -17,7 +17,7 @@ test('теги данных, очистка, роль вместо имени, �
     redaction,
   });
   expect(data.startsWith('<ticket>\n')).toBe(true);
-  expect(data).toContain('Тема: Не печатается накладная');
+  expect(data).toContain('<msg role="client" part="title">Не печатается накладная</msg>');
   expect(data).toContain('Пишет Клиент из Организация');
   for (const forbidden of ['Алишер', 'Ромашк', 'alisher@', '123 45 67', '301234567', 'Азиз']) expect(data, forbidden).not.toContain(forbidden);
   // Текст клиента не закрывает тег данных.
@@ -40,11 +40,12 @@ test('обрезка: описание до 5000, сообщения клиен�
   expect(ticket).not.toContain('КОНЕЦ-ОПИСАНИЯ');
   expect(ticket).toContain('НОВОЕ');
   expect(ticket).not.toContain('СТАРОЕ');
-  expect(ticket.length).toBeLessThanOrEqual('<ticket>\n'.length + 8000 + 1);
+  // Предел 8000 считается по тексту клиента: теги сообщений в него не входят.
+  expect(ticket.replace(/<[^>]+>/g, '').length).toBeLessThanOrEqual(8000 + 4);
   expect(data).not.toContain('ХВОСТ-РЕШЕНИЯ');
 });
 
 test('без решений: блока решений нет; сообщений нет: строки сообщений нет', () => {
   const data = assembleFirstLineData({ title: 'Т', description: 'Описание', clientMessages: [], solutions: [], redaction: { clientNames: [], staffNames: [], orgTerms: [] } });
-  expect(data).toBe('<ticket>\nТема: Т\nОписание: Описание\n</ticket>\n<solutions>\n</solutions>');
+  expect(data).toBe('<ticket>\n<msg role="client" part="title">Т</msg>\n<msg role="client" part="description">Описание</msg>\n</ticket>\n<solutions>\n</solutions>');
 });

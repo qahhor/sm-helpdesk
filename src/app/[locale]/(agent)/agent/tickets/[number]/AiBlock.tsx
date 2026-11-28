@@ -12,7 +12,7 @@ import { acceptTriageAction } from './actions';
 // Блок AI в правой колонке страницы обращения (экран 8.12 "Блок AI в обращении у сотрудника"; UX-A-12, FR-AI-13,
 // FR-TRI-02, FR-TRI-03; план M5b, задача 7). Состояние помощника и причина передачи, число ответов, резюме с пометкой
 // "AI, не проверено" рядом с исходным текстом, найденные решения с оценкой, предложения разбора с "Принять" и
-// "Принять всё", пометка "Проверьте приоритет". Клиент этого блока не видит: страница сотрудника (FR-TRI-06).
+// "Принять всё" (без заголовка: он принимается отдельно, старый и новый рядом), пометка "Проверьте приоритет". Клиент этого блока не видит: страница сотрудника (FR-TRI-06).
 
 const APPLIED = ['module', 'type', 'title'] as const;
 
@@ -31,7 +31,8 @@ export async function AiBlock({ staff, ticketId, number, locale, canWrite }: { s
   const summary = block.suggestions.find((s) => s.field === 'summary');
   const priorityHint = block.suggestions.find((s) => s.field === 'priority_hint' && s.status === 'pending');
   const proposals = block.suggestions.filter((s): s is typeof s & { field: (typeof APPLIED)[number] } => (APPLIED as readonly string[]).includes(s.field));
-  const pending = block.suggestions.some((s) => s.status === 'pending');
+  const titlePending = block.suggestions.some((s) => s.status === 'pending' && s.field === 'title');
+  const pendingBesidesTitle = block.suggestions.some((s) => s.status === 'pending' && s.field !== 'title');
   const reason = state.aiHandoffReason ? t(`aiReasons.${state.aiHandoffReason}`) : null;
 
   return (
@@ -89,9 +90,22 @@ export async function AiBlock({ staff, ticketId, number, locale, canWrite }: { s
             <ul className="flex flex-col gap-2">
               {proposals.map((s) => (
                 <li key={s.suggestionId} className="flex flex-wrap items-center justify-between gap-2" data-triage-field={s.field}>
-                  <span className="min-w-0 break-words">
-                    {t(`ai.fields.${s.field}`)}: <span className="font-semibold">{valueOf(s.field, s.value)}</span>
-                  </span>
+                  {s.field === 'title' && s.status === 'pending' ? (
+                    // Заголовок видит клиент (S-M6): старый и новый рядом, принимается только этой кнопкой.
+                    <dl className="flex min-w-0 flex-col gap-1 break-words">
+                      <dt className="text-xs text-secondary-foreground">{t('ai.fields.title')}</dt>
+                      <dd data-title-now>
+                        {t('ai.titleNow')}: {state.title}
+                      </dd>
+                      <dd data-title-proposed>
+                        {t('ai.titleProposed')}: <span className="font-semibold">{s.value}</span>
+                      </dd>
+                    </dl>
+                  ) : (
+                    <span className="min-w-0 break-words">
+                      {t(`ai.fields.${s.field}`)}: <span className="font-semibold">{valueOf(s.field, s.value)}</span>
+                    </span>
+                  )}
                   {s.status === 'pending' && canWrite ? (
                     <form action={acceptTriageAction}>
                       <input type="hidden" name="number" value={number} />
@@ -106,13 +120,14 @@ export async function AiBlock({ staff, ticketId, number, locale, canWrite }: { s
                 </li>
               ))}
             </ul>
-            {pending && canWrite && (
-              <form action={acceptTriageAction}>
+            {pendingBesidesTitle && canWrite && (
+              <form action={acceptTriageAction} className="flex flex-col gap-1">
                 <input type="hidden" name="number" value={number} />
                 <input type="hidden" name="field" value="all" />
-                <Button type="submit" variant="secondary" size="small">
+                <Button type="submit" variant="secondary" size="small" className="self-start">
                   {t('ai.acceptAll')}
                 </Button>
+                {titlePending && <p className="text-xs text-secondary-foreground">{t('ai.acceptAllHint')}</p>}
               </form>
             )}
             {priorityHint && (

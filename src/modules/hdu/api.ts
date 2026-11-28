@@ -36,8 +36,10 @@ export {
   otherOrganizationActors,
   searchOrganizations,
   setOrgAiProcessing,
+  setOrgContractEnd,
   updateOrganization,
 } from './api/orgs';
+export { anonymizeAccount } from './api/accounts';
 export type { OrgScope } from './api/scope';
 export type { SessionView } from './api/sessions';
 export { handleAuthRequest } from './api/auth-route';

@@ -201,3 +201,17 @@ test('ai.budget: каждое новое отключение в журнале 
     { org_id: null, diff: { cut: 'budget_total' } },
   ]);
 });
+
+// Волна 7, T6 (ТЗ 14.5): ответы AI-помощника 20 в час на пользователя. Суточный предел из настройки действует дополнительно.
+test('предел 20 вызовов первой линии в час на пользователя (ТЗ 14.5): 21-й вызов модель не вызывает, через час счёт начинается заново', async () => {
+  await setting('ai.user_daily_limit', 1000);
+  await setting('ai.org_daily_limit', 10000);
+  for (let i = 0; i < 20; i++) expect((await call({ data: `<ticket>текст ${i}</ticket>` })).status, String(i)).toBe('ok');
+  expect(await call({ data: '<ticket>текст 21</ticket>' })).toEqual({ status: 'limited', limit: 'user' });
+  expect(stub.calls).toHaveLength(20);
+  // Другой пользователь той же организации не задет.
+  expect((await call({ userId: f.aAdmin.userId })).status).toBe('ok');
+  // Вызовы старше часа в часовой предел не входят.
+  await pools.root.query(`begin; set local session_replication_role = replica; update hda_runs set created_on = now() - interval '61 minutes' where user_id = '${f.aUser.userId}'; commit`);
+  expect((await call({ data: '<ticket>текст через час</ticket>' })).status).toBe('ok');
+});

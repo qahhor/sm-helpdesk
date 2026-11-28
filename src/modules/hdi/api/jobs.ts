@@ -8,7 +8,7 @@ import { requestIdeaTranslation } from '@/modules/hda/api/translate';
 import { enqueue } from '@/modules/hdc/api';
 import { stripInvisible } from '@/modules/hdc/pref';
 import { indexIdeaTexts } from '@/modules/hdk/api/idea-search';
-import { comparePlainInvariants } from '@/modules/hdk/api/text-checks';
+import { compareClientTextInvariants } from '@/modules/hdk/api/text-checks';
 import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { scanUpload } from '../core/files';
 import { ideaIndexSourceTx } from '../core/index';
@@ -52,7 +52,8 @@ const cleanModelText = (text: { title: string; body: string }) => ({
  * ideas.translate (решения 11, 12): заголовок и описание опубликованной идеи на языки без годного перевода. Организация
  * автора выключила AI-обработку: модель не вызывается, клиенты видят оригинал. В модель уходят только заголовок и
  * описание, имя автора и название организации в списке масок (ТЗ 14.3). Перевод сверяется с оригиналом (числа,
- * ссылки, кавычки, находки FR-SOL-04): расхождение даёт rejected, клиент видит оригинал. Затем индекс похожих.
+ * ссылки, кавычки, находки FR-SOL-04, а также длина, адреса словами и слова адреса: волна 7, S-I3): расхождение
+ * даёт rejected, клиент видит оригинал. Затем индекс похожих.
  * Сбой модели бросается: pg-boss повторит задачу.
  */
 export async function runIdeaTranslationJob(system: SystemActor, data: unknown): Promise<TranslationJobResult> {
@@ -74,7 +75,7 @@ export async function runIdeaTranslationJob(system: SystemActor, data: unknown):
     const outcome = await requestIdeaTranslation(system, { ideaId, orgId: plan.orgId, from: plan.original.locale, to, title: plan.original.title, body: plan.original.body, redaction });
     if (outcome.status !== 'ok') return { ...result, status: outcome.status };
     const text = cleanModelText(outcome.value);
-    const issues = text.title && text.body ? comparePlainInvariants(plan.original, text) : [{ kind: 'data' as const }];
+    const issues = text.title && text.body ? compareClientTextInvariants(plan.original, text) : [{ kind: 'data' as const }];
     const status = issues.length > 0 ? 'rejected' : 'machine';
     if (await withActor(system, (tx) => writeMachineTranslationTx(tx, ideaId, to, text.title && text.body ? text : plan.original, status, plan.sourceHash))) {
       if (status === 'machine') result.machine++;

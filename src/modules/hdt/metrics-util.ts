@@ -245,12 +245,15 @@ export type CsvValue = string | number | null | undefined;
 /**
  * Ячейка CSV. Текст, который начинается с "=", "+", "-", "@", табуляции или возврата каретки, Excel считает
  * формулой: такой текст получает апостроф впереди (решение 16; пункт 6 проверки вехи). Пробелы перед знаком формулу
- * не прячут. Числа, которые пишет сам портал, передаются числом и апостроф не получают. Кавычки по RFC 4180.
+ * не прячут, полноширинные и малые формы знаков считаются теми же знаками. Числа, которые пишет сам портал, передаются числом и апостроф не получают. Кавычки по RFC 4180.
  */
 export function csvCell(value: CsvValue): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '';
-  const text = /^[\t\r]|^\s*[=+\-@]/.test(value) ? `'${value}` : value;
+  // Первый видимый знак проверяется в форме NFKC (волна 7, S-A1): полноширинные "＝", "＋", "－", "＠" и малые
+  // формы Excel приводит к обычным. Невидимые знаки и любые пробелы перед знаком формулу не прячут.
+  const probe = value.normalize('NFKC').replace(/^[\s\u200B-\u200F\u2060-\u2064\uFEFF]+/u, '');
+  const text = /^[\t\r]/.test(value) || /^[=+\-@]/.test(probe) ? `'${value}` : value;
   return /[";\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 

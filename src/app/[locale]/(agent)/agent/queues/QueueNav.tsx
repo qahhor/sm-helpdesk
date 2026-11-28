@@ -24,8 +24,8 @@ export async function QueueNav({ location, counts, filters, unidentified }: Prop
   const href = (next: Parameters<typeof queueHref>[1]) => queueHref(location, next);
 
   return (
-    <nav aria-label={t('queues.listLabel')} className="flex flex-col gap-4 lg:w-60 lg:shrink-0">
-      <ul className="flex flex-wrap gap-1 lg:flex-col">
+    <nav aria-label={t('queues.listLabel')} className="flex flex-col gap-4 laptop:w-60 laptop:shrink-0">
+      <ul className="flex flex-wrap gap-1 laptop:flex-col">
         {QUEUE_KEYS.map((key) => (
           <li key={key}>
             <Link

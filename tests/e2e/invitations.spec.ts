@@ -85,6 +85,11 @@ test('администратор отзывает приглашение, ссы
   const org = company();
   await signInAsDirector(page, org);
   await page.goto('/ru/org');
+  // Сводка по обращениям организации для администратора клиента (ТЗ 5.1; волна 7, T8).
+  const summary = page.getByTestId('org-summary');
+  await expect(summary.getByRole('heading', { name: 'Обращения организации' })).toBeVisible();
+  await expect(summary).toContainText(/Всего: \d+\. Открыто: \d+\./);
+  await expect(summary.locator('[data-status]')).toHaveCount(6);
   const email = `revoked-${org.sub}@acme.test`;
   await page.getByLabel('Email коллеги').fill(email);
   await page.getByRole('button', { name: 'Пригласить' }).click();

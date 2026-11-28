@@ -13,6 +13,7 @@ import { HdaError } from '../error';
 import { thanksCallsTodayTx } from '../core/runs';
 import { AI_FIRST_LINE_TIMEOUT_MS, AI_THANKS_PER_TICKET_DAY } from '../pref';
 import { aiMessageTranslations } from '../schema';
+import { unescapeData } from '../util';
 import { callAi } from './run';
 
 // Модуль hda, слой api: перевод сообщения клиента по кнопке "Перевести" и уточнение благодарности (план M5b, задача 9;
@@ -130,7 +131,7 @@ export async function runMessageTranslationJob(system: SystemActor, data: unknow
       await finish({ status: 'failed' });
       return 'failed';
     }
-    await finish({ status: 'ready', text: outcome.value.text });
+    await finish({ status: 'ready', text: unescapeData(outcome.value.text) });
     return 'ready';
   } catch (error) {
     logEvent('warn', 'ai.message_translation_failed', { code: error instanceof Error && 'code' in error ? String((error as { code: unknown }).code) : 'unexpected' });

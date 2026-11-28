@@ -35,7 +35,7 @@ const MESSENGER = new RegExp(String.raw`(?<![\p{L}\p{N}])${MESSENGER_NAME}`, 'iu
  */
 const CONTACT_CALL =
   /(?<![\p{L}\p{N}])(?:(?:на|за|от)?пиш(?:и|ите|ем)|писать|свяж\p{L}+|обращайтесь|обратитесь|обратиться|(?:по)?звони\p{L}*|добав(?:ь|ьте|ляйтесь)|подпи(?:шитесь|сывайтесь)|перейдите|переходите|наш\p{L}{0,3}|ник|write|contact|message\s+(?:us|me)|reach|text\s+(?:us|me)|dm|call|join|follow|our|username|nick|yoz\p{L}*|ёз\p{L}*|murojaat\p{L}*|bog['ʻ‘’`]?lan\p{L}*|qo['ʻ‘’`]?ng['ʻ‘’`]?iroq\p{L}*|bizning)(?![\p{L}\p{N}])/iu;
-const HANDLE = /(?<![\p{L}\p{N}_])(?=[a-z0-9_]*[0-9_])(?=[a-z0-9_]*[a-z])[a-z0-9_]{5,}(?![\p{L}\p{N}_])/i;
+const HANDLE = /(?<![\p{L}\p{N}_])(?=[a-z0-9_]*[0-9_])(?=[a-z0-9_]*[a-z])[a-z0-9_]{5,}(?![\p{L}\p{N}_])/iu;
 const MESSENGER_VALUE = new RegExp(String.raw`(?<![\p{L}\p{N}])${MESSENGER_NAME}(?:\s*[:=]\s*|\s+-\s+)[\p{L}\p{N}_]{3,}`, 'iu');
 
 function messengerContact(title: string): boolean {

@@ -1277,7 +1277,8 @@
             "domain_added": "Tashkilot pochta domeni qo'shildi",
             "domain_removed": "Tashkilot pochta domeni olib tashlandi",
             "ai_consent_recorded": "AI orqali ko'rib chiqishga rozilik belgilandi",
-            "ai_disabled": "Tashkilotni AI orqali ko'rib chiqish o'chirildi"
+            "ai_disabled": "Tashkilotni AI orqali ko'rib chiqish o'chirildi",
+            "contract_end_set": "Shartnoma tugash sanasi o'zgartirildi"
           },
           "member": {
             "joined": "Ishtirokchi qo'shildi",
@@ -1293,7 +1294,8 @@
             "email_confirmed": "Manzil tasdiqlandi",
             "policy_acknowledged": "Siyosat tahriri qabul qilindi",
             "signed_in_telegram": "Telegram boti orqali kirish",
-            "signed_in": "Mijoz kirdi"
+            "signed_in": "Mijoz kirdi",
+            "anonymized": "Hisob shaxssizlantirildi"
           },
           "session": {
             "revoked": "Sessiya yakunlandi",
@@ -1498,6 +1500,9 @@
             "analysis_requested": "Murojaatni kod bo'yicha tahlil qilish so'raldi",
             "analysis_timed_out": "Murojaatni kod bo'yicha tahlil qilish o'z vaqtida bajarilmadi",
             "analysis_done": "AI-xodim kod bo'yicha tahlil so'roviga javob berdi"
+          },
+          "retention": {
+            "attachments_expired": "Fayllar saqlash muddati bo'yicha o'chirildi"
           }
         },
         "words": {

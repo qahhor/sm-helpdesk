@@ -1277,7 +1277,8 @@
             "domain_added": "Organization email domain added",
             "domain_removed": "Organization email domain removed",
             "ai_consent_recorded": "AI processing consent recorded",
-            "ai_disabled": "AI processing turned off for the organization"
+            "ai_disabled": "AI processing turned off for the organization",
+            "contract_end_set": "Contract end date changed"
           },
           "member": {
             "joined": "Member added",
@@ -1293,7 +1294,8 @@
             "email_confirmed": "Address confirmed",
             "policy_acknowledged": "Policy version acknowledged",
             "signed_in_telegram": "Sign-in through the Telegram bot",
-            "signed_in": "Client signed in"
+            "signed_in": "Client signed in",
+            "anonymized": "Account anonymized"
           },
           "session": {
             "revoked": "Session ended",
@@ -1498,6 +1500,9 @@
             "analysis_requested": "Code analysis of a request asked for",
             "analysis_timed_out": "Code analysis of a request not done in time",
             "analysis_done": "AI staff answered a code analysis request"
+          },
+          "retention": {
+            "attachments_expired": "Files removed after the retention period"
           }
         },
         "words": {

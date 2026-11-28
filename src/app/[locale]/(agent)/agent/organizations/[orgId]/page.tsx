@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { getOrganization, listInvitations, listMembersForStaff, listOrgDomains, requireStaffActor } from '@/modules/hdu/api';
+import { getOrganization, listInvitations, memberForStaff, pageMembersForStaff, listOrgDomains, requireStaffActor } from '@/modules/hdu/api';
 import { EmailDomains } from './EmailDomains';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
@@ -31,20 +31,28 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const org = await getOrganization(staff, orgId);
   if (!org) notFound();
   const canManage = staff.actor.staffRole === 'care' || staff.actor.staffRole === 'admin';
-  const [members, invitations, domains] = await Promise.all([
-    listMembersForStaff(staff, org.orgId),
+  const query = await searchParams;
+  // Участники страницами по ключу с поиском по имени (проверка качества, Q20; проверка интерфейса, U8). Негодный ключ
+  // из адреса показывает первую страницу.
+  const memberQuery = firstParam(query.mq)?.trim().slice(0, 100) ?? '';
+  const memberAfter = firstParam(query.after) ?? null;
+  const [{ members, next: membersNext }, invitations, domains] = await Promise.all([
+    pageMembersForStaff(staff, org.orgId, { q: memberQuery, after: memberAfter }).catch(() => pageMembersForStaff(staff, org.orgId, { q: memberQuery })),
     canManage ? listInvitations({ ctx: staff, orgId: org.orgId }) : Promise.resolve([]),
     listOrgDomains(staff, org.orgId),
   ]);
   // Отметка пилота (план M9, решение 11): видят care и администратор, меняет администратор.
   const pilot = canSeePilot(staff) ? await isPilotOrg(staff, org.orgId) : null;
-  const query = await searchParams;
   const error = firstParam(query.error);
   const done = firstParam(query.done);
-  const confirming = members.find((m) => m.userId === firstParam(query.confirm) && m.state === 'active');
+  // Участник окна подтверждения читается по идентификатору: он может быть не на показанной странице.
+  const confirmId = firstParam(query.confirm);
+  const confirmMember = canManage && confirmId ? await memberForStaff(staff, org.orgId, confirmId) : null;
+  const confirming = confirmMember?.state === 'active' ? confirmMember : null;
   const isAdmin = staff.actor.staffRole === 'admin';
   // Обезличивание по запросу (ТЗ 14.6): только администратор, сначала подтверждение.
-  const anonymizing = isAdmin ? members.find((m) => m.userId === firstParam(query.anonymize)) : undefined;
+  const anonymizeId = firstParam(query.anonymize);
+  const anonymizing = isAdmin && anonymizeId ? await memberForStaff(staff, org.orgId, anonymizeId) : null;
   const t = await getTranslations('agent');
   const format = await getFormatter();
   const locale = await getLocale();
@@ -274,11 +282,53 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
       <EmailDomains orgId={org.orgId} domains={domains} canManage={canManage} />
 
-      <Card className="overflow-x-auto">
-        <CardHeader>
+      {/* Приглашение стоит над списком участников: до него не нужно листать (проверка интерфейса, U8). */}
+      {canManage && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-base font-semibold">{t('orgs.inviteTitle')}</h2>
+          </CardHeader>
+          <CardContent>
+            <form action={inviteStaffAction} className="flex flex-wrap items-end gap-3">
+              <input type="hidden" name="orgId" value={org.orgId} />
+              <FormField name="email" label={t('orgs.inviteEmail')} type="email" autoComplete="off" maxLength={254} required className="min-w-64 flex-1" />
+              <fieldset className="flex items-center gap-4">
+                <legend className="sr-only">{t('orgs.role')}</legend>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="radio" name="role" value="client_user" defaultChecked className="size-4 accent-primary" />
+                  {t('orgs.roles.client_user')}
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="radio" name="role" value="client_admin" className="size-4 accent-primary" />
+                  {t('orgs.roles.client_admin')}
+                </label>
+              </fieldset>
+              <Button type="submit">{t('orgs.invite')}</Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* min-w-0: широкая таблица прокручивается внутри карточки, а не растягивает страницу (проверка интерфейса, U9). */}
+      <Card className="min-w-0 overflow-x-auto" data-testid="org-members">
+        <CardHeader className="flex flex-col gap-3">
           <h2 className="text-base font-semibold">{t('orgs.membersTitle')}</h2>
+          <form method="get" role="search" className="flex flex-wrap items-end gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <Label htmlFor="field-member-q">{t('orgs.memberSearch')}</Label>
+              <Input id="field-member-q" name="mq" type="search" maxLength={100} defaultValue={memberQuery} />
+            </div>
+            <Button type="submit" variant="secondary">
+              {t('orgs.memberSearchSubmit')}
+            </Button>
+          </form>
         </CardHeader>
-        <table className="w-full text-sm">
+        {members.length === 0 && (
+          <CardContent>
+            <p className="text-sm text-secondary-foreground">{t('orgs.membersEmpty')}</p>
+          </CardContent>
+        )}
+        <table className="w-full text-sm" hidden={members.length === 0}>
           <thead>
             <tr className="border-b border-border">
               <th scope="col" className={head}>{t('orgs.memberName')}</th>
@@ -344,34 +394,28 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             ))}
           </tbody>
         </table>
+        {(membersNext || memberAfter) && (
+          <CardContent className="flex flex-wrap gap-4 pt-3">
+            {memberAfter && (
+              <Link href={`/agent/organizations/${org.orgId}${memberQuery ? `?mq=${encodeURIComponent(memberQuery)}` : ''}`} className="text-sm font-medium text-link underline-offset-2 hover:underline">
+                {t('orgs.membersFirst')}
+              </Link>
+            )}
+            {membersNext && (
+              <Link
+                href={`/agent/organizations/${org.orgId}?${new URLSearchParams({ ...(memberQuery ? { mq: memberQuery } : {}), after: membersNext }).toString()}`}
+                className="text-sm font-medium text-link underline-offset-2 hover:underline"
+                data-testid="members-next"
+              >
+                {t('orgs.membersNext')}
+              </Link>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {canManage && (
         <>
-          <Card>
-            <CardHeader>
-              <h2 className="text-base font-semibold">{t('orgs.inviteTitle')}</h2>
-            </CardHeader>
-            <CardContent>
-              <form action={inviteStaffAction} className="flex flex-wrap items-end gap-3">
-                <input type="hidden" name="orgId" value={org.orgId} />
-                <FormField name="email" label={t('orgs.inviteEmail')} type="email" autoComplete="off" maxLength={254} required className="min-w-64 flex-1" />
-                <fieldset className="flex items-center gap-4">
-                  <legend className="sr-only">{t('orgs.role')}</legend>
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input type="radio" name="role" value="client_user" defaultChecked className="size-4 accent-primary" />
-                    {t('orgs.roles.client_user')}
-                  </label>
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input type="radio" name="role" value="client_admin" className="size-4 accent-primary" />
-                    {t('orgs.roles.client_admin')}
-                  </label>
-                </fieldset>
-                <Button type="submit">{t('orgs.invite')}</Button>
-              </form>
-            </CardContent>
-          </Card>
-
           <Card className="overflow-x-auto">
             <CardHeader>
               <h2 className="text-base font-semibold">{t('orgs.invitationsTitle')}</h2>

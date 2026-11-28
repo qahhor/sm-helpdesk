@@ -1,6 +1,6 @@
 import 'server-only';
 import { isActiveModule } from '@/modules/hdr/api';
-import { listMembersForStaff, type StaffContext } from '@/modules/hdu/api';
+import { memberForStaff, type StaffContext } from '@/modules/hdu/api';
 import { assertCanWrite } from '../core/agent-actions';
 import { createTicketForClientTx } from '../core/tickets';
 import { HdtError } from '../error';
@@ -19,8 +19,10 @@ export async function createTicketForClient(ctx: StaffContext, input: unknown): 
   const data = parseInput(staffCreateInput, input);
   if (new Set(data.attachmentIds).size > MAX_FILES_PER_MESSAGE) throw new HdtError('too_many_files');
   if (data.moduleId && !(await isActiveModule(ctx.actor, data.moduleId))) throw new HdtError('invalid_input');
-  const members = await listMembersForStaff(ctx, data.orgId).catch(() => []);
-  if (!members.some((member) => member.userId === data.authorId && member.state === 'active')) throw new HdtError('invalid_input');
+  // Автор: действующий участник выбранной организации. Одна строка по ключу, а не весь список (проверка качества, Q20).
+  // Чужая ошибка не глотается (Q16): отказ в праве остаётся отказом, сбой базы остаётся сбоем.
+  const author = await memberForStaff(ctx, data.orgId, data.authorId);
+  if (author?.state !== 'active') throw new HdtError('invalid_input');
   const { number, ticketId } = await createTicketForClientTx(ctx.actor, {
     ...data,
     title: data.title ?? titleFromDescription(data.description),

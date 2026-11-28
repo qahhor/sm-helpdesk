@@ -65,7 +65,7 @@ export {
   telegramEnabled,
   unlinkTelegram,
 } from './api/telegram';
-export { changeMemberRole, listMembers, listMembersForStaff, type MemberView, setMemberState } from './api/members';
+export { changeMemberRole, memberForStaff, memberOfOrg, type MembersPage, type MemberView, pageMembers, pageMembersForStaff, setMemberState } from './api/members';
 export { nextRequest } from './api/next-request';
 export type { RequestInfo, SessionData } from './api/request';
 export type { StaffContext } from './api/session';

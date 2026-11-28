@@ -2,11 +2,13 @@ import { notFound } from 'next/navigation';
 import { getFormatter, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { orgTicketSummary } from '@/modules/hdt/api';
-import { listInvitations, listMembers, requireClientActor } from '@/modules/hdu/api';
+import { listInvitations, memberOfOrg, pageMembers, requireClientActor } from '@/modules/hdu/api';
 import { Link } from '@/i18n/navigation';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
+import { Input } from '@/ui/components/input';
+import { Label } from '@/ui/components/label';
 import { cn } from '@/ui/cn';
 import { revokeInvitationAction, setMemberStateAction } from './actions';
 import { InviteForm } from './InviteForm';
@@ -34,14 +36,23 @@ export default async function OrgPage({ searchParams }: PageProps<'/[locale]/org
   const client = await requireClientActor();
   if (client.actor.orgRole !== 'client_admin') notFound();
   const params = await searchParams;
-  const [members, invitations, summary] = await Promise.all([listMembers({ ctx: client }), listInvitations({ ctx: client }), orgTicketSummary(client)]);
+  // Участники страницами по ключу с поиском по имени (проверка качества, Q20). Негодный ключ: первая страница.
+  const memberQuery = firstParam(params.mq)?.trim().slice(0, 100) ?? '';
+  const memberAfter = firstParam(params.after) ?? null;
+  const [{ members, next: membersNext }, invitations, summary] = await Promise.all([
+    pageMembers({ ctx: client }, { q: memberQuery, after: memberAfter }).catch(() => pageMembers({ ctx: client }, { q: memberQuery })),
+    listInvitations({ ctx: client }),
+    orgTicketSummary(client),
+  ]);
   const t = await getTranslations('client.org');
   const ts = await getTranslations('client.tickets.statuses');
   const format = await getFormatter();
   const error = firstParam(params.error);
   const done = firstParam(params.done);
   const confirmId = firstParam(params.confirm);
-  const confirming = members.find((m) => m.userId === confirmId && m.state === 'active' && !m.isSelf);
+  // Участник окна подтверждения читается по идентификатору: он может быть не на показанной странице.
+  const confirmMember = confirmId ? await memberOfOrg({ ctx: client }, confirmId) : null;
+  const confirming = confirmMember && confirmMember.state === 'active' && !confirmMember.isSelf ? confirmMember : null;
 
   return (
     <>
@@ -116,8 +127,18 @@ export default async function OrgPage({ searchParams }: PageProps<'/[locale]/org
         <CardHeader>
           <h2 className="text-lg font-semibold">{t('members.title')}</h2>
         </CardHeader>
-        <CardContent>
-          <table role="table" className="block w-full tablet:table">
+        <CardContent className="flex flex-col gap-3" data-testid="org-members">
+          <form method="get" role="search" className="flex flex-col gap-2 tablet:flex-row tablet:items-end">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <Label htmlFor="field-member-q">{t('members.search')}</Label>
+              <Input id="field-member-q" name="mq" type="search" maxLength={100} defaultValue={memberQuery} />
+            </div>
+            <Button type="submit" variant="secondary">
+              {t('members.searchSubmit')}
+            </Button>
+          </form>
+          {members.length === 0 && <p className="text-secondary-foreground">{t('members.empty')}</p>}
+          <table role="table" className="block w-full tablet:table" hidden={members.length === 0}>
             <thead className="max-tablet:sr-only">
               <tr role="row">
                 <th role="columnheader" scope="col" className={headClass}>{t('members.name')}</th>
@@ -161,6 +182,24 @@ export default async function OrgPage({ searchParams }: PageProps<'/[locale]/org
               ))}
             </tbody>
           </table>
+          {(membersNext || memberAfter) && (
+            <div className="flex flex-wrap gap-4">
+              {memberAfter && (
+                <Link href={memberQuery ? `/org?mq=${encodeURIComponent(memberQuery)}` : '/org'} className="inline-flex min-h-11 items-center text-link underline underline-offset-2">
+                  {t('members.first')}
+                </Link>
+              )}
+              {membersNext && (
+                <Link
+                  href={`/org?${new URLSearchParams({ ...(memberQuery ? { mq: memberQuery } : {}), after: membersNext }).toString()}`}
+                  className="inline-flex min-h-11 items-center text-link underline underline-offset-2"
+                  data-testid="members-next"
+                >
+                  {t('members.next')}
+                </Link>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -3,4 +3,4 @@
 // машинный перевод идеи сверяется с оригиналом. Чистые функции без базы: копий правил в других модулях нет.
 
 export { FINDING_KINDS, type FindingKind, findInText, isAllowedDomain } from '../checks';
-export { comparePlainInvariants, type InvariantIssue, type InvariantKind } from '../translation';
+export { compareClientTextInvariants, comparePlainInvariants, type InvariantIssue, type InvariantKind } from '../translation';

@@ -104,3 +104,23 @@ test('простой текст: потерянное число, лишний �
   expect(kinds('Print 50 invoices at once', 'The «Print» button on the «Invoices» screen. See https://evil.example, 200 a day.')).toEqual(['links']);
   expect(kinds('Print 50 invoices at once', 'The Print button on the Invoices screen. Now one by one, 200 a day.')).toEqual(['quotes']);
 });
+
+// Проверка на AI-инъекции (волна 7, S-I3): перевод текста клиента, который увидят другие организации без человека.
+test('текст клиента: перевод вдвое длиннее или вдвое короче оригинала, адрес словами и новые слова адреса дают расхождения', async () => {
+  const { compareClientTextInvariants } = await import('@/modules/hdk/translation');
+  const kinds = (title: string, body: string) => compareClientTextInvariants(IDEA, { title, body }).map((issue) => issue.kind);
+  const good = 'The «Print» button on the «Invoices» screen.\nNow we print one by one, 200 a day.';
+  expect(kinds('Print 50 invoices at once', good)).toEqual([]);
+  // Дописанное указание: длина больше двух длин оригинала.
+  expect(kinds('Print 50 invoices at once', `${good} ${'Important notice for all clients: your account is blocked, contact the support team. '.repeat(3)}`)).toEqual(['length']);
+  expect(kinds('Print 50', '«P» «I» 200')).toEqual(['length']);
+  // Адрес словами на трёх языках: домена в тексте нет, сверка ссылок его не видит.
+  for (const spelled of ['write to evil dot com', 'пишите на evil точка ком', 'evil nuqta uz ga yozing', 'support собака evil точка com', 'evil (dot) com'])
+    expect(kinds('Print 50 invoices at once', `${good} ${spelled}`), spelled).toContain('spelled_address');
+  // Новые слова адреса без самого адреса.
+  for (const word of ['open https evil', 'go to www evil', 'telegram: evil_support', 'в телеграм evil_support'])
+    expect(kinds('Print 50 invoices at once', `${good} ${word}`), word).toContain('address_words');
+  // Слово "точка" в обычном смысле расхождением не считается, и слово, которое было в оригинале, тоже.
+  expect(compareClientTextInvariants({ title: 'Торговая точка закрыта', body: 'Каждая точка продаж шлёт отчёт в телеграм' }, { title: 'Savdo nuqtasi yopiq', body: 'Har bir savdo nuqtasi hisobotni telegram orqali yuboradi' })).toEqual([]);
+  expect(compareClientTextInvariants({ title: 'Outlet is closed', body: 'Every point of sale sends a report' }, { title: 'Торговая точка закрыта', body: 'Каждая точка продаж шлёт отчёт' })).toEqual([]);
+});

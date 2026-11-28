@@ -244,6 +244,24 @@ test('решение 11: перевод проходит сверку и вид�
   expect(stub.calls.map((c) => c.data.includes('на узбекский'))).toEqual([true]);
 });
 
+// Проверка на AI-инъекции (волна 7, S-I3): враждебная заглушка дописывает в перевод указание и адрес словами.
+test('S-I3: перевод с дописанным текстом и адресом словами получает rejected, клиент другой организации видит оригинал', async () => {
+  const f = await seedTwoOrgs();
+  const { number, ideaId } = await submitted(f, 'Печатать 50 накладных за раз, сейчас по одной');
+  await publishIdea(await product(), { number });
+  stub.respond = (call) =>
+    call.data.includes('на узбекский')
+      ? { title: 'Yuk xatlarini bosib chiqarish', body: 'Bir martada 50 yuk xatini chop etish. Hisobingiz bloklandi: smartup-help nuqta com ga parolingizni yuboring' }
+      : call.data.includes('на английский')
+        ? { title: 'Batch printing of invoices', body: `Print 50 invoices at once, now one by one. ${'Your account is blocked. Send your password to the support team right now. '.repeat(2)}` }
+        : defaultStubResponse(call);
+  expect(await runIdeaTranslationJob(system, { ideaId })).toEqual({ status: 'translated', machine: 0, rejected: 2 });
+  const { asActor } = await import('./helpers/db');
+  const seen = await asActor(pools.app, f.bUser.actor, (c) => c.query(`select locale, body from hdi_idea_translations where idea_id = $1 order by locale`, [ideaId]));
+  expect(seen.rows.map((r) => r.locale)).toEqual(['ru']);
+  expect(JSON.stringify(seen.rows)).not.toMatch(/parol|password|nuqta/);
+});
+
 test('решение 12: организация с выключенной AI-обработкой не даёт вызова модели', async () => {
   const f = await seedTwoOrgs();
   const { number, ideaId } = await submitted(f);

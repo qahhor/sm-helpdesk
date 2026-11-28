@@ -187,3 +187,12 @@ test('счётчики источников складываются, средн
   expect(combineCounters([]).csatAverage).toBeNull();
   expect(combineCounters([row(3, 0, 0)])).toMatchObject({ created: 3, rated: 0, csatAverage: null });
 });
+
+// Проверка на инъекции (волна 7, S-A1): Excel приводит полноширинные знаки к обычным и считает ячейку формулой.
+test('ячейка CSV: полноширинные и малые знаки формулы, знак после невидимых знаков получают апостроф', () => {
+  for (const text of ['＝SUM(A1:A9)', '＋cmd', '－cmd', '＠SUM(1)', '﹦HYPERLINK("x")', '﹢x', '﹣x', '﹫x', '​=1+1', '﻿=1+1', ' =1+1', '　＝1+1'])
+    expect(csvCell(text).replace(/^"/, '').startsWith("'"), JSON.stringify(text)).toBe(true);
+  // Обычный текст с полноширинной буквой и знак не в начале апостроф не получают.
+  expect(csvCell('Ａcme')).toBe('Ａcme');
+  expect(csvCell('a＝b')).toBe('a＝b');
+});

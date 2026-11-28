@@ -54,3 +54,44 @@ test('карточка организации на 768: страница не п
   await expect(page.getByTestId('org-members')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
 });
+
+// Проверка интерфейса, второй проход (F2): строка приоритета в настройках сроков шла в пять колонок с 600 px, и в
+// поле срока была видна одна цифра, а единица срока (минуты или рабочие дни) не читалась ни на одной ширине.
+test('настройки сроков: число и единица срока читаются целиком на 600, 768, 1024 и 1280', async ({ page }) => {
+  for (const width of [600, 768, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/ru/agent/settings/sla');
+    await expect(page.locator('#res-p1')).toBeVisible();
+    const cramped = await page.evaluate(() => {
+      const canvas = document.createElement('canvas').getContext('2d')!;
+      /** Сколько места остаётся в поле числа после текста: отступы и кнопки числа вычтены. */
+      const room = (el: HTMLElement, text: string) => {
+        const style = getComputedStyle(el);
+        canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        const spinner = 24;
+        return el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - spinner - canvas.measureText(text).width;
+      };
+      /** Ширина, которую браузер сам отводит списку под самую длинную подпись и стрелку. */
+      const natural = (select: HTMLSelectElement) => {
+        const copy = select.cloneNode(true) as HTMLSelectElement;
+        copy.style.cssText = 'position:absolute;visibility:hidden;width:max-content;min-width:0;flex:none';
+        select.parentElement!.append(copy);
+        const width = copy.offsetWidth;
+        copy.remove();
+        return width;
+      };
+      const out: string[] = [];
+      for (const form of document.querySelectorAll<HTMLFormElement>('section[aria-labelledby="sla-policies"] form')) {
+        const priority = form.querySelector<HTMLInputElement>('input[name="priority"]')!.value;
+        for (const select of form.querySelectorAll('select'))
+          if (select.offsetWidth < natural(select)) out.push(`${priority} ${select.name}: ${select.offsetWidth} px из ${natural(select)}`);
+        // Пять цифр: срок в минутах до нескольких недель.
+        for (const input of form.querySelectorAll<HTMLInputElement>('input[type="number"]'))
+          if (room(input, '00000') < 0) out.push(`${priority} ${input.name}: пять цифр в ${input.clientWidth} px`);
+      }
+      return out;
+    });
+    expect(cramped, `ширина ${width}`).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `ширина ${width}`).toBe(true);
+  }
+});

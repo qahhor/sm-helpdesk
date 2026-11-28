@@ -7,7 +7,7 @@ import { alertsRunbookCheck } from './alerts-runbook.mjs';
 import { frCoverageCheck } from './fr-coverage.mjs';
 import { guidesCheck } from './guides.mjs';
 import { securityDocsCheck } from './security-docs.mjs';
-import { definedBreakpoints, findDeadBreakpoints } from './breakpoints.mjs';
+import { definedBreakpoints, findArbitraryBreakpoints, findDeadBreakpoints } from './breakpoints.mjs';
 import { checkContrast } from './contrast.mjs';
 import { cspPagesGaps } from './csp-pages.mjs';
 import { findDashes, isDashCheckedFile } from './dashes.mjs';
@@ -58,6 +58,7 @@ for (const path of listFiles()) {
     if (/\.(?:ts|tsx)$/.test(path)) {
       for (const v of findForbiddenApis(path, text)) violations.push({ path, line: v.line, rule: v.rule });
       for (const v of findDeadBreakpoints(text, breakpoints)) violations.push({ path, line: v.line, rule: v.rule });
+      for (const v of findArbitraryBreakpoints(text)) violations.push({ path, line: v.line, rule: v.rule });
     }
     for (const v of findUiRuleViolations(path, text)) violations.push({ path, line: v.line, rule: v.rule });
     if (findMissingServerOnly(path, text)) violations.push({ path, line: 1, rule: 'server-only' });

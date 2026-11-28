@@ -8,5 +8,6 @@ import { showcaseEnabled } from '@/ui/showcase';
 export default async function DevErrorPage({ searchParams }: PageProps<'/[locale]/dev/error'>) {
   if (!showcaseEnabled(getEnv())) notFound();
   if (firstParam((await searchParams).fail) === '1') throw new Error('проверочная ошибка страницы');
-  return <p data-testid="dev-error-ready">fail=1</p>;
+  // Без текста: строки интерфейса живут только в messages, а этой странице подпись не нужна.
+  return <div data-testid="dev-error-ready" />;
 }

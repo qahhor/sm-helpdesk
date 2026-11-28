@@ -326,7 +326,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </CardHeader>
         {members.length === 0 && (
           <CardContent>
-            <p className="text-sm text-secondary-foreground">{t('orgs.membersEmpty')}</p>
+            <p className="text-sm text-secondary-foreground">{t(memberQuery ? 'orgs.membersEmpty' : 'orgs.membersNone')}</p>
           </CardContent>
         )}
         <table className="w-full text-sm" hidden={members.length === 0}>

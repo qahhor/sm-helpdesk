@@ -112,7 +112,7 @@ export async function AiMessage({ client, number, messageId, payload, createdOn,
             {solution.title}
           </h3>
           <div lang={solution.locale} data-testid="tez-steps">
-            <DocView doc={solution.doc} labels={{ warning: s('view.warning'), info: s('view.info'), step: (n) => s('view.step', { n }) }} imageSrc={() => null} />
+            <DocView doc={solution.doc} labels={{ warning: s('view.warning'), info: s('view.info'), step: (n) => s('view.step', { n }) }} imageSrc={() => null} hideEmptySections />
           </div>
           <Link href={`/help/a/${page.canonicalRef}`} className="self-start text-link underline underline-offset-2">
             {t('openFull')}

@@ -257,7 +257,7 @@
         },
         "turn": {
           "client": "Navbat sizda",
-          "support": "Hozir yordam xizmati javob beradi",
+          "support": "Hozir qo'llab-quvvatlash xizmati javob bermoqda",
           "none": "Murojaat yopilgan"
         },
         "related": "{number} murojaatining davomi",
@@ -564,7 +564,8 @@
         "searchSubmit": "Topish",
         "next": "Keyingilarini ko'rsatish",
         "first": "Ro'yxat boshiga",
-        "empty": "Bunday ismli ishtirokchi yo'q."
+        "empty": "Bunday ismli ishtirokchi yo'q.",
+        "none": "Hozircha ishtirokchilar yo'q."
       },
       "invitations": {
         "title": "Takliflar",
@@ -947,7 +948,8 @@
       "memberSearchSubmit": "Topish",
       "membersNext": "Keyingilarini ko'rsatish",
       "membersFirst": "Ro'yxat boshiga",
-      "membersEmpty": "Bunday ismli ishtirokchi yo'q."
+      "membersEmpty": "Bunday ismli ishtirokchi yo'q.",
+      "membersNone": "Hozircha a'zolar yo'q."
     },
     "settings": {
       "title": "Sozlamalar",

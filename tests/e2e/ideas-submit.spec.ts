@@ -69,3 +69,24 @@ test('форма новой идеи без серьёзных нарушени�
   await page.setViewportSize({ width: 360, height: 740 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+// Проверка интерфейса, второй проход (F3; UX-C-10): ошибка сервера стояла только в начале формы, за экраном телефона,
+// и фокус оставался на странице: после нажатия "Отправить идею" человек не видел ничего.
+test('после ошибки сервера сообщение видно на экране и получает фокус, модуль и флажок остаются', async ({ page }) => {
+  await page.goto('/ru/ideas/new');
+  await expect(page.locator('form[data-ready]')).toBeVisible();
+  await page.getByLabel('Заголовок').fill('');
+  await page.getByLabel('Описание').fill('Печатать все накладные дня одной кнопкой, без открытия каждой.');
+  const modulePick = page.locator('#idea-module');
+  const hasModules = (await modulePick.count()) > 0;
+  if (hasModules) await modulePick.selectOption({ index: 1 });
+  const chosen = hasModules ? await modulePick.inputValue() : '';
+  await page.locator('#idea-show-org').check();
+  await page.getByRole('button', { name: 'Отправить идею' }).click();
+  const error = page.getByTestId('idea-form-error');
+  await expect(error).toBeVisible();
+  await expect(error).toBeFocused();
+  await expect(error).toBeInViewport();
+  if (hasModules) await expect(modulePick).toHaveValue(chosen);
+  await expect(page.locator('#idea-show-org')).toBeChecked();
+});

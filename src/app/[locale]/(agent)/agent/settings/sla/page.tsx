@@ -75,9 +75,11 @@ export default async function SlaSettingsPage({ searchParams }: { searchParams: 
             return (
               <Card key={priority}>
                 <CardContent className="pt-6">
-                  <form action={saveSlaPolicyAction} className="grid gap-3 tablet:grid-cols-5 tablet:items-end">
+                  {/* Столбиком до 1024 px, дальше две колонки: в одну строку из пяти колонок число срока и его
+                      единица не помещались ни на 600, ни на 1280 (проверка интерфейса, второй проход, F2). */}
+                  <form action={saveSlaPolicyAction} className="grid gap-3 laptop:grid-cols-2 laptop:items-end">
                     <input type="hidden" name="priority" value={priority} />
-                    <p className="font-semibold tablet:self-center">{priority.toUpperCase()}</p>
+                    <p className="font-semibold laptop:col-span-2">{priority.toUpperCase()}</p>
                     <div className="flex flex-col gap-1">
                       <Label htmlFor={`fr-${priority}`}>{t('settings.sla.firstResponse')}</Label>
                       <Input id={`fr-${priority}`} name="firstResponseMinutes" type="number" min={1} required defaultValue={policy.firstResponseMinutes} />
@@ -86,7 +88,8 @@ export default async function SlaSettingsPage({ searchParams }: { searchParams: 
                       <Label htmlFor={`res-${priority}`}>{t('settings.sla.resolution')}</Label>
                       <div className="flex gap-2">
                         <Input id={`res-${priority}`} name="resolutionValue" type="number" min={1} required defaultValue={policy.resolutionDays ?? policy.resolutionMinutes ?? ''} />
-                        <Select name="resolutionKind" defaultValue={kind} aria-label={t('settings.sla.resolutionKind')}>
+                        {/* Список единицы занимает ширину своей самой длинной подписи, остальное место у числа. */}
+                        <Select name="resolutionKind" defaultValue={kind} aria-label={t('settings.sla.resolutionKind')} className="w-auto shrink-0">
                           <option value="minutes">{t('settings.sla.minutes')}</option>
                           <option value="days">{t('settings.sla.days')}</option>
                         </Select>
@@ -99,7 +102,7 @@ export default async function SlaSettingsPage({ searchParams }: { searchParams: 
                         <option value="24x7">{t('settings.sla.clock24x7')}</option>
                       </Select>
                     </div>
-                    <Button type="submit" variant="secondary">
+                    <Button type="submit" variant="secondary" className="justify-self-start">
                       {t('settings.sla.save')}
                     </Button>
                   </form>

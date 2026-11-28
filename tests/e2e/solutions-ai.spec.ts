@@ -23,7 +23,7 @@ async function ticketInProgress(): Promise<number> {
     `select m.user_id, m.org_id from hdu_memberships m join hdu_organizations o on o.org_id = m.org_id where o.name = 'ACME Trade' and m.state = 'active' limit 1`,
   );
   if (!client) throw new Error('нет клиента ACME Trade');
-  await dbRows(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [client.org_id]);
+  await dbRows(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие ' || clock_timestamp()::text where org_id = $1`, [client.org_id]);
   const [ticket] = await dbRows<{ ticket_id: string; number: string }>(
     `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source, status, module_id)
      values ($1, $2, 'bug', 'minor', 'p3', 'org', $3, 'Документ не проводится, пишет про закрытый период', 'ru', 'portal', 'in_progress',

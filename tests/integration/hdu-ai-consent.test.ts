@@ -159,3 +159,23 @@ test('флажок "AI-обработка новых организаций ср
   ]);
   await expect(saveAiSettings(staffCtx(f.care), { ...form, newOrgDefault: 'on' })).rejects.toMatchObject({ code: 'forbidden' });
 });
+
+test('повторное включение после выключения требует новой отметки в том же UPDATE; код ставит её и с теми же значениями (проверка M9, M5)', async () => {
+  const ctx = staffCtx(f.care);
+  await setOrgAiProcessing(ctx, { orgId: f.orgA.orgId, enabled: true, consentOn: '2026-11-20', consentRef: 'Письмо' }, NOW);
+  await setOrgAiProcessing(ctx, { orgId: f.orgA.orgId, enabled: false }, NOW);
+  // Прежняя отметка осталась, но включить обработку одним признаком в обход кода нельзя.
+  await expect(pools.root.query(`update hdu_organizations set is_ai_enabled = true where org_id = $1`, [f.orgA.orgId])).rejects.toThrow(/согласи/);
+  await expect(pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = ai_consent_on, ai_consent_ref = ai_consent_ref where org_id = $1`, [f.orgA.orgId])).rejects.toThrow(/согласи/);
+  // Новая отметка в том же UPDATE проходит.
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_ref = 'Письмо 2' where org_id = $1`, [f.orgA.orgId]);
+  await setOrgAiProcessing(ctx, { orgId: f.orgA.orgId, enabled: false }, NOW);
+  // Код включает обработку и с той же датой и основанием: отметка ставится заново, журнал пишется.
+  await setOrgAiProcessing(ctx, { orgId: f.orgA.orgId, enabled: true, consentOn: '2026-11-20', consentRef: 'Письмо 2' }, NOW);
+  expect(await org(f.orgA.orgId)).toEqual({ is_ai_enabled: true, consent_on: '2026-11-20', ai_consent_ref: 'Письмо 2' });
+  expect((await audits('org.ai_consent_recorded')).map((r) => r.diff)).toEqual([
+    // Организация набора начинает с включённой обработкой.
+    { consentOn: '2026-11-20', consentRef: 'Письмо', wasEnabled: true },
+    { consentOn: '2026-11-20', consentRef: 'Письмо 2', wasEnabled: false },
+  ]);
+});

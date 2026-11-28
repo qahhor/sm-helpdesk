@@ -71,7 +71,7 @@ test('помощник не включается: AI-обработка орга
   expect(await newQueue()).toContain(off.number);
   expect(jobs.sent.filter((j) => j.name.startsWith('ai.'))).toEqual([]);
 
-  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [f.orgA.orgId]);
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие ' || clock_timestamp()::text where org_id = $1`, [f.orgA.orgId]);
   await pools.root.query(`update hdc_settings set value = 'false'::jsonb where code = 'ai.enabled'`);
   expect((await ticket((await portalTicket()).ticketId)).ai_state).toBe('none');
 

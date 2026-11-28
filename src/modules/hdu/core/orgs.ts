@@ -163,6 +163,9 @@ export async function setOrgAiProcessingTx(tx: Tx, actor: StaffActor, input: Org
     await writeAudit(tx, { action: 'org.ai_disabled', objectType: 'organization', objectId: input.orgId, orgId: input.orgId });
     return true;
   }
+  // База включает выключенную организацию только с отметкой, поставленной в том же UPDATE (миграция 0129): прежняя
+  // отметка сначала снимается, тогда и та же дата с тем же основанием ставятся заново (проверка M9, M5).
+  if (!current.isAiEnabled) await tx.update(organizations).set({ aiConsentOn: null, aiConsentRef: null }).where(eq(organizations.orgId, input.orgId));
   await tx
     .update(organizations)
     .set({ isAiEnabled: true, aiConsentOn: input.consentOn, aiConsentRef: input.consentRef })

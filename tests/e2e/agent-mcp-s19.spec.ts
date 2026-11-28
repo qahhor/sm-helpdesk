@@ -23,7 +23,7 @@ test('сценарий 19: агент через сервер MCP читает �
     [name],
   );
   // Агент видит только организации с AI-обработкой; новая организация получает её только отметкой согласия (план M9, решение 10).
-  await dbRows(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [member!.org_id]);
+  await dbRows(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие ' || clock_timestamp()::text where org_id = $1`, [member!.org_id]);
   const firstName = name.split(' ')[0]!;
   const [ticket] = await dbRows<{ number: string }>(
     `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source)

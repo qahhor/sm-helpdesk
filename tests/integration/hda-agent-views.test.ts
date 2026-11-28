@@ -128,7 +128,7 @@ test('идеи без авторов и без идей организаций �
   const { f, main } = await setup();
   // Опубликованная идея Б не видна: AI-обработка Б выключена.
   expect(await read(main.actor, `select 1 from hda_agent_ideas`)).toEqual([]);
-  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [f.orgB.orgId]);
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие ' || clock_timestamp()::text where org_id = $1`, [f.orgB.orgId]);
   const ideas = await read(main.actor, `select status, title, body, vote_count from hda_agent_ideas`);
   // Идеи на модерации не видны, опубликованная видна с текстом языка оригинала.
   expect(ideas).toEqual([expect.objectContaining({ status: 'open', title: 'Идея', body: 'Описание' })]);
@@ -149,7 +149,7 @@ test('токен запуска видит только своё обращен�
 
 test('отозванный токен и не агент не видят ни одной строки ни одного представления', async () => {
   const { f, main } = await setup();
-  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие' where org_id = $1`, [f.orgB.orgId]);
+  await pools.root.query(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие ' || clock_timestamp()::text where org_id = $1`, [f.orgB.orgId]);
   for (const view of VIEWS) expect((await read(main.actor, `select 1 from ${view}`)).length, view).toBeGreaterThan(0);
   for (const actor of [f.adminStaff.actor, f.aUser.actor, { type: 'system', job: 'test' } as const]) for (const view of VIEWS) expect(await read(actor, `select 1 from ${view}`), view).toEqual([]);
   await pools.root.query(`update hda_agent_tokens set revoked_at = now() where token_id = $1`, [main.tokenId]);

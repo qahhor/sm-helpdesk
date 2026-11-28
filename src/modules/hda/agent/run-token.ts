@@ -25,7 +25,7 @@ export type RunToken = { tokenId: string; value: string; expiresAt: Date; tools:
 export async function issueTicketRunTokenTx(
   tx: Tx,
   system: SystemActor,
-  input: { parentTokenId: string; ticketId: string; purpose?: 'ticket' | 'code_analysis' },
+  input: { parentTokenId: string; ticketId: string; purpose?: 'ticket' | 'code_analysis'; eventId?: string },
   now: Date = new Date(),
 ): Promise<RunToken | null> {
   if (system.type !== 'system') throw new Error('Токен запуска выпускает только система');
@@ -69,7 +69,13 @@ export async function issueTicketRunTokenTx(
     noteLimit: RUN_NOTE_LIMIT,
     purpose,
   });
-  await writeAudit(tx, { action: 'agent.run_token_issued', objectType: 'agent_token', objectId: tokenId, diff: { parentId: parent.tokenId, ticketId: input.ticketId, purpose, tools } });
+  // В описании событие, ради которого выпущен токен, и учётная запись AI-сотрудника (независимая проверка M9, M7).
+  await writeAudit(tx, {
+    action: 'agent.run_token_issued',
+    objectType: 'agent_token',
+    objectId: tokenId,
+    diff: { parentId: parent.tokenId, ticketId: input.ticketId, purpose, tools, staffUserId: parent.userId, ...(input.eventId !== undefined && { eventId: input.eventId }) },
+  });
   return { tokenId, value, expiresAt, tools };
 }
 

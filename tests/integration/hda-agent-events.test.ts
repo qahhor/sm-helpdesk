@@ -110,6 +110,10 @@ test('передача несёт токен запуска, если отмеч
   const [row] = (await pools.root.query(`select run_token_id from hda_agent_events where kind = 'ai_handoff'`)).rows;
   const token = (await pools.root.query(`select parent_token_id, ticket_id, revoked_at from hda_agent_tokens where token_id = $1`, [row.run_token_id])).rows[0];
   expect(token).toMatchObject({ parent_token_id: parent.tokenId, ticket_id: f.tickets.aOrg.ticketId, revoked_at: null });
+  // Запись журнала о выпуске называет событие и учётную запись AI-сотрудника (независимая проверка M9, M7).
+  const [event] = (await pools.root.query(`select event_id from hda_agent_events where kind = 'ai_handoff'`)).rows;
+  const [issued] = (await pools.root.query(`select diff from hdc_audit_log where action = 'agent.run_token_issued' and object_id = $1`, [row.run_token_id])).rows;
+  expect(issued.diff).toMatchObject({ parentId: parent.tokenId, eventId: event.event_id, staffUserId: parent.userId });
   // Новое событие по тому же обращению выпускает новый токен и отзывает прежний.
   await domainEvent(f.tickets.aOrg.ticketId, f.orgA.orgId, 'ai_handoff', { reason: 'customer_request' });
   await drain();

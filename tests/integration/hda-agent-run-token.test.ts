@@ -150,7 +150,8 @@ test('выпуск и отзыв токена запуска пишут журн
       actor_type: 'system',
       object_type: 'agent_token',
       object_id: first.tokenId,
-      diff: { parentId: parent.tokenId, ticketId: f.tickets.aOrg.ticketId, purpose: 'ticket', tools: ['get_ticket', 'add_internal_note'] },
+      // Без события (выпуск напрямую) eventId нет; учётная запись AI-сотрудника названа всегда (проверка M9, M7).
+      diff: { parentId: parent.tokenId, ticketId: f.tickets.aOrg.ticketId, purpose: 'ticket', tools: ['get_ticket', 'add_internal_note'], staffUserId: parent.userId },
     },
   ]);
   // Повторный выпуск по тому же обращению отзывает прежний: запись об отзыве с причиной.

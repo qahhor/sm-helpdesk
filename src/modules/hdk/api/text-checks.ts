@@ -2,5 +2,5 @@
 // (FR-SOL-04): идеи и комментарии ищут в тексте телефоны, email, ИНН, ПИНФЛ, адреса серверов и внутренние имена,
 // машинный перевод идеи сверяется с оригиналом. Чистые функции без базы: копий правил в других модулях нет.
 
-export { FINDING_KINDS, type FindingKind, findInText, isAllowedDomain } from '../checks';
+export { FINDING_KINDS, type FindingKind, findAiPhrases, findInText, isAllowedDomain } from '../checks';
 export { compareClientTextInvariants, comparePlainInvariants, type InvariantIssue, type InvariantKind } from '../translation';

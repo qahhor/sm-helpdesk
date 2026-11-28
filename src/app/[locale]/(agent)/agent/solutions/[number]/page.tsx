@@ -76,7 +76,7 @@ const SCREENSHOT_KEYS = [
   'canvas',
 ] as const satisfies readonly (keyof ScreenshotLabels)[];
 const ERRORS = new Set(['forbidden', 'invalid_input', 'not_found', 'no_original']);
-const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link'] as const;
+const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link', 'ai_phrase'] as const;
 
 export default async function SolutionEditorPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<{ done?: string; error?: string; locale?: string; signature?: string; taken?: string }> }) {
   const staff = await requireStaffActor();

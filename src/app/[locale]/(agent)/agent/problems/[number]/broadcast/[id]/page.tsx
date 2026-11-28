@@ -17,7 +17,7 @@ import { confirmBroadcastAction } from '../../../actions';
 // уходит то, что стоит в поле при подтверждении), "Получат: N обращений, M организаций" и подтверждение. Для
 // закрытия то же окно с итоговым текстом: после подтверждения обращения перейдут в "Решено".
 
-const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link', 'org'];
+const FINDING_KINDS = ['phone', 'email', 'inn', 'pinfl', 'digits', 'server', 'internal', 'link', 'org', 'ai_phrase'];
 
 export default async function BroadcastConfirmPage({ params, searchParams }: { params: Promise<{ number: string; id: string }>; searchParams: Promise<{ status?: string; kinds?: string }> }) {
   const staff = await requireStaffActor();

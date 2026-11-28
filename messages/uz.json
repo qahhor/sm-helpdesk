@@ -3721,7 +3721,8 @@
           "digits": "Uzun raqam",
           "server": "Server manzili",
           "internal": "Ichki nom",
-          "link": "Ro'yxatdan tashqari havola"
+          "link": "Ro'yxatdan tashqari havola",
+          "ai_phrase": "AI ga qaratilgan ibora"
         },
         "inTitle": "sarlavhada",
         "show": "Ko'rsatish",
@@ -4202,7 +4203,8 @@
         "server": "server manzili",
         "internal": "xizmat nomi",
         "link": "ruxsat etilmagan saytga havola",
-        "org": "tashkilot nomi yoki STIR"
+        "org": "tashkilot nomi yoki STIR",
+        "ai_phrase": "AI ga qaratilgan ibora"
       },
       "done": {
         "created": "Muammo yaratildi",

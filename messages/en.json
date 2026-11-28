@@ -3721,7 +3721,8 @@
           "digits": "Long number",
           "server": "Server address",
           "internal": "Internal name",
-          "link": "Link outside the list"
+          "link": "Link outside the list",
+          "ai_phrase": "Phrase addressed to AI"
         },
         "inTitle": "in the title",
         "show": "Show",
@@ -4202,7 +4203,8 @@
         "server": "server address",
         "internal": "internal name",
         "link": "link outside allowed sites",
-        "org": "organization name or TIN"
+        "org": "organization name or TIN",
+        "ai_phrase": "phrase addressed to AI"
       },
       "done": {
         "created": "Problem created",

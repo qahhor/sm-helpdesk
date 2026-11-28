@@ -343,7 +343,7 @@
         "mergedHidden": "This request was merged with another request on the same topic.",
         "createdByStaff": "A support agent created this request after your call or message.",
         "problemUpdate": "Known problem update",
-        "createdNote": "Request {number} is created."
+        "createdNote": "Request {number} has been created."
       },
       "files": {
         "add": "File or screenshot",
@@ -564,7 +564,8 @@
         "searchSubmit": "Find",
         "next": "Show next",
         "first": "Back to start",
-        "empty": "No members with this name."
+        "empty": "No members with this name.",
+        "none": "No members yet."
       },
       "invitations": {
         "title": "Invitations",
@@ -947,7 +948,8 @@
       "memberSearchSubmit": "Find",
       "membersNext": "Show next",
       "membersFirst": "Back to start",
-      "membersEmpty": "No members with this name."
+      "membersEmpty": "No members with this name.",
+      "membersNone": "No members yet."
     },
     "settings": {
       "title": "Settings",

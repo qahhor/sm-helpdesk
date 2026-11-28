@@ -137,7 +137,7 @@ export default async function OrgPage({ searchParams }: PageProps<'/[locale]/org
               {t('members.searchSubmit')}
             </Button>
           </form>
-          {members.length === 0 && <p className="text-secondary-foreground">{t('members.empty')}</p>}
+          {members.length === 0 && <p className="text-secondary-foreground">{t(memberQuery ? 'members.empty' : 'members.none')}</p>}
           <table role="table" className="block w-full tablet:table" hidden={members.length === 0}>
             <thead className="max-tablet:sr-only">
               <tr role="row">

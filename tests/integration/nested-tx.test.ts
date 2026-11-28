@@ -53,11 +53,35 @@ test('автозакрытие минутной задачей: вложенны
   expect(await mailsOf(t.ticketId, 'ticket_status')).toEqual([f.aUser.userId]);
 });
 
-test('подписчик, добавленный после чтения получателей, получает уведомление: чтение из базы остаётся запасным путём', async () => {
-  // Снимка нет вовсе (прямой вызов без обёртки невозможен снаружи), поэтому проверяется итог: коллега-подписчик
-  // обращения организации получает письмо об ответе вместе с автором.
+test('подписчик, добавленный после чтения получателей, получает уведомление: за ним уведомление идёт в базу (проверка, B6)', async () => {
   const t = f.tickets.aOrg;
-  await pools.root.query(`insert into hdt_ticket_watchers (org_id, ticket_id, user_id, source) values ($1, $2, $3, 'manual')`, [f.orgA.orgId, t.ticketId, f.aAdmin.userId]);
-  await postStaffMessage(staffCtx(f.l1), { number: t.number, body: 'Ответ двоим.', internal: false, seenVersion: await versionOf(t.number) });
+  const seenVersion = await versionOf(t.number);
+  // Строка обращения заперта: снимок получателей читается без блокировок и проходит, транзакция записи встаёт на
+  // первой же блокировке строки. В этот промежуток и добавляется подписчик: в снимке его нет.
+  const holder = await pools.root.connect();
+  let reply: ReturnType<typeof countTx<unknown>>;
+  try {
+    await holder.query('begin');
+    await holder.query(`select 1 from hdt_tickets where ticket_id = $1 for update`, [t.ticketId]);
+    reply = countTx(() => postStaffMessage(staffCtx(f.l1), { number: t.number, body: 'Ответ двоим.', internal: false, seenVersion }));
+    reply.catch(() => undefined);
+    // Ждём, пока транзакция записи действительно упрётся в блокировку: снимок к этому времени прочитан.
+    let waiting = 0;
+    for (let i = 0; i < 200 && waiting === 0; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      waiting = (await pools.root.query(`select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and datname = current_database()`)).rows[0].n as number;
+    }
+    expect(waiting).toBe(1);
+    await holder.query(`insert into hdt_ticket_watchers (org_id, ticket_id, user_id, source) values ($1, $2, $3, 'manual')`, [f.orgA.orgId, t.ticketId, f.aAdmin.userId]);
+    await holder.query('commit');
+  } catch (error) {
+    await holder.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    holder.release();
+  }
+  const { nested } = await reply;
+  // Запасной путь выполнен: роли получателей прочитаны из базы внутри транзакции записи, раз снимок знал не всех.
+  expect(nested).toContain('app>auth src/modules/hdu/core/recipients.ts#replyRolesTx');
   expect((await mailsOf(t.ticketId, 'ticket_reply')).sort()).toEqual([f.aUser.userId, f.aAdmin.userId].sort());
 });

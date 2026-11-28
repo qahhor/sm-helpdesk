@@ -7,6 +7,7 @@ import { Card } from '@/ui/components/card';
 import { EmptyState } from '@/ui/components/EmptyState';
 import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
+import { FiltersToggle } from './FiltersToggle';
 import { TicketList } from './TicketList';
 import { Select } from '@/ui/components/select';
 
@@ -44,7 +45,8 @@ export default async function ClientTicketsPage({ searchParams }: { searchParams
           флажком и CSS: форма по-прежнему работает без скриптов. */}
       {(filtered || page.items.length > 0) && (
         <form method="get" className="flex flex-col gap-3 tablet:grid tablet:grid-cols-4 tablet:items-end" data-testid="ticket-filters">
-          <div className="flex flex-col gap-1 tablet:order-last">
+          {/* Поиск первым и в разметке, и на экране: порядок Tab совпадает с видимым (второй проход, F12). */}
+          <div className="flex flex-col gap-1">
             <Label htmlFor="filter-q">{t('tickets.list.search')}</Label>
             <div className="flex gap-2">
               <Input id="filter-q" name="q" type="search" maxLength={100} defaultValue={search.q ?? ''} />
@@ -53,14 +55,14 @@ export default async function ClientTicketsPage({ searchParams }: { searchParams
               </Button>
             </div>
           </div>
-          <input id="filters-open" type="checkbox" className="peer sr-only tablet:hidden" defaultChecked={Boolean(search.status || search.type || search.scope === 'mine')} />
+          <FiltersToggle id="filters-open" controls="ticket-filters-more" defaultOpen={Boolean(search.status || search.type || search.scope === 'mine')} />
           <label
             htmlFor="filters-open"
             className="inline-flex min-h-11 cursor-pointer items-center self-start font-medium text-link underline underline-offset-2 peer-focus-visible:ring-2 peer-focus-visible:ring-ring tablet:hidden"
           >
             {t('tickets.list.filters')}
           </label>
-          <div className="hidden flex-col gap-3 peer-checked:flex tablet:contents">
+          <div id="ticket-filters-more" className="hidden flex-col gap-3 peer-checked:flex tablet:contents">
             <div className="flex flex-col gap-1">
               <Label htmlFor="filter-scope">{t('tickets.list.scope')}</Label>
               <Select id="filter-scope" name="scope" defaultValue={filters.scope}>

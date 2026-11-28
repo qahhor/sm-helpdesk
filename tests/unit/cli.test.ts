@@ -108,3 +108,38 @@ test('signatures:test: распавшаяся и смешанная метки �
   expect(await runCli(['signatures:test', '--dir', join(tmpdir(), 'нет-такого-каталога-corpus')], io)).toBe(1);
   expect(errors.join('\n')).toContain('Каталог не прочитан');
 });
+
+// Волна 7, T4 (FR-I18N-10): предварительный перевод файла нового языка на заглушке модели.
+test('i18n:pretranslate: черновик нового языка с теми же ключами; существующий файл не перезаписывается', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { setAiClientForTests } = await import('@/modules/hda/client');
+  const { StubAiClient } = await import('@/modules/hda/client/stub');
+  const dir = mkdtempSync(join(tmpdir(), 'hub-i18n-'));
+  const out = join(dir, 'kk.draft.json');
+  const stub = new StubAiClient();
+  setAiClientForTests(stub);
+  try {
+    const { io, lines, errors } = fakeIo();
+    expect(await runCli(['i18n:pretranslate', '--to', 'kk', '--name', 'казахский', '--out', out], io)).toBe(0);
+    expect(errors).toEqual([]);
+    const draft = JSON.parse(readFileSync(out, 'utf8')) as Record<string, unknown>;
+    const source = JSON.parse(readFileSync('messages/ru.json', 'utf8')) as Record<string, unknown>;
+    const keys = (tree: unknown, prefix = ''): string[] => (typeof tree === 'string' ? [prefix] : Object.entries(tree as Record<string, unknown>).flatMap(([key, value]) => keys(value, `${prefix}.${key}`)));
+    expect(keys(draft)).toEqual(keys(source));
+    expect(lines.join('\n')).toMatch(/Черновик языка kk: .*kk\.draft\.json\. Строк \d+, переведено \d+/);
+    // В модель ушли только строки интерфейса: ни пути, ни переменных окружения, ни ключей строк с точками.
+    const sent = stub.calls.map((call) => call.data).join('\n');
+    expect(stub.calls.length).toBeGreaterThan(1);
+    expect(sent).not.toMatch(/messages\/|DATABASE_URL|ENCRYPTION_KEY|agent\.ticket\.ai/);
+    // Повтор без --force файл не трогает.
+    const again = fakeIo();
+    expect(await runCli(['i18n:pretranslate', '--to', 'kk', '--out', out], again.io)).toBe(1);
+    expect(again.errors.join('\n')).toContain('--force');
+    // Неверный код языка: отказ со справкой.
+    expect(await runCli(['i18n:pretranslate', '--to', '../etc', '--out', out], fakeIo().io)).toBe(2);
+    expect(await runCli(['i18n:pretranslate', '--to', 'ru', '--out', out], fakeIo().io)).toBe(2);
+  } finally {
+    setAiClientForTests();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

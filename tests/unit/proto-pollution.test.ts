@@ -97,7 +97,14 @@ const ENTRY = [
   /^src\/security\/csp-report\.ts$/,
 ];
 const isEntry = (path: string) => ENTRY.some((pattern) => pattern.test(path));
-const OPEN = /z\.(looseObject|record|unknown|any|json)\(|\.(passthrough|catchall)\(/;
+const OPEN = /z\.(looseObject|record|unknown|any|json)\(|\.(passthrough|catchall|loose)\(/;
+/**
+ * Проверяемые файлы (независимая проверка M9, M6): точки входа и весь код модулей src/modules/**, не только слой api:
+ * схема из core или schema легко попадает в точку входа. Кроме клиентов внешних сервисов: они разбирают ответы
+ * Anthropic и Typesense, не ввод пользователя, и открытые схемы там нужны, чтобы новое поле ответа не ломало разбор.
+ */
+const EXTERNAL_CLIENTS = ['src/modules/hda/client/anthropic.ts', 'src/modules/hdc/search/typesense.ts', 'src/modules/hdc/search/keys.ts'];
+const isChecked = (path: string) => (isEntry(path) || path.startsWith('src/modules/')) && !EXTERNAL_CLIENTS.includes(path);
 
 test('обход видит каждую точку входа: действия форм и обработчики адресов лежат там, где он ищет', () => {
   const missed = SOURCES.filter((path) => {
@@ -110,13 +117,22 @@ test('обход видит каждую точку входа: действия
   expect(SOURCES.filter(isEntry).length).toBeGreaterThan(150);
 });
 
-test('в точках входа открытые схемы Zod стоят только внутри noProtoKeys', () => {
+test('в точках входа и модулях открытые схемы Zod стоят только внутри noProtoKeys', () => {
   const found: string[] = [];
-  for (const path of SOURCES.filter(isEntry))
+  for (const path of SOURCES.filter(isChecked))
     readFileSync(join(ROOT, path), 'utf8')
       .split('\n')
       .forEach((line, i) => {
         if (OPEN.test(line) && !line.includes('noProtoKeys(')) found.push(`${path}:${i + 1}`);
       });
   expect(found).toEqual([]);
+});
+
+test('исключения обхода: только клиенты внешних сервисов, каждый файл есть и разбирает ответ открытой схемой', () => {
+  for (const path of EXTERNAL_CLIENTS) {
+    expect(SOURCES, path).toContain(path);
+    expect(OPEN.test(readFileSync(join(ROOT, path), 'utf8')), path).toBe(true);
+  }
+  // .loose() тоже открытая схема: без noProtoKeys оставляет опасные ключи.
+  expect(problems(z.object({ a: z.string() }).loose().parse(polluted())).length).toBeGreaterThan(0);
 });

@@ -99,7 +99,7 @@ test('сценарий S11: отчёт о сканировании, утверж
   expect(await seriousAxe(page)).toEqual([]);
 
   // AI-сотрудник (вместо Hermes) читает сохранённые выводы и пишет внутреннюю заметку анализа.
-  expect(await callOk(mcp, 'search_code_catalog', { key })).toMatchObject({ entries: [{ key, status: 'approved' }] });
+  expect(await callOk(mcp, 'search_code_catalog', { key })).toMatchObject({ entries: [{ untrusted_key: key, status: 'approved' }] });
   await callOk(mcp, 'submit_code_analysis', {
     ticket_number: number,
     hypothesis: `Заказ на складе Основной больше остатка, контроль остатков включён (${word}).`,

@@ -179,8 +179,9 @@ test('unsolved_signatures: только сигнатуры без решения
   const article = (await pools.root.query(`select article_id from hdk_articles limit 1`)).rows[0].article_id;
   await pools.root.query(
     `insert into hdk_error_signatures (signature, sample_code, sample_message, org_count, occurrences, article_id) values
-     ($1, 'E-17', 'Ошибка проведения, звоните +998 90 111 22 33', 3, 12, null), ($2, 'E-18', 'Решённая ошибка', 5, 20, $3)`,
-    ['e'.repeat(32), 'f'.repeat(32), article],
+     ($1, 'E-17', $4, 3, 12, null), ($2, 'E-18', 'Решённая ошибка', 5, 20, $3)`,
+    // Образец с первой встречи несёт слова клиента: название организации без кавычек, имя участника, значения в кавычках.
+    ['e'.repeat(32), 'f'.repeat(32), article, `Ошибка проведения у ${f.orgA.name}, пишет Алишер, звоните +998 90 111 22 33, товар "Молоко Особое 3,2%" на складе «Чиланзар-7»`],
   );
   await pools.root.query(`insert into hdk_signature_orgs (org_id, signature_id) select $1, signature_id from hdk_error_signatures where signature = $2`, [f.orgA.orgId, 'e'.repeat(32)]);
   const items = (await data('unsolved_signatures', {})).items!;
@@ -188,8 +189,10 @@ test('unsolved_signatures: только сигнатуры без решения
   expect(signatures).toContain('e'.repeat(32));
   expect(signatures).not.toContain('f'.repeat(32));
   const unsolved = items.find((item) => item.signature === 'e'.repeat(32))!;
-  expect(unsolved).toMatchObject({ org_count: 3, occurrences: 12, sample_code: 'E-17' });
-  expect(JSON.stringify(unsolved)).not.toContain('111 22 33');
+  expect(unsolved).toMatchObject({ org_count: 3, occurrences: 12, untrusted_sample_code: 'E-17' });
+  // S-M3: образец обезличен по организациям сигнатуры, значения в кавычках заменены.
+  for (const secret of ['111 22 33', f.orgA.name, 'Алишер', 'Молоко', 'Чиланзар']) expect(JSON.stringify(unsolved), secret).not.toContain(secret);
+  expect((unsolved.untrusted_text as { sample_message: string }).sample_message).toContain('ошибка проведения');
 });
 
 test('search_solutions и get_solution: только опубликованные, черновика и кандидата нет; статистика решения', async () => {

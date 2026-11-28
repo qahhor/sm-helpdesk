@@ -90,7 +90,7 @@ test('событие агенту с токеном запуска на одно
   const found = await agent.callTool('search_code_catalog', { key: catalog.approvedKey });
   expect(found.isError).toBeFalsy();
   const entries = (found.structuredContent as { entries: Record<string, unknown>[] }).entries;
-  expect(entries).toMatchObject([{ key: catalog.approvedKey, status: 'approved', untrusted_text: { what_to_check: ['Остаток по товару на складе заказа', 'Включён ли контроль остатков'] } }]);
+  expect(entries).toMatchObject([{ untrusted_key: catalog.approvedKey, status: 'approved', untrusted_text: { what_to_check: ['Остаток по товару на складе заказа', 'Включён ли контроль остатков'] } }]);
   expect(JSON.stringify(found.structuredContent)).not.toContain('pattern');
 
   const before = await sideEffects(t.ticketId);

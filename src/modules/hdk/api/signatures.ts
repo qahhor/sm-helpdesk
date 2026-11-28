@@ -2,6 +2,8 @@ import 'server-only';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
+import { eq, inArray } from 'drizzle-orm';
+import type { Tx } from '@/db/client';
 import { type StaffContext, type TicketSignatureInput, type TicketSignatureRecorder, writeAudit } from '@/modules/hdc/api';
 import { stripClientData } from '@/modules/hda/api/redact';
 import { setTicketErrorSignatureTx, ticketsMissingSignature } from '@/modules/hdt/api/solution-source';
@@ -10,6 +12,7 @@ import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { articleByNumberTx } from '../core/editor';
 import { articleSignaturesTx, bindSignatureTx, type SignatureRow, noteSignatureTx, unbindSignatureTx } from '../core/signatures';
 import { HdkError } from '../error';
+import { kbErrorSignatures, kbSignatureOrgs } from '../schema';
 import { ARTICLE_NUMBER_MAX, KB_WRITER_ROLES } from '../pref';
 import { normalizeErrorMessage, type TicketSignature } from '../signature';
 import { resolveErrorSignature, resolveStaffSignature } from './signature-text';
@@ -163,4 +166,24 @@ export async function unbindSolutionSignature(ctx: StaffContext, input: unknown)
     const signature = await unbindSignatureTx(tx, article.articleId, data.signatureId);
     if (signature) await writeAudit(tx, { action: 'solution.signature_unbound', objectType: 'solution', objectId: article.articleId, diff: { number: article.number, signature } });
   });
+}
+
+/**
+ * Организации, у которых встречались сигнатуры (волна 7, S-M3): для обезличивания образца текста ошибки в ответе
+ * сервера MCP. Транзакция системы: агенту список организаций не уходит.
+ */
+export async function signatureOrgIdsTx(tx: Tx, signatures: readonly string[]): Promise<string[]> {
+  const unique = [...new Set(signatures)];
+  if (unique.length === 0) return [];
+  const rows = await tx
+    .selectDistinct({ orgId: kbSignatureOrgs.orgId })
+    .from(kbSignatureOrgs)
+    .innerJoin(kbErrorSignatures, eq(kbErrorSignatures.signatureId, kbSignatureOrgs.signatureId))
+    .where(inArray(kbErrorSignatures.signature, unique));
+  return rows.map((row) => row.orgId);
+}
+
+/** Образец текста ошибки шаблоном (11.5): числа, значения в кавычках и идентификаторы заменены, регистр нижний. */
+export function errorSampleTemplate(text: string): string {
+  return normalizeErrorMessage(text);
 }

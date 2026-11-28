@@ -1,9 +1,9 @@
 import { and, arrayContains, desc, eq, inArray } from 'drizzle-orm';
 import * as z from 'zod';
+import { errorSampleTemplate } from '@/modules/hdk/api/signatures';
 import { moduleCodesTx, moduleIdsByCodesTx } from '@/modules/hdr/api';
 import { HdaAgentError } from '../../error';
 import { PROBLEM_STATUSES } from '@/modules/hdp/pref';
-import { anonymizeForAgent } from '../anonymize';
 import { defineTool, type Redactor } from '../tool';
 import { iso, moment, notice, AGENT_NOTICE, str, UNTRUSTED_HINT } from '../util';
 import { agentProblemsView, agentSignaturesView } from '../views';
@@ -93,7 +93,7 @@ export const unsolvedSignatures = defineTool({
         z.strictObject({
           signature: str(32),
           module: str(80).nullable(),
-          sample_code: str(80).nullable(),
+          untrusted_sample_code: str(80).nullable(),
           org_count: z.number().int(),
           occurrences: z.number().int(),
           last_seen_on: moment.nullable(),
@@ -113,16 +113,27 @@ export const unsolvedSignatures = defineTool({
       .orderBy(desc(v.orgCount), desc(v.occurrences), desc(v.signature))
       .limit(args.limit);
     const modules = await moduleCodesTx(tx, rows.flatMap((row) => (row.moduleId ? [row.moduleId] : [])));
-    const items = rows.map((row) => ({
-      signature: row.signature,
-      module: row.moduleId ? (modules.get(row.moduleId) ?? null) : null,
-      sample_code: row.sampleCode ? row.sampleCode.slice(0, 80) : null,
-      org_count: row.orgCount,
-      occurrences: row.occurrences,
-      last_seen_on: iso(row.lastSeenOn),
-      untrusted_text: { sample_message: row.sampleMessage ? anonymizeForAgent(row.sampleMessage, { people: [], orgTerms: [] }).text.slice(0, 300) : null },
-    }));
-    return { result: { notice: AGENT_NOTICE, items }, objectRefs: [] };
+    // Образец текста ошибки (волна 7, S-M3; решение 0152): шаблоном (числа, значения в кавычках и идентификаторы
+    // заменены) и обезличенным по всем организациям, у которых сигнатура встречалась: слова читает система после
+    // транзакции агента. Образец с первой встречи мог сохранить название организации или имя участника.
+    return {
+      redact: { signatures: rows.map((row) => row.signature) },
+      finish: (redact: Redactor) => ({
+        result: {
+          notice: AGENT_NOTICE,
+          items: rows.map((row) => ({
+            signature: row.signature,
+            module: row.moduleId ? (modules.get(row.moduleId) ?? null) : null,
+            untrusted_sample_code: row.sampleCode ? row.sampleCode.slice(0, 80) : null,
+            org_count: row.orgCount,
+            occurrences: row.occurrences,
+            last_seen_on: iso(row.lastSeenOn),
+            untrusted_text: { sample_message: row.sampleMessage ? redact('all', errorSampleTemplate(row.sampleMessage)).slice(0, 300) : null },
+          })),
+        },
+        objectRefs: [],
+      }),
+    };
   },
 });
 

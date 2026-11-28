@@ -17,12 +17,14 @@ export type ObjectRefs = AgentObjectRef[];
 /** Обезличивание текста: слова организации orgId (или всех организаций ответа, 'all') и сотрудников. */
 export type Redactor = (orgId: string | null | 'all', text: string) => string;
 
-/** Что нужно обезличиванию ответа: организации, обращения (их люди), проблемы и кандидаты (их организации). */
+/** Что нужно обезличиванию ответа: организации, обращения (их люди), проблемы, кандидаты и сигнатуры (их организации). */
 export type RedactScope = {
   orgIds?: readonly string[];
   ticketIds?: readonly string[];
   problemIds?: readonly string[];
   candidateIds?: readonly string[];
+  /** Сигнатуры ошибок: их организации из hdk_signature_orgs (волна 7, S-M3). */
+  signatures?: readonly string[];
 };
 
 export type ToolOutcome<O> = { result: O; objectRefs: ObjectRefs };

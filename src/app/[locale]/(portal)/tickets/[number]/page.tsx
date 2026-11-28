@@ -4,6 +4,7 @@ import { getFormatter, getNow, getTranslations } from 'next-intl/server';
 import {
   ALLOWED_FILE_EXTENSIONS,
   type AttachmentView,
+  clientScanLabel,
   CSAT_REASONS,
   findTicketInOtherOrganizations,
   getTicket,
@@ -35,12 +36,6 @@ import { TicketActions } from './TicketActions';
 // обращение не отличается от несуществующего: страница "не найдено".
 
 /** Номер из адреса. Испорченная последовательность %XX даёт null, а не исключение (ошибку 500). */
-/** Подпись состояния файла: у отказа причина, если её можно назвать клиенту (решение 0027, пункт 20). */
-function scanLabel(file: Pick<AttachmentView, 'scanStatus' | 'rejectReason'>): string {
-  if (file.scanStatus === 'rejected') return file.rejectReason ?? 'rejected';
-  return file.scanStatus === 'infected' ? 'infected' : 'pending';
-}
-
 function safeDecode(value: string): string | null {
   try {
     return decodeURIComponent(value);
@@ -114,7 +109,7 @@ export default async function TicketPage({
               </a>
             ) : (
               <span className="break-all" data-scan={file.scanStatus}>
-                {file.fileName} <span className="text-muted-foreground">({t(`page.scan.${scanLabel(file)}`)})</span>
+                {file.fileName} <span className="text-muted-foreground">({t(`page.scan.${clientScanLabel(file)}`)})</span>
               </span>
             )}
           </li>

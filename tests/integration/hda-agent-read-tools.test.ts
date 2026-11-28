@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { setLogSinkForTests } from '@/lib/log';
 import { handleMcpRequest } from '@/modules/hda/api/agent';
+import { redactorFor } from '@/modules/hda/agent/tools/common';
 import { AGENT_READ_TOOLS } from '@/modules/hda/pref';
 import { getAssistantMetrics } from '@/modules/hdt/api/metrics';
 import { Markdown } from '@/ui/components/markdown';
@@ -332,4 +333,27 @@ test('search_tickets ищет текст в обезличенной теме: �
   expect(JSON.stringify(found)).not.toContain('Алишер');
   // Текст ищется без учёта регистра и вместе с другими фильтрами и пределом.
   expect((await data('search_tickets', { text: 'НАКЛАДНУЮ', limit: 1 })).items!.map((i) => i.number)).toEqual([f.tickets.aOrg.number]);
+});
+
+// Независимая проверка волны 7, находка R13: слова обезличивания читаются по всем организациям результата, а не по
+// первым 200.
+test('обезличивание: название и ИНН организации за пределами первых 200 тоже заменяются', async () => {
+  const { f } = await setup();
+  const server = (await pools.root.query(`select server_id from hdu_organizations where org_id = $1`, [f.orgA.orgId])).rows[0].server_id;
+  const made = (
+    await pools.root.query(
+      `insert into hdu_organizations (server_id, external_company_id, name, inn)
+       select $1::uuid, 'r13-' || g, 'Организация проверки R13 номер ' || g, lpad((410000000 + g)::text, 9, '0') from generate_series(1, 450) g returning org_id, name, inn`,
+      [server],
+    )
+  ).rows as { org_id: string; name: string; inn: string }[];
+  const redact = await redactorFor({ orgIds: made.map((row) => row.org_id) });
+  for (const index of [0, 199, 200, 449]) {
+    const org = made[index]!;
+    const out = redact(org.org_id, `Пишет ${org.name}, ИНН ${org.inn}`);
+    expect(out, String(index)).not.toContain(org.name);
+    expect(out, String(index)).not.toContain(org.inn);
+  }
+  // Охват "все организации ответа" тоже знает последнюю.
+  expect(redact('all', `Пишет ${made[449]!.name}`)).not.toContain(made[449]!.name);
 });

@@ -204,15 +204,27 @@ function group(blocks: Block[]): (Exclude<Block, StepNode> | StepNode[])[] {
   return out;
 }
 
+/** Есть ли в узле что показать: текст не из одних пробелов или изображение. Перенос строки содержимым не считается. */
+function hasContent(node: unknown): boolean {
+  if (node === null || typeof node !== 'object') return false;
+  const { type, text, content } = node as { type?: unknown; text?: unknown; content?: unknown };
+  if (type === 'image') return true;
+  if (type === 'text') return typeof text === 'string' && text.trim() !== '';
+  return Array.isArray(content) && content.some(hasContent);
+}
+
 /**
- * Блоки без пустых разделов (проверка интерфейса, U27): заголовок, за которым до следующего заголовка того же или
+ * Блоки без пустых разделов (проверка интерфейса, U27 и F5): заголовок, за которым до следующего заголовка того же или
  * старшего уровня (или до конца документа) нет ни одного блока с содержимым, клиенту не показывается. Автор оставил
- * раздел заготовки пустым; клиент видел бы заголовок без текста.
+ * раздел заготовки пустым; клиент видел бы заголовок без текста. Заготовка (src/modules/hdk/template.ts) кладёт под
+ * заголовки пустой абзац и пустой шаг: блоки без текста и изображений содержимым не считаются и тоже не показываются,
+ * иначе от пустого шага остался бы один номер.
  */
 function withoutEmptySections(blocks: Block[]): Block[] {
-  return blocks.filter((block, index) => {
+  const filled = blocks.filter((block) => block.type === 'heading' || hasContent(block));
+  return filled.filter((block, index) => {
     if (block.type !== 'heading') return true;
-    for (const next of blocks.slice(index + 1)) {
+    for (const next of filled.slice(index + 1)) {
       if (next.type !== 'heading') return true;
       if (next.attrs.level <= block.attrs.level) return false;
     }

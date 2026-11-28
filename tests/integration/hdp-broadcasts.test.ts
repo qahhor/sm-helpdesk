@@ -170,6 +170,10 @@ test('закрытие: итоговое сообщение и переход в
   // "Новое" прошло через "В работе": два события статуса.
   const statusEvents = (await pools.root.query(`select payload from hdt_ticket_events where ticket_id = $1 and kind = 'status' order by event_id`, [f.tickets.aOrg.ticketId])).rows.map((r) => `${r.payload.from}>${r.payload.to}`);
   expect(statusEvents).toEqual(['new>in_progress', 'in_progress>resolved']);
+  // Каждый переход порождает событие предметной области (проверка качества, Q14): правила автоматизации и вебхуки
+  // узнают о решении обращения рассылкой так же, как о решении сотрудником.
+  const domain = (await pools.root.query(`select payload from hdc_domain_events where ticket_id = $1 and kind = 'status_changed' order by event_id`, [f.tickets.aOrg.ticketId])).rows.map((r) => `${r.payload.from}>${r.payload.to}`);
+  expect(domain).toEqual(['new>in_progress', 'in_progress>resolved']);
   expect((await ticket(f.tickets.bOrg.ticketId)).status).toBe('resolved');
   expect((await pools.root.query(`select count(*)::int as n from hdc_audit_log where action = 'ticket.status_changed' and object_id = $1`, [f.tickets.aOrg.ticketId])).rows[0].n).toBe(2);
   // Объединённое и закрытое не получили ни сообщения, ни перехода.

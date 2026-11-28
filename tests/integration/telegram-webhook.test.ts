@@ -74,3 +74,42 @@ test('при выключенном боте адрес отвечает 404', a
   setTelegramBotForTests(createTelegramBot({ apiUrl: 'https://api.telegram.org' }));
   expect((await post(tgUpdate({ from: 555, text: 'привет' }))).status).toBe(404);
 });
+
+test('номер события записывается после обработки: обрыв посреди неё не теряет событие (проверка качества, Q15)', async () => {
+  const update = tgUpdate({ from: 555, text: 'привет', updateId: 9010 });
+  // Пока событие обрабатывается, строки с его номером нет: раньше она появлялась до обработки, и остановка процесса
+  // в этот момент оставляла событие "уже принятым", хотя человеку никто не ответил.
+  let duringHandling: unknown[] | null = null;
+  const watching = async (incoming: Parameters<typeof handleTelegramUpdate>[0]) => {
+    duringHandling = (await pools.root.query(`select update_id from hdn_telegram_updates where update_id = 9010`)).rows;
+    await handleTelegramUpdate(incoming);
+  };
+  expect((await post(update, undefined, 'POST', watching)).status).toBe(200);
+  expect(duringHandling).toEqual([]);
+  expect((await pools.root.query(`select update_id from hdn_telegram_updates`)).rows).toEqual([{ update_id: '9010' }]);
+});
+
+test('то же событие, пришедшее второй раз во время обработки первого, обрабатывается один раз', async () => {
+  const update = tgUpdate({ from: 555, text: 'привет', updateId: 9011 });
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let calls = 0;
+  const slow = async (incoming: Parameters<typeof handleTelegramUpdate>[0]) => {
+    calls += 1;
+    await gate;
+    await handleTelegramUpdate(incoming);
+  };
+  const first = post(update, undefined, 'POST', slow);
+  // Вторая доставка приходит, пока первая ещё в обработке.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const second = post(update, undefined, 'POST', slow);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  release();
+  expect((await first).status).toBe(200);
+  // Вторая доставка дождалась итога первой и ответила без своей обработки.
+  expect((await second).status).toBe(200);
+  expect(calls).toBe(1);
+  expect(tg.bot.sent).toHaveLength(1);
+});

@@ -5,7 +5,7 @@ import { LOCALES } from '@/i18n/locales';
 import { logEvent } from '@/lib/log';
 import { requestPublicTextTranslation } from '@/modules/hda/api/translate';
 import { comparePlainInvariants } from '@/modules/hdk/api/text-checks';
-import { requireProblemTx, translationsTx, upsertTranslationTx } from '../core/problems';
+import { problemTx, translationsTx, upsertTranslationTx } from '../core/problems';
 import { createSystemProblemDraft } from './agent-drafts';
 import { and, eq } from 'drizzle-orm';
 import { announcements, announcementTranslations } from '../schema';
@@ -23,7 +23,8 @@ const translateJob = z.strictObject({ problemId: z.uuid(), locale: z.enum(LOCALE
 export async function runProblemTranslationJob(system: SystemActor, data: unknown): Promise<void> {
   const { problemId, locale } = translateJob.parse(data);
   const source = await withActor(system, async (tx) => {
-    const problem = await requireProblemTx(tx, { problemId }).catch(() => null);
+    // Проблемы может не быть: это ответ, а не ошибка. Ошибка базы не глотается (проверка качества, Q16).
+    const problem = await problemTx(tx, { problemId });
     if (!problem || problem.status === 'closed' || problem.sourceLocale === locale) return null;
     const texts = await translationsTx(tx, problemId);
     const original = texts.find((t) => t.locale === problem.sourceLocale && !t.isMachine);

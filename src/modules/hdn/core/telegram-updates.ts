@@ -7,16 +7,15 @@ import { telegramUpdates } from '../schema';
 
 const SYSTEM = { type: 'system', job: 'telegram.webhook' } as const;
 
-/** Запоминает номер события. Ложь: такое событие уже принято. */
-export async function recordUpdate(updateId: number): Promise<boolean> {
-  const rows = await withActor(SYSTEM, (tx) =>
-    tx.insert(telegramUpdates).values({ updateId }).onConflictDoNothing().returning({ updateId: telegramUpdates.updateId }),
-  );
+/** Событие с таким номером уже обработано. */
+export async function updateDone(updateId: number): Promise<boolean> {
+  const rows = await withActor(SYSTEM, (tx) => tx.select({ updateId: telegramUpdates.updateId }).from(telegramUpdates).where(eq(telegramUpdates.updateId, updateId)).limit(1));
   return rows.length > 0;
 }
 
-export async function forgetUpdate(updateId: number): Promise<void> {
-  await withActor(SYSTEM, (tx) => tx.delete(telegramUpdates).where(eq(telegramUpdates.updateId, updateId)));
+/** Запоминает номер обработанного события. Повторная запись ничего не делает. */
+export async function recordUpdate(updateId: number): Promise<void> {
+  await withActor(SYSTEM, (tx) => tx.insert(telegramUpdates).values({ updateId }).onConflictDoNothing());
 }
 
 /** Telegram повторяет событие не дольше суток: номера старше двух суток больше не нужны (проверка main, Q8). */

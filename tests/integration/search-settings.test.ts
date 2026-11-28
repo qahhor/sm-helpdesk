@@ -155,3 +155,55 @@ test('смена словаря в разборе очереди не перес
   await runSearchSync(system, stub);
   expect(jobs.sent.filter((j) => j.name === 'search.reindex')).toEqual([]);
 });
+
+test('задача search.reindex не поставлена или упала: ночная сверка перестраивает решения и идеи один раз (проверка, B1)', async () => {
+  const f = await seedTwoOrgs();
+  const admin = staffCtx(f.adminStaff);
+  // Очередь отказывает в постановке: enqueue ошибку глотает, разбор очереди считает настройку применённой.
+  setJobQueueForTests({ send: async () => { throw new Error('очередь недоступна'); } });
+  await prepareSearchIndex(system, stub);
+  const built: string[] = [];
+  const createVersion = stub.createVersion.bind(stub);
+  stub.createVersion = (collection, version) => {
+    built.push(collection);
+    return createVersion(collection, version);
+  };
+  expect(await saveSearchSetting(admin, { kind: 'stems', text: "to'lovlar = to'lov" })).toEqual({ ok: true });
+  await runSearchSync(system, stub);
+  // Словарь уже в Typesense, а коллекции построены с прежним.
+  expect(stub.stems).toEqual(expect.arrayContaining([{ word: "to'lovlar", root: "to'lov" }]));
+  expect(built).toEqual([]);
+  setSearchJobWriterForTests(stub);
+  try {
+    await searchReconcile(system);
+    expect(built.sort()).toEqual(['ideas', 'solutions']);
+    // Коллекции построены с нынешним словарём: следующая ночь их не трогает.
+    await searchReconcile(system);
+    expect(built).toHaveLength(2);
+  } finally {
+    setSearchJobWriterForTests(undefined);
+  }
+});
+
+test('переиндексация одной коллекции из двух упала: следующая постановка и ночная сверка берут только оставшуюся (проверка, B1)', async () => {
+  const f = await seedTwoOrgs();
+  const jobs = new MemoryJobQueue();
+  setJobQueueForTests(jobs);
+  await prepareSearchIndex(system, stub);
+  expect(await saveSearchSetting(staffCtx(f.adminStaff), { kind: 'stems', text: "to'lovlar = to'lov" })).toEqual({ ok: true });
+  await runSearchSync(system, stub);
+  expect(await runSearchReindexJob(system, { collections: 'solutions' }, stub)).toMatchObject([{ collection: 'solutions' }]);
+  const built: string[] = [];
+  const createVersion = stub.createVersion.bind(stub);
+  stub.createVersion = (collection, version) => {
+    built.push(collection);
+    return createVersion(collection, version);
+  };
+  setSearchJobWriterForTests(stub);
+  try {
+    await searchReconcile(system);
+  } finally {
+    setSearchJobWriterForTests(undefined);
+  }
+  expect(built).toEqual(['ideas']);
+});

@@ -121,6 +121,8 @@ test('обезличивание убирает адрес и имя из при
   const done = await audit('user.anonymized');
   expect(done).toHaveLength(1);
   expect(done[0].diff).toMatchObject({ invitations: 2 });
+  // Идентификаторы приглашений (не адреса и не имена) лежат в записи: по ним повтор действия находит строки (B2).
+  expect([...(done[0].diff.invitationIds as string[])].sort()).toEqual([t.pending, t.accepted].sort());
   const mail = await audit('user.mail_anonymized');
   expect(mail).toEqual([{ actor_type: 'system', actor_id: null, object_id: f.aUser.userId, diff: { outbox: 2, inbound: 2 } }]);
   expect(JSON.stringify([...done, ...mail])).not.toContain(EMAIL);
@@ -140,6 +142,30 @@ test('письмо, поставленное в очередь после обе
   expect(await anonymizeAccount(admin, { userId: f.aUser.userId })).toMatchObject({ alreadyDone: true });
   expect(await mentions('hdn_outbox', EMAIL)).toBe(0);
   expect(await audit('user.anonymized')).toHaveLength(1);
+});
+
+test('процесс оборвался после фиксации обезличивания: повтор действия находит приглашения по идентификаторам из журнала аудита и стирает адрес и имя (проверка, B2)', async () => {
+  const t = await seedTraces();
+  const admin = staffCtx(f.adminStaff);
+  await anonymizeAccount(admin, { userId: f.aUser.userId });
+  // Как после обрыва между фиксацией и шагом следов: учётная запись обезличена, а в приглашениях прежние адрес и имя.
+  await pools.root.query(`update hdu_invitations set email = $2, name = $3 where invitation_id = any($1)`, [[t.pending, t.accepted], EMAIL, FULL_NAME]);
+  await pools.root.query(`update hdn_outbox set recipient = $2 where recipient_user_id = $1 and status = 'sent'`, [f.aUser.userId, EMAIL]);
+  expect(await mentions('hdu_invitations', EMAIL)).toBe(2);
+  expect(await mentions('hdu_invitations', FULL_NAME)).toBe(2);
+
+  expect(await anonymizeAccount(admin, { userId: f.aUser.userId })).toMatchObject({ alreadyDone: true });
+
+  expect(await mentions('hdu_invitations', EMAIL)).toBe(0);
+  expect(await mentions('hdu_invitations', FULL_NAME)).toBe(0);
+  expect(await mentions('hdn_outbox', EMAIL)).toBe(0);
+  // Чужое приглашение заготовки цело, второй записи об обезличивании нет.
+  expect(await mentions('hdu_invitations', 'invited-a@acme.test')).toBe(1);
+  expect(await audit('user.anonymized')).toHaveLength(1);
+  // Ещё один повтор ничего не меняет.
+  const before = (await pools.root.query(`select invitation_id, email, name, modified_on from hdu_invitations where invitation_id = any($1) order by invitation_id`, [[t.pending, t.accepted]])).rows;
+  expect(await anonymizeAccount(admin, { userId: f.aUser.userId })).toMatchObject({ alreadyDone: true });
+  expect((await pools.root.query(`select invitation_id, email, name, modified_on from hdu_invitations where invitation_id = any($1) order by invitation_id`, [[t.pending, t.accepted]])).rows).toEqual(before);
 });
 
 test('сбой журнала в шаге обезличивания: приглашения не тронуты, как и учётная запись', async () => {

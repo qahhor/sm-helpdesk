@@ -1,11 +1,11 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, ne, or, sql } from 'drizzle-orm';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { withIdentity } from '@/db/with-identity';
 import { logEvent } from '@/lib/log';
-import { writeAudit } from '@/modules/hdc/api';
+import { listAudit, writeAudit } from '@/modules/hdc/api';
 import { forgetMailTraces } from '@/modules/hdn/api/anonymize';
 import { authAccount, authSession, authTwoFactor, authUser } from '../auth-schema';
 import { HduError } from '../error';
@@ -27,8 +27,10 @@ import { FRESH_SIGN_IN_SEC, isFresh, type StaffContext } from './session';
 //   - очередь исходящих и входящие письма (hdn): другое подключение (hub_app), пишет только система.
 // Письмо, уже стоящее в очереди, на прежний адрес не уйдёт и без этих шагов: адрес получателя берётся в момент
 // отправки (hdu/core/recipients.ts), у обезличенной записи его нет. Сбой шага виден в журнале работы
-// (identity.anonymize_traces_failed) и возвращается ошибкой: повтор действия дочищает очередь исходящих; строки
-// приглашений и входящих писем по адресу повтор уже не найдёт, их доделывают по идентификаторам из журнала работы.
+// (identity.anonymize_traces_failed) и возвращается ошибкой. Обрыв процесса между фиксацией и шагом следов в журнал
+// работы не попадает, поэтому идентификаторы приглашений (не адреса и не имена) лежат в записи user.anonymized
+// (независимая проверка, B2): повтор действия по уже обезличенной записи читает их оттуда и дочищает приглашения и
+// очередь исходящих. Входящие письма по адресу повтор не найдёт: адрес стёрт, их удаляет ночная очистка через 90 суток.
 //
 // Учётная запись сотрудника так не обезличивается: у сотрудника свой порядок (сброс и отключение администратором),
 // его имя стоит в ответах клиентам и в журнале.
@@ -38,6 +40,23 @@ const SYSTEM: SystemActor = { type: 'system', job: 'identity.anonymize' };
 
 /** Обезличенный адрес: домен .invalid не доставляется никуда (RFC 2606). */
 const ANON_EMAIL = /^anon-[0-9a-f-]{36}@anonymized\.invalid$/;
+/**
+ * Сколько идентификаторов приглашений помещается в запись журнала (предел описания изменения 4000 знаков). Больше
+ * приглашений на один адрес: в записи первые 80, поле invitations хранит полное число, остальные обрыв процесса оставит.
+ */
+const AUDIT_INVITATION_IDS = 80;
+const recordedIds = z.array(z.uuid()).max(AUDIT_INVITATION_IDS);
+
+/**
+ * Идентификаторы приглашений из записи user.anonymized: для повтора по уже обезличенной записи. Журнал читает сам
+ * администратор (политика hdc_audit_log_admin_select). Записи нет (старше срока хранения журнала) или она сделана до
+ * появления поля: пусто.
+ */
+async function recordedInvitationIds(actor: StaffContext['actor'], userId: string): Promise<string[]> {
+  const { items } = await listAudit({ actor }, { from: new Date(0), action: 'user.anonymized', objectType: 'user', objectId: userId });
+  const parsed = recordedIds.safeParse(items[0]?.diff?.invitationIds);
+  return parsed.success ? parsed.data : [];
+}
 
 export type AnonymizeResult = { alreadyDone: boolean; name: string };
 
@@ -84,19 +103,33 @@ export async function anonymizeAccount(ctx: StaffContext, raw: unknown, now: Dat
       action: 'user.anonymized',
       objectType: 'user',
       objectId: userId,
-      diff: { sessions: sessions.length, signIns: accounts.length, channels: identities.length, memberships: left.length, invitations: invited.length, invitationsRevoked: open.length },
+      diff: {
+        sessions: sessions.length,
+        signIns: accounts.length,
+        channels: identities.length,
+        memberships: left.length,
+        invitations: invited.length,
+        invitationsRevoked: open.length,
+        // Только идентификаторы строк: по ним повтор действия дочищает адрес и имя после обрыва процесса.
+        invitationIds: invited.slice(0, AUDIT_INVITATION_IDS).map((row) => row.invitationId),
+      },
     });
     return { alreadyDone: false, name, addresses, invitationIds: invited.map((row) => row.invitationId) };
   });
-  const { addresses, invitationIds, ...result } = done;
+  const { addresses, ...result } = done;
+  // Повтор: идентификаторы приглашений берутся из журнала аудита, уже после транзакции учётной записи.
+  const invitationIds = done.alreadyDone ? await recordedInvitationIds(actor, userId) : done.invitationIds;
   try {
-    if (invitationIds.length > 0)
+    if (invitationIds.length > 0) {
+      const anonEmail = sql`'anon-' || ${invitations.invitationId}::text || '@anonymized.invalid'`;
+      // Только строки, где ещё есть что стирать: повтор по очищенным строкам ничего не пишет.
       await withIdentity(SYSTEM, (tx) =>
         tx
           .update(invitations)
-          .set({ email: sql`'anon-' || ${invitations.invitationId}::text || '@anonymized.invalid'`, name: null })
-          .where(inArray(invitations.invitationId, invitationIds)),
+          .set({ email: anonEmail, name: null })
+          .where(and(inArray(invitations.invitationId, invitationIds), or(isNotNull(invitations.name), ne(invitations.email, anonEmail)))),
       );
+    }
     // Повтор по уже обезличенной записи адресов не знает: дочищается очередь исходящих (она ищется по пользователю).
     await forgetMailTraces(SYSTEM, { userId, addresses });
   } catch (error) {

@@ -1,4 +1,5 @@
 import 'server-only';
+import { logEvent } from '@/lib/log';
 import { problemResponse, readLimited } from '@/modules/hdc/api';
 import { recordUpdate, updateDone } from './core/telegram-updates';
 import { getTelegramBot } from './telegram';
@@ -19,6 +20,12 @@ const BODY_LIMIT = 64 * 1024;
  * процесса посреди обработки оставляла событие "уже принятым": человек не получал ответа, повтор Telegram ничего не
  * делал. Теперь такое событие обработается при повторе. То же событие, пришедшее ещё раз, пока идёт обработка
  * первого, ждёт в памяти процесса и отвечает 200 без второй обработки.
+ *
+ * Обработка прошла, а номер не записался (сбой базы на вставке; независимая проверка, B3): ответ всё равно 200 и
+ * событие telegram.update_record_failed в журнале работы. Ответ 500 заставил бы Telegram прислать событие снова, и оно
+ * обработалось бы второй раз (вторая ссылка входа, "код недействителен" уже привязанному человеку): повтор вреднее
+ * пропущенной записи. Остаётся: если Telegram сам повторит такое событие (он не получил наш ответ), оно обработается
+ * ещё раз, как и при остановке процесса между обработкой и записью.
  */
 const inFlight = new Map<number, Promise<void>>();
 
@@ -46,7 +53,9 @@ export async function handleTelegramWebhook(request: Request, onUpdate: (update:
     // Итог первой доставки: её сбой вернёт 500 и этой, Telegram пришлёт событие ещё раз.
     return running.then(() => new Response(null, { status: 200 })).catch(() => problemResponse(500, 'internal_error'));
   }
-  const work = onUpdate(update).then(() => recordUpdate(update.update_id));
+  const work = onUpdate(update).then(() =>
+    recordUpdate(update.update_id).catch((error: unknown) => logEvent('error', 'telegram.update_record_failed', { updateId: update.update_id, error })),
+  );
   inFlight.set(update.update_id, work);
   try {
     await work;

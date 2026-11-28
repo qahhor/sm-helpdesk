@@ -10,7 +10,8 @@ import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
 import { registerSearch } from '@/worker/search';
 import { staffCtx, staffWithRole } from './helpers/auth';
 import { asActor, pools, system } from './helpers/db';
-import { liveSearch, typesenseSkip } from './helpers/search';
+import { stemsMarkOf } from '@/modules/hdc/search/collections';
+import { liveSearch, master, typesenseSkip } from './helpers/search';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 import { addIdea } from './isolation/ideas-fixture';
 
@@ -223,6 +224,27 @@ describe.skipIf(typesenseSkip !== null)(`переиндексация на Types
     expect([...(await live.writer.exportDocs('tickets')).keys()].sort()).toEqual([...before.keys()].sort());
     const audit = (await pools.root.query(`select diff from hdc_audit_log where action = 'search.reindexed'`)).rows;
     expect(audit).toEqual([{ diff: { collection: 'tickets', version: 2, documents: 5 } }]);
+  });
+
+  test('версия коллекции хранит отметку словаря, с которым создана; смена словаря без переиндексации отметку не меняет (проверка, B1)', async () => {
+    const live = await liveSearch();
+    const pairs = [{ word: 'tolovlar', root: 'tolov' }];
+    // Коллекции первой версии созданы с пустым словарём.
+    expect(await live.writer.stemsMark('solutions')).toBe(stemsMarkOf([]));
+    await live.writer.putStems(pairs);
+    expect(await live.writer.readStems()).toEqual(pairs);
+    expect(await live.writer.stemsMark('solutions')).toBe(stemsMarkOf([]));
+    await reindexCollection(system, live.writer, 'solutions', { audit: false });
+    expect(await live.writer.aliasTarget('solutions')).toBe('hub_solutions_v2');
+    expect(await live.writer.stemsMark('solutions')).toBe(stemsMarkOf(pairs));
+    expect(await live.writer.stemsMark('ideas')).toBe(stemsMarkOf([]));
+    // Версия, созданная до появления отметок (без метаданных): отметки нет.
+    await master('DELETE', '/aliases/hub_ideas');
+    await master('DELETE', '/collections/hub_ideas_v1');
+    expect(await live.writer.stemsMark('ideas')).toBeNull();
+    await master('POST', '/collections', { name: 'hub_ideas_v1', fields: [{ name: 'title_fold', type: 'string', optional: true }] });
+    await master('PUT', '/aliases/hub_ideas', { collection_name: 'hub_ideas_v1' });
+    expect(await live.writer.stemsMark('ideas')).toBeNull();
   });
 
   test('сбой заливки: новая версия удаляется, повтор проходит; оставленная прежним сбоем версия не мешает; вторая переиндексация той же коллекции ждёт', async () => {

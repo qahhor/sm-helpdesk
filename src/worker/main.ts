@@ -18,7 +18,7 @@ import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/mo
 import { runModerationDigest } from '@/modules/hdi/api/notices';
 import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
 import { runAnnouncementTranslationJob, runProblemTranslationJob } from '@/modules/hdp/api/translate-jobs';
-import { runBroadcastJob, runBroadcastTranslationJob } from '@/modules/hdp/api/broadcast-jobs';
+import { runBroadcastJob, runBroadcastTranslationJob, sweepBroadcasts } from '@/modules/hdp/api/broadcast-jobs';
 import { reconcileSearchIndex, runIndexJob } from '@/modules/hdk/api/search-jobs';
 import { cleanupSuggestMisses } from '@/modules/hdk/api/misses';
 import { repairTicketSignatures } from '@/modules/hdk/api/signatures';
@@ -356,6 +356,9 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     // Письма, разбор которых не встал в очередь или исчерпал повторы, ставятся снова (итоговая проверка M4).
     const requeued = await requeueStaleInbound(actor('email.sweep'));
     if (requeued > 0) console.info(`Входящие письма: снова на разборе ${requeued}`);
+    // Рассылки по известным проблемам, которые не дошли до конца за 10 минут, ставятся снова (проверка качества, Q1).
+    const broadcasts = await sweepBroadcasts(actor('problems.broadcast'));
+    if (broadcasts.requeued > 0) console.info(`Известные проблемы: рассылок снова на отправке ${broadcasts.requeued}`);
   }));
   await boss.work('outbox.dispatch', polling, () => timedJob('outbox.dispatch', async () => {
     // При остановке процесса запуск прекращает работу между письмами: захваченные строки не ждут 5 минут.

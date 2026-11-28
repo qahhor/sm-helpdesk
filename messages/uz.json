@@ -5080,7 +5080,8 @@
       "search_drift": "Smartup Hub: qidiruv indeksini solishtirish farqlarni topdi: {count} (to'plamlar: {collections}). Yetishmayotganlari qaytadan yoziladi.",
       "search_isolation": "Smartup Hub: qidiruv mijozga boshqa tashkilot identifikatorlarini qaytardi, ularni baza tekshiruvi tashlab yubordi: bir soatda {count}. Qidiruv kaliti filtrini tekshiring.",
       "host_pressure": "Smartup Hub: server 80% va undan ko'p band: {kinds}. disk: baza yoki nusxalar tomi, mem: xotira, cpu: protsessor. Navbatchi eslatmasining 6-bo'limiga qarang.",
-      "host_mark_stale": "Smartup Hub: server resurslari belgisi 15 daqiqadan ortiq yo'q (serverlar: {count}). Serverdagi host-watch taymerini tekshiring."
+      "host_mark_stale": "Smartup Hub: server resurslari belgisi 15 daqiqadan ortiq yo'q (serverlar: {count}). Serverdagi host-watch taymerini tekshiring.",
+      "broadcast_stuck": "Smartup Hub: 30 daqiqa ichida barcha oluvchilarga yetib bormagan ma'lum muammolar bo'yicha xabarnomalar: {count}."
     },
     "tez": {
       "helped": "Yordam berganidan xursandmiz. Murojaat hal qilindi.",

@@ -1,9 +1,10 @@
 import 'server-only';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray, lt } from 'drizzle-orm';
 import * as z from 'zod';
 import { type SystemActor, withActor } from '@/db/with-actor';
 import { isLocale, LOCALES } from '@/i18n/locales';
 import { logEvent } from '@/lib/log';
+import { enqueue } from '@/modules/hdc/api';
 import { requestPublicTextTranslation } from '@/modules/hda/api/translate';
 import { comparePlainInvariants } from '@/modules/hdk/api/text-checks';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
@@ -19,8 +20,13 @@ import { problemRef } from '../util';
 //
 // problems.broadcast: по одному обращению из получателей подтверждения за транзакцию; сообщение только из текста
 // рассылки на языке обращения (T23). Повтор и вторая одновременная задача не создают дублей: пару "обращение,
-// рассылка" держит уникальный индекс, при конфликте ни письма, ни перехода. Сбой посреди рассылки бросается дальше:
-// pg-boss повторяет задачу, доставленные пропускаются. По окончании статус done и число доставленных.
+// рассылка" держит уникальный индекс, при конфликте ни письма, ни перехода. Сбой на одном обращении не отнимает
+// сообщение у остальных (проверка качества, Q1): задача доходит до конца списка, рассылка остаётся sending и задача
+// падает, pg-boss её повторяет, доставленные пропускаются. По окончании без сбоев статус done и число доставленных.
+//
+// Обход sweepBroadcasts (минутная задача tickets.minute): подтверждённая рассылка, которая за 10 минут не дошла до
+// done, ставится снова. Так переживается потеря постановки после транзакции подтверждения и исчерпанные повторы.
+// Рассылка, висящая дольше 30 минут, даёт сигнал дежурным broadcast_stuck (ops.watch).
 
 const SOURCE_FALLBACK = 'ru';
 
@@ -51,24 +57,37 @@ export async function runBroadcastJob(system: SystemActor, data: unknown): Promi
   const original = row.body[row.sourceLocale] ?? '';
   let delivered = 0;
   let skipped = 0;
+  const failures: unknown[] = [];
   for (const ticketId of row.recipientIds) {
-    hooks.__hubBroadcastHook?.();
-    const locale = locales.get(ticketId) ?? SOURCE_FALLBACK;
-    const body = (isLocale(locale) ? row.body[locale] : undefined) ?? original;
-    const result = await withActor(system, (tx) =>
-      postProblemMessageTx(tx, {
-        ticketId,
-        problemId: row.problemId,
-        broadcastId,
-        authorId: row.authorId,
-        body,
-        problemRef: problemRef(problem.number),
-        problemStatus: row.kind === 'closing' ? 'fixed' : problem.status,
-        resolve: row.kind === 'closing' ? (version ? { resolutionType: 'fixed_in_version', version } : { resolutionType: 'solved', version: null }) : null,
-      }),
-    );
-    if (result === 'delivered') delivered += 1;
-    else if (result === 'skipped') skipped += 1;
+    try {
+      hooks.__hubBroadcastHook?.();
+      const locale = locales.get(ticketId) ?? SOURCE_FALLBACK;
+      const body = (isLocale(locale) ? row.body[locale] : undefined) ?? original;
+      const result = await withActor(system, (tx) =>
+        postProblemMessageTx(tx, {
+          ticketId,
+          problemId: row.problemId,
+          broadcastId,
+          authorId: row.authorId,
+          body,
+          problemRef: problemRef(problem.number),
+          problemStatus: row.kind === 'closing' ? 'fixed' : problem.status,
+          resolve: row.kind === 'closing' ? (version ? { resolutionType: 'fixed_in_version', version } : { resolutionType: 'solved', version: null }) : null,
+        }),
+      );
+      if (result === 'delivered') delivered += 1;
+      else if (result === 'skipped') skipped += 1;
+    } catch (error) {
+      // В журнале только идентификаторы: текст ошибки базы может нести данные обращения.
+      failures.push(error);
+      logEvent('error', 'problems.broadcast_recipient_failed', { broadcastId, ticketId });
+    }
+  }
+  if (failures.length > 0) {
+    // Письма доставленным уже в очереди исходящих. Рассылка остаётся sending: повтор задачи или обход доставит остальным.
+    await wakeOutbox();
+    const first = failures[0];
+    throw new Error(`рассылка ${broadcastId}: не доставлено обращениям ${failures.length} из ${row.recipientIds.length}: ${first instanceof Error ? first.message : 'сбой'}`, { cause: first });
   }
   await withActor(system, async (tx) => {
     const done = await broadcastDeliveredTx(tx, broadcastId);
@@ -76,6 +95,35 @@ export async function runBroadcastJob(system: SystemActor, data: unknown): Promi
   });
   await wakeOutbox();
   return { delivered, skipped };
+}
+
+/** Подтверждённая рассылка без done старше этого срока ставится снова. */
+export const BROADCAST_REQUEUE_AFTER_MIN = 10;
+/** Старше этого срока: сигнал дежурным broadcast_stuck. */
+export const BROADCAST_STUCK_AFTER_MIN = 30;
+const SWEEP_LIMIT = 50;
+
+const unfinishedBefore = (now: Date, minutes: number) =>
+  and(inArray(broadcasts.status, ['queued', 'sending']), lt(broadcasts.confirmedOn, new Date(now.getTime() - minutes * 60_000)));
+
+/**
+ * Обход зависших рассылок (проверка качества, Q1): queued и sending старше 10 минут ставятся на отправку снова.
+ * Задача идемпотентна, вторая одновременная дублей не создаёт.
+ */
+export async function sweepBroadcasts(system: SystemActor, now: Date = new Date()): Promise<{ requeued: number }> {
+  const rows = await withActor(system, (tx) =>
+    tx.select({ broadcastId: broadcasts.broadcastId }).from(broadcasts).where(unfinishedBefore(now, BROADCAST_REQUEUE_AFTER_MIN)).orderBy(broadcasts.confirmedOn).limit(SWEEP_LIMIT),
+  );
+  for (const row of rows) await enqueue('problems.broadcast', { broadcastId: row.broadcastId });
+  return { requeued: rows.length };
+}
+
+/** Сколько подтверждённых рассылок не дошли до конца за 30 минут (сигнал broadcast_stuck задачи ops.watch). */
+export async function stuckBroadcastCount(system: SystemActor, now: Date): Promise<number> {
+  const rows = await withActor(system, (tx) =>
+    tx.select({ broadcastId: broadcasts.broadcastId }).from(broadcasts).where(unfinishedBefore(now, BROADCAST_STUCK_AFTER_MIN)).limit(100),
+  );
+  return rows.length;
 }
 
 const translateJob = z.strictObject({ broadcastId: z.uuid(), locale: z.enum(LOCALES) });

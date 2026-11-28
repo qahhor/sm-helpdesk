@@ -2,9 +2,10 @@ import { afterEach, beforeEach, expect, test } from 'vitest';
 import { setAiClientForTests, StubAiClient } from '@/modules/hda/testing';
 import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
 import { broadcastDraft, confirmBroadcast, listBroadcasts, prepareBroadcast } from '@/modules/hdp/api/broadcasts';
-import { runBroadcastJob, runBroadcastTranslationJob, setBroadcastHookForTests } from '@/modules/hdp/api/broadcast-jobs';
+import { runBroadcastJob, runBroadcastTranslationJob, setBroadcastHookForTests, stuckBroadcastCount, sweepBroadcasts } from '@/modules/hdp/api/broadcast-jobs';
 import { linkTicketToProblem } from '@/modules/hdp/api/links';
 import { createProblem, saveProblemTranslation, setProblemShown } from '@/modules/hdp/api/problems';
+import { collectOpsAlerts } from '@/worker/ops-watch';
 import { staffCtx, staffWithRole } from './helpers/auth';
 import { memoryBotPerTest } from './helpers/telegram';
 import { asActor, pools, system } from './helpers/db';
@@ -100,21 +101,46 @@ test('рассылка: по одному сообщению и письму к�
   expect(row).toMatchObject({ broadcastId, kind: 'update', status: 'done', recipientsCount: 3, orgCount: 2, deliveredCount: 3 });
 });
 
-test('сбой на середине: повтор доставляет остальным без дублей', async () => {
+test('сбой на одном получателе: остальные получают сразу, рассылка остаётся незавершённой, повтор доставляет без дублей', async () => {
   const broadcastId = await confirmed();
   let calls = 0;
   setBroadcastHookForTests(() => {
     calls += 1;
     if (calls === 2) throw new Error('сбой посреди рассылки');
   });
+  // Отказ одного обращения не отнимает сообщение у остальных (проверка качества, Q1): двое из трёх получили.
   await expect(runBroadcastJob(system, { broadcastId })).rejects.toThrow('сбой посреди рассылки');
-  expect(await messages(broadcastId)).toHaveLength(1);
+  expect(calls).toBe(3);
+  expect(await messages(broadcastId)).toHaveLength(2);
+  expect((await pools.root.query(`select status from hdp_broadcasts where broadcast_id = $1`, [broadcastId])).rows[0].status).toBe('sending');
   setBroadcastHookForTests(null);
   await runBroadcastJob(system, { broadcastId });
   expect(await messages(broadcastId)).toHaveLength(3);
+  expect((await pools.root.query(`select status, delivered_count from hdp_broadcasts where broadcast_id = $1`, [broadcastId])).rows[0]).toEqual({ status: 'done', delivered_count: 3 });
   const first = (await messages(broadcastId))[0]!.ticket_id;
   const firstLetters = (await mails('problem_update')).filter((m) => m.channel === 'email' && m.ticket_id === first);
   expect(new Set(firstLetters.map((m) => m.recipient_user_id)).size).toBe(firstLetters.length);
+});
+
+test('обход: подтверждённая рассылка без задачи ставится снова через 10 минут, через 30 минут идёт сигнал дежурным', async () => {
+  const broadcastId = await confirmed();
+  const now = new Date();
+  // Свежая рассылка: её задача ещё может идти, обход не трогает.
+  jobs.sent.length = 0;
+  expect(await sweepBroadcasts(system, now)).toEqual({ requeued: 0 });
+  expect(await stuckBroadcastCount(system, now)).toBe(0);
+  // Постановка задачи потерялась (сбой между транзакцией подтверждения и очередью): рассылка висит queued.
+  // Подтверждённую рассылку триггер менять не даёт: сдвигается время обхода.
+  const later = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
+  expect(await sweepBroadcasts(system, later(11))).toEqual({ requeued: 1 });
+  expect(jobs.sent.filter((j) => j.name === 'problems.broadcast').map((j) => j.data)).toEqual([{ broadcastId }]);
+  expect(await stuckBroadcastCount(system, later(11))).toBe(0);
+  expect(await stuckBroadcastCount(system, later(31))).toBe(1);
+  expect((await collectOpsAlerts(system, later(31), { searchWriter: null })).filter((a) => a.code === 'broadcast_stuck')).toEqual([{ code: 'broadcast_stuck', count: 1 }]);
+  // Доставленная рассылка и черновик не считаются.
+  await runBroadcastJob(system, { broadcastId });
+  expect(await sweepBroadcasts(system, later(31))).toEqual({ requeued: 0 });
+  expect(await stuckBroadcastCount(system, later(31))).toBe(0);
 });
 
 test('сообщение рассылки останавливает срок первого ответа и снимает "клиент ждёт", исполнитель и статус прежние', async () => {

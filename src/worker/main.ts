@@ -240,7 +240,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   }));
   await boss.work('retention.client_data', polling, () => timedJob('retention.client_data', async () => {
     const report = await runClientDataRetention(actor('retention.client_data'));
-    console.info(`Сроки хранения (${report.mode === 'delete' ? 'удаление' : 'пробный прогон'}): файлов к удалению ${report.attachmentsDue}, удалено ${report.attachmentsExpired}; организаций с истёкшим сроком ${report.orgsDue}, их обращений ${report.ticketsDue}`);
+    console.info(`Сроки хранения (${report.mode === 'delete' ? 'удаление' : 'пробный прогон'}): файлов к удалению ${report.attachmentsDue}, удалено ${report.attachmentsExpired}, не удалено из-за сбоя хранилища ${report.attachmentsFailed}; организаций с истёкшим сроком ${report.orgsDue}, их обращений ${report.ticketsDue}`);
   }));
   await boss.work('kb.reconcile', polling, () => timedJob('kb.reconcile', async () => {
     const { articles, failed, deflections } = await reconcileSearchIndex(actor('kb.reconcile'));

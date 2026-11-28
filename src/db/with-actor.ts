@@ -72,12 +72,12 @@ function noteSlowTx(actor: Actor, startedAt: number): void {
 /** Какому пулу принадлежит транзакция: hub_app (withActor) или hub_auth (withIdentity). */
 export type TxPool = 'app' | 'auth';
 /** Транзакция, открытая внутри другой: внешняя держит своё соединение, пока внутренняя ждёт своё. */
-export type NestedTx = { outer: TxPool; inner: TxPool; actor: Actor['type']; job: string | null; stack: string; outerStack: string };
+export type NestedTx = { outer: TxPool; inner: TxPool; actor: Actor['type']; job: string | null; stack: string };
 
 // Открытая транзакция текущей цепочки вызовов. По ней видно вложенную транзакцию (проверка качества, Q2, Q11, Q12):
 // обратный вызов withActor позвал функцию, которая сама открывает транзакцию. Внешняя при этом держит соединение
 // hub_app и ждёт свободное соединение второго пула: под нагрузкой это очередь и взаимная блокировка пулов.
-const txScope = new AsyncLocalStorage<{ pool: TxPool; stack: string }>();
+const txScope = new AsyncLocalStorage<{ pool: TxPool }>();
 const nested = globalThis as typeof globalThis & { __hubNestedTxHook?: ((found: NestedTx) => void) | null };
 
 /** Тесты получают каждую вложенную транзакцию с местом вызова (tests/integration/setup/each.ts). null убирает. */
@@ -85,25 +85,23 @@ export function setNestedTxHookForTests(hook: ((found: NestedTx) => void) | null
   nested.__hubNestedTxHook = hook;
 }
 
-function noteNestedTx(outer: { pool: TxPool; stack: string }, inner: TxPool, actor: Actor): void {
+function noteNestedTx(outer: TxPool, inner: TxPool, actor: Actor): void {
   const job = actor.type === 'system' ? actor.job : null;
   // В журнале только пулы и актор. Уровень debug: известные места записаны долгом, новые ловит тест.
-  logEvent('debug', 'db.nested_tx', { outer: outer.pool, inner, actor: actor.type, ...(job ? { job } : {}) });
+  logEvent('debug', 'db.nested_tx', { outer, inner, actor: actor.type, ...(job ? { job } : {}) });
   const hook = nested.__hubNestedTxHook;
-  if (hook) hook({ outer: outer.pool, inner, actor: actor.type, job, stack: new Error().stack ?? '', outerStack: outer.stack });
+  if (hook) hook({ outer, inner, actor: actor.type, job, stack: new Error().stack ?? '' });
 }
 
 export function createWithActor(db: AppDb, pool: TxPool = 'app'): WithActor {
   return async (actor, fn) => {
     const outer = txScope.getStore();
-    if (outer) noteNestedTx(outer, pool, actor);
-    // Место вызова нужно только тестам: в работе стек не снимается.
-    const stack = nested.__hubNestedTxHook ? (new Error().stack ?? '') : '';
+    if (outer) noteNestedTx(outer.pool, pool, actor);
     // Отсчёт с начала транзакции, а не с ожидания свободного соединения: иначе при занятом пуле каждая транзакция
     // выглядела бы медленной (итоговая проверка W0, M11).
     let startedAt: number | null = null;
     try {
-      return await txScope.run({ pool, stack }, () => db.transaction(async (tx) => {
+      return await txScope.run({ pool }, () => db.transaction(async (tx) => {
         startedAt = performance.now();
         await tx.execute(sql`
           select set_config('app.actor_type', ${actor.type}, true),

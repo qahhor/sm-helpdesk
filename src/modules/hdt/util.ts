@@ -2,7 +2,7 @@
 
 import type { DetectedType } from '@/modules/hdc/api';
 import { searchable } from '@/modules/hdc/pref';
-import { ACCEPTED_TYPES, ALLOWED_FILES, ENCRYPTED_OFFICE_SIGNATURE, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES, type RejectReason, TIMELINE_MAX } from './pref';
+import { ACCEPTED_TYPES, ALLOWED_FILES, ENCRYPTED_OFFICE_SIGNATURE, MAX_FILE_BYTES, MAX_VIDEO_BYTES, MIME_ALIASES, type RejectReason, type ScanStatus, TIMELINE_MAX } from './pref';
 
 // Тема из описания нужна и форме в браузере (подстановка при вводе): общая функция лежит в src/lib/subject.ts.
 export { titleFromDescription } from '@/lib/subject';
@@ -64,6 +64,17 @@ export function rejectReasonOf(signature: string | null): RejectReason | null {
   if (signature === ENCRYPTED_OFFICE_SIGNATURE || signature.startsWith('Heuristics.Encrypted.')) return 'encrypted';
   if (signature.startsWith('Heuristics.Limits.Exceeded.')) return 'limits';
   return null;
+}
+
+/**
+ * Подпись состояния файла на странице клиента (ключ client.tickets.page.scan.*): у отказа причина, если её можно
+ * назвать клиенту (решение 0027, пункт 20); файл, удалённый по сроку хранения, подписан так, а не "проверяется"
+ * (проверка W7, R4). Чистый файл подписи не имеет: он показан ссылкой.
+ */
+export function clientScanLabel(file: { scanStatus: ScanStatus; rejectReason: RejectReason | null }): 'pending' | 'infected' | 'rejected' | 'expired' | RejectReason {
+  if (file.scanStatus === 'rejected') return file.rejectReason ?? 'rejected';
+  if (file.scanStatus === 'infected' || file.scanStatus === 'expired') return file.scanStatus;
+  return 'pending';
 }
 
 /** Документ Office нового формата в контейнере OLE: так хранится документ с паролем. */

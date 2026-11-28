@@ -28,3 +28,18 @@ test('документ Office нового формата принимается
   // Старые doc, xls, ppt и есть OLE.
   expect(typeMatches('application/vnd.ms-excel', 'ole')).toBe(true);
 });
+
+test('подпись состояния файла у клиента: удалённый по сроку хранения не выдаётся за проверяемый', async () => {
+  const { clientScanLabel } = await import('@/modules/hdt/util');
+  expect(clientScanLabel({ scanStatus: 'expired', rejectReason: null })).toBe('expired');
+  expect(clientScanLabel({ scanStatus: 'pending', rejectReason: null })).toBe('pending');
+  expect(clientScanLabel({ scanStatus: 'infected', rejectReason: null })).toBe('infected');
+  expect(clientScanLabel({ scanStatus: 'rejected', rejectReason: null })).toBe('rejected');
+  expect(clientScanLabel({ scanStatus: 'rejected', rejectReason: 'encrypted' })).toBe('encrypted');
+  expect(clientScanLabel({ scanStatus: 'rejected', rejectReason: 'limits' })).toBe('limits');
+  // У каждой подписи есть текст на всех языках портала.
+  for (const locale of ['ru', 'uz', 'en']) {
+    const messages = (await import(`../../messages/${locale}.json`)).default as { client: { tickets: { page: { scan: Record<string, string> } } } };
+    for (const label of ['expired', 'pending', 'infected', 'rejected', 'encrypted', 'limits']) expect(messages.client.tickets.page.scan[label], `${locale}.${label}`).toBeTruthy();
+  }
+});

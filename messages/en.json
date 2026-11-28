@@ -1317,7 +1317,9 @@
             "policy_acknowledged": "Policy version acknowledged",
             "signed_in_telegram": "Sign-in through the Telegram bot",
             "signed_in": "Client signed in",
-            "anonymized": "Account anonymized"
+            "anonymized": "Account anonymized",
+            "mail_anonymized": "Mail traces of the anonymized account removed",
+            "ideas_anonymized": "Idea author name anonymized"
           },
           "session": {
             "revoked": "Session ended",

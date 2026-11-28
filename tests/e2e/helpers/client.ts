@@ -40,8 +40,9 @@ export type SignInOptions = { startAt?: string; stopAtWelcome?: boolean; deviceL
  * тестов меняет язык профиля в других тестах, поэтому вход в тестах закрепляет язык страницы входа явно.
  */
 async function chooseDeviceLocale(page: Page, startAt: string): Promise<void> {
-  const locale = /^\/(ru|uz|en)(?:\/|$)/.exec(startAt)?.[1];
   const origin = process.env.E2E_BASE_URL ?? 'http://localhost:3100';
+  // Адрес входа бывает полным (страница входа с адресом возврата): язык берётся из пути.
+  const locale = /^\/(ru|uz|en)(?:\/|$)/.exec(new URL(startAt, origin).pathname)?.[1];
   if (locale) await page.context().addCookies([{ name: 'hub_locale', value: locale, url: origin }]);
 }
 

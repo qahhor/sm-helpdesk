@@ -5,7 +5,8 @@ import { EmptyState } from '@/ui/components/EmptyState';
 // Список уведомлений (FR-NT-03, решение 5 вехи M4) для кабинета клиента и рабочего места. Тексты уже переведены
 // на сервере. Открытие уведомления это форма: работает без JavaScript, отметка прочтения ставится на сервере.
 
-export type NotificationItem = { id: string; text: string; time: string; unread: boolean };
+/** detail: тема обращения второй строкой (проверка интерфейса, U16): по одному номеру обращение не узнать. */
+export type NotificationItem = { id: string; text: string; detail?: string | null; time: string; unread: boolean };
 
 export function NotificationsList({
   items,
@@ -44,6 +45,11 @@ export function NotificationsList({
                   >
                     <span className="flex min-w-0 flex-1 flex-col gap-1">
                       <span className={item.unread ? 'font-semibold' : undefined}>{item.text}</span>
+                      {item.detail && (
+                        <span className="wrap-anywhere" data-notification-detail>
+                          {item.detail}
+                        </span>
+                      )}
                       <span className="text-sm text-secondary-foreground">{item.time}</span>
                     </span>
                     {item.unread && <span className="rounded-chip bg-primary px-2 text-xs font-bold text-primary-foreground">{labels.unread}</span>}
@@ -55,7 +61,7 @@ export function NotificationsList({
         </CardContent>
       </Card>
       {moreHref && (
-        <a href={moreHref} className="self-center text-link underline">
+        <a href={moreHref} className="inline-flex min-h-11 items-center self-center text-link underline">
           {labels.more}
         </a>
       )}

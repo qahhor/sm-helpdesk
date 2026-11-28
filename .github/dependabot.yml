@@ -17,6 +17,13 @@ updates:
         applies-to: version-updates
         patterns: ["*"]
     open-pull-requests-limit: 5
+    # Мажорные версии typescript и eslint не предлагаются: typescript-eslint и eslint-config-next их ещё не
+    # поддерживают, проверка pnpm check падает. Переход - отдельная задача (docs/decisions/0166).
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

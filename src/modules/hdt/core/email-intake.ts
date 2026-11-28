@@ -31,7 +31,7 @@ import {
 import { isInboundTestSubject } from '@/modules/hdn/api/mail-settings';
 import { wakeOutbox } from '@/modules/hdn/api/outbox';
 import { ensureGuest, findVerifiedUser, orgByEmailDomain, SERVICE_ORG_ID, senderOrg } from '@/modules/hdu/api/guests';
-import { mailRecipient, replyRole } from '@/modules/hdu/api/recipients';
+import { mailAddresses, mailRecipient, replyRole } from '@/modules/hdu/api/recipients';
 import { ALLOWED_FILES, MAX_FILES_PER_MESSAGE, type TicketStatus, type Visibility } from '../pref';
 import { attachments, ticketEvents, ticketMessages, tickets, ticketWatchers } from '../schema';
 import { maskCsatLinks } from '../csat-link';
@@ -46,6 +46,7 @@ import { isThanks } from './thanks';
 import { createEmailTicketTx, ticketExists } from './tickets';
 import { startAssistant } from '../api/ai';
 import { thanksOnClientReply } from '../api/ai-messages';
+import { withActorForAuthor } from './notice-identity';
 
 // Модуль hdt, слой core: разбор входящего письма (FR-EM-02, FR-NT-05..08, раздел 11.8, решения 16, 17, 20 вехи M4).
 // Порядок: список отклонённых, автоответ и недоставка, затем обращение по подписанному адресу ответа, по In-Reply-To
@@ -110,8 +111,9 @@ async function participantByAddress(actor: SystemActor, ticketId: string, addres
     const watchers = await tx.select({ userId: ticketWatchers.userId }).from(ticketWatchers).where(eq(ticketWatchers.ticketId, ticketId)).limit(PARTICIPANTS_MAX);
     return [...new Set([...author, ...watchers].map((r) => r.userId))];
   });
-  for (const userId of ids) if ((await mailRecipient(userId))?.address.toLowerCase() === address) return userId;
-  return null;
+  // Адреса всех участников одной выборкой, порядок прежний: сначала автор (проверка качества, Q21).
+  const addresses = await mailAddresses(ids);
+  return ids.find((userId) => addresses.get(userId)?.toLowerCase() === address) ?? null;
 }
 
 /**
@@ -381,7 +383,8 @@ async function newTicket(actor: SystemActor, letter: Letter): Promise<InboundCla
   const staged = await stageFiles(actor, { orgId: sender.orgId, uploaderId: sender.userId }, files);
   let attached = false;
   let created: { ticketId: string; body: string } | null = null;
-  const result = await withActor(actor, async (tx) => {
+  // Роль автора и привязка Telegram читаются до транзакции (проверка качества, Q2).
+  const result = await withActorForAuthor(actor, { orgId: sender.orgId, userId: sender.userId }, async (tx) => {
     const done = await alreadyDone(tx, row);
     if (done) return done;
     const body = cut(letter.fullText, BODY_MAX) || title;

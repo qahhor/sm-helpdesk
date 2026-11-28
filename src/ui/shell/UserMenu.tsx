@@ -17,12 +17,15 @@ const UserMenuContent = lazy(loadMenu);
  */
 export function UserMenu({
   name,
+  detail,
   label,
   links,
   signOutLabel,
   signOut,
 }: {
   name: string;
+  /** Организация клиента: на телефоне показывается в меню под именем. */
+  detail?: string;
   label: string;
   links: UserMenuLink[];
   signOutLabel: string;
@@ -55,7 +58,7 @@ export function UserMenu({
   if (!opened) return button;
   return (
     <Suspense fallback={button}>
-      <UserMenuContent label={label} links={links} signOutLabel={signOutLabel} signOut={signOut}>
+      <UserMenuContent label={label} name={name} detail={detail} links={links} signOutLabel={signOutLabel} signOut={signOut}>
         {content}
       </UserMenuContent>
     </Suspense>

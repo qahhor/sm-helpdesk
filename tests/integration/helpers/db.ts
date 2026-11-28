@@ -93,3 +93,12 @@ export const clientA: ClientActor = {
   orgRole: 'client_user',
 };
 export const system: SystemActor = { type: 'system', job: 'integration-test' };
+
+/**
+ * Статистика всех таблиц базы перед проверкой плана запроса (проверка качества, Q9). Сбор статистики по одной таблице
+ * оставлял остальным таблицам запроса статистику прошлого теста, а фоновый сбор в контейнере тестов выключен
+ * (setup/global-setup.ts): план зависел бы от порядка файлов. Пустые таблицы собираются за миллисекунды.
+ */
+export async function analyzeAll(): Promise<void> {
+  await pools.root.query('analyze');
+}

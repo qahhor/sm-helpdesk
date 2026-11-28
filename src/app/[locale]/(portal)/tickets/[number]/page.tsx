@@ -4,6 +4,7 @@ import { getFormatter, getNow, getTranslations } from 'next-intl/server';
 import {
   ALLOWED_FILE_EXTENSIONS,
   type AttachmentView,
+  clientScanLabel,
   CSAT_REASONS,
   findTicketInOtherOrganizations,
   getTicket,
@@ -29,18 +30,13 @@ import { KnownProblemBlock } from './KnownProblemBlock';
 import { ReplyForm } from './ReplyForm';
 import { StatusLine } from './StatusLine';
 import { TicketActions } from './TicketActions';
+import { TezMark } from '@/ui/brand/TezMark';
 
 // Страница обращения (ТЗ 8.3, FR-TK-07, FR-TK-17): номер копируется одним нажатием, линейка состояния и чей ход,
 // переписка в Markdown, файлы с миниатюрами, история статусов в ленте, действия по правам. Невидимое клиенту
 // обращение не отличается от несуществующего: страница "не найдено".
 
 /** Номер из адреса. Испорченная последовательность %XX даёт null, а не исключение (ошибку 500). */
-/** Подпись состояния файла: у отказа причина, если её можно назвать клиенту (решение 0027, пункт 20). */
-function scanLabel(file: Pick<AttachmentView, 'scanStatus' | 'rejectReason'>): string {
-  if (file.scanStatus === 'rejected') return file.rejectReason ?? 'rejected';
-  return file.scanStatus === 'infected' ? 'infected' : 'pending';
-}
-
 function safeDecode(value: string): string | null {
   try {
     return decodeURIComponent(value);
@@ -114,7 +110,7 @@ export default async function TicketPage({
               </a>
             ) : (
               <span className="break-all" data-scan={file.scanStatus}>
-                {file.fileName} <span className="text-muted-foreground">({t(`page.scan.${scanLabel(file)}`)})</span>
+                {file.fileName} <span className="text-muted-foreground">({t(`page.scan.${clientScanLabel(file)}`)})</span>
               </span>
             )}
           </li>
@@ -207,7 +203,7 @@ export default async function TicketPage({
 
   return (
     <>
-      <Link href="/tickets" className="self-start text-sm text-link underline-offset-2 hover:underline">
+      <Link href="/tickets" className="inline-flex min-h-11 items-center self-start text-sm text-link underline-offset-2 hover:underline">
         {t('new.back')}
       </Link>
       <div className="flex flex-col gap-2">
@@ -251,6 +247,14 @@ export default async function TicketPage({
           scopes={done === 'replied' ? [`reply-${ticket.number}`] : [ticket.relatedNumber ? `new-ticket-${ticket.relatedNumber}` : 'new-ticket']}
         />
       )}
+      {/* Подтверждение создания с Тезом (таблица состояний 8.13; проверка интерфейса, U23). Значок, а не крупный Тез:
+          на странице может идти его же анимация подготовки ответа, а крупный Тез на экране один (UX-B-04). */}
+      {created === '1' && (
+        <div role="status" className="flex items-center gap-3 rounded-card border border-success bg-success-bg p-3" data-testid="ticket-created">
+          <TezMark size={40} />
+          <p className="font-medium">{t('page.createdNote', { number: label })}</p>
+        </div>
+      )}
       {done && t.has(`page.done.${done}`) && <Alert tone="success">{t(`page.done.${done}`)}</Alert>}
       {error && <Alert tone="danger">{t.has(`errors.${error}`) ? t(`errors.${error}`) : t('errors.invalid_input')}</Alert>}
 
@@ -272,7 +276,7 @@ export default async function TicketPage({
         <CardContent className="flex flex-col gap-5 pt-4">
           <h2 className="sr-only">{t('page.history')}</h2>
           {earlierLink(ticket.shown, ticket.hasEarlier) === 'link' && (
-            <Link href={`/tickets/SUP-${ticket.number}?shown=${ticket.shown + TIMELINE_PAGE}`} className="self-start text-sm text-link underline-offset-2 hover:underline">
+            <Link href={`/tickets/SUP-${ticket.number}?shown=${ticket.shown + TIMELINE_PAGE}`} className="inline-flex min-h-11 items-center self-start text-sm text-link underline-offset-2 hover:underline">
               {t('page.showEarlier')}
             </Link>
           )}

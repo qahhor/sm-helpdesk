@@ -65,8 +65,28 @@ test('обезличивание учётной записи: только ад�
   await pools.root.query(`insert into hdi_ideas (org_id, author_id, author_name, original_locale, status) values ($1, $2, $3, 'ru', 'pending_review')`, [f.orgA.orgId, f.aUser.userId, before.name]);
   await expect(anonymizeIdeaAuthor(staffCtx(f.care), { userId: f.aUser.userId, name: after.name })).rejects.toMatchObject({ code: 'forbidden' });
   await expect(anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: 'Настоящее Имя' })).rejects.toMatchObject({ code: 'invalid_input' });
+  // Имя правильного вида, но не имя этой учётной записи: снимок не меняется.
+  await expect(anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: '#00000000' })).rejects.toMatchObject({ code: 'invalid_input' });
+  // Учётная запись не обезличена: снимок имени её идей не меняется никем (проверка W7, R11).
+  await pools.root.query(`insert into hdi_ideas (org_id, author_id, author_name, original_locale, status) values ($1, $2, 'Дильноза', 'ru', 'pending_review')`, [f.orgA.orgId, f.aAdmin.userId]);
+  await expect(anonymizeIdeaAuthor(admin, { userId: f.aAdmin.userId, name: '#deadbeef' })).rejects.toMatchObject({ code: 'invalid_input' });
+  expect((await pools.root.query(`select author_name from hdi_ideas where author_id = $1`, [f.aAdmin.userId])).rows.map((r) => r.author_name)).toEqual(['Дильноза']);
+  expect(await audit('user.ideas_anonymized')).toEqual([]);
+  // Журнал и замена одной транзакцией: не записался журнал, не изменился снимок.
+  await pools.root.query(`alter table hdc_audit_log add constraint w7_block check (action <> 'user.ideas_anonymized') not valid`);
+  try {
+    await expect(anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: after.name })).rejects.toThrow();
+  } finally {
+    await pools.root.query(`alter table hdc_audit_log drop constraint w7_block`);
+  }
+  expect((await pools.root.query(`select author_name from hdi_ideas where author_id = $1`, [f.aUser.userId])).rows.map((r) => r.author_name)).toEqual([before.name]);
   expect(await anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: after.name })).toEqual({ ideas: 1 });
   expect((await pools.root.query(`select author_name from hdi_ideas where author_id = $1`, [f.aUser.userId])).rows.map((r) => r.author_name)).toEqual([after.name]);
+  // Запись журнала: от имени системы, с числом идей, без имён. Повтор ничего не меняет и не пишет.
+  expect(await anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: after.name })).toEqual({ ideas: 0 });
+  const ideaRows = await audit('user.ideas_anonymized');
+  expect(ideaRows).toEqual([expect.objectContaining({ actor_id: null, object_id: f.aUser.userId, diff: { ideas: 1 } })]);
+  expect(JSON.stringify(ideaRows)).not.toContain(before.name);
   // Повтор ничего не меняет и второй записи не пишет.
   await anonymizeAccount(admin, { userId: f.aUser.userId });
   expect(await audit('user.anonymized')).toHaveLength(1);
@@ -135,10 +155,19 @@ test('задача хранения включена настройкой: фа�
   const fresh = await closedWithFile(f.tickets.bOrg.ticketId, f.orgB.orgId, 100);
   await pools.root.query(`update hdu_organizations set contract_ends_on = current_date - 1200 where org_id = $1`, [f.orgB.orgId]);
   await pools.root.query(`insert into hdc_settings (code, value) values ('retention.client_data_enabled', 'true'::jsonb)`);
+  for (const status of ['infected', 'rejected']) {
+    await pools.root.query(
+      `insert into hdt_attachments (org_id, ticket_id, uploader_id, storage_key, file_name, mime, size, scan_status) values ($1, $2, $3, $4, 'virus.png', 'image/png', 10, $5)`,
+      [f.orgA.orgId, f.tickets.aOrg.ticketId, f.aUser.userId, `quarantine/${f.orgA.orgId}/${status}`, status],
+    );
+    await storage.put(`quarantine/${f.orgA.orgId}/${status}`, Buffer.from('x'), 'image/png');
+  }
+  const colleagueBefore = await getTicket(await clientCtx(f.aAdmin), String(f.tickets.aOrg.number)).then((view) => [...view!.attachments, ...view!.messages.flatMap((m) => m.attachments)]);
   const tickets = (await pools.root.query(`select count(*)::int as n from hdt_tickets`)).rows[0].n;
   const report = await runClientDataRetention(SYSTEM);
   expect(report).toMatchObject({ mode: 'delete', ticketsDeleted: 0, orgsDue: 1 });
-  expect(report.attachmentsExpired).toBe(report.attachmentsDue);
+  // К удалению подошли только чистые файлы старого обращения: файл клиента и внутренний файл сотрудника.
+  expect(report).toMatchObject({ attachmentsDue: 2, attachmentsExpired: 2, attachmentsFailed: 0 });
   expect((await pools.root.query(`select scan_status from hdt_attachments where attachment_id = $1`, [old])).rows[0].scan_status).toBe('expired');
   expect(await storage.head(`files/${f.orgA.orgId}/${old}`)).toBeFalsy();
   // Файл обращения, закрытого меньше года назад, остаётся.
@@ -149,14 +178,69 @@ test('задача хранения включена настройкой: фа�
   // Журнал аудита: одна запись на прогон с числом файлов, без имён файлов.
   const rows = await audit('retention.attachments_expired');
   expect(rows).toHaveLength(1);
-  expect(rows[0].diff).toMatchObject({ count: report.attachmentsExpired });
-  // Клиент видит у файла отметку "удалён по сроку хранения" вместо ссылки: проверенным (clean) файл больше не числится.
-  const view = await getTicket(await clientCtx(f.aUser), String(f.tickets.aOrg.number));
-  const seen = [...view!.attachments, ...view!.messages.flatMap((m) => m.attachments)].find((a) => a.attachmentId === old);
-  if (seen) expect(seen.scanStatus).toBe('expired');
+  expect(rows[0].diff).toEqual({ count: 2, olderThanDays: 365 });
+  // Загрузивший видит строку с отметкой "удалён по сроку хранения" вместо ссылки.
+  const filesOf = (view: Awaited<ReturnType<typeof getTicket>>) => [...view!.attachments, ...view!.messages.flatMap((m) => m.attachments)];
+  const seen = filesOf(await getTicket(await clientCtx(f.aUser), String(f.tickets.aOrg.number))).find((a) => a.attachmentId === old);
+  expect(seen).toBeDefined();
+  expect(seen!.scanStatus).toBe('expired');
   // Коллега, который файл не загружал, строки не видит вовсе (политика отдаёт клиенту только файлы clean).
-  expect(JSON.stringify(await getTicket(await clientCtx(f.aAdmin), String(f.tickets.aOrg.number)))).not.toContain(`"scanStatus":"clean","attachmentId":"${old}"`);
+  expect(colleagueBefore.map((a) => a.attachmentId)).toContain(old);
+  expect(filesOf(await getTicket(await clientCtx(f.aAdmin), String(f.tickets.aOrg.number))).map((a) => a.attachmentId)).not.toContain(old);
+  // Непроверенный, заражённый и отклонённый файлы того же обращения задача не трогает (их ведёт проверка файлов).
+  expect((await pools.root.query(`select scan_status, count(*)::int as n from hdt_attachments where ticket_id = $1 and scan_status <> 'expired' group by 1 order by 1`, [f.tickets.aOrg.ticketId])).rows).toEqual([
+    { scan_status: 'infected', n: 1 },
+    { scan_status: 'pending', n: 1 },
+    { scan_status: 'rejected', n: 1 },
+  ]);
+  expect(await storage.head(`quarantine/${f.orgA.orgId}/infected`)).toBeTruthy();
   // Повторный прогон: нечего удалять, новой записи журнала нет.
   expect((await runClientDataRetention(SYSTEM)).attachmentsExpired).toBe(0);
+  expect(await audit('retention.attachments_expired')).toHaveLength(1);
+});
+
+test('сбой хранилища: строка не помечается, пока файл не удалён; в журнале число удалённых; следующий прогон добирает файл', async () => {
+  const old = await closedWithFile(f.tickets.aOrg.ticketId, f.orgA.orgId, 400);
+  const key = `files/${f.orgA.orgId}/${old}`;
+  await pools.root.query(`insert into hdc_settings (code, value) values ('retention.client_data_enabled', 'true'::jsonb)`);
+  // Хранилище отказывает в удалении одного файла.
+  let broken = true;
+  const remove = storage.remove.bind(storage);
+  storage.remove = async (target: string) => {
+    if (broken && target === key) throw new Error('хранилище недоступно');
+    await remove(target);
+  };
+  const first = await runClientDataRetention(SYSTEM);
+  expect(first).toMatchObject({ mode: 'delete', attachmentsDue: 2, attachmentsExpired: 1, attachmentsFailed: 1 });
+  // Файл на месте, строка по-прежнему clean: клиенту ссылка работает, задача вернётся к файлу.
+  expect(await storage.head(key)).toBeTruthy();
+  expect((await pools.root.query(`select scan_status from hdt_attachments where attachment_id = $1`, [old])).rows[0].scan_status).toBe('clean');
+  expect((await audit('retention.attachments_expired')).map((r) => r.diff)).toEqual([{ count: 1, olderThanDays: 365 }]);
+  // Хранилище снова работает: следующий прогон удаляет файл и помечает строку.
+  broken = false;
+  const second = await runClientDataRetention(SYSTEM);
+  expect(second).toMatchObject({ attachmentsDue: 1, attachmentsExpired: 1, attachmentsFailed: 0 });
+  expect(await storage.head(key)).toBeFalsy();
+  expect((await pools.root.query(`select scan_status from hdt_attachments where attachment_id = $1`, [old])).rows[0].scan_status).toBe('expired');
+  expect((await audit('retention.attachments_expired')).map((r) => r.diff)).toEqual([
+    { count: 1, olderThanDays: 365 },
+    { count: 1, olderThanDays: 365 },
+  ]);
+});
+
+test('файл удалён, а отметка не записалась (процесс упал): повторный прогон помечает строку, удаление повторяется без ошибки', async () => {
+  const old = await closedWithFile(f.tickets.aOrg.ticketId, f.orgA.orgId, 400);
+  await pools.root.query(`insert into hdc_settings (code, value) values ('retention.client_data_enabled', 'true'::jsonb)`);
+  // Журнал отклоняет запись: транзакция отметки откатывается уже после удаления файла.
+  await pools.root.query(`alter table hdc_audit_log add constraint w7_block check (action <> 'retention.attachments_expired') not valid`);
+  try {
+    await expect(runClientDataRetention(SYSTEM)).rejects.toThrow();
+  } finally {
+    await pools.root.query(`alter table hdc_audit_log drop constraint w7_block`);
+  }
+  expect(await storage.head(`files/${f.orgA.orgId}/${old}`)).toBeFalsy();
+  expect((await pools.root.query(`select scan_status from hdt_attachments where attachment_id = $1`, [old])).rows[0].scan_status).toBe('clean');
+  expect(await runClientDataRetention(SYSTEM)).toMatchObject({ attachmentsDue: 2, attachmentsExpired: 2, attachmentsFailed: 0 });
+  expect((await pools.root.query(`select scan_status from hdt_attachments where attachment_id = $1`, [old])).rows[0].scan_status).toBe('expired');
   expect(await audit('retention.attachments_expired')).toHaveLength(1);
 });

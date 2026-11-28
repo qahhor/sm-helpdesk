@@ -86,7 +86,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
         {server.state === 'default' && !showAddress && (
           <Link
             href={`/login?mode=server&next=${encodeURIComponent(next)}`}
-            className="self-center text-sm font-medium text-link underline-offset-4 hover:underline"
+            className="inline-flex min-h-11 items-center self-center text-sm font-medium text-link underline-offset-4 hover:underline"
           >
             {t('ownServer')}
           </Link>
@@ -141,7 +141,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/[locale]/l
         )}
 
         <p className="border-t border-border pt-4 text-center text-sm text-secondary-foreground">
-          <Link href="/staff/login" className="font-medium text-link underline-offset-4 hover:underline">
+          <Link href="/staff/login" className="inline-flex min-h-11 items-center font-medium text-link underline-offset-4 hover:underline">
             {t('staffLink')}
           </Link>
         </p>

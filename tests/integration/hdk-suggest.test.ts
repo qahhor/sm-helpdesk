@@ -15,6 +15,7 @@ import { clientCtx, ensureOrg, staffCtx, staffWithRole } from './helpers/auth';
 import { captureQueries } from './helpers/bulk';
 import { asActor, pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
+import { expectWithin } from './helpers/timing';
 
 // Гибридный поиск, подсказка и исходы (план M5, задача 10; ТЗ 11.6, FR-SOL-08..14, FR-AG-05; решения 5, 8, 12, 13, 17).
 // "На что смотреть при проверке", пункт 5: подсказка не находит текст чужого и своего обращения, исходы и организации
@@ -137,16 +138,22 @@ test('пункт 6: сервис векторов не отвечает или �
   expect(events.filter((e) => e[1] === 'kb.suggest_embedder_unavailable')[0]).toMatchObject(['warn', 'kb.suggest_embedder_unavailable', { reason: 'unreachable' }]);
   expect(JSON.stringify(events)).not.toContain('остатка');
   // Медленный сервис: ожидание обрывается через 150 мс.
+  let askedTimeoutMs: number | null = null;
   const slow: EmbeddingProvider = {
     name: 'tei',
     dimensions: 1024,
-    embed: (_texts, opts) =>
-      new Promise((_resolve, reject) => setTimeout(() => reject(new EmbeddingUnavailableError('timeout')), Math.min(opts?.timeoutMs ?? 10_000, 5000))),
+    embed: (_texts, opts) => {
+      // Сколько подсказка готова ждать вектор: это проверяется числом, а не стенными часами (проверка качества, Q10).
+      askedTimeoutMs = opts?.timeoutMs ?? null;
+      return new Promise((_resolve, reject) => setTimeout(() => reject(new EmbeddingUnavailableError('timeout')), Math.min(opts?.timeoutMs ?? 10_000, 5000)));
+    },
   };
   setEmbedderForTests(slow);
   const started = performance.now();
   expect((await ask(text)).items.map((i) => i.number)).toEqual([s.number]);
-  expect(performance.now() - started).toBeLessThan(1500);
+  expect(askedTimeoutMs).not.toBeNull();
+  expect(askedTimeoutMs!).toBeLessThanOrEqual(1000);
+  expectWithin(performance.now() - started, 1500, 'подсказка с медленным расчётом вектора');
 });
 
 // ТЗ 14.5: подсказка решений 30 в минуту на пользователя (волна 7, T6).

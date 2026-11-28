@@ -268,37 +268,6 @@ export function ReportView({ accept, maxFiles }: { accept: string; maxFiles: num
 
       {(!problem || otherProblem) && (
       <>
-      <div aria-live="polite">
-        {items.length > 0 && (
-          <section aria-labelledby="widget-suggest-title" className="flex flex-col gap-2" data-testid="widget-suggestions">
-            <h2 id="widget-suggest-title" className="font-semibold">
-              {known ? l['report.known'] : l['report.similar']}
-            </h2>
-            <ul className="flex flex-col gap-2">
-              {items.map((item) => (
-                <li key={item.number} className="flex flex-col gap-2 rounded-card border border-border bg-card p-3">
-                  <p className="font-medium break-words">{item.title}</p>
-                  {item.orgCount !== null && <p className="text-sm text-secondary-foreground">{fill(l['report.orgCount'] ?? '', { count: item.orgCount })}</p>}
-                  <Button variant="secondary" size="small" className="self-end" onClick={() => setSolution(`${item.number}-${item.slug}`)}>
-                    {l['report.openSolution']}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-            <Button
-              variant="ghost"
-              className="self-start"
-              onClick={() => {
-                void w.request('/api/suggest', { body: { outcome: 'not_helped', sessionId } }).catch(() => undefined);
-                textarea.current?.focus();
-              }}
-            >
-              {l['report.notHelped']}
-            </Button>
-          </section>
-        )}
-      </div>
-
       <form
         className="flex flex-col gap-4"
         noValidate
@@ -322,6 +291,38 @@ export function ReportView({ accept, maxFiles }: { accept: string; maxFiles: num
           <p id="widget-description-hint" className="text-sm text-muted-foreground">
             {l['report.descriptionHint']}
           </p>
+        </div>
+        {/* Подсказки стоят под полем описания, как в портале (проверка интерфейса, U14): появляясь во время ввода, они
+            не сдвигают поле из-под пальца. */}
+        <div aria-live="polite">
+          {items.length > 0 && (
+            <section aria-labelledby="widget-suggest-title" className="flex flex-col gap-2" data-testid="widget-suggestions">
+              <h2 id="widget-suggest-title" className="font-semibold">
+                {known ? l['report.known'] : l['report.similar']}
+              </h2>
+              <ul className="flex flex-col gap-2">
+                {items.map((item) => (
+                  <li key={item.number} className="flex flex-col gap-2 rounded-card border border-border bg-card p-3">
+                    <p className="font-medium break-words">{item.title}</p>
+                    {item.orgCount !== null && <p className="text-sm text-secondary-foreground">{fill(l['report.orgCount'] ?? '', { count: item.orgCount })}</p>}
+                    <Button variant="secondary" size="small" className="self-end" onClick={() => setSolution(`${item.number}-${item.slug}`)}>
+                      {l['report.openSolution']}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                variant="secondary"
+                className="self-start"
+                onClick={() => {
+                  void w.request('/api/suggest', { body: { outcome: 'not_helped', sessionId } }).catch(() => undefined);
+                  textarea.current?.focus();
+                }}
+              >
+                {l['report.notHelped']}
+              </Button>
+            </section>
+          )}
         </div>
         {modules.length > 0 && (
           <div className="flex flex-col gap-1">

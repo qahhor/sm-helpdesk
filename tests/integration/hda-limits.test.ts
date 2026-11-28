@@ -215,3 +215,12 @@ test('предел 20 вызовов первой линии в час на по
   await pools.root.query(`begin; set local session_replication_role = replica; update hda_runs set created_on = now() - interval '61 minutes' where user_id = '${f.aUser.userId}'; commit`);
   expect((await call({ data: '<ticket>текст через час</ticket>' })).status).toBe('ok');
 });
+
+// Независимая проверка волны 7, находка R6 (решение 0168): строки перевода, записанные на клиента до правки, его
+// часовой предел ответов помощника не расходуют.
+test('часовой предел пользователя считает ответы помощника, а не переводы его сообщений', async () => {
+  await setting('ai.user_daily_limit', 1000);
+  await setting('ai.org_daily_limit', 10000);
+  await pools.root.query(`insert into hda_runs (org_id, purpose, outcome, user_id) select $1, 'message_translation', 'ok', $2 from generate_series(1, 20)`, [f.orgA.orgId, f.aUser.userId]);
+  expect((await call()).status).toBe('ok');
+});

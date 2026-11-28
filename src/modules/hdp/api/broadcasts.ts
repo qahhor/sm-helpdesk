@@ -6,7 +6,7 @@ import { withActor } from '@/db/with-actor';
 import { isLocale, type Locale, LOCALES } from '@/i18n/locales';
 import { enqueue, type StaffContext, writeAudit } from '@/modules/hdc/api';
 import { problemTicketsTx } from '@/modules/hdt/api/known-problems';
-import { requireProblemTx, updateProblemTx } from '../core/problems';
+import { problemTx, requireProblemTx, updateProblemTx } from '../core/problems';
 import { HdpError } from '../error';
 import { parseInput } from '../input';
 import { BROADCAST_BODY_MAX, BROADCAST_KINDS, BROADCAST_TICKET_STATUSES, type BroadcastKind, type BroadcastStatus, PROBLEM_NUMBER_MAX, PROBLEM_WRITER_ROLES } from '../pref';
@@ -164,7 +164,8 @@ export type BroadcastRow = {
 export async function listBroadcasts(ctx: StaffContext, problemNumber: number): Promise<BroadcastRow[]> {
   if (ctx.actor.type !== 'staff') throw new HdpError('forbidden');
   return withActor(ctx.actor, async (tx) => {
-    const problem = await requireProblemTx(tx, { number: problemNumber }).catch(() => null);
+    // Проблемы может не быть: это ответ, а не ошибка. Ошибка базы не глотается (проверка качества, Q16).
+    const problem = await problemTx(tx, { number: problemNumber });
     if (!problem) return [];
     const rows = await tx.select().from(broadcasts).where(eq(broadcasts.problemId, problem.problemId)).orderBy(desc(broadcasts.createdOn));
     return rows

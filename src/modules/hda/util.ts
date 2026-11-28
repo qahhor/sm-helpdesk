@@ -48,7 +48,17 @@ export function maskObfuscatedContacts(text: string, labels: { email: string; ph
     .replace(SPELLED_EMAIL, labels.email)
     .replace(MESSENGER_LINK, labels.contact)
     .replace(HANDLE, labels.contact)
-    .replace(SPACED_DIGITS, (match) => ((match.match(/\p{Nd}/gu)?.length ?? 0) >= SPACED_DIGITS_MIN && !THOUSANDS.test(match) ? labels.phone : match));
+    .replace(SPACED_DIGITS, (match) => ((match.match(/\p{Nd}/gu)?.length ?? 0) >= SPACED_DIGITS_MIN && !THOUSANDS.test(match) && !isEnumeration(match) ? labels.phone : match));
+}
+
+/**
+ * Перечень номеров подряд ("строки 1 2 3 4 5 6 7", "пункты 9 10 11 12"): каждое число на единицу больше прежнего.
+ * Это не телефон (оценка ложных срабатываний, решение 0171). С плюсом впереди перечнем не считается.
+ */
+function isEnumeration(match: string): boolean {
+  if (match.startsWith('+')) return false;
+  const numbers = match.trim().split(/\s+/u).map(Number);
+  return numbers.every((n, i) => Number.isInteger(n) && (i === 0 || n === numbers[i - 1]! + 1));
 }
 
 /** Текст для модели: без невидимых знаков и соединителей, в форме NFKC, без адресов почты, телефонов и контактов. */
@@ -172,8 +182,12 @@ export function extractJson(text: string): unknown {
 
 /** Слова текста для сравнения с подсказкой: строчные буквы и цифры, остальное разделитель. */
 const wordsOf = (text: string) => text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-/** Столько слов подряд из системной подсказки в ответе считаются её утечкой. */
-const PROMPT_ECHO_WORDS = 6;
+/**
+ * Столько слов подряд из системной подсказки в ответе считаются её утечкой. Было шесть (решение 0157): обычное резюме
+ * "Проблема, похоже, серьёзнее, чем указал клиент" повторяет шесть слов правила и отклонялось вместе со всем ответом.
+ * Восемь слов обычная фраза не набирает, а пересказ правила набирает (решение 0171).
+ */
+const PROMPT_ECHO_WORDS = 8;
 const shinglesCache = new Map<string, Set<string>>();
 
 function promptShingles(system: string): Set<string> {
@@ -189,8 +203,8 @@ function promptShingles(system: string): Set<string> {
 }
 
 /**
- * Ответ модели повторяет системную подсказку (проверка на AI-инъекции, волна 7, S-T; решение 0157): в любой строке
- * ответа есть шесть слов подряд из подсказки. Такой ответ не принимается целиком: отличительные фразы правил не
+ * Ответ модели повторяет системную подсказку (проверка на AI-инъекции, волна 7, S-T; решения 0157 и 0171): в любой
+ * строке ответа есть восемь слов подряд из подсказки. Такой ответ не принимается целиком: отличительные фразы правил не
  * попадают в резюме, заголовок, черновик и перевод, которые читают сотрудники и клиенты.
  */
 export function echoesSystemPrompt(value: unknown, system: string): boolean {

@@ -13,8 +13,9 @@ import { runFirstLineJob, runWatchdogJob } from '@/modules/hda/api/first-line';
 import { runTriageJob, runTriageReview } from '@/modules/hda/api/triage-jobs';
 import { cleanupMessageTranslations, runMessageTranslationJob, runThanksJob } from '@/modules/hda/api/message-ai';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
-import { scanSolutionFile } from '@/modules/hdk/api/files';
+import { scanSolutionFile, sweepSolutionFiles } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
+import { sweepIdeaUploads } from '@/modules/hdi/api/uploads';
 import { runModerationDigest } from '@/modules/hdi/api/notices';
 import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
 import { runAnnouncementTranslationJob, runProblemTranslationJob } from '@/modules/hdp/api/translate-jobs';
@@ -37,7 +38,8 @@ import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueD
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { opsWatch } from './ops-watch';
 import { registerSearch } from './search';
-import { searchReconcile, searchSyncTick } from './search-jobs';
+import { runSearchReindexJob, searchReconcile, searchSyncTick } from './search-jobs';
+import { withTicketsPeople } from '@/modules/hdt/api/notice-identity';
 
 // Фоновый процесс портала (раздел 11.10, решение 0028): задачи pg-boss под ролью hub_app.
 // Собирается в один файл dist/worker.mjs (scripts/build-cli.mjs). В образе: node worker.mjs.
@@ -142,7 +144,8 @@ export async function automationTick(system: SystemActor, state: AutomationState
         // События для AI-сотрудника (веха M8b, задача 9): своя точка сохранения, сбой не откатывает событие.
         await handleAgentEvent(tx, event);
       },
-      { stopped: opts.stopped },
+      // Получатели уведомлений обращения читаются до транзакции события (проверка качества, Q2).
+      { stopped: opts.stopped, around: (ticketId, run) => withTicketsPeople(system, [ticketId], run) },
     );
     total.processed += result.processed;
     total.failed += result.failed;
@@ -240,7 +243,7 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   }));
   await boss.work('retention.client_data', polling, () => timedJob('retention.client_data', async () => {
     const report = await runClientDataRetention(actor('retention.client_data'));
-    console.info(`Сроки хранения (${report.mode === 'delete' ? 'удаление' : 'пробный прогон'}): файлов к удалению ${report.attachmentsDue}, удалено ${report.attachmentsExpired}; организаций с истёкшим сроком ${report.orgsDue}, их обращений ${report.ticketsDue}`);
+    console.info(`Сроки хранения (${report.mode === 'delete' ? 'удаление' : 'пробный прогон'}): файлов к удалению ${report.attachmentsDue}, удалено ${report.attachmentsExpired}, не удалено из-за сбоя хранилища ${report.attachmentsFailed}; организаций с истёкшим сроком ${report.orgsDue}, их обращений ${report.ticketsDue}`);
   }));
   await boss.work('kb.reconcile', polling, () => timedJob('kb.reconcile', async () => {
     const { articles, failed, deflections } = await reconcileSearchIndex(actor('kb.reconcile'));
@@ -267,6 +270,11 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const { requeued, removed, failed } = await sweepAttachments(actor('attachment.sweep'));
     if (requeued > 0 || removed > 0 || failed > 0)
       console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}, проверка не прошла за сутки ${failed}`);
+    // Изображения решений и идей (проверка качества, Q5): тот же обход зависших проверок.
+    const kb = await sweepSolutionFiles(actor('attachment.sweep'));
+    const ideas = await sweepIdeaUploads(actor('attachment.sweep'));
+    if (kb.requeued + kb.failed + ideas.requeued + ideas.failed > 0)
+      console.info(`Обход изображений: решения снова на проверке ${kb.requeued}, не приняты ${kb.failed}; идеи снова на проверке ${ideas.requeued}, не приняты ${ideas.failed}`);
   }));
   await boss.work('ai.budget', polling, () => timedJob('ai.budget', async () => {
     const result = await runAiBudget(actor('ai.budget'));
@@ -302,6 +310,15 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   // Шаги минутной задачи независимы (независимая проверка M8c, находка I4): сбой отправки событий не держит срок анализа.
   await boss.work('agent.events_dispatch', polling, () => timedJob('agent.events_dispatch', () => runJobSteps('agent.events_dispatch', [
     {
+      // Срок ответа на "Разобрать по коду" (веха M8c, FR-CODE-10): через 10 минут запрос "анализ не выполнен". Шаг идёт
+      // первым (проверка качества, Q4): он быстрый и не должен ждать медленного приёмника событий.
+      step: 'analysis_timeouts',
+      run: async () => {
+        const analysis = await markAnalysisTimeouts(actor('agent.events_dispatch'));
+        if (analysis.timedOut > 0) console.info(`AI-сотрудник: анализов по коду без ответа ${analysis.timedOut}`);
+      },
+    },
+    {
       step: 'events',
       run: async () => {
         const { sent, failed } = await dispatchAgentEvents(actor('agent.events_dispatch'));
@@ -314,14 +331,6 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
       run: async () => {
         const chat = await sendTeamChatMessages(actor('agent.events_dispatch'));
         if (chat.sent > 0) console.info(`AI-сотрудник: сообщений в чат команды ${chat.sent}`);
-      },
-    },
-    {
-      // Срок ответа на "Разобрать по коду" (веха M8c, FR-CODE-10): через 10 минут запрос "анализ не выполнен".
-      step: 'analysis_timeouts',
-      run: async () => {
-        const analysis = await markAnalysisTimeouts(actor('agent.events_dispatch'));
-        if (analysis.timedOut > 0) console.info(`AI-сотрудник: анализов по коду без ответа ${analysis.timedOut}`);
       },
     },
   ])));
@@ -393,37 +402,48 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   registerSearch();
   await boss.work('search.sync', polling, () => timedJob('search.sync', () => searchSyncTick(actor('search.sync'), { stopped: () => stopping })));
   await boss.work('search.reconcile', polling, () => timedJob('search.reconcile', () => searchReconcile(actor('search.reconcile'))));
+  // Переиндексация после смены словаря корней: отдельная задача, у разбора очереди всего 120 секунд (проверка качества, Q18).
+  await boss.work('search.reindex', polling, ([job]) => timedJob('search.reindex', () => runSearchReindexJob(actor('search.reindex'), job?.data)));
   // Отметка раз в минуту идёт через очередь, как все задачи: она показывает, что процесс берёт задачи, а не только жив.
   await boss.work('ops.heartbeat', polling, () => beatWorker(actor('ops.heartbeat')));
-  await boss.work('maintenance.cleanup', polling, () => timedJob('maintenance.cleanup', async () => {
+  // Шаги ночной очистки независимы (проверка качества, Q17): сбой одной таблицы не оставляет без очистки остальные.
+  // Первая ошибка пробрасывается после всех шагов, задача помечается неудачной, как и раньше.
+  await boss.work('maintenance.cleanup', polling, () => timedJob('maintenance.cleanup', () => {
     const system = actor('maintenance.cleanup');
-    const limits = await cleanupRateLimits();
-    const updates = await cleanupTelegramUpdates(system);
-    const { sessions, verifications, links } = await cleanupAuthRows(system);
-    const notices = await cleanupNotifications(system, new Date());
-    const sentMail = await cleanupOutbox(system);
-    const letters = await cleanupInbound(system);
-    // Журнал аудита хранится 3 года (ТЗ 14.6, решение владельца 24.11.2026).
-    // Разобранные события предметной области хранятся 30 суток (план M8, задача 2).
-    const events = await cleanupDomainEvents(system);
-    if (events > 0) console.info(`Ночная очистка: разобранные события старше 30 суток ${events}`);
-    // Срабатывания правил автоматизации хранятся 90 суток (план M8, задача 3).
-    const runs = await cleanupRuleRuns(system);
-    if (runs > 0) console.info(`Ночная очистка: срабатывания правил старше 90 суток ${runs}`);
-    // Журнал доставок вебхуков хранится 30 суток (план M8, решение 10).
-    const hooks = await cleanupWebhookDeliveries(system);
-    if (hooks > 0) console.info(`Ночная очистка: доставки вебхуков старше 30 суток ${hooks}`);
-    // Тексты запросов подсказки без результата хранятся 90 суток (план W6, ответ владельца 0070, пункт 5).
-    const misses = await cleanupSuggestMisses(system);
-    if (misses > 0) console.info(`Ночная очистка: запросы подсказки без результата старше 90 суток ${misses}`);
-    // Отметки ресурсов снятых серверов хранятся 7 суток (независимая проверка M9, M2; решение 0145).
-    const hosts = await cleanupHostMarks(system);
-    if (hosts > 0) console.info(`Ночная очистка: отметки ресурсов серверов старше 7 суток ${hosts}`);
-    const audit = await cleanupAudit(system);
-    if (audit > 0) console.info(`Ночная очистка: записи журнала аудита старше 3 лет ${audit}`);
-    console.info(
-      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, прочитанные уведомления ${notices}, отправленные письма очереди ${sentMail}, разобранные входящие письма ${letters}`,
-    );
+    /** Шаг очистки: число удалённых строк пишется в журнал, если оно больше нуля. */
+    const step = (name: string, what: string, run: () => Promise<number>) => ({
+      step: name,
+      run: async () => {
+        const removed = await run();
+        if (removed > 0) console.info(`Ночная очистка: ${what} ${removed}`);
+      },
+    });
+    return runJobSteps('maintenance.cleanup', [
+      step('rate_limits', 'счётчики частоты', () => cleanupRateLimits()),
+      step('telegram_updates', 'события Telegram', () => cleanupTelegramUpdates(system)),
+      {
+        step: 'auth_rows',
+        run: async () => {
+          const { sessions, verifications, links } = await cleanupAuthRows(system);
+          if (sessions + verifications + links > 0) console.info(`Ночная очистка: сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}`);
+        },
+      },
+      step('notifications', 'прочитанные уведомления', () => cleanupNotifications(system, new Date())),
+      step('outbox', 'отправленные письма очереди', () => cleanupOutbox(system)),
+      step('inbound', 'разобранные входящие письма', () => cleanupInbound(system)),
+      // Разобранные события предметной области хранятся 30 суток (план M8, задача 2).
+      step('domain_events', 'разобранные события старше 30 суток', () => cleanupDomainEvents(system)),
+      // Срабатывания правил автоматизации хранятся 90 суток (план M8, задача 3).
+      step('rule_runs', 'срабатывания правил старше 90 суток', () => cleanupRuleRuns(system)),
+      // Журнал доставок вебхуков хранится 30 суток (план M8, решение 10).
+      step('webhook_deliveries', 'доставки вебхуков старше 30 суток', () => cleanupWebhookDeliveries(system)),
+      // Тексты запросов подсказки без результата хранятся 90 суток (план W6, ответ владельца 0070, пункт 5).
+      step('suggest_misses', 'запросы подсказки без результата старше 90 суток', () => cleanupSuggestMisses(system)),
+      // Отметки ресурсов снятых серверов хранятся 7 суток (независимая проверка M9, M2; решение 0145).
+      step('host_marks', 'отметки ресурсов серверов старше 7 суток', () => cleanupHostMarks(system)),
+      // Журнал аудита хранится 3 года (ТЗ 14.6, решение владельца 24.11.2026).
+      step('audit', 'записи журнала аудита старше 3 лет', () => cleanupAudit(system)),
+    ]);
   }));
   if (opts.schedules !== false) for (const s of SCHEDULES) await boss.schedule(s.name, s.cron, null, { tz: s.tz });
 

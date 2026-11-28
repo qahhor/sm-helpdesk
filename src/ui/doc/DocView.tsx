@@ -204,11 +204,53 @@ function group(blocks: Block[]): (Exclude<Block, StepNode> | StepNode[])[] {
   return out;
 }
 
-export function DocView({ doc, labels, imageSrc, className }: { doc: SolutionDoc; labels: DocViewLabels; imageSrc?: DocImageSrc; className?: string }) {
+/** Есть ли в узле что показать: текст не из одних пробелов или изображение. Перенос строки содержимым не считается. */
+function hasContent(node: unknown): boolean {
+  if (node === null || typeof node !== 'object') return false;
+  const { type, text, content } = node as { type?: unknown; text?: unknown; content?: unknown };
+  if (type === 'image') return true;
+  if (type === 'text') return typeof text === 'string' && text.trim() !== '';
+  return Array.isArray(content) && content.some(hasContent);
+}
+
+/**
+ * Блоки без пустых разделов (проверка интерфейса, U27 и F5): заголовок, за которым до следующего заголовка того же или
+ * старшего уровня (или до конца документа) нет ни одного блока с содержимым, клиенту не показывается. Автор оставил
+ * раздел заготовки пустым; клиент видел бы заголовок без текста. Заготовка (src/modules/hdk/template.ts) кладёт под
+ * заголовки пустой абзац и пустой шаг: блоки без текста и изображений содержимым не считаются и тоже не показываются,
+ * иначе от пустого шага остался бы один номер.
+ */
+function withoutEmptySections(blocks: Block[]): Block[] {
+  const filled = blocks.filter((block) => block.type === 'heading' || hasContent(block));
+  return filled.filter((block, index) => {
+    if (block.type !== 'heading') return true;
+    for (const next of filled.slice(index + 1)) {
+      if (next.type !== 'heading') return true;
+      if (next.attrs.level <= block.attrs.level) return false;
+    }
+    return false;
+  });
+}
+
+export function DocView({
+  doc,
+  labels,
+  imageSrc,
+  className,
+  hideEmptySections = false,
+}: {
+  doc: SolutionDoc;
+  labels: DocViewLabels;
+  imageSrc?: DocImageSrc;
+  className?: string;
+  /** Страница клиента: разделы без содержимого не показываются. Сотруднику в предпросмотре они видны. */
+  hideEmptySections?: boolean;
+}) {
   const ctx: Ctx = { labels, imageSrc };
+  const blocks = hideEmptySections ? withoutEmptySections(doc.blocks) : doc.blocks;
   return (
     <div className={cn('flex flex-col gap-3 break-words [&_a]:text-link [&_a]:underline [&_code]:rounded-control [&_code]:bg-card-soft [&_code]:px-1', className)}>
-      {group(doc.blocks).map((item) =>
+      {group(blocks).map((item) =>
         Array.isArray(item) ? <Steps key={item[0]!.attrs.id} steps={item} ctx={ctx} /> : <BlockView key={item.attrs.id} block={item} ctx={ctx} />,
       )}
     </div>

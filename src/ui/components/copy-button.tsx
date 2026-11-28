@@ -14,7 +14,7 @@ export function CopyButton({ text, label, copiedLabel }: { text: string; label: 
         size="small"
         aria-label={label}
         title={label}
-        className="min-w-control"
+        className="min-h-control min-w-control"
         onClick={async () => {
           try {
             await navigator.clipboard.writeText(text);

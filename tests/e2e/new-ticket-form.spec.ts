@@ -33,11 +33,14 @@ test('после неудачной отправки влияние, тип и �
   await openForm(page);
   const impact = page.getByLabel('Влияние на работу');
   await impact.selectOption({ label: 'Неудобство' });
+  // "Тип" меняется на значение не по умолчанию: сброс формы вернул бы первое (второй проход, F13).
+  await page.getByRole('radio', { name: 'Вопрос' }).check();
   await page.getByRole('radio', { name: 'Только я' }).check();
   await page.getByRole('button', { name: 'Отправить обращение' }).click();
   await expect(page.getByLabel('Что случилось?')).toHaveAttribute('aria-invalid', 'true');
   // Раньше сброс формы после действия сервера показывал первое значение списка: "Работа остановлена".
   await expect(impact).toHaveValue('minor');
   await expect(impact.locator('option:checked')).toHaveText('Неудобство');
+  await expect(page.getByRole('radio', { name: 'Вопрос' })).toBeChecked();
   await expect(page.getByRole('radio', { name: 'Только я' })).toBeChecked();
 });

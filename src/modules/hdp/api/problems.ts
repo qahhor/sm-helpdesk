@@ -25,6 +25,7 @@ import {
   unacceptMachineTranslationsTx,
   updateProblemTx,
   upsertTranslationTx,
+  problemTx,
 } from '../core/problems';
 import { HdpError } from '../error';
 import {
@@ -267,7 +268,8 @@ export async function problemCard(ctx: StaffContext, numberValue: unknown): Prom
   const parsed = problemNumberInput.safeParse(numberValue);
   if (!parsed.success) return null;
   const loaded = await withActor(ctx.actor, async (tx) => {
-    const problem = await requireProblemTx(tx, { number: parsed.data }).catch(() => null);
+    // Проблемы может не быть: это ответ, а не ошибка. Ошибка базы не глотается (проверка качества, Q16).
+    const problem = await problemTx(tx, { number: parsed.data });
     if (!problem) return null;
     const signatures = await signaturesTx(tx, problem.problemId);
     const counts = await signatureTicketCountsTx(tx, problem.problemId, signatures.map((s) => s.signature));

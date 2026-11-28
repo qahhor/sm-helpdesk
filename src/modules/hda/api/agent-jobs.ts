@@ -286,13 +286,27 @@ async function claimTx(system: SystemActor, now: Date): Promise<Claimed | null> 
   });
 }
 
-/** Отправка очереди: задача agent.events_dispatch раз в минуту. До пяти попыток с паузами 1, 5, 15, 60 минут. */
-export async function dispatchAgentEvents(system: SystemActor, opts: { now?: Date; batch?: number } = {}): Promise<{ sent: number; failed: number }> {
+/** Бюджет времени одного запуска отправки: задача идёт раз в минуту, следующий запуск не должен догнать этот. */
+export const AGENT_DISPATCH_BUDGET_MS = 50_000;
+
+/**
+ * Отправка очереди: задача agent.events_dispatch раз в минуту. До пяти попыток с паузами 1, 5, 15, 60 минут.
+ * Запуск ограничен бюджетом времени и останавливается, если адрес не ответил (проверка качества, Q4): адрес один на
+ * все события, и 50 событий по 10 секунд тайм-аута держали бы задачу больше восьми минут. Остальные события ждут
+ * следующей минуты без потраченной попытки. Ответ с кодом ошибки отправку не останавливает: адрес отвечает.
+ */
+export async function dispatchAgentEvents(system: SystemActor, opts: { now?: Date; batch?: number; budgetMs?: number; clock?: () => number } = {}): Promise<{ sent: number; failed: number }> {
   if (system.type !== 'system') throw new HdaError('forbidden');
   const settings = agentEventSettings();
   const result = { sent: 0, failed: 0 };
   if (!settings) return result;
+  const clock = opts.clock ?? Date.now;
+  const deadline = clock() + (opts.budgetMs ?? AGENT_DISPATCH_BUDGET_MS);
   for (let i = 0; i < (opts.batch ?? 50); i += 1) {
+    if (clock() >= deadline) {
+      logEvent('warn', 'agent.events_budget', { sent: result.sent, failed: result.failed });
+      break;
+    }
     const now = opts.now ?? new Date();
     const claimed = await claimTx(system, now);
     if (!claimed) break;
@@ -323,6 +337,11 @@ export async function dispatchAgentEvents(system: SystemActor, opts: { now?: Dat
     if (outcome.ok) result.sent += 1;
     else result.failed += 1;
     logEvent(outcome.ok ? 'info' : 'warn', 'agent.event_sent', { eventId: claimed.eventId, kind: claimed.kind, ok: outcome.ok, status: outcome.status });
+    // Адрес не ответил (тайм-аут, обрыв сети): следующие события ждали бы столько же.
+    if (!outcome.ok && outcome.status === null) {
+      logEvent('warn', 'agent.events_unreachable', { eventId: claimed.eventId });
+      break;
+    }
   }
   return result;
 }

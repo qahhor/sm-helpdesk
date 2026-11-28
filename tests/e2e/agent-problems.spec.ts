@@ -86,8 +86,8 @@ test('проблема из обращения: перенос полей, пр�
 test('первая линия видит карточку, но не создаёт и не меняет проблему', async ({ browser }) => {
   const context = await browser.newContext({ storageState: storageStateOf('l1') });
   const page = await context.newPage();
-  const [row] = await dbRows<{ number: string }>(`select number from hdp_problems order by number desc limit 1`);
-  test.skip(!row, 'нет проблемы в базе: первый тест не прошёл');
+  // Своя проблема, а не оставленная первым тестом (проверка качества, Q8): тест идёт и один, и после падения соседа.
+  const [row] = await dbRows<{ number: string }>(`insert into hdp_problems (internal_title) values ($1) returning number`, [`Проблема для первой линии ${Date.now()}`]);
   await page.goto(`/ru/agent/problems/${row!.number}`);
   await expect(page.getByTestId('agent-problem')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Сменить статус' })).toHaveCount(0);

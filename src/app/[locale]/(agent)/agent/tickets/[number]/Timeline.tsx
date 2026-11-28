@@ -68,6 +68,8 @@ export async function TicketTimeline({ ticket, from, canFlag = false, translatio
       case 'status':
         return t('ticket.events.status', { actor, from: statusName(p.from), to: statusName(p.to) });
       case 'priority':
+        // Подтверждение приоритета без смены значения (проверка интерфейса, U17): не "P2 > P2", а "P2 подтверждён".
+        if (p.from !== undefined && p.from === p.to) return t('ticket.events.priorityConfirmed', { actor, to: String(p.to ?? '').toUpperCase(), reason: String(p.reason ?? '') });
         return t('ticket.events.priority', { actor, from: String(p.from ?? '').toUpperCase(), to: String(p.to ?? '').toUpperCase(), reason: String(p.reason ?? '') });
       case 'assignee':
         return p.toName ? t('ticket.events.assignee', { actor, to: String(p.toName) }) : t('ticket.events.unassigned', { actor });
@@ -197,7 +199,7 @@ export async function TicketTimeline({ ticket, from, canFlag = false, translatio
         ) : (
           <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground" data-event={entry.kind}>
             <span>
-              -- {eventText(entry)}, {when(entry.createdOn)}
+              {eventText(entry).trim()}, {when(entry.createdOn)}
             </span>
             {entry.isNew && <StatusLabel tone="blue">{t('ticket.new')}</StatusLabel>}
           </p>

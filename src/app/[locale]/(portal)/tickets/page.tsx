@@ -7,6 +7,7 @@ import { Card } from '@/ui/components/card';
 import { EmptyState } from '@/ui/components/EmptyState';
 import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
+import { FiltersToggle } from './FiltersToggle';
 import { TicketList } from './TicketList';
 import { Select } from '@/ui/components/select';
 
@@ -39,46 +40,61 @@ export default async function ClientTicketsPage({ searchParams }: { searchParams
           <Link href="/tickets/new">{t('tickets.list.new')}</Link>
         </Button>
       </div>
-      <form method="get" className="grid grid-cols-1 gap-3 tablet:grid-cols-4 tablet:items-end">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="filter-scope">{t('tickets.list.scope')}</Label>
-          <Select id="filter-scope" name="scope" defaultValue={filters.scope}>
-            <option value="org">{t('tickets.list.scopes.org')}</option>
-            <option value="mine">{t('tickets.list.scopes.mine')}</option>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="filter-status">{t('tickets.list.status')}</Label>
-          <Select id="filter-status" name="status" defaultValue={search.status ?? ''}>
-            <option value="">{t('tickets.list.all')}</option>
-            {TICKET_STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {t(`tickets.statuses.${value}`)}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="filter-type">{t('tickets.list.type')}</Label>
-          <Select id="filter-type" name="type" defaultValue={search.type ?? ''}>
-            <option value="">{t('tickets.list.all')}</option>
-            {TICKET_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {t(`tickets.types.${value}`)}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="filter-q">{t('tickets.list.search')}</Label>
-          <div className="flex gap-2">
-            <Input id="filter-q" name="q" type="search" maxLength={100} defaultValue={search.q ?? ''} />
-            <Button type="submit" variant="secondary">
-              {t('tickets.list.find')}
-            </Button>
+      {/* Без обращений фильтровать нечего: форма появляется с первым обращением или при заданном фильтре. На телефоне
+          виден только поиск, остальные фильтры раскрывает "Фильтры" (проверка интерфейса, U15). Раскрытие сделано
+          флажком и CSS: форма по-прежнему работает без скриптов. */}
+      {(filtered || page.items.length > 0) && (
+        <form method="get" className="flex flex-col gap-3 tablet:grid tablet:grid-cols-4 tablet:items-end" data-testid="ticket-filters">
+          {/* Поиск первым и в разметке, и на экране: порядок Tab совпадает с видимым (второй проход, F12). */}
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="filter-q">{t('tickets.list.search')}</Label>
+            <div className="flex gap-2">
+              <Input id="filter-q" name="q" type="search" maxLength={100} defaultValue={search.q ?? ''} />
+              <Button type="submit" variant="secondary">
+                {t('tickets.list.find')}
+              </Button>
+            </div>
           </div>
-        </div>
-      </form>
+          <FiltersToggle id="filters-open" controls="ticket-filters-more" defaultOpen={Boolean(search.status || search.type || search.scope === 'mine')} />
+          <label
+            htmlFor="filters-open"
+            className="inline-flex min-h-11 cursor-pointer items-center self-start font-medium text-link underline underline-offset-2 peer-focus-visible:ring-2 peer-focus-visible:ring-ring tablet:hidden"
+          >
+            {t('tickets.list.filters')}
+          </label>
+          <div id="ticket-filters-more" className="hidden flex-col gap-3 peer-checked:flex tablet:contents">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="filter-scope">{t('tickets.list.scope')}</Label>
+              <Select id="filter-scope" name="scope" defaultValue={filters.scope}>
+                <option value="org">{t('tickets.list.scopes.org')}</option>
+                <option value="mine">{t('tickets.list.scopes.mine')}</option>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="filter-status">{t('tickets.list.status')}</Label>
+              <Select id="filter-status" name="status" defaultValue={search.status ?? ''}>
+                <option value="">{t('tickets.list.all')}</option>
+                {TICKET_STATUSES.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`tickets.statuses.${value}`)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="filter-type">{t('tickets.list.type')}</Label>
+              <Select id="filter-type" name="type" defaultValue={search.type ?? ''}>
+                <option value="">{t('tickets.list.all')}</option>
+                {TICKET_TYPES.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`tickets.types.${value}`)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+        </form>
+      )}
       <Card>
         {page.items.length === 0 ? (
           filtered ? (

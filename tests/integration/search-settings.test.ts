@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { createStubSearch, prepareSearchIndex, runSearchSync, type SearchIndexWriter, SearchWriteError, type StubSearch } from '@/modules/hdc/api';
-import { searchReconcile, setSearchJobWriterForTests } from '@/worker/search-jobs';
+import { runSearchReindexJob, searchReconcile, setSearchJobWriterForTests } from '@/worker/search-jobs';
 import { MemoryJobQueue, setJobQueueForTests } from '@/modules/hdc/testing';
 import { cleanupSuggestMisses, maskQuery, noteSuggestOutcome, suggestMisses } from '@/modules/hdk/api/misses';
 import { saveSearchSetting, searchSettingsText } from '@/modules/hdk/api/search-settings';
@@ -123,4 +123,87 @@ test('пустая подсказка: текст с маской, без пол
   // Через 90 дней строка удаляется.
   expect(await cleanupSuggestMisses(system, new Date(Date.now() + 91 * 86_400_000))).toBe(1);
   expect(maskQuery('ИНН 305123456, сервер acme.smartup.uz')).not.toMatch(/305123456/);
+});
+
+test('смена словаря в разборе очереди не перестраивает коллекции сама, а ставит отдельную задачу search.reindex (проверка качества, Q18)', async () => {
+  const f = await seedTwoOrgs();
+  const admin = staffCtx(f.adminStaff);
+  const jobs = new MemoryJobQueue();
+  setJobQueueForTests(jobs);
+  await prepareSearchIndex(system, stub);
+  // Переиндексация начинается с новой версии коллекции: по её созданию видно, шла ли она.
+  let versions = 0;
+  const createVersion = stub.createVersion.bind(stub);
+  stub.createVersion = (...args) => {
+    versions += 1;
+    return createVersion(...args);
+  };
+  expect(await saveSearchSetting(admin, { kind: 'stems', text: "to'lovlar = to'lov" })).toEqual({ ok: true });
+  jobs.sent.length = 0;
+  // Разбор очереди идёт раз в минуту и живёт 120 секунд: полная переиндексация в нём не помещается.
+  await runSearchSync(system, stub);
+  expect(stub.stems).toEqual(expect.arrayContaining([{ word: "to'lovlar", root: "to'lov" }]));
+  expect(versions).toBe(0);
+  expect(jobs.sent.filter((j) => j.name === 'search.reindex').map((j) => j.data)).toEqual([{ collections: 'solutions,ideas' }]);
+  // Сама задача перестраивает обе коллекции.
+  const done = await runSearchReindexJob(system, { collections: 'solutions,ideas' }, stub);
+  expect(done.map((r) => r.collection).sort()).toEqual(['ideas', 'solutions']);
+  expect(versions).toBe(2);
+  // Без смены словаря задачи нет.
+  jobs.sent.length = 0;
+  expect(await saveSearchSetting(admin, { kind: 'stems', text: "to'lovlar = to'lov" })).toEqual({ ok: true });
+  await runSearchSync(system, stub);
+  expect(jobs.sent.filter((j) => j.name === 'search.reindex')).toEqual([]);
+});
+
+test('задача search.reindex не поставлена или упала: ночная сверка перестраивает решения и идеи один раз (проверка, B1)', async () => {
+  const f = await seedTwoOrgs();
+  const admin = staffCtx(f.adminStaff);
+  // Очередь отказывает в постановке: enqueue ошибку глотает, разбор очереди считает настройку применённой.
+  setJobQueueForTests({ send: async () => { throw new Error('очередь недоступна'); } });
+  await prepareSearchIndex(system, stub);
+  const built: string[] = [];
+  const createVersion = stub.createVersion.bind(stub);
+  stub.createVersion = (collection, version) => {
+    built.push(collection);
+    return createVersion(collection, version);
+  };
+  expect(await saveSearchSetting(admin, { kind: 'stems', text: "to'lovlar = to'lov" })).toEqual({ ok: true });
+  await runSearchSync(system, stub);
+  // Словарь уже в Typesense, а коллекции построены с прежним.
+  expect(stub.stems).toEqual(expect.arrayContaining([{ word: "to'lovlar", root: "to'lov" }]));
+  expect(built).toEqual([]);
+  setSearchJobWriterForTests(stub);
+  try {
+    await searchReconcile(system);
+    expect(built.sort()).toEqual(['ideas', 'solutions']);
+    // Коллекции построены с нынешним словарём: следующая ночь их не трогает.
+    await searchReconcile(system);
+    expect(built).toHaveLength(2);
+  } finally {
+    setSearchJobWriterForTests(undefined);
+  }
+});
+
+test('переиндексация одной коллекции из двух упала: следующая постановка и ночная сверка берут только оставшуюся (проверка, B1)', async () => {
+  const f = await seedTwoOrgs();
+  const jobs = new MemoryJobQueue();
+  setJobQueueForTests(jobs);
+  await prepareSearchIndex(system, stub);
+  expect(await saveSearchSetting(staffCtx(f.adminStaff), { kind: 'stems', text: "to'lovlar = to'lov" })).toEqual({ ok: true });
+  await runSearchSync(system, stub);
+  expect(await runSearchReindexJob(system, { collections: 'solutions' }, stub)).toMatchObject([{ collection: 'solutions' }]);
+  const built: string[] = [];
+  const createVersion = stub.createVersion.bind(stub);
+  stub.createVersion = (collection, version) => {
+    built.push(collection);
+    return createVersion(collection, version);
+  };
+  setSearchJobWriterForTests(stub);
+  try {
+    await searchReconcile(system);
+  } finally {
+    setSearchJobWriterForTests(undefined);
+  }
+  expect(built).toEqual(['ideas']);
 });

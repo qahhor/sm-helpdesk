@@ -129,3 +129,45 @@ test('портал: баннер над формой, нажатие ведёт 
   expect(await fits(page)).toBe(true);
   await context.close();
 });
+
+// Проверка интерфейса, второй проход (F1): кнопка баннера стояла в форме первой кнопкой отправки, и Enter в поле
+// "Тема" отправлял "Меня это тоже затронуло" вместо обращения клиента: тема, тип и "Только я" пропадали.
+test('портал: Enter в теме при показанном баннере отправляет обращение клиента, а не "Меня это тоже затронуло"', async ({ browser }, info) => {
+  test.skip(info.project.name !== 'desktop', 'одна общая проблема на прогон');
+  const context = await browser.newContext({ storageState: CLIENT_STATE });
+  const page = await context.newPage();
+  await resetLimits();
+  await page.goto('/ru/tickets/new');
+  await expect(page.locator('form[data-ready]').first()).toBeAttached();
+  await page.getByLabel('Что случилось?').fill(`Вопрос про печать накладной.\n${ERROR_CODE}: Накладная №9 от 04.03.2026 не проведена`);
+  await expect(page.getByTestId('known-problem-banner')).toBeVisible();
+  await page.getByRole('radio', { name: 'Вопрос' }).check();
+  await page.getByRole('radio', { name: 'Только я' }).check();
+  const subject = `Своя тема при баннере ${Date.now()}`;
+  await page.locator('#field-title').fill(subject);
+  await page.locator('#field-title').press('Enter');
+  // Ушло действие самой формы: страница нового обращения с темой клиента, а не уже созданного нажатием на баннер
+  // (тот путь вёл на прежнее обращение с отметкой done=already_reported).
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(subject);
+  await expect(page).toHaveURL(/\/ru\/tickets\/SUP-\d+/);
+  expect(page.url()).not.toContain('already_reported');
+  const number = Number(/SUP-(\d+)/.exec(page.url())?.[1]);
+  const [row] = await dbRows<{ title: string; type: string; visibility: string }>(`select title, type, visibility from hdt_tickets where number = $1`, [number]);
+  expect(row).toEqual({ title: subject, type: 'question', visibility: 'private' });
+  await context.close();
+});
+
+test('портал: кнопка баннера не участвует в неявной отправке формы', async ({ browser }, info) => {
+  test.skip(info.project.name !== 'desktop', 'одна общая проблема на прогон');
+  const context = await browser.newContext({ storageState: CLIENT_STATE });
+  const page = await context.newPage();
+  await page.goto('/ru/tickets/new');
+  await expect(page.locator('form[data-ready]').first()).toBeAttached();
+  await page.getByLabel('Что случилось?').fill(`${ERROR_CODE}: Накладная №10 от 04.03.2026 не проведена`);
+  const affected = page.getByTestId('known-problem-banner').getByRole('button', { name: 'Меня это тоже затронуло' });
+  await expect(affected).toBeVisible();
+  await expect(affected).toHaveAttribute('type', 'button');
+  // Кнопка формы по умолчанию (первая кнопка отправки в разметке) создаёт обращение.
+  await expect(page.locator('form[data-ready] button[type="submit"]').first()).toHaveText('Отправить обращение');
+  await context.close();
+});

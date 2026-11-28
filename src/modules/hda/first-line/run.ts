@@ -275,7 +275,8 @@ async function decide(system: SystemActor, t: FirstLineTicket, handoff: Handoff,
 /** Передача без вызова модели и задание разбора после неё (решение 6). Разбор проверит, включён ли он. */
 async function withTriage(t: FirstLineTicket, pass: () => Promise<FirstLineResult>): Promise<FirstLineResult> {
   const result = await pass();
-  await enqueue('ai.triage', { ticketId: t.ticketId }).catch(() => undefined);
+  // Сбой постановки разбора передачу не отменяет, но и не теряется молча (проверка качества, Q16).
+  await enqueue('ai.triage', { ticketId: t.ticketId }).catch((error: unknown) => logEvent('error', 'ai.triage_enqueue_failed', { ticketId: t.ticketId, error: error instanceof Error ? error.name : 'ошибка' }));
   return result;
 }
 

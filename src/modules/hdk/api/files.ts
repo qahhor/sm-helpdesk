@@ -2,10 +2,10 @@ import 'server-only';
 import * as z from 'zod';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
-import { consumeRateLimit, contentDisposition, enqueue, getStorage, problemResponse, rateKey, type StaffContext } from '@/modules/hdc/api';
+import { consumeRateLimit, contentDisposition, enqueue, getStorage, problemResponse, rateKey, type StaffContext, sweepPendingScans } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { articleByNumberTx, createFileTx, fileByIdTx, type FileRow } from '../core/editor';
-import { scanFile } from '../core/files';
+import { pendingFiles, rejectStuckFiles, scanFile } from '../core/files';
 import { HdkError } from '../error';
 import { ARTICLE_NUMBER_MAX, FILE_MAX_BYTES, FILE_MIMES, fileQuarantineKey, type FileScanStatus, KB_WRITER_ROLES } from '../pref';
 
@@ -119,4 +119,22 @@ export async function staffSolutionFileResponse(ctx: StaffContext | null, input:
   });
   if (!row) return problemResponse(404, 'not_found');
   return streamFileResponse(row);
+}
+
+/**
+ * Обход зависших проверок изображений решений (проверка качества, Q5): задача attachment.sweep раз в минуту. Файл
+ * pending старше двух минут ставится на проверку снова, старше суток не принимается.
+ */
+export async function sweepSolutionFiles(actor: SystemActor, now: Date = new Date()): Promise<{ requeued: number; failed: number }> {
+  if (actor.type !== 'system') throw new HdkError('forbidden');
+  return sweepPendingScans(
+    {
+      name: 'kb',
+      rejectStuck: (before, limit) => rejectStuckFiles(actor, before, limit),
+      listPending: (before, limit) => pendingFiles(actor, before, limit),
+      quarantineKey: fileQuarantineKey,
+      enqueue: (fileId) => enqueue('kb.scan', { fileId }),
+    },
+    now,
+  );
 }

@@ -175,6 +175,30 @@ test('перевод сообщения считается в пределе п�
   expect((await pools.root.query(`select outcome from hda_runs where purpose = 'message_translation'`)).rows.map((r) => r.outcome)).toEqual(['limited']);
 });
 
+// Независимая проверка волны 7, находка R6 (решение 0168): перевод запускает сотрудник, он и расходует предел. Часовой
+// предел ТЗ 14.5 относится к ответам помощника клиенту и перевод не считает.
+test('перевод считается на сотрудника, который его запустил, а не на клиента-автора; часовой предел клиента не задет', async () => {
+  const runs = (purpose: string, userId: string, n: number) =>
+    pools.root.query(`insert into hda_runs (org_id, purpose, outcome, user_id, ticket_id) select $1, $2, 'ok', $3, $4 from generate_series(1, $5::int)`, [f.orgA.orgId, purpose, userId, ticket().ticketId, n]);
+  await pools.root.query(`insert into hdc_settings (code, value) values ('ai.user_daily_limit', '1000'::jsonb), ('ai.org_daily_limit', '10000'::jsonb)`);
+  // Клиент исчерпал свои 20 ответов помощника за час: перевод его сообщения сотруднику всё равно делается.
+  await runs('first_line', f.aUser.userId, 20);
+  const messageId = await clientMessage('Hisobot ochilmayapti');
+  const { translationId } = await requestMessageTranslation(staffCtx(f.l1), { messageId, locale: 'ru' });
+  expect(await runMessageTranslationJob(SYSTEM, { translationId })).toBe('ready');
+  expect((await pools.root.query(`select user_id, outcome from hda_runs where purpose = 'message_translation'`)).rows).toEqual([{ user_id: f.l1.userId, outcome: 'ok' }]);
+  // Двадцать переводов сотрудника за час следующий перевод не останавливают: часового предела у перевода нет.
+  await runs('message_translation', f.l1.userId, 20);
+  const second = await clientMessage('Buyurtma saqlanmayapti');
+  const next = await requestMessageTranslation(staffCtx(f.l1), { messageId: second, locale: 'ru' });
+  expect(await runMessageTranslationJob(SYSTEM, { translationId: next.translationId })).toBe('ready');
+  // Суточный предел сотрудника перевод держит.
+  await pools.root.query(`update hdc_settings set value = '5'::jsonb where code = 'ai.user_daily_limit'`);
+  const third = await clientMessage('Nakladnoy chiqmayapti');
+  const last = await requestMessageTranslation(staffCtx(f.l1), { messageId: third, locale: 'ru' });
+  expect(await runMessageTranslationJob(SYSTEM, { translationId: last.translationId })).toBe('failed');
+});
+
 test('долг M5b M1: повторное "Перевести" после неудачного перевода ставит задание снова, удачный перевод не переставляется', async () => {
   const messageId = await clientMessage('Hisobot ochilmayapti');
   stub.broken = 'not_json';

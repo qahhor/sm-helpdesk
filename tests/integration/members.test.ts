@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
-import { changeMemberRole, listMembersForStaff, setMemberState } from '@/modules/hdu/api/members';
+import { changeMemberRole, memberForStaff, memberOfOrg, pageMembers, pageMembersForStaff, setMemberState } from '@/modules/hdu/api/members';
 import { getOrganization, resolveClient, searchOrganizations, updateOrganization } from '@/modules/hdu/api/orgs';
-import { clientCtx, clientSession, reload, staffCtx, staffWithRole } from './helpers/auth';
+import { clientCtx, clientSession, reload, staffCtx, staffWithRole, verifiedClientFixture } from './helpers/auth';
 import { asActor, pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
 
@@ -147,7 +147,7 @@ test('карточка организации: несуществующая и �
 test('сотрудник видит подтверждённый адрес участника, служебный адрес не показывается', async () => {
   const f = await seedTwoOrgs();
   await pools.root.query(`update auth."user" set email = 'real@acme.test', "emailVerified" = true where id = $1`, [f.aAdmin.userId]);
-  const members = await listMembersForStaff(staffCtx(f.l1), f.orgA.orgId);
+  const { members } = await pageMembersForStaff(staffCtx(f.l1), f.orgA.orgId);
   expect(members.find((m) => m.userId === f.aAdmin.userId)?.email).toBe('real@acme.test');
   expect(members.find((m) => m.userId === f.aUser.userId)?.email).toBeNull();
   expect(members.find((m) => m.userId === f.aUser.userId)?.isSelf).toBe(false);
@@ -158,7 +158,68 @@ test('AI-сотрудник организации и участников не 
   const bot = staffCtx(await staffWithRole('agent_bot'));
   await expect(searchOrganizations(bot, {})).rejects.toMatchObject({ code: 'forbidden' });
   await expect(getOrganization(bot, f.orgA.orgId)).rejects.toMatchObject({ code: 'forbidden' });
-  await expect(listMembersForStaff(bot, f.orgA.orgId)).rejects.toMatchObject({ code: 'forbidden' });
+  await expect(pageMembersForStaff(bot, f.orgA.orgId)).rejects.toMatchObject({ code: 'forbidden' });
+  await expect(memberForStaff(bot, f.orgA.orgId, f.aUser.userId)).rejects.toMatchObject({ code: 'forbidden' });
+});
+
+// --- Участники страницами (проверка качества, Q20; проверка интерфейса, U8) ---
+
+async function extraMembers(orgId: string, names: string[]): Promise<string[]> {
+  const ids: string[] = [];
+  for (const name of names) {
+    const { userId } = await verifiedClientFixture(`${name.toLowerCase()}-${Date.now()}@acme.test`, { orgId });
+    await pools.root.query(`update auth."user" set name = $2 where id = $1`, [userId, name]);
+    ids.push(userId);
+  }
+  return ids;
+}
+
+test('участники отдаются страницами по ключу: без пропусков и повторов, отключённые после действующих', async () => {
+  const f = await seedTwoOrgs();
+  const [, , vera] = await extraMembers(f.orgA.orgId, ['Борис', 'Борис', 'Вера', 'Яна']);
+  await pools.root.query(`update hdu_memberships set state = 'passive' where user_id = $1`, [vera]);
+  const ctx = staffCtx(f.l1);
+  const seen: string[] = [];
+  let after: string | null = null;
+  let pages = 0;
+  do {
+    const page = await pageMembersForStaff(ctx, f.orgA.orgId, { after, limit: 2 });
+    expect(page.members.length).toBeLessThanOrEqual(2);
+    seen.push(...page.members.map((m) => `${m.state}:${m.name}`));
+    after = page.next;
+    pages += 1;
+  } while (after);
+  expect(pages).toBe(3);
+  // Два тёзки не теряются на границе страниц: ключ включает идентификатор.
+  expect(seen).toEqual(['active:Алишер', 'active:Борис', 'active:Борис', 'active:Дильноза', 'active:Яна', 'passive:Вера']);
+  // Клиент видит только свою организацию, тем же листанием.
+  const mine = await pageMembers({ ctx: await clientCtx(f.aAdmin) }, { limit: 4 });
+  expect(mine.members).toHaveLength(4);
+  expect(mine.next).not.toBeNull();
+  expect(mine.members.find((m) => m.userId === f.aAdmin.userId)?.isSelf).toBe(true);
+  await expect(pageMembers({ ctx: await clientCtx(f.aUser) })).rejects.toMatchObject({ code: 'forbidden' });
+});
+
+test('поиск участника по имени без учёта регистра; знаки шаблона ищутся как текст; негодный ключ отклоняется', async () => {
+  const f = await seedTwoOrgs();
+  await extraMembers(f.orgA.orgId, ['Борис', '100%']);
+  const ctx = staffCtx(f.l1);
+  expect((await pageMembersForStaff(ctx, f.orgA.orgId, { q: 'бор' })).members.map((m) => m.name)).toEqual(['Борис']);
+  expect((await pageMembersForStaff(ctx, f.orgA.orgId, { q: '%' })).members.map((m) => m.name)).toEqual(['100%']);
+  expect((await pageMembersForStaff(ctx, f.orgA.orgId, { q: '_' })).members).toEqual([]);
+  // Участник другой организации в поиске не находится.
+  expect((await pageMembersForStaff(ctx, f.orgA.orgId, { q: 'Тимур' })).members).toEqual([]);
+  await expect(pageMembersForStaff(ctx, f.orgA.orgId, { after: 'не-ключ' })).rejects.toMatchObject({ code: 'invalid_input' });
+});
+
+test('один участник по идентификатору: для подтверждения отключения и для проверки автора', async () => {
+  const f = await seedTwoOrgs();
+  const ctx = staffCtx(f.l1);
+  expect(await memberForStaff(ctx, f.orgA.orgId, f.aUser.userId)).toMatchObject({ userId: f.aUser.userId, name: 'Алишер', state: 'active' });
+  // Участник чужой организации для этой организации не существует.
+  expect(await memberForStaff(ctx, f.orgA.orgId, f.bUser.userId)).toBeNull();
+  expect(await memberOfOrg({ ctx: await clientCtx(f.aAdmin) }, f.aUser.userId)).toMatchObject({ name: 'Алишер', isSelf: false });
+  expect(await memberOfOrg({ ctx: await clientCtx(f.aAdmin) }, f.bUser.userId)).toBeNull();
 });
 
 // --- Карточка организации: категория и AI-обработка (задача 20, FR-ADM-02) ---

@@ -39,6 +39,7 @@ export default async function PortalLayout({ children }: LayoutProps<'/[locale]'
       userMenu={
         <UserMenu
           name={client.user.name}
+          detail={client.org.name}
           label={t('common.userMenu.label')}
           links={[
             { href: '/settings', label: t('common.userMenu.settings') },

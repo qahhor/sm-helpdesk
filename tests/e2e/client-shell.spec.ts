@@ -23,6 +23,18 @@ test.describe('телефон 360', () => {
     for (const box of boxes) expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
   });
 
+  // Проверка интерфейса, второй проход (F11): имя и организация были простым блоком внутри role="menu".
+  test('меню пользователя: имя и организация подписывают группу пунктов меню', async ({ page }) => {
+    await page.goto('/ru');
+    await page.locator('button[title="Меню пользователя"]').click();
+    const who = page.getByTestId('user-menu-who');
+    await expect(who).toBeVisible();
+    const name = await who.locator('span').first().innerText();
+    const group = page.getByRole('menu').locator('[role="group"][aria-labelledby]');
+    await expect(group).toHaveAccessibleName(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    await expect(group.getByRole('menuitem').first()).toBeVisible();
+  });
+
   test('текущий раздел отмечен не только цветом', async ({ page }) => {
     await page.goto('/ru/ideas');
     const nav = page.getByRole('navigation', { name: 'Основное меню' });

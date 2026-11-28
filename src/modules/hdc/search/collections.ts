@@ -1,4 +1,5 @@
-import type { SearchCollection } from './types';
+import { createHash } from 'node:crypto';
+import type { SearchCollection, StemPair } from './types';
 
 // Схемы коллекций Typesense (план W6, решения 1, 7-9; документация 30.2, api/collections, guide/locale, api/stemming).
 // Что попадает в индекс: только поля ниже. У обращения нет имени автора, адресов, ИНН и названия организации; в
@@ -8,6 +9,17 @@ import type { SearchCollection } from './types';
 // узбекским полям подключён свой словарь hub_uz_stems. Поля *_fold держат свёрнутый текст (fold.ts) без locale.
 
 export const UZ_STEMS = 'hub_uz_stems';
+/**
+ * Отметка словаря корней (независимая проверка, B1; решение 0172): отпечаток пар без учёта порядка. Коллекция получает
+ * её в метаданных при создании, по ней видно, с каким словарём она построена. В отметке нет самих слов.
+ */
+export function stemsMarkOf(pairs: readonly StemPair[]): string {
+  const key = pairs
+    .map((pair) => `${pair.word}\u0000${pair.root}`)
+    .sort()
+    .join('\u0001');
+  return createHash('sha256').update(key).digest('base64url').slice(0, 32);
+}
 export const SYNONYM_SET = 'hub_synonyms';
 export const CURATION_SET = 'hub_solutions_curation';
 

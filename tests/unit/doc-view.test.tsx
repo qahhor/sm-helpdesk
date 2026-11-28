@@ -3,6 +3,7 @@ import { isValidElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test } from 'vitest';
 import { parseSolutionDoc, type SolutionDoc } from '@/modules/hdk/doc-schema';
+import { solutionTemplate } from '@/modules/hdk/template';
 import { DocView, type DocViewLabels } from '@/ui/doc/DocView';
 import everyBlock from '../fixtures/doc/every-block.json';
 
@@ -85,4 +86,50 @@ test('в дереве отрисовки нет ни одной вставки H
 test('отрисовка не тянет редактор и не собирает HTML', () => {
   const source = readFileSync('src/ui/doc/DocView.tsx', 'utf8');
   expect(source).not.toMatch(/@tiptap|prosemirror|generateHTML|innerHTML|dangerouslySetInnerHTML|use client/);
+});
+
+test('пустые разделы клиенту не показываются: заголовок без содержимого до следующего заголовка того же уровня или конца', () => {
+  const heading = (id: string, level: 2 | 3, text: string) => ({ type: 'heading', attrs: { id, level }, content: [{ type: 'text', text }] });
+  const paragraph = (id: string, text: string) => ({ type: 'paragraph', attrs: { id }, content: [{ type: 'text', text }] });
+  const sections = parseSolutionDoc({
+    version: doc.version,
+    blocks: [
+      heading('hempty000001', 2, 'Пустой раздел'),
+      heading('hfull0000001', 2, 'Причина'),
+      paragraph('pfull0000001', 'Не задан склад.'),
+      heading('hparent00001', 2, 'Решение'),
+      heading('hchildempty1', 3, 'Пустой подраздел'),
+      heading('hchildfull01', 3, 'Подраздел с текстом'),
+      paragraph('pchild000001', 'Откройте настройки.'),
+      heading('hlastempty01', 2, 'Если не помогло'),
+    ],
+  });
+  const all = renderToStaticMarkup(<DocView doc={sections} labels={labels} />);
+  expect(all).toContain('Пустой раздел');
+  const shown = renderToStaticMarkup(<DocView doc={sections} labels={labels} hideEmptySections />);
+  expect(shown).not.toContain('Пустой раздел');
+  expect(shown).not.toContain('Пустой подраздел');
+  expect(shown).not.toContain('Если не помогло');
+  // Раздел, у которого есть подраздел с текстом, остаётся вместе с ним.
+  for (const text of ['Причина', 'Не задан склад.', 'Решение', 'Подраздел с текстом', 'Откройте настройки.']) expect(shown).toContain(text);
+});
+
+// Проверка интерфейса, второй проход (F5): заготовка кладёт под заголовки пустой абзац и пустой шаг, и раздел с ними
+// считался заполненным.
+test('заготовка решения без правок не даёт клиенту ни одного заголовка, заполненный раздел остаётся', () => {
+  let n = 0;
+  const template = solutionTemplate({ what: 'Что видит пользователь', why: 'Почему так происходит', do: 'Что сделать' }, () => `tpl${String(++n).padStart(8, '0')}`);
+  const untouched = renderToStaticMarkup(<DocView doc={parseSolutionDoc(template)} labels={labels} hideEmptySections />);
+  expect(untouched).not.toContain('<h2');
+  // Сотрудник заполнил только первый раздел: пробелы и перенос строки текстом не считаются.
+  const blocks = structuredClone(template.blocks) as { type: string; content?: unknown[] }[];
+  blocks[1]!.content = [{ type: 'text', text: 'Накладная не проводится.' }];
+  blocks[3]!.content = [{ type: 'text', text: '  ' }, { type: 'hardBreak' }];
+  const partly = renderToStaticMarkup(<DocView doc={parseSolutionDoc({ version: 1, blocks })} labels={labels} hideEmptySections />);
+  expect(partly).toContain('Что видит пользователь');
+  expect(partly).toContain('Накладная не проводится.');
+  expect(partly).not.toContain('Почему так происходит');
+  expect(partly).not.toContain('Что сделать');
+  // Сотруднику в предпросмотре заготовка видна целиком.
+  expect(renderToStaticMarkup(<DocView doc={parseSolutionDoc(template)} labels={labels} />)).toContain('Что сделать');
 });

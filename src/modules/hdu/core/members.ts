@@ -1,6 +1,7 @@
 import 'server-only';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { type Actor, type ClientActor, type StaffActor, withActor } from '@/db/with-actor';
+import { containsText } from '@/db/contains';
 import { withIdentity } from '@/db/with-identity';
 import { writeAudit } from '@/modules/hdc/api';
 import { authUser } from '../auth-schema';
@@ -14,22 +15,58 @@ import { memberships, organizations, userProfiles } from '../schema';
 
 export type MemberRow = { userId: string; name: string; role: ClientRole; source: MembershipSource; state: RecordState };
 
-/** Участники организации с именами. Адресов и других полей учётной записи здесь нет. */
-export async function listOrgMembers(actor: ClientActor | StaffActor, orgId: string): Promise<MemberRow[]> {
+/** Ключ листания: порядок списка (состояние, имя, идентификатор). */
+export type MemberKey = { state: RecordState; name: string; userId: string };
+
+const memberColumns = {
+  userId: memberships.userId,
+  name: userProfiles.name,
+  role: memberships.role,
+  source: memberships.source,
+  state: memberships.state,
+};
+
+/**
+ * Участники организации с именами, страницей по ключу (проверка качества, Q20): действующие раньше отключённых, по
+ * имени, затем по идентификатору. Возвращает на одну строку больше limit, если дальше есть ещё. Адресов и других полей
+ * учётной записи здесь нет.
+ */
+export async function pageOrgMembers(
+  actor: ClientActor | StaffActor,
+  orgId: string,
+  opts: { q: string | null; after: MemberKey | null; limit: number; state?: RecordState },
+): Promise<MemberRow[]> {
+  const { q, after, limit } = opts;
   return withActor(actor, (tx) =>
     tx
-      .select({
-        userId: memberships.userId,
-        name: userProfiles.name,
-        role: memberships.role,
-        source: memberships.source,
-        state: memberships.state,
-      })
+      .select(memberColumns)
       .from(memberships)
       .innerJoin(userProfiles, eq(userProfiles.userId, memberships.userId))
-      .where(eq(memberships.orgId, orgId))
-      .orderBy(asc(memberships.state), asc(userProfiles.name), asc(memberships.userId)),
+      .where(
+        and(
+          eq(memberships.orgId, orgId),
+          opts.state ? eq(memberships.state, opts.state) : undefined,
+          // Знаки шаблона в поиске ищутся как текст: шаблон собирает общий помощник (решение 0041).
+          q ? containsText(userProfiles.name, q) : undefined,
+          after ? sql`(${memberships.state}, ${userProfiles.name}, ${memberships.userId}) > (${after.state}, ${after.name}, ${after.userId}::uuid)` : undefined,
+        ),
+      )
+      .orderBy(asc(memberships.state), asc(userProfiles.name), asc(memberships.userId))
+      .limit(limit + 1),
   );
+}
+
+/** Один участник организации или null: чужого для актора и для этой организации нет. */
+export async function findOrgMember(actor: ClientActor | StaffActor, orgId: string, userId: string): Promise<MemberRow | null> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .select(memberColumns)
+      .from(memberships)
+      .innerJoin(userProfiles, eq(userProfiles.userId, memberships.userId))
+      .where(and(eq(memberships.orgId, orgId), eq(memberships.userId, userId)))
+      .limit(1),
+  );
+  return rows[0] ?? null;
 }
 
 /** Название действующей организации глазами актора. Пусто, если её нет или она отключена. */

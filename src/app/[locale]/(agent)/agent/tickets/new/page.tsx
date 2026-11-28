@@ -3,7 +3,7 @@ import { LOCALES } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
 import { listActiveModules } from '@/modules/hdr/api';
 import { ALLOWED_FILE_EXTENSIONS, HDT_ERROR_CODES, IMPACTS, INTAKE_CHANNELS, MAX_FILES_PER_MESSAGE, PRIORITIES, TICKET_TYPES, VISIBILITIES } from '@/modules/hdt/api';
-import { getOrganization, listMembersForStaff, requireStaffActor, searchOrganizations } from '@/modules/hdu/api';
+import { getOrganization, pageMembersForStaff, requireStaffActor, searchOrganizations } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
 import { Card, CardContent } from '@/ui/components/card';
@@ -26,7 +26,8 @@ export default async function NewTicketForClientPage({ searchParams }: { searchP
   const org = params.org ? await getOrganization(staff, params.org) : null;
   const q = params.q?.trim().slice(0, 100) ?? '';
   const found = !org && q ? await searchOrganizations(staff, { query: q }) : null;
-  const members = org ? (await listMembersForStaff(staff, org.orgId)).filter((m) => m.state === 'active') : [];
+  // Действующие участники для списка "От чьего имени": не больше 200 (проверка качества, Q20).
+  const members = org ? (await pageMembersForStaff(staff, org.orgId, { state: 'active', limit: 200 })).members : [];
   const locale = await getLocale();
   const modules = org ? await listActiveModules(staff.actor, locale) : [];
   const error = HDT_ERROR_CODES.find((code) => code === params.error);

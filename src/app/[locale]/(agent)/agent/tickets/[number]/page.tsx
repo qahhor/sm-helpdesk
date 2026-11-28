@@ -187,6 +187,7 @@ export default async function AgentTicketPage({ params, searchParams }: { params
                 send: t('ticket.composer.send'),
                 saveNote: t('ticket.composer.saveNote'),
                 sendNext: t('ticket.composer.sendNext'),
+                saveNoteNext: t('ticket.composer.saveNoteNext'),
                 busy: tc('files.busy'),
                 draftSaved: t('ticket.composer.draftSaved'),
                 errors: Object.fromEntries(

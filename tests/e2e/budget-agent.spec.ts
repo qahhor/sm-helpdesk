@@ -2,6 +2,7 @@ import { type Page, expect, test } from '@playwright/test';
 import { sumScriptBytes } from '../../scripts/checks/budget-rules.mjs';
 import { dbRows } from './helpers/db';
 import { storageStateOf } from './helpers/staff';
+import { createClientTicket } from './helpers/tickets';
 
 // Бюджет скриптов первого экрана рабочего места (аудит 23.11.2026, раздел 4.3; план W3, задача 6). Для кабинета
 // клиента предел 170 КБ задаёт ТЗ 8.9. Рабочее место открывают с ноутбука в офисе, и скриптов на нём больше:
@@ -31,10 +32,11 @@ test('очередь сотрудника укладывается в бюдже
   expect(total).toBeLessThanOrEqual(AGENT_BUDGET_BYTES);
 });
 
-test('страница обращения сотрудника укладывается в бюджет скриптов', async ({ page }, info) => {
+test('страница обращения сотрудника укладывается в бюджет скриптов', async ({ page, browser }, info) => {
   test.skip(info.project.name !== 'desktop', 'рабочее место проверяется на ноутбуке');
-  const [row] = await dbRows<{ number: number }>(`select number from hdt_tickets where status <> 'closed' and merged_into_id is null order by created_on desc limit 1`);
-  const total = await scriptsOf(page, `/ru/agent/tickets/SUP-${row!.number}`, async () => {
+  // Своё обращение, а не "последнее открытое в базе" (проверка качества, Q8).
+  const number = await createClientTicket(browser);
+  const total = await scriptsOf(page, `/ru/agent/tickets/SUP-${number}`, async () => {
     await expect(page.getByRole('main')).toBeVisible();
   });
   console.log(`Скрипты обращения сотрудника: ${Math.round(total / 1024)} КБ из ${Math.round(AGENT_BUDGET_BYTES / 1024)}`);

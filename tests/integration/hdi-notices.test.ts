@@ -13,6 +13,7 @@ import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
 import { pools, system } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
 import { addIdea } from './isolation/ideas-fixture';
+import { expectWithin } from './helpers/timing';
 
 // Уведомления по идеям (ТЗ FR-IDEA-11, FR-NT-01, 03, 04; план M7, задача 8, решения 14, 15): колокольчик на каждое
 // событие, письмо не чаще одного в сутки по идее на пользователя, кроме "Выпущена"; получатели без повторов; без
@@ -93,7 +94,7 @@ test('1000 проголосовавших: одна пачка строк в т�
   const moderator = await product();
   const started = Date.now();
   await withActor(moderator.actor, (tx) => notifyIdeaStatusTx(tx, { ideaId: idea.ideaId, number: idea.number, authorId: f.bUser.userId, status: 'selected' }));
-  expect(Date.now() - started).toBeLessThan(10_000);
+  expectWithin(Date.now() - started, 10_000, 'уведомление о статусе идеи с 2000 голосов');
   // Одна команда на таблицу: у строк, вставленных одной командой транзакции, один номер команды (системная колонка cmin).
   expect((await pools.root.query(`select count(distinct cmin::text)::int as n from hdn_notifications where idea_id = $1`, [idea.ideaId])).rows[0].n).toBe(1);
   expect((await pools.root.query(`select count(distinct cmin::text)::int as n from hdn_outbox where payload ->> 'ideaId' = $1`, [idea.ideaId])).rows[0].n).toBe(1);

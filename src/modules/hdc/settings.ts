@@ -1,5 +1,5 @@
 import 'server-only';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import { withActor } from '@/db/with-actor';
 import { writeAudit } from './audit';
@@ -14,6 +14,16 @@ const SYSTEM = { type: 'system', job: 'settings.read' } as const;
 export async function readSetting(code: string): Promise<unknown> {
   const rows = await withActor(SYSTEM, (tx) => tx.select({ value: appSettings.value }).from(appSettings).where(eq(appSettings.code, code)).limit(1));
   return rows[0]?.value;
+}
+
+/**
+ * Значения нескольких настроек одной выборкой (проверка качества, Q3): экран или задача, которым нужно несколько
+ * настроек, не открывают по транзакции на каждую. Кода без строки в ответе нет.
+ */
+export async function readSettings(codes: readonly string[]): Promise<Map<string, unknown>> {
+  if (codes.length === 0) return new Map();
+  const rows = await withActor(SYSTEM, (tx) => tx.select({ code: appSettings.code, value: appSettings.value }).from(appSettings).where(inArray(appSettings.code, [...new Set(codes)])));
+  return new Map(rows.map((row) => [row.code, row.value]));
 }
 
 /**

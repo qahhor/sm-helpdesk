@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, inArray, isNotNull, lt, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
@@ -15,7 +15,11 @@ import { attachments, tickets } from '../schema';
 // что подошло бы под удаление, пишет числа в журнал работы и ничего не меняет.
 //
 // Включённая задача удаляет файл вложения из хранилища и ставит строке отметку expired: строка остаётся, клиент её не
-// видит (политика отдаёт клиенту только файлы clean). Обращения эта версия не удаляет и во включённом режиме: удаление
+// видит (политика отдаёт клиенту только файлы clean). Порядок: сначала файл, потом отметка. Удаление в хранилище
+// повторяемо (отсутствующий объект не ошибка), поэтому строка, чей файл удалить не удалось, остаётся clean и попадает в
+// следующий прогон; строка, чей файл удалён, а отметка не записалась (сбой базы, остановка процесса), тоже. Обратный
+// порядок оставлял файл в хранилище навсегда: помеченную строку задача больше не выбирала (проверка W7, R2).
+// Трогаются только проверенные файлы (clean): непроверенные, заражённые и отклонённые ведёт проверка файлов (R7). Обращения эта версия не удаляет и во включённом режиме: удаление
 // строки обращения требует новых политик удаления в двух десятках связанных таблиц четырёх модулей, это изменение RLS
 // согласуется отдельно (решение 0162). Число таких обращений задача считает и пишет в журнал работы.
 
@@ -30,7 +34,10 @@ export type RetentionReport = {
   mode: 'dry_run' | 'delete';
   /** Файлы обращений, закрытых больше года назад (в пределах одной пачки). */
   attachmentsDue: number;
+  /** Файл удалён из хранилища, строка помечена. */
   attachmentsExpired: number;
+  /** Хранилище не удалило файл: строка не тронута, файл возьмёт следующий прогон. */
+  attachmentsFailed: number;
   /** Организации, договор с которыми кончился больше трёх лет назад, и их обращения. */
   orgsDue: number;
   ticketsDue: number;
@@ -55,7 +62,7 @@ export async function runClientDataRetention(system: SystemActor, now: Date = ne
       .select({ attachmentId: attachments.attachmentId, storageKey: attachments.storageKey })
       .from(attachments)
       .innerJoin(tickets, eq(tickets.ticketId, attachments.ticketId))
-      .where(and(isNotNull(attachments.ticketId), ne(attachments.scanStatus, 'expired'), eq(tickets.status, 'closed'), lt(tickets.closedOn, closedBefore)))
+      .where(and(isNotNull(attachments.ticketId), eq(attachments.scanStatus, 'clean'), eq(tickets.status, 'closed'), lt(tickets.closedOn, closedBefore)))
       .orderBy(attachments.createdOn)
       .limit(BATCH);
     const [counted] = orgIds.length
@@ -64,35 +71,35 @@ export async function runClientDataRetention(system: SystemActor, now: Date = ne
     return { due, ticketsDue: counted?.count ?? 0 };
   });
 
-  const report: RetentionReport = { mode: enabled ? 'delete' : 'dry_run', attachmentsDue: due.length, attachmentsExpired: 0, orgsDue: orgIds.length, ticketsDue, ticketsDeleted: 0 };
+  const report: RetentionReport = { mode: enabled ? 'delete' : 'dry_run', attachmentsDue: due.length, attachmentsExpired: 0, attachmentsFailed: 0, orgsDue: orgIds.length, ticketsDue, ticketsDeleted: 0 };
   if (!enabled || due.length === 0) {
     logEvent('info', enabled ? 'retention.client_data' : 'retention.client_data_dry_run', { ...report });
     return report;
   }
 
-  // Сначала отметка строк и запись журнала одной транзакцией, затем файлы: строка с отметкой клиенту не видна, а файл
-  // без действующей строки никому не выдаётся. Сбой хранилища виден в журнале работы, файл удалит следующий прогон
-  // вручную по ключу из журнала.
-  const ids = due.map((row) => row.attachmentId);
-  const marked = await withActor(system, async (tx) => {
-    const rows = await tx
-      .update(attachments)
-      .set({ scanStatus: 'expired' })
-      .where(and(inArray(attachments.attachmentId, ids), ne(attachments.scanStatus, 'expired')))
-      .returning({ attachmentId: attachments.attachmentId, storageKey: attachments.storageKey });
-    if (rows.length > 0) await writeAudit(tx, { action: 'retention.attachments_expired', objectType: 'retention', objectId: now.toISOString().slice(0, 10), diff: { count: rows.length, olderThanDays: ATTACHMENT_RETENTION_DAYS } });
-    return rows;
-  });
+  // Сначала файлы, затем отметка и запись журнала одной транзакцией, и только по удалённым файлам.
   const storage = getStorage();
-  let failed = 0;
-  for (const row of marked) {
+  const removed: string[] = [];
+  for (const row of due) {
     try {
       await storage.remove(row.storageKey);
+      removed.push(row.attachmentId);
     } catch {
-      failed += 1;
+      report.attachmentsFailed += 1;
     }
   }
-  report.attachmentsExpired = marked.length;
-  logEvent(failed > 0 ? 'warn' : 'info', 'retention.client_data', { ...report, storageFailed: failed });
+  if (removed.length > 0) {
+    const marked = await withActor(system, async (tx) => {
+      const rows = await tx
+        .update(attachments)
+        .set({ scanStatus: 'expired' })
+        .where(and(inArray(attachments.attachmentId, removed), eq(attachments.scanStatus, 'clean')))
+        .returning({ attachmentId: attachments.attachmentId });
+      if (rows.length > 0) await writeAudit(tx, { action: 'retention.attachments_expired', objectType: 'retention', objectId: now.toISOString().slice(0, 10), diff: { count: rows.length, olderThanDays: ATTACHMENT_RETENTION_DAYS } });
+      return rows;
+    });
+    report.attachmentsExpired = marked.length;
+  }
+  logEvent(report.attachmentsFailed > 0 ? 'warn' : 'info', 'retention.client_data', { ...report });
   return report;
 }

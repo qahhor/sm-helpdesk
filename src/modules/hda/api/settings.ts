@@ -11,7 +11,7 @@ import { AI_DAILY_LIMIT_MAX, AI_DAILY_LIMIT_SETTING, AI_MODELS, AI_PURPOSES, AI_
 import { aiOrgCutoffs } from '../schema';
 import { RESTRICTED_TOPICS } from '../topics';
 import { type AiConfig, aiConfig, aiConfigSchemas } from './config';
-import { aiDailyLimit, aiModelFor } from './run';
+import { aiDailyLimit, aiModelsFor } from './run';
 
 // Модуль hda, слой api: настройки AI (план M5, решение 13; план M5b, задача 1, FR-ADM-09, FR-AI-17). Меняет только
 // администратор портала со входом не старше 15 минут, каждое изменение пишется в журнал аудита той же транзакцией
@@ -52,7 +52,7 @@ export type AiSettingsView = AiConfig & {
 export async function aiSettingsView(ctx: StaffContext): Promise<AiSettingsView> {
   requireAdmin(ctx);
   const config = await aiConfig();
-  const effectiveModels = Object.fromEntries(await Promise.all(AI_PURPOSES.map(async (p) => [p, await aiModelFor(p)] as const))) as Record<AiPurpose, string>;
+  const effectiveModels = await aiModelsFor(AI_PURPOSES);
   const { spentUsd, cutoffs } = await withActor(ctx.actor, async (tx) => {
     const spend = await monthSpendTx(tx);
     const rows = await tx
@@ -114,8 +114,8 @@ export async function saveAiModels(ctx: StaffContext, input: unknown): Promise<{
   requireFreshAdmin(ctx);
   const parsed = modelsInput.safeParse(input);
   if (!parsed.success) throw new HdaError('invalid_input');
-  const before = await Promise.all(AI_PURPOSES.map((p) => aiModelFor(p)));
-  const changed = AI_PURPOSES.some((p, i) => parsed.data[p] !== before[i]);
+  const before = await aiModelsFor(AI_PURPOSES);
+  const changed = AI_PURPOSES.some((p) => parsed.data[p] !== before[p]);
   if (changed) await withActor(ctx.actor, (tx) => writeSettingTx(tx, AI_SETTINGS.models, parsed.data));
   return { changed };
 }

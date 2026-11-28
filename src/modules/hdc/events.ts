@@ -73,7 +73,17 @@ const PROCESS_BUDGET_MS = 50_000;
 export type EventHandler = (tx: Tx, event: DomainEvent) => Promise<void>;
 
 /** stopped: процесс останавливается; разбор прекращается между событиями, нетронутые события остаются в очереди. */
-export type ProcessOptions = { batch?: number; budgetMs?: number; clock?: () => number; stopped?: () => boolean };
+export type ProcessOptions = {
+  batch?: number;
+  budgetMs?: number;
+  clock?: () => number;
+  stopped?: () => boolean;
+  /**
+   * Обёртка транзакции одного события (проверка качества, Q2): вызывающий до транзакции читает то, что обработчику
+   * нельзя читать внутри неё (получатели уведомлений из таблиц идентичности). ticketId: обращение события.
+   */
+  around?: (ticketId: string, run: () => Promise<boolean>) => Promise<boolean>;
+};
 
 const columns = {
   eventId: domainEvents.eventId,
@@ -121,7 +131,7 @@ export async function processEvents(actor: SystemActor, handler: EventHandler, o
     // Кандидаты без блокировки: блокирует и перепроверяет строку транзакция самого события.
     const candidates = await withActor(actor, (tx) =>
       tx
-        .select({ eventId: domainEvents.eventId })
+        .select({ eventId: domainEvents.eventId, ticketId: domainEvents.ticketId })
         .from(domainEvents)
         .where(and(dueAt(new Date(clock())), noEarlierPending))
         .orderBy(asc(domainEvents.eventId))
@@ -129,10 +139,11 @@ export async function processEvents(actor: SystemActor, handler: EventHandler, o
     );
     if (candidates.length === 0) break;
     let taken = 0;
-    for (const { eventId } of candidates) {
+    for (const { eventId, ticketId } of candidates) {
       if (done()) return result;
       try {
-        const handled = await withActor(actor, async (tx) => {
+        const around = opts.around ?? ((_ticketId: string, run: () => Promise<boolean>) => run());
+        const handled = await around(ticketId, () => withActor(actor, async (tx) => {
           const [event] = await tx
             .select(columns)
             .from(domainEvents)
@@ -144,7 +155,7 @@ export async function processEvents(actor: SystemActor, handler: EventHandler, o
           await handler(tx, event);
           await tx.update(domainEvents).set({ processedOn: sql`now()` }).where(eq(domainEvents.eventId, eventId));
           return true;
-        });
+        }));
         if (handled) {
           result.processed++;
           taken++;

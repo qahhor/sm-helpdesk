@@ -88,7 +88,7 @@ test('S2: вход, "Сообщить о проблеме", тип, влияни
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(description.split('.')[0] ?? '');
   await expect(page.getByText(number, { exact: true })).toBeVisible();
   await expect(page.getByText('Новое', { exact: true })).toBeVisible();
-  await expect(page.getByText('Ход поддержки')).toBeVisible();
+  await expect(page.getByText('Сейчас отвечает поддержка')).toBeVisible();
   await expect(page.getByRole('list', { name: 'Ход обращения' }).locator('[aria-current="step"]')).toContainText('Создано');
   // После проверки скриншот виден миниатюрой и скачивается.
   await reloadUntil(page, /^screenshot\.png$/);
@@ -350,4 +350,26 @@ test('испорченный адрес обращения ведёт на "не
     await expect(page).toHaveURL(/\/ru\/not-found$/);
     await expect(page.getByRole('heading', { name: 'Страница не найдена' }), path).toBeVisible();
   }
+});
+
+// Проверка интерфейса, второй проход (F12): "Фильтры" на телефоне объявлялись флажком без состояния раскрытия, а на
+// ширине от 600 px поиск стоял в разметке первым и на экране последним: порядок Tab не совпадал с видимым.
+test('фильтры списка: на телефоне переключатель объявляет раскрытие, на широком экране порядок полей как в разметке', async ({ page }, info) => {
+  // С поисковым запросом форма фильтров видна и без обращений, а остальные фильтры свёрнуты.
+  await page.goto('/ru/tickets?q=zzzz');
+  const toggle = page.locator('#filters-open');
+  if (info.project.name === 'phone') {
+    await expect(toggle).toHaveAttribute('aria-controls', 'ticket-filters-more');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('#ticket-filters-more')).toBeHidden();
+    await page.getByText('Фильтры', { exact: true }).click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('#ticket-filters-more #filter-status')).toBeVisible();
+    await page.getByText('Фильтры', { exact: true }).click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    return;
+  }
+  const searchBox = (await page.locator('#filter-q').boundingBox())!;
+  const scopeBox = (await page.locator('#filter-scope').boundingBox())!;
+  expect(searchBox.x).toBeLessThan(scopeBox.x);
 });

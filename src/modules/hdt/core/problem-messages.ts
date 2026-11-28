@@ -1,7 +1,7 @@
 import 'server-only';
 import { eq, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { writeAudit } from '@/modules/hdc/api';
+import { emitEventTx, writeAudit } from '@/modules/hdc/api';
 import { type ResolutionType, type TicketStatus } from '../pref';
 import { ticketEvents, ticketMessages, tickets } from '../schema';
 import { lockRuleTicketTx } from './automation';
@@ -36,6 +36,8 @@ async function statusTx(tx: Tx, ticket: { ticketId: string; orgId: string }, fro
   const payload = { from, to, ...extra, byProblem: true };
   await tx.insert(ticketEvents).values({ orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status', actorType: 'system', payload, isInternal: false });
   await writeAudit(tx, { action: 'ticket.status_changed', objectType: 'ticket', objectId: ticket.ticketId, orgId: ticket.orgId, diff: payload });
+  // Событие для правил автоматизации и вебхуков в той же транзакции (FR-AUTO-02; проверка качества, Q14).
+  await emitEventTx(tx, { orgId: ticket.orgId, ticketId: ticket.ticketId, kind: 'status_changed', payload: { from, to } });
 }
 
 /**

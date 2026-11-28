@@ -53,7 +53,16 @@ export default defineConfig({
         test: {
           name: 'perf',
           environment: 'node',
-          include: ['tests/perf/**/*.test.ts'],
+          // Вместе с замерами идут интеграционные файлы с порогами по времени (проверка качества, Q10): в проекте
+          // integration их пороги только печатаются, здесь проверяются.
+          include: [
+            'tests/perf/**/*.test.ts',
+            'tests/integration/hda-agent-plans.test.ts',
+            'tests/integration/hdk-suggest.test.ts',
+            'tests/integration/hda-code-review.test.ts',
+            'tests/integration/metrics.test.ts',
+            'tests/integration/hdi-notices.test.ts',
+          ],
           globalSetup: ['tests/perf/global-setup.ts'],
           setupFiles: ['tests/integration/setup/each.ts'],
           fileParallelism: false,

@@ -2,7 +2,7 @@ import 'server-only';
 import type { Tx } from '@/db/client';
 import { notifyTx } from '@/modules/hdn/api/notifications';
 import { enqueueTx } from '@/modules/hdn/api/outbox';
-import { requireProblemTx } from '../core/problems';
+import { problemTx, requireProblemTx } from '../core/problems';
 import { problemRef } from '../util';
 
 // Модуль hdp, слой api: известная проблема и её задача разработки (ТЗ FR-KP-11, FR-DEV-06; план M5c, задача 8, решение
@@ -14,6 +14,12 @@ import { problemRef } from '../util';
 export async function problemForDevTaskTx(tx: Tx, number: number, opts: { lock?: boolean } = {}): Promise<{ problemId: string; number: number; internalTitle: string }> {
   const p = await requireProblemTx(tx, { number }, { lock: opts.lock ?? false });
   return { problemId: p.problemId, number: p.number, internalTitle: p.internalTitle };
+}
+
+/** То же без ошибки "не найдено": проблемы с таким номером нет, ответ null. Иные ошибки не глотаются (проверка качества, Q16). */
+export async function findProblemForDevTaskTx(tx: Tx, number: number): Promise<{ problemId: string; number: number; internalTitle: string } | null> {
+  const p = await problemTx(tx, { number });
+  return p ? { problemId: p.problemId, number: p.number, internalTitle: p.internalTitle } : null;
 }
 
 export type ProblemDevTaskChange = { ref: string; status: string; version: string | null };

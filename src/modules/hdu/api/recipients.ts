@@ -1,7 +1,8 @@
 import 'server-only';
 import * as z from 'zod';
-import { adminIdsTx, staffIdsWithRoleTx, lineLeadsTx, type MailRecipient, mailRecipientTx, markTelegramBlockedTx, organizationNameTx, replyRolesTx, replyRoleTx, telegramChatTx, telegramLinkedManyTx } from '../core/recipients';
+import { adminIdsTx, staffIdsWithRoleTx, lineLeadsTx, type MailRecipient, mailAddressesTx, mailRecipientTx, markTelegramBlockedTx, organizationNameTx, replyRolesTx, replyRoleTx, telegramChatTx, telegramLinkedManyTx } from '../core/recipients';
 import type { Locale } from '@/i18n/locales';
+import { snapshotOrgName, snapshotRoles, snapshotTelegramLinked } from './identity-snapshot';
 
 // Модуль hdu, слой api: адрес для письма пользователю (решение 2 вехи M4), руководители линии, администраторы
 // и название организации для уведомлений (решения 7 и 8). Узкий файл: его берёт фоновый
@@ -29,7 +30,10 @@ export function staffIdsWithRole(role: 'product' | 'admin'): Promise<string[]> {
 
 export async function organizationName(orgId: string): Promise<string | null> {
   const id = z.uuid().safeParse(orgId);
-  return id.success ? organizationNameTx(id.data) : null;
+  if (!id.success) return null;
+  // Название, прочитанное до транзакции вызывающего (проверка качества, Q2).
+  const known = snapshotOrgName(id.data);
+  return known !== undefined ? known : organizationNameTx(id.data);
 }
 
 /** Роль пользователя для ответа из письма в обращение этой организации или null (решение 16 вехи M4). */
@@ -43,6 +47,13 @@ export async function replyRole(userId: string, orgId: string): Promise<'client_
 export async function telegramChat(userId: string): Promise<{ chatId: string; locale: Locale | null } | null> {
   const id = z.uuid().safeParse(userId);
   return id.success ? telegramChatTx(id.data) : null;
+}
+
+/** Адреса для писем нескольких пользователей одной транзакцией на 500 человек (проверка качества, Q21). */
+export async function mailAddresses(userIds: string[]): Promise<Map<string, string>> {
+  const addresses = new Map<string, string>();
+  for (const chunk of chunksOf(userIds)) for (const [userId, address] of await mailAddressesTx(chunk)) addresses.set(userId, address);
+  return addresses;
 }
 
 /** Привязан ли Telegram и не заблокирован ли бот. */
@@ -75,12 +86,17 @@ export async function replyRoles(userIds: string[], orgId: string): Promise<Map<
   const org = z.uuid().safeParse(orgId);
   const roles = new Map<string, 'client_user' | 'client_admin'>();
   if (!org.success) return roles;
+  // Роли, прочитанные до транзакции вызывающего (проверка качества, Q2): база не нужна.
+  const known = snapshotRoles(chunksOf(userIds).flat(), org.data);
+  if (known) return known;
   for (const chunk of chunksOf(userIds)) for (const [userId, role] of await replyRolesTx(chunk, org.data)) roles.set(userId, role);
   return roles;
 }
 
 /** У кого из пользователей действует привязка Telegram: один запрос на 500 человек. */
 export async function telegramLinkedMany(userIds: string[]): Promise<Set<string>> {
+  const known = snapshotTelegramLinked(chunksOf(userIds).flat());
+  if (known) return known;
   const linked = new Set<string>();
   for (const chunk of chunksOf(userIds)) for (const userId of await telegramLinkedManyTx(chunk)) linked.add(userId);
   return linked;

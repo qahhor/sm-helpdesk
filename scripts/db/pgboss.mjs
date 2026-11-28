@@ -94,6 +94,11 @@ export const QUEUES = {
   // Повторы ведёт сама очередь (attempts в hdc_search_outbox). Ночная сверка без повторов: следующая ночь догонит.
   'search.sync': { policy: 'singleton', retryLimit: 0, expireInSeconds: 120, deleteAfterSeconds: 86_400 },
   'search.reconcile': { policy: 'short', retryLimit: 0, expireInSeconds: 3600, deleteAfterSeconds: 86_400 },
+  // Переиндексация коллекций после смены словаря корней (проверка качества, Q18): вне разбора очереди, у которого
+  // 120 секунд. short: вторая такая же задача в очереди не нужна. Задача не поставлена, упала или истекла: словарь уже
+  // записан, но версия коллекции хранит отметку словаря, с которым построена (решение 0172), и ночная сверка
+  // search.reconcile перестраивает коллекции с прежней отметкой.
+  'search.reindex': { policy: 'short', retryLimit: 1, retryDelay: 300, expireInSeconds: 3600, deleteAfterSeconds: 86_400 },
   // Разбор входящего письма (веха M4, решение 10): одна задача на письмо, повторы при сбое сервиса почты.
   'email.inbound': { policy: 'exclusive', retryLimit: 5, retryDelay: 60, retryBackoff: true, retryDelayMax: 1800, expireInSeconds: 300 },
 };

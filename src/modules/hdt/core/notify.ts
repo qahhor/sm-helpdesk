@@ -45,6 +45,11 @@ export type TicketNotice = {
   actorUserId: string | null;
   messageId?: string;
   to?: TicketStatus;
+  /**
+   * Автор сам создал обращение в портале или виджете: письмо с номером уходит (FR-NT-01), запись в списке уведомлений
+   * есть (FR-NT-03), но уже прочитана, и колокольчик о своём действии не зажигается (решение 0165).
+   */
+  ownAction?: boolean;
   /** Обращение создано письмом (задача 10): в письме подсказка ответить на него. */
   viaEmail?: boolean;
   mergedInto?: number;
@@ -119,12 +124,12 @@ function withRating(mail: Mail, ticket: TicketInfo): Mail {
   return cfg ? { ...mail, rateUrl: `/rate?t=${csatToken(ticket.number, ticket.authorId, cfg.secret)}` } : mail;
 }
 
-async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: string[], kind: NotificationKind, mail: Mail, messageId?: string): Promise<void> {
+async function tell(tx: Tx, ticketId: string, ticket: TicketInfo, recipients: string[], kind: NotificationKind, mail: Mail, messageId?: string, readBy: string | null = null): Promise<void> {
   const locale = ticket.locale as 'ru' | 'uz' | 'en';
   const seeing = await whoSees(ticket, recipients);
   const channelsOf = await channelsForMany(tx, seeing, ticket.authorId);
   for (const userId of seeing) {
-    await notifyTx(tx, { userId, kind, ticketId, orgId: ticket.orgId, payload: { number: ticket.number, title: ticket.title } });
+    await notifyTx(tx, { userId, kind, ticketId, orgId: ticket.orgId, payload: { number: ticket.number, title: ticket.title }, read: userId === readBy });
     const own = userId === ticket.authorId;
     const channels = channelsOf.get(userId) ?? { email: true, telegram: false };
     const telegramId =
@@ -203,7 +208,7 @@ export async function notifyTicketTx(tx: Tx, e: TicketNotice): Promise<void> {
   switch (e.kind) {
     case 'created':
       // Подтверждение с номером получает автор, даже если обращение за него создал сотрудник (FR-NT-01).
-      return tell(tx, e.ticketId, ticket, [ticket.authorId], 'ticket_created', { template: 'ticket_created', ...ref, viaEmail: e.viaEmail ?? false });
+      return tell(tx, e.ticketId, ticket, [ticket.authorId], 'ticket_created', { template: 'ticket_created', ...ref, viaEmail: e.viaEmail ?? false }, undefined, e.ownAction ? ticket.authorId : null);
     case 'unidentified_ack':
       // Неопознанному отправителю только номер (FR-EM-05): без уведомления в портале, войти он не может.
       await enqueueTx(tx, {

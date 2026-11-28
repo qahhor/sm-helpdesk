@@ -1,6 +1,6 @@
 import 'server-only';
 import * as z from 'zod';
-import { readSetting } from '@/modules/hdc/api';
+import { readSettings } from '@/modules/hdc/api';
 import { AI_DEFAULTS, AI_MODELS, AI_PURPOSES, AI_SETTINGS, TRIAGE_FIELDS, type AiModel, type AiPurpose, type TriageField } from '../pref';
 import { RESTRICTED_TOPICS, RESTRICTED_TOPICS_DEFAULT, type TopicLists } from '../topics';
 
@@ -46,13 +46,14 @@ export const aiConfigSchemas = {
 
 const DEFAULTS: AiConfig = { ...AI_DEFAULTS, models: {}, triageFieldsOff: [], restrictedTopics: RESTRICTED_TOPICS_DEFAULT };
 
-async function read<K extends keyof AiConfig>(key: K): Promise<AiConfig[K]> {
-  const parsed = aiConfigSchemas[key].safeParse(await readSetting(AI_SETTINGS[key]));
+function parse<K extends keyof AiConfig>(key: K, value: unknown): AiConfig[K] {
+  const parsed = aiConfigSchemas[key].safeParse(value);
   return (parsed.success ? parsed.data : DEFAULTS[key]) as AiConfig[K];
 }
 
-/** Все настройки AI одним вызовом. */
+/** Все настройки AI одним вызовом и одной выборкой (проверка качества, Q3). */
 export async function aiConfig(): Promise<AiConfig> {
-  const entries = await Promise.all((Object.keys(DEFAULTS) as (keyof AiConfig)[]).map(async (key) => [key, await read(key)] as const));
-  return Object.fromEntries(entries) as AiConfig;
+  const keys = Object.keys(DEFAULTS) as (keyof AiConfig)[];
+  const values = await readSettings(keys.map((key) => AI_SETTINGS[key]));
+  return Object.fromEntries(keys.map((key) => [key, parse(key, values.get(AI_SETTINGS[key]))] as const)) as AiConfig;
 }

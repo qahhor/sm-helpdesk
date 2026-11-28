@@ -181,6 +181,43 @@ test.describe('Customer Care', () => {
 });
 
 // Сводка пилота и отметка "откуда пришло" (план M9, задача 3, решения 11-13).
+// Проверка интерфейса, второй проход (F9): у RowsLimit не было ни одного теста, а после "Показать все строки" кнопка
+// исчезала вместе с фокусом клавиатуры. Срез по организациям длиннее десяти строк готовит сам тест.
+test.describe('длинная таблица', () => {
+  test.use({ storageState: storageStateOf('care') });
+
+  test('первые десять строк и "Показать все строки"; после раскрытия фокус на первой из добавленных строк', async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'раскрытие таблицы проверяется на ноутбуке');
+    const [author] = await dbRows<{ id: string }>(`select id from auth."user" order by "createdAt" limit 1`);
+    for (let i = 1; i <= 11; i++) {
+      const name = `E2E строки показателей ${String(i).padStart(2, '0')}`;
+      // Организации переживают прогоны в общей базе: заводятся один раз, обращение нужно в периоде показателей.
+      const found = await dbRows<{ org_id: string }>(`select org_id from hdu_organizations where name = $1`, [name]);
+      const [org] =
+        found.length > 0
+          ? found
+          : await dbRows<{ org_id: string }>(
+              `insert into hdu_organizations (name, server_id, external_company_id) values ($1, (select server_id from hdu_servers where code = 'mock'), $2) returning org_id`,
+              [name, `e2e-rows-${i}`],
+            );
+      await dbRows(
+        `insert into hdt_tickets (org_id, author_id, type, impact, priority, title, description, locale, source) values ($1, $2, 'question', 'minor', 'p4', 'Строка показателей', 'Строка показателей', 'ru', 'portal')`,
+        [org!.org_id, author!.id],
+      );
+    }
+    await page.goto('/ru/agent/metrics');
+    const table = main(page).locator('[data-breakdown="org"]');
+    await expect(table.locator('tbody tr:not([data-rows-more])')).toHaveCount(10);
+    const more = table.getByRole('button', { name: /Показать все строки: \d+/ });
+    await more.focus();
+    await page.keyboard.press('Enter');
+    await expect(more).toHaveCount(0);
+    expect(await table.locator('tbody tr').count()).toBeGreaterThan(10);
+    // Фокус не потерян: он на первой строке, которой раньше не было видно.
+    await expect(table.locator('tbody tr').nth(10)).toBeFocused();
+  });
+});
+
 test.describe('пилот', () => {
   test.afterAll(async () => {
     await dbRows(`delete from hdc_settings where code = 'pilot.org_ids'`);

@@ -4,16 +4,18 @@ import { setLogSinkForTests } from '@/lib/log';
 import { handleMcpRequest } from '@/modules/hda/api/agent';
 import { listCandidates } from '@/modules/hda/api/candidate-actions';
 import { AGENT_READ_TOOLS } from '@/modules/hda/pref';
-import { listAudit } from '@/modules/hdc/api';
+import { withActor } from '@/db/with-actor';
+import { listAudit, writeAudit } from '@/modules/hdc/api';
 import { filterValues } from '@/modules/hdc/search/typesense';
 import { listIdeas } from '@/modules/hdi/api/board';
 import { listSolutions } from '@/modules/hdk/api/editor';
 import { searchIdeaDocuments } from '@/modules/hdk/api/idea-search';
 import { getKnowledgeMetrics } from '@/modules/hdk/api/metrics';
 import { searchSolutions, suggestForClient } from '@/modules/hdk/api/suggest';
+import { saveAnnouncement } from '@/modules/hdp/api/announcements';
 import { listProblems } from '@/modules/hdp/api/problems';
 import { listTemplates, saveTemplate } from '@/modules/hdr/api';
-import { getTicket, listFilters, listQueue, listTickets, replyToTicket, saveFilter } from '@/modules/hdt/api';
+import { createTicket, getTicket, listFilters, listQueue, listTickets, replyToTicket, saveFilter } from '@/modules/hdt/api';
 import { exportMetrics, getMetrics } from '@/modules/hdt/api/metrics';
 import { findUserIds, searchOrganizations } from '@/modules/hdu/api';
 import { listMacros, saveMacro } from '@/modules/hdw/api/macros';
@@ -311,4 +313,35 @@ test('нулевой байт в строке поиска не доходит �
     if (result.isError && JSON.parse(result.content[0]!.text).error === 'internal') failed.push(`mcp ${name}: internal`);
   }
   expect(failed).toEqual([]);
+});
+
+// Независимая проверка волны 7, находка R8: drizzle отдаёт значение jsonb строкой JSON, нулевой байт в ней записан
+// шестью знаками \u0000, и база отвечает ошибкой 22P05. Проверяются входы, где текст пользователя уходит в jsonb.
+test('нулевой байт в тексте, который уходит в колонку jsonb, не доходит до базы', async () => {
+  const f = await seedTwoOrgs();
+  const client = await clientCtx(f.aUser);
+  const admin = staffCtx(f.adminStaff);
+  const care = staffCtx(f.care);
+  const q = 'зак\u0000аз';
+  const NUL_PROBE = randomUUID();
+  const NUL_LITERAL = randomUUID();
+  const calls: [string, () => Promise<unknown>][] = [
+    ['withActor jsonb', () => withActor(admin.actor, (tx) => writeAudit(tx, { action: 'problem.created', objectType: 'problem', objectId: NUL_PROBE, diff: { text: q, list: [q], nested: { [q]: q } } }))],
+    ['createTicket context', () => createTicket(client, { description: 'Не печатается накладная', type: 'bug', impact: 'minor', locale: 'ru', widget: '1', context: JSON.stringify({ screen: q, errorText: q, errorCode: q, version: q }) })],
+    ['saveTemplate', () => saveTemplate(admin, { title: 'Шаблон', shortcut: `nul${Date.now() % 100000}`, body: { ru: q } })],
+    ['saveAnnouncement', () => saveAnnouncement(care, { kind: 'news', audience: 'all', startsOn: '2026-11-28T10:00:00+05:00', endsOn: '2026-11-29T10:00:00+05:00', locale: 'ru', title: q, body: q })],
+  ];
+  const failed: string[] = [];
+  for (const [label, call] of calls) {
+    await pools.root.query(`delete from hdc_rate_limits`);
+    const result = await probe(label, call).catch((error: Error) => void failed.push(error.message.slice(0, 90)));
+    // Вход принят, а не отклонён схемой: иначе проверка ничего не доказывает.
+    if (result === null) failed.push(`${label}: отклонён до базы`);
+  }
+  expect(failed).toEqual([]);
+  // Текст сохранён без знака, обратная косая черта перед обычным текстом не задета.
+  const [row] = (await pools.root.query(`select diff from hdc_audit_log where object_id = '${NUL_PROBE}'`)).rows;
+  expect(row.diff).toEqual({ text: 'заказ', list: ['заказ'], nested: { заказ: 'заказ' } });
+  await withActor(admin.actor, (tx) => writeAudit(tx, { action: 'problem.created', objectType: 'problem', objectId: NUL_LITERAL, diff: { text: String.raw`путь C:\u0000 и \\u0000 как текст` } }));
+  expect((await pools.root.query(`select diff from hdc_audit_log where object_id = '${NUL_LITERAL}'`)).rows[0].diff).toEqual({ text: String.raw`путь C:\u0000 и \\u0000 как текст` });
 });

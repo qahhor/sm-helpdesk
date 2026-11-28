@@ -8,7 +8,7 @@ import { PAUSED_STATUSES } from '@/modules/hdt/core/sla';
 import { SERVICE_ORG_ID } from '@/modules/hdu/pref';
 import { ticketsMinute } from '@/modules/hdt/api/jobs';
 import { captureQueries, planOf, plansFor, seedBulkInbound, seedBulkTickets } from './helpers/bulk';
-import { pools } from './helpers/db';
+import { analyzeAll, pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
 // Планы горячих запросов на 50 тысячах обращений (аудит 23.11.2026, находки P1-P3, O7; план W1, задачи 1-3).
@@ -107,7 +107,7 @@ test('отметка "Письмо не доставлено" ищет по ин
      select $1, 'email', 'user', $2, 'ticket_resolved', $3, 'sent', 1, now(), 'bulk-' || g from generate_series(1, 20000) g`,
     [f.tickets.aOrg.ticketId, f.aUser.userId, JSON.stringify({ template: 'ticket_resolved', number: 1, title: 'x', url: '/tickets' })],
   );
-  await pools.root.query(`analyze hdn_outbox`);
+  await analyzeAll();
   const ids = (await pools.root.query(`select message_id from hdt_ticket_messages limit 3`)).rows.map((row) => row.message_id as string);
   const { queries } = await captureQueries(() => undeliveredMessages(f.l1.actor, ids));
   const plans = await plansFor(f.l1.actor, queries, 'hdn_outbox');

@@ -1,10 +1,10 @@
 import 'server-only';
-import { withActor } from '@/db/with-actor';
+import { type SystemActor, withActor } from '@/db/with-actor';
 import { env } from '@/env';
-import { consumeRateLimit, enqueue, getStorage, isSameOriginJson, problemResponse, rateKey, readLimited } from '@/modules/hdc/api';
+import { consumeRateLimit, enqueue, getStorage, isSameOriginJson, problemResponse, rateKey, readLimited, sweepPendingScans } from '@/modules/hdc/api';
 import { RATE_RULES } from '@/modules/hdc/pref';
 import { type ClientContext, currentClient } from '@/modules/hdu/api';
-import { createUploadTx, ownUploadTx, rejectUpload } from '../core/files';
+import { createUploadTx, ownUploadTx, pendingUploads, rejectStuckUploads, rejectUpload } from '../core/files';
 import { HdiError, isHdiError } from '../error';
 import { attachmentInput, parseInput, presignInput } from '../input';
 import { IDEA_FILE_MAX_BYTES, type IdeaFileMime, ideaQuarantineKey, type IdeaScanStatus } from '../pref';
@@ -105,4 +105,22 @@ export async function handleIdeaUploadRequest(request: Request, op: 'presign' | 
     const headers: Record<string, string> = error.retryAfterSec ? { 'Retry-After': String(error.retryAfterSec) } : {};
     return problemResponse(STATUS_BY_CODE[error.code] ?? 400, error.code, headers);
   }
+}
+
+/**
+ * Обход зависших проверок изображений идей (проверка качества, Q5): задача attachment.sweep раз в минуту. Загрузка
+ * pending старше двух минут ставится на проверку снова, старше суток не принимается.
+ */
+export async function sweepIdeaUploads(actor: SystemActor, now: Date = new Date()): Promise<{ requeued: number; failed: number }> {
+  if (actor.type !== 'system') throw new HdiError('forbidden');
+  return sweepPendingScans(
+    {
+      name: 'ideas',
+      rejectStuck: (before, limit) => rejectStuckUploads(actor, before, limit),
+      listPending: (before, limit) => pendingUploads(actor, before, limit),
+      quarantineKey: ideaQuarantineKey,
+      enqueue: (attachmentId) => enqueue('ideas.scan', { attachmentId }),
+    },
+    now,
+  );
 }

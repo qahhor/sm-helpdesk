@@ -14,6 +14,7 @@ import { problemDevTaskVersionTx } from '../dev-task-version';
 import { requireProblemTx } from '../core/problems';
 import { broadcasts } from '../schema';
 import { problemRef } from '../util';
+import { withActorForTicket } from '@/modules/hdt/api/notice-identity';
 
 // Модуль hdp, слой api: задачи фонового процесса рассылки (ТЗ 11.14; план M5c, задача 5, решения 17, 18, 20). Узкий
 // файл без страниц и Next.js.
@@ -27,6 +28,11 @@ import { problemRef } from '../util';
 // Обход sweepBroadcasts (минутная задача tickets.minute): подтверждённая рассылка, которая за 10 минут не дошла до
 // done, ставится снова. Так переживается потеря постановки после транзакции подтверждения и исчерпанные повторы.
 // Рассылка, висящая дольше 30 минут, даёт сигнал дежурным broadcast_stuck (ops.watch).
+//
+// Получатель, который падает всегда (независимая проверка, B8; решение 0173): повтор задачи читает, кому сообщение
+// уже доставлено, и до снимка получателей и транзакции доходит только с остальными; обход ставит такую рассылку всё
+// реже (requeueDue). Счётчика попыток и конечного состояния "доставлено частично" у рассылки нет: рассылка остаётся
+// sending, сигнал broadcast_stuck идёт, пока причину не устранят.
 
 const SOURCE_FALLBACK = 'ru';
 
@@ -50,20 +56,25 @@ export async function runBroadcastJob(system: SystemActor, data: unknown): Promi
     const locales = new Map((await problemTicketsTx(tx, row.problemId)).map((t) => [t.ticketId, t.locale]));
     // Итог закрытия (решения 20, 25): версия задачи разработки проблемы, если она известна, иначе "Решено".
     const version = row.kind === 'closing' ? await problemDevTaskVersionTx(tx, row.problemId) : null;
-    return { row, problem, locales, version };
+    // Кому сообщение этой рассылки уже доставлено (повтор задачи): их обращения запуск не трогает.
+    const already = (await broadcastDeliveredTx(tx, broadcastId)).ticketIds;
+    return { row, problem, locales, version, already };
   });
   if (!loaded) return { delivered: 0, skipped: 0 };
-  const { row, problem, locales, version } = loaded;
+  const { row, problem, locales, version, already } = loaded;
   const original = row.body[row.sourceLocale] ?? '';
   let delivered = 0;
   let skipped = 0;
   const failures: unknown[] = [];
   for (const ticketId of row.recipientIds) {
+    // Доставленное раньше: ни снимка получателей, ни транзакции. Дубль в любом случае не пускает уникальный индекс.
+    if (already.has(ticketId)) continue;
     try {
       hooks.__hubBroadcastHook?.();
       const locale = locales.get(ticketId) ?? SOURCE_FALLBACK;
       const body = (isLocale(locale) ? row.body[locale] : undefined) ?? original;
-      const result = await withActor(system, (tx) =>
+      // Получатели письма читаются до транзакции обращения (проверка качества, Q2).
+      const result = await withActorForTicket(system, { ticketId }, (tx) =>
         postProblemMessageTx(tx, {
           ticketId,
           problemId: row.problemId,
@@ -106,16 +117,36 @@ const SWEEP_LIMIT = 50;
 const unfinishedBefore = (now: Date, minutes: number) =>
   and(inArray(broadcasts.status, ['queued', 'sending']), lt(broadcasts.confirmedOn, new Date(now.getTime() - minutes * 60_000)));
 
+/** Обход идёт раз в минуту: это окно, за которое он проверяет, наступил ли срок очередной постановки. */
+const SWEEP_PERIOD_MS = 60_000;
+
 /**
- * Обход зависших рассылок (проверка качества, Q1): queued и sending старше 10 минут ставятся на отправку снова.
- * Задача идемпотентна, вторая одновременная дублей не создаёт.
+ * Пора ли ставить зависшую рассылку снова (независимая проверка, B8). Пауза растёт с возрастом рассылки: первый час
+ * после подтверждения каждый обход, до суток раз в 10 минут, дальше раз в час. Счётчика попыток у рассылки нет, срок
+ * считается от времени подтверждения: постановка идёт на обходе, который первым перешёл границу шага. Обход,
+ * пришедший позже чем через минуту после прежнего, может границу пропустить: тогда рассылка ждёт ещё один шаг.
+ */
+export function requeueDue(ageMs: number): boolean {
+  const stepMs = (ageMs < 3_600_000 ? 1 : ageMs < 86_400_000 ? 10 : 60) * 60_000;
+  return Math.floor(ageMs / stepMs) !== Math.floor((ageMs - SWEEP_PERIOD_MS) / stepMs);
+}
+
+/**
+ * Обход зависших рассылок (проверка качества, Q1): queued и sending старше 10 минут ставятся на отправку снова, чем
+ * старше рассылка, тем реже (requeueDue). Задача идемпотентна, вторая одновременная дублей не создаёт.
  */
 export async function sweepBroadcasts(system: SystemActor, now: Date = new Date()): Promise<{ requeued: number }> {
   const rows = await withActor(system, (tx) =>
-    tx.select({ broadcastId: broadcasts.broadcastId }).from(broadcasts).where(unfinishedBefore(now, BROADCAST_REQUEUE_AFTER_MIN)).orderBy(broadcasts.confirmedOn).limit(SWEEP_LIMIT),
+    tx
+      .select({ broadcastId: broadcasts.broadcastId, confirmedOn: broadcasts.confirmedOn })
+      .from(broadcasts)
+      .where(unfinishedBefore(now, BROADCAST_REQUEUE_AFTER_MIN))
+      .orderBy(broadcasts.confirmedOn)
+      .limit(SWEEP_LIMIT),
   );
-  for (const row of rows) await enqueue('problems.broadcast', { broadcastId: row.broadcastId });
-  return { requeued: rows.length };
+  const due = rows.filter((row) => row.confirmedOn !== null && requeueDue(now.getTime() - new Date(row.confirmedOn).getTime()));
+  for (const row of due) await enqueue('problems.broadcast', { broadcastId: row.broadcastId });
+  return { requeued: due.length };
 }
 
 /** Сколько подтверждённых рассылок не дошли до конца за 30 минут (сигнал broadcast_stuck задачи ops.watch). */

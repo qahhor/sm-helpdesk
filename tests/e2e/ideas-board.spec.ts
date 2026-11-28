@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { CLIENT_STATE } from './helpers/client';
+import { CLIENT_STATE, signInAsCustom, uniqueSub } from './helpers/client';
 import { dbRows } from './helpers/db';
 
 // Доска идей и страница идеи (план M7, задача 5; ТЗ 8.3, FR-IDEA-04, 13, 14). Клиент находит идею поиском, голосует на
@@ -80,12 +80,18 @@ test('поиск на доске, голос без перехода, машин
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('чужая идея на модерации даёт "Не найдено"', async ({ page }) => {
+test('чужая идея на модерации даёт "Не найдено"', async ({ page, browser }) => {
+  // Клиент другой организации входит здесь же: тест не ждёт, что его оставил другой файл (проверка качества, Q8).
+  const sub = uniqueSub();
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  await signInAsCustom(await context.newPage(), { sub, name: 'Автор чужой идеи', company_id: `7${sub.slice(-6)}`, company_name: `Чужая организация ${sub.slice(-4)}` });
+  await context.close();
   const [other] = await dbRows<{ org_id: string; user_id: string; name: string }>(
     `select m.org_id, m.user_id, u.name from hdu_memberships m join auth."user" u on u.id = m.user_id
-       join hdu_organizations o on o.org_id = m.org_id where o.name <> 'ACME Trade' and m.state = 'active' limit 1`,
+       join auth.account a on a."userId" = m.user_id where a."accountId" = $1 and m.state = 'active'`,
+    [sub],
   );
-  test.skip(!other, 'нет клиента другой организации');
+  expect(other).toBeTruthy();
   const [idea] = await dbRows<{ idea_id: string; number: string }>(
     `insert into hdi_ideas (org_id, author_id, author_name, original_locale) values ($1, $2, $3, 'ru') returning idea_id, number`,
     [other!.org_id, other!.user_id, other!.name],

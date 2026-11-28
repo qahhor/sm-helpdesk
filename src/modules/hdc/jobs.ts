@@ -50,6 +50,8 @@ export const JOB_NAMES = [
   'problems.broadcast',
   'problems.translate',
   'search.reconcile',
+  // Полная переиндексация коллекций после смены словаря корней (проверка качества, Q18): отдельно от разбора очереди.
+  'search.reindex',
   'search.sync',
   'tickets.minute',
   'webhooks.dispatch',

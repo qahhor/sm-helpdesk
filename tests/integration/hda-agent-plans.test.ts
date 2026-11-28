@@ -3,8 +3,9 @@ import { setLogSinkForTests } from '@/lib/log';
 import { handleMcpRequest } from '@/modules/hda/api/agent';
 import { createMcpClient } from '../helpers/mcp-client';
 import { seedAgentToken } from './helpers/agent';
-import { asActor, pools } from './helpers/db';
+import { analyzeAll, asActor, pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
+import { expectWithin } from './helpers/timing';
 
 // Планы запросов агента на наборе 10000 обращений (веха M8b, задача 11; решение 31 плана M8b, решение 0039). Обращение
 // по номеру берётся индексом, список и поиск укладываются в предел времени запроса агента (5 секунд) с запасом.
@@ -20,8 +21,7 @@ beforeEach(async () => {
        from generate_series(1, 10000) g`,
     [f.orgA.orgId, f.aUser.userId],
   );
-  await pools.root.query(`analyze hdt_tickets`);
-  await pools.root.query(`analyze hdt_ticket_messages`);
+  await analyzeAll();
 });
 afterEach(() => setLogSinkForTests(null));
 
@@ -45,6 +45,6 @@ test('обращение по номеру: индекс номера; спис�
     const result = await client.callTool(name, args);
     const ms = performance.now() - started;
     expect(result.isError, name).toBeFalsy();
-    expect(ms, `${name} ${JSON.stringify(args)}`).toBeLessThan(1000);
+    expectWithin(ms, 1000, `${name} ${JSON.stringify(args)}`);
   }
 });

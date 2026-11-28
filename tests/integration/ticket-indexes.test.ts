@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { seedBulkTickets } from './helpers/bulk';
-import { pools } from './helpers/db';
+import { analyzeAll, pools } from './helpers/db';
 import { seedTwoOrgs } from './isolation/fixture';
 
 // Индексы таблицы обращений (аудит 23.11.2026, находка P8; план W2, задача 3). Смена статуса меняет колонку
@@ -58,7 +58,7 @@ test('поиск дублей основного обращения и связ�
   const f = await seedTwoOrgs();
   await seedBulkTickets(20_000, 50, f.l1.userId);
   await pools.root.query(`update hdt_tickets set merged_into_id = $1 where number in (select number from hdt_tickets where ticket_id <> $1 order by number limit 5)`, [f.tickets.aOrg.ticketId]);
-  await pools.root.query(`analyze hdt_tickets`);
+  await analyzeAll();
   for (const column of ['merged_into_id', 'related_ticket_id', 'error_signature']) {
     const plan = (await pools.root.query(`explain (costs off) select ticket_id from hdt_tickets where ${column} = $1`, [column === 'error_signature' ? 'sig' : f.tickets.aOrg.ticketId])).rows
       .map((r) => Object.values(r)[0])

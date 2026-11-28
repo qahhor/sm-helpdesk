@@ -8,7 +8,7 @@ import { aiEnvModels, getAiClient } from '../client';
 import { STUB_MODEL } from '../client/stub';
 import { type AiRequest, AiResponseError, AiUnavailableError } from '../client/types';
 import { activeCutoffTx, callsTodayTx, firstLineCallsTodayTx, insertRunTx, monthSpendTx, type PriorRun, priorRunTx } from '../core/runs';
-import { AI_DAILY_LIMIT_DEFAULT, AI_DAILY_LIMIT_MAX, AI_DAILY_LIMIT_SETTING, AI_USER_HOURLY_LIMIT, AI_USER_LIMIT_PURPOSES, AI_SETTINGS, type AiPurpose, modelForPurpose } from '../pref';
+import { AI_DAILY_LIMIT_DEFAULT, AI_DAILY_LIMIT_MAX, AI_DAILY_LIMIT_SETTING, AI_USER_HOURLY_LIMIT, AI_USER_HOURLY_PURPOSES, AI_USER_LIMIT_PURPOSES, AI_SETTINGS, type AiPurpose, modelForPurpose } from '../pref';
 import { costUsd, echoesSystemPrompt, inputHash } from '../util';
 import { aiConfig } from './config';
 
@@ -21,7 +21,7 @@ import { aiConfig } from './config';
 //   3. повтор того же входа в организации за 24 часа: repeated, модель не вызывается, вызывающий повторяет прошлый выбор;
 //   4. вызов вне транзакции базы модели, выбранной по цели (настройка ai.models, окружение, значение по умолчанию),
 //      затем строка журнала: модель из ответа, токены, стоимость по цене этой модели, время, итог, без текста.
-// Ответ, в котором есть шесть слов подряд из системной подсказки, считается ответом не по правилам (prompt_echo).
+// Ответ, в котором есть восемь слов подряд из системной подсказки, считается ответом не по правилам (prompt_echo).
 // Сбой модели (нет ответа, ответ не прошёл схему, отказ) записывается и бросается дальше: вызывающий решает, что делать
 // (задача повторяет вызов, первая линия передаёт обращение сотруднику). Отказ модели не ломает ни одной страницы.
 
@@ -37,7 +37,7 @@ export type RunInput<T> = Omit<AiRequest<T>, 'model'> & {
   orgId: string | null;
   refId: string | null;
   ticketId?: string | null;
-  /** Автор текста: предел на пользователя у первой линии и разбора. */
+  /** Чей предел расходует вызов: автор текста у первой линии, разбора и благодарности, сотрудник у перевода сообщения. */
   userId?: string | null;
   /** Повтор не вызывает модель (решение 12): ищется по HMAC данных запроса в организации. */
   detectRepeat?: boolean;
@@ -57,18 +57,30 @@ export async function aiModelFor(purpose: AiPurpose): Promise<string> {
   return modelForPurpose(purpose, setting && typeof setting === 'object' ? (setting as Record<string, unknown>) : {}, aiEnvModels());
 }
 
+/** Модели нескольких целей одним чтением настройки (проверка качества, Q3). */
+export async function aiModelsFor<P extends AiPurpose>(purposes: readonly P[]): Promise<Record<P, string>> {
+  const setting = await readSetting(AI_SETTINGS.models);
+  const models = setting && typeof setting === 'object' ? (setting as Record<string, unknown>) : {};
+  const env = aiEnvModels();
+  return Object.fromEntries(purposes.map((p) => [p, modelForPurpose(p, models, env)] as const)) as Record<P, string>;
+}
+
 /** Какой предел исчерпан для этого вызова; null: можно вызывать (решение 11). */
 async function exhausted(system: SystemActor, input: { purpose: AiPurpose; orgId: string | null; userId: string | null }): Promise<LimitKind | null> {
   const config = await aiConfig();
   const firstLine = AI_USER_LIMIT_PURPOSES.includes(input.purpose);
+  // Суточный предел читается до транзакции (проверка качества, Q11): чтение настройки открывает свою транзакцию.
+  const dailyLimit = firstLine ? 0 : await aiDailyLimit();
   return withActor(system, async (tx) => {
     const cutoff = await activeCutoffTx(tx, input.orgId);
     if (cutoff === 'all' || (await monthSpendTx(tx)).total >= config.monthlyBudgetUsd) return 'budget';
-    if (!firstLine) return (await callsTodayTx(tx)) >= (await aiDailyLimit()) ? 'daily' : null;
+    if (!firstLine) return (await callsTodayTx(tx)) >= dailyLimit ? 'daily' : null;
     if (cutoff === 'org') return 'cutoff';
     const used = await firstLineCallsTodayTx(tx, input);
     // 20 в час на пользователя (ТЗ 14.5) и дополнительный суточный предел из настройки (решение 11 плана M5b).
-    if (input.userId && (used.userHour >= AI_USER_HOURLY_LIMIT || used.user >= config.userDailyLimit)) return 'user';
+    // Перевод сообщения в часовой предел не входит: его запускает сотрудник (решение 0168).
+    const hourly = AI_USER_HOURLY_PURPOSES.includes(input.purpose) && used.userHour >= AI_USER_HOURLY_LIMIT;
+    if (input.userId && (hourly || used.user >= config.userDailyLimit)) return 'user';
     if (input.orgId && used.org >= config.orgDailyLimit) return 'org';
     return null;
   });

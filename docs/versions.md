@@ -15,7 +15,7 @@
 
 | Пакет | Версия | Лицензия |
 |---|---|---|
-| `@better-auth/sso` | 1.7.22 | MIT |
+| `@better-auth/sso` | 1.7.26 | MIT |
 | `@formatjs/icu-messageformat-parser` | 3.5.23 | MIT |
 | `@tiptap/core` | 3.34.0 | MIT |
 | `@tiptap/extension-bold` | 3.34.0 | MIT |
@@ -34,14 +34,14 @@
 | `@tiptap/pm` | 3.34.0 | MIT |
 | `@tiptap/react` | 3.34.0 | MIT |
 | `aws4fetch` | 1.0.20 | MIT |
-| `better-auth` | 1.7.22 | MIT |
+| `better-auth` | 1.7.26 | MIT |
 | `class-variance-authority` | 0.7.1 | Apache-2.0 |
 | `clsx` | 2.1.1 | MIT |
 | `drizzle-orm` | 0.45.4 | Apache-2.0 |
 | `get-nonce` | 1.0.1 | MIT |
 | `jose` | 6.2.17 | MIT |
 | `kysely` | 0.29.9 | MIT |
-| `lucide-react` | 1.72.0 | ISC |
+| `lucide-react` | 1.75.0 | ISC |
 | `next` | 16.4.6 | MIT |
 | `next-intl` | 4.15.1 | MIT |
 | `parse5` | 8.1.1 | MIT |
@@ -63,7 +63,7 @@
 |---|---|---|
 | `@axe-core/playwright` | 4.14.0 | MPL-2.0 |
 | `@lhci/cli` | 0.16.1 | Apache-2.0 |
-| `@playwright/test` | 1.63.0 | Apache-2.0 |
+| `@playwright/test` | 1.65.1 | Apache-2.0 |
 | `@tailwindcss/turbopack` | 4.3.5 | MIT |
 | `@testcontainers/postgresql` | 12.2.1 | MIT |
 | `@types/node` | 26.6.6 | MIT |
@@ -74,12 +74,12 @@
 | `eslint-config-next` | 16.4.6 | MIT |
 | `fontkit` | 3.0.0 | MIT |
 | `oauth2-mock-server` | 9.3.0 | MIT |
-| `rolldown` | 1.2.19 | MIT |
+| `rolldown` | 1.3.3 | MIT |
 | `subset-font` | 2.9.0 | BSD-3-Clause |
 | `tailwindcss` | 4.3.5 | MIT |
 | `testcontainers` | 12.2.1 | MIT |
 | `typescript` | 5.9.3 | Apache-2.0 |
-| `vitest` | 5.1.0 | MIT |
+| `vitest` | 5.1.1 | MIT |
 | `yaml` | 2.9.1 | ISC |
 
 Лицензии всех пакетов, включая транзитивные: `pnpm licenses list`.

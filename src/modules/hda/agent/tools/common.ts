@@ -21,10 +21,36 @@ import { agentProblemsView, agentSolutionsView } from '../views';
 // пределах одного ответа.
 
 const SYSTEM = { type: 'system', job: 'mcp.redact' } as const;
-const ORGS_MAX = 200;
-const PEOPLE_MAX = 5000;
+/** Размер одного чтения слов: предел входа agentRedactionTerms. Организаций и людей в ответе может быть больше. */
+const ORGS_PAGE = 200;
+const PEOPLE_PAGE = 5000;
 
-/** Обезличивание текстов одного ответа по охвату scope. Две транзакции системы одна за другой, без вложения. */
+type AgentRedactionTerms = Awaited<ReturnType<typeof agentRedactionTerms>>;
+
+function pages<T>(items: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Слова по всем организациям и людям результата, постранично (независимая проверка волны 7, R13): раньше список
+ * резался до первых 200 организаций, и названия остальных уходили агенту как есть. Чтения идут одно за другим.
+ */
+async function allTerms(orgIds: readonly string[], userIds: readonly string[]): Promise<AgentRedactionTerms> {
+  const orgPages = pages([...new Set(orgIds)], ORGS_PAGE);
+  const peoplePages = pages([...new Set(userIds)], PEOPLE_PAGE);
+  const merged: AgentRedactionTerms = { orgs: new Map(), staffNames: [], otherNames: [] };
+  for (let i = 0; i < Math.max(1, orgPages.length, peoplePages.length); i++) {
+    const page = await agentRedactionTerms(SYSTEM, { orgIds: orgPages[i] ?? [], userIds: peoplePages[i] ?? [] });
+    for (const [orgId, entry] of page.orgs) merged.orgs.set(orgId, entry);
+    merged.staffNames.push(...page.staffNames);
+    merged.otherNames.push(...page.otherNames);
+  }
+  return { orgs: merged.orgs, staffNames: [...new Set(merged.staffNames)], otherNames: [...new Set(merged.otherNames)] };
+}
+
+/** Обезличивание текстов одного ответа по охвату scope. Транзакции системы идут одна за другой, без вложения. */
 export async function redactorFor(scope: RedactScope): Promise<Redactor> {
   const facts = await withActor(SYSTEM, async (tx) => {
     const candidateIds = [...new Set(scope.candidateIds ?? [])];
@@ -37,7 +63,7 @@ export async function redactorFor(scope: RedactScope): Promise<Redactor> {
     const signatureOrgs = await signatureOrgIdsTx(tx, scope.signatures ?? []);
     return { orgIds: [...(scope.orgIds ?? []), ...sources.map((s) => s.orgId), ...problemOrgs, ...signatureOrgs], userIds };
   });
-  const terms = await agentRedactionTerms(SYSTEM, { orgIds: [...new Set(facts.orgIds)].slice(0, ORGS_MAX), userIds: facts.userIds.slice(0, PEOPLE_MAX) });
+  const terms = await allTerms(facts.orgIds, facts.userIds);
   const staff: AgentPerson[] = terms.staffNames.map((name) => ({ id: `staff:${name}`, name, kind: 'staff' }));
   const others: AgentPerson[] = terms.otherNames.map((name) => ({ id: `client:other:${name}`, name, kind: 'client' }));
   const membersOf = (orgId: string) => (terms.orgs.get(orgId)?.memberNames ?? []).map((name) => ({ id: `client:${orgId}:${name}`, name, kind: 'client' as const }));

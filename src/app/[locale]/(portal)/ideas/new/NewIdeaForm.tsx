@@ -1,10 +1,11 @@
 'use client';
 
-import { useActionState, useEffect, useMemo, useState } from 'react';
+import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
 import { submitKept } from '@/ui/submit-kept';
 import { Alert } from '@/ui/components/alert';
 import { Button } from '@/ui/components/button';
 import { FilePicker, type FilePickerLabels } from '@/ui/components/file-picker';
+import { FormError, revealError } from '@/ui/components/FormError';
 import { Input } from '@/ui/components/input';
 import { Label } from '@/ui/components/label';
 import { Select } from '@/ui/components/select';
@@ -83,6 +84,13 @@ function Fields({ locale, modules, accept, maxFiles, titleMax, bodyMax, labels, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, key]);
 
+  // Ошибка сервера стоит в начале формы, а кнопка в конце: сообщение получает фокус и прокручивается на экран
+  // (проверка интерфейса, второй проход, F3). Предупреждение проверки текста стоит рядом с кнопкой, ему это не нужно.
+  const formErrorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (state.error) revealError(formErrorRef.current);
+  }, [state]);
+
   const warned = state.findings && warnedFor === `${title}\n${body}` ? state.findings : null;
   const formError = state.error ? (labels.errors[state.error] ?? labels.errors.invalid_input) : null;
 
@@ -99,7 +107,11 @@ function Fields({ locale, modules, accept, maxFiles, titleMax, bodyMax, labels, 
       data-ready={hydrated ? '' : undefined}
     >
       <Alert>{labels.moderation}</Alert>
-      {formError && <Alert tone="danger">{formError}</Alert>}
+      {formError && (
+        <FormError ref={formErrorRef} testId="idea-form-error">
+          {formError}
+        </FormError>
+      )}
 
       <div className="flex flex-col gap-1">
         <Label htmlFor="idea-title">{labels.title}</Label>
@@ -136,9 +148,12 @@ function Fields({ locale, modules, accept, maxFiles, titleMax, bodyMax, labels, 
       <FilePicker accept={accept} maxFiles={maxFiles} labels={labels.files} onBusyChange={setUploading} presignExtra={UPLOAD_EXTRA} />
 
       <div className="flex items-start gap-2">
-        <input id="idea-show-org" type="checkbox" name="showOrg" className="mt-1 size-4 accent-primary" aria-describedby="idea-show-org-hint" />
+        {/* Флажок и подпись вместе дают цель нажатия 44 px (проверка интерфейса, U11). */}
+        <input id="idea-show-org" type="checkbox" name="showOrg" className="mt-3 size-5 shrink-0 accent-primary" aria-describedby="idea-show-org-hint" />
         <div className="flex flex-col gap-1">
-          <Label htmlFor="idea-show-org">{labels.showOrg}</Label>
+          <Label htmlFor="idea-show-org" className="flex min-h-11 items-center">
+            {labels.showOrg}
+          </Label>
           <p id="idea-show-org-hint" className="text-sm text-muted-foreground">
             {labels.showOrgHint}
           </p>

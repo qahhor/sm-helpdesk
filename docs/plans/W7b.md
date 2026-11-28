@@ -59,4 +59,4 @@
 
 ## Приёмка
 
-`pnpm typecheck`, `eslint`, `node scripts/checks/run-all.mjs`, `pnpm test`, `pnpm test:integration`, `pnpm build`, полный прогон браузерных тестов на свежей базе, проверка отсутствия тире. Отчёт `docs/plans/W7b-report.md`.
+`pnpm typecheck`, `eslint`, `node scripts/checks/run-all.mjs`, `pnpm test`, `pnpm test:integration`, `pnpm build`, полный прогон браузерных тестов на свежей базе, проверка отсутствия тире. Отчёт `docs/plans/W7b-report.md`. Состояние: выполнено, что закрыто и что отложено по номерам, в отчёте.

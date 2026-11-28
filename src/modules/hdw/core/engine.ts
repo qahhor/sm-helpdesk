@@ -15,6 +15,7 @@ import { isBuiltinAction } from '../rule-schema';
 import { executeAction, type Roster } from './actions';
 import { enabledRulesTx, type RuleRecord, ruleGateTx } from './rules';
 import { snapshotsTx, snapshotTx } from './snapshot';
+import { withActorForTicket } from '@/modules/hdt/api/notice-identity';
 
 // Модуль hdw, слой core: применение правил (FR-AUTO-06, 07, 09; план M8, задача 3, решения 3-5).
 //
@@ -358,7 +359,7 @@ export async function runNoActivityTx(actor: SystemActor, opts: NoActivityOption
       for (const item of page.due) {
         if (opts.stopped?.() === true) break;
         try {
-          await withActor(actor, async (tx) => {
+          await withActorForTicket(actor, { ticketId: item.ticketId }, async (tx) => {
             // Занятую строку (сотрудник или второй процесс) этот запуск пропускает: её возьмёт следующая минута.
             const ticket = await lockRuleTicketTx(tx, item.ticketId, { skipLocked: true });
             if (!ticket) return;

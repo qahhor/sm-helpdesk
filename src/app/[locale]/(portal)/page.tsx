@@ -13,6 +13,8 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 import { IDEA_STATUS_TONE } from '../idea-status';
 import { dismissHintsAction } from './actions';
 import { TicketList } from './tickets/TicketList';
+import { TAP_LINK } from '@/ui/tap';
+import { cn } from '@/ui/cn';
 
 // Главная кабинета клиента: один вопрос и одно главное действие (UX-C-01), три последних обращения,
 // подсказки первого входа до нажатия "Понятно" (UX-C-14), блок "Идея месяца" (ТЗ 8.3, план M7, задача 5) без скриптов:
@@ -37,7 +39,7 @@ export default async function ClientHomePage() {
             <li>{t('home.hints.visibility')}</li>
           </ul>
           <form action={dismissHintsAction}>
-            <Button type="submit" variant="secondary" size="small">
+            <Button type="submit" variant="secondary">
               {t('home.hints.ok')}
             </Button>
           </form>
@@ -54,10 +56,10 @@ export default async function ClientHomePage() {
       {/* Объявления модуля на главной видят все клиенты (решение 24): портал не знает, какими модулями пользуется клиент. */}
       <AnnouncementBanners client={client} only="module" />
       <div className="flex flex-wrap gap-x-4 gap-y-1">
-        <Link href="/problems" className="text-sm text-link underline underline-offset-2">
+        <Link href="/problems" className={cn(TAP_LINK, 'text-sm text-link underline underline-offset-2')}>
           {tp('homeLink')}
         </Link>
-        <Link href="/announcements" className="text-sm text-link underline underline-offset-2">
+        <Link href="/announcements" className={cn(TAP_LINK, 'text-sm text-link underline underline-offset-2')}>
           {tp('announcementsLink')}
         </Link>
       </div>
@@ -68,7 +70,7 @@ export default async function ClientHomePage() {
           <>
             <div className="flex items-center justify-between px-4 pt-4">
               <h2 className="text-lg font-semibold">{t('home.myTickets')}</h2>
-              <Link href="/tickets?scope=mine" className="text-sm text-link underline-offset-2 hover:underline">
+              <Link href="/tickets?scope=mine" className={cn(TAP_LINK, 'min-w-11 justify-center text-sm text-link underline-offset-2 hover:underline')}>
                 {t('home.all')}
               </Link>
             </div>

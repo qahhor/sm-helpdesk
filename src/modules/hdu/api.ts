@@ -39,7 +39,7 @@ export {
   setOrgContractEnd,
   updateOrganization,
 } from './api/orgs';
-export { anonymizeAccount } from './api/accounts';
+export { anonymizeAccount, anonymizedAccountName } from './api/accounts';
 export type { OrgScope } from './api/scope';
 export type { SessionView } from './api/sessions';
 export { handleAuthRequest } from './api/auth-route';
@@ -65,7 +65,7 @@ export {
   telegramEnabled,
   unlinkTelegram,
 } from './api/telegram';
-export { changeMemberRole, listMembers, listMembersForStaff, type MemberView, setMemberState } from './api/members';
+export { changeMemberRole, memberForStaff, memberOfOrg, type MembersPage, type MemberView, pageMembers, pageMembersForStaff, setMemberState } from './api/members';
 export { nextRequest } from './api/next-request';
 export type { RequestInfo, SessionData } from './api/request';
 export type { StaffContext } from './api/session';

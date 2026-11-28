@@ -85,10 +85,26 @@ export async function inboundTestStatus(value: string): Promise<InboundTestStatu
   return rows.length > 0 ? 'received' : 'waiting';
 }
 
-/** Адреса поддержки с итогом проверки приёма для экрана настроек. */
+/**
+ * Адреса поддержки с итогом проверки приёма для экрана настроек. Отметки проверок читаются один раз, письма ищутся
+ * одной транзакцией на все адреса (проверка качества, Q3): раньше на каждый адрес шло чтение настройки и транзакция.
+ */
 export async function listSupportAddresses(ctx: StaffContext): Promise<{ address: string; shown: boolean; test: InboundTestStatus }[]> {
   requireAdmin(ctx);
-  return Promise.all((await supportAddresses()).map(async (item) => ({ ...item, test: await inboundTestStatus(item.address) })));
+  const [addresses, tests] = await Promise.all([supportAddresses(), inboundTests()]);
+  const sent = addresses.flatMap((item) => {
+    const test = tests[item.address.toLowerCase()];
+    return test ? [{ address: item.address, token: test.token }] : [];
+  });
+  const received = new Set<string>();
+  if (sent.length > 0)
+    await withActor(SYSTEM, async (tx) => {
+      for (const { address, token } of sent) {
+        const rows = await tx.select({ id: emailInbound.inboundId }).from(emailInbound).where(containsExact(emailInbound.subject, token)).limit(1);
+        if (rows.length > 0) received.add(address);
+      }
+    });
+  return addresses.map((item) => ({ ...item, test: !tests[item.address.toLowerCase()] ? 'never' : received.has(item.address) ? 'received' : 'waiting' }));
 }
 
 /**

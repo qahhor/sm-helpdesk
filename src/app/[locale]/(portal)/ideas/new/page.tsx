@@ -39,7 +39,7 @@ export default async function NewIdeaPage({ searchParams }: { searchParams: Prom
   const tf = await getTranslations('client.tickets');
   return (
     <>
-      <Link href="/ideas" className="self-start text-sm text-link underline-offset-2 hover:underline">
+      <Link href="/ideas" className="inline-flex min-h-11 items-center self-start text-sm text-link underline-offset-2 hover:underline">
         {t('new.back')}
       </Link>
       <h1 className="text-2xl font-bold">{t('new.title')}</h1>

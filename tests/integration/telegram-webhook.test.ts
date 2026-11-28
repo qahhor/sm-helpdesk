@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { setLogSinkForTests } from '@/lib/log';
 import { createTelegramBot, handleTelegramWebhook } from '@/modules/hdn/api';
 import { MemoryTelegramBot, setTelegramBotForTests } from '@/modules/hdn/testing';
 import { handleTelegramUpdate } from '@/modules/hdu/api/telegram';
@@ -73,4 +74,69 @@ test('слишком большое и неверное тело отклоня�
 test('при выключенном боте адрес отвечает 404', async () => {
   setTelegramBotForTests(createTelegramBot({ apiUrl: 'https://api.telegram.org' }));
   expect((await post(tgUpdate({ from: 555, text: 'привет' }))).status).toBe(404);
+});
+
+test('номер события записывается после обработки: обрыв посреди неё не теряет событие (проверка качества, Q15)', async () => {
+  const update = tgUpdate({ from: 555, text: 'привет', updateId: 9010 });
+  // Пока событие обрабатывается, строки с его номером нет: раньше она появлялась до обработки, и остановка процесса
+  // в этот момент оставляла событие "уже принятым", хотя человеку никто не ответил.
+  let duringHandling: unknown[] | null = null;
+  const watching = async (incoming: Parameters<typeof handleTelegramUpdate>[0]) => {
+    duringHandling = (await pools.root.query(`select update_id from hdn_telegram_updates where update_id = 9010`)).rows;
+    await handleTelegramUpdate(incoming);
+  };
+  expect((await post(update, undefined, 'POST', watching)).status).toBe(200);
+  expect(duringHandling).toEqual([]);
+  expect((await pools.root.query(`select update_id from hdn_telegram_updates`)).rows).toEqual([{ update_id: '9010' }]);
+});
+
+test('то же событие, пришедшее второй раз во время обработки первого, обрабатывается один раз', async () => {
+  const update = tgUpdate({ from: 555, text: 'привет', updateId: 9011 });
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let calls = 0;
+  const slow = async (incoming: Parameters<typeof handleTelegramUpdate>[0]) => {
+    calls += 1;
+    await gate;
+    await handleTelegramUpdate(incoming);
+  };
+  const first = post(update, undefined, 'POST', slow);
+  // Вторая доставка приходит, пока первая ещё в обработке.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const second = post(update, undefined, 'POST', slow);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  release();
+  expect((await first).status).toBe(200);
+  // Вторая доставка дождалась итога первой и ответила без своей обработки.
+  expect((await second).status).toBe(200);
+  expect(calls).toBe(1);
+  expect(tg.bot.sent).toHaveLength(1);
+});
+
+test('обработка прошла, а номер события не записался: ответ 200 и запись в журнале работы, Telegram событие не повторяет (проверка, B3)', async () => {
+  const update = tgUpdate({ from: 555, text: 'привет', updateId: 9020 });
+  const events: { event: string; fields: unknown }[] = [];
+  setLogSinkForTests((_level, event, fields) => void events.push({ event, fields }));
+  let calls = 0;
+  const counting = async (incoming: Parameters<typeof handleTelegramUpdate>[0]) => {
+    calls += 1;
+    await handleTelegramUpdate(incoming);
+  };
+  // Вставка номера падает: база отклоняет строку.
+  await pools.root.query(`alter table hdn_telegram_updates add constraint b3_block check (update_id <> 9020) not valid`);
+  try {
+    expect((await post(update, undefined, 'POST', counting)).status).toBe(200);
+  } finally {
+    await pools.root.query(`alter table hdn_telegram_updates drop constraint b3_block`);
+    setLogSinkForTests(null);
+  }
+  expect(calls).toBe(1);
+  expect(tg.bot.sent).toHaveLength(1);
+  expect((await pools.root.query(`select update_id from hdn_telegram_updates`)).rows).toEqual([]);
+  const failed = events.filter((item) => item.event === 'telegram.update_record_failed');
+  expect(failed).toHaveLength(1);
+  expect(failed[0]!.fields).toMatchObject({ updateId: 9020 });
+  expect(JSON.stringify(failed[0]!.fields, (_key, value: unknown) => (value instanceof Error ? value.name : value))).not.toContain('привет');
 });

@@ -42,6 +42,10 @@ export const AUDIT_ACTIONS = [
   'user.email_confirmed',
   // Обезличивание учётной записи по запросу (ТЗ 14.6; волна 7, T2).
   'user.anonymized',
+  // Следы обезличенной учётной записи: очередь исходящих и входящие письма (hdn), снимки имени автора идей (hdi).
+  // Пишет система после user.anonymized (проверка W7, находки R3 и R11; решение 0162).
+  'user.mail_anonymized',
+  'user.ideas_anonymized',
   // Удаление файлов вложений по сроку хранения ночной задачей (ТЗ 14.6; волна 7, T2).
   'retention.attachments_expired',
   'user.policy_acknowledged',

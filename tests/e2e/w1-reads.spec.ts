@@ -50,8 +50,12 @@ test.describe('обращение у сотрудника', () => {
 });
 
 test('код привязки Telegram не создаётся запросом с чужого сайта и предзагрузкой', async ({ page }) => {
-  await signInAsCustom(page, { sub: uniqueSub(), name: 'Чужой сайт', company_id: '501', company_name: 'ACME Trade' });
-  const userId = (await dbRows<{ id: string }>(`select "userId" as id from auth.session order by "createdAt" desc limit 1`))[0]?.id;
+  // Пользователь ищется по своему уникальному идентификатору Smartup, а не как "последняя сессия в базе": рядом
+  // входят другие тесты (проверка качества, Q7).
+  const sub = uniqueSub();
+  await signInAsCustom(page, { sub, name: 'Чужой сайт', company_id: '501', company_name: 'ACME Trade' });
+  const userId = (await dbRows<{ id: string }>(`select "userId" as id from auth.account where "accountId" = $1`, [sub]))[0]?.id;
+  expect(userId).toBeTruthy();
   const codes = async () => (await dbRows<{ n: number }>(`select count(*)::int as n from hdu_link_codes where user_id = $1`, [userId]))[0]?.n ?? -1;
   const before = await codes();
   const foreign: Record<string, string>[] = [

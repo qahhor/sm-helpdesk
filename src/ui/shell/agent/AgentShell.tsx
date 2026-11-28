@@ -61,6 +61,7 @@ export async function AgentShell({
             openTicket: ta.raw('keys.palette.openTicket') as string,
             sectionsGroup: ta('keys.palette.sections'),
             helpTitle: ta('keys.help.title'),
+            keyNames: { ArrowDown: ta('keys.names.ArrowDown'), ArrowUp: ta('keys.names.ArrowUp') },
             actions: Object.fromEntries(actionKeys.map((key) => [key, ta(`keys.actions.${key.replace('.', '_')}`)])),
           }}
         />

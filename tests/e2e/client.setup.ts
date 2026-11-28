@@ -12,6 +12,9 @@ setup('клиент для браузерных тестов', async ({ browser 
   await signInAs(page, 'alisher');
   await expect(page).toHaveURL(/\/ru$/);
   await expect(page.getByRole('banner')).toContainText('ACME Trade');
+  // Выбор языка на устройстве, который ставит помощник входа, в общую сессию не сохраняется: тесты языка браузера
+  // и переключателя идут от неё и ждут устройство без выбранного языка.
+  await context.clearCookies({ name: 'hub_locale' });
   await context.storageState({ path: CLIENT_STATE });
   await context.close();
 });

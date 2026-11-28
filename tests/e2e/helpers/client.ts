@@ -31,11 +31,24 @@ async function finishSignIn(page: Page, opts: SignInOptions): Promise<void> {
   }
 }
 
-export type SignInOptions = { startAt?: string; stopAtWelcome?: boolean };
+/** deviceLocale: false: не выбирать язык на устройстве перед входом (тест языка профиля, FR-I18N-06). */
+export type SignInOptions = { startAt?: string; stopAtWelcome?: boolean; deviceLocale?: false };
+
+/**
+ * Язык, выбранный на этом устройстве: кука hub_locale с языком страницы входа. После входа портал открывает страницы
+ * на языке пользователя: сначала выбор на устройстве, затем язык профиля (волна 7, T5; решение 0160). Общий клиент
+ * тестов меняет язык профиля в других тестах, поэтому вход в тестах закрепляет язык страницы входа явно.
+ */
+async function chooseDeviceLocale(page: Page, startAt: string): Promise<void> {
+  const locale = /^\/(ru|uz|en)(?:\/|$)/.exec(startAt)?.[1];
+  const origin = process.env.E2E_BASE_URL ?? 'http://localhost:3100';
+  if (locale) await page.context().addCookies([{ name: 'hub_locale', value: locale, url: origin }]);
+}
 
 /** Вход персоной ложного сервера по умолчанию. */
 export async function signInAs(page: Page, persona: Persona, opts: SignInOptions = {}): Promise<void> {
   await withOwnAddress(page);
+  if (opts.deviceLocale !== false) await chooseDeviceLocale(page, opts.startAt ?? '/ru/login');
   await page.goto(opts.startAt ?? '/ru/login');
   await page.getByRole('link', { name: /Войти через Smartup/ }).click();
   await page.getByRole('link', { name: persona, exact: true }).click();
@@ -45,6 +58,7 @@ export async function signInAs(page: Page, persona: Persona, opts: SignInOptions
 /** Вход своей персоной: сведения задаются полями формы ложного сервера. */
 export async function signInAsCustom(page: Page, claims: CustomClaims, opts: SignInOptions = {}): Promise<void> {
   await withOwnAddress(page);
+  if (opts.deviceLocale !== false) await chooseDeviceLocale(page, opts.startAt ?? '/ru/login');
   await page.goto(opts.startAt ?? '/ru/login');
   await page.getByRole('link', { name: /Войти через Smartup/ }).click();
   for (const [field, value] of Object.entries(claims)) if (value) await page.locator(`input[name="claim_${field}"]`).fill(value);

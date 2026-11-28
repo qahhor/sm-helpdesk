@@ -88,3 +88,32 @@ test('без ключа проверки "не робот" формы входа
     await expect(page.locator('.cf-turnstile'), path).toHaveCount(0);
   }
 });
+
+// Волна 7, T5 (FR-I18N-06; решение 0160): язык профиля после входа на устройстве, где язык не выбирали.
+test('после входа на новом устройстве страницы открываются на языке профиля', async ({ page, browser }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'правило одно на всех ширинах');
+  const sub = `locale-${Date.now().toString(36)}`;
+  const claims = { sub, name: 'Клиент с языком', company_id: `c-${sub}`, company_name: `Компания ${sub}` };
+  await signInAsCustom(page, claims);
+  await expect(page).toHaveURL(/\/ru$/);
+  // Выбор языка в портале запоминается в профиле.
+  await page.getByRole('button', { name: 'Русский' }).click();
+  await page.getByRole('menuitem', { name: 'English' }).click();
+  await expect(page).toHaveURL(/\/en(\/|$)/);
+  await expect.poll(async () => (await dbRows<{ locale: string }>(`select u.locale from auth."user" u join auth.account a on a."userId" = u.id where a."accountId" = $1`, [sub]))[0]?.locale).toBe('en');
+
+  // Новое устройство: кук нет, вход со страницы на русском. Портал открывает кабинет на языке профиля.
+  const device = await browser.newContext();
+  const fresh = await device.newPage();
+  await signInAsCustom(fresh, claims, { deviceLocale: false });
+  await expect(fresh).toHaveURL(/\/en$/);
+  await expect(fresh.locator('html')).toHaveAttribute('lang', 'en');
+  await device.close();
+
+  // Устройство, где выбран русский, остаётся на русском: выбор на устройстве важнее профиля.
+  const chosen = await browser.newContext();
+  const pinned = await chosen.newPage();
+  await signInAsCustom(pinned, claims);
+  await expect(pinned).toHaveURL(/\/ru$/);
+  await chosen.close();
+});

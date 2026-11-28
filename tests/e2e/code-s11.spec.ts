@@ -42,6 +42,9 @@ async function clientTicket(browser: Browser, description: string): Promise<numb
 test('сценарий S11: отчёт о сканировании, утверждение, точная сигнатура, "Разобрать по коду", заметка агента, решение из записи для следующего клиента', async ({ page, browser }) => {
   test.setTimeout(360_000);
   const word = `W${Date.now().toString(36)}`;
+  // Анализ по коду доступен только организациям с включённой AI-обработкой; новые организации создаются без неё
+  // (план M9, задача 2). На свежей базе тест включает её сам, а не ждёт, что это сделал другой тест (волна 7).
+  await dbRows(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие ' || clock_timestamp()::text where name = 'ACME Trade' and not is_ai_enabled`);
   const agent = await seedAgentForE2e(['code_catalog_upsert', 'search_code_catalog', 'submit_code_analysis']);
   const mcp = e2eMcpClient(agent.value);
   const report = uniqueReport();

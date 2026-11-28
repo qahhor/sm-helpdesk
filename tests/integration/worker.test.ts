@@ -348,6 +348,8 @@ test('собранный worker.mjs запускается без каталог
     { name: 'ops.heartbeat', cron: '* * * * *', timezone: 'UTC' },
     { name: 'ops.watch', cron: '*/5 * * * *', timezone: 'UTC' },
     { name: 'outbox.dispatch', cron: '* * * * *', timezone: 'UTC' },
+    // Сроки хранения данных клиентов (волна 7, T2): после ночной очистки; выключена настройкой.
+    { name: 'retention.client_data', cron: '15 3 * * *', timezone: 'Asia/Tashkent' },
     // Индекс поиска (план W6): сверка в 04:10 по Ташкенту, разбор очереди раз в минуту.
     { name: 'search.reconcile', cron: '10 4 * * *', timezone: 'Asia/Tashkent' },
     { name: 'search.sync', cron: '* * * * *', timezone: 'UTC' },

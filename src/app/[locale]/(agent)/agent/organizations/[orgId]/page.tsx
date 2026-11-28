@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader } from '@/ui/components/card';
 import { FormField } from '@/ui/components/form-field';
 import { PageHeader } from '@/ui/components/PageHeader';
 import { Label } from '@/ui/components/label';
-import { changeRoleAction, inviteStaffAction, revokeStaffAction, setMemberStateStaffAction, setOrgAiAction, setPilotAction, updateOrgSettingsAction } from './actions';
+import { anonymizeMemberAction, changeRoleAction, inviteStaffAction, revokeStaffAction, setContractEndAction, setMemberStateStaffAction, setOrgAiAction, setPilotAction, updateOrgSettingsAction } from './actions';
 import { canSeePilot, isPilotOrg } from '@/modules/hdt/api';
 import { Input } from '@/ui/components/input';
 import { firstParam } from '@/lib/search-params';
@@ -18,7 +18,7 @@ import { Select } from '@/ui/components/select';
 const head = 'px-3 py-2 text-start text-xs font-medium text-secondary-foreground';
 const cell = 'px-3';
 const ERRORS = new Set(['stale_session', 'forbidden', 'not_found', 'invalid_input', 'already_member', 'rate_limited']);
-const DONE = new Set(['roleChanged', 'disabled', 'enabled', 'invited', 'revoked', 'settingsSaved', 'aiEnabled', 'aiDisabled', 'pilotOn', 'pilotOff']);
+const DONE = new Set(['roleChanged', 'disabled', 'enabled', 'invited', 'revoked', 'settingsSaved', 'aiEnabled', 'aiDisabled', 'pilotOn', 'pilotOff', 'contractSaved', 'contractCleared', 'anonymized']);
 /** Итог действий с доменами почты: свои тексты в orgs.domains. */
 const DOMAIN_ERRORS = new Set(['invalid_input', 'domain_taken', 'forbidden']);
 const DOMAIN_DONE = { domainAdded: 'added', domainRemoved: 'removed' } as const;
@@ -42,6 +42,9 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const error = firstParam(query.error);
   const done = firstParam(query.done);
   const confirming = members.find((m) => m.userId === firstParam(query.confirm) && m.state === 'active');
+  const isAdmin = staff.actor.staffRole === 'admin';
+  // Обезличивание по запросу (ТЗ 14.6): только администратор, сначала подтверждение.
+  const anonymizing = isAdmin ? members.find((m) => m.userId === firstParam(query.anonymize)) : undefined;
   const t = await getTranslations('agent');
   const format = await getFormatter();
   const locale = await getLocale();
@@ -93,6 +96,27 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Alert>
       )}
       {done && DONE.has(done) && <Alert tone="success">{t(`orgs.done.${done}`)}</Alert>}
+
+      {anonymizing && (
+        <Card data-testid="anonymize-confirm">
+          <CardContent className="flex flex-col gap-3 pt-6">
+            <h2 className="text-base font-semibold">{t('orgs.anonymize.confirmTitle', { name: anonymizing.name })}</h2>
+            <p className="text-sm text-secondary-foreground">{t('orgs.anonymize.confirmText')}</p>
+            <div className="flex gap-2">
+              <form action={anonymizeMemberAction}>
+                <input type="hidden" name="orgId" value={org.orgId} />
+                <input type="hidden" name="userId" value={anonymizing.userId} />
+                <Button type="submit" variant="danger">
+                  {t('orgs.anonymize.confirm')}
+                </Button>
+              </form>
+              <Link href={`/agent/organizations/${org.orgId}`} className={buttonVariants({ variant: 'secondary' })}>
+                {t('orgs.cancel')}
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {canManage && confirming && (
         <Card>
@@ -214,6 +238,40 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Card>
       )}
 
+      {/* Дата окончания договора (ТЗ 14.6; волна 7, T2): видят care и admin, задаёт только администратор. */}
+      {canManage && (
+        <Card data-testid="org-contract">
+          <CardHeader>
+            <h2 className="text-base font-semibold">{t('orgs.contract.title')}</h2>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <p className="text-sm text-secondary-foreground" data-testid="org-contract-end">
+              {org.contractEndsOn
+                ? t('orgs.contract.endsOn', { date: format.dateTime(new Date(`${org.contractEndsOn}T00:00:00Z`), { dateStyle: 'medium', timeZone: 'UTC' }) })
+                : t('orgs.contract.none')}
+            </p>
+            <p className="text-sm text-secondary-foreground">{t('orgs.contract.hint')}</p>
+            {isAdmin && (
+              <form action={setContractEndAction} className="flex flex-wrap items-end gap-3">
+                <input type="hidden" name="orgId" value={org.orgId} />
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="field-contract-end">{t('orgs.contract.label')}</Label>
+                  <Input id="field-contract-end" name="contractEndsOn" type="date" min="2000-01-01" max="2100-12-31" defaultValue={org.contractEndsOn ?? ''} />
+                </div>
+                <Button type="submit" variant="secondary">
+                  {t('orgs.contract.save')}
+                </Button>
+                {org.contractEndsOn && (
+                  <Button type="submit" name="clear" value="1" variant="ghost">
+                    {t('orgs.contract.clear')}
+                  </Button>
+                )}
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <EmailDomains orgId={org.orgId} domains={domains} canManage={canManage} />
 
       <Card className="overflow-x-auto">
@@ -268,6 +326,14 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                           <input type="hidden" name="state" value="active" />
                           <Button type="submit" variant="secondary" size="small">
                             {t('orgs.enable')}
+                          </Button>
+                        </form>
+                      )}
+                      {isAdmin && (
+                        <form method="get">
+                          <input type="hidden" name="anonymize" value={member.userId} />
+                          <Button type="submit" variant="ghost" size="small">
+                            {t('orgs.anonymize.button')}
                           </Button>
                         </form>
                       )}

@@ -29,6 +29,8 @@ export const AUDIT_ACTIONS = [
   // Согласие на AI-обработку (план M9, задача 2, решение 10): отметка с датой и основанием и выключение обработки.
   'org.ai_consent_recorded',
   'org.ai_disabled',
+  // Дата окончания договора в карточке организации (ТЗ 14.6; волна 7, T2).
+  'org.contract_end_set',
   'member.joined',
   'member.role_changed',
   'member.state_changed',
@@ -38,6 +40,10 @@ export const AUDIT_ACTIONS = [
   'invitation.accepted',
   // Учётная запись и сессии
   'user.email_confirmed',
+  // Обезличивание учётной записи по запросу (ТЗ 14.6; волна 7, T2).
+  'user.anonymized',
+  // Удаление файлов вложений по сроку хранения ночной задачей (ТЗ 14.6; волна 7, T2).
+  'retention.attachments_expired',
   'user.policy_acknowledged',
   'session.revoked',
   // Завершение сессий для инцидента командой hub sessions:revoke (план M9, задача 4, решение 9): охват и число.

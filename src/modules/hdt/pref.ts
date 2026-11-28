@@ -70,7 +70,8 @@ export const WATCHER_SOURCES = ['author', 'manual', 'staff'] as const;
 export type WatcherSource = (typeof WATCHER_SOURCES)[number];
 
 /** Проверка вложения: rejected значит настоящий тип не совпал с заявленным или запрещён (решение 0027). */
-export const SCAN_STATUSES = ['pending', 'clean', 'infected', 'rejected'] as const;
+/** expired: файл удалён по сроку хранения, строка осталась (миграция 0133; ТЗ 14.6). */
+export const SCAN_STATUSES = ['pending', 'clean', 'infected', 'rejected', 'expired'] as const;
 export type ScanStatus = (typeof SCAN_STATUSES)[number];
 
 /** Причины низкой оценки (FR-TK-11, решение 0026). */

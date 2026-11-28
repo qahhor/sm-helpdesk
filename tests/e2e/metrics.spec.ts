@@ -216,6 +216,16 @@ test.describe('пилот', () => {
     await admin.getByRole('button', { name: 'Отметить пилотной' }).click();
     await expect(main(admin).getByRole('status')).toContainText('Организация отмечена пилотной.');
     await expect(admin.getByTestId('org-pilot')).toHaveText('Организация входит в пилот и в сводку пилота.');
+    // Дата окончания договора в карточке организации (ТЗ 14.6; волна 7, T2): задаёт и снимает администратор.
+    await expect(admin.getByTestId('org-contract-end')).toHaveText('Дата окончания договора не задана.');
+    await admin.getByLabel('Дата окончания договора').fill('2026-12-31');
+    await admin.getByRole('button', { name: 'Сохранить дату' }).click();
+    await expect(main(admin).getByRole('status')).toContainText('Дата окончания договора сохранена.');
+    await expect(admin.getByTestId('org-contract-end')).toContainText('2026');
+    await admin.getByRole('button', { name: 'Снять дату' }).click();
+    await expect(admin.getByTestId('org-contract-end')).toHaveText('Дата окончания договора не задана.');
+    // Кнопка обезличивания ведёт на подтверждение, а не выполняет действие сразу.
+    await expect(admin.getByRole('button', { name: 'Обезличить' }).first()).toBeVisible();
     await adminContext.close();
 
     const careContext = await browser.newContext({ storageState: storageStateOf('care') });

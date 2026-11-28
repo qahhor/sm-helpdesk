@@ -268,7 +268,8 @@
           "infected": "failed the virus check",
           "rejected": "not accepted: the content does not match the extension or the file could not be checked, attach it again or in another format",
           "encrypted": "not accepted: the file is password-protected, attach it without a password",
-          "limits": "not accepted: the archive is too large to check, attach the files separately"
+          "limits": "not accepted: the archive is too large to check, attach the files separately",
+          "expired": "removed after the retention period"
         },
         "reply": "Reply",
         "replyPlaceholder": "Write a reply",
@@ -864,7 +865,10 @@
         "aiEnabled": "AI processing is on, consent recorded.",
         "aiDisabled": "AI processing is off.",
         "pilotOn": "The organization is marked as pilot.",
-        "pilotOff": "The organization is removed from the pilot."
+        "pilotOff": "The organization is removed from the pilot.",
+        "contractSaved": "The contract end date is saved.",
+        "contractCleared": "The contract end date is cleared.",
+        "anonymized": "The account is anonymized."
       },
       "settingsTitle": "Organization settings",
       "categoryLabel": "Client category",
@@ -906,6 +910,21 @@
         "off": "The organization is not in the pilot.",
         "mark": "Mark as pilot",
         "unmark": "Remove from pilot"
+      },
+      "contract": {
+        "title": "Contract and retention",
+        "endsOn": "The contract ended on {date}.",
+        "none": "No contract end date is set.",
+        "hint": "The retention period for requests is counted from this date: 3 years after the contract ends.",
+        "label": "Contract end date",
+        "save": "Save date",
+        "clear": "Clear date"
+      },
+      "anonymize": {
+        "button": "Anonymize",
+        "confirmTitle": "Anonymize the account: {name}?",
+        "confirmText": "The name and email address are replaced with anonymized values, sign-in is closed, and channel links are removed. Request texts stay with the organization. This cannot be undone.",
+        "confirm": "Anonymize the account"
       }
     },
     "settings": {
@@ -2683,7 +2702,8 @@
       "scan": {
         "pending": "being checked",
         "infected": "failed the virus check",
-        "rejected": "not accepted"
+        "rejected": "not accepted",
+        "expired": "removed after the retention period"
       },
       "authors": {
         "client": "Client",

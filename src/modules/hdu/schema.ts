@@ -80,6 +80,8 @@ export const organizations = pgTable('hdu_organizations', {
   // Отметка согласия на AI-обработку (миграция 0124, план M9, решение 10). Клиенту не отдаётся.
   aiConsentOn: date('ai_consent_on', { mode: 'string' }),
   aiConsentRef: text('ai_consent_ref'),
+  // Дата окончания договора (миграция 0132; ТЗ 14.6): от неё считается срок хранения обращений. Клиенту не отдаётся.
+  contractEndsOn: date('contract_ends_on', { mode: 'string' }),
 });
 
 /** Кто в какой организации состоит. */

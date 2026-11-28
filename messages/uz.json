@@ -268,7 +268,8 @@
           "infected": "viruslarga tekshiruvdan o'tmadi",
           "rejected": "qabul qilinmadi: mazmuni kengaytmaga mos emas yoki faylni tekshirib bo'lmadi, uni qaytadan yoki boshqa formatda qo'shing",
           "encrypted": "qabul qilinmadi: fayl parol bilan himoyalangan, uni parolsiz qo'shing",
-          "limits": "qabul qilinmadi: arxiv tekshirish uchun juda katta, fayllarni alohida qo'shing"
+          "limits": "qabul qilinmadi: arxiv tekshirish uchun juda katta, fayllarni alohida qo'shing",
+          "expired": "saqlash muddati tugagani uchun o'chirilgan"
         },
         "reply": "Javob",
         "replyPlaceholder": "Javob yozing",
@@ -864,7 +865,10 @@
         "aiEnabled": "AI orqali ko'rib chiqish yoqildi, rozilik belgilandi.",
         "aiDisabled": "AI orqali ko'rib chiqish o'chirildi.",
         "pilotOn": "Tashkilot pilot deb belgilandi.",
-        "pilotOff": "Tashkilot pilotdan olib tashlandi."
+        "pilotOff": "Tashkilot pilotdan olib tashlandi.",
+        "contractSaved": "Shartnoma tugash sanasi saqlandi.",
+        "contractCleared": "Shartnoma tugash sanasi olib tashlandi.",
+        "anonymized": "Hisob shaxssizlantirildi."
       },
       "settingsTitle": "Tashkilot sozlamalari",
       "categoryLabel": "Mijoz toifasi",
@@ -906,6 +910,21 @@
         "off": "Tashkilot pilotga kirmaydi.",
         "mark": "Pilot deb belgilash",
         "unmark": "Pilotdan olib tashlash"
+      },
+      "contract": {
+        "title": "Shartnoma va saqlash muddati",
+        "endsOn": "Shartnoma {date} da tugagan.",
+        "none": "Shartnoma tugash sanasi kiritilmagan.",
+        "hint": "Murojaatlarni saqlash muddati shu sanadan hisoblanadi: shartnoma tugaganidan keyin 3 yil.",
+        "label": "Shartnoma tugash sanasi",
+        "save": "Sanani saqlash",
+        "clear": "Sanani olib tashlash"
+      },
+      "anonymize": {
+        "button": "Shaxssizlantirish",
+        "confirmTitle": "Hisob shaxssizlantirilsinmi: {name}?",
+        "confirmText": "Ism va pochta manzili shaxssiz qiymatlar bilan almashtiriladi, kirish yopiladi, kanal bog'lanishlari o'chiriladi. Murojaat matnlari tashkilotda qoladi. Buni bekor qilib bo'lmaydi.",
+        "confirm": "Hisobni shaxssizlantirish"
       }
     },
     "settings": {
@@ -2683,7 +2702,8 @@
       "scan": {
         "pending": "tekshirilmoqda",
         "infected": "viruslarga tekshiruvdan o'tmadi",
-        "rejected": "qabul qilinmadi"
+        "rejected": "qabul qilinmadi",
+        "expired": "saqlash muddati tugagani uchun o'chirilgan"
       },
       "authors": {
         "client": "Mijoz",

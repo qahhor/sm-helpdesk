@@ -66,6 +66,8 @@ export type OrgRow = {
   /** Отметка согласия на AI-обработку (план M9, решение 10): дата ГГГГ-ММ-ДД и основание. Только сотрудникам. */
   aiConsentOn: string | null;
   aiConsentRef: string | null;
+  /** Дата окончания договора ГГГГ-ММ-ДД (ТЗ 14.6). Только сотрудникам. */
+  contractEndsOn: string | null;
   state: 'active' | 'passive';
   /** Вид: client или служебная service (миграция 0035). */
   kind: 'client' | 'service';
@@ -82,6 +84,7 @@ const orgColumns = {
   isAiEnabled: organizations.isAiEnabled,
   kind: organizations.kind,
   aiConsentOn: organizations.aiConsentOn,
+  contractEndsOn: organizations.contractEndsOn,
   aiConsentRef: organizations.aiConsentRef,
   state: organizations.state,
   memberCount: sql<number>`(select count(*)::int from hdu_memberships m where m.org_id = ${organizations.orgId} and m.state = 'active')`,
@@ -303,4 +306,32 @@ export async function orgFactsOf(actor: SystemActor | StaffActor, orgIds: readon
       .from(organizations)
       .where(inArray(organizations.orgId, ids)),
   );
+}
+
+/**
+ * Дата окончания договора (ТЗ 14.6; волна 7, T2): администратор задаёт или снимает её в карточке организации. Одна
+ * транзакция с записью org.contract_end_set. false: организации нет или она служебная.
+ */
+export async function setOrgContractEndOf(actor: StaffActor, orgId: string, contractEndsOn: string | null): Promise<boolean> {
+  return withIdentity(actor, async (tx) => {
+    const current = (
+      await tx.select({ contractEndsOn: organizations.contractEndsOn, kind: organizations.kind }).from(organizations).where(eq(organizations.orgId, orgId)).limit(1).for('update')
+    )[0];
+    if (!current || current.kind !== 'client') return false;
+    if (current.contractEndsOn === contractEndsOn) return true;
+    await tx.update(organizations).set({ contractEndsOn }).where(eq(organizations.orgId, orgId));
+    await writeAudit(tx, { action: 'org.contract_end_set', objectType: 'organization', objectId: orgId, orgId, diff: { from: current.contractEndsOn, to: contractEndsOn } });
+    return true;
+  });
+}
+
+/** Организации клиентов, договор с которыми кончился раньше дня before (ГГГГ-ММ-ДД): для задачи сроков хранения. */
+export async function orgsWithContractEndedBefore(actor: SystemActor, before: string): Promise<string[]> {
+  const rows = await withIdentity(actor, (tx) =>
+    tx
+      .select({ orgId: organizations.orgId })
+      .from(organizations)
+      .where(and(eq(organizations.kind, 'client'), sql`${organizations.contractEndsOn} < ${before}::date`)),
+  );
+  return rows.map((row) => row.orgId);
 }

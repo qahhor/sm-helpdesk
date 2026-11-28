@@ -137,7 +137,9 @@ test('stripForeignLinks: чужие адреса в любом виде выре
   for (const input of kept) expect(stripForeignLinks(input, allowed), input).toBe(input);
 });
 
-test('похоже на опубликованное решение: кандидата нет, решению "пригодилось сотрудникам" (FR-CAND-03)', async () => {
+// Волна 7, S-M8 (решение 0154): совпадение черновика модели считается отдельно. "Пригодилось сотрудникам" растёт
+// только от действия человека (объединение кандидата с решением).
+test('похоже на опубликованное решение: кандидата нет, растёт счётчик совпадений без человека, а не "пригодилось сотрудникам" (FR-CAND-03)', async () => {
   // Опубликованное внутреннее решение того же содержания в поисковом индексе: сходство по любой аудитории.
   const a = (await pools.root.query(`insert into hdk_articles (audience, original_locale) values ('internal', 'ru') returning article_id, number`)).rows[0];
   const article = a.article_id as string;
@@ -153,7 +155,7 @@ test('похоже на опубликованное решение: канди�
   ]);
   expect(await runCandidateJob(SYSTEM, { ticketId: await closed(f.aUser) })).toBe('useful');
   expect(await candidates()).toEqual([]);
-  expect((await pools.root.query(`select staff_useful_count from hdk_articles where article_id = $1`, [article])).rows[0].staff_useful_count).toBe(1);
+  expect((await pools.root.query(`select staff_useful_count, machine_match_count from hdk_articles where article_id = $1`, [article])).rows[0]).toEqual({ staff_useful_count: 0, machine_match_count: 1 });
 });
 
 test('второй похожий черновик склеивается: источники и организации пересчитаны; отклонённый возвращается на пятом источнике', async () => {

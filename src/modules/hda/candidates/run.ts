@@ -7,7 +7,7 @@ import { logEvent } from '@/lib/log';
 import { enqueue, readSetting, writeAudit } from '@/modules/hdc/api';
 import { stripQuote } from '@/modules/hdn/api/inbound';
 import { readAllowedDomains } from '@/modules/hdk/api/publish';
-import { bumpStaffUseful, nearestPublished, ticketsWithSolutionSource } from '@/modules/hdk/api/similar';
+import { bumpMachineMatch, nearestPublished, ticketsWithSolutionSource } from '@/modules/hdk/api/similar';
 import { queryVector } from '@/modules/hdk/api/suggest';
 import { findInText } from '@/modules/hdk/api/text-checks';
 import { resolvedWithoutSolution, ticketSolutionSource } from '@/modules/hdt/api/solution-source';
@@ -202,7 +202,8 @@ export async function runCandidateJob(system: SystemActor, data: unknown): Promi
     const nearest = await withActor(system, (tx) => nearestCandidateTx(tx, vector));
     const decision = candidateMergeDecision({ publishedBest: published, candidateBest: nearest, thresholds: { published: config.publishedSimilarity, merge: config.mergeSimilarity } });
     if (decision.kind === 'useful') {
-      await bumpStaffUseful(system, { articleId: decision.articleId });
+      // Совпадение без человека считается отдельно от "пригодилось сотрудникам" (волна 7, S-M8; решение 0154).
+      await bumpMachineMatch(system, { articleId: decision.articleId });
       return 'useful';
     }
     if (decision.kind === 'merge') {

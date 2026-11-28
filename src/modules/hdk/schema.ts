@@ -48,7 +48,7 @@ export const kbArticles = pgTable('hdk_articles', {
   archivedOn: timestamp('archived_on', { withTimezone: true }),
   status: text('status').$type<ArticleStatus>().notNull().default('active'),
   ...stampColumns,
-  /** Пригодилось сотрудникам (веха M5c, FR-CAND-03): похожие закрытые обращения без решения. Миграция 0106. */
+  /** Пригодилось сотрудникам (веха M5c, FR-CAND-04): источники кандидатов, объединённые сотрудником с решением. Миграция 0106. */
   staffUsefulCount: integer('staff_useful_count').notNull().default(0),
   /** Решение из кандидата (веха M5c, решение 30): находки недоверенного текста отмечаются по одной. Миграция 0107. */
   isUntrusted: boolean('is_untrusted').notNull().default(false),
@@ -58,6 +58,8 @@ export const kbArticles = pgTable('hdk_articles', {
   revisesArticleId: uuid('revises_article_id'),
   /** Решение из записи каталога ошибок (веха M8c, FR-CODE-07). Миграция 0120. */
   codeEntryId: uuid('code_entry_id'),
+  /** Совпадения черновика модели с решением без человека (волна 7, S-M8; FR-CAND-03). Миграция 0130. */
+  machineMatchCount: integer('machine_match_count').notNull().default(0),
 });
 
 /** Версии текста по языкам: черновик, опубликованная, прежние. */

@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { Client } from 'pg';
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
 import { bootstrap } from '../../../scripts/db/bootstrap.mjs';
 import { migrate } from '../../../scripts/db/migrate.mjs';
@@ -13,11 +14,9 @@ export default async function setup() {
 
   // Настройки сервера строкой "имя=значение имя=значение" (PG_SETTINGS): замер проекта perf идёт с памятью как в
   // compose.prod.yaml, а не с настройками образа по умолчанию (shared_buffers 128 МБ).
-  // autovacuum=off (проверка качества, Q9): тесты планов запросов не должны зависеть от того, успел ли фоновый сбор
-  // статистики пройти между вставкой данных и EXPLAIN. Статистику тест собирает сам (analyzeAll в helpers/db.ts).
-  const settings = ['autovacuum=off', ...(process.env.PG_SETTINGS ?? '').split(/\s+/).filter(Boolean)].flatMap((setting) => ['-c', setting]);
+  const settings = (process.env.PG_SETTINGS ?? '').split(/\s+/).filter(Boolean).flatMap((setting) => ['-c', setting]);
   const definition = new PostgreSqlContainer(image).withUsername('postgres').withPassword(superuserPassword).withDatabase('postgres');
-  const container = await definition.withCommand(['postgres', ...settings]).start();
+  const container = await (settings.length > 0 ? definition.withCommand(['postgres', ...settings]).start() : definition.start());
 
   const address = `${container.getHost()}:${container.getMappedPort(5432)}`;
   const url = (user: string, password: string, database: string) =>
@@ -41,12 +40,32 @@ export default async function setup() {
 
   await bootstrap();
   await migrate();
+  await disableTableAutovacuum(url('postgres', superuserPassword, 'hub'));
   const typesense = await startTypesense();
 
   return async () => {
     await typesense?.stop();
     await container.stop();
   };
+}
+
+/**
+ * Фоновый сбор статистики выключен у таблиц портала (проверка качества, Q9): тесты планов запросов не должны зависеть
+ * от того, успел ли он пройти между вставкой данных и EXPLAIN. Статистику тест собирает сам (analyzeAll в
+ * helpers/db.ts). Выключено по таблицам, а не настройкой сервера: системный каталог должен чиститься, иначе тысячи
+ * TRUNCATE между тестами раздувают pg_class до сотен мегабайт, и прогон замедляется в разы.
+ */
+async function disableTableAutovacuum(superuserUrl: string): Promise<void> {
+  const client = new Client({ connectionString: superuserUrl });
+  await client.connect();
+  try {
+    const tables = await client.query<{ name: string }>(
+      `select format('%I.%I', schemaname, tablename) as name from pg_tables where schemaname in ('public', 'auth')`,
+    );
+    for (const { name } of tables.rows) await client.query(`alter table ${name} set (autovacuum_enabled = false)`);
+  } finally {
+    await client.end();
+  }
 }
 
 /**

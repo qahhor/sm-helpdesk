@@ -309,8 +309,9 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Card>
       )}
 
-      {/* min-w-0: широкая таблица прокручивается внутри карточки, а не растягивает страницу (проверка интерфейса, U9). */}
-      <Card className="min-w-0 overflow-x-auto" data-testid="org-members">
+      {/* Широкая таблица прокручивается внутри карточки, а не растягивает страницу (проверка интерфейса, U9). relative:
+          скрытая подпись столбца действий стоит absolute и без этого выходила за карточку, растягивая страницу на 768. */}
+      <Card className="relative min-w-0 overflow-x-auto" data-testid="org-members">
         <CardHeader className="flex flex-col gap-3">
           <h2 className="text-base font-semibold">{t('orgs.membersTitle')}</h2>
           <form method="get" role="search" className="flex flex-wrap items-end gap-2">
@@ -416,7 +417,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
       {canManage && (
         <>
-          <Card className="overflow-x-auto">
+          <Card className="relative min-w-0 overflow-x-auto">
             <CardHeader>
               <h2 className="text-base font-semibold">{t('orgs.invitationsTitle')}</h2>
             </CardHeader>

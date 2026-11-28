@@ -24,7 +24,7 @@ test('сценарий 17: письмо с неизвестного адреса
   const number = await sendLetter(request, { from: `Бобур <${address}>`, subject, text: 'После обновления не приходят остатки со склада' });
 
   await page.goto('/ru/agent/queues');
-  await main(page).getByRole('link', { name: /^Неопознанные \(\d+\)$/ }).click();
+  await main(page).getByRole('link', { name: /^Неопознанные\s*\d+$/ }).click();
   await expect(page).toHaveURL(/\/ru\/agent\/queues\/unidentified/);
   await main(page).locator(`li[data-number="${number}"]`).getByRole('link').click();
   await expect(main(page)).toContainText(`От кого: ${address}`);

@@ -18,4 +18,6 @@ export const NESTED_TX_ALLOWED: ReadonlySet<string> = new Set<string>([
   // Запасной путь уведомления клиенту: получателя не было в снимке или транзакцию открыл путь без обёртки.
   'app>auth src/modules/hdu/core/recipients.ts#replyRolesTx',
   'app>auth src/modules/hdu/core/recipients.ts#telegramLinkedManyTx',
+  // Привязка Telegram одного пользователя при чтении и сохранении его настроек уведомлений.
+  'app>auth src/modules/hdu/core/recipients.ts#telegramChatTx',
 ]);

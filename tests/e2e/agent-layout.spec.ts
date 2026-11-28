@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { dbRows } from './helpers/db';
 import { storageStateOf } from './helpers/staff';
 import { createClientTicket } from './helpers/tickets';
 
@@ -42,4 +43,14 @@ test('показатели: сводка в четыре колонки', async 
   const tops = await cells.evaluateAll((els) => els.slice(0, 4).map((el) => Math.round(el.getBoundingClientRect().top)));
   expect(tops).toHaveLength(4);
   expect(new Set(tops).size).toBe(1);
+});
+
+test('карточка организации на 768: страница не прокручивается вбок, таблица участников прокручивается внутри карточки', async ({ page }) => {
+  // Проверка интерфейса, U9: скрытая подпись столбца действий стояла вне области прокрутки таблицы и растягивала страницу.
+  const [org] = await dbRows<{ org_id: string }>(`select org_id from hdu_organizations where name = 'ACME Trade' limit 1`);
+  expect(org).toBeTruthy();
+  await page.setViewportSize({ width: 768, height: 800 });
+  await page.goto(`/ru/agent/organizations/${org!.org_id}`);
+  await expect(page.getByTestId('org-members')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
 });

@@ -1316,7 +1316,9 @@
             "policy_acknowledged": "Siyosat tahriri qabul qilindi",
             "signed_in_telegram": "Telegram boti orqali kirish",
             "signed_in": "Mijoz kirdi",
-            "anonymized": "Hisob shaxssizlantirildi"
+            "anonymized": "Hisob shaxssizlantirildi",
+            "mail_anonymized": "Shaxssizlantirilgan hisobning pochta izlari tozalandi",
+            "ideas_anonymized": "G'oyalar muallifining ismi shaxssizlantirildi"
           },
           "session": {
             "revoked": "Sessiya yakunlandi",

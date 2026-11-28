@@ -1316,7 +1316,9 @@
             "policy_acknowledged": "Принята редакция политики",
             "signed_in_telegram": "Вход через бота Telegram",
             "signed_in": "Вход клиента",
-            "anonymized": "Учётная запись обезличена"
+            "anonymized": "Учётная запись обезличена",
+            "mail_anonymized": "Почта обезличенной учётной записи очищена",
+            "ideas_anonymized": "Имя автора идей обезличено"
           },
           "session": {
             "revoked": "Сессия завершена",

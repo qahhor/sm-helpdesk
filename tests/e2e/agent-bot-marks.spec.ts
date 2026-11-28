@@ -39,6 +39,8 @@ test('записи AI-сотрудника видны сотруднику с п
     `select m.user_id, m.org_id from hdu_memberships m join auth."user" u on u.id = m.user_id where u.name = $1 limit 1`,
     [name],
   );
+  // Агент видит только организации с включённым AI; новые организации создаются без него (план M9, задача 2).
+  await dbRows(`update hdu_organizations set is_ai_enabled = true, ai_consent_on = current_date, ai_consent_ref = 'Тестовое согласие ' || clock_timestamp()::text where org_id = $1`, [member!.org_id]);
   const [ticket] = await dbRows<{ number: string }>(
     `insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source)
      values ($1, $2, 'bug', 'major', 'p3', 'org', 'Пометки AI-сотрудника', 'Накладная не проводится', 'ru', 'portal') returning number`,

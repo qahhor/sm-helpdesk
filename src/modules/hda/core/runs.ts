@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, eq, gte, inArray, isNotNull, isNull, notInArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
-import { AI_DAY_TIME_ZONE, AI_USER_LIMIT_PURPOSES, AI_REPEAT_HOURS, type AiDecision, type AiHandoffReason, type AiOutcome, type AiPurpose } from '../pref';
+import { AI_DAY_TIME_ZONE, AI_USER_HOURLY_PURPOSES, AI_USER_LIMIT_PURPOSES, AI_REPEAT_HOURS, type AiDecision, type AiHandoffReason, type AiOutcome, type AiPurpose } from '../pref';
 import { aiOrgCutoffs, aiRuns } from '../schema';
 
 // Модуль hda, слой core: журнал вызовов модели (план M5, задача 5, решения 2 и 13; план M5b, задача 1, решения 11, 12).
@@ -55,8 +55,10 @@ export async function firstLineCallsTodayTx(tx: Tx, who: { userId: string | null
   const count = async (where: ReturnType<typeof and>) => (await tx.select({ count: sql<number>`count(*)::int` }).from(aiRuns).where(where))[0]?.count ?? 0;
   return {
     user: who.userId ? await count(and(base, eq(aiRuns.userId, who.userId))) : 0,
-    // Скользящий час (ТЗ 14.5: 20 в час на пользователя).
-    userHour: who.userId ? await count(and(calls, gte(aiRuns.createdOn, sql`now() - interval '1 hour'`), eq(aiRuns.userId, who.userId))) : 0,
+    // Скользящий час (ТЗ 14.5: 20 в час на пользователя): только ответы помощника, без переводов (решение 0191).
+    userHour: who.userId
+      ? await count(and(notInArray(aiRuns.outcome, NOT_CALLS), inArray(aiRuns.purpose, [...AI_USER_HOURLY_PURPOSES]), gte(aiRuns.createdOn, sql`now() - interval '1 hour'`), eq(aiRuns.userId, who.userId)))
+      : 0,
     org: who.orgId ? await count(and(base, eq(aiRuns.orgId, who.orgId))) : 0,
   };
 }

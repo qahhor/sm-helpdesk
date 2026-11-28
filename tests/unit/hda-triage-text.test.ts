@@ -56,6 +56,37 @@ describe('safeTriageTitle: списки слов и адреса словами'
   });
 });
 
+// Независимая проверка волны 7, находка R10: Telegram - законный канал портала, заголовок о нём проходит. Не проходит
+// приглашение писать в мессенджер и имя учётной записи рядом с его названием.
+describe('safeTriageTitle: мессенджер как тема и как контакт', () => {
+  test.each([
+    'Не приходят уведомления в Telegram',
+    'Бот Telegram не отвечает на команду',
+    'Не привязывается Телеграм к профилю',
+    'Telegram orqali xabar kelmayapti',
+    'Telegram-бот не показывает статус заказа',
+    'Telegram notifications are not delivered',
+  ])('%s: проходит', (title) => {
+    expect(safeTriageTitle(title)).toBe(title);
+  });
+
+  test.each([
+    ['Напишите в телеграм evil_support', 'просьба писать и имя'],
+    ['Пишите нам в Telegram', 'просьба писать'],
+    ['Свяжитесь через WhatsApp', 'просьба связаться'],
+    ['Telegramda yozing', 'просьба писать на узбекском'],
+    ['Contact us on Telegram', 'просьба писать на английском'],
+    ['Поддержка в Telegram evil_support77', 'имя учётной записи'],
+    ['Наш Telegram: smartuphelp', 'имя после двоеточия'],
+    ['Наш телеграм smartuphelp', 'наш и имя'],
+    ['Telegram t.me/evil', 'ссылка'],
+    ['Telegram @evil', 'имя со знаком почты'],
+    ['Звоните в вайбер', 'просьба звонить'],
+  ])('%s: нет предложения (%s)', (title) => {
+    expect(safeTriageTitle(title)).toBeNull();
+  });
+});
+
 describe('safeTriageSummary', () => {
   test('резюме только для сотрудника: невидимые знаки убраны, длина до 300, пустое отбрасывается', () => {
     expect(safeTriageSummary('Клиент‮ не может\n\nнапечатать')).toBe('Клиент не может напечатать');

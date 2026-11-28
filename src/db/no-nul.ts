@@ -1,3 +1,4 @@
+import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 
 // Нулевой байт в параметрах запроса (волна 7, S-T; решение 0157). PostgreSQL не хранит U+0000 в тексте: параметр с

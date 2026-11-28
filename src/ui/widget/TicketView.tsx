@@ -10,14 +10,16 @@ import { StatusLabel } from '@/ui/components/StatusLabel';
 import { Textarea } from '@/ui/components/textarea';
 import { STATUS_TONE } from '@/ui/ticket-status';
 import { useWidget } from './session';
+import { type TezAi, TezMessage } from './TezMessage';
 
 // Обращение в виджете (план M6, задача 6; решение 13): переписка, ответ с файлами, вложения и подтверждение решения.
 // Остальное (подписки, видимость, оценка с причиной, повторное открытие) по ссылке "Открыть в портале" в новой
 // вкладке с обычным входом. Данные только клиентской проекции (GET /api/embed/tickets/{номер}); ответ сотрудника
-// подписан "Поддержка Smartup" без имени.
+// подписан "Поддержка Smartup" без имени. Ответ AI-помощника (автор ai) рисуется видом Теза с кнопками (волна 7, T1;
+// FR-AI-08): клиент видит, что ответил AI, а не сотрудник.
 
 type Attachment = { attachmentId: string; fileName: string; size: number; scanStatus: string; isImage: boolean };
-type Message = { messageId: string; authorType: 'client' | 'support'; authorName: string | null; isMine: boolean; isAuto: boolean; body: string; createdOn: string; attachments: Attachment[] };
+type Message = { messageId: string; authorType: 'client' | 'support' | 'ai'; authorName: string | null; isMine: boolean; isAuto: boolean; body: string; createdOn: string; attachments: Attachment[]; ai?: TezAi };
 type Ticket = {
   number: number;
   title: string;
@@ -28,6 +30,7 @@ type Ticket = {
   attachments: Attachment[];
   messages: Message[];
   can: { reply: boolean; confirm: boolean };
+  timeZone: string;
 };
 
 export function TicketView({ number, accept, maxFiles }: { number: number; accept: string; maxFiles: number }) {
@@ -40,10 +43,12 @@ export function TicketView({ number, accept, maxFiles }: { number: number; accep
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickerKey, setPickerKey] = useState(0);
+  // Язык текста решения в ответе помощника: язык страницы виджета.
+  const path = `/api/embed/tickets/${number}?locale=${encodeURIComponent(w.locale)}`;
 
   useEffect(() => {
     let live = true;
-    w.request(`/api/embed/tickets/${number}`)
+    w.request(path)
       .then(async (response) => (response.ok ? ((await response.json()) as Ticket) : ('missing' as const)))
       .catch(() => 'missing' as const)
       .then((loaded) => live && setTicket(loaded));
@@ -57,7 +62,7 @@ export function TicketView({ number, accept, maxFiles }: { number: number; accep
   const act = async (payload: Record<string, unknown>) => {
     setBusy(true);
     setError(null);
-    const response = await w.request(`/api/embed/tickets/${number}`, { body: payload }).catch(() => null);
+    const response = await w.request(path, { body: payload }).catch(() => null);
     setBusy(false);
     if (!response) return setError(l['panel.offline'] ?? '');
     if (response.ok) {
@@ -128,7 +133,11 @@ export function TicketView({ number, accept, maxFiles }: { number: number; accep
 
       {ticket.messages.length > 0 && (
         <section className="flex flex-col gap-3" aria-label={l['page.history']}>
-          {ticket.messages.map((m) => (
+          {ticket.messages.map((m) =>
+            // Вид Теза только у сообщения с автором ai и данными ответа: из данных проекции, а не из текста.
+            m.authorType === 'ai' && m.ai ? (
+              <TezMessage key={m.messageId} messageId={m.messageId} ai={m.ai} createdOn={m.createdOn} timeZone={ticket.timeZone} busy={busy} onFeedback={(feedback) => void act({ action: 'ai_feedback', ...feedback })} />
+            ) : (
             <div key={m.messageId} className="flex flex-col gap-1 rounded-card border border-border bg-card p-3" data-author={m.authorType}>
               <p className="text-sm font-semibold">
                 {m.isMine ? l['page.you'] : m.authorType === 'support' ? l['page.support'] : (m.authorName ?? l['page.colleague'])}
@@ -137,7 +146,8 @@ export function TicketView({ number, accept, maxFiles }: { number: number; accep
               <p className="whitespace-pre-wrap break-words">{m.body}</p>
               {files(m.attachments)}
             </div>
-          ))}
+            ),
+          )}
         </section>
       )}
 

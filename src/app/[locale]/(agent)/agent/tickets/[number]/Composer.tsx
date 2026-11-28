@@ -32,6 +32,8 @@ export type ComposerLabels = {
   send: string;
   saveNote: string;
   sendNext: string;
+  /** Вторая кнопка в режиме заметки (проверка интерфейса, U18): заметка сохраняется, а не отправляется. */
+  saveNoteNext: string;
   busy: string;
   draftSaved: string;
   errors: Record<string, string>;
@@ -85,7 +87,7 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
 
   const onBodyChange = (value: string, caret: number) => {
     setBody(value);
-    const next = slashQuery(value, caret);
+    const next = internal ? null : slashQuery(value, caret);
     setSlash(next);
     if (next?.query !== slash?.query) setActive(0);
     window.dispatchEvent(new Event(TYPING_EVENT));
@@ -257,7 +259,8 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
           {labels.noteHint}
         </p>
       )}
-      {templates.length > 0 && (
+      {/* Шаблоны это ответы клиенту: в режиме заметки кнопки нет (проверка интерфейса, U19). */}
+      {templates.length > 0 && !internal && (
         <Button type="button" variant="secondary" size="small" className="self-start" onClick={openTemplates}>
           {labels.templates.open}
         </Button>
@@ -277,7 +280,7 @@ export function Composer({ number, version, draft, accept, maxFiles, templates, 
           </span>
         )}
         <Button ref={nextRef} type="submit" name="next" value="1" variant="secondary" disabled={pending || uploading}>
-          {labels.sendNext}
+          {internal ? labels.saveNoteNext : labels.sendNext}
         </Button>
         <Button type="submit" disabled={pending || uploading}>
           {internal ? labels.saveNote : labels.send}

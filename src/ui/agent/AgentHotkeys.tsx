@@ -15,6 +15,8 @@ export type AgentHotkeysLabels = PaletteLabels & {
   sectionsGroup: string;
   helpTitle: string;
   actions: Record<string, string>;
+  /** Подписи клавиш, у которых имя события не годится человеку: ArrowDown, ArrowUp (проверка интерфейса, U20). */
+  keyNames: Record<string, string>;
 };
 
 const isField = (target: EventTarget | null) =>
@@ -50,8 +52,15 @@ export function AgentHotkeys({ locale, sections, labels }: { locale: string; sec
     [screen, sections, labels.sectionsGroup, go],
   );
   const helpItems = useMemo(
-    () => HOTKEYS.filter((h) => labels.actions[h.action]).map((h) => ({ keys: h.keys, label: labels.actions[h.action] as string })),
-    [labels.actions],
+    () =>
+      HOTKEYS.filter((h) => labels.actions[h.action]).map((h) => ({
+        keys: h.keys
+          .split('+')
+          .map((key) => labels.keyNames[key] ?? key)
+          .join('+'),
+        label: labels.actions[h.action] as string,
+      })),
+    [labels.actions, labels.keyNames],
   );
 
   return (

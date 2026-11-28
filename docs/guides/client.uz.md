@@ -58,7 +58,7 @@ Murojaatlaringiz «Murojaatlar» bo'limida. Murojaatni «Raqam yoki matn» maydo
 | «Hal qilindi» | Xodim masalani hal qilingan deb hisoblaydi |
 | «Yopilgan» | Murojaat yopildi |
 
-Murojaat sahifasida hozir kimning navbati ekani ko'rinadi: «Navbat sizda» yoki «Navbat xizmatda». Javob berish uchun «Javob» maydoniga yozing va «Yuborish» ni bosing. Javob yuborilgach, «Javob yuborildi» qatori chiqadi.
+Murojaat sahifasida hozir kimning navbati ekani ko'rinadi: «Navbat sizda» yoki «Hozir yordam xizmati javob beradi». Javob berish uchun «Javob» maydoniga yozing va «Yuborish» ni bosing. Javob yuborilgach, «Javob yuborildi» qatori chiqadi.
 
 Xodimlar Smartup ish vaqtida javob beradi: u yangi murojaat sahifasida ko'rsatilgan.
 

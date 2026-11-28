@@ -92,6 +92,7 @@ export default async function SolutionPage({ params, searchParams }: { params: P
         <CardContent className="pt-6" lang={solution.locale}>
           <DocView
             doc={solution.doc}
+            hideEmptySections
             labels={{ warning: t('view.warning'), info: t('view.info'), step: (n) => t('view.step', { n }) }}
             imageSrc={(fileId) => (files.has(fileId.toLowerCase()) ? `/${locale}/help/a/${page.canonicalRef}/files/${fileId.toLowerCase()}` : null)}
           />

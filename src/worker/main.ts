@@ -13,8 +13,9 @@ import { runFirstLineJob, runWatchdogJob } from '@/modules/hda/api/first-line';
 import { runTriageJob, runTriageReview } from '@/modules/hda/api/triage-jobs';
 import { cleanupMessageTranslations, runMessageTranslationJob, runThanksJob } from '@/modules/hda/api/message-ai';
 import { runDraftJob, runTranslationJob } from '@/modules/hdk/api/ai-jobs';
-import { scanSolutionFile } from '@/modules/hdk/api/files';
+import { scanSolutionFile, sweepSolutionFiles } from '@/modules/hdk/api/files';
 import { runIdeaIndexJob, runIdeaTranslationJob, scanIdeaAttachment } from '@/modules/hdi/api/jobs';
+import { sweepIdeaUploads } from '@/modules/hdi/api/uploads';
 import { runModerationDigest } from '@/modules/hdi/api/notices';
 import { runIdeaCycle } from '@/modules/hdi/api/cycle-job';
 import { runAnnouncementTranslationJob, runProblemTranslationJob } from '@/modules/hdp/api/translate-jobs';
@@ -38,6 +39,7 @@ import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { opsWatch } from './ops-watch';
 import { registerSearch } from './search';
 import { searchReconcile, searchSyncTick } from './search-jobs';
+import { withTicketsPeople } from '@/modules/hdt/api/notice-identity';
 
 // Фоновый процесс портала (раздел 11.10, решение 0028): задачи pg-boss под ролью hub_app.
 // Собирается в один файл dist/worker.mjs (scripts/build-cli.mjs). В образе: node worker.mjs.
@@ -142,7 +144,8 @@ export async function automationTick(system: SystemActor, state: AutomationState
         // События для AI-сотрудника (веха M8b, задача 9): своя точка сохранения, сбой не откатывает событие.
         await handleAgentEvent(tx, event);
       },
-      { stopped: opts.stopped },
+      // Получатели уведомлений обращения читаются до транзакции события (проверка качества, Q2).
+      { stopped: opts.stopped, around: (ticketId, run) => withTicketsPeople(system, [ticketId], run) },
     );
     total.processed += result.processed;
     total.failed += result.failed;
@@ -267,6 +270,11 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
     const { requeued, removed, failed } = await sweepAttachments(actor('attachment.sweep'));
     if (requeued > 0 || removed > 0 || failed > 0)
       console.info(`Обход загрузок: снова на проверке ${requeued}, удалено ${removed}, проверка не прошла за сутки ${failed}`);
+    // Изображения решений и идей (проверка качества, Q5): тот же обход зависших проверок.
+    const kb = await sweepSolutionFiles(actor('attachment.sweep'));
+    const ideas = await sweepIdeaUploads(actor('attachment.sweep'));
+    if (kb.requeued + kb.failed + ideas.requeued + ideas.failed > 0)
+      console.info(`Обход изображений: решения снова на проверке ${kb.requeued}, не приняты ${kb.failed}; идеи снова на проверке ${ideas.requeued}, не приняты ${ideas.failed}`);
   }));
   await boss.work('ai.budget', polling, () => timedJob('ai.budget', async () => {
     const result = await runAiBudget(actor('ai.budget'));
@@ -302,6 +310,15 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   // Шаги минутной задачи независимы (независимая проверка M8c, находка I4): сбой отправки событий не держит срок анализа.
   await boss.work('agent.events_dispatch', polling, () => timedJob('agent.events_dispatch', () => runJobSteps('agent.events_dispatch', [
     {
+      // Срок ответа на "Разобрать по коду" (веха M8c, FR-CODE-10): через 10 минут запрос "анализ не выполнен". Шаг идёт
+      // первым (проверка качества, Q4): он быстрый и не должен ждать медленного приёмника событий.
+      step: 'analysis_timeouts',
+      run: async () => {
+        const analysis = await markAnalysisTimeouts(actor('agent.events_dispatch'));
+        if (analysis.timedOut > 0) console.info(`AI-сотрудник: анализов по коду без ответа ${analysis.timedOut}`);
+      },
+    },
+    {
       step: 'events',
       run: async () => {
         const { sent, failed } = await dispatchAgentEvents(actor('agent.events_dispatch'));
@@ -314,14 +331,6 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
       run: async () => {
         const chat = await sendTeamChatMessages(actor('agent.events_dispatch'));
         if (chat.sent > 0) console.info(`AI-сотрудник: сообщений в чат команды ${chat.sent}`);
-      },
-    },
-    {
-      // Срок ответа на "Разобрать по коду" (веха M8c, FR-CODE-10): через 10 минут запрос "анализ не выполнен".
-      step: 'analysis_timeouts',
-      run: async () => {
-        const analysis = await markAnalysisTimeouts(actor('agent.events_dispatch'));
-        if (analysis.timedOut > 0) console.info(`AI-сотрудник: анализов по коду без ответа ${analysis.timedOut}`);
       },
     },
   ])));

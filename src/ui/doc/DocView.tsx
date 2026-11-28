@@ -204,11 +204,41 @@ function group(blocks: Block[]): (Exclude<Block, StepNode> | StepNode[])[] {
   return out;
 }
 
-export function DocView({ doc, labels, imageSrc, className }: { doc: SolutionDoc; labels: DocViewLabels; imageSrc?: DocImageSrc; className?: string }) {
+/**
+ * Блоки без пустых разделов (проверка интерфейса, U27): заголовок, за которым до следующего заголовка того же или
+ * старшего уровня (или до конца документа) нет ни одного блока с содержимым, клиенту не показывается. Автор оставил
+ * раздел заготовки пустым; клиент видел бы заголовок без текста.
+ */
+function withoutEmptySections(blocks: Block[]): Block[] {
+  return blocks.filter((block, index) => {
+    if (block.type !== 'heading') return true;
+    for (const next of blocks.slice(index + 1)) {
+      if (next.type !== 'heading') return true;
+      if (next.attrs.level <= block.attrs.level) return false;
+    }
+    return false;
+  });
+}
+
+export function DocView({
+  doc,
+  labels,
+  imageSrc,
+  className,
+  hideEmptySections = false,
+}: {
+  doc: SolutionDoc;
+  labels: DocViewLabels;
+  imageSrc?: DocImageSrc;
+  className?: string;
+  /** Страница клиента: разделы без содержимого не показываются. Сотруднику в предпросмотре они видны. */
+  hideEmptySections?: boolean;
+}) {
   const ctx: Ctx = { labels, imageSrc };
+  const blocks = hideEmptySections ? withoutEmptySections(doc.blocks) : doc.blocks;
   return (
     <div className={cn('flex flex-col gap-3 break-words [&_a]:text-link [&_a]:underline [&_code]:rounded-control [&_code]:bg-card-soft [&_code]:px-1', className)}>
-      {group(doc.blocks).map((item) =>
+      {group(blocks).map((item) =>
         Array.isArray(item) ? <Steps key={item[0]!.attrs.id} steps={item} ctx={ctx} /> : <BlockView key={item.attrs.id} block={item} ctx={ctx} />,
       )}
     </div>

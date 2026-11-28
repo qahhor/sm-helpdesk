@@ -257,7 +257,7 @@
         },
         "turn": {
           "client": "Your turn",
-          "support": "Support's turn",
+          "support": "Support is replying now",
           "none": "Request closed"
         },
         "related": "Follow-up to request {number}",
@@ -342,7 +342,8 @@
         "mergedLink": "This request was merged with {number}. We will continue there.",
         "mergedHidden": "This request was merged with another request on the same topic.",
         "createdByStaff": "A support agent created this request after your call or message.",
-        "problemUpdate": "Known problem update"
+        "problemUpdate": "Known problem update",
+        "createdNote": "Request {number} is created."
       },
       "files": {
         "add": "File or screenshot",
@@ -2769,7 +2770,8 @@
         "ai_answer": "Assistant replied",
         "ai_feedback": "{actor}: reaction to the assistant message",
         "problemLinked": "{actor}: linked to known problem {ref}",
-        "problemUnlinked": "{actor}: unlinked from known problem {ref}"
+        "problemUnlinked": "{actor}: unlinked from known problem {ref}",
+        "priorityConfirmed": "{actor}: priority {to} confirmed. Reason: {reason}"
       },
       "ruleActions": {
         "set_queue": "queue {to}",
@@ -2985,7 +2987,8 @@
           "empty": "No template with this code",
           "fallback": "The template was inserted in Russian: there is no translation for the ticket language."
         },
-        "sendNext": "Send and next"
+        "sendNext": "Send and next",
+        "saveNoteNext": "Save and go to next"
       },
       "line": "Line: {line}",
       "pickupDue": "Pick up by: {time}",
@@ -3314,6 +3317,10 @@
         "template": "Template /{code}: {title}",
         "group": "Ticket",
         "templates": "Templates"
+      },
+      "names": {
+        "ArrowDown": "Down arrow",
+        "ArrowUp": "Up arrow"
       }
     },
     "metrics": {

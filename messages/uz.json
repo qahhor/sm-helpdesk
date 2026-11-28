@@ -257,7 +257,7 @@
         },
         "turn": {
           "client": "Navbat sizda",
-          "support": "Navbat xizmatda",
+          "support": "Hozir yordam xizmati javob beradi",
           "none": "Murojaat yopilgan"
         },
         "related": "{number} murojaatining davomi",
@@ -342,7 +342,8 @@
         "mergedLink": "Murojaat {number} bilan birlashtirildi. O'sha yerda davom etamiz.",
         "mergedHidden": "Murojaat xuddi shu mavzudagi boshqa murojaat bilan birlashtirildi.",
         "createdByStaff": "Bu murojaatni qo'ng'irog'ingiz yoki xatingiz bo'yicha qo'llab-quvvatlash xodimi yaratgan.",
-        "problemUpdate": "Ma'lum muammo bo'yicha yangilanish"
+        "problemUpdate": "Ma'lum muammo bo'yicha yangilanish",
+        "createdNote": "{number} murojaati yaratildi."
       },
       "files": {
         "add": "Fayl yoki skrinshot",
@@ -2769,7 +2770,8 @@
         "ai_answer": "Yordamchi javob berdi",
         "ai_feedback": "{actor}: yordamchi xabariga javob",
         "problemLinked": "{actor}: {ref} ma'lum muammoga bog'landi",
-        "problemUnlinked": "{actor}: {ref} ma'lum muammodan ajratildi"
+        "problemUnlinked": "{actor}: {ref} ma'lum muammodan ajratildi",
+        "priorityConfirmed": "{actor}: {to} ustuvorligi tasdiqlandi. Sabab: {reason}"
       },
       "ruleActions": {
         "set_queue": "navbat {to}",
@@ -2985,7 +2987,8 @@
           "empty": "Bunday kodli shablon yo'q",
           "fallback": "Shablon rus tilida qo'yildi: murojaat tiliga tarjima yo'q."
         },
-        "sendNext": "Yuborish va keyingisiga"
+        "sendNext": "Yuborish va keyingisiga",
+        "saveNoteNext": "Saqlash va keyingisiga"
       },
       "line": "Liniya: {line}",
       "pickupDue": "Ishga olish muddati: {time}",
@@ -3314,6 +3317,10 @@
         "template": "Shablon /{code}: {title}",
         "group": "Murojaat",
         "templates": "Shablonlar"
+      },
+      "names": {
+        "ArrowDown": "Pastga strelka",
+        "ArrowUp": "Yuqoriga strelka"
       }
     },
     "metrics": {

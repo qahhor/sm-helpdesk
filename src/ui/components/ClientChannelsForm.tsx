@@ -123,7 +123,7 @@ export function ClientChannelsForm({
           {telegram && !telegram.active && (
             <p className="text-sm text-secondary-foreground">
               {telegram.blocked ? labels.telegramBlocked : labels.telegramMissing}{' '}
-              <a href={telegram.linkHref} className="text-primary underline">
+              <a href={telegram.linkHref} className="text-link underline">
                 {labels.telegramLink}
               </a>
             </p>

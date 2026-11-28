@@ -56,7 +56,7 @@ Your requests are in «Requests». To find one, use the «Number or text» field
 | «Resolved» | The support agent considers the issue solved |
 | «Closed» | The request is closed |
 
-The request page shows whose turn it is: «Your turn» or «Support's turn». To reply, write in the «Reply» field and press «Send». When the reply is sent, the line «Reply sent» appears.
+The request page shows whose turn it is: «Your turn» or «Support is replying now». To reply, write in the «Reply» field and press «Send». When the reply is sent, the line «Reply sent» appears.
 
 Support agents answer during Smartup working hours: they are shown on the new request page.
 

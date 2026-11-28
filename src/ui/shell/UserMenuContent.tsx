@@ -17,12 +17,17 @@ import type { UserMenuLink } from './UserMenu';
 /** Само меню пользователя. Подгружается при первом обращении к кнопке (UserMenu) и сразу открыто. */
 export default function UserMenuContent({
   label,
+  name,
+  detail,
   links,
   signOutLabel,
   signOut,
   children,
 }: {
   label: string;
+  /** Имя и организация первой строкой меню на телефоне: в шапке там только значок (проверка интерфейса, U26). */
+  name: string;
+  detail?: string;
   links: UserMenuLink[];
   signOutLabel: string;
   signOut: () => Promise<void>;
@@ -35,6 +40,11 @@ export default function UserMenuContent({
         {children}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" aria-label={label}>
+        <div className="flex flex-col px-3 py-2 tablet:hidden" data-testid="user-menu-who">
+          <span className="font-semibold wrap-anywhere">{name}</span>
+          {detail && <span className="text-sm text-secondary-foreground wrap-anywhere">{detail}</span>}
+        </div>
+        <DropdownMenuSeparator className="tablet:hidden" />
         {links.map((link) => (
           <DropdownMenuItem key={link.href} asChild>
             <Link href={link.href}>{link.label}</Link>

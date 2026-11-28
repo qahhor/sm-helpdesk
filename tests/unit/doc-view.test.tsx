@@ -86,3 +86,29 @@ test('отрисовка не тянет редактор и не собирае
   const source = readFileSync('src/ui/doc/DocView.tsx', 'utf8');
   expect(source).not.toMatch(/@tiptap|prosemirror|generateHTML|innerHTML|dangerouslySetInnerHTML|use client/);
 });
+
+test('пустые разделы клиенту не показываются: заголовок без содержимого до следующего заголовка того же уровня или конца', () => {
+  const heading = (id: string, level: 2 | 3, text: string) => ({ type: 'heading', attrs: { id, level }, content: [{ type: 'text', text }] });
+  const paragraph = (id: string, text: string) => ({ type: 'paragraph', attrs: { id }, content: [{ type: 'text', text }] });
+  const sections = parseSolutionDoc({
+    version: doc.version,
+    blocks: [
+      heading('hempty000001', 2, 'Пустой раздел'),
+      heading('hfull0000001', 2, 'Причина'),
+      paragraph('pfull0000001', 'Не задан склад.'),
+      heading('hparent00001', 2, 'Решение'),
+      heading('hchildempty1', 3, 'Пустой подраздел'),
+      heading('hchildfull01', 3, 'Подраздел с текстом'),
+      paragraph('pchild000001', 'Откройте настройки.'),
+      heading('hlastempty01', 2, 'Если не помогло'),
+    ],
+  });
+  const all = renderToStaticMarkup(<DocView doc={sections} labels={labels} />);
+  expect(all).toContain('Пустой раздел');
+  const shown = renderToStaticMarkup(<DocView doc={sections} labels={labels} hideEmptySections />);
+  expect(shown).not.toContain('Пустой раздел');
+  expect(shown).not.toContain('Пустой подраздел');
+  expect(shown).not.toContain('Если не помогло');
+  // Раздел, у которого есть подраздел с текстом, остаётся вместе с ним.
+  for (const text of ['Причина', 'Не задан склад.', 'Решение', 'Подраздел с текстом', 'Откройте настройки.']) expect(shown).toContain(text);
+});

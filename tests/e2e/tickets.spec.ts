@@ -88,7 +88,7 @@ test('S2: вход, "Сообщить о проблеме", тип, влияни
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(description.split('.')[0] ?? '');
   await expect(page.getByText(number, { exact: true })).toBeVisible();
   await expect(page.getByText('Новое', { exact: true })).toBeVisible();
-  await expect(page.getByText('Ход поддержки')).toBeVisible();
+  await expect(page.getByText('Сейчас отвечает поддержка')).toBeVisible();
   await expect(page.getByRole('list', { name: 'Ход обращения' }).locator('[aria-current="step"]')).toContainText('Создано');
   // После проверки скриншот виден миниатюрой и скачивается.
   await reloadUntil(page, /^screenshot\.png$/);

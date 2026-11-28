@@ -29,6 +29,7 @@ import { KnownProblemBlock } from './KnownProblemBlock';
 import { ReplyForm } from './ReplyForm';
 import { StatusLine } from './StatusLine';
 import { TicketActions } from './TicketActions';
+import { TezMark } from '@/ui/brand/TezMark';
 
 // Страница обращения (ТЗ 8.3, FR-TK-07, FR-TK-17): номер копируется одним нажатием, линейка состояния и чей ход,
 // переписка в Markdown, файлы с миниатюрами, история статусов в ленте, действия по правам. Невидимое клиенту
@@ -250,6 +251,14 @@ export default async function TicketPage({
           userId={client.actor.userId}
           scopes={done === 'replied' ? [`reply-${ticket.number}`] : [ticket.relatedNumber ? `new-ticket-${ticket.relatedNumber}` : 'new-ticket']}
         />
+      )}
+      {/* Подтверждение создания с Тезом (таблица состояний 8.13; проверка интерфейса, U23). Значок, а не крупный Тез:
+          на странице может идти его же анимация подготовки ответа, а крупный Тез на экране один (UX-B-04). */}
+      {created === '1' && (
+        <div role="status" className="flex items-center gap-3 rounded-card border border-success bg-success-bg p-3" data-testid="ticket-created">
+          <TezMark size={40} />
+          <p className="font-medium">{t('page.createdNote', { number: label })}</p>
+        </div>
       )}
       {done && t.has(`page.done.${done}`) && <Alert tone="success">{t(`page.done.${done}`)}</Alert>}
       {error && <Alert tone="danger">{t.has(`errors.${error}`) ? t(`errors.${error}`) : t('errors.invalid_input')}</Alert>}

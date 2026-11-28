@@ -38,12 +38,12 @@ test('все зависимости закреплены точной верси
 
 test('пакеты входа закреплены точными версиями', () => {
   const p = pkg as unknown as Record<'dependencies' | 'devDependencies', Record<string, string>>;
-  expect(p.dependencies['better-auth']).toBe('1.7.22');
-  expect(p.dependencies['@better-auth/sso']).toBe('1.7.22');
+  expect(p.dependencies['better-auth']).toBe('1.7.26');
+  expect(p.dependencies['@better-auth/sso']).toBe('1.7.26');
   expect(p.dependencies.kysely).toBe('0.29.9');
   expect(p.dependencies.uqr).toBe('0.1.3');
   expect(p.devDependencies['oauth2-mock-server']).toBe('9.3.0');
-  expect(p.devDependencies.rolldown).toBe('1.2.19');
+  expect(p.devDependencies.rolldown).toBe('1.3.3');
 });
 
 test('пример окружения называет новые переменные без значений секретов', () => {

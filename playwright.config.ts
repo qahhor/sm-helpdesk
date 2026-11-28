@@ -95,7 +95,12 @@ export default defineConfig({
     // Отрисовка букв не должна зависеть от системных настроек шрифтов машины: без хинтинга и без
     // сглаживания по субпикселям. Иначе эталонные снимки витрины расходятся между машинами (решение 0041, пункт 8).
     // Флаги Chromium: WebKit их не принимает и не запускается, поэтому у проекта webkit свой пустой список.
-    launchOptions: { args: ['--font-render-hinting=none', '--disable-lcd-text'] },
+    // PW_CHROMIUM_PATH: готовый Chromium машины, когда браузер версии Playwright скачать нельзя (закрытая сеть). В CI
+    // переменная не задана, и Playwright берёт свой браузер.
+    launchOptions: {
+      args: ['--font-render-hinting=none', '--disable-lcd-text'],
+      ...(process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {}),
+    },
   },
   projects: [
     // Сотрудники для тестов: приглашение, пароль и второй фактор через интерфейс (tests/e2e/staff.setup.ts).

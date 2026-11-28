@@ -73,6 +73,12 @@ const APP_ENV = {
   AI_STUB: '1',
 };
 
+// Тесты, которые меняют общее состояние базы для всех новых обращений, идут после остальных проектов, по одному
+// файлу на проект (проверка качества, Q8): помощник первой линии и предустановленные правила.
+const AI_SPEC = /ai-first-line\.spec\.ts$/;
+const RULES_SPEC = /builtin-rules\.spec\.ts$/;
+const TAIL_SPECS = [AI_SPEC, RULES_SPEC];
+
 export default defineConfig({
   testDir: 'tests/e2e',
   // Эталонные снимки лежат в одной папке, без деления по проектам и системам.
@@ -97,14 +103,17 @@ export default defineConfig({
     {
       name: 'phone',
       dependencies: ['setup'],
-      testIgnore: /ai-first-line\.spec\.ts$/,
+      testIgnore: TAIL_SPECS,
       use: { browserName: 'chromium', viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true },
     },
-    { name: 'desktop', dependencies: ['setup'], testIgnore: /ai-first-line\.spec\.ts$/, use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
-    { name: 'narrow', dependencies: ['setup'], testIgnore: /ai-first-line\.spec\.ts$/, use: { browserName: 'chromium', viewport: { width: 1100, height: 800 } } },
+    { name: 'desktop', dependencies: ['setup'], testIgnore: TAIL_SPECS, use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
+    { name: 'narrow', dependencies: ['setup'], testIgnore: TAIL_SPECS, use: { browserName: 'chromium', viewport: { width: 1100, height: 800 } } },
     // Помощник первой линии (план M5b, задача 5): тест включает помощника для всех новых обращений, поэтому идёт после
     // остальных проектов. Отдельно: pnpm test:e2e --project=ai --no-deps.
-    { name: 'ai', dependencies: ['phone', 'desktop', 'narrow'], testMatch: /ai-first-line\.spec\.ts$/, use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
+    { name: 'ai', dependencies: ['phone', 'desktop', 'narrow'], testMatch: AI_SPEC, use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
+    // Предустановленные правила (план M8, задача 10): тест выключает и правит правило о P1, общее для всех обращений.
+    // Отдельно: pnpm test:e2e --project=rules --no-deps.
+    { name: 'rules', dependencies: ['ai'], testMatch: RULES_SPEC, use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
     // WebKit (движок Safari) только для виджета на странице хозяина (план M6, задача 9): сторонний iframe без кук
     // третьей стороны. Только в CI или с PW_WEBKIT=1: браузер ставит pnpm exec playwright install webkit (решение 0060).
     ...(process.env.CI || process.env.PW_WEBKIT

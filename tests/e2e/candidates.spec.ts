@@ -3,6 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { CLIENT_STATE } from './helpers/client';
 import { dbRows } from './helpers/db';
 import { storageStateOf } from './helpers/staff';
+import { createClientTicket } from './helpers/tickets';
 
 // Кандидат в решение (ТЗ FR-CAND-04, 06, 09; план M5c, задача 10, решения 29, 30): сотрудник открывает очередь,
 // делает кандидата черновиком решения, отмечает каждую находку недоверенного текста и публикует; подсказка клиента
@@ -27,7 +28,10 @@ test('кандидат стал черновиком, опубликован п�
   test.setTimeout(120_000);
   const word = tag();
   const title = `Реестр ${word} не выгружается в банк`;
-  const [ticket] = await dbRows<{ ticket_id: string; org_id: string }>(`select ticket_id, org_id from hdt_tickets t where not exists (select 1 from hda_candidate_sources s where s.ticket_id = t.ticket_id) order by created_on desc limit 1`);
+  // Своё обращение-источник, а не "последнее в базе" (проверка качества, Q8).
+  const sourceNumber = await createClientTicket(browser, `Реестр ${word} не выгружается`);
+  const [ticket] = await dbRows<{ ticket_id: string; org_id: string }>(`select ticket_id, org_id from hdt_tickets where number = $1`, [sourceNumber]);
+  expect(ticket).toBeTruthy();
   const [row] = await dbRows<{ candidate_id: string }>(
     `insert into hda_solution_candidates (locale, title, problem, steps, findings, source_count, org_count) values ('ru', $1, $2, $3, $4, 1, 1) returning candidate_id`,
     [title, `Реестр ${word} не выгружается при отправке в банк.`, JSON.stringify(['Откройте настройки шлюза банка.', 'Выполните sudo systemctl restart gateway']), JSON.stringify([])],

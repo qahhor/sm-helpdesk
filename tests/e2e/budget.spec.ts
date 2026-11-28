@@ -73,8 +73,20 @@ test('доска идей на телефоне загружает не боль
 
 test('страница идеи на телефоне загружает не больше 170 КБ скриптов (план M7, задача 5)', async ({ page }, info) => {
   test.skip(info.project.name !== 'phone', 'бюджет считается для телефона');
-  const [idea] = await dbRows<{ number: string }>(`select number from hdi_ideas where status = 'open' and published_on is not null order by number desc limit 1`);
-  test.skip(!idea, 'нет опубликованной идеи');
+  // Своя опубликованная идея клиента тестов: тест не ждёт, что её оставил другой файл (проверка качества, Q8).
+  const [author] = await dbRows<{ org_id: string; user_id: string; name: string }>(
+    `select m.org_id, m.user_id, u.name from hdu_memberships m join auth."user" u on u.id = m.user_id
+       join hdu_organizations o on o.org_id = m.org_id where o.name = 'ACME Trade' and m.state = 'active' order by m.created_on limit 1`,
+  );
+  expect(author, 'клиент ACME Trade заведён проектом setup').toBeTruthy();
+  const [idea] = await dbRows<{ idea_id: string; number: string }>(
+    `insert into hdi_ideas (org_id, author_id, author_name, original_locale, status, published_on) values ($1, $2, $3, 'ru', 'open', now()) returning idea_id, number`,
+    [author!.org_id, author!.user_id, author!.name],
+  );
+  await dbRows(`insert into hdi_idea_translations (idea_id, locale, title, body, source_hash) values ($1, 'ru', $2, 'Идея для замера скриптов страницы.', repeat('b', 64))`, [
+    idea!.idea_id,
+    `Замер скриптов ${Date.now()}`,
+  ]);
   const total = await scriptBytes(page, `/ru/ideas/${idea!.number}`);
   await expect(page.getByTestId('idea-page')).toBeVisible();
   expect(total).toBeLessThanOrEqual(BUDGET_BYTES);

@@ -3094,7 +3094,10 @@
         "acceptField": "Accept: {field}",
         "acceptAll": "Accept all",
         "accepted": "Accepted",
-        "checkPriority": "Check the priority: the problem looks more serious than the client said"
+        "checkPriority": "Check the priority: the problem looks more serious than the client said",
+        "titleNow": "Now",
+        "titleProposed": "Proposed",
+        "acceptAllHint": "The title is accepted separately: the client will see it."
       },
       "aiReasons": {
         "customer_request": "the client asked for staff",

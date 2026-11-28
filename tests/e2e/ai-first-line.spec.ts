@@ -188,6 +188,9 @@ test('S8 у агента: "После AI" с причиной, блок AI, "П�
   // Без нажатия заголовок не меняется (FR-TRI-02).
   const title = async () => (await dbRows<{ title: string }>(`select title from hdt_tickets where number = $1`, [number]))[0]?.title;
   expect(await title()).not.toBe('Не печатается накладная');
+  // Заголовок принимается отдельной кнопкой: старый и новый стоят рядом (волна 7, S-M6).
+  await expect(block.locator('[data-title-now]')).toContainText(`Сейчас: ${(await title()) ?? ''}`);
+  await expect(block.locator('[data-title-proposed]')).toContainText('Предлагается: Не печатается накладная');
   await block.locator('[data-triage-field="title"]').getByRole('button', { name: 'Принять: Заголовок' }).click();
   await expect(agent.getByText('Предложение разбора принято.')).toBeVisible();
   expect(await title()).toBe('Не печатается накладная');

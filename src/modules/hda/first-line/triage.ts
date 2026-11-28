@@ -43,7 +43,7 @@ export async function saveTriage(system: SystemActor, input: { ticket: TicketFie
     if (found && found.moduleId !== ticket.moduleId) items.push({ field: 'module', value: found.moduleId });
   }
   if (advice.type && advice.type !== ticket.type && !off.has('type')) items.push({ field: 'type', value: advice.type });
-  const title = safeTriageTitle(advice.title);
+  const title = safeTriageTitle(advice.title, config.restrictedTopics);
   if (title && title.toLowerCase() !== ticket.title.trim().toLowerCase() && !off.has('title')) items.push({ field: 'title', value: title });
   const summary = safeTriageSummary(advice.summary);
   if (summary && !off.has('summary')) items.push({ field: 'summary', value: summary });

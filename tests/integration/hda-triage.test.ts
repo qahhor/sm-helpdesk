@@ -123,21 +123,29 @@ test('принятие: поля меняются действием hdt с со
   expect(t.type).toBe('bug');
   expect(t.module_id).toBeNull();
 
-  // "Принять всё": одной транзакцией остальные ждущие поля.
+  // "Принять всё": одной транзакцией остальные ждущие поля, кроме заголовка (волна 7, S-M6): заголовок видит клиент,
+  // он принимается только отдельной кнопкой, где старый и новый стоят рядом.
   await acceptTriage(staffCtx(f.l1), { number, fields: 'all' });
+  t = (await pools.root.query(`select title, type, module_id from hdt_tickets where ticket_id = $1`, [ticketId])).rows[0];
+  expect(t.title).not.toBe('Не печатается накладная');
+  expect(t).toMatchObject({ type: 'bug', module_id: moduleId });
+  expect((await suggestions(ticketId)).filter((s) => s.status === 'pending').map((s) => s.field)).toEqual(['title']);
+  await acceptTriage(staffCtx(f.l1), { number, fields: ['title'] });
   t = (await pools.root.query(`select title, type, module_id from hdt_tickets where ticket_id = $1`, [ticketId])).rows[0];
   expect(t).toEqual({ title: 'Не печатается накладная', type: 'bug', module_id: moduleId });
   expect((await suggestions(ticketId)).every((s) => s.status === 'accepted')).toBe(true);
   const events = (await pools.root.query(`select payload, is_internal from hdt_ticket_events where ticket_id = $1 and kind = 'triage_accepted' order by created_on`, [ticketId])).rows;
-  expect(events).toHaveLength(2);
+  expect(events).toHaveLength(3);
   expect(events.every((e) => e.is_internal)).toBe(true);
-  expect(events[1].payload).toMatchObject({ fields: { title: { to: 'Не печатается накладная' }, module: { to: moduleId } } });
+  expect(events[1].payload).toMatchObject({ fields: { module: { to: moduleId } } });
+  expect(events[1].payload.fields.title).toBeUndefined();
+  expect(events[2].payload).toMatchObject({ fields: { title: { to: 'Не печатается накладная' } } });
   const audit = (await pools.root.query(`select actor_id from hdc_audit_log where action = 'ticket.triage_accepted' and object_id = $1`, [ticketId])).rows;
-  expect(audit).toHaveLength(2);
+  expect(audit).toHaveLength(3);
   expect(audit[0].actor_id).toBe(f.l1.userId);
   // Повторное принятие ничего не меняет и событий не пишет.
   await acceptTriage(staffCtx(f.l1), { number, fields: 'all' });
-  expect((await pools.root.query(`select 1 from hdt_ticket_events where ticket_id = $1 and kind = 'triage_accepted'`, [ticketId])).rowCount).toBe(2);
+  expect((await pools.root.query(`select 1 from hdt_ticket_events where ticket_id = $1 and kind = 'triage_accepted'`, [ticketId])).rowCount).toBe(3);
 });
 
 test('блок AI у сотрудника: предложения, найденные решения, резюме; клиенту блок недоступен', async () => {

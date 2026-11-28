@@ -3094,7 +3094,10 @@
         "acceptField": "Qabul qilish: {field}",
         "acceptAll": "Hammasini qabul qilish",
         "accepted": "Qabul qilindi",
-        "checkPriority": "Ustuvorlikni tekshiring: muammo mijoz ko'rsatganidan jiddiyroqqa o'xshaydi"
+        "checkPriority": "Ustuvorlikni tekshiring: muammo mijoz ko'rsatganidan jiddiyroqqa o'xshaydi",
+        "titleNow": "Hozir",
+        "titleProposed": "Taklif",
+        "acceptAllHint": "Sarlavha alohida qabul qilinadi: uni mijoz ko'radi."
       },
       "aiReasons": {
         "customer_request": "mijoz xodimni so'radi",

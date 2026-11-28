@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, lt } from 'drizzle-orm';
 import type { SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
 import { getStorage, type QuarantineResult, scanQuarantinedImage, writeAudit } from '@/modules/hdc/api';
@@ -44,4 +44,39 @@ export async function scanFile(actor: SystemActor, fileId: string): Promise<File
   // Тип по содержимому, антивирус и перенос делает общая проверка изображений модуля hdc (та же у изображений идей).
   const result = await scanQuarantinedImage({ quarantineKey: fileQuarantineKey(row.fileId), targetKey: fileStorageKey(row.articleId, row.fileId), mime: row.mime, size: row.size });
   return finish(actor, row, result);
+}
+
+/** Обход: строки pending старше срока становятся "не принят" (пачкой, занятые другим процессом пропускаются). */
+export async function rejectStuckFiles(actor: SystemActor, before: Date, limit: number): Promise<string[]> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .update(kbArticleFiles)
+      .set({ scanStatus: 'rejected' })
+      .where(
+        inArray(
+          kbArticleFiles.fileId,
+          tx
+            .select({ fileId: kbArticleFiles.fileId })
+            .from(kbArticleFiles)
+            .where(and(eq(kbArticleFiles.scanStatus, 'pending'), lt(kbArticleFiles.createdOn, before)))
+            .orderBy(kbArticleFiles.createdOn)
+            .limit(limit)
+            .for('update', { skipLocked: true }),
+        ),
+      )
+      .returning({ fileId: kbArticleFiles.fileId }),
+  );
+  return rows.map((row) => row.fileId);
+}
+
+/** Обход: строки pending, созданные раньше срока. */
+export async function pendingFiles(actor: SystemActor, before: Date, limit: number): Promise<{ id: string; createdOn: Date }[]> {
+  return withActor(actor, (tx) =>
+    tx
+      .select({ id: kbArticleFiles.fileId, createdOn: kbArticleFiles.createdOn })
+      .from(kbArticleFiles)
+      .where(and(eq(kbArticleFiles.scanStatus, 'pending'), lt(kbArticleFiles.createdOn, before)))
+      .orderBy(kbArticleFiles.createdOn)
+      .limit(limit),
+  );
 }

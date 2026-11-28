@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, lt } from 'drizzle-orm';
 import type { Tx } from '@/db/client';
 import type { ClientActor, SystemActor } from '@/db/with-actor';
 import { withActor } from '@/db/with-actor';
@@ -93,4 +93,39 @@ export async function ideaFileTx(tx: Tx, number: number, attachmentId: string): 
     .where(and(eq(ideaAttachments.attachmentId, attachmentId), eq(ideaAttachments.ideaId, idea.ideaId)))
     .limit(1);
   return file ?? null;
+}
+
+/** Обход: загрузки pending старше срока становятся "не принят" (пачкой, занятые другим процессом пропускаются). */
+export async function rejectStuckUploads(actor: SystemActor, before: Date, limit: number): Promise<string[]> {
+  const rows = await withActor(actor, (tx) =>
+    tx
+      .update(ideaAttachments)
+      .set({ scanStatus: 'rejected' })
+      .where(
+        inArray(
+          ideaAttachments.attachmentId,
+          tx
+            .select({ attachmentId: ideaAttachments.attachmentId })
+            .from(ideaAttachments)
+            .where(and(eq(ideaAttachments.scanStatus, 'pending'), lt(ideaAttachments.createdOn, before)))
+            .orderBy(ideaAttachments.createdOn)
+            .limit(limit)
+            .for('update', { skipLocked: true }),
+        ),
+      )
+      .returning({ attachmentId: ideaAttachments.attachmentId }),
+  );
+  return rows.map((row) => row.attachmentId);
+}
+
+/** Обход: загрузки pending, созданные раньше срока. */
+export async function pendingUploads(actor: SystemActor, before: Date, limit: number): Promise<{ id: string; createdOn: Date }[]> {
+  return withActor(actor, (tx) =>
+    tx
+      .select({ id: ideaAttachments.attachmentId, createdOn: ideaAttachments.createdOn })
+      .from(ideaAttachments)
+      .where(and(eq(ideaAttachments.scanStatus, 'pending'), lt(ideaAttachments.createdOn, before)))
+      .orderBy(ideaAttachments.createdOn)
+      .limit(limit),
+  );
 }

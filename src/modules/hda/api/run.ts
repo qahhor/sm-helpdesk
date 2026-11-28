@@ -57,14 +57,24 @@ export async function aiModelFor(purpose: AiPurpose): Promise<string> {
   return modelForPurpose(purpose, setting && typeof setting === 'object' ? (setting as Record<string, unknown>) : {}, aiEnvModels());
 }
 
+/** Модели нескольких целей одним чтением настройки (проверка качества, Q3). */
+export async function aiModelsFor<P extends AiPurpose>(purposes: readonly P[]): Promise<Record<P, string>> {
+  const setting = await readSetting(AI_SETTINGS.models);
+  const models = setting && typeof setting === 'object' ? (setting as Record<string, unknown>) : {};
+  const env = aiEnvModels();
+  return Object.fromEntries(purposes.map((p) => [p, modelForPurpose(p, models, env)] as const)) as Record<P, string>;
+}
+
 /** Какой предел исчерпан для этого вызова; null: можно вызывать (решение 11). */
 async function exhausted(system: SystemActor, input: { purpose: AiPurpose; orgId: string | null; userId: string | null }): Promise<LimitKind | null> {
   const config = await aiConfig();
   const firstLine = AI_USER_LIMIT_PURPOSES.includes(input.purpose);
+  // Суточный предел читается до транзакции (проверка качества, Q11): чтение настройки открывает свою транзакцию.
+  const dailyLimit = firstLine ? 0 : await aiDailyLimit();
   return withActor(system, async (tx) => {
     const cutoff = await activeCutoffTx(tx, input.orgId);
     if (cutoff === 'all' || (await monthSpendTx(tx)).total >= config.monthlyBudgetUsd) return 'budget';
-    if (!firstLine) return (await callsTodayTx(tx)) >= (await aiDailyLimit()) ? 'daily' : null;
+    if (!firstLine) return (await callsTodayTx(tx)) >= dailyLimit ? 'daily' : null;
     if (cutoff === 'org') return 'cutoff';
     const used = await firstLineCallsTodayTx(tx, input);
     // 20 в час на пользователя (ТЗ 14.5) и дополнительный суточный предел из настройки (решение 11 плана M5b).

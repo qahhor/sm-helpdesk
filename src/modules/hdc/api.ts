@@ -22,7 +22,7 @@ export { type AntivirusScanner, getScanner } from './antivirus';
 export { type DetectedType, SNIFF_BYTES, sniffFileType } from './filetype';
 export { type QuarantineResult, scanQuarantinedImage } from './scan';
 // Настройки портала (hdc_settings).
-export { lockSettingTx, readSetting, writeSettingTx } from './settings';
+export { lockSettingTx, readSetting, readSettings, writeSettingTx } from './settings';
 export { AUDIT_ACTIONS, type AuditAction } from './pref';
 // События предметной области (FR-AUTO-02; план M8, задача 2): запись в транзакции действия, разбор фоновой задачей.
 export {
@@ -154,3 +154,4 @@ export {
   synonymSetsSchema,
   type SynonymSets,
 } from './search/config';
+export { type ScanSweepSource, sweepPendingScans } from './scan-sweep';

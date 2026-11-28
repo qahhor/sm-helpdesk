@@ -169,3 +169,42 @@ export function extractJson(text: string): unknown {
     return null;
   }
 }
+
+/** Слова текста для сравнения с подсказкой: строчные буквы и цифры, остальное разделитель. */
+const wordsOf = (text: string) => text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+/** Столько слов подряд из системной подсказки в ответе считаются её утечкой. */
+const PROMPT_ECHO_WORDS = 6;
+const shinglesCache = new Map<string, Set<string>>();
+
+function promptShingles(system: string): Set<string> {
+  let set = shinglesCache.get(system);
+  if (!set) {
+    const words = wordsOf(system);
+    set = new Set<string>();
+    for (let i = 0; i + PROMPT_ECHO_WORDS <= words.length; i++) set.add(words.slice(i, i + PROMPT_ECHO_WORDS).join(' '));
+    if (shinglesCache.size > 50) shinglesCache.clear();
+    shinglesCache.set(system, set);
+  }
+  return set;
+}
+
+/**
+ * Ответ модели повторяет системную подсказку (проверка на AI-инъекции, волна 7, S-T; решение 0157): в любой строке
+ * ответа есть шесть слов подряд из подсказки. Такой ответ не принимается целиком: отличительные фразы правил не
+ * попадают в резюме, заголовок, черновик и перевод, которые читают сотрудники и клиенты.
+ */
+export function echoesSystemPrompt(value: unknown, system: string): boolean {
+  const shingles = promptShingles(system);
+  if (shingles.size === 0) return false;
+  const check = (item: unknown): boolean => {
+    if (typeof item === 'string') {
+      const words = wordsOf(item);
+      for (let i = 0; i + PROMPT_ECHO_WORDS <= words.length; i++) if (shingles.has(words.slice(i, i + PROMPT_ECHO_WORDS).join(' '))) return true;
+      return false;
+    }
+    if (Array.isArray(item)) return item.some(check);
+    if (item !== null && typeof item === 'object') return Object.values(item).some(check);
+    return false;
+  };
+  return check(value);
+}

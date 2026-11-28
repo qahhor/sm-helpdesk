@@ -1,6 +1,7 @@
 import 'server-only';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool, type PoolClient } from 'pg';
+import { stripNulFromParams } from './no-nul';
 import { env } from '@/env';
 import type { AppDb } from './client';
 import { poolMaxOf } from './pool-size';
@@ -26,7 +27,7 @@ function createAuthPool(): Pool {
     idle_in_transaction_session_timeout: 60_000,
   });
   pool.on('error', (error) => console.error(`Соединение аутентификации с базой закрыто с ошибкой: ${error.message}`));
-  return pool;
+  return stripNulFromParams(pool);
 }
 
 /** Пул соединений роли hub_auth. Создаётся при первом обращении: сборке приложения база не нужна. */

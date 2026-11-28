@@ -9,7 +9,7 @@ import { STUB_MODEL } from '../client/stub';
 import { type AiRequest, AiResponseError, AiUnavailableError } from '../client/types';
 import { activeCutoffTx, callsTodayTx, firstLineCallsTodayTx, insertRunTx, monthSpendTx, type PriorRun, priorRunTx } from '../core/runs';
 import { AI_DAILY_LIMIT_DEFAULT, AI_DAILY_LIMIT_MAX, AI_DAILY_LIMIT_SETTING, AI_USER_LIMIT_PURPOSES, AI_SETTINGS, type AiPurpose, modelForPurpose } from '../pref';
-import { costUsd, inputHash } from '../util';
+import { costUsd, echoesSystemPrompt, inputHash } from '../util';
 import { aiConfig } from './config';
 
 // Модуль hda, слой api: один вызов модели с учётом (план M5, задача 5, решения 2, 3, 13; план M5b, задача 1, решения 1,
@@ -21,6 +21,7 @@ import { aiConfig } from './config';
 //   3. повтор того же входа в организации за 24 часа: repeated, модель не вызывается, вызывающий повторяет прошлый выбор;
 //   4. вызов вне транзакции базы модели, выбранной по цели (настройка ai.models, окружение, значение по умолчанию),
 //      затем строка журнала: модель из ответа, токены, стоимость по цене этой модели, время, итог, без текста.
+// Ответ, в котором есть шесть слов подряд из системной подсказки, считается ответом не по правилам (prompt_echo).
 // Сбой модели (нет ответа, ответ не прошёл схему, отказ) записывается и бросается дальше: вызывающий решает, что делать
 // (задача повторяет вызов, первая линия передаёт обращение сотруднику). Отказ модели не ломает ни одной страницы.
 
@@ -119,6 +120,9 @@ export async function callAi<T>(system: SystemActor, input: RunInput<T>): Promis
       ...(input.effort ? { effort: input.effort } : {}),
       ...(input.timeoutMs ? { timeoutMs: input.timeoutMs } : {}),
     });
+    // Ответ, повторяющий системную подсказку, не принимается (волна 7, S-T): токены потрачены и записаны, как у
+    // ответа не по схеме.
+    if (echoesSystemPrompt(result.value, input.system)) throw new AiResponseError('prompt_echo', result.model, result.usage);
     const runId = await withActor(system, (tx) =>
       insertRunTx(tx, {
         ...base,

@@ -152,7 +152,8 @@ export const queueInput = z.object({
 
 export const savedFilterInput = z.object({
   name: z.string().overwrite(cleanUserText).trim().min(1).max(80),
-  query: z.object({ queue: z.enum(QUEUE_KEYS), sort: z.enum(QUEUE_SORTS).optional(), q: z.string().trim().max(200).optional() }),
+  // Текст поиска хранится в jsonb: невидимые и управляющие знаки убираются, как у названия (волна 7, S-T).
+  query: z.object({ queue: z.enum(QUEUE_KEYS), sort: z.enum(QUEUE_SORTS).optional(), q: z.string().overwrite(cleanUserText).trim().max(200).optional() }),
   isShared: z.boolean().default(false),
 });
 

@@ -7,7 +7,7 @@ import { HdaAgentError } from '../../error';
 import { AGENT_BODY_MAX, AGENT_TITLE_MAX, REPORT_CHAT_KEYS, REPORT_CHAT_TICKETS_MAX, REPORT_KINDS } from '../../pref';
 import { agentReports } from '../../schema';
 import { defineTool } from '../tool';
-import { AGENT_NOTICE, cleanAgentText, moment, notice, UNTRUSTED_HINT } from '../util';
+import { AGENT_NOTICE, agentTextLooksLikeCode, cleanAgentText, moment, notice, UNTRUSTED_HINT } from '../util';
 import { agentTicketsView } from '../views';
 
 // Инструмент create_report (веха M8b, задачи 6 и 10; FR-AGT-04, 13; план M8b, решения 23, 24): сводка в раздел
@@ -24,7 +24,7 @@ const chat = z.strictObject({
 export const createReport = defineTool({
   name: 'create_report',
   kind: 'write',
-  description: `Save a digest to the "Digests" section for staff (kinds: ${REPORT_KINDS.join(', ')}), marked unverified until a staff member reviews it. Optional "chat" carries only numbers (${REPORT_CHAT_KEYS.join(', ')}) and up to ${REPORT_CHAT_TICKETS_MAX} ticket numbers: the portal builds the team chat message from them with its own template; your text never goes to the chat. ${UNTRUSTED_HINT}`,
+  description: `Save a digest to the "Digests" section for staff (kinds: ${REPORT_KINDS.join(', ')}), marked unverified until a staff member reviews it. Optional "chat" carries only numbers (${REPORT_CHAT_KEYS.join(', ')}) and up to ${REPORT_CHAT_TICKETS_MAX} ticket numbers: the portal builds the team chat message from them with its own template; your text never goes to the chat. Text that looks like source code is rejected. ${UNTRUSTED_HINT}`,
   input: z.strictObject({
     kind: z.enum(REPORT_KINDS),
     title: z.string().min(1).max(AGENT_TITLE_MAX),
@@ -40,7 +40,8 @@ export const createReport = defineTool({
     if (args.period_from && args.period_to && args.period_from > args.period_to) throw new HdaAgentError('invalid_arguments');
     const title = cleanAgentText(args.title, domains).slice(0, AGENT_TITLE_MAX);
     const body = cleanAgentText(args.body, domains);
-    if (!title || !body) throw new HdaAgentError('invalid_arguments');
+    // Исходный код в портал не переносится (S-I4): текст с признаками кода отклоняется целиком.
+    if (!title || !body || agentTextLooksLikeCode(title) || agentTextLooksLikeCode(body)) throw new HdaAgentError('invalid_arguments');
     let chatFields: Record<string, unknown> | null = null;
     if (args.chat) {
       const wanted = [...new Set(args.chat.ticket_numbers)];

@@ -6,7 +6,7 @@ import { addAgentNoteTx } from '@/modules/hdt/api/agent-notes';
 import { HdaAgentError } from '../../error';
 import { AGENT_NOTE_MAX, AGENT_RUN_NOTE_MAX } from '../../pref';
 import { defineTool } from '../tool';
-import { AGENT_NOTICE, cleanAgentText, notice, UNTRUSTED_HINT } from '../util';
+import { AGENT_NOTICE, agentTextLooksLikeCode, cleanAgentText, notice, UNTRUSTED_HINT } from '../util';
 import { agentTicketsView } from '../views';
 
 // Инструмент add_internal_note (веха M8b, задача 6; FR-AGT-04, 05, 07, 12; план M8b, решения 18, 19, 22): внутренняя
@@ -24,7 +24,7 @@ function constraintOf(error: unknown): string | undefined {
 export const addInternalNote = defineTool({
   name: 'add_internal_note',
   kind: 'write',
-  description: `Add an internal note (kind "note") or a draft memo for the second line (kind "handoff_memo") to a ticket. Visible only to staff, marked "AI staff, not verified", shown as plain text. It never changes the ticket, its status, deadlines, assignee or notifications. HTML, invisible characters and links outside allowed domains are removed. Up to ${AGENT_NOTE_MAX} characters (a ticket run token: one note up to ${AGENT_RUN_NOTE_MAX}). ${UNTRUSTED_HINT}`,
+  description: `Add an internal note (kind "note") or a draft memo for the second line (kind "handoff_memo") to a ticket. Visible only to staff, marked "AI staff, not verified", shown as plain text. It never changes the ticket, its status, deadlines, assignee or notifications. HTML, invisible characters and links outside allowed domains are removed. Text that looks like source code is rejected: describe in words. Up to ${AGENT_NOTE_MAX} characters (a ticket run token: one note up to ${AGENT_RUN_NOTE_MAX}). ${UNTRUSTED_HINT}`,
   input: z.strictObject({
     ticket_number: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
     kind: z.enum(['note', 'handoff_memo']).default('note'),
@@ -42,7 +42,8 @@ export const addInternalNote = defineTool({
       .limit(1);
     if (!ticket) throw new HdaAgentError('not_found');
     const body = cleanAgentText(args.body, domains);
-    if (!body) throw new HdaAgentError('invalid_arguments');
+    // Исходный код в портал не переносится (S-I4): текст с признаками кода отклоняется целиком.
+    if (!body || agentTextLooksLikeCode(body)) throw new HdaAgentError('invalid_arguments');
     try {
       await addAgentNoteTx(tx, actor, { ticketId: ticket.ticketId, orgId: ticket.orgId, kind: args.kind, body });
     } catch (error) {

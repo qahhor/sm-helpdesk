@@ -9,10 +9,11 @@ import { stripQuote } from '@/modules/hdn/api/inbound';
 import { readAllowedDomains } from '@/modules/hdk/api/publish';
 import { bumpStaffUseful, nearestPublished, ticketsWithSolutionSource } from '@/modules/hdk/api/similar';
 import { queryVector } from '@/modules/hdk/api/suggest';
-import { findInText, isAllowedDomain } from '@/modules/hdk/api/text-checks';
+import { findInText } from '@/modules/hdk/api/text-checks';
 import { resolvedWithoutSolution, ticketSolutionSource } from '@/modules/hdt/api/solution-source';
 import { orgAiProfile } from '@/modules/hdu/api/orgs';
 import { assembleDraftData } from '../assemble';
+import { stripForeignLinks, URL_IN_TEXT } from '../links';
 import { DRAFT_SYSTEM, draftSchema, type SolutionDraft } from '../api/draft';
 import { callAi } from '../api/run';
 import { recordDecisionTx } from '../core/runs';
@@ -99,46 +100,7 @@ async function callsTodayTx(tx: Tx): Promise<number> {
   return row?.count ?? 0;
 }
 
-const URL_TAIL = `[^\\s<>"'«»]*`;
-/** Адрес со схемой "://" (любая схема: http, ftp, tg) или со схемой без косых черт из известных опасных. */
-const SCHEME_URL = new RegExp(`(?:[a-z][a-z0-9+.-]{1,20}:\\/\\/|(?:javascript|vbscript|data|tg):)${URL_TAIL}`, 'gi');
-/** "www." без требования границы слова: "текстwww.узел" тоже адрес. */
-const WWW_URL = new RegExp(`www\\.[\\p{L}\\p{N}-]+\\.${URL_TAIL}`, 'giu');
-/** Адрес без схемы "//узел/путь": браузер достроит схему сам. */
-const RELATIVE_URL = new RegExp(`(?<![:\\p{L}\\p{N}/])\\/\\/[\\p{L}\\p{N}-]+(?:\\.[\\p{L}\\p{N}-]+)+${URL_TAIL}`, 'giu');
-/** Домен без схемы с путём: "узел.зона/путь". */
-const BARE_URL = new RegExp(`(?<![\\p{L}\\p{N}@./:-])(?:[\\p{L}\\p{N}-]+\\.)+\\p{L}{2,}\\/${URL_TAIL}`, 'giu');
-/** Ссылка Markdown: текст и содержимое скобок (цель до первого пробела, дальше подпись); одна пара вложенных скобок. */
-const MD_LINK = /\[([^\]\n]*)\]\(((?:[^()\n]|\([^()\n]*\))*)\)/g;
-const URL_IN_TEXT = new RegExp([SCHEME_URL, WWW_URL, RELATIVE_URL, BARE_URL].map((r) => r.source).join('|'), 'giu');
-
-/** Узел адреса в любой записи; null: это не адрес http(s) (другая схема, относительный путь, мусор). */
-function hostOf(url: string): string | null {
-  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url)?.[1]?.toLowerCase();
-  if (scheme && scheme !== 'http' && scheme !== 'https') return null;
-  try {
-    return new URL(scheme ? url : url.startsWith('//') ? `https:${url}` : `https://${url}`).hostname || null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Ссылки вне разрешённых доменов вырезаются до записи (FR-CAND-09, решение 27). Адресом считается и запись без схемы
- * (ссылка Markdown, "//узел", "www.", домен с путём) и с любой схемой, кроме http и https у разрешённого домена
- * (проверка на AI-инъекции, волна 7, S-I2).
- */
-export function stripForeignLinks(text: string, allowedDomains: readonly string[]): string {
-  const allowed = (url: string) => {
-    const host = hostOf(url);
-    return host !== null && host.includes('.') && isAllowedDomain(host, allowedDomains);
-  };
-  return text
-    .replace(MD_LINK, (link, label: string, inside: string) => (allowed(inside.trim().split(/\s/)[0] ?? '') ? link : label))
-    .replace(URL_IN_TEXT, (url) => (allowed(url) ? url : ''))
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
+export { stripForeignLinks };
 
 /** Черновик после очистки: ссылки вырезаны, находки собраны для подсветки (телефоны, почта, ИНН и другие). */
 function cleanDraft(draft: SolutionDraft, allowedDomains: readonly string[]): { title: string; problem: string; steps: string[]; findings: CandidateFinding[] } {

@@ -11,6 +11,11 @@ export default async function globalSetup(config: FullConfig) {
   // База разработки переживает прогоны: счётчики частоты прошлого прогона (все запросы идут с одного адреса)
   // не должны блокировать этот. В CI база каждый раз новая.
   await dbRows(`delete from hdc_rate_limits`);
+  // Идеи на модерации, оставшиеся от прошлых прогонов (ideas-board, ideas-submit, прерванные тесты), отклоняются:
+  // вкладка "Модерация" показывает 30 самых старых, и остаток вытеснял бы со страницы идею теста agent-ideas.
+  // Здесь, до первого теста, а не в самом тесте: параллельные тесты прогона проверяют свои идеи на модерации,
+  // и отбор по возрасту пропускал остаток недавних прогонов. За один прогон таких идей меньше десяти.
+  await dbRows(`update hdi_ideas set status = 'declined', decline_reason = 'e2e: осталась от прошлого прогона' where status = 'pending_review'`);
   await waitForEmbedOrigins(config.projects[0]?.use.baseURL ?? 'http://localhost:3100');
   // Срок бездействия сотрудника 30 минут (план M9, решение 8): сохранённые сессии ролей живут весь прогон.
   keepStoredStaffSessionsActive();

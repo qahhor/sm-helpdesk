@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
+import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { titleFromDescription } from '@/lib/subject';
 import { Alert } from '@/ui/components/alert';
@@ -129,6 +129,8 @@ function Fields({
   handoff,
 }: FormProps & { draftKey: string; hydrated: boolean; draft: Draft | null; handoff: WidgetHandoff | null }) {
   const [state, action, pending] = useActionState(createTicketAction, INITIAL);
+  // "Меня это тоже затронуло" идёт своим действием и только по нажатию на саму кнопку (проверка интерфейса, F1).
+  const [reporting, startReport] = useTransition();
   const hints = handoff?.hints;
   // Черновик клиента важнее: ошибка подставляется только в пустое описание, контекст уходит в любом случае.
   const [description, setDescription] = useState(draft?.description || (hints ? handoffDescription(hints) : ''));
@@ -235,9 +237,20 @@ function Fields({
               : null
           }
         >
-          {/* Кнопка отправляет эту же форму другим действием: описание из поля уходит в обращение. */}
+          {/* Кнопка не отправляет форму: Enter в поле и кнопка формы по умолчанию создают обращение клиента, а не
+              "затронуло". По нажатию действие получает поля формы: описание из поля уходит в обращение. */}
           <input type="hidden" name="problemNumber" value={problem.number} />
-          <Button type="submit" formAction={reportAffectedAction} data-own-action className="tablet:self-start">
+          <Button
+            type="button"
+            disabled={reporting}
+            onClick={(event) => {
+              const form = event.currentTarget.form;
+              if (!form) return;
+              const data = new FormData(form);
+              startReport(() => reportAffectedAction(data));
+            }}
+            className="tablet:self-start"
+          >
             {labels.problem.affected}
           </Button>
           <p className="text-sm">{labels.problem.affectedHint}</p>

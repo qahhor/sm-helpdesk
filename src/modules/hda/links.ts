@@ -4,8 +4,13 @@ import { isAllowedDomain } from '@/modules/hdk/api/text-checks';
 // план M8b, решение 18; проверка на AI-инъекции, волна 7, S-I2 и S-M1). Чистые функции без базы.
 
 const URL_TAIL = `[^\\s<>"'«»]*`;
-/** Адрес со схемой "://" (любая схема: http, ftp, tg) или со схемой без косых черт из известных опасных. */
-const SCHEME_URL = new RegExp(`(?:[a-z][a-z0-9+.-]{1,20}:\\/\\/|(?:javascript|vbscript|data|tg):)${URL_TAIL}`, 'gi');
+const URL_CHAR = `[^\\s<>"'«»]`;
+/**
+ * Адрес со схемой "://" (любая схема: http, ftp, tg) или со схемой без косых черт из известных опасных. У схемы без
+ * косых черт адрес должен идти сразу за двоеточием: "Export data: choose a file" - слово, а не адрес (независимая
+ * проверка волны 7, R9).
+ */
+const SCHEME_URL = new RegExp(`[a-z][a-z0-9+.-]{1,20}:\\/\\/${URL_TAIL}|(?:javascript|vbscript|data|tg):${URL_CHAR}+`, 'gi');
 /** "www." без требования границы слова: "текстwww.узел" тоже адрес. */
 const WWW_URL = new RegExp(`www\\.[\\p{L}\\p{N}-]+\\.${URL_TAIL}`, 'giu');
 /** Адрес без схемы "//узел/путь": браузер достроит схему сам. */

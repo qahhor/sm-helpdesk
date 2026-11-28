@@ -574,6 +574,11 @@
         "rate_limited": "Takliflar juda ko'p. Bir soatdan keyin urinib ko'ring.",
         "forbidden": "Bu amal sizga mavjud emas.",
         "not_found": "Yozuv topilmadi. Sahifani yangilang."
+      },
+      "summary": {
+        "title": "Tashkilot murojaatlari",
+        "total": "Jami: {total}. Ochiq: {open}.",
+        "open": "Tashkilot murojaatlarini ochish"
       }
     },
     "settings": {

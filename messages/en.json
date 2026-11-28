@@ -574,6 +574,11 @@
         "rate_limited": "Too many invitations. Try again in an hour.",
         "forbidden": "This action is not available to you.",
         "not_found": "Record not found. Refresh the page."
+      },
+      "summary": {
+        "title": "Organization requests",
+        "total": "Total: {total}. Open: {open}.",
+        "open": "Open organization requests"
       }
     },
     "settings": {

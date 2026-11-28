@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import { getFormatter, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
+import { orgTicketSummary } from '@/modules/hdt/api';
 import { listInvitations, listMembers, requireClientActor } from '@/modules/hdu/api';
+import { Link } from '@/i18n/navigation';
 import { Alert } from '@/ui/components/alert';
 import { Button, buttonVariants } from '@/ui/components/button';
 import { Card, CardContent, CardHeader } from '@/ui/components/card';
@@ -32,8 +34,9 @@ export default async function OrgPage({ searchParams }: PageProps<'/[locale]/org
   const client = await requireClientActor();
   if (client.actor.orgRole !== 'client_admin') notFound();
   const params = await searchParams;
-  const [members, invitations] = await Promise.all([listMembers({ ctx: client }), listInvitations({ ctx: client })]);
+  const [members, invitations, summary] = await Promise.all([listMembers({ ctx: client }), listInvitations({ ctx: client }), orgTicketSummary(client)]);
   const t = await getTranslations('client.org');
+  const ts = await getTranslations('client.tickets.statuses');
   const format = await getFormatter();
   const error = firstParam(params.error);
   const done = firstParam(params.done);
@@ -49,6 +52,27 @@ export default async function OrgPage({ searchParams }: PageProps<'/[locale]/org
 
       {error && ERRORS.has(error) && <Alert tone="danger">{t(`errors.${error}`)}</Alert>}
       {done && DONE.has(done) && <Alert tone="success">{t(`done.${done}`)}</Alert>}
+
+      {/* Сводка по обращениям организации (ТЗ 5.1; волна 7, T8): числа по статусам, только своя организация. */}
+      <Card data-testid="org-summary">
+        <CardHeader>
+          <h2 className="text-lg font-semibold">{t('summary.title')}</h2>
+          <p className="text-secondary-foreground">{t('summary.total', { total: summary.total, open: summary.open })}</p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <dl className="grid grid-cols-2 gap-3 tablet:grid-cols-3">
+            {(Object.keys(summary.byStatus) as (keyof typeof summary.byStatus)[]).map((status) => (
+              <div key={status} className="flex flex-col gap-1 rounded-card border border-border p-3" data-status={status}>
+                <dt className="text-sm text-secondary-foreground">{ts(status)}</dt>
+                <dd className="text-xl font-semibold tabular-nums">{format.number(summary.byStatus[status])}</dd>
+              </div>
+            ))}
+          </dl>
+          <Link href="/tickets?scope=org" className="self-start text-link underline underline-offset-2">
+            {t('summary.open')}
+          </Link>
+        </CardContent>
+      </Card>
 
       {confirming && (
         <Card>

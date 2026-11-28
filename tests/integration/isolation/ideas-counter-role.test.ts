@@ -26,7 +26,8 @@ test('роль hub_hdi_counter: без входа, не суперпользов
   expect(owned.rows.map((r) => r.proname)).toEqual(FUNCTIONS);
   for (const row of owned.rows) {
     expect(row.prosecdef, row.proname).toBe(true);
-    expect(row.proconfig, row.proname).toEqual(['search_path=pg_catalog, public']);
+    // Путь поиска строже прежнего: в конце pg_temp (миграция 0131, волна 7, S-A2), временная схема не подменяет таблицы.
+    expect(row.proconfig, row.proname).toEqual(['search_path=pg_catalog, public, pg_temp']);
   }
   // Права на таблицы: чтение нужных колонок и правка только счётчиков и статуса идеи; ничего на схемы.
   const priv = (table: string, column: string, p: string) =>

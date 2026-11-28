@@ -1,4 +1,4 @@
-import { cleanUserText } from '@/modules/hdc/pref';
+import { stripInvisible } from '@/modules/hdc/pref';
 import { normalizeApostrophes } from './language';
 
 // Модуль hda: обязательные темы и просьба позвать человека (FR-AI-06, UX-B-07; план M5b, задача 2, решение 17). Код
@@ -7,7 +7,8 @@ import { normalizeApostrophes } from './language';
 // Текст и слова списков приводятся к одному "скелету": NFKC (полноширинные буквы), без невидимых знаков, строчными,
 // апострофы ʻ ʼ ‘ ’ к прямому, буквы-двойники других письменностей (греческие и прочие) к латинице, латинские буквы-двойники внутри кириллического слова к кириллице, затем кириллица
 // (русская и узбекская) латиницей по одной таблице. Так "Тўлов" и "To'lov", "oплaтa" и "оплата" дают одно и то же.
-// Разрядка ("о п л а т а", "о.п.л.а.т.а") склеивается. Слова списков ищутся как начало слова или подстрока: списки
+// Разрядка ("о п л а т а", "о.п.л.а.т.а") склеивается. Против обходов текст ищется ещё в двух скелетах (S-M4): без
+// знаков разметки внутри слова, с цифрами-двойниками буквами и со смешанным словом целиком в одной письменности. Слова списков ищутся как начало слова или подстрока: списки
 // составлены из основ и сочетаний, чтобы не ловить обычные вопросы о работе программы.
 
 /** Темы обязательной передачи FR-AI-06: расчёты и оплата, договор, жалоба, удаление или массовое изменение данных, доступы и права, безопасность, юридические вопросы. */
@@ -106,17 +107,61 @@ const SEPARATORS = '[\\s.\\-_*·•,/|]+';
 /** Разрядка: три и больше одиночных букв через разделители. */
 const SPACED = new RegExp(`(?<!\\p{L})\\p{L}(?!\\p{L})(?:${SEPARATORS}\\p{L}(?!\\p{L})){2,}`, 'gu');
 
+/** Кириллические буквы, похожие на латинские: внутри латинского слова становятся латинской буквой (S-M4). */
+const CYRILLIC_LOOKALIKE: Readonly<Record<string, string>> = { р: 'p', с: 'c', у: 'y', н: 'h', в: 'b', к: 'k', м: 'm', т: 't', х: 'x', а: 'a', о: 'o', е: 'e', і: 'i', г: 'r', п: 'n', и: 'u' };
+/** Латинские буквы, похожие на кириллические только начертанием (r как "г", n как "п", u как "и"): для смешанных слов. */
+const LATIN_LOOKALIKE_WIDE: Readonly<Record<string, string>> = { ...LATIN_LOOKALIKE, r: 'г', n: 'п', u: 'и' };
+/** Цифры-двойники букв (S-M4): в слове с буквами цифра читается как буква. */
+const DIGIT_AS_CYRILLIC: Readonly<Record<string, string>> = { '0': 'о', '3': 'з', '4': 'ч', '6': 'б' };
+const DIGIT_AS_LATIN: Readonly<Record<string, string>> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b' };
+/** Знаки разметки Markdown и теги HTML между буквами одного слова: "до*го*вор", "ref<!---->und". */
+const INWORD_MARKUP = /(?<=[\p{L}\p{N}])(?:<[^<>]{0,40}>|[*_`~\\^])+(?=[\p{L}\p{N}])/gu;
+
+/** Общая часть скелета: без невидимых и пустых знаков, NFKC, строчными, двойники других письменностей, разрядка. */
+function baseSkeleton(text: string): string {
+  const base = normalizeApostrophes(stripInvisible(text).normalize('NFKC').replace(/[‌‍︀-️]/gu, '')).toLowerCase().replace(CONFUSABLE_RE, (ch) => CONFUSABLE[ch] ?? ch);
+  return base.replace(SPACED, (run) => run.replace(new RegExp(SEPARATORS, 'gu'), ''));
+}
+
+const translit = (text: string) => text.replace(/[Ѐ-ӿ]/gu, (ch) => TRANSLIT[ch] ?? ch);
+const count = (word: string, re: RegExp) => (word.match(re) ?? []).length;
+
 /** Скелет текста для поиска слов списков (см. начало файла). */
 export function skeleton(text: string): string {
-  const base = normalizeApostrophes(cleanUserText(text).normalize('NFKC').replace(/[‌‍︀-️]/gu, '')).toLowerCase().replace(CONFUSABLE_RE, (ch) => CONFUSABLE[ch] ?? ch);
-  const joined = base.replace(SPACED, (run) => run.replace(new RegExp(SEPARATORS, 'gu'), ''));
-  return joined
-    .replace(/[\p{L}']+/gu, (word) => {
-      const cyr = (word.match(/\p{Script=Cyrillic}/gu) ?? []).length;
-      const lat = (word.match(/\p{Script=Latin}/gu) ?? []).length;
+  return translit(
+    baseSkeleton(text).replace(/[\p{L}']+/gu, (word) => {
+      const cyr = count(word, /\p{Script=Cyrillic}/gu);
+      const lat = count(word, /\p{Script=Latin}/gu);
       return cyr > 0 && cyr >= lat ? word.replace(/[a-z]/g, (ch) => LATIN_LOOKALIKE[ch] ?? ch) : word;
-    })
-    .replace(/[Ѐ-ӿ]/gu, (ch) => TRANSLIT[ch] ?? ch);
+    }),
+  );
+}
+
+/**
+ * Скелет против обходов (проверка на AI-инъекции, волна 7, S-M4): знаки разметки внутри слова убраны, слово со
+ * смешением письменностей приведено целиком к одной (prefer), цифра внутри слова с буквами прочитана буквой той же
+ * письменности. Ищется в дополнение к основному скелету: слова списков строятся основным.
+ */
+function hardenedSkeleton(text: string, prefer: 'cyrillic' | 'latin'): string {
+  return translit(
+    // Разметка убирается до приведения апострофов: обратная кавычка иначе стала бы апострофом, частью слова.
+    baseSkeleton(stripInvisible(text).replace(INWORD_MARKUP, ''))
+      .replace(/[\p{L}\p{N}']+/gu, (token) => {
+        if (!/\p{L}/u.test(token)) return token;
+        let word = token;
+        const cyr = count(word, /\p{Script=Cyrillic}/gu);
+        const lat = count(word, /\p{Script=Latin}/gu);
+        if (cyr > 0 && lat > 0)
+          word = prefer === 'cyrillic' ? word.replace(/[a-z]/g, (ch) => LATIN_LOOKALIKE_WIDE[ch] ?? ch) : word.replace(/\p{Script=Cyrillic}/gu, (ch) => CYRILLIC_LOOKALIKE[ch] ?? ch);
+        const digits = /\p{Script=Cyrillic}/u.test(word) ? DIGIT_AS_CYRILLIC : DIGIT_AS_LATIN;
+        return word.replace(/[0-9]/g, (ch) => digits[ch] ?? ch);
+      }),
+  );
+}
+
+/** Все скелеты текста: основной и два против обходов. */
+function skeletons(text: string): string[] {
+  return [...new Set([skeleton(text), hardenedSkeleton(text, 'cyrillic'), hardenedSkeleton(text, 'latin')])];
 }
 
 /** Слово списка как выражение: основы по порядку, между ними хвост слова и до трёх разделителей. */
@@ -137,8 +182,11 @@ function compiled(entry: string): RegExp | null {
 }
 
 const anyWord = (text: string, words: TopicWords) => {
-  const s = skeleton(text);
-  return [...words.ru, ...words.uz, ...words.en].some((entry) => compiled(entry)?.test(s) ?? false);
+  const variants = skeletons(text);
+  return [...words.ru, ...words.uz, ...words.en].some((entry) => {
+    const pattern = compiled(entry);
+    return pattern !== null && variants.some((s) => pattern.test(s));
+  });
 };
 
 /** Первая обязательная тема в тексте (на любом из языков списков) или null. */

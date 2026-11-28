@@ -406,9 +406,16 @@ export function cleanUserText(value: string): string {
 /** Соединители и селекторы вариантов: законны в эмодзи, но внутри числа или адреса прячут его от поиска. */
 const JOINERS = /[\u200C\u200D\uFE00-\uFE0F]/gu;
 
+/**
+ * Пустые знаки, которые Юникод считает буквой или символом (проверка на AI-инъекции, волна 7, S-M4): корейские
+ * заполнители U+3164, U+115F, U+1160, U+FFA0, пустой знак Брайля U+2800 и соединитель графем U+034F. На экране
+ * их нет, а слово они разрывают: список слов и правило телефона его не находят.
+ */
+export const BLANK_FILLERS = /[\u3164\u115F\u1160\uFFA0\u2800\u034F]/gu;
+
 /** Текст без невидимых знаков и без соединителей: для текста модели, который ложится в документ (M5, 0057). */
 export function stripInvisible(value: string): string {
-  return cleanUserText(value).replace(JOINERS, '');
+  return cleanUserText(value).replace(JOINERS, '').replace(BLANK_FILLERS, '');
 }
 
 /**

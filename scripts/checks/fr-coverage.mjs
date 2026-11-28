@@ -8,7 +8,8 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '../..');
 
 export const LIST_FILE = 'docs/plans/M9-requirements.md';
-const CODE = /\bFR-[A-Z]+-\d+[a-z]?\b/g;
+// Имя раздела: буквы и цифры (FR-I18N-01): без цифр раздел 7.11 выпадал из сверки (волна 7, T3).
+const CODE = /\bFR-[A-Z0-9]+-\d+[a-z]?\b/g;
 const STATES = new Set(['сделано', 'сделано на заглушке', 'перенесено']);
 const DECISION = /docs\/decisions\/\d{4}-|решени[еяю]\s+(?:ТЗ\s+)?\d+/iu;
 
@@ -40,7 +41,7 @@ export function coverageViolations(tzText, listText, exists) {
   const listed = new Set();
   for (const line of listText.split('\n')) {
     const cells = line.split('|').map((cell) => cell.trim());
-    if (cells.length < 5 || !/^FR-[A-Z]+-\d+[a-z]?$/.test(cells[1])) continue;
+    if (cells.length < 5 || !/^FR-[A-Z0-9]+-\d+[a-z]?$/.test(cells[1])) continue;
     const [, code, state, evidence, note] = cells;
     listed.add(code);
     if (!known.has(code)) {

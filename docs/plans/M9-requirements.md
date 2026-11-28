@@ -10,7 +10,7 @@
 
 Доказательство выбрано так: тест, где код требования назван прямо; если код в тестах не назван, тест той области, которая требование проверяет (например, `tests/integration/lines.test.ts` для линий). Источник состояний: отчёты вех `docs/plans/M0-report.md`-`M8c-report.md`, `W0-report.md`-`W6-report.md` и `M9-prep-report.md`.
 
-Итог: 281 код; сделано 182, сделано на заглушке 98, перенесено 1 (частично).
+Итог: 291 код; сделано 190, сделано на заглушке 99, перенесено 2 (частично). Пересчитано 28.11.2026 (волна 7): проверка `fr-coverage` не видела коды с цифрой в имени раздела, десять требований FR-I18N раздела 7.11 в перечне не было.
 
 ### 7.1 Вход и организации
 
@@ -20,7 +20,7 @@
 | FR-ID-02 | сделано | `tests/integration/servers.test.ts` |  |
 | FR-ID-03 | сделано | `tests/integration/sso-flow.test.ts` |  |
 | FR-ID-04 | сделано на заглушке | `tests/integration/sso-flow.test.ts`, `tests/integration/provision.test.ts` | Ложный сервер OIDC; ждёт регистрации портала на серверах Smartup (15.5 п. 10) |
-| FR-ID-05 | сделано | `tests/e2e/acceptance.spec.ts`, `tests/e2e/client-shell.spec.ts` |  |
+| FR-ID-05 | сделано | `tests/integration/login-link.test.ts`, `tests/e2e/login-link.spec.ts` |  |
 | FR-ID-06 | сделано | `tests/integration/login-link.test.ts`, `tests/e2e/login-link.spec.ts` |  |
 | FR-ID-07 | сделано | `tests/integration/email.test.ts`, `tests/integration/sso-flow.test.ts` |  |
 | FR-ID-08 | сделано | `tests/integration/invitations.test.ts`, `tests/e2e/invitations.spec.ts` |  |
@@ -37,7 +37,7 @@
 |---|---|---|---|
 | FR-TK-01 | сделано | `tests/integration/tickets-create.test.ts`, `tests/e2e/ideas-submit.spec.ts` |  |
 | FR-TK-02 | сделано | `tests/integration/tickets-create.test.ts` |  |
-| FR-TK-03 | сделано | `tests/integration/isolation/tickets-direct.test.ts` |  |
+| FR-TK-03 | сделано | `tests/integration/tickets-create.test.ts` |  |
 | FR-TK-04 | сделано | `tests/integration/tickets-create.test.ts` |  |
 | FR-TK-05 | сделано | `tests/integration/tickets-create.test.ts` |  |
 | FR-TK-06 | сделано | `tests/integration/tickets-read.test.ts` |  |
@@ -215,6 +215,16 @@
 
 | Код | Состояние | Доказательство | Что ждёт или решение |
 |---|---|---|---|
+| FR-I18N-01 | сделано | `tests/unit/i18n/messages.test.ts`, `tests/e2e/locales.spec.ts` |  |
+| FR-I18N-02 | сделано | `tests/unit/checks/ui-rules.test.ts`, `tests/unit/checks/messages.test.ts` |  |
+| FR-I18N-03 | сделано | `tests/unit/i18n/messages.test.ts`, `tests/unit/checks/messages.test.ts` |  |
+| FR-I18N-04 | сделано | `tests/unit/checks/messages.test.ts` |  |
+| FR-I18N-05 | сделано | `tests/unit/i18n/messages.test.ts` |  |
+| FR-I18N-06 | сделано | `tests/unit/i18n/resolve-locale.test.ts`, `tests/unit/locale-choice.test.ts` | Язык профиля после входа клиента: `docs/decisions/0160-profile-locale-and-time-zone.md` |
+| FR-I18N-07 | сделано | `tests/integration/hdk-translations.test.ts`, `tests/integration/hdi-moderate.test.ts` |  |
+| FR-I18N-08 | перенесено | `tests/unit/i18n/format.test.ts` | Частично: даты и числа форматируются по языку, все даты по времени Ташкента; часовой пояс пользователя не сделан, решение `docs/decisions/0160-profile-locale-and-time-zone.md`, пункт 4; ждёт выбора владельца |
+| FR-I18N-09 | сделано | `tests/unit/checks/ui-rules.test.ts` |  |
+| FR-I18N-10 | сделано на заглушке | `tests/unit/hda-ui-translate.test.ts`, `tests/unit/cli.test.ts` | Команда `hub i18n:pretranslate`; модель на заглушке, настоящий перевод ждёт ключа Anthropic (15.5 п. 13); `docs/decisions/0161-ui-pretranslation-cli.md` |
 
 ### 7.12 Метрики
 
@@ -308,7 +318,7 @@
 | FR-AUTO-01 | сделано | `tests/integration/rules-admin.test.ts`, `tests/e2e/rules.spec.ts` |  |
 | FR-AUTO-02 | сделано | `tests/integration/domain-events.test.ts` |  |
 | FR-AUTO-03 | сделано | `tests/integration/hdp-links.test.ts`, `tests/unit/hdw/evaluate.test.ts` |  |
-| FR-AUTO-04 | сделано | `tests/integration/rules-engine.test.ts`, `tests/unit/hdn-oncall.test.ts` |  |
+| FR-AUTO-04 | сделано | `tests/integration/rules-engine.test.ts`, `tests/unit/hdn-oncall.test.ts` | Оговорка: "уведомить Telegram-чат" значит чат дежурных из настройки; произвольный чат правило не называет (`docs/TZ-1.2-changes.md`) |
 | FR-AUTO-05 | сделано | `tests/integration/rules-admin.test.ts` |  |
 | FR-AUTO-06 | сделано | `tests/integration/rules-engine.test.ts` |  |
 | FR-AUTO-07 | сделано | `tests/integration/builtin-rules.test.ts` |  |
@@ -316,7 +326,7 @@
 | FR-AUTO-09 | сделано | `tests/integration/hdp-links.test.ts` |  |
 | FR-AUTO-10 | сделано | `tests/integration/rules-admin.test.ts`, `tests/integration/webhooks.test.ts` |  |
 | FR-AUTO-11 | сделано | `tests/integration/rules-engine.test.ts` |  |
-| FR-AUTO-12 | перенесено | `tests/integration/builtin-rules.test.ts`, `tests/e2e/builtin-rules.spec.ts` | Частично: уведомления поставляются правилами (тест в доказательстве); напоминание клиенту и автозакрытие остались в коде, решение `docs/decisions/0043-builtin-rules.md`, пункт 10; ждёт ответа владельца о сроке правил в рабочих днях |
+| FR-AUTO-12 | перенесено | `tests/integration/builtin-rules.test.ts`, `tests/e2e/builtin-rules.spec.ts` | Частично: правилами поставляются уведомление дежурных о P1, уведомление о нарушении срока и уведомление об оценке 1 или 2 (тест в доказательстве). Не правилами: подсветка перед сроком SLA (её рисует очередь по сроку, отдельного события у правил нет), напоминание клиенту и автозакрытие (остались в коде). Уведомление об оценке 1 или 2 получает роль `care`, а не руководитель линии. Решение `docs/decisions/0043-builtin-rules.md`, пункты 1 и 10; ждёт ответа владельца о сроке правил в рабочих днях |
 | FR-AUTO-13 | сделано | `tests/integration/tags.test.ts`, `tests/e2e/tags.spec.ts` |  |
 
 ### 7.18 Объявления
@@ -422,4 +432,5 @@
 
 | № | Код | Что не сделано | Решение | Куда |
 |---|---|---|---|---|
-| 1 | FR-AUTO-12 | Напоминание клиенту и автозакрытие решённого и ждущего не стали предустановленными правилами: событие "нет активности" не выражает рабочие дни, точку отсчёта и однократность. Уведомления дежурным, руководителю линии и о низкой оценке поставляются правилами | `docs/decisions/0043-builtin-rules.md`, пункт 10 | Остаются в коде; правилами после ответа владельца, нужен ли правилам срок в рабочих днях |
+| 1 | FR-AUTO-12 | Напоминание клиенту и автозакрытие решённого и ждущего не стали предустановленными правилами: событие "нет активности" не выражает рабочие дни, точку отсчёта и однократность. Подсветка перед сроком SLA тоже не правило: её рисует очередь по сроку. Уведомления дежурным о P1, руководителю линии о нарушении срока и о низкой оценке поставляются правилами; об оценке 1 или 2 уведомляется роль `care`, а не руководитель линии | `docs/decisions/0043-builtin-rules.md`, пункты 1 и 10 | Остаются в коде; правилами после ответа владельца, нужен ли правилам срок в рабочих днях и кто получает низкую оценку |
+| 2 | FR-I18N-08 | Даты и время показываются по времени Ташкента, а не в часовом поясе пользователя (сроки обращения по календарю поддержки, как и требует FR-SLA-08) | `docs/decisions/0160-profile-locale-and-time-zone.md`, пункт 4 | Ждёт выбора владельца: пояс браузера, пояс в профиле или Ташкент на этап 1 |

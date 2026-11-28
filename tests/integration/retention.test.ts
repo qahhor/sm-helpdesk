@@ -65,8 +65,28 @@ test('обезличивание учётной записи: только ад�
   await pools.root.query(`insert into hdi_ideas (org_id, author_id, author_name, original_locale, status) values ($1, $2, $3, 'ru', 'pending_review')`, [f.orgA.orgId, f.aUser.userId, before.name]);
   await expect(anonymizeIdeaAuthor(staffCtx(f.care), { userId: f.aUser.userId, name: after.name })).rejects.toMatchObject({ code: 'forbidden' });
   await expect(anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: 'Настоящее Имя' })).rejects.toMatchObject({ code: 'invalid_input' });
+  // Имя правильного вида, но не имя этой учётной записи: снимок не меняется.
+  await expect(anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: '#00000000' })).rejects.toMatchObject({ code: 'invalid_input' });
+  // Учётная запись не обезличена: снимок имени её идей не меняется никем (проверка W7, R11).
+  await pools.root.query(`insert into hdi_ideas (org_id, author_id, author_name, original_locale, status) values ($1, $2, 'Дильноза', 'ru', 'pending_review')`, [f.orgA.orgId, f.aAdmin.userId]);
+  await expect(anonymizeIdeaAuthor(admin, { userId: f.aAdmin.userId, name: '#deadbeef' })).rejects.toMatchObject({ code: 'invalid_input' });
+  expect((await pools.root.query(`select author_name from hdi_ideas where author_id = $1`, [f.aAdmin.userId])).rows.map((r) => r.author_name)).toEqual(['Дильноза']);
+  expect(await audit('user.ideas_anonymized')).toEqual([]);
+  // Журнал и замена одной транзакцией: не записался журнал, не изменился снимок.
+  await pools.root.query(`alter table hdc_audit_log add constraint w7_block check (action <> 'user.ideas_anonymized') not valid`);
+  try {
+    await expect(anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: after.name })).rejects.toThrow();
+  } finally {
+    await pools.root.query(`alter table hdc_audit_log drop constraint w7_block`);
+  }
+  expect((await pools.root.query(`select author_name from hdi_ideas where author_id = $1`, [f.aUser.userId])).rows.map((r) => r.author_name)).toEqual([before.name]);
   expect(await anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: after.name })).toEqual({ ideas: 1 });
   expect((await pools.root.query(`select author_name from hdi_ideas where author_id = $1`, [f.aUser.userId])).rows.map((r) => r.author_name)).toEqual([after.name]);
+  // Запись журнала: от имени системы, с числом идей, без имён. Повтор ничего не меняет и не пишет.
+  expect(await anonymizeIdeaAuthor(admin, { userId: f.aUser.userId, name: after.name })).toEqual({ ideas: 0 });
+  const ideaRows = await audit('user.ideas_anonymized');
+  expect(ideaRows).toEqual([expect.objectContaining({ actor_id: null, object_id: f.aUser.userId, diff: { ideas: 1 } })]);
+  expect(JSON.stringify(ideaRows)).not.toContain(before.name);
   // Повтор ничего не меняет и второй записи не пишет.
   await anonymizeAccount(admin, { userId: f.aUser.userId });
   expect(await audit('user.anonymized')).toHaveLength(1);

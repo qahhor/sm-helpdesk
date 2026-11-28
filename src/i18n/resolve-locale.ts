@@ -87,3 +87,20 @@ export function localizedPath(pathname: string, pickLocale: () => Locale): strin
   const tail = segments.slice(1).join('/');
   return tail ? `/${pickLocale()}/${tail}` : `/${pickLocale()}`;
 }
+
+/** Адрес с языком from как адрес с языком to: /ru/tickets?x=1 даёт /uz/tickets?x=1. Адрес без этого языка не меняется. */
+export function relocalize(href: string, from: Locale, to: Locale): string {
+  const prefix = `/${from}`;
+  if (href === prefix) return `/${to}`;
+  return href.startsWith(`${prefix}/`) || href.startsWith(`${prefix}?`) ? `/${to}${href.slice(prefix.length)}` : href;
+}
+
+/**
+ * Куда перейти после входа, чтобы страницы шли на языке пользователя (FR-I18N-06; волна 7, T5; решение 0160). Порядок:
+ * язык, выбранный на этом устройстве (кука), затем язык профиля (выбор в портале или язык из Smartup при первом входе),
+ * затем язык страницы входа. null: страница уже на нужном языке.
+ */
+export function signedInPath(input: { pathname: string; pageLocale: Locale; profileLocale: string | null | undefined; cookieLocale: string | null | undefined }): string | null {
+  const wanted = toLocale(input.cookieLocale) ?? toLocale(input.profileLocale) ?? input.pageLocale;
+  return wanted === input.pageLocale ? null : relocalize(input.pathname, input.pageLocale, wanted);
+}

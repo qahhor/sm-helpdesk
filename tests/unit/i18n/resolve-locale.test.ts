@@ -70,3 +70,28 @@ test('разделы портала не теряются при перенап�
   expect(names.length).toBeGreaterThan(0);
   for (const name of names) expect(localizedPath(`/${name}/x`, pick), name).toBe(`/ru/${name}/x`);
 });
+
+// Волна 7, T5 (FR-I18N-06): после входа язык страниц берётся из профиля, если на этом устройстве язык не выбирали.
+test('после входа: выбор на устройстве, затем язык профиля, затем язык страницы входа', async () => {
+  const { signedInPath } = await import('@/i18n/resolve-locale');
+  // Язык профиля отличается от языка страницы входа, выбора на устройстве нет: адрес на языке профиля.
+  expect(signedInPath({ pathname: '/ru/welcome', pageLocale: 'ru', profileLocale: 'uz', cookieLocale: undefined })).toBe('/uz/welcome');
+  expect(signedInPath({ pathname: '/en', pageLocale: 'en', profileLocale: 'ru', cookieLocale: undefined })).toBe('/ru');
+  expect(signedInPath({ pathname: '/ru/tickets/SUP-12', pageLocale: 'ru', profileLocale: 'en', cookieLocale: '' })).toBe('/en/tickets/SUP-12');
+  // Язык выбран на этом устройстве: он важнее профиля, страница не меняется.
+  expect(signedInPath({ pathname: '/ru/welcome', pageLocale: 'ru', profileLocale: 'uz', cookieLocale: 'ru' })).toBeNull();
+  expect(signedInPath({ pathname: '/ru/welcome', pageLocale: 'ru', profileLocale: 'uz', cookieLocale: 'en' })).toBe('/en/welcome');
+  // Язык совпадает, профиль пуст или испорчен: переходить некуда.
+  expect(signedInPath({ pathname: '/uz/welcome', pageLocale: 'uz', profileLocale: 'uz', cookieLocale: undefined })).toBeNull();
+  expect(signedInPath({ pathname: '/ru/welcome', pageLocale: 'ru', profileLocale: null, cookieLocale: undefined })).toBeNull();
+  expect(signedInPath({ pathname: '/ru/welcome', pageLocale: 'ru', profileLocale: 'de', cookieLocale: 'xx' })).toBeNull();
+});
+
+test('после входа: язык в адресе возврата (next) тоже меняется', async () => {
+  const { relocalize } = await import('@/i18n/resolve-locale');
+  expect(relocalize('/ru/tickets/SUP-12?tab=files', 'ru', 'uz')).toBe('/uz/tickets/SUP-12?tab=files');
+  expect(relocalize('/ru', 'ru', 'en')).toBe('/en');
+  // Адрес без языка страницы не трогается.
+  expect(relocalize('/help/a/12', 'ru', 'uz')).toBe('/help/a/12');
+  expect(relocalize('/rubric', 'ru', 'uz')).toBe('/rubric');
+});

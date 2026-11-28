@@ -1,6 +1,9 @@
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { isLocale, type Locale, localeFromCookies } from '@/i18n/locales';
 import { Link } from '@/i18n/navigation';
+import { relocalize, signedInPath } from '@/i18n/resolve-locale';
 import { getPolicyVersion } from '@/modules/hdc/api';
 import { needsPolicyNotice, requireClientActor, safeReturnPath, telegramEnabled } from '@/modules/hdu/api';
 import { Alert } from '@/ui/components/alert';
@@ -21,6 +24,15 @@ export default async function WelcomePage({ searchParams }: PageProps<'/[locale]
   const locale = await getLocale();
   const next = safeReturnPath(firstParam(params.next), `/${locale}`);
   const sent = firstParam(params.sent) === '1';
+  // Язык страниц после входа (FR-I18N-06; волна 7, T5): выбор на этом устройстве, затем язык профиля. Сюда приходит
+  // каждый вход через Smartup и по ссылке, поэтому переход на язык пользователя делается здесь, вместе с адресом возврата.
+  if (isLocale(locale)) {
+    const target = signedInPath({ pathname: `/${locale}/welcome`, pageLocale: locale, profileLocale: client.user.locale, cookieLocale: localeFromCookies(await cookies()) });
+    if (target) {
+      const to = target.split('/')[1] as Locale;
+      redirect(`${target}?next=${encodeURIComponent(relocalize(next, locale, to))}${sent ? '&sent=1' : ''}`);
+    }
+  }
   const policyVersion = await getPolicyVersion();
   const policyDue = needsPolicyNotice(client.user, policyVersion);
   const firstStep = !client.user.onboarded && !client.user.hasVerifiedEmail;

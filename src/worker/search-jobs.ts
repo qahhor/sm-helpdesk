@@ -6,9 +6,11 @@ import {
   DRIFT_ALERT_SHARE,
   getSearchWriter,
   reconcileCollection,
+  reindexCollection,
   type ReconcileReport,
   runSearchSync,
   SEARCH_COLLECTIONS,
+  type SearchCollection,
   type SearchIndexWriter,
 } from '@/modules/hdc/api';
 import { raiseOpsAlert } from './ops-watch';
@@ -41,6 +43,23 @@ export async function searchSyncTick(system: SystemActor, opts: { stopped: () =>
     if (result.written + result.failed === 0) await new Promise((resolve) => setTimeout(resolve, opts.idleMs ?? SYNC_IDLE_MS));
   }
   if (total.written + total.failed + total.cleared > 0) logEvent(total.failed > 0 ? 'warn' : 'info', 'search.sync', total);
+}
+
+/**
+ * Задача search.reindex (проверка качества, Q18): полная переиндексация коллекций после смены словаря корней. В задании
+ * только имена коллекций через запятую. Без Typesense задача ничего не делает.
+ */
+export async function runSearchReindexJob(system: SystemActor, data: unknown, use: SearchIndexWriter | null = writerOf()): Promise<{ collection: SearchCollection; documents: number }[]> {
+  const names = typeof (data as { collections?: unknown } | null)?.collections === 'string' ? (data as { collections: string }).collections.split(',') : [];
+  const collections = SEARCH_COLLECTIONS.filter((collection) => names.includes(collection));
+  const done: { collection: SearchCollection; documents: number }[] = [];
+  if (!use) return done;
+  for (const collection of collections) {
+    const result = await reindexCollection(system, use, collection, { audit: false });
+    done.push({ collection, documents: result.documents });
+    logEvent('info', 'search.reindex', { collection, documents: result.documents });
+  }
+  return done;
 }
 
 /**

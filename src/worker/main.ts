@@ -38,7 +38,7 @@ import { cleanupWebhookDeliveries, dispatchWebhooks, handleWebhookEvent, hasDueD
 import { cleanupAuthRows } from '@/modules/hdu/api/maintenance';
 import { opsWatch } from './ops-watch';
 import { registerSearch } from './search';
-import { searchReconcile, searchSyncTick } from './search-jobs';
+import { runSearchReindexJob, searchReconcile, searchSyncTick } from './search-jobs';
 import { withTicketsPeople } from '@/modules/hdt/api/notice-identity';
 
 // Фоновый процесс портала (раздел 11.10, решение 0028): задачи pg-boss под ролью hub_app.
@@ -402,37 +402,48 @@ export async function startWorker(opts: WorkerOptions = {}): Promise<{ stop(): P
   registerSearch();
   await boss.work('search.sync', polling, () => timedJob('search.sync', () => searchSyncTick(actor('search.sync'), { stopped: () => stopping })));
   await boss.work('search.reconcile', polling, () => timedJob('search.reconcile', () => searchReconcile(actor('search.reconcile'))));
+  // Переиндексация после смены словаря корней: отдельная задача, у разбора очереди всего 120 секунд (проверка качества, Q18).
+  await boss.work('search.reindex', polling, ([job]) => timedJob('search.reindex', () => runSearchReindexJob(actor('search.reindex'), job?.data)));
   // Отметка раз в минуту идёт через очередь, как все задачи: она показывает, что процесс берёт задачи, а не только жив.
   await boss.work('ops.heartbeat', polling, () => beatWorker(actor('ops.heartbeat')));
-  await boss.work('maintenance.cleanup', polling, () => timedJob('maintenance.cleanup', async () => {
+  // Шаги ночной очистки независимы (проверка качества, Q17): сбой одной таблицы не оставляет без очистки остальные.
+  // Первая ошибка пробрасывается после всех шагов, задача помечается неудачной, как и раньше.
+  await boss.work('maintenance.cleanup', polling, () => timedJob('maintenance.cleanup', () => {
     const system = actor('maintenance.cleanup');
-    const limits = await cleanupRateLimits();
-    const updates = await cleanupTelegramUpdates(system);
-    const { sessions, verifications, links } = await cleanupAuthRows(system);
-    const notices = await cleanupNotifications(system, new Date());
-    const sentMail = await cleanupOutbox(system);
-    const letters = await cleanupInbound(system);
-    // Журнал аудита хранится 3 года (ТЗ 14.6, решение владельца 24.11.2026).
-    // Разобранные события предметной области хранятся 30 суток (план M8, задача 2).
-    const events = await cleanupDomainEvents(system);
-    if (events > 0) console.info(`Ночная очистка: разобранные события старше 30 суток ${events}`);
-    // Срабатывания правил автоматизации хранятся 90 суток (план M8, задача 3).
-    const runs = await cleanupRuleRuns(system);
-    if (runs > 0) console.info(`Ночная очистка: срабатывания правил старше 90 суток ${runs}`);
-    // Журнал доставок вебхуков хранится 30 суток (план M8, решение 10).
-    const hooks = await cleanupWebhookDeliveries(system);
-    if (hooks > 0) console.info(`Ночная очистка: доставки вебхуков старше 30 суток ${hooks}`);
-    // Тексты запросов подсказки без результата хранятся 90 суток (план W6, ответ владельца 0070, пункт 5).
-    const misses = await cleanupSuggestMisses(system);
-    if (misses > 0) console.info(`Ночная очистка: запросы подсказки без результата старше 90 суток ${misses}`);
-    // Отметки ресурсов снятых серверов хранятся 7 суток (независимая проверка M9, M2; решение 0145).
-    const hosts = await cleanupHostMarks(system);
-    if (hosts > 0) console.info(`Ночная очистка: отметки ресурсов серверов старше 7 суток ${hosts}`);
-    const audit = await cleanupAudit(system);
-    if (audit > 0) console.info(`Ночная очистка: записи журнала аудита старше 3 лет ${audit}`);
-    console.info(
-      `Ночная очистка: счётчики частоты ${limits}, события Telegram ${updates}, сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}, прочитанные уведомления ${notices}, отправленные письма очереди ${sentMail}, разобранные входящие письма ${letters}`,
-    );
+    /** Шаг очистки: число удалённых строк пишется в журнал, если оно больше нуля. */
+    const step = (name: string, what: string, run: () => Promise<number>) => ({
+      step: name,
+      run: async () => {
+        const removed = await run();
+        if (removed > 0) console.info(`Ночная очистка: ${what} ${removed}`);
+      },
+    });
+    return runJobSteps('maintenance.cleanup', [
+      step('rate_limits', 'счётчики частоты', () => cleanupRateLimits()),
+      step('telegram_updates', 'события Telegram', () => cleanupTelegramUpdates(system)),
+      {
+        step: 'auth_rows',
+        run: async () => {
+          const { sessions, verifications, links } = await cleanupAuthRows(system);
+          if (sessions + verifications + links > 0) console.info(`Ночная очистка: сессии ${sessions}, одноразовые значения входа ${verifications}, ссылки и коды входа ${links}`);
+        },
+      },
+      step('notifications', 'прочитанные уведомления', () => cleanupNotifications(system, new Date())),
+      step('outbox', 'отправленные письма очереди', () => cleanupOutbox(system)),
+      step('inbound', 'разобранные входящие письма', () => cleanupInbound(system)),
+      // Разобранные события предметной области хранятся 30 суток (план M8, задача 2).
+      step('domain_events', 'разобранные события старше 30 суток', () => cleanupDomainEvents(system)),
+      // Срабатывания правил автоматизации хранятся 90 суток (план M8, задача 3).
+      step('rule_runs', 'срабатывания правил старше 90 суток', () => cleanupRuleRuns(system)),
+      // Журнал доставок вебхуков хранится 30 суток (план M8, решение 10).
+      step('webhook_deliveries', 'доставки вебхуков старше 30 суток', () => cleanupWebhookDeliveries(system)),
+      // Тексты запросов подсказки без результата хранятся 90 суток (план W6, ответ владельца 0070, пункт 5).
+      step('suggest_misses', 'запросы подсказки без результата старше 90 суток', () => cleanupSuggestMisses(system)),
+      // Отметки ресурсов снятых серверов хранятся 7 суток (независимая проверка M9, M2; решение 0145).
+      step('host_marks', 'отметки ресурсов серверов старше 7 суток', () => cleanupHostMarks(system)),
+      // Журнал аудита хранится 3 года (ТЗ 14.6, решение владельца 24.11.2026).
+      step('audit', 'записи журнала аудита старше 3 лет', () => cleanupAudit(system)),
+    ]);
   }));
   if (opts.schedules !== false) for (const s of SCHEDULES) await boss.schedule(s.name, s.cron, null, { tz: s.tz });
 

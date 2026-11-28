@@ -6,6 +6,7 @@ import { withActor } from '@/db/with-actor';
 import { logEvent } from '@/lib/log';
 import { writeAudit } from '../audit';
 import { type SearchEntityKind, searchOutbox } from '../schema';
+import { enqueue } from '../jobs';
 import { consumeRateLimit, resetRateLimit } from '../rate-limit';
 import { readSetting } from '../settings';
 import { curationSchema, type CurationRules, SEARCH_SETTING_CODES, stemDictionary, stemPairsSchema, synonymItems, synonymSetsSchema } from './config';
@@ -161,7 +162,15 @@ const pairKey = (pairs: readonly { word: string; root: string }[]) =>
  * Typesense другие: коллекция берёт словарь при создании (решение 0080, пункт 6), поэтому смена словаря перестраивает
  * решения и идеи (reindexOnStems), а без смены перестраивать нечего.
  */
-async function applyConfig(system: SystemActor, writer: SearchIndexWriter, code: string, opts: { reindexOnStems: boolean } = { reindexOnStems: true }): Promise<void> {
+/** Коллекции, которые берут словарь корней при создании: смена словаря требует их перестройки. */
+export const STEM_COLLECTIONS = ['solutions', 'ideas'] as const;
+
+/**
+ * reindexOnStems: что делать при смене словаря. 'job': поставить отдельную задачу search.reindex (разбор очереди идёт
+ * раз в минуту и живёт 120 секунд, полная переиндексация в него не помещается; проверка качества, Q18). true:
+ * перестроить сразу (ночная сверка, у неё час). false: не перестраивать (подготовка индекса перед переиндексацией).
+ */
+async function applyConfig(system: SystemActor, writer: SearchIndexWriter, code: string, opts: { reindexOnStems: boolean | 'job' } = { reindexOnStems: 'job' }): Promise<void> {
   const raw = await readSetting(code);
   if (code === SEARCH_SETTING_CODES.synonyms) {
     const parsed = synonymSetsSchema.safeParse(raw ?? { sets: [] });
@@ -171,8 +180,12 @@ async function applyConfig(system: SystemActor, writer: SearchIndexWriter, code:
     const pairs = parsed.success ? stemDictionary(parsed.data) : [];
     if (pairKey(await writer.readStems()) === pairKey(pairs)) return;
     await writer.putStems(pairs);
-    if (opts.reindexOnStems)
-      for (const collection of ['solutions', 'ideas'] as const) if (sources.has(KIND_OF[collection])) await reindexCollection(system, writer, collection, { audit: false });
+    const collections = STEM_COLLECTIONS.filter((collection) => sources.has(KIND_OF[collection]));
+    if (opts.reindexOnStems === 'job') {
+      if (collections.length > 0) await enqueue('search.reindex', { collections: collections.join(',') });
+    } else if (opts.reindexOnStems) {
+      for (const collection of collections) await reindexCollection(system, writer, collection, { audit: false });
+    }
   } else if (code === SEARCH_SETTING_CODES.curation) {
     const parsed = curationSchema.safeParse(raw ?? { rules: [] });
     await writer.putCurations(parsed.success && curationResolver ? await curationResolver(system, parsed.data.rules) : []);

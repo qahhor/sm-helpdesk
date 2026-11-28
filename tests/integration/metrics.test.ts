@@ -6,6 +6,7 @@ import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
 import { captureQueries, plansFor, seedBulkTickets } from './helpers/bulk';
 import { asActor, pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
+import { expectWithin } from './helpers/timing';
 
 // Показатели поддержки (FR-MET-01, 03, 04, 07, 10, FR-LINE-08; план M8, задача 9, решения 14-16; пункты 6 и 7
 // раздела "На что смотреть"). Набор из 200 обращений с известными ответами: времена заданы явно, ожидаемые числа
@@ -661,7 +662,7 @@ describe('50 тысяч обращений', () => {
       times.push(performance.now() - started);
     }
     process.stdout.write(`показатели: страница за 90 дней на 50 тысячах обращений, мс: ${times.map((ms) => Math.round(ms)).join(', ')}\n`);
-    expect(Math.min(...times)).toBeLessThan(2000);
+    expectWithin(Math.min(...times), 2000, 'показатели за 90 дней на 50 тысячах обращений');
 
     // Год это больше половины набора: больше 50 тысяч строк выгрузка не отдаёт и говорит об этом.
     await pools.root.query(`insert into hdt_tickets (org_id, author_id, type, impact, priority, visibility, title, description, locale, source) select $1, $2, 'question', 'minor', 'p3', 'org', 'Сверх предела ' || g, 'Текст', 'ru', 'portal' from generate_series(1, 25000) g`, [f.orgA.orgId, f.aUser.userId]);

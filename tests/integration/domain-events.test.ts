@@ -21,7 +21,7 @@ import {
 import { SCHEDULES } from '@/worker/main';
 import { QUEUES } from '../../scripts/db/pgboss.mjs';
 import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
-import { asActor, pools } from './helpers/db';
+import { analyzeAll, asActor, pools } from './helpers/db';
 import { deliver as deliverTo, inboundPerTest, REPLY } from './helpers/inbound';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
@@ -419,7 +419,7 @@ test('очередь разбора идёт по частичному инде�
      select $1, $2, 'status_changed', case when g % 1000 = 0 then null else now() end from generate_series(1, 20000) g`,
     [f.orgA.orgId, f.tickets.aOrg.ticketId],
   );
-  await pools.root.query(`analyze hdc_domain_events`);
+  await analyzeAll();
   const { captureQueries, plansFor } = await import('./helpers/bulk');
   const { result, queries } = await captureQueries(() => processEvents(SYSTEM, async () => undefined));
   expect(result).toEqual({ processed: 20, failed: 0 });

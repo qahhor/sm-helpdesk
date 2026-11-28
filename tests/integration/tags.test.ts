@@ -3,7 +3,7 @@ import { deleteTag, listTags, updateTag } from '@/modules/hdr/api';
 import { addTicketTag, getAgentTicket, getTicket, listQueue, removeTicketTag, tagUsage } from '@/modules/hdt/api';
 import { clientCtx, staffCtx, staffWithRole } from './helpers/auth';
 import { captureQueries, plansFor, seedBulkTickets } from './helpers/bulk';
-import { asActor, pools } from './helpers/db';
+import { analyzeAll, asActor, pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
 
 // Теги обращений (FR-AUTO-13; план M8, задача 1, решение 8): ставит сотрудник с правом записи, тег создаётся на лету,
@@ -204,7 +204,7 @@ test('фильтр по тегу на 50 тысячах обращений ид�
       where t.n % 2 = 0`,
     [f.l1.userId],
   );
-  await pools.root.query(`analyze hdt_ticket_tags`);
+  await analyzeAll();
   const tagId = (await pools.root.query(`select tag_id from hdr_tags where name = 'Нагрузка 7'`)).rows[0].tag_id as string;
   const { result, queries } = await captureQueries(() => listQueue(staffCtx(f.l1), { queue: 'all', sort: 'updated', tag: tagId }));
   expect(result.items).toHaveLength(50);

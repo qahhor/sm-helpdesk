@@ -65,8 +65,8 @@ export async function seedBulkTickets(count: number, orgs: number, staffId: stri
     );
     const picked = (await client.query<{ org_id: string; user_id: string }>(`select org_id, md5('bulk-user-' || n || '-1')::uuid as user_id from bulk_orgs where n = 7`)).rows[0];
     await client.query(`set session_replication_role = origin`);
-    await client.query(`analyze hdt_tickets`);
-    if (options.serverId) await client.query(`analyze hdu_organizations`);
+    // Статистика всех таблиц, а не только обращений (проверка качества, Q9): запросы очередей соединяют несколько.
+    await client.query(`analyze`);
     if (!picked) throw new Error('нагрузочный набор: организация не создана');
     return { orgId: picked.org_id, userId: picked.user_id, orgs, tickets: count };
   } finally {

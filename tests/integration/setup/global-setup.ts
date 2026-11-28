@@ -13,9 +13,11 @@ export default async function setup() {
 
   // Настройки сервера строкой "имя=значение имя=значение" (PG_SETTINGS): замер проекта perf идёт с памятью как в
   // compose.prod.yaml, а не с настройками образа по умолчанию (shared_buffers 128 МБ).
-  const settings = (process.env.PG_SETTINGS ?? '').split(/\s+/).filter(Boolean).flatMap((setting) => ['-c', setting]);
+  // autovacuum=off (проверка качества, Q9): тесты планов запросов не должны зависеть от того, успел ли фоновый сбор
+  // статистики пройти между вставкой данных и EXPLAIN. Статистику тест собирает сам (analyzeAll в helpers/db.ts).
+  const settings = ['autovacuum=off', ...(process.env.PG_SETTINGS ?? '').split(/\s+/).filter(Boolean)].flatMap((setting) => ['-c', setting]);
   const definition = new PostgreSqlContainer(image).withUsername('postgres').withPassword(superuserPassword).withDatabase('postgres');
-  const container = await (settings.length > 0 ? definition.withCommand(['postgres', ...settings]) : definition).start();
+  const container = await definition.withCommand(['postgres', ...settings]).start();
 
   const address = `${container.getHost()}:${container.getMappedPort(5432)}`;
   const url = (user: string, password: string, database: string) =>

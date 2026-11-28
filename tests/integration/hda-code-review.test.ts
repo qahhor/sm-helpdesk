@@ -15,6 +15,7 @@ import { staffCtx, staffWithRole } from './helpers/auth';
 import { seedCodeCatalog, seedStaff } from './helpers/code';
 import { asActor, pools } from './helpers/db';
 import { type Fixture, seedTwoOrgs } from './isolation/fixture';
+import { expectWithin } from './helpers/timing';
 
 // Независимая проверка вехи M8c "Знания из кода" (находки C1, C2, I1-I7, M1-M5, M7; решение 0134). Каждый тест
 // воспроизводит находку проверки и после исправления проходит.
@@ -76,7 +77,7 @@ test('C1: сигнатура по 10000 шаблонам (5000 утверждё�
   const [row] = await q(`select app.hda_code_signature(null, $1::text[]) as s`, [lines]);
   const elapsed = Date.now() - started;
   expect(row.s).toBe(expected.signature);
-  expect(elapsed).toBeLessThan(1000);
+  expectWithin(elapsed, 1000, 'сигнатура по 31 строке на большом каталоге ошибок');
   // Через функцию модуля (системой) тот же итог.
   expect(await codeTemplateSignature({ code: null, lines })).toBe(expected.signature);
 });

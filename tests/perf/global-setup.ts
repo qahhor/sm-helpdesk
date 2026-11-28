@@ -4,5 +4,7 @@ import setup from '../integration/setup/global-setup';
 // иначе замер сравнивает портал с образом PostgreSQL по умолчанию. Переменная PG_SETTINGS задаёт свои значения.
 export default function perfSetup() {
   process.env.PG_SETTINGS ??= 'shared_buffers=1GB effective_cache_size=3GB work_mem=16MB maintenance_work_mem=256MB max_connections=100';
+  // Пороги по стенным часам проверяются только здесь (tests/integration/helpers/timing.ts; проверка качества, Q10).
+  process.env.HUB_PERF_ASSERT = '1';
   return setup();
 }

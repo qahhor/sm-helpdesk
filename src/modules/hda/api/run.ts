@@ -78,7 +78,7 @@ async function exhausted(system: SystemActor, input: { purpose: AiPurpose; orgId
     if (cutoff === 'org') return 'cutoff';
     const used = await firstLineCallsTodayTx(tx, input);
     // 20 в час на пользователя (ТЗ 14.5) и дополнительный суточный предел из настройки (решение 11 плана M5b).
-    // Перевод сообщения в часовой предел не входит: его запускает сотрудник (решение 0191).
+    // Перевод сообщения в часовой предел не входит: его запускает сотрудник (решение 0168).
     const hourly = AI_USER_HOURLY_PURPOSES.includes(input.purpose) && used.userHour >= AI_USER_HOURLY_LIMIT;
     if (input.userId && (hourly || used.user >= config.userDailyLimit)) return 'user';
     if (input.orgId && used.org >= config.orgDailyLimit) return 'org';

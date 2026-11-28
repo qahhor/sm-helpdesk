@@ -120,7 +120,7 @@ export async function runMessageTranslationJob(system: SystemActor, data: unknow
       orgId: message.orgId,
       refId: message.messageId,
       ticketId: message.ticketId,
-      // Предел расходует сотрудник, который нажал "Перевести", а не клиент-автор (решение 0191).
+      // Предел расходует сотрудник, который нажал "Перевести", а не клиент-автор (решение 0168).
       userId: row.requestedBy,
       system: TRANSLATE_SYSTEM,
       data: assembleMessageData({ tag: 'message', to: LOCALE_NAMES[row.locale] ?? row.locale, text: message.source === 'email' ? stripQuote(message.body) : message.body, redaction: context.redaction }),

@@ -55,7 +55,7 @@ export async function firstLineCallsTodayTx(tx: Tx, who: { userId: string | null
   const count = async (where: ReturnType<typeof and>) => (await tx.select({ count: sql<number>`count(*)::int` }).from(aiRuns).where(where))[0]?.count ?? 0;
   return {
     user: who.userId ? await count(and(base, eq(aiRuns.userId, who.userId))) : 0,
-    // Скользящий час (ТЗ 14.5: 20 в час на пользователя): только ответы помощника, без переводов (решение 0191).
+    // Скользящий час (ТЗ 14.5: 20 в час на пользователя): только ответы помощника, без переводов (решение 0168).
     userHour: who.userId
       ? await count(and(notInArray(aiRuns.outcome, NOT_CALLS), inArray(aiRuns.purpose, [...AI_USER_HOURLY_PURPOSES]), gte(aiRuns.createdOn, sql`now() - interval '1 hour'`), eq(aiRuns.userId, who.userId)))
       : 0,

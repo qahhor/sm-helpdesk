@@ -15,9 +15,28 @@ export function definedBreakpoints(tokensCss) {
   return { reset, names: [...new Set(names)] };
 }
 
-// Префикс стоит в начале класса или после другого варианта (dark:lg:flex), допускаются max- и min-.
-// После двоеточия сразу идёт класс: так не задеваются ключи объектов вида `sm: 'h-8'`.
-const PREFIX = /(?<![\w-])(?:max-|min-)?(sm|md|lg|xl|2xl):(?=[\w[!-])/g;
+// Префикс стоит в начале класса или после другого варианта (dark:lg:flex), допускаются not-, max- и min-.
+// После двоеточия сразу идёт класс (буква, скобка, !, -) или следующий вариант (*, @container): так не задеваются
+// ключи объектов вида `sm: 'h-8'` и `{md:1}`. Перед префиксом нет @ (варианты контейнера @md: и @max-md: дают CSS,
+// их шкала --container-* не сброшена), скобки, запятой и знака равенства (`{md:1,lg:2}`, `data-[x=md:1]:flex`).
+const PREFIX = /(?<![\w@{,(=[-])(?:not-)?(?:max-|min-)?(sm|md|lg|xl|2xl):(?=[a-z[!*@-])/g;
+
+// Точка перелома числом в скобках (min-[700px]:, max-[900px]:, min-[theme(...)]:) даёт CSS, но это размер мимо
+// токенов и ещё одна точка перелома, которой в портале нет (раздел 8.11 ТЗ). Варианты контейнера (@min-[...]:) не
+// задеваются.
+const ARBITRARY = /(?<![\w@.-])(?:not-)?(?:min|max)-\[[^\]\s]*\]:/;
+
+/**
+ * @param {string} text текст файла .ts или .tsx
+ * @returns {{ line: number; rule: string }[]}
+ */
+export function findArbitraryBreakpoints(text) {
+  /** @type {{ line: number; rule: string }[]} */
+  const found = [];
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) if (ARBITRARY.test(lines[i])) found.push({ line: i + 1, rule: 'arbitrary-breakpoint' });
+  return found;
+}
 
 /**
  * @param {string} text текст файла .ts или .tsx

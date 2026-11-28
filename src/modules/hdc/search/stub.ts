@@ -1,3 +1,4 @@
+import { stemsMarkOf } from './collections';
 import { foldText } from './fold';
 import { isScopedKey } from './scoped-key';
 import {
@@ -105,6 +106,7 @@ export function createStubSearch(): StubSearch {
   let broken = false;
   let failure: SearchFallback['reason'] | null = null;
   const state = { synonyms: [] as SynonymItem[], curations: [] as CurationItem[], stems: [] as StemPair[], calls: 0, writes: { synonyms: 0, stems: 0, curations: 0 } };
+  const marks = new Map<SearchCollection, string>();
   const coll = (c: SearchCollection) => {
     let m = store.get(c);
     if (!m) store.set(c, (m = new Map()));
@@ -201,6 +203,9 @@ export function createStubSearch(): StubSearch {
     async readStems() {
       return [...state.stems];
     },
+    async stemsMark(collection) {
+      return marks.get(collection) ?? null;
+    },
     async listCollections() {
       return [...store.entries()].map(([name, docs]) => ({ name: `hub_${name}_v1`, numDocuments: docs.size, createdAt: 0 }));
     },
@@ -208,6 +213,8 @@ export function createStubSearch(): StubSearch {
       return `hub_${collection}_v1`;
     },
     async createVersion(collection) {
+      // Как Typesense: версия запоминает словарь, который действует в момент создания.
+      marks.set(collection, stemsMarkOf(state.stems));
       return `hub_${collection}_v1`;
     },
     async switchAlias() {},
@@ -241,6 +248,7 @@ export function createStubSearch(): StubSearch {
     },
     clear() {
       store.clear();
+      marks.clear();
       state.synonyms = [];
       state.curations = [];
       state.stems = [];

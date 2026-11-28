@@ -10,6 +10,7 @@ import { enqueue } from '../jobs';
 import { consumeRateLimit, resetRateLimit } from '../rate-limit';
 import { readSetting } from '../settings';
 import { curationSchema, type CurationRules, SEARCH_SETTING_CODES, stemDictionary, stemPairsSchema, synonymItems, synonymSetsSchema } from './config';
+import { stemsMarkOf } from './collections';
 import { filterValues } from './typesense';
 import { type CurationItem, type SearchCollection, type SearchDocument, type SearchIndexWriter, SearchWriteError } from './types';
 
@@ -151,24 +152,21 @@ async function failed(system: SystemActor, rows: readonly Claimed[], code: strin
 
 const codeOf = (error: unknown) => (error instanceof SearchWriteError ? error.code : 'error').replace(/[^a-z0-9_]/g, '_').slice(0, 40) || 'error';
 
-const pairKey = (pairs: readonly { word: string; root: string }[]) =>
-  pairs
-    .map((p) => `${p.word}\u0000${p.root}`)
-    .sort()
-    .join('\u0001');
-
 /**
- * Синонимы, словарь и курирование из настроек в Typesense. Повтор безвреден. Словарь меняется, только если пары в
- * Typesense другие: коллекция берёт словарь при создании (решение 0080, пункт 6), поэтому смена словаря перестраивает
- * решения и идеи (reindexOnStems), а без смены перестраивать нечего.
+ * Синонимы, словарь и курирование из настроек в Typesense. Повтор безвреден. Словарь пишется, только если пары в
+ * Typesense другие. Коллекция берёт словарь при создании (решение 0080, пункт 6), поэтому перестраивать решения и идеи
+ * нужно, пока их действующая версия построена с другим словарём: это видно по отметке версии (stemsMark), а не по
+ * самому словарю (независимая проверка, B1; решение 0172). Словарь в Typesense уже новый и после сбоя переиндексации,
+ * отметка остаётся прежней, и следующий проход её видит.
  */
 /** Коллекции, которые берут словарь корней при создании: смена словаря требует их перестройки. */
 export const STEM_COLLECTIONS = ['solutions', 'ideas'] as const;
 
 /**
- * reindexOnStems: что делать при смене словаря. 'job': поставить отдельную задачу search.reindex (разбор очереди идёт
- * раз в минуту и живёт 120 секунд, полная переиндексация в него не помещается; проверка качества, Q18). true:
- * перестроить сразу (ночная сверка, у неё час). false: не перестраивать (подготовка индекса перед переиндексацией).
+ * reindexOnStems: что делать с коллекциями, построенными с другим словарём. 'job': поставить отдельную задачу
+ * search.reindex (разбор очереди идёт раз в минуту и живёт 120 секунд, полная переиндексация в него не помещается;
+ * проверка качества, Q18). true: перестроить сразу (ночная сверка, у неё час). false: не перестраивать (подготовка
+ * индекса перед переиндексацией).
  */
 async function applyConfig(system: SystemActor, writer: SearchIndexWriter, code: string, opts: { reindexOnStems: boolean | 'job' } = { reindexOnStems: 'job' }): Promise<void> {
   const raw = await readSetting(code);
@@ -178,19 +176,29 @@ async function applyConfig(system: SystemActor, writer: SearchIndexWriter, code:
   } else if (code === SEARCH_SETTING_CODES.stems) {
     const parsed = stemPairsSchema.safeParse(raw ?? { pairs: [] });
     const pairs = parsed.success ? stemDictionary(parsed.data) : [];
-    if (pairKey(await writer.readStems()) === pairKey(pairs)) return;
-    await writer.putStems(pairs);
-    const collections = STEM_COLLECTIONS.filter((collection) => sources.has(KIND_OF[collection]));
+    const mark = stemsMarkOf(pairs);
+    if (stemsMarkOf(await writer.readStems()) !== mark) await writer.putStems(pairs);
+    if (opts.reindexOnStems === false) return;
+    const stale: (typeof STEM_COLLECTIONS)[number][] = [];
+    for (const collection of STEM_COLLECTIONS) {
+      if (!sources.has(KIND_OF[collection])) continue;
+      // Версия без отметки создана до их появления: считается построенной с пустым словарём.
+      if (((await writer.stemsMark(collection)) ?? EMPTY_STEMS_MARK) !== mark) stale.push(collection);
+    }
+    if (stale.length === 0) return;
     if (opts.reindexOnStems === 'job') {
-      if (collections.length > 0) await enqueue('search.reindex', { collections: collections.join(',') });
-    } else if (opts.reindexOnStems) {
-      for (const collection of collections) await reindexCollection(system, writer, collection, { audit: false });
+      // Постановка не прошла или задача упала: отметка версии прежняя, ночная сверка перестроит сама.
+      await enqueue('search.reindex', { collections: stale.join(',') });
+    } else {
+      for (const collection of stale) await reindexCollection(system, writer, collection, { audit: false });
     }
   } else if (code === SEARCH_SETTING_CODES.curation) {
     const parsed = curationSchema.safeParse(raw ?? { rules: [] });
     await writer.putCurations(parsed.success && curationResolver ? await curationResolver(system, parsed.data.rules) : []);
   }
 }
+
+const EMPTY_STEMS_MARK = stemsMarkOf([]);
 
 /**
  * Все три набора настроек в Typesense (независимая проверка W6, замечание 2): при подготовке индекса (hub search:reindex)

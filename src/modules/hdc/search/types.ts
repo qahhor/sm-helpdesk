@@ -118,9 +118,15 @@ export interface SearchIndexWriter {
   putStems(pairs: readonly StemPair[]): Promise<void>;
   /** Пары словаря, которые сейчас в Typesense: смена словаря перестраивает коллекции, без смены не нужна. */
   readStems(): Promise<StemPair[]>;
+  /**
+   * Отметка словаря, с которым построена действующая версия коллекции (stemsMarkOf). Версия создана до появления
+   * отметок или коллекции нет: null.
+   */
+  stemsMark(collection: SearchCollection): Promise<string | null>;
   /** Переиндексация (решение 12): коллекции, псевдонимы, новая версия. */
   listCollections(): Promise<CollectionInfo[]>;
   aliasTarget(collection: SearchCollection): Promise<string | null>;
+  /** Новая версия коллекции. Запоминает в ней отметку словаря, который сейчас в Typesense: с ним она и строится. */
   createVersion(collection: SearchCollection, version: number): Promise<string>;
   switchAlias(collection: SearchCollection, name: string): Promise<void>;
   dropCollection(name: string): Promise<void>;
